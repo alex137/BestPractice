@@ -213,10 +213,11 @@ Until one of the two routes works, every personal and team practice in force
 here is **silently absent**, and this repository's rules are the only ones a
 session sees.
 
-**Attach `precedent-individual`, never clone it by hand**
+**Attach `precedent-individual`, and keep one clone of it**
 ([attach-never-clone-individual](practices/attach-never-clone-individual.md)):
-the tool's reply says to clone it to `/home/user/`, and the only copy
-anything reads is the one `~/.config/precedent/config.json` names. A shared
+the tool's reply says to clone it to `/home/user/`; the bootstrap links that
+path and `~/precedent-individual` to one tree, so if the clone says "already
+exists", that is the set. Never clone it anywhere else. A shared
 set clones beside this repo, where [precedent.json](precedent.json)
 resolves it.
 
@@ -413,7 +414,7 @@ When adding a file beside others of its kind:
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
 When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual set, never hand-clone it; shared sets clone beside
+  attach-never-clone-individual — attach the individual set; keep one clone, both paths; shared sets clone beside
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else it now serves
 When building a permutation or configuration-sweep table:

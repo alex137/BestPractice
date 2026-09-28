@@ -21611,6 +21611,291 @@ def check_session_check_reports_a_source_cloned_twice():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def _individual_two_routes_fixture(tmp):
+    """Shared by the two checks below: an individual-set "remote" served at a
+    HOSTED url that git rewrites to a local directory, so the bootstrap takes
+    its hosted-url path with no network. Returns (url, rewrite, git,
+    run_main, row): `rewrite` is the git environment doing that, run_main
+    runs the bootstrap's main() in-process under a fake HOME and project
+    dir, and row() reads the session check's "cloned exactly once" row
+    against that same fake layout (practice:
+    fixture-owns-its-state -- nothing here may read the real $HOME, the real
+    config or the real attach workspace)."""
+    import contextlib
+    import io
+    import precedent_session_check as psc
+    import precedent_source_bootstrap as psb
+
+    srv = tmp / 'srv'
+    source = srv / 'acct' / 'precedent-individual'
+    source.mkdir(parents=True)
+    url = 'https://example.invalid/acct/precedent-individual'
+    rewrite = {'GIT_CONFIG_COUNT': '1',
+               'GIT_CONFIG_KEY_0': f'url.file://{srv}/.insteadOf',
+               'GIT_CONFIG_VALUE_0': 'https://example.invalid/'}
+
+    def git(cwd, *args, check=True):
+        r = subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+                            '-c', 'user.email=harness@example.com',
+                            '-c', 'user.name=harness', *args],
+                           cwd=str(cwd), capture_output=True, text=True,
+                           env={**os.environ, **rewrite})
+        if check and r.returncode:
+            raise RuntimeError(f'git {args}: {r.stderr}')
+        return r
+
+    git(source, 'init', '-q', '-b', 'main')
+    (source / 'practices').mkdir()
+    (source / 'practices' / 'x.md').write_text(
+        '---\nslug: harness-fixture\ntitle: Fixture\ntier: on-demand\n'
+        'severity: default\napplies_to: ["**"]\noccasion: "testing"\n'
+        'index_clause: "a harness fixture"\nchecked_by: null\n'
+        'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+        'added: null\napproved_by: "harness"\n---\n\n## Rule\nFixture.\n\n'
+        '## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
+    git(source, 'add', '-A')
+    git(source, 'commit', '-qm', 'seed')
+
+    @contextlib.contextmanager
+    def fake(home, consumer):
+        saved = {k: os.environ.get(k) for k in
+                 ('HOME', 'PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR',
+                  'PRECEDENT_GIT_TOKEN', *rewrite)}
+        os.environ.update({'HOME': str(home),
+                           'PRECEDENT_PROJECT_DIR': str(consumer), **rewrite})
+        os.environ.pop('CLAUDE_PROJECT_DIR', None)
+        os.environ.pop('PRECEDENT_GIT_TOKEN', None)
+        try:
+            yield
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+    def run_main(home, consumer, repo_url=url):
+        err = io.StringIO()
+        with fake(home, consumer), contextlib.redirect_stderr(err):
+            psb.main(['--level', 'individual',
+                      '--name', 'precedent-individual', '--repo-url', repo_url,
+                      '--clone', str(home / 'precedent-individual'),
+                      '--config',
+                      str(home / '.config' / 'precedent' / 'config.json'),
+                      '--remote-only', 'false'])
+        return err.getvalue()
+
+    def row(home, consumer):
+        saved_root = psc.ROOT
+        psc.ROOT = consumer
+        try:
+            with fake(home, consumer):
+                for name, ok, detail in psc.checks(offline=True):
+                    if 'cloned exactly once' in name:
+                        return ok, detail
+        finally:
+            psc.ROOT = saved_root
+        return 'MISSING', ''
+
+    return url, rewrite, git, run_main, row
+
+
+def check_individual_set_has_one_tree_whichever_route_cloned_it():
+    """The individual set got cloned twice, reported by two consumer sessions
+    on 2026-09-28. The source bootstrap clones it to $HOME/precedent-
+    individual; the repo-attach tool, which sessions must call because it is
+    what grants push access, replies "clone it to /home/user/<name>" -- the
+    directory the project lives in. Where $HOME is elsewhere, that is two
+    working trees, and in one report they had already diverged.
+
+    Both orders are pinned, because each route can come first: a session
+    with no environment credential attaches and clones before the resolver's
+    self-heal runs the bootstrap; a session with one gets the bootstrap's
+    clone at session start and follows the attach reply afterwards. Either
+    way there must be one tree, both paths must reach it, and the session
+    check's "cloned exactly once" row must be green.
+
+    The last case is the control on the guard that keeps fixtures hermetic:
+    a file:// source has no attach clone to meet, so the workspace is never
+    touched for one."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='individual-one-tree-'))
+    cases = []
+    try:
+        url, rewrite, git, run_main, row = _individual_two_routes_fixture(tmp)
+
+        def layout(tag):
+            home, work = tmp / tag / 'home', tmp / tag / 'work'
+            consumer = work / 'consumer'
+            home.mkdir(parents=True)
+            consumer.mkdir(parents=True)
+            return home, work, consumer
+
+        # --- attach first: the session cloned where the reply said ---------
+        home, work, consumer = layout('attach-first')
+        cfg = home / '.config' / 'precedent' / 'config.json'
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual',
+            'path': str(home / 'precedent-individual'), 'repo_url': url}}))
+        git(tmp, 'clone', '-q', url, str(work / 'precedent-individual'))
+        out = run_main(home, consumer)
+        at_home = home / 'precedent-individual'
+        cases.append(('attach first: the bootstrap makes no second clone under '
+                      '$HOME, only a link to the attach clone',
+                      at_home.is_symlink() and at_home.resolve()
+                      == (work / 'precedent-individual').resolve(),
+                      f'symlink={at_home.is_symlink()} exists={at_home.exists()} '
+                      f'{out[-300:]}'))
+        named = json.loads(cfg.read_text()).get('individual', {}).get('path', '')
+        cases.append(('attach first: the config now names the attach clone',
+                      pathlib.Path(named).resolve()
+                      == (work / 'precedent-individual').resolve(), named))
+        ok, detail = row(home, consumer)
+        cases.append(('attach first: the session check row is green',
+                      ok is True, str(detail)))
+
+        # --- bootstrap first: the session then follows the attach reply ----
+        home, work, consumer = layout('bootstrap-first')
+        out = run_main(home, consumer)
+        at_work = work / 'precedent-individual'
+        cases.append(('bootstrap first: the attach path is a link to the '
+                      "bootstrap's clone",
+                      at_work.is_symlink() and at_work.resolve()
+                      == (home / 'precedent-individual').resolve(),
+                      f'symlink={at_work.is_symlink()} exists={at_work.exists()} '
+                      f'{out[-300:]}'))
+        second = git(tmp, 'clone', '-q', url, str(at_work), check=False)
+        cases.append(("bootstrap first: the clone the attach reply suggests "
+                      'stops at "already exists" instead of making a copy',
+                      second.returncode != 0
+                      and 'already exists' in second.stderr,
+                      f'rc={second.returncode} {second.stderr[-200:]}'))
+        ok, detail = row(home, consumer)
+        cases.append(('bootstrap first: the session check row is green',
+                      ok is True, str(detail)))
+
+        # --- attach first, healed from a shell tool call --------------------
+        # The route a session with no environment credential actually takes:
+        # the resolver's self-heal runs the project's bootstrap hook from
+        # inside a tool call, where no project-dir variable is set. The
+        # resolver has to hand the project dir on, or the bootstrap cannot
+        # see the attach clone and makes a second one.
+        home, work, consumer = layout('self-heal')
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}))
+        hook = consumer / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        hook.parent.mkdir(parents=True)
+        hook.write_text(
+            '#!/bin/bash\n'
+            f'python3 "{ROOT / "tools" / "precedent_source_bootstrap.py"}" '
+            f'--level individual --name precedent-individual --repo-url "{url}" '
+            '--clone "$HOME/precedent-individual" '
+            '--config "$HOME/.config/precedent/config.json"\n')
+        git(tmp, 'clone', '-q', url, str(work / 'precedent-individual'))
+        env = {k: v for k, v in os.environ.items() if k not in
+               ('CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+                'PRECEDENT_GIT_TOKEN')}
+        env.update({'HOME': str(home), 'CLAUDE_CODE_REMOTE': 'true',
+                    'PRECEDENT_USER_CONFIG':
+                        str(home / '.config' / 'precedent' / 'config.json'),
+                    **rewrite})
+        r = subprocess.run([sys.executable,
+                            str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True, env=env, timeout=300)
+        at_home = home / 'precedent-individual'
+        cases.append(("healed from a shell: the resolver's self-heal reuses the "
+                      'attach clone rather than cloning a second copy',
+                      at_home.is_symlink() and at_home.resolve()
+                      == (work / 'precedent-individual').resolve(),
+                      f'symlink={at_home.is_symlink()} exists={at_home.exists()} '
+                      f'rc={r.returncode} {r.stderr[-300:]}'))
+
+        # --- control: a local source never reaches the workspace -----------
+        home, work, consumer = layout('local-url')
+        run_main(home, consumer,
+                 repo_url=f'file://{tmp / "srv" / "acct" / "precedent-individual"}')
+        cases.append(('control: a file:// source is cloned to $HOME and leaves '
+                      'the workspace alone',
+                      (home / 'precedent-individual' / '.git').is_dir()
+                      and not os.path.lexists(work / 'precedent-individual'),
+                      str(sorted(p.name for p in work.iterdir()))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, good, d in cases if not good]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_individual_set_diverged_copies_are_reported_not_clobbered():
+    """The worse of the two 2026-09-28 reports: the bootstrap's copy and a
+    hand clone at the attach path had DIVERGED. Collapsing them is not a
+    startup hook's call -- the hand clone can hold commits nobody pushed --
+    so the bootstrap must report both and touch neither (practice:
+    repair-cannot-discard-work). This pins the report and the untouched
+    work: a local commit, an uncommitted file, both copies still real
+    directories, and the session check still red rather than hidden."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='individual-diverged-'))
+    cases = []
+    try:
+        url, _rewrite, git, run_main, row = _individual_two_routes_fixture(tmp)
+        home, work = tmp / 'home', tmp / 'work'
+        consumer = work / 'consumer'
+        home.mkdir()
+        consumer.mkdir(parents=True)
+        at_home, at_work = home / 'precedent-individual', work / 'precedent-individual'
+        git(tmp, 'clone', '-q', url, str(at_home))
+        git(tmp, 'clone', '-q', url, str(at_work))
+        # Work only the hand clone holds: one commit, one uncommitted file.
+        (at_work / 'practices' / 'mine.md').write_text('local\n')
+        git(at_work, 'add', '-A')
+        git(at_work, 'commit', '-qm', 'unpushed work')
+        local_head = git(at_work, 'rev-parse', 'HEAD').stdout.strip()
+        (at_work / 'draft.txt').write_text('not committed\n')
+        # And upstream moves, so the bootstrap's pull diverges the pair.
+        source = tmp / 'srv' / 'acct' / 'precedent-individual'
+        (source / 'practices' / 'y.md').write_text('upstream\n')
+        git(source, 'add', '-A')
+        git(source, 'commit', '-qm', 'upstream moves')
+
+        out = run_main(home, consumer)
+        cases.append(('both copies are still real directories -- nothing was '
+                      'replaced by a link or removed',
+                      (at_home / '.git').is_dir() and not at_home.is_symlink()
+                      and (at_work / '.git').is_dir() and not at_work.is_symlink(),
+                      f'home_link={at_home.is_symlink()} '
+                      f'work_link={at_work.is_symlink()}'))
+        cases.append(("the hand clone's unpushed commit and uncommitted file "
+                      'are intact',
+                      git(at_work, 'rev-parse', 'HEAD').stdout.strip() == local_head
+                      and (at_work / 'draft.txt').is_file(),
+                      git(at_work, 'log', '--oneline', '-3').stdout))
+        cases.append(('the bootstrap REPORTS the pair: both paths, DIVERGED, '
+                      'the unpushed work, and that nothing was touched',
+                      str(at_home) in out and str(at_work) in out
+                      and 'DIVERGED' in out and 'unpushed' in out
+                      and 'Neither was touched' in out, out[-600:]))
+        named = json.loads((home / '.config' / 'precedent' / 'config.json')
+                           .read_text()).get('individual', {}).get('path')
+        cases.append(("the config still names the bootstrap's copy",
+                      named == str(at_home), str(named)))
+        ok, detail = row(home, consumer)
+        cases.append(('the session check stays red and says DIVERGED',
+                      ok is False and 'DIVERGED' in str(detail), str(detail)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, good, d in cases if not good]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_freshness_guard_checks_attached_repositories():
     """PRECEDENT_FRESHNESS_ALSO, carried up from a downstream set 2026-09-11.
 
@@ -39407,6 +39692,12 @@ def main():
     check_leak_gate_refresh_declines_a_dirty_clone()
     check_freshness_covers_every_declared_source()
     check_visibility_audit_reads_the_blocklist_as_patterns()
+    check('the individual set has one tree on disk, whichever of the '
+          'bootstrap and the attach tool cloned it first',
+          *check_individual_set_has_one_tree_whichever_route_cloned_it())
+    check('two diverged copies of the individual set are reported, never '
+          'clobbered',
+          *check_individual_set_diverged_copies_are_reported_not_clobbered())
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
