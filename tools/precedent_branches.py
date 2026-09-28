@@ -87,6 +87,9 @@ CLI:
                                             reached staging or main another way --
                                             what has had its tier's checks, or with
                                             --check, whatever passes them once run
+  precedent_branches.py --wait-main-test COPY
+                                            wait for main's GitHub test on the to-main
+                                            copy's pull request; 0 only when it passed
   precedent_branches.py --drift             what staging and main carry that pre-staging
                                             lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
@@ -642,6 +645,10 @@ def _check(root, wt, tier):
 # so. A run that is still queued after it is not failed, only not answered.
 GITHUB_TEST_WAIT_SECONDS = 30 * 60
 GITHUB_POLL_SECONDS = 45
+# A pull request's run shows up on GitHub within a minute or two of the
+# pull request opening. One that has not appeared by this long is never
+# going to, and waiting the full half hour for it would only hide that.
+GITHUB_START_WAIT_SECONDS = 5 * 60
 
 
 def _tree(root, rev):
@@ -904,6 +911,41 @@ def _check_tier(root, branch, tip, say, gh=None):
     if state == 'passed':
         return True, f'{local}; GitHub test: {detail}'
     return False, f'{local}, but the GitHub test is {state}: {detail}'
+
+
+def wait_for_main_test(root, sha, say=print, gh=None):
+    """Wait for main's GitHub test on `sha` -- the to-main copy's tip, once
+    its pull request into main is open -- and -> 0 passed, 1 anything else.
+
+    The last step of a Promote into main is "wait for its GitHub test, then
+    merge", and until 2026-09-27 nothing here did the waiting, so each
+    session wrote its own poller; one crashed mid-wait that day on a Python
+    version quirk and was read by eye instead. This is that wait, once:
+    `--wait-main-test COPY` after opening the pull request. A run that has
+    not appeared within GITHUB_START_WAIT_SECONDS is reported as never
+    started rather than waited on for the full half hour."""
+    tests = github_tests(root, sha)
+    if not tests:
+        say(f'no GitHub test is installed here, so there is nothing to wait for '
+            f'on {sha[:12]}: the full local check at the Promote was the whole check.')
+        return 0
+    say(f'waiting for the GitHub test on {sha[:12]} (up to '
+        f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes): ' + ', '.join(p for p, _ in tests))
+    t0 = time.monotonic()
+    state, detail = github_test_state(root, sha, tests, gh)
+    while state in ('running', 'none'):
+        waited = time.monotonic() - t0
+        if waited >= GITHUB_TEST_WAIT_SECONDS or (
+                state == 'none' and waited >= GITHUB_START_WAIT_SECONDS):
+            break
+        time.sleep(GITHUB_POLL_SECONDS)
+        state, detail = github_test_state(root, sha, tests, gh)
+    if state == 'passed':
+        say(f'GitHub test PASSED on {sha[:12]}: {detail}. Merge the pull request '
+            f'into {MAIN} with a merge commit.')
+        return 0
+    say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
+    return 1
 
 
 def sync_pre_staging(root, say=print, check=False):
@@ -1359,8 +1401,10 @@ def _promote_to_main(root, say=print):
         f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
-        f'commit(s))", wait for its GitHub test, and merge it with a merge '
-        f'commit. Never open it from {staging} itself.')
+        f'commit(s))", wait for its GitHub test with\n'
+        f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
+        f'and merge it with a merge commit once that says PASSED. Never open '
+        f'it from {staging} itself.')
     return 0
 
 
@@ -1570,6 +1614,15 @@ def _main(argv):
                   '[--work BRANCH-OR-COMMIT]', file=sys.stderr)
             return 2
         return promote(root, to=opts.get('to'), work=opts.get('work'))
+    if argv[:1] == ['--wait-main-test'] and len(argv) == 2:
+        _run(root, 'fetch', '-q', 'origin', argv[1])
+        sha = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{argv[1]}^{{commit}}')
+               or _git(root, 'rev-parse', '--verify', '--quiet', f'{argv[1]}^{{commit}}'))
+        if not sha:
+            print(f'precedent_branches: {argv[1]} names no branch or commit here.',
+                  file=sys.stderr)
+            return 2
+        return wait_for_main_test(root, sha)
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)
