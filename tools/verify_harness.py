@@ -23176,6 +23176,273 @@ def check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch():
           not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
 
 
+def _session_start_tools_missing_from_bootstrap(hook_text, boot_text):
+    """-> sorted tools/*.py names the hook RUNS that the bootstrap never runs.
+
+    Only a `python3 ... tools/X.py` invocation counts, and comment lines are
+    skipped: a script named in a comment or a WARN message is a citation,
+    not a step, and counting it would let a mention stand in for the call."""
+    def _run(text):
+        return {m for line in text.splitlines()
+                if not line.lstrip().startswith('#')
+                for m in re.findall(r'python3\s+\S*?tools/(\w+)\.py', line)}
+    return sorted(_run(hook_text) - _run(boot_text))
+
+
+def check_bootstrap_runs_every_tool_session_start_runs():
+    """tools/bootstrap.sh is the parallel templates/harness/PARALLELS.md
+    names for .claude/hooks/session-start.sh on codex, gemini-cli and
+    grok-build, so every tools/*.py the hook runs, the script runs too.
+
+    Found by the 2026-09-28 very deep check: the hook ran
+    precedent_engine_freshness.py and precedent_beta_watermark_check.py and
+    the script ran neither, while the PARALLELS.md row still called it a
+    parallel -- the same gap, one step smaller, that the 2026-09-21 row
+    records (three steps of seven). Planted by deleting the watermark call
+    from a copy of the script: the missing name must come back."""
+    hook = (ROOT / '.claude' / 'hooks' / 'session-start.sh').read_text(encoding='utf-8')
+    boot = (ROOT / 'tools' / 'bootstrap.sh').read_text(encoding='utf-8')
+    missing = _session_start_tools_missing_from_bootstrap(hook, boot)
+    planted_boot = '\n'.join(ln for ln in boot.splitlines()
+                             if 'precedent_beta_watermark_check.py' not in ln
+                             or ln.lstrip().startswith('#'))
+    planted = _session_start_tools_missing_from_bootstrap(hook, planted_boot)
+    check('tools/bootstrap.sh runs every tools/*.py .claude/hooks/session-start.sh runs',
+          not missing, 'the hook runs these and the script does not: '
+          + ', '.join(missing))
+    check('...PLANTED: a bootstrap.sh without the watermark call is caught by name',
+          planted == ['precedent_beta_watermark_check'], repr(planted))
+
+
+_CODEX_HOOK_EVENTS = ('PreToolUse', 'PermissionRequest', 'PostToolUse',
+                      'PreCompact', 'PostCompact', 'SessionStart', 'SessionEnd',
+                      'UserPromptSubmit', 'SubagentStart', 'SubagentStop',
+                      'Stop', 'Interrupt')
+
+
+def _codex_hooks_file_problems(data):
+    """-> [str] every way `data` would not parse as a Codex hooks.json.
+
+    Mirrors codex-rs/config/src/hook_config.rs at openai/codex main 46fdd5e
+    (read 2026-09-28): HooksFile is deny_unknown_fields with only
+    `description` and `hooks`, events are the twelve names in
+    codex-rs/hooks/src/lib.rs, and a command handler carries `type`,
+    `command` and optional `timeout` (seconds), `statusMessage`, `async`,
+    `commandWindows`, `additionalContextLimit`. A problem here is a file
+    Codex would refuse whole, with a warning nobody reads."""
+    problems = []
+    extra = sorted(set(data) - {'description', 'hooks'})
+    if extra:
+        problems.append('top-level keys Codex rejects: ' + ', '.join(extra))
+    known = {'type', 'command', 'timeout', 'statusMessage', 'async',
+             'commandWindows', 'command_windows', 'additionalContextLimit'}
+    for event, groups in (data.get('hooks') or {}).items():
+        if event not in _CODEX_HOOK_EVENTS:
+            problems.append(f'unknown event {event!r}')
+            continue
+        for group in groups:
+            for h in group.get('hooks', []):
+                if h.get('type') != 'command' or not h.get('command'):
+                    problems.append(f'{event}: a handler that is not a command: {h!r}')
+                bad = sorted(set(h) - known)
+                if bad:
+                    problems.append(f'{event}: unknown handler keys {bad}')
+                if 'timeout' in h and not isinstance(h['timeout'], int):
+                    problems.append(f'{event}: timeout must be whole seconds')
+    return problems
+
+
+def check_codex_hooks_template_runs_the_claude_gates():
+    """templates/harness/codex/hooks.json wires the claude-code adapter's
+    own gate scripts into Codex (2026-09-28). Two things could make it a
+    parallel on paper only, and each is planted here:
+
+    - Codex parses hooks.json with deny_unknown_fields, so a `_comment`
+      key -- the convention every settings.json in this repo uses -- makes
+      it drop the whole file. Planted by adding one.
+    - Codex sets no project-directory variable for a hooks.json hook and
+      runs it in the session's working directory, which need not be the
+      repository root. The template's commands resolve the root
+      themselves. Planted by running the naive `bash .claude/hooks/...`
+      form from a subdirectory: it must fail to find the script, where the
+      template's form denies the commit.
+
+    The gate is fed the PreToolUse payload Codex sends for its shell tool
+    (tool_name "Bash", tool_input {"command": ...}, per
+    codex-rs/hooks/src/events/pre_tool_use.rs), and must answer with the
+    hookSpecificOutput deny Codex's own tests accept. The Stop command must
+    exit 2 with a reason on stderr, which Codex turns into a continuation.
+    None of this runs Codex itself; it checks the file and the scripts
+    against what the source says Codex does."""
+    import tempfile
+
+    path = ROOT / 'templates' / 'harness' / 'codex' / 'hooks.json'
+    data = json.loads(path.read_text(encoding='utf-8'))
+    hooks_dir = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    cases = []
+    cases.append(('the template parses as a Codex hooks.json',
+                  not _codex_hooks_file_problems(data),
+                  '; '.join(_codex_hooks_file_problems(data))))
+    planted = dict(data, _comment='x')
+    cases.append(('PLANTED: a _comment key is caught as a file Codex rejects',
+                  any('_comment' in p for p in _codex_hooks_file_problems(planted)), ''))
+    commands = [h['command'] for groups in data['hooks'].values()
+                for g in groups for h in g['hooks']]
+    named = sorted({m for c in commands
+                    for m in re.findall(r'\.claude/hooks/([\w.-]+\.sh)', c)})
+    missing = [n for n in named if not (hooks_dir / n).is_file()]
+    cases.append(('every .claude/hooks script the template runs is one the '
+                  'claude-code adapter ships', named and not missing, repr(missing)))
+
+    lint_cmd = next(c for c in commands if 'doc-lint-gate.sh' in c)
+    stop_cmd = next(c for c in commands if 'stop-git-check.sh' in c)
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        (repo / 'sub').mkdir()
+        for n in named:
+            shutil.copy(hooks_dir / n, repo / '.claude' / 'hooks' / n)
+        # A stand-in linter: a finding on stdout, exit 1 -- what the gate
+        # reads as "refuse", as distinct from a crash.
+        (repo / 'tools' / 'doc_lint.py').write_text(
+            'import sys\nprint("BAD.md:1: planted finding")\nsys.exit(1)\n',
+            encoding='utf-8')
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['GIT_CONFIG_GLOBAL'] = str(pathlib.Path(td) / 'gitconfig')
+        pathlib.Path(env['GIT_CONFIG_GLOBAL']).write_text('', encoding='utf-8')
+
+        def _git(*a):
+            subprocess.run(['git', '-C', str(repo), *a], check=True,
+                           capture_output=True, env=env)
+        _git('init', '-q', '-b', 'main')
+        (repo / 'BAD.md').write_text('# bad\n', encoding='utf-8')
+        _git('add', 'BAD.md')
+        payload = json.dumps({'session_id': 's', 'turn_id': 't',
+                              'cwd': str(repo / 'sub'),
+                              'hook_event_name': 'PreToolUse',
+                              'tool_name': 'Bash',
+                              'tool_input': {'command': 'git commit -m x'},
+                              'tool_use_id': 'u'})
+
+        def _sh(cmd, stdin=''):
+            return subprocess.run(['sh', '-c', cmd], cwd=str(repo / 'sub'),
+                                  input=stdin, capture_output=True,
+                                  text=True, env=env, timeout=60)
+        r = _sh(lint_cmd, payload)
+        try:
+            decision = json.loads(r.stdout)['hookSpecificOutput']['permissionDecision']
+        except Exception:
+            decision = None
+        cases.append(('run from a subdirectory with a Codex Bash payload, the '
+                      'template\'s doc-lint command denies the commit',
+                      r.returncode == 0 and decision == 'deny',
+                      f'rc={r.returncode} out={r.stdout[-300:]} err={r.stderr[-300:]}'))
+        naive = _sh('bash .claude/hooks/doc-lint-gate.sh', payload)
+        cases.append(('PLANTED: the naive relative command, from the same '
+                      'subdirectory, never reaches the gate',
+                      naive.returncode != 0 and 'deny' not in naive.stdout,
+                      f'rc={naive.returncode} out={naive.stdout[-200:]}'))
+
+        _git('remote', 'add', 'origin', str(pathlib.Path(td) / 'nowhere'))
+        s = _sh(stop_cmd, json.dumps({'hook_event_name': 'Stop',
+                                      'stop_hook_active': False}))
+        cases.append(('the Stop command exits 2 with a reason on stderr over a '
+                      'staged, uncommitted file',
+                      s.returncode == 2 and 'Uncommitted changes' in s.stderr,
+                      f'rc={s.returncode} err={s.stderr[-300:]}'))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'the codex hooks.json template parses as Codex reads it and runs the '
+          f'claude-code gates ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
+def check_gemini_settings_template_keeps_stdout_clean():
+    """templates/harness/gemini-cli/settings.json wires tools/bootstrap.sh
+    into Gemini CLI's SessionStart hook (2026-09-28). Gemini CLI parses a
+    hook's stdout as JSON and treats anything else as a failed parse
+    (google-gemini/gemini-cli docs/hooks/index.md, "Strict JSON
+    requirements"), and bootstrap.sh prints to stdout on purpose. So the
+    command sends it to stderr, and runs from $GEMINI_PROJECT_DIR because a
+    hook's working directory is not promised to be the project root.
+
+    Planted: the same command without the redirect leaks the script's
+    stdout. Uses a stand-in bootstrap.sh that prints a line and leaves a
+    marker, run from a different directory. The template also wires
+    stop-git-check.sh to AfterAgent, whose exit 2 retries the turn with
+    stderr as the prompt; that half is checked against the real script."""
+    import tempfile
+
+    data = json.loads((ROOT / 'templates' / 'harness' / 'gemini-cli'
+                       / 'settings.json').read_text(encoding='utf-8'))
+    events = {'BeforeTool', 'AfterTool', 'BeforeAgent', 'AfterAgent',
+              'BeforeModel', 'AfterModel', 'BeforeToolSelection',
+              'SessionStart', 'SessionEnd', 'PreCompress', 'Notification'}
+    cases = [('every event the template names is a Gemini CLI hook event',
+              set(data.get('hooks', {})) <= events, repr(sorted(data.get('hooks', {}))))]
+    cmd = data['hooks']['SessionStart'][0]['hooks'][0]['command']
+    with tempfile.TemporaryDirectory() as td:
+        proj = pathlib.Path(td) / 'proj'
+        (proj / 'tools').mkdir(parents=True)
+        (proj / 'tools' / 'bootstrap.sh').write_text(
+            'echo "bootstrap says hello"\n: > ran.marker\n', encoding='utf-8')
+        env = dict(os.environ, GEMINI_PROJECT_DIR=str(proj))
+
+        def _sh(c):
+            return subprocess.run(['sh', '-c', c], cwd=td, capture_output=True,
+                                  text=True, env=env, timeout=60)
+        r = _sh(cmd)
+        cases.append(('the command runs bootstrap.sh in the project and prints '
+                      'nothing to stdout',
+                      r.returncode == 0 and (proj / 'ran.marker').exists()
+                      and r.stdout == '' and 'hello' in r.stderr,
+                      f'rc={r.returncode} out={r.stdout!r} err={r.stderr[-200:]!r}'))
+        leaky = _sh(cmd.replace(' 1>&2', ''))
+        cases.append(('PLANTED: without the redirect the script\'s line reaches stdout',
+                      'hello' in leaky.stdout, repr(leaky.stdout)))
+
+        # AfterAgent: exit 2 with the reason on stderr is Gemini CLI's
+        # "retry with this as the prompt" (docs/hooks/reference.md), the
+        # contract Claude Code's Stop has. The script must also keep stdout
+        # empty, and honour stop_hook_active, which AfterAgent sends.
+        after = data['hooks'].get('AfterAgent', [])
+        stop_cmds = [h['command'] for g in after for h in g['hooks']
+                     if 'stop-git-check.sh' in h['command']]
+        cases.append(('AfterAgent runs stop-git-check.sh', len(stop_cmds) == 1,
+                      repr(stop_cmds)))
+        if stop_cmds:
+            (proj / '.claude' / 'hooks').mkdir(parents=True)
+            shutil.copy(ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                        / 'stop-git-check.sh', proj / '.claude' / 'hooks')
+            genv = dict(env, GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gitconfig'))
+            pathlib.Path(genv['GIT_CONFIG_GLOBAL']).write_text('', encoding='utf-8')
+            for a in (('init', '-q', '-b', 'main'),
+                      ('remote', 'add', 'origin', str(pathlib.Path(td) / 'none'))):
+                subprocess.run(['git', '-C', str(proj), *a], check=True,
+                               capture_output=True, env=genv)
+
+            def _stop(active):
+                return subprocess.run(
+                    ['sh', '-c', stop_cmds[0]], cwd=td, capture_output=True,
+                    text=True, env=genv, timeout=60,
+                    input=json.dumps({'hook_event_name': 'AfterAgent',
+                                      'stop_hook_active': active}))
+            s = _stop(False)
+            cases.append(('over untracked files, AfterAgent exits 2 with the '
+                          'reason on stderr and nothing on stdout',
+                          s.returncode == 2 and 'Untracked files' in s.stderr
+                          and s.stdout == '', f'rc={s.returncode} out={s.stdout!r}'))
+            s2 = _stop(True)
+            cases.append(('...and lets the retry end when stop_hook_active is set',
+                          s2.returncode == 0, f'rc={s2.returncode}'))
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'the gemini-cli settings template runs bootstrap.sh with a JSON-clean '
+          f'stdout ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -40616,6 +40883,9 @@ def main():
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
+    check_bootstrap_runs_every_tool_session_start_runs()
+    check_codex_hooks_template_runs_the_claude_gates()
+    check_gemini_settings_template_keeps_stdout_clean()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
