@@ -28190,6 +28190,62 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_template_history_includes_a_version_made_in_a_merge():
+    """precedent_vendor_engine._read_template_sources lists every version a
+    template has had, so an unedited consumer copy of ANY past version is
+    recognised as stock. A version introduced by a merge commit was missing:
+    `git log --raw` shows a merge no diff, so a consumer holding exactly that
+    version read as locally edited and was never updated (very deep check,
+    2026-09-28). Planted: a scratch repo whose template is edited only
+    inside a merge commit."""
+    import shutil, tempfile
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='template-history-merge-'))
+    cases = []
+    try:
+        repo = tmp / 'src'
+        (repo / 'templates').mkdir(parents=True)
+        env = dict(os.environ, GIT_AUTHOR_NAME='fixture',
+                   GIT_AUTHOR_EMAIL='fixture@invalid',
+                   GIT_COMMITTER_NAME='fixture',
+                   GIT_COMMITTER_EMAIL='fixture@invalid')
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                  capture_output=True, text=True, check=True
+                                  ).stdout.strip()
+        git('init', '-q', '-b', 'main')
+        git('config', 'commit.gpgsign', 'false')
+        tpl = repo / 'templates' / 'bootstrap.sh'
+        tpl.write_text('#!/bin/bash\necho one\n', encoding='utf-8')
+        git('add', '-A'); git('commit', '-q', '-m', 'one')
+        git('checkout', '-q', '-b', 'side')
+        (repo / 'other.txt').write_text('x\n', encoding='utf-8')
+        git('add', '-A'); git('commit', '-q', '-m', 'side')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '--no-commit', 'side')
+        merged = b'#!/bin/bash\necho made in the merge\n'
+        tpl.write_bytes(merged)
+        git('add', '-A'); git('commit', '-q', '-m', 'merge with an edit')
+        out = tmp / 'out'
+        pve._read_template_sources(repo, 'HEAD', 'consumer', out)
+        hist = json.loads((out / pve._TEMPLATE_HISTORY_NAME)
+                          .read_text(encoding='utf-8'))
+        blobs = set(hist.get('templates/bootstrap.sh') or ())
+        cases.append(('the version a merge commit introduced is in the '
+                      'history', pve._git_blob_id(merged) in blobs,
+                      repr(sorted(blobs))))
+        cases.append(('...and so is the ordinary earlier version',
+                      pve._git_blob_id(b'#!/bin/bash\necho one\n') in blobs,
+                      repr(sorted(blobs))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'template history counts a version made inside a merge commit '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_vendor_engine_refreshes_bootstrap_sh():
     """Nothing delivered a templates/bootstrap.sh change to an installed
     consumer -- see precedent_vendor_engine.py's TEMPLATE_INSTANCES block
@@ -43854,6 +43910,7 @@ def main():
     check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
     check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
+    check_template_history_includes_a_version_made_in_a_merge()
     check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_refreshes_agents_md_sections()
     check_retired_branch_name_does_not_ship()

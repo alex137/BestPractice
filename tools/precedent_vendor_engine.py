@@ -3993,8 +3993,13 @@ def _read_template_sources(clone, commit, kind, out_dir):
         out = out_dir / src_rel
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(blob.stdout)
-        ok, log = _git_read(clone, 'log', '--format=', '--raw', '--no-abbrev',
-                            commit, '--', src_rel)
+        # `-m`: a template edit made inside a merge commit (a conflict
+        # resolution, or a fix committed with the merge) is a real past
+        # version too, and plain `--raw` shows merges no diff at all -- so a
+        # consumer holding exactly that version read as edited (very deep
+        # check, 2026-09-28, caught by this repo's own harness).
+        ok, log = _git_read(clone, 'log', '--format=', '--raw', '-m',
+                            '--no-abbrev', commit, '--', src_rel)
         blobs = set()
         if ok:
             for line in log.splitlines():
@@ -4421,7 +4426,8 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
                 out = out_dir / src_rel
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_bytes(blob.stdout)
-        ok, log = _git_read(clone, 'log', '--follow', '--format=@%H',
+        # `-m`, so a version a merge commit introduced is not skipped.
+        ok, log = _git_read(clone, 'log', '--follow', '-m', '--format=@%H',
                             '--name-only', commit, '--', src_rel)
         if not ok:
             continue

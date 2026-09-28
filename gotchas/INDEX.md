@@ -137,3 +137,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **`checkin.py record` refuses an ordinary Update Vendors with a long list of `LOST from <file>:` lines and "pending vendored additions are MISSING from the landed upstream tree", while `checkin.py status` reads 0 files differing against the clone. Every listed line turns out to be one upstream removed itself.** [story](gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)
 
 - **The first tool call of a session is refused, and so is every call after it except plain `git` commands:** [story](gotcha-2026-09-26-the-freshness-guard-held-attached-source-clones-to-pre-stagin.md)
+
+- **A tool that lists every past version of a file from `git log --raw`, `git log -p` or `git log --name-only` misses a version, and a copy of the file that is byte-identical to that version is treated as locally edited. Update Vendors reports a consumer's untouched `tools/bootstrap.sh` as DIVERGED and never updates it.** [story](gotcha-2026-09-28-git-log-skips-merge-commits-so-a-version-made-in-a-merge-is-in.md)

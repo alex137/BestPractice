@@ -383,7 +383,8 @@ def _template_lines_ever(rev, rel):
     """-> {stripped line} every version of `rel` reachable from `rev` in the
     source clone ever carried: the lines its commits added, `--follow`ed
     through renames. A shallow clone sees less, which only flags less."""
-    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--follow', '-p',
+    # `-m`: lines a merge commit added are template wording too.
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--follow', '-p', '-m',
                         '-U0', '--format=', '--no-color', '--no-ext-diff',
                         rev, '--', rel], capture_output=True, text=True,
                        errors='replace')
@@ -547,7 +548,8 @@ def _upstream_history_blobs(rev):
     carried. The same allowance the carry check makes for upstream's own
     history: a file equal to one of these is upstream's text, not a local
     edit, whichever commit it was vendored from."""
-    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw',
+    # `-m`: a version a merge commit introduced is upstream's text too.
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw', '-m',
                         '--no-abbrev', '--no-renames', rev, '--all', '--',
                         'practices/'], capture_output=True, text=True)
     out = set()
