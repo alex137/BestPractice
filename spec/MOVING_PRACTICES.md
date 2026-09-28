@@ -220,6 +220,24 @@ real sources, rather than taking the mover's word for it. A move done in
 the other order has nothing to name, which is precisely the state a lost
 rule is in.
 
+**Then, step 3: fix what still says it lives there** — done by the tool, on the run
+that withdraws the source copy, in every repository in force (this
+Precedent clone, every source it resolves, and both sets). A link to the
+old file is re-pointed the way step 1 re-points sibling links; a path
+naming the old set's copy names the new one; a present-tense line that
+says where the practice lives (*"`x` (set)"*, *"set's `x`"*, *"`x` in
+set"*, *"`x` is a set rule"*) names the new set. **History stays as
+written**: a dated or past-tense paragraph, a `## Story`, generated
+views, records and vendored files are never touched, and in code only
+links and paths are fixed, never the prose of a comment.
+A fixed link inside a sentence that says the practice is *here* is
+named, `reword by hand`, because no link rewrite can fix the sentence
+around it. The repositories changed are named at the end: commit each.
+For a move made before this existed, `--mentions-only` runs this step
+alone and refuses unless the source copy is already deduplicated.
+Added 2026-09-28 (Morgan, strength: decided): *"I don't need a detailed
+report but for those problems to be solved."*
+
 **Who checks what, since 2026-09-14** — before that day only Precedent's
 own harness asked whether a forwarding address resolved, so for the
 team ↔ individual directions this page exists for, the property was

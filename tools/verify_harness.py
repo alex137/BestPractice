@@ -33315,6 +33315,119 @@ def check_installer_produces_a_clean_install():
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def check_move_fixes_mentions_of_the_moved_practice():
+    """After a move withdraws the source copy, tools/precedent_move.py fixes
+    what still says the practice lives there -- in both sets and in every
+    other repository in force -- and leaves history as written.
+
+    WHY. Morgan, 2026-09-28 (strength: decided), on a finding that moves
+    repaired broken links but nothing searched for other mentions: "I don't
+    need a detailed report but for those problems to be solved." Measured
+    the same day: the individual set's own README and a sibling practice
+    still linked the stub of a practice that had left the set.
+
+    Every planted mention is asserted by its resulting text, and so is every
+    planted non-mention -- a dated line, a Story, an unrelated line naming
+    the old set -- because a fixer that rewrote everything would pass the
+    first half alone."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-mentions-'))
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+    env.pop('CLAUDE_CODE_REMOTE', None)
+
+    def run(args, extra_env=None):
+        return subprocess.run([sys.executable, *args], cwd=str(ROOT),
+                              capture_output=True, text=True,
+                              env=dict(env, **(extra_env or {})))
+
+    def practice(slug, rule, story):
+        return ('---\nslug:        ' + slug + '\n'
+                'title:       A fixture practice\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["fixture/**"]\noccasion:    "fixture"\n'
+                'gates:       []\nindex_clause: "fixture"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       "2026-09-14"\n'
+                'approved_by: "Fixture, 2026-09-14"\n---\n\n## Rule\n' + rule
+                + '\n\n## Why\nBecause.\n\n## Story\n' + story + '\n')
+
+    results = []
+    try:
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        team, indiv, other = (tmp / 'precedent-team-fixture',
+                              tmp / 'precedent-individual', tmp / 'other')
+        run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
+             '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
+        run([boot, '--level', 'individual', '--name', 'precedent-individual',
+             '--dest', str(indiv)])
+        (other / 'docs').mkdir(parents=True)
+        (indiv / 'practices' / 'zz-moves.md').write_text(
+            practice('zz-moves', 'Do the thing.', 'A dated incident.'))
+        (indiv / 'practices' / 'zz-cites.md').write_text(practice(
+            'zz-cites', 'Follow [zz-moves](zz-moves.md#rule) first.',
+            'Once [zz-moves](zz-moves.md) lived here.'))
+        (indiv / 'NOTES.md').write_text(
+            'Present: `zz-moves` is a precedent-individual rule.\n\n'
+            'History: on 2026-09-01 `zz-moves` sat in precedent-individual.\n')
+        (team / 'NOTES.md').write_text(
+            'See [zz-moves](../precedent-individual/practices/zz-moves.md).\n')
+        (other / 'docs' / 'x.md').write_text(
+            'URL https://github.com/o/precedent-individual/blob/main/practices/'
+            'zz-moves.md here\n'
+            'path ../precedent-individual/practices/zz-moves.md here\n'
+            'unrelated precedent-individual line\n\n'
+            '`precedent-individual` has this check vendored -- `zz-moves`\n\n'
+            'This set shows the shape in '
+            '[zz-moves](../../precedent-individual/practices/zz-moves.md).\n')
+        for repo in (indiv, team, other):
+            subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'],
+                           capture_output=True)
+        r = run([str(ROOT / 'tools' / 'precedent_move.py'), '--slug', 'zz-moves',
+                 '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team),
+                 '--approved-by', 'Fixture Approver'],
+                {'PRECEDENT_MOVE_MENTION_REPOS': str(other)})
+        cites = (indiv / 'practices' / 'zz-cites.md').read_text()
+        inotes = (indiv / 'NOTES.md').read_text()
+        tnotes = (team / 'NOTES.md').read_text()
+        x = (other / 'docs' / 'x.md').read_text()
+        results = [
+            ('the move completes', r.returncode == 0),
+            ('a sibling link to the stub becomes the backticked slug, never a '
+             'URL into the other set', 'Follow `zz-moves` first.' in cites),
+            ('a present-tense line naming the old set names the new one',
+             '`zz-moves` is a precedent-team-fixture rule' in inotes),
+            ('a link in the destination set is re-pointed at its own copy',
+             '[zz-moves](practices/zz-moves.md)' in tnotes),
+            ('a URL to the old copy in another repo becomes the slug',
+             'URL `zz-moves` here' in x),
+            ('a path to the old copy names the new set',
+             'path ../precedent-team-fixture/practices/zz-moves.md here' in x),
+            ('a dated line is history and stays as written',
+             'on 2026-09-01 `zz-moves` sat in precedent-individual.' in inotes),
+            ('the Story stays as written',
+             'Once [zz-moves](zz-moves.md) lived here.' in cites),
+            ('a line about the old set that does not name the practice stays',
+             'unrelated precedent-individual line' in x),
+            ('a line naming the old set for another reason keeps it '
+             '(where it lives is the only claim rewritten)',
+             '`precedent-individual` has this check vendored -- `zz-moves`' in x),
+            ('a fixed link inside a sentence saying the practice is HERE is '
+             'named for a person to reword',
+             'reword by hand: other/docs/x.md:' in r.stdout),
+            ('each repository changed is named for committing',
+             'mentions fixed in:' in r.stdout and str(other) in r.stdout),
+        ]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in results if not ok]
+    check(f'a practice move fixes what still says it lives where it was, and '
+          f'leaves history alone ({len(results)} stated cases)',
+          bool(results) and not failed, '; '.join(failed))
+
+
 def check_move_tool_lands_then_deduplicates():
     """tools/precedent_move.py does spec/MOVING_PRACTICES.md's two steps in
     the one safe order, records the move at both ends, and refuses the
@@ -33332,7 +33445,10 @@ def check_move_tool_lands_then_deduplicates():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-'))
     cases = []
     env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'),
+               # The mention fix reads only the fixture sets, never the real
+               # repositories this clone resolves.
+               PRECEDENT_MOVE_MENTION_REPOS='')
     env.pop('CLAUDE_CODE_REMOTE', None)
 
     def run(args, cwd=ROOT):
@@ -34569,6 +34685,146 @@ def check_endgame_merge_finds_the_silent_drop():
               not failed,
               (f"{'; '.join(failed)} -- dropped={sorted(dropped)}, "
                f"conflicts={sorted(conflicts)}") if failed else '')
+
+
+def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
+    """The very deep check never offers pre-staging, staging, main, staging's
+    old name or Promote's lock branch for deletion, merged or not.
+
+    WHY. Morgan, 2026-09-28 (strength: decided): "it needs to never never
+    offer to delete pre-staging nor staging." Every Promote fast-forwards the
+    lower tiers, so right after one the ancestor test calls pre-staging and
+    precedent-beta-v01 "merged" -- and the branch sweep protected only the
+    declared base and the default branch, so both came back as safe to
+    delete, each with a one-click link. staging itself had been deleted from
+    a merge page two days earlier.
+
+    Discriminating: a merged feature branch in the same fixture must still
+    be listed WITH its link, or a sweep that listed nothing would pass."""
+    import tempfile
+    import very_deep_check as vdc
+
+    _git = fixture_git
+    tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01',
+             'precedent-promote-lock']
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        # Right after a Promote: every tier at one commit, so the ancestor
+        # test calls every one of them "merged" into every other.
+        for b in tiers[1:]:
+            _git(up, 'branch', b)
+        _git(up, 'branch', 'claude/finished-work')
+        (up / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'staging'}) + '\n')
+        _git(up, 'checkout', '-q', 'staging')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'declare staging')
+        # pre-staging ahead of staging, as it is between Promotes.
+        _git(up, 'checkout', '-q', 'pre-staging')
+        _git(up, 'merge', '-q', '--ff-only', 'staging')
+        (up / 'work.txt').write_text('waiting for a Promote\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'landed work')
+        _git(up, 'checkout', '-q', 'main')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
+        vdc._NEVER_DELETABLE_CACHE.clear()
+        # Scanned from a checkout on main, so pre-staging is not the
+        # checked-out branch the old code happened to exclude.
+        scan = vdc.scan_branches(work, exclude=('main',)) or {}
+        listed = [r['name'] for k in ('merged', 'merged_elsewhere', 'unmerged')
+                  for r in scan.get(k) or []]
+        # A GitHub remote now, after the scan's own fetches, so a delete
+        # link is minted at all.
+        _git(work, 'config', 'remote.origin.url',
+             'https://github.com/example/fixture.git')
+        vdc._NEVER_DELETABLE_CACHE.clear()
+        gh_url = {b: vdc._branch_url(work, b)
+                  for b in tiers + ['claude/finished-work']}
+        row = {'name': 'stag', 'last': None, 'age_days': None,
+               'filter_shows_tier': vdc._tiers_shown_by_filter(work, 'stag')}
+        warn = '\n'.join(vdc._delete_row_lines(row, str(work)))
+        results = [
+            ('no tier branch appears in any list of the sweep',
+             not [b for b in tiers if b in listed]),
+            ('a finished feature branch in the same fixture IS listed '
+             '(discriminating: an empty sweep would pass the case above)',
+             'claude/finished-work' in listed),
+            ('no delete link is ever minted for a tier branch',
+             all(gh_url[b] is None for b in tiers)),
+            ('the feature branch still gets its delete link',
+             bool(gh_url['claude/finished-work'])),
+            ('a filter that would also show a tier row says so on the row',
+             '`staging`' in warn and '`pre-staging`' in warn
+             and 'never delete' in warn),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check never offers a tier branch for deletion '
+              f'({len(results)} stated cases)', not failed,
+              '; '.join(failed) + f' -- listed {listed}')
+
+
+def check_very_deep_check_walks_every_tier_pair():
+    """The drift scan and the merge rehearsal ask about every tier pair
+    origin carries: staging and main INTO pre-staging, and each merge a
+    Promote makes (pre-staging into staging, staging into main).
+
+    WHY. Until 2026-09-28 both asked about one pair only, the declared base
+    against the default branch -- staging against main -- while work landed
+    on pre-staging. A fix pushed straight to main was then invisible to the
+    one section built to find it, and the merge that happens every day was
+    never rehearsed. Asserted by WHICH commit comes back for WHICH pair, so a
+    scan that returned nothing everywhere fails."""
+    import tempfile
+    import very_deep_check as vdc
+
+    _git = fixture_git
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'staging'}) + '\n')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        _git(up, 'branch', 'staging'); _git(up, 'branch', 'pre-staging')
+        (up / 'hotfix.txt').write_text('fixed on main\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'hotfix straight to main')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
+        pairs = vdc.tier_pairs(work)
+        d = vdc.base_branch_drift(work, 'pre-staging', 'main') or {}
+        subjects = [c['subject'] for c in d.get('commits') or []]
+        e = vdc.endgame_merge(work, 'pre-staging', 'staging') or {}
+        results = [
+            ('the drift pairs are staging and main into pre-staging, and main '
+             'into staging',
+             pairs.get('drift') == [('pre-staging', 'staging'),
+                                    ('pre-staging', 'main'),
+                                    ('staging', 'main')]),
+            ('the rehearsals are the two merges a Promote makes, in order',
+             pairs.get('endgame') == [('pre-staging', 'staging'),
+                                      ('staging', 'main')]),
+            ('the fix pushed straight to main is found missing from pre-staging',
+             'hotfix straight to main' in subjects),
+            ('the Promote merge is actually rehearsed, not skipped',
+             e.get('status') in ('clean', 'findings')),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check walks every tier pair ({len(results)} '
+              f'stated cases)', not failed,
+              '; '.join(failed) + f' -- pairs {pairs}, drift {subjects}, '
+              f'endgame {e.get("status")} {e.get("note")}')
 
 
 def check_base_branch_drift_ignores_carried_work():
@@ -38208,6 +38464,8 @@ def main():
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
+    check_very_deep_check_never_offers_a_tier_branch_for_deletion()
+    check_very_deep_check_walks_every_tier_pair()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_branch_report_writes_delete_links_to_a_committable_file()
     check_branch_sweep_sees_work_landed_on_the_base_branch()
@@ -38477,6 +38735,7 @@ def main():
     check_no_engine_tool_hardcodes_a_mirror_path()
     check_installer_produces_a_clean_install()
     check_move_tool_lands_then_deduplicates()
+    check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()
