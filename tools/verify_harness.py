@@ -11545,11 +11545,14 @@ def check_precedent_check_fires():
                       'region, not as a file)',
                       rc == 1 and 'VIOLATION' in out and 'AGENTS.md' in out))
 
-        # two-check-levels -- the light/deep check pair removed from AGENTS.md
+        # two-check-levels -- one of the pair GLOSSARY.md defines is no
+        # longer named anywhere in AGENTS.md. Until 2026-09-28 this plant
+        # only un-bolded the pair, because the check demanded the literal
+        # bold markup; the Rule asks for the names, so the plant removes a
+        # name.
         def _plant_tcl(repo):
-            rewrite(repo, 'AGENTS.md', lambda t: t.replace(
-                '**light check**', 'light check', 1).replace(
-                '**deep check**', 'deep check', 1))
+            rewrite(repo, 'AGENTS.md', lambda t: re.sub(
+                r'light check', 'quick pass', t, flags=re.I))
         case('two-check-levels', _plant_tcl)
 
         # routing-audit -- a stale rotation entry for a practice that no
@@ -13375,6 +13378,177 @@ def check_precedent_check_fires():
               not bad, detail)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_checks_read_what_their_rules_name():
+    """Seven checks, each read against its own practice's Rule by the
+    2026-09-28 very deep check, and each found judging something narrower
+    or wider than the Rule says. One stated case per behaviour, run
+    in-process against a throwaway tree the case owns
+    (fixture-owns-its-state), so none of them pays for a copy of this repo.
+
+    - open-item-disposition read only `**Disposition:**` prose lines, so
+      an open todo/todo-*.md item's frontmatter `disposition: raise` passed.
+    - two-check-levels demanded the literal bold `**light check**` pair,
+      though the Rule puts the names in GLOSSARY.md and allows any pair.
+    - technical-describes-people is tree-scope but read ctx.changed, which
+      --full-sweep leaves empty on a clean tree: it passed having read
+      nothing.
+    - no-version-suffix refused state words anywhere (whats-new.md,
+      deep_copy.py), where the practice is about a fork beside its original.
+    - environment-gotchas never looked at the instructions file once a repo
+      had migrated to gotchas/, so an index could regrow there.
+    - no-hardcoded-git-identity returned clean on a settings.json it could
+      not parse.
+    - doc_sync's orphan-sentinel scan walked gitignored trees, so a
+      checkout holding agent worktrees under .claude/worktrees/ reported
+      every worktree's generated block as an unregistered orphan.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    import doc_sync as ds
+
+    cases = []
+
+    def tree(files, git_init=False):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rule-reads-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        if git_init:
+            subprocess.run(['git', '-C', str(d), 'init', '-q'],
+                           capture_output=True)
+            subprocess.run(['git', '-C', str(d), 'add', '-A'],
+                           capture_output=True)
+        return d
+
+    def judge(d, fn, ctx=None):
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in fn(ctx if ctx is not None
+                                                 else pc.Ctx(paths=['x'])))
+        except pc.NotApplicable as e:
+            return f'NOT APPLICABLE: {e}'
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    # --- open-item-disposition: frontmatter of the per-item format --------
+    def item(status, disposition):
+        return (f'---\nslug: todo-x\nstatus:            {status}\n'
+                f'disposition:       {disposition}\nnoted: 2026-01-01\n---\n'
+                f'## What\n\nA planted item.\n')
+    out = judge(tree({'todo/todo-2026-01-01-x.md': item('open', 'raise')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: an OPEN item whose frontmatter '
+                  'disposition is not a disposition is reported',
+                  "'raise'" in out and 'todo/todo-2026-01-01-x.md:4' in out,
+                  out))
+    out = judge(tree({'todo/todo-2026-01-01-a.md': item('open', 'ask'),
+                      'todo/todo-2026-01-01-b.md': item('open', 'null'),
+                      'todo/todo-2026-01-01-c.md': item('done', 'done')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: ask, null, and a CLOSED item\'s '
+                  'leftover value all pass', out == '', out))
+
+    # --- two-check-levels: the pair comes from GLOSSARY.md ----------------
+    gloss = ('| Term | Defined in |\n|---|---|\n'
+             '| quick pass | [two-check-levels](practices/two-check-levels.md) |\n'
+             '| full audit | [two-check-levels](practices/two-check-levels.md) |\n')
+    out = judge(tree({'GLOSSARY.md': gloss,
+                      'AGENTS.md': 'Run the quick pass before a commit and '
+                                   'the full audit before a push.\n'}),
+                pc._two_check_levels)
+    cases.append(('two-check-levels: a repo-chosen pair from GLOSSARY.md, '
+                  'named in plain text, passes', out == '', out))
+    out = judge(tree({'GLOSSARY.md': gloss,
+                      'AGENTS.md': 'Run the quick pass before a commit.\n'}),
+                pc._two_check_levels)
+    cases.append(('two-check-levels: the instructions file missing one of '
+                  'the glossary\'s pair is reported, naming it',
+                  "'full audit'" in out, out))
+
+    # --- technical-describes-people: the whole tree, not the diff ---------
+    d = tree({'nontechnical-guide/a.md': '# x\n'}, git_init=True)
+    ctx_empty = type('Ctx', (), {'changed': [], 'root': d})()
+    out = judge(d, pc._technical_describes_people, ctx_empty)
+    cases.append(('technical-describes-people: a skill-labelled path in the '
+                  'tree is reported even when nothing changed',
+                  'nontechnical-guide/a.md' in out, out))
+
+    # --- no-version-suffix: a state word only when it forks an original ---
+    def added(files, names):
+        d = tree(files)
+        ctx = type('Ctx', (), {'root': d,
+                               'added_files': lambda self: list(names)})()
+        return judge(d, pc._no_version_suffix, ctx)
+    out = added({'whats-new.md': 'x\n', 'deep_copy.py': 'x\n',
+                 'draft.md': 'x\n'},
+                ['whats-new.md', 'deep_copy.py', 'draft.md'])
+    cases.append(('no-version-suffix: a state word with no original beside '
+                  'it is an ordinary name and passes', out == '', out))
+    out = added({'report.md': 'x\n', 'report-final.md': 'x\n'},
+                ['report-final.md'])
+    cases.append(('no-version-suffix: report-final.md beside report.md is '
+                  'reported as a fork', 'report-final.md' in out
+                  and 'report.md' in out, out))
+    out = added({'findings-v2.md': 'x\n'}, ['findings-v2.md'])
+    cases.append(('no-version-suffix: a version token alone is still '
+                  'reported', 'findings-v2.md' in out, out))
+
+    # --- environment-gotchas: no index once the catalogue has migrated ----
+    story = ('## Symptom\n\nA tool fails.\n\n## Story\n\nIt failed on a real '
+             'day in a way that read as something else entirely, and a '
+             'session spent an hour on the wrong hypothesis before finding '
+             'the cause. The remedy is to check the exit code instead.\n\n'
+             '## Fix\n\nCheck it.\n')
+    g = {f'gotchas/gotcha-2026-01-0{i}-t{i}.md':
+         f'---\nslug: gotcha-2026-01-0{i}-t{i}\nstatus: live\n---\n' + story
+         for i in (1, 2)}
+    head = '# x\n\n## Environment gotchas -- do NOT rediscover these\n\n'
+    prose = (head + 'Grep gotchas/ first. One trap bit us here, '
+             '[gotcha-2026-01-01](gotchas/gotcha-2026-01-01-t1.md), and '
+             'another one too ([t2](gotchas/gotcha-2026-01-02-t2.md)).\n')
+    out = judge(tree({**g, 'AGENTS.md': prose}), pc._environment_gotchas)
+    cases.append(('environment-gotchas: prose citing specific traps is a '
+                  'pointer, not an index, and passes', out == '', out))
+    index = (head + '- [t1](gotchas/gotcha-2026-01-01-t1.md) a tool fails\n'
+             '- [t2](gotchas/gotcha-2026-01-02-t2.md) a tool fails\n')
+    out = judge(tree({**g, 'AGENTS.md': index}), pc._environment_gotchas)
+    cases.append(('environment-gotchas: a one-line-per-trap index in the '
+                  'instructions file is reported', 'AGENTS.md:5' in out
+                  and 'index' in out, out))
+
+    # --- no-hardcoded-git-identity: unparseable is not clean --------------
+    out = judge(tree({'.claude/settings.json': '{"env": {,}'}),
+                pc._no_hardcoded_git_identity)
+    cases.append(('no-hardcoded-git-identity: a settings.json that does not '
+                  'parse is reported', '.claude/settings.json' in out
+                  and 'JSON' in out, out))
+
+    # --- doc_sync: the orphan scan walks only what git would commit ------
+    d = tree({'.gitignore': '.claude/worktrees/\n',
+              'doc.md': '<!--gen:mine-->\nx\n<!--/gen:mine-->\n',
+              '.claude/worktrees/agent-x/doc.md':
+                  '<!--gen:theirs-->\nx\n<!--/gen:theirs-->\n'},
+             git_init=True)
+    old = ds.ROOT
+    ds.ROOT = d
+    try:
+        found = ds.sentinel_blocks()
+    finally:
+        ds.ROOT = old
+        shutil.rmtree(d, ignore_errors=True)
+    cases.append(('doc_sync: a generated block inside a gitignored tree '
+                  '(.claude/worktrees/) is not scanned; the tracked one is',
+                  found == {('doc.md', 'mine')}, str(sorted(found))))
+
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
 def check_routing_scope(files):
@@ -41085,6 +41259,7 @@ def main():
     check('an engine-property check is reachable by what you touched',
           *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
+    check('checks read what their rules name', *check_checks_read_what_their_rules_name())
     check_routing_scope(files)
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
