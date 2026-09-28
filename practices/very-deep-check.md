@@ -300,6 +300,18 @@ were written after one expensive incident they exist to prevent. Quiet is
 also not the same as unmeasurable — a section that could not produce a count
 is reported separately and is never graded as clean.
 
+**A tier branch is never offered for deletion, by any list this check
+prints or writes** — `pre-staging`, `staging`, `main`, staging's old name
+`precedent-beta-v01`, and Promote's lock branch, in every repo in force,
+merged or not. Every Promote fast-forwards the lower tiers, so an ancestor
+test calls them "merged" right after one; until 2026-09-28 the sweep
+protected only the declared base and the default branch, and would have
+handed both `pre-staging` and `precedent-beta-v01` over with a one-click
+delete link. Morgan, 2026-09-28 (strength: decided): *"it needs to never
+never offer to delete pre-staging nor staging."* The guard sits in the one
+function that mints every delete link, and a filtered page that would also
+show a tier row says so on the row.
+
 **When the branch this repo works on is not its base branch, the run reads
 the base branch too — and reports it, never applies it.** Work pinned to a
 long-lived integration branch stops looking at the base, and the base does
@@ -457,7 +469,12 @@ method"). Build the fixtures.
   landing and the deliberate `--dedupe-only --accept-reach-loss`
   withdrawal), with `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
-  forbids, to see which check names it. Added 2026-09-14, the day Morgan
+  forbids, to see which check names it. **And read what the move left
+  behind elsewhere**: since 2026-09-28 the run that withdraws the source
+  copy also fixes every current mention that still places the practice in
+  the old set, in every repo in force, and names the sentences it could
+  not fix; a rehearsal checks that a planted mention came out right and a
+  dated one did not move. Added 2026-09-14, the day Morgan
   asked whether the run had tested it and it had not: the rehearsal
   returned thirteen findings and the move tool. The universal → team/
   individual direction was added 2026-09-23, the same day a hand-done
@@ -1914,6 +1931,16 @@ Last because none of it strands an adopter, and none of it is cheap.
 
 - **What landed on the base branch and never came across.** The cheap half
   of the same relationship the rehearsal below tests, asked much earlier.
+  **Where the repo has branch tiers it asks it of every pair**: what
+  `staging` and `main` carry that `pre-staging` never took, and what `main`
+  carries that `staging` never took — work lands on `pre-staging` now, so
+  the old single question (the declared base against the default branch)
+  was looking one tier too high. A row on a pair into `pre-staging` is not a
+  choice to put to the person: everything above belongs below, and
+  `python3 tools/precedent_branches.py --sync-pre-staging` (which a Promote
+  runs first anyway) brings it down. A row nobody wants is a revert owed on
+  the upper branch. Added 2026-09-28 (Morgan, strength: decided, "Go
+  update").
   Runs only where the branch this repo works on is not its base branch —
   where they are the same branch there is nothing to drift from, and the
   section is recorded as skipped for that reason rather than as clean.
@@ -1949,11 +1976,12 @@ Last because none of it strands an adopter, and none of it is cheap.
   records the point it reached, not that everything behind it was taken.
 
 - **The endgame merge, rehearsed against the whole tree.** A repo whose work
-  is pinned to an integration branch is aimed at one merge it has never
-  performed — this repo's phase-7 fold-in of `precedent-beta-v01` into
-  `main` is the case — and that merge gets exactly one attempt, usually
-  under time pressure, usually by whoever approves it rather than whoever
-  built it. Rehearse it here, every run:
+  is pinned to an integration branch is aimed at a merge it has not yet
+  performed — this repo's fold-in of `staging` into `main` was the first
+  case — and **with branch tiers it is every merge a Promote makes**:
+  `pre-staging` into `staging`, then `staging` into `main`, each rehearsed
+  in that order (since 2026-09-28; before then only the second was, and the
+  first is the one that happens every day). Rehearse them here, every run:
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) merges the
   integration branch into its base in a throwaway worktree, commits nothing,
   and reports **two sets, separately**. *Conflicting paths* are loud, and
@@ -2550,6 +2578,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
 - **Extended again 2026-09-23, Morgan (strength: decided)**, with the PRACTICE CATALOGUE section -- asked directly for a list of every practice by slug with one sentence each, across this repo, the individual source and the shared sources, generated the same way every time a very deep check runs so it can be reviewed against; built to reuse each practice's own `index_clause` rather than compose a second description, and to write into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md) directly rather than leave a session to remember to paste it, the same lesson the embedded stale-branch list already carries
 - **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
+- **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's

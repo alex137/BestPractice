@@ -763,9 +763,61 @@ def _github_slug(repo_dir):
     return None
 
 
+# Branch names no part of this check may ever offer for deletion, merged or
+# not, in any repo it reads: the three tiers, staging's old name (installs
+# still pinned to it take their update from it) and Promote's lock branch.
+# Spelled out here as well as read from precedent_branches.py, so the
+# guarantee holds even where that import fails. Morgan, 2026-09-28 (strength:
+# decided): "it needs to never never offer to delete pre-staging nor staging."
+# Why it bites at all: every Promote fast-forwards the lower tiers, so an
+# ancestor test calls pre-staging and precedent-beta-v01 "merged" right after
+# one -- and staging itself was deleted from a merge page on 2026-09-26.
+NEVER_DELETE_BRANCHES = frozenset({
+    'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
+    'precedent-promote-lock'})
+
+
+_NEVER_DELETABLE_CACHE = {}
+
+
+def _never_deletable(repo_dir):
+    """-> set of branch names in `repo_dir` that are never offered for
+    deletion: NEVER_DELETE_BRANCHES, the repo's own tier branches as
+    precedent_branches.py resolves them (a declared staging_branch
+    included), its declared base branch and its default branch."""
+    key = str(repo_dir)
+    if key in _NEVER_DELETABLE_CACHE:
+        return _NEVER_DELETABLE_CACHE[key]
+    names = set(NEVER_DELETE_BRANCHES)
+    try:
+        import precedent_branches as _pb
+        names |= set(_pb.tier_branches(pathlib.Path(repo_dir)))
+        names.add(_pb.LOCK_BRANCH)
+    except Exception:                                            # noqa: BLE001
+        pass
+    if repo_dir:
+        for extra in (_declared_base_branch(repo_dir),
+                      _default_remote_branch(repo_dir)):
+            if extra:
+                names.add(extra)
+    _NEVER_DELETABLE_CACHE[key] = frozenset(names)
+    return _NEVER_DELETABLE_CACHE[key]
+
+
+def _tiers_shown_by_filter(repo_dir, name):
+    """-> sorted tier branch names the `?query=<name>` filter would ALSO
+    show, because `name` is a substring of theirs. The row is flagged
+    ambiguous either way; this names which never-delete row is on screen."""
+    return sorted(t for t in _never_deletable(repo_dir)
+                  if t != name and name in t)
+
+
 def _branch_url(repo_dir, branch):
     """-> a URL that lands on GitHub's branches page filtered to `branch`,
-    where the Delete button is, or None when the remote is not GitHub.
+    where the Delete button is, or None when the remote is not GitHub --
+    and None, always, for a branch in _never_deletable(): every rendering
+    of a delete link in this file goes through here, so this is the one
+    place the tier branches are kept off every list.
 
     WHY A LINK AND NOT JUST A NAME. This section routinely lists thirty-odd
     merged-but-undeleted branches, and a bare name is a name the reader then
@@ -784,6 +836,8 @@ def _branch_url(repo_dir, branch):
     unmerged list -- because a fleet sweep with no clone to read needs the
     same mechanism and must not re-derive it. Changing the URL here without
     changing it there is the drift that practice exists to stop."""
+    if branch in _never_deletable(repo_dir):
+        return None
     slug = _github_slug(repo_dir)
     if not slug:
         return None
@@ -4275,7 +4329,12 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # (main) sitting around -- never report it as a deletion candidate just
     # because it happens not to be an ancestor of the *other* protected
     # branch.
-    protected = {target, default_branch, declared} - {None}
+    # Every tier branch too (pre-staging, staging, its old name, main) and
+    # Promote's lock: an ancestor test calls each of them "merged" right
+    # after a Promote, and none may ever be offered for deletion
+    # (NEVER_DELETE_BRANCHES).
+    protected = ({target, default_branch, declared} - {None}) \
+        | _never_deletable(repo_dir)
     # Populate refs/remotes/origin BEFORE enumerating it -- otherwise this
     # scan silently reports only what a single-branch clone happened to
     # fetch (practice: very-deep-check).
@@ -4297,7 +4356,12 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # accumulates (asked 2026-09-12, by Morgan -- "Alex likely has branches
     # on main from bestpractice from weeks ago"), so the false readings
     # outnumber the true ones and the list stops being read.
-    others = [b for b in sorted(protected) if b != target]
+    # The lock branch holds claims, never work, so it is nowhere a branch's
+    # work can have landed.
+    others = [b for b in sorted(protected)
+              if b != target and b != 'precedent-promote-lock'
+              and _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
+                           f'origin/{b}')[0] == 0]
     merged, elsewhere, unmerged = [], [], []
     # Every name on the branches page, PROTECTED AND EXCLUDED ONES INCLUDED
     # -- the `?query=` filter does not know this sweep skipped them, so a
@@ -4340,11 +4404,17 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
         for _r in _row_list:
             _r['filter_ambiguous'] = _filter_is_ambiguous(_r['name'],
                                                           all_names)
+            _r['filter_shows_tier'] = [
+                t for t in _tiers_shown_by_filter(repo_dir, _r['name'])
+                if t in all_names]
     return {'target': target,
             'merged': sorted(merged, key=lambda r: r['name']),
             'merged_elsewhere': sorted(elsewhere, key=lambda r: r['name']),
             'unmerged': sorted(unmerged, key=lambda r: r['name']),
             'protected': sorted(protected),
+            # The protected branches that exist on origin and could hold a
+            # branch's work -- what the "merged elsewhere" heading names.
+            'landing_places': list(others),
             'stale_days': stale_days,
             'unfetched': missing_heads or [], 'unreachable': reach_note,
             'path': str(repo_dir)}
@@ -4622,6 +4692,71 @@ def endgame_merge(repo_dir, target=None, base=None, keep=False):
 # on the branch until the two are far enough apart that reconciling them is
 # its own project. Morgan asked for it on 2026-09-12, with the limit stated
 # in the same breath: report it, and ASK; never implement it automatically.
+
+def tier_pairs(repo_dir, target=None):
+    """-> {'drift': [(lower, upper), ...], 'endgame': [(lower, upper), ...]}
+    for the branch tiers origin actually carries here.
+
+    Until 2026-09-28 the drift scan and the endgame rehearsal each asked
+    about ONE pair: the declared base branch against the default one
+    (staging against main). Work now lands on pre-staging and reaches
+    staging and main only by Promote (spec/BRANCH_TIERS_PLAN.md), so the
+    questions a run owes are one tier wider:
+
+      drift   -- what an upper tier carries that a lower one never took:
+                 staging -> pre-staging, main -> pre-staging, main -> staging.
+                 The first two are what precedent_branches.py --drift and a
+                 Promote's own sync copy down; a run lists them before the
+                 Promote rather than after.
+      endgame -- each merge a Promote actually makes: pre-staging into
+                 staging, staging into main. The silent-drop check is as
+                 true of the first as of the second, and the first is the one
+                 that happens every day.
+
+    A pair is listed only when both branches exist on origin (a repo with no
+    pre-staging has the old single pair and nothing else), never twice, and
+    never a branch against itself. `target` overrides the declared base, as
+    the --target flag always has."""
+    repo_dir = pathlib.Path(repo_dir)
+    default = _default_remote_branch(repo_dir)
+    declared = target or _declared_base_branch(repo_dir)
+    try:
+        import precedent_branches as _pb
+        staging = _pb.staging_branch(repo_dir)
+        pre = _pb.PRE_STAGING
+    except Exception:                                            # noqa: BLE001
+        staging, pre = declared, 'pre-staging'
+    main = default or 'main'
+
+    def _on_origin(b):
+        if not b:
+            return False
+        if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
+                    f'origin/{b}')[0] == 0:
+            return True
+        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin', b)
+        return _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
+                        f'origin/{b}')[0] == 0
+
+    drift, endgame = [], []
+
+    def _add(lst, lower, upper):
+        if lower and upper and lower != upper and (lower, upper) not in lst \
+                and _on_origin(lower) and _on_origin(upper):
+            lst.append((lower, upper))
+
+    # The tiered chain first, in the order a Promote walks it.
+    _add(drift, pre, staging)
+    _add(drift, pre, main)
+    _add(drift, staging, main)
+    _add(endgame, pre, staging)
+    _add(endgame, staging, main)
+    # The pair every earlier run asked about, when the declared base is not
+    # one of the tiers above (a repo pinned to some other integration branch).
+    _add(drift, declared, default)
+    _add(endgame, declared, default)
+    return {'drift': drift, 'endgame': endgame}
+
 
 def base_branch_drift(repo_dir, target=None, base=None, limit=25):
     """-> None when this checkout's integration branch IS its base branch
@@ -6239,6 +6374,10 @@ def _delete_row_lines(r, path, show_into=False):
                      f"name contains this one; pick the exact match) →]({url})")
     elif url:
         lines.append(f"  [Delete branch →]({url})")
+    if r.get('filter_shows_tier'):
+        lines.append(f"  That page also shows "
+                     + ', '.join(f'`{t}`' for t in r['filter_shows_tier'])
+                     + " -- never delete that row.")
     return lines
 
 
@@ -6618,7 +6757,9 @@ def _write_branch_report(branch_scans, out_path, repo_root):
                  f'same proof, but someone may still have it checked out',
                  recent, empty, path)
 
-        others = [b for b in scan.get('protected', []) if b != scan['target']]
+        others = scan.get('landing_places')
+        if others is None:
+            others = [b for b in scan.get('protected', []) if b != scan['target']]
         elsewhere = scan.get('merged_elsewhere') or []
         if others:
             _section(f"Merged into {', '.join(f'`{o}`' for o in others)} "
@@ -6641,6 +6782,10 @@ def _write_branch_report(branch_scans, out_path, repo_root):
                                     _compare_url(path, scan['target'], r['name']))):
                     if url:
                         lines.append(f"  [{label} →]({url})")
+                if r.get('filter_shows_tier'):
+                    lines.append("  That branches page also shows "
+                                 + ', '.join(f'`{t}`' for t in r['filter_shows_tier'])
+                                 + " -- never delete that row.")
         else:
             lines.append(empty)
         lines.append('')
@@ -7124,19 +7269,28 @@ def _main(box):
             activity[f"{s_['level']} source {s_['name']}"] = recent_activity(
                 s_['path'], _win)
 
+    # One entry per tier pair (tier_pairs): pre-staging -> staging -> main
+    # where the tiers exist, else the single declared-base pair as before.
+    _pairs = (tier_pairs(repo_root, checkout_target)
+              if not (skip_endgame and skip_base_drift)
+              else {'drift': [], 'endgame': []})
     _endgame_t0 = time.monotonic()
-    endgame = None if skip_endgame else endgame_merge(repo_root, checkout_target)
+    endgames = [] if skip_endgame else [
+        e for e in (endgame_merge(repo_root, lo, up)
+                    for lo, up in _pairs['endgame']) if e is not None]
     _endgame_secs = round(time.monotonic() - _endgame_t0, 2)
     _drift_t0 = time.monotonic()
-    drift = None if skip_base_drift else base_branch_drift(repo_root,
-                                                           checkout_target)
+    drifts = [] if skip_base_drift else [
+        d for d in (base_branch_drift(repo_root, lo, up)
+                    for lo, up in _pairs['drift']) if d is not None]
     _drift_secs = round(time.monotonic() - _drift_t0, 2)
 
     if as_json:
         data['branches'] = branch_scans
         data['recent_activity'] = activity
-        data['endgame_merge'] = endgame
-        data['base_branch_drift'] = drift
+        # A list since 2026-09-28: one entry per tier pair (tier_pairs).
+        data['endgame_merge'] = endgames
+        data['base_branch_drift'] = drifts
         print(json.dumps(data, indent=2, sort_keys=True))
         return 0
 
@@ -8400,6 +8554,10 @@ def _main(box):
                     _u = _branch_url(scan.get('path'), r['name'])
                     if _u:
                         print(f"      {_u}")
+                    if r.get('filter_shows_tier'):
+                        print("      that page also shows "
+                              + ', '.join(r['filter_shows_tier'])
+                              + " -- never delete that row")
 
             print(f"  merged and STALE (>= {_sd} days) -- the safest deletions "
                   f"here; confirm authorship and the PR link, then delete:")
@@ -8414,8 +8572,10 @@ def _main(box):
             else:
                 print(f"    {'(none)' if not incomplete else empty}")
             _elsewhere = scan.get('merged_elsewhere') or []
-            _others = [b for b in scan.get('protected', [])
-                       if b != scan['target']]
+            _others = scan.get('landing_places')
+            if _others is None:
+                _others = [b for b in scan.get('protected', [])
+                           if b != scan['target']]
             # Only where a second protected branch exists. A repo whose
             # integration branch IS its default has nowhere else for work to
             # have landed, and a heading offering an empty third list there
@@ -8445,6 +8605,10 @@ def _main(box):
                     _u = _branch_url(scan.get('path'), r['name'])
                     if _u:
                         print(f"      {_u}")
+                    if r.get('filter_shows_tier'):
+                        print("      that page also shows "
+                              + ', '.join(r['filter_shows_tier'])
+                              + " -- never delete that row")
             else:
                 print(f"    {empty}")
             if scan.get('unreachable'):
@@ -8482,54 +8646,72 @@ def _main(box):
     # the two branches have already drifted by, while reconciling it is
     # still a few commits rather than a project. It reports and stops --
     # the session asks before implementing any of it.
-    if drift is not None:
+    if drifts:
         if led:
             led.start('BASE BRANCH DRIFT')
-        print(f"BASE BRANCH DRIFT -- what is on origin/{drift['base']} that "
-              f"origin/{drift['target']} has never taken\n")
-        if drift['status'] in ('cannot-tell', 'error'):
-            print(f"  CANNOT TELL: {drift['note']}")
-            print(f"  Reported as unknown, never as clean -- a comparison "
-                  f"that could not run returns an\n  empty list, which reads "
-                  f"exactly like an up-to-date branch.\n")
-        elif drift['status'] == 'clean':
-            print(f"  Nothing. Every commit on origin/{drift['base']} has a "
-                  f"patch-equivalent on the branch.\n")
-        else:
-            n, shown = drift['total'], len(drift['commits'])
-            print(f"  {n} commit(s) on origin/{drift['base']} have no "
-                  f"patch-equivalent here, touching "
-                  f"{len(drift['files'])} file(s).")
-            print(f"  Carried work counts as landed: this is `git cherry`, "
-                  f"so a change rewritten into\n  this branch's own shape is "
-                  f"NOT listed.\n")
-            for c in drift['commits']:
-                head = f"      {c['sha']}  {c['date'] or '(no date)'}  {c['subject'] or ''}"
-                print(head.rstrip())
-                if c['files']:
-                    print(f"          {', '.join(c['files'][:6])}"
-                          + (f", +{len(c['files']) - 6} more"
-                             if len(c['files']) > 6 else ''))
-            if drift.get('truncated'):
-                print(f"      ... and {drift['truncated']} older commit(s) "
-                      f"not detailed (--json for the full list)")
-            print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
-                  f"automatically, by this tool or by\n  the session reading "
-                  f"it: put the list to the person, say for each row whether "
-                  f"it\n  belongs on this branch, and take only what they "
-                  f"say to take (practice: very-deep-check).")
-            print(f"  Some rows will be deliberately not-carried. A row "
-                  f"declined once is still listed the\n  next run -- this "
-                  f"scan has no memory of a decision; the run record is "
-                  f"where that lives.\n")
-        if drift['shallow']:
-            print(f"  CAVEAT: this clone is shallow, so the merge base may "
-                  f"not be the real one. Deepen\n  "
-                  f"(`git fetch --unshallow origin`) and re-run before "
-                  f"trusting an empty result.\n")
+        _drift_found, _drift_unknown = 0, False
+        for drift in drifts:
+            print(f"BASE BRANCH DRIFT -- what is on origin/{drift['base']} that "
+                  f"origin/{drift['target']} has never taken\n")
+            if drift['status'] in ('cannot-tell', 'error'):
+                print(f"  CANNOT TELL: {drift['note']}")
+                print(f"  Reported as unknown, never as clean -- a comparison "
+                      f"that could not run returns an\n  empty list, which reads "
+                      f"exactly like an up-to-date branch.\n")
+            elif drift['status'] == 'clean':
+                print(f"  Nothing. Every commit on origin/{drift['base']} has a "
+                      f"patch-equivalent on the branch.\n")
+            else:
+                n, shown = drift['total'], len(drift['commits'])
+                print(f"  {n} commit(s) on origin/{drift['base']} have no "
+                      f"patch-equivalent here, touching "
+                      f"{len(drift['files'])} file(s).")
+                print(f"  Carried work counts as landed: this is `git cherry`, "
+                      f"so a change rewritten into\n  this branch's own shape is "
+                      f"NOT listed.\n")
+                for c in drift['commits']:
+                    head = f"      {c['sha']}  {c['date'] or '(no date)'}  {c['subject'] or ''}"
+                    print(head.rstrip())
+                    if c['files']:
+                        print(f"          {', '.join(c['files'][:6])}"
+                              + (f", +{len(c['files']) - 6} more"
+                                 if len(c['files']) > 6 else ''))
+                if drift.get('truncated'):
+                    print(f"      ... and {drift['truncated']} older commit(s) "
+                          f"not detailed (--json for the full list)")
+                if drift['target'] == 'pre-staging':
+                    # A tier below its own upper tiers: everything above is
+                    # meant to come down, and a Promote's own first step
+                    # copies it (precedent_branches.py, DRIFT FROM ABOVE).
+                    print(f"\n  TIER DRIFT, not a choice: everything on "
+                          f"origin/{drift['base']} belongs on pre-staging, "
+                          f"and the next\n  Promote copies it down first. To "
+                          f"take it now: `python3 tools/precedent_branches.py "
+                          f"--sync-pre-staging`\n  (`--check` to see without "
+                          f"writing). A row listed here that nobody wants is "
+                          f"a revert\n  owed on origin/{drift['base']}, not "
+                          f"a row to skip.\n")
+                else:
+                    print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
+                          f"automatically, by this tool or by\n  the session reading "
+                          f"it: put the list to the person, say for each row whether "
+                          f"it\n  belongs on this branch, and take only what they "
+                          f"say to take (practice: very-deep-check).")
+                    print(f"  Some rows will be deliberately not-carried. A row "
+                          f"declined once is still listed the\n  next run -- this "
+                          f"scan has no memory of a decision; the run record is "
+                          f"where that lives.\n")
+            if drift['shallow']:
+                print(f"  CAVEAT: this clone is shallow, so the merge base may "
+                      f"not be the real one. Deepen\n  "
+                      f"(`git fetch --unshallow origin`) and re-run before "
+                      f"trusting an empty result.\n")
+            if drift['status'] in ('cannot-tell', 'error'):
+                _drift_unknown = True
+            else:
+                _drift_found += drift['total']
         if led:
-            led.end(findings=(None if drift['status'] in
-                              ('cannot-tell', 'error') else drift['total']),
+            led.end(findings=None if _drift_unknown else _drift_found,
                     extra_seconds=_drift_secs)
     elif led:
         led.skipped('BASE BRANCH DRIFT',
@@ -8541,52 +8723,56 @@ def _main(box):
     # the branch material because it is the same question one level up: the
     # branch sweep asks which branches never landed, this asks what happens
     # when the branch everything lands ON finally lands itself.
-    if endgame is not None:
+    if endgames:
         if led:
             led.start('ENDGAME MERGE')
-        print(f"ENDGAME MERGE -- rehearsing origin/{endgame['target']} into "
-              f"origin/{endgame['base']}\n")
-        if endgame['status'] in ('cannot-tell', 'error'):
-            print(f"  CANNOT TELL: {endgame['note']}")
-            print(f"  Reported as unknown, never as clean -- an empty "
-                  f"difference from a check that could not run reads exactly "
-                  f"like a good result.\n")
-        else:
-            print(f"  conflicting paths:              {len(endgame['conflicts'])}"
-                  f"   (loud -- whoever runs the merge will see these)")
-            print(f"  present on the branch, ABSENT\n"
-                  f"  from the merge result:          {len(endgame['dropped'])}"
-                  f"   (silent -- no conflict is raised)")
-            if endgame['dropped']:
-                print(f"\n  FINDING: {len(endgame['dropped'])} path(s) would "
-                      f"disappear when this merge lands, with nothing said "
-                      f"about them.\n  The cause is history surgery on "
-                      f"origin/{endgame['base']} -- a reverted merge, a "
-                      f"cherry-pick, a force-push --\n  which leaves the "
-                      f"commits in its log while the tree no longer has the "
-                      f"files, so git\n  treats the work as already merged "
-                      f"and honours the deletion. First few:\n")
-                for path in endgame['dropped'][:10]:
-                    print(f"      {path}")
-                if len(endgame['dropped']) > 10:
-                    print(f"      ... and {len(endgame['dropped']) - 10} more "
-                          f"(--json for the full list)")
-                print()
+        _eg_found, _eg_unknown = 0, False
+        for endgame in endgames:
+            print(f"ENDGAME MERGE -- rehearsing origin/{endgame['target']} into "
+                  f"origin/{endgame['base']}\n")
+            if endgame['status'] in ('cannot-tell', 'error'):
+                print(f"  CANNOT TELL: {endgame['note']}")
+                print(f"  Reported as unknown, never as clean -- an empty "
+                      f"difference from a check that could not run reads exactly "
+                      f"like a good result.\n")
             else:
-                print(f"\n  Nothing disappears silently. Note what this does "
-                      f"NOT say: a path present in\n  the merge result can "
-                      f"still carry the wrong side's content, which only the\n"
-                      f"  conflict set, read by a person, will catch.\n")
-            if endgame['shallow']:
-                print(f"  CAVEAT: this clone is shallow, so the merge base "
-                      f"may not be the real one.\n  Deepen "
-                      f"(`git fetch --unshallow origin`, or a bounded "
-                      f"--depth=N) and re-run before\n  trusting an empty "
-                      f"result.\n")
+                print(f"  conflicting paths:              {len(endgame['conflicts'])}"
+                      f"   (loud -- whoever runs the merge will see these)")
+                print(f"  present on the branch, ABSENT\n"
+                      f"  from the merge result:          {len(endgame['dropped'])}"
+                      f"   (silent -- no conflict is raised)")
+                if endgame['dropped']:
+                    print(f"\n  FINDING: {len(endgame['dropped'])} path(s) would "
+                          f"disappear when this merge lands, with nothing said "
+                          f"about them.\n  The cause is history surgery on "
+                          f"origin/{endgame['base']} -- a reverted merge, a "
+                          f"cherry-pick, a force-push --\n  which leaves the "
+                          f"commits in its log while the tree no longer has the "
+                          f"files, so git\n  treats the work as already merged "
+                          f"and honours the deletion. First few:\n")
+                    for path in endgame['dropped'][:10]:
+                        print(f"      {path}")
+                    if len(endgame['dropped']) > 10:
+                        print(f"      ... and {len(endgame['dropped']) - 10} more "
+                              f"(--json for the full list)")
+                    print()
+                else:
+                    print(f"\n  Nothing disappears silently. Note what this does "
+                          f"NOT say: a path present in\n  the merge result can "
+                          f"still carry the wrong side's content, which only the\n"
+                          f"  conflict set, read by a person, will catch.\n")
+                if endgame['shallow']:
+                    print(f"  CAVEAT: this clone is shallow, so the merge base "
+                          f"may not be the real one.\n  Deepen "
+                          f"(`git fetch --unshallow origin`, or a bounded "
+                          f"--depth=N) and re-run before\n  trusting an empty "
+                          f"result.\n")
+            if endgame['status'] in ('cannot-tell', 'error'):
+                _eg_unknown = True
+            else:
+                _eg_found += len(endgame['dropped'])
         if led:
-            led.end(findings=(None if endgame['status'] in
-                              ('cannot-tell', 'error')
-                              else len(endgame['dropped'])),
+            led.end(findings=None if _eg_unknown else _eg_found,
                     extra_seconds=_endgame_secs)
     elif led:
         led.skipped('ENDGAME MERGE', '--skip-endgame-merge')

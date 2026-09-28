@@ -149,6 +149,7 @@
 | [`todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback`](todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback.md) | Every consumer's occasion index is capped at 4,000 tokens, and nobody decided that number. | 2d | ask |  |
 | [`todo-2026-09-26-frontmatter-field-order-goes-blocking`](todo-2026-09-26-frontmatter-field-order-goes-blocking.md) | Make `frontmatter-field-order` blocking. | 2d | wait | the four practice sets taking the engine update that carries frontmatter-field-o… |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2d | ask |  |
+| [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 0d | ask | push access to themorgan/precedent-individual and themorgan/precedent-shared-wor… |
 
 ## Decisions (the Person's Call)
 
@@ -224,3 +225,4 @@
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-17-weekly-very-deep-check-trigger-decision`](todo-2026-09-17-weekly-very-deep-check-trigger-decision.md) | Decide on, and if approved create, the weekly `very-deep-check` Routine | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
+| [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 2026-09-28 |
