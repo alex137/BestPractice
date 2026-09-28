@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 153 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 159 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -394,6 +394,8 @@ When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
   three-things — the three that matter now, one bold phrase and two lines each
+When a person says "Tier branch", or asks which branches are the tiers:
+  tier-branch — pre-staging, staging or main -- plus staging's old name and Promote's lock
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — write it with disposition ask and remind_on; never a trigger
 When a person says "Upstream fix", or asks whether a change fixes the root cause:
@@ -406,12 +408,18 @@ When a tool, hook, check or gate flags something the person would otherwise have
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; fewer windows at once
+When about to search or scan every clone, every repo or every file for something:
+  wide-search-needs-asking — never sweep every clone unasked; fix the known source, ask for an example
 When adding a file beside others of its kind:
   filename-separator — one word separator per directory and kind; never both - and _
+When an unattended job hits something blocking its normal work, or something optional it cannot reach:
+  automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
 When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual set, never hand-clone it; shared sets clone beside
+  attach-never-clone-individual — attach the individual set; keep one clone, both paths; shared sets clone beside
+When being asked for something another window or session of the person's may already be working on:
+  dont-race-another-window — say so and decline; send them to the window already on it
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else it now serves
 When building a permutation or configuration-sweep table:
@@ -422,6 +430,8 @@ When checking whether practices that should have fired for recent work did:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When committing a shipped practice, hook, template or engine file, before push or merge:
   vendor-rollout-disclosed — say whether shipped content must reach consumers, and whether it will
+When committing anything:
+  session-trailer — a Session: <url> trailer on every commit
 When committing anything that touches the vendored/public tree:
   scrub-gate — the public tree stays public-safe always, not just at check-in
 When comparing an option against a baseline:
@@ -466,6 +476,8 @@ When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
+When setting up a project a session works in, or a session reporting that its checkout is behind:
+  fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
 When starting slow, costly or external work from a snapshot of trunk that another session could start too:

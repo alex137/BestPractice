@@ -771,6 +771,9 @@ RETIRED_ENGINE_FILES = {
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass
+# The first pass's Left-for-you list, as JSON, for the second pass to print.
+# See _take_carried_left.
+_CARRIED_LEFT_ENV = 'PRECEDENT_REFRESH_LEFT_FOR_YOU'
 
 # --- Hook files: the .claude/hooks/*.sh adapter scripts --------------------
 # Distinct from ENGINE_FILES above in two ways: they live in a different
@@ -2726,10 +2729,44 @@ LEGACY_SECRETS = ('PERSONAL_PACK_TOKEN',)
 # Filled by the sweeps below, printed once at the end of refresh() as
 # "Left for you": what the code would not do, and why.
 _LEFT_FOR_YOU = []
+# What the first pass of a self-replacing refresh found, handed to the second
+# pass (_CARRIED_LEFT_ENV) and printed there unless that pass found the same
+# item itself. A finding can be one the second pass cannot find again: the
+# first pass records a missing AGENTS.md section as absent, and the second
+# reads "absent" as a decision already made. Until 2026-09-28 the first pass
+# cleared its list before handing over, so that section was recorded as left
+# out on purpose without the person ever seeing it on the list.
+_CARRIED_LEFT = []
 
 
 def _left(item, why):
     _LEFT_FOR_YOU.append((item, why))
+
+
+def _drop_left(keep):
+    """Filter both lists by keep(item) -- a finding answered in this pass is
+    answered whichever pass first found it."""
+    _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if keep(i)]
+    _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT if keep(i)]
+
+
+def _take_carried_left():
+    """In a second pass: load the first pass's list into _CARRIED_LEFT and
+    -> True. -> False when this is a second pass whose first pass predates
+    the hand-over (an engine older than 2026-09-28 cleared its list and
+    passed nothing), so what it found is gone and the caller must find it
+    again. -> None when this is not a second pass at all."""
+    if not os.environ.get(_SECOND_PASS_ENV):
+        return None
+    raw = os.environ.pop(_CARRIED_LEFT_ENV, None)
+    if raw is None:
+        return False
+    try:
+        items = json.loads(raw)
+    except ValueError:
+        return False
+    _CARRIED_LEFT[:] = [(str(i), str(w)) for i, w in items]
+    return True
 
 
 def _decommission_module():
@@ -2946,7 +2983,7 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         _drop_ci_approvals(dest_root, sorted(removed))
         # Anything an earlier sweep left "for you" about a file now gone is
         # already answered.
-        _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if i not in removed]
+        _drop_left(lambda i: i not in removed)
         _warn_about_dependents(dest_root, sorted(removed),
                                'removed: upstream does not ship it and '
                                'nobody approved it')
@@ -3096,6 +3133,124 @@ def stale_source_paths(dest_root):
     return out
 
 
+TEAM_SET_PREFIX, SHARED_SET_PREFIX = 'precedent-team-', 'precedent-shared-'
+
+
+def renamed_set_path(path):
+    """`../precedent-team-x` -> `../precedent-shared-x`; any other path as
+    it is."""
+    p = pathlib.PurePosixPath(path)
+    if not p.name.startswith(TEAM_SET_PREFIX):
+        return path
+    return str(p.with_name(SHARED_SET_PREFIX + p.name[len(TEAM_SET_PREFIX):]))
+
+
+def repoint_renamed_sources(dest_root):
+    """Rewrite each precedent.json source still declared under a
+    precedent-team-* name or path to its precedent-shared-* one, level
+    `team` -> `shared` with it. -> [(old_name, new_name, old_path, new_path,
+    kept)], where `kept` is True when the path was left as it was.
+
+    The rename is fixed and known, so there is nothing to ask. Listing it
+    for the person was not enough: a set's own precedent-source.json
+    carries its new name, the resolver refuses a clone that answers to a
+    different name than the one declared, and the view sync stopped a
+    consumer's update on exactly that (2026-09-28: "calls itself
+    precedent-shared-repo-maintenance ... declares it as
+    precedent-team-repo-maintenance").
+
+    The PATH moves only when that is safe right now: when something is
+    already at the new path, or nothing is at the old one. A clone still
+    sitting at the old path with nothing at the new is left where it is --
+    repointing would make the set missing, and the sync refuses to write
+    from an incomplete source set -- and the caller says so.
+
+    A clone whose own precedent-source.json still answers to the old name
+    (or to any name but the new one) is left entirely alone: names are the
+    author's since 2026-09-18, so a set may still be called
+    precedent-team-something on purpose, and renaming its declaration would
+    cause the very refusal this exists to prevent. Like stale_source_paths,
+    only sibling (`../`) paths are considered. (practice:
+    vendor-update-runbook, "Fix stale source paths")"""
+    root = pathlib.Path(dest_root)
+    path = root / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+        cfg = json.loads(text)
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    if not isinstance(sources, list):
+        return []
+    done, swaps, relevelled = [], [], []
+    for s in sources:
+        if not isinstance(s, dict):
+            continue
+        name, where = str(s.get('name') or ''), str(s.get('path') or '')
+        if not where.startswith('../'):
+            continue
+        base = pathlib.PurePosixPath(where).name
+        if not (name.startswith(TEAM_SET_PREFIX) or base.startswith(TEAM_SET_PREFIX)):
+            continue
+        new_name = (SHARED_SET_PREFIX + name[len(TEAM_SET_PREFIX):]
+                    if name.startswith(TEAM_SET_PREFIX) else name)
+        moved = renamed_set_path(where)
+        own = None                  # what the clone calls itself, if it says
+        for p in dict.fromkeys((moved, where)):   # precedent_resolve.SOURCE_MANIFEST
+            try:
+                own = json.loads((root / p / 'precedent-source.json').read_text(
+                    encoding='utf-8')).get('name')
+                break
+            except (OSError, ValueError, AttributeError):
+                continue
+        if own and own != new_name:
+            continue
+        new_path, kept = where, False
+        if moved != where:
+            if (root / moved).exists() or not (root / where).exists():
+                new_path = moved
+            else:
+                kept = True
+        for key, old, new in (('name', name, new_name), ('path', where, new_path)):
+            if old != new:
+                s[key] = new
+                swaps.append((json.dumps(old), json.dumps(new)))
+        if s.get('level') == 'team':
+            s['level'] = 'shared'
+            relevelled.append(new_name)
+        if (new_name, new_path) != (name, where) or kept:
+            done.append((name, new_name, where, new_path, kept))
+    if not swaps and not relevelled:
+        return done
+    # Each old string swapped for the new one where it stands, so a
+    # hand-kept file keeps its layout and its comments; only when that does
+    # not give back exactly the intended object is the file rewritten whole.
+    new_text = text
+    for old, new in swaps:
+        new_text = new_text.replace(old, new)
+    for n in relevelled:
+        # The level inside the one object that names this source.
+        m = re.search(r'"name"\s*:\s*' + re.escape(json.dumps(n)), new_text)
+        if not m:
+            continue
+        lo = new_text.rfind('{', 0, m.start())
+        hi = new_text.find('}', m.end())
+        if lo < 0 or hi < 0:
+            continue
+        new_text = (new_text[:lo] + re.sub(r'("level"\s*:\s*)"team"', r'\1"shared"',
+                                           new_text[lo:hi], count=1)
+                    + new_text[hi:])
+    try:
+        ok = json.loads(new_text) == cfg
+    except ValueError:
+        ok = False
+    if not ok:
+        new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+    return done
+
+
 _IDENTITY_RE = re.compile(
     r'git\s+config\s+(?:--(?:global|local)\s+)?user\.(?:name|email)\s+'
     r'["\']?[^"\'$\s-]')
@@ -3153,7 +3308,23 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
     removed_wf = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
     deleted_hooks = _retire_legacy_hooks(dest_root, manifest, pd)
     _remove_retired_config_fields(dest_root)
+    handled = set()
+    for old, new, old_path, new_path, kept in repoint_renamed_sources(dest_root):
+        handled.add(new)
+        if (old, old_path) != (new, new_path):
+            print(f"precedent_vendor_engine refresh: repointed precedent.json "
+                  f"source {old!r} to {new!r} (path {new_path}, level shared) "
+                  f"-- the precedent-team-* sets were renamed "
+                  f"precedent-shared-*, so there is nothing to decide.")
+        if kept:
+            _left(f'precedent.json source {new!r} at {old_path}',
+                  f'its clone is still at {old_path} and nothing is at '
+                  f'{renamed_set_path(old_path)} yet, so the path was left '
+                  f'alone -- clone the set there (or rename the directory), '
+                  f'then run this again')
     for name, path, why in stale_source_paths(dest_root):
+        if name in handled:
+            continue
         _left(f'precedent.json source {name!r} at {path}',
               f'{why} -- repoint it to the current name (vendor-update-runbook, '
               f'"Retire legacy leftovers")')
@@ -3201,12 +3372,17 @@ def print_left_for_you():
                   + (f" Recorded as {todo}." if todo else ''))
         print(bar)
         _KEPT_LOUD.clear()
-    if not _LEFT_FOR_YOU:
+    # The first pass's findings, where this pass did not find the item
+    # itself: this pass's wording is the current engine's, so it wins.
+    fresh = {i for i, _w in _LEFT_FOR_YOU}
+    items = _LEFT_FOR_YOU + [(i, w) for i, w in _CARRIED_LEFT if i not in fresh]
+    _CARRIED_LEFT.clear()
+    if not items:
         return
     print("\nLeft for you -- this refresh would not do these by itself "
           "(vendor-update-runbook, \"Retire legacy leftovers\"):")
     seen = set()
-    for item, why in _LEFT_FOR_YOU:
+    for item, why in items:
         if (item, why) in seen:
             continue
         seen.add((item, why))
@@ -3409,8 +3585,8 @@ def _held_back(dest_root, rel, lost, verb):
     """Leave `rel` alone, loudly: a banner at the end of the refresh, a line
     under "Left for you", and an open item in the repo's todo/. Replaces any
     quieter message an earlier sweep left about the same file."""
-    _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if i != rel]
-    todo = _record_kept_workflow_todo(dest_root, rel, lost, verb)
+    _drop_left(lambda i: i != rel)
+    todo =_record_kept_workflow_todo(dest_root, rel, lost, verb)
     done = 'replaced' if verb == 'replacing' else 'removed'
     _KEPT_LOUD.append((rel, lost, done, todo))
     _left(rel, f'LEFT ALONE, not {done}: it runs {", ".join(lost)}, which the '
@@ -3620,6 +3796,125 @@ _TEMPLATE_HISTORY_NAME = 'template-history.json'
 # Closers and keywords that appear in every block, so their presence says
 # nothing about whether a particular block is there.
 _TRIVIAL_SHELL_LINES = {'fi', 'else', 'then', 'do', 'done', '}', 'esac', ';;'}
+# THE LEGACY SHIM. A pre-Precedent install wrote tools/bootstrap.sh as a
+# thin wrapper that ran process/upstream/tools/bootstrap.sh -- which is
+# BestPractice's OWN session bootstrap, vendored along with the rest of the
+# repo, not templates/bootstrap.sh. So the wrapper runs the wrong script, and
+# until 2026-09-28 the refresh reported it as a diverged copy lacking every
+# block of the template, while step 10(d) said to copy blocks in and never
+# replace the whole file. Replacing it was the only correct result. A file
+# whose every line is the call, generic shell boilerplate, or a line the
+# template already has loses nothing by being replaced, so the refresh does
+# it and says so; one with lines of its own is still reported, with a note.
+_LEGACY_SHIM_TARGET = 'process/upstream/tools/bootstrap.sh'
+_SHIM_BOILERPLATE_RE = re.compile(r'(set\s+-|cd\s|exit(\s|$)|[A-Za-z_][A-Za-z0-9_]*=)')
+
+
+def _legacy_shim_lines(text, template_text):
+    """-> None when `text` never runs _LEGACY_SHIM_TARGET, else the code
+    lines it carries beyond the call, boilerplate and the template's own
+    lines -- [] for a pure shim, which is safe to replace."""
+    code = [ln.strip() for ln in text.splitlines()
+            if ln.strip() and not ln.strip().startswith('#')]
+    if not any(_LEGACY_SHIM_TARGET in c for c in code):
+        return None
+    have = {ln.strip() for ln in template_text.splitlines()}
+    return [c for c in code
+            if _LEGACY_SHIM_TARGET not in c and c not in have
+            and c not in _TRIVIAL_SHELL_LINES and not _SHIM_BOILERPLATE_RE.match(c)]
+
+
+# --- A difference kept on purpose -------------------------------------------
+# Added 2026-09-28. A diverged tools/bootstrap.sh or AGENTS.md section went
+# on the Left-for-you list on every refresh, and precedent_update.py exits 1
+# while that list has anything on it -- so a repo that words a section its
+# own way ON PURPOSE could never finish an update. Measured in three
+# consumers the same day: one listed the same six sections across five
+# updates with the template unchanged since; one listed nine every run after
+# its session had recorded a `diverged` entry in process/manifest.json,
+# which the runbook pointed at and nothing here ever read; one's
+# bootstrap.sh was the template plus one pip package. A MISSING section was
+# already remembered; a diverged one had no way to be.
+#
+# THE DECLARATION, in precedent.json, one entry per kept item, keyed by the
+# item exactly as the report names it ("tools/bootstrap.sh", or "AGENTS.md"
+# then a space then the section's heading line):
+#
+#     "kept_template_divergences": {
+#       "tools/bootstrap.sh": {
+#         "reason": "adds pyyaml; our scripts import it",
+#         "template_sha256": "<printed by the refresh>"
+#       }
+#     }
+#
+# A REASON IS REQUIRED, for local_ci_workflows' reason: an entry without
+# one is not honoured, and the refresh says so. THE HASH PINS THE DECISION
+# to the template text it was made against -- the whole template file for
+# bootstrap.sh, the instantiated section for AGENTS.md -- the way
+# practice_audit.py pins a decline. While it matches, the item prints one
+# line with its reason and stays off the list; once upstream changes that
+# text, the decision no longer covers what is in force and the item is
+# listed again in full, with the new hash to record if it is still kept.
+KEPT_DIVERGENCES_KEY = 'kept_template_divergences'
+
+
+def kept_template_divergences(dest_root):
+    """-> {item: {'reason': str, 'template_sha256': str}} from precedent.json.
+    Never raises, for local_ci_workflows' reason: an unreadable declaration
+    is no declaration, and the item is listed as it would have been."""
+    try:
+        declared = json.loads((dest_root / 'precedent.json').read_text(
+            encoding='utf-8')).get(KEPT_DIVERGENCES_KEY) or {}
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return {}
+    if not isinstance(declared, dict):
+        return {}
+    return {str(k): {'reason': str(v.get('reason') or '').strip(),
+                     'template_sha256': str(v.get('template_sha256') or '').strip()}
+            for k, v in declared.items() if isinstance(v, dict)}
+
+
+def _kept_divergence(dest_root, item, template_sha):
+    """-> (verdict, reason) for one diverged item: 'kept' when precedent.json
+    records it with a reason against this template text, 'stale' when it
+    was recorded against older text, 'unreasoned' when it has no reason,
+    None when it is not recorded at all."""
+    entry = kept_template_divergences(dest_root).get(item)
+    if entry is None:
+        return None, ''
+    if not entry['reason']:
+        return 'unreasoned', ''
+    if entry['template_sha256'] != template_sha:
+        return 'stale', entry['reason']
+    return 'kept', entry['reason']
+
+
+def _report_kept(dest_root, item, what, template_sha):
+    """Print the kept-divergence line for a diverged `item` that lacks
+    template blocks, and -> True when the declaration covers it, so the
+    caller lists nothing. Otherwise prints, under the DIVERGED listing the
+    caller has just printed, what recording it would take (indented, so
+    precedent_update.py carries it under the item), and -> False."""
+    verdict, reason = _kept_divergence(dest_root, item, template_sha)
+    if verdict == 'kept':
+        print(f"KEPT ON PURPOSE: {item} differs from {what} as precedent.json's "
+              f"{KEPT_DIVERGENCES_KEY} records -- \"{reason}\". Not listed "
+              f"again until upstream changes that text.")
+        return True
+    if verdict == 'stale':
+        print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} as kept "
+              f"on purpose (\"{reason}\"), but upstream's {what} has changed "
+              f"since -- read it again; if it is still kept, set its "
+              f"template_sha256 to {template_sha}")
+    elif verdict == 'unreasoned':
+        print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} with no "
+              f"reason, so not honoured -- give it one")
+    snippet = json.dumps({KEPT_DIVERGENCES_KEY: {item: {
+        'reason': '<why this repo keeps it>', 'template_sha256': template_sha}}},
+        ensure_ascii=False)
+    print(f"    kept on purpose? record it in precedent.json, then run again: "
+          f"{snippet[1:-1]}")
+    return False
 
 
 def _git_blob_id(data):
@@ -3711,6 +4006,9 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
       'refresh'  -- matches the recorded hash (unedited), template moved.
       'adopt'    -- nothing recorded, but identical to a past version of
                     the template (unedited, predates tracking).
+      'legacy-shim' -- the pre-Precedent wrapper that runs upstream's own
+                    bootstrap, and nothing of its own (_LEGACY_SHIM_TARGET).
+                    Replaced with the template, and said so.
       'diverged' -- carries local edits. Reported, never written."""
     recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
     try:
@@ -3734,6 +4032,9 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
             action = 'refresh' if on_disk == recorded[rel] else 'diverged'
         elif _git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ()):
             action = 'adopt'
+        elif _legacy_shim_lines(path.read_text(encoding='utf-8', errors='replace'),
+                                src.read_text(encoding='utf-8')) == []:
+            action = 'legacy-shim'
         else:
             action = 'diverged'
         plan.append((src_rel, rel, action))
@@ -3744,7 +4045,7 @@ def _template_instances_pending(plan, manifest):
     """True when applying `plan` would change a file or the manifest -- what
     refresh()'s early exit has to ask, like ci_incomplete."""
     recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
-    return any(action in ('refresh', 'adopt')
+    return any(action in ('refresh', 'adopt', 'legacy-shim')
                or (action == 'current' and rel not in recorded)
                or (action == 'absent' and rel in recorded)
                for _s, rel, action in plan)
@@ -3758,23 +4059,34 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
     for src_rel, rel, action in plan:
         if action != 'diverged':
             continue
-        lacks = missing_template_blocks(
-            (dest_root / rel).read_text(encoding='utf-8', errors='replace'),
-            (templates_dir / src_rel).read_text(encoding='utf-8'))
+        local = (dest_root / rel).read_text(encoding='utf-8', errors='replace')
+        template = (templates_dir / src_rel).read_text(encoding='utf-8')
+        lacks = missing_template_blocks(local, template)
         if not lacks:
             print(f"DIVERGED: {rel} has local edits and carries every block "
                   f"of upstream's {src_rel} -- left as it is, nothing to "
                   f"copy in.")
             continue
+        template_sha = _sha256(templates_dir / src_rel)
+        if _kept_divergence(dest_root, rel, template_sha)[0] == 'kept':
+            _report_kept(dest_root, rel, src_rel, template_sha)
+            continue
+        shim_own = _legacy_shim_lines(local, template)
         print(f"DIVERGED: {rel} has local edits, so refresh leaves it "
               f"alone (it never overwrites a line of it, --force included). "
               f"It lacks {len(lacks)} block(s) upstream's {src_rel} carries:")
         for line_no, title, how in lacks:
             print(f"    {src_rel}:{line_no} \"{title}\" -- {how}")
+        if shim_own:
+            print(f"    it is the old install's wrapper, which runs "
+                  f"{_LEGACY_SHIM_TARGET} -- upstream's own bootstrap, not "
+                  f"the template -- plus {len(shim_own)} line(s) of its own: "
+                  f"replace it with {src_rel} and carry those lines in")
+        _report_kept(dest_root, rel, src_rel, template_sha)
         _left(rel, f'diverged from {src_rel} and lacks {len(lacks)} of its '
                    f'blocks (listed above) -- copy each in from the template '
-                   f'by hand, keeping this repo\'s own lines '
-                   f'(vendor-update-runbook step 10(d))')
+                   f'by hand, keeping this repo\'s own lines, or record it '
+                   f'as kept on purpose (vendor-update-runbook step 10(d))')
 
 
 def _refresh_template_instances(dest_root, kind, templates_dir, manifest, plan):
@@ -3791,12 +4103,18 @@ def _refresh_template_instances(dest_root, kind, templates_dir, manifest, plan):
     rewritten = []
     for src_rel, rel, action in plan:
         src = templates_dir / src_rel
-        if action in ('refresh', 'adopt'):
+        if action in ('refresh', 'adopt', 'legacy-shim'):
             path = dest_root / rel
             shutil.copyfile(src, path)
             path.chmod(0o755)
             rewritten.append(rel)
-        if action in ('refresh', 'adopt', 'current'):
+        if action == 'legacy-shim':
+            print(f"precedent_vendor_engine refresh: REPLACED {rel}: it was the "
+                  f"old install's wrapper, which ran {_LEGACY_SHIM_TARGET} -- "
+                  f"upstream's own session bootstrap, not {src_rel} -- and "
+                  f"carried nothing of its own. It is {src_rel} now; the "
+                  f"wrapper stays in git history.")
+        if action in ('refresh', 'adopt', 'current', 'legacy-shim'):
             recorded[rel] = _sha256(src)
         elif action == 'absent' and recorded.pop(rel, None):
             print(f"NOTE: precedent_vendor_engine refresh: {rel} is gone from "
@@ -3877,6 +4195,9 @@ def record_template_instances(dest_root, kind, source_root):
 #               repo has rearranged is a judgment. Recorded as absent, so
 #               the next refresh says it in one line rather than again in
 #               full -- a section a repo chose not to have is a decision.
+#               It is only a decision once the person has been asked, so a
+#               self-replacing refresh hands this item to its second pass,
+#               which reads "absent" (_CARRIED_LEFT).
 #   absent   -- that, on a later refresh.
 # A heading that appears twice in AGENTS.md is diverged: no write can know
 # which of the two was meant.
@@ -4199,11 +4520,18 @@ def missing_markdown_blocks(local_section, template_section):
     return out
 
 
-def _report_agents_md(dest_root, templates_dir, plan):
+def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
-    _report_diverged_template_instances gives."""
+    _report_diverged_template_instances gives.
+
+    `reask_absent`: report an 'absent' section as 'missing' again. Set in the
+    second pass of a self-replacing refresh whose first pass, an engine older
+    than 2026-09-28, recorded sections as absent and handed nothing over --
+    this pass cannot tell which of them that pass recorded a moment ago, and
+    asking once more about a section left out on purpose costs a re-run,
+    where staying quiet about one nobody was asked about costs the section."""
     if not plan:
         return
     subs = _agents_md_subs(dest_root)
@@ -4211,6 +4539,11 @@ def _report_agents_md(dest_root, templates_dir, plan):
     template_text = None
     complete = []
     for key, src_rel, line_no, action, span in plan:
+        if action == 'absent' and reask_absent:
+            print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, but "
+                  f"possibly only by the first pass of this refresh, whose "
+                  f"older engine did not hand its list over -- asking again.")
+            action = 'missing'
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
                   f"{src_rel}:{line_no} has one. Not written in: where it goes "
@@ -4243,6 +4576,12 @@ def _report_agents_md(dest_root, templates_dir, plan):
         if not lacks:
             complete.append(key)
             continue
+        item = f'{AGENTS_MD} {key}'
+        what = f'{src_rel} section "{key}"'
+        template_sha = _sha_text(_instantiate(raw, subs))
+        if _kept_divergence(dest_root, item, template_sha)[0] == 'kept':
+            _report_kept(dest_root, item, what, template_sha)
+            continue
         print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "
               f"of it, --force included). It lacks {len(lacks)} block(s) the "
@@ -4251,10 +4590,11 @@ def _report_agents_md(dest_root, templates_dir, plan):
             print(f"    {src_rel}:{t_line + offset} \"{title}\" -- {how}")
             for s in absent:
                 print(f"        lacks: \"{s if len(s) <= 160 else s[:157] + '...'}\"")
+        _report_kept(dest_root, item, what, template_sha)
         _left(f'{AGENTS_MD} "{key}"', f'diverged from {src_rel} and lacks '
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
-              f'hand, keeping this repo\'s own text (vendor-update-runbook '
-              f'step 10(d))')
+              f'hand, keeping this repo\'s own text, or record it as kept on '
+              f'purpose (vendor-update-runbook step 10(d))')
     if complete:
         print(f"DIVERGED, nothing to copy in: {AGENTS_MD} "
               f"{', '.join(repr(k) for k in complete)} carr"
@@ -4433,6 +4773,14 @@ def _git(cwd, *args):
     letting silence read as confirmation."""
     return subprocess.run(['git', '-C', str(cwd)] + list(args),
                           capture_output=True, text=True).stdout.strip()
+
+
+def tracking_refspec(branch):
+    """The refspec that fetches `branch` INTO origin/<branch>, whatever the
+    clone's configured refspec says. A single-branch clone's covers only the
+    branch it was cloned at, so `fetch origin main` there updates FETCH_HEAD
+    and nothing a later `origin/main` lookup can find."""
+    return f'+refs/heads/{branch}:refs/remotes/origin/{branch}'
 
 
 def _git_read(cwd, *args):
@@ -4775,6 +5123,10 @@ def _status_template_instances(clone, commit, kind, manifest):
                            'brings it up to date',
                 'adopt': 'an unedited past version of the template, not yet '
                          'tracked -- `refresh` brings it up to date',
+                'legacy-shim': f"the old install's wrapper around "
+                               f"{_LEGACY_SHIM_TARGET}, which is upstream's "
+                               f"own bootstrap -- `refresh` replaces it with "
+                               f"the template",
                 'absent': 'not on disk -- never recreated'}
         for _src, rel, action in plan:
             if action in says:
@@ -4824,8 +5176,13 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # has no SOURCE_BRANCH, is a supported case -- the _rev fallback below
     # handles it, and a hard failure here would break vendoring from a local
     # clone that is already up to date.
+    # The refspec is explicit because a bare `fetch origin <branch>` writes
+    # only FETCH_HEAD in a single-branch clone (`clone --branch X
+    # --depth 1`), whose configured refspec covers X alone -- so
+    # origin/<branch> never appeared and the second pass failed "has no
+    # main" on a clone that had just fetched it (2026-09-28).
     if fetch:
-        _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
+        _git(clone, 'fetch', '--quiet', 'origin', tracking_refspec(SOURCE_BRANCH))
     # `ref`, when given, names the exact commit to read (seed() passes this
     # checkout's own HEAD -- it is not vendoring from a branch at all).
     # Otherwise: origin/<branch> first, then a local branch of that name --
@@ -5149,6 +5506,8 @@ def refresh(clone, force=False, ref=None):
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
+    # False only in a second pass whose first pass handed nothing over.
+    handed_over = _take_carried_left() is not False
 
     # Before anything else, including the drift check below: a retired CI
     # workflow entry is cleaned up unconditionally, --force or not, so its
@@ -5322,7 +5681,8 @@ def refresh(clone, force=False, ref=None):
         # reported. See AGENTS_MD_TEMPLATES.
         agents_plan = _agents_md_plan(ROOT, kind, engine_dir / 'templates', manifest)
         agents_pending = _agents_md_pending(agents_plan, manifest)
-        _report_agents_md(ROOT, engine_dir / 'templates', agents_plan)
+        _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
+                          reask_absent=not handed_over)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
@@ -5487,13 +5847,19 @@ def refresh(clone, force=False, ref=None):
         print("precedent_vendor_engine refresh: this refresh replaced the "
               "vendoring tool itself, so its own file list may have changed "
               "-- running once more with the new copy.")
-        # The second pass runs every sweep again and prints its own list;
-        # printing this one too would say each item twice.
+        # The second pass runs every sweep again and prints the one list, so
+        # this pass hands its findings over rather than printing them: what
+        # the second pass finds again it says in its own words, and what it
+        # cannot find again (a section this pass just recorded as absent) it
+        # prints from here. Clearing without handing over lost exactly those
+        # until 2026-09-28 -- see _CARRIED_LEFT.
+        carried = json.dumps(_LEFT_FOR_YOU + _CARRIED_LEFT)
         _LEFT_FOR_YOU.clear()
+        _CARRIED_LEFT.clear()
         r = subprocess.run(
             [sys.executable, str(HERE), 'refresh', str(clone), '--force']
             + (['--from-ref', ref] if ref else []),
-            env={**os.environ, _SECOND_PASS_ENV: '1',
+            env={**os.environ, _SECOND_PASS_ENV: '1', _CARRIED_LEFT_ENV: carried,
                  _WAS_COMMIT_ENV: (os.environ.get(_WAS_COMMIT_ENV)
                                    or manifest.get('source_commit') or '')})
         if r.returncode != 0:

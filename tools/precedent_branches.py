@@ -75,7 +75,8 @@ steps waiting makes the Promote ambiguous -- else the one --work needs. It print
 anything else. Into main it runs the same full check on staging merged into
 main, then pushes a throwaway copy of staging for the pull request into
 main; that pull request's GitHub test is main's last gate, so main itself
-is never pushed from here.
+is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
+0, and says first that main has not moved: exit 0 means the branch moved.
 
 CLI:
   precedent_branches.py                     the tiers, as this repo resolves them
@@ -94,7 +95,10 @@ CLI:
                                             lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
                                             pre-staging into staging, or staging into
-                                            main, fully checked; says which first
+                                            main, fully checked; says which first.
+                                            0 moved or nothing to move, 1 refused,
+                                            3 main not moved yet (its pull request
+                                            is still to open, test and merge)
   precedent_branches.py --ensure-tiers [--apply]
                                             report (or make) pre-staging and a real
                                             staging branch on origin -- the migration step
@@ -1272,7 +1276,9 @@ def promotion_step(root, to=None, work=None):
 def promote(root, say=print, to=None, work=None):
     """Pick the step (promotion_step), SAY it, then run it, one window at a
     time. -> 0 promoted, nothing to promote, or another window already
-    promoting; 1 refused (a failing check, a conflict, a race)."""
+    promoting; 1 refused (a failing check, a conflict, a race);
+    PROMOTE_MAIN_NOT_MOVED when staging into main is ready for its pull
+    request and main has not moved yet."""
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
     above = _drifted_from_above(root) if step is None else []
@@ -1403,13 +1409,22 @@ def _to_main_copy(root):
     return base if not _remote_tip(root, base) else f'to-main-{moment}'
 
 
+# Exit 0 from a Promote means the branch it names has moved. Into main it
+# stops short -- the pull request, its GitHub test and the merge are the
+# session's -- and until 2026-09-28 it still exited 0 there: a session read
+# the 0 as done while main had not moved. That state has its own code now,
+# distinct from a refusal (1) and a usage error (2).
+PROMOTE_MAIN_NOT_MOVED = 3
+
+
 def _promote_to_main(root, say=print):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
     GitHub test is the last gate (spec/BRANCH_TIERS_PLAN.md: main gets "all
     those local tests AND the most important GitHub test"). Main is moved by
-    that pull request, never by this script. -> 0 ready or nothing to
-    promote; 1 refused."""
+    that pull request, never by this script. -> PROMOTE_MAIN_NOT_MOVED when
+    the copy is ready and main has not moved yet; 0 nothing to promote; 1
+    refused."""
     staging = staging_branch(root)
     # What reached main or staging by another route is checked and copied
     # down first, the same as before the step into staging.
@@ -1456,7 +1471,9 @@ def _promote_to_main(root, say=print):
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
         return 1
-    say(f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
+    say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
+        f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
+        f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
         f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
@@ -1464,7 +1481,7 @@ def _promote_to_main(root, say=print):
         f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
         f'and merge it with a merge commit once that says PASSED. Never open '
         f'it from {staging} itself.')
-    return 0
+    return PROMOTE_MAIN_NOT_MOVED
 
 
 def _promote_unlocked(root, say=print):

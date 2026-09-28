@@ -50,7 +50,14 @@ if [[ "$in_git" == "1" ]] && [[ -n "$(git remote 2>/dev/null)" ]]; then
 
   current_branch="$(git branch --show-current)"
   if [[ -n "$current_branch" ]] && git rev-parse -q --verify "origin/$current_branch" >/dev/null 2>&1; then
-    unpushed="$(git rev-list "origin/$current_branch..HEAD" --count 2>/dev/null || echo 0)"
+    # Unpushed means on NO remote ref, not "ahead of origin/<this branch>"
+    # (2026-09-28, reported from a consumer repo). That one ref goes stale:
+    # its remote copy deleted after the pull request merged, or the branch
+    # reset onto origin/pre-staging whose tip merges it. Both times the hook
+    # counted commits origin/main or origin/pre-staging already held. A
+    # stale ref still counts as a remote here -- its commits were pushed
+    # once -- but it is never the only thing the count is measured against.
+    unpushed="$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)"
     # Commits that change no file -- a merge, an empty commit -- lose nothing,
     # so they never block a stop (Morgan, 2026-09-27, strength: decided):
     # identical files on origin means nothing is at risk. Otherwise the count
@@ -59,7 +66,7 @@ if [[ "$in_git" == "1" ]] && [[ -n "$(git remote 2>/dev/null)" ]]; then
       unpushed=0
     fi
     if [[ "$unpushed" -gt 0 ]]; then
-      real="$(git rev-list --no-merges "origin/$current_branch..HEAD" --count -- . 2>/dev/null || echo 0)"
+      real="$(git rev-list --count --no-merges HEAD --not --remotes -- . 2>/dev/null || echo 0)"
       [[ "$real" -gt 0 ]] && unpushed="$real"
       reasons+=("$unpushed unpushed commit(s) on branch '$current_branch'. Push them to the remote before stopping.")
     fi

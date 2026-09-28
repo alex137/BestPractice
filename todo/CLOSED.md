@@ -4,6 +4,7 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | done | 2026-09-28 |
 | [`todo-2026-09-06-retire-merge-target-practice`](todo-2026-09-06-retire-merge-target-practice.md) | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_br | done | 2026-09-27 |
 | [`todo-2026-09-08-upstream-notice-silent-when-rooted-above`](todo-2026-09-08-upstream-notice-silent-when-rooted-above.md) | The upstream-carry notice is silent in exactly the layout this project requires, and nothing reports its absence. | dropped | 2026-09-27 |
 | [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | done | 2026-09-26 |
