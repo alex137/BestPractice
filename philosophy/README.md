@@ -37,6 +37,8 @@ good at that is worth protecting.
 
 *Lineage: `RANDOM_NOTES.md` became [Assorted Notes](ASSORTED_NOTES.md)
 on 2026-09-09, and `OPEN_QUESTIONS.md` was folded into that document's
-closing Open Questions section the same day
+closing Open Questions section the same day.
+[AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) was promoted out
+of Assorted Notes into its own essay
 ([index-remembers-past](../practices/index-remembers-past.md) keeps this
 here rather than in either document).*
