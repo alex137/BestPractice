@@ -17,7 +17,10 @@ repository's own settings declare, as that repository's own hook would have.
 
 When the session is opened IN a repository with its own settings, that
 repository's hooks already ran natively, and this does nothing -- so a
-user-level hook calling it is safe in every kind of session.
+user-level hook calling it is safe in every kind of session. A settings file
+in a folder that is NOT a repository (`/home/user/.claude/settings.json`,
+which is where the hook lands when the setup script writes `/home/user/`
+for `~`) is not a repository's hooks, so the runner still runs there.
 
 Never fails the session: every error is reported on stderr and the exit is
 always 0. A hook's own output goes to a log (it would otherwise be injected
@@ -100,10 +103,12 @@ def repos_under(root):
 
 def run(root, log=None, say=None):
     """-> [(repo, command, returncode)] for every hook run. Runs nothing
-    when `root` has settings of its own (its hooks ran natively)."""
+    when `root` is itself a repository with settings of its own (its hooks
+    ran natively)."""
     root = pathlib.Path(root).resolve()
     say = say or (lambda m: print(m, file=sys.stderr))
-    if (root / '.claude' / 'settings.json').is_file():
+    if (root / '.git').exists() and \
+            (root / '.claude' / 'settings.json').is_file():
         return []
     log = log or (pathlib.Path.home() / '.cache' / LOG_NAME)
     ran, contexts = [], []

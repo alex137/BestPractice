@@ -37,8 +37,9 @@ PRECEDENT_COMMIT_EMAIL=you@example.com
 PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires   # an IANA zone name, never an offset
 
 # Only if a team practice source resolves as a sibling clone beside this
-# project — skip it otherwise:
-PRECEDENT_FRESHNESS_ALSO=~/precedent-individual=main
+# project — skip it otherwise. A hosted session clones everything under
+# /home/user/, never ~ (which is /root there), so write the full path:
+PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-team-set>=main
 ```
 
 Once `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` are set, the
@@ -49,7 +50,11 @@ nothing can resolve on its own is your timezone in that set's
 `identity.json`; `PRECEDENT_COMMIT_TZ` above covers the same ground without
 it.
 
-## When a Session Opens Above Your Repos
+## Optional but Recommended: Run Each Repo's Startup Hooks
+
+**Skip this and a session that opens across several repositories quietly
+runs none of their startup hooks.** It is one paste into the environment's
+setup script, done once per environment.
 
 Claude Code runs the hooks of the folder a session is opened in. A session
 that works across several repositories is opened in the folder that holds
@@ -64,7 +69,10 @@ nothing in a session opened inside a repository.
 
 Add this to the environment's **setup script** (the environment's settings,
 under Setup script). It writes the user-level hook each time a container
-starts; new sessions pick it up:
+starts, and only new sessions pick it up. `~` is `/root` on a hosted
+container, so `~/.claude` is the user-level folder; written as
+`/home/user/.claude` instead, it becomes the settings of the folder the
+session opens in, which works just as well for a session opened there:
 
 ```sh
 mkdir -p ~/.claude
@@ -81,17 +89,17 @@ p.write_text(json.dumps(d, indent=2))
 PY
 ```
 
-**Not yet seen working end to end (2026-09-28).** The runner itself was
-run in a real session opened in `/home/user` and ran all 25 hooks across six
-repositories, but whether the hosted harness reads a user-level
-`~/.claude/settings.json` written by the setup script has not been
-confirmed. The first session after adding it says:
+**First added to a real environment on 2026-09-28, not yet confirmed in a
+session started after it.** The runner itself was run by hand in a real
+session opened in `/home/user` and ran all 25 hooks across six repositories;
+whether the hosted harness reads the user-level settings the setup script
+writes is what the next new session shows. In it,
 `python3 tools/precedent_session_check.py` reports whether
-`.precedent/SESSION_PRACTICES.md` exists and whether commits are authored
-by you, and both are red when no hook ran.
+`.precedent/SESSION_PRACTICES.md` exists and whether commits are authored by
+you, and both are red when no hook ran.
 
-While there, check `PRECEDENT_FRESHNESS_ALSO`: on a hosted session the
-sets are cloned under `/home/user/`, not `~`, and
+While there, check `PRECEDENT_FRESHNESS_ALSO`: it should name
+`/home/user/` paths, as in the example above, and
 `python3 tools/precedent_session_check.py` prints the value computed from
 the clones actually on disk.
 

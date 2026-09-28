@@ -18,6 +18,13 @@ variables.** [CLOUD_SETUP.md](CLOUD_SETUP.md) walks through just that part,
 cloud-first; come back here for `identity.json`, the leak gate's vocabulary
 layer, or anything you're running locally instead.
 
+**Optional but recommended on the web: one setup-script paste**, so a
+session opened across several repositories still runs each one's startup
+hooks. It is
+[CLOUD_SETUP.md's own section](CLOUD_SETUP.md#optional-but-recommended-run-each-repos-startup-hooks).
+Every path in a hosted container is under `/home/user/`, not `~` (which is
+`/root` there), so write `/home/user/` in any variable that names a clone.
+
 ## What Applies Until You Set Any of It
 
 **Nothing here is asked of you** — not at install, not at setup, not by a
@@ -63,8 +70,9 @@ export PRECEDENT_COMMIT_EMAIL="<you@example.com>"
 export PRECEDENT_COMMIT_TZ="America/New_York"   # an IANA zone name, never an offset
 
 # Freshness-check repositories your project's own hooks never reach.
-# Write `~/name`, never a spelled-out path: $HOME differs between containers.
-export PRECEDENT_FRESHNESS_ALSO="~/precedent-individual=main"
+# On a hosted session every clone is under /home/user/ (~ is /root there);
+# on your own computer, use wherever your clones actually are.
+export PRECEDENT_FRESHNESS_ALSO="/home/user/precedent-individual=main"
 ```
 
 **2. Your user-level config**, at `~/.config/precedent/config.json` — the
@@ -165,7 +173,7 @@ follow a session into every repository it touches.
 | `PRECEDENT_COMMIT_NAME` | Recommended | `Your Name` |
 | `PRECEDENT_COMMIT_EMAIL` | Recommended, alongside the name | `you@example.com` |
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
-| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
+| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `/home/user/precedent-individual=main;/home/user/precedent-team-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
 | `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |

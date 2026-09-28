@@ -26069,9 +26069,20 @@ def check_session_hooks_run_for_a_session_opened_above_the_repos():
         (root / 'alpha' / 'ran').unlink()
         (root / '.claude').mkdir()
         (root / '.claude' / 'settings.json').write_text('{}', encoding='utf-8')
+        # A setup script that writes the hook to /home/user/.claude rather
+        # than ~/.claude gives the non-repository root settings of its own;
+        # those are not a repository's hooks, so the runner still runs.
+        with contextlib.redirect_stdout(io.StringIO()):
+            ran_folder = rsh.run(root, log=tmp / 'log', say=lambda m: None)
+        cases.append(('a root that is a plain folder with settings of its own '
+                      'still runs its repos\' hooks',
+                      (root / 'alpha' / 'ran').is_file(), repr(ran_folder)))
+        (root / 'alpha' / 'ran').unlink(missing_ok=True)
+        (root / '.git').mkdir()
         ran2 = rsh.run(root, log=tmp / 'log', say=lambda m: None)
-        cases.append(('THE DISCRIMINATING CASE: a root with its own settings '
-                      'runs nothing (its hooks ran natively)',
+        cases.append(('THE DISCRIMINATING CASE: a root that is a repository '
+                      'with its own settings runs nothing (its hooks ran '
+                      'natively)',
                       ran2 == [] and not (root / 'alpha' / 'ran').exists(),
                       repr(ran2)))
     finally:

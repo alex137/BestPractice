@@ -220,6 +220,15 @@ nothing to choose here — this page installs §0, always.
       PRECEDENT_SOURCE_BASE_URL=https://github.com/their-github-account
       ```
 
+      **Optional but recommended: one paste into the environment's setup
+      script.** A session that works across several of their repositories
+      opens in the folder above them, where none of the repositories'
+      startup steps run on their own, so their rules and their name on
+      commits quietly go missing. The paste is in
+      [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md#optional-but-recommended-run-each-repos-startup-hooks); hand it to them
+      as it stands. Skipping it is harmless for someone who only ever
+      works in one repository at a time.
+
       Two things to say out loud, because both cost a day when they are
       not said. **A change here never reaches a session already open** —
       start a new one to test it. And **if their account has two

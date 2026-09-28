@@ -1548,4 +1548,6 @@ check needs to read a repository's protection settings.
 
 **Most people set this up on Claude Code on the web, not a local
 checkout** — [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md) is the fast path for exactly
-that case; `PER_MACHINE_SETUP.md` is the complete reference underneath it.
+that case, including its optional but recommended setup-script step for a
+session opened above several repositories; `PER_MACHINE_SETUP.md` is the
+complete reference underneath it.
