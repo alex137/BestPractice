@@ -306,6 +306,10 @@ reports the hook as unwired at every session start. The hook file and the one
 for a set whose settings do not already declare the hook — ahead of
 `commit-identity.sh`, which reads that set for the author and the timezone.
 
+An individual set may also ship `bootstrap/pre-commit-fix`: the commit
+backstop runs it before every commit in every repository, and never lets it
+refuse one.
+
 **Verified end to end, 2026-09-10.** A real read-scoped token set on the
 environment, and a brand-new container came up with all four private sources
 already cloned, before the first turn:

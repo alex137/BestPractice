@@ -93,6 +93,13 @@ just correct.
 question** -- run [prompt-please](prompt-please.md) on the spot, same as
 [go-update](go-update.md).
 
+**A person whose `identity.json` sets `promote_only: true` cannot be pushed
+to `staging` or `main` this way**: the push gate refuses it. For that
+person, "push directly to main" lands on their landing branch and a
+Promote moves it up; say so in the reply's first line
+([current-rule-governs](current-rule-governs.md)) rather than letting the
+gate refuse the push.
+
 ## Why
 `Go update`'s Rule already allows overriding its own high-risk/default
 classification with a direct, specific instruction -- but writing that
