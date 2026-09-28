@@ -83,7 +83,8 @@ def _lost_practices(repo, res, sources, withheld):
     catalogue has nothing to lose, and a guard that guessed here would fire
     on every fresh install.
     """
-    empty = {'blocking': [], 'source_dropped': [], 'moved_without_record': []}
+    empty = {'blocking': [], 'source_dropped': [], 'moved_without_record': [],
+             'withdrawn_upstream': []}
     try:
         r = subprocess.run(['git', '-C', str(repo), 'show', 'HEAD:MANIFEST.json'],
                            capture_output=True, text=True, timeout=30)
@@ -120,7 +121,8 @@ def _lost_practices(repo, res, sources, withheld):
     withheld = set(withheld or ())
     declared = {s.get('name') for s in sources}
 
-    out = {'blocking': [], 'source_dropped': [], 'moved_without_record': []}
+    out = {'blocking': [], 'source_dropped': [], 'moved_without_record': [],
+           'withdrawn_upstream': []}
     # Where each slug's record at its OLD source went: still there and
     # shadowed (a copy, both ends active), or withdrawn with a forwarding
     # address (a move done right), or simply gone (a copy-and-delete).
@@ -149,6 +151,16 @@ def _lost_practices(repo, res, sources, withheld):
                     and (slug, src) not in shadowed_at
                     and (slug, src) not in withdrawn_at):
                 out['moved_without_record'].append((slug, src, here))
+            continue
+        # WITHDRAWN AT ITS OWN SOURCE: the source still carries the file,
+        # marked deduplicated or retired, so the rule was renamed, moved with
+        # a forwarding address, or retired upstream -- not lost to a stale
+        # copy. That removal is correct and says so rather than blocking.
+        # 2026-09-28: go-merge, renamed go-update two days earlier, stopped
+        # two consumers' updates here until each re-ran by hand with
+        # --allow-removals.
+        if src in declared and (slug, src) in withdrawn_at:
+            out['withdrawn_upstream'].append((slug, src))
             continue
         (out['source_dropped'] if src not in declared
          else out['blocking']).append((slug, src))
@@ -431,6 +443,19 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 "which makes the removal correct for a reason that has "
                 "nothing to do with the source. `--allow-removals` proceeds "
                 "once you know which one you have.")
+        if _lost.get('withdrawn_upstream'):
+            fwd = {(r.get('slug'), r.get('source')):
+                   str((r.get('fm') or {}).get('in_force_at') or '').strip('"\' ')
+                   for r in (res.get('retired') or []) if isinstance(r, dict)}
+            print("precedent_sync_views: removing "
+                  f"{len(_lost['withdrawn_upstream'])} practice(s) their own "
+                  "source now marks deduplicated or retired, so the removal is "
+                  "correct: " + '; '.join(
+                      f"{s} (from {src}"
+                      + (f", now in force as {fwd[(s, src)]}"
+                         if fwd.get((s, src)) and fwd[(s, src)] != 'null' else '')
+                      + ")" for s, src in sorted(_lost['withdrawn_upstream'])),
+                  file=sys.stderr)
         for slug, was, here in sorted(_lost['moved_without_record']):
             # A warning, not a refusal: the rule IS in force, from `here`.
             # What is missing is the record at `was` saying it left.
