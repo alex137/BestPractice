@@ -62,6 +62,10 @@ h1, h2, h3 {
   font-weight: 600; line-height: 1.15; text-wrap: balance; color: var(--ink);
 }
 h1 { font-size: 2.3rem; margin: 0.4rem 0 0.2rem; }
+nav.contents { margin: 0.8rem 0 1.2rem; padding: 0.6rem 1rem; border-left: 3px solid var(--rule, #c8c8c8); }
+nav.contents .contents-label { font-weight: 600; display: block; margin-bottom: 0.2rem; }
+nav.contents ol { margin: 0; padding-left: 1.2rem; }
+p.contents-back { font-size: 0.85rem; margin: 0.4rem 0 1.6rem; }
 h2 { font-size: 1.55rem; margin: 2.4rem 0 0.6rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.25rem; }
 h3 { font-size: 1.2rem; margin: 1.8rem 0 0.5rem; }
 p, ul, ol { max-width: 72ch; }
@@ -128,7 +132,8 @@ audience:      session
 summary:       The verdict recorded for each inherited practice against the architecture the restructuring plan approved.</p>
 <hr />
 <h1 id="pre-fork-catalogue-audit">Pre-Fork Catalogue Audit</h1>
-<time class="renderstamp" datetime="2026-09-14T17:43:47+00:00">2026-09-14 17:43 UTC</time>
+<time class="renderstamp" datetime="2026-09-28T03:30:09+00:00">2026-09-28 03:30 UTC</time>
+<nav class="contents" id="contents"><span class="contents-label">Contents</span><ol><li><a href="#the-table">The table</a></li><li><a href="#two-systemic-gaps-this-audit-found-bigger-than-any-one-row">Two systemic gaps this audit found, bigger than any one row</a></li><li><a href="#what-was-checked-and-found-clean">What was checked and found clean</a></li></ol></nav>
 <p>One row per practice inherited from pre-fork BestPractice (the original 52,
 numbered <code>PRACTICES.md</code> catalogue, plus Alex's practice 53 added on <code>main</code>
 after the fork point), verdict against this plan's architecture: does it
@@ -530,6 +535,7 @@ nothing pre-fork to compare them against.</p>
 </tr>
 </tbody>
 </table></div>
+<p class="contents-back"><a href="#contents">↑ Contents</a></p>
 <h2 id="two-systemic-gaps-this-audit-found-bigger-than-any-one-row">Two systemic gaps this audit found, bigger than any one row</h2>
 <p>Neither is a single-practice miss — both are a whole <em>mechanism</em> that
 landed across many inherited practices at once without ever being logged
@@ -552,6 +558,7 @@ reached on demand. BestPractice pre-fork had no tier concept at all, so
 this is a first-order change to how these six practices reach a session.
 None of the six practices' own files, nor any prior <code>CHANGES_TO_TELL_ALEX.md</code>
 entry, ever named this.</p>
+<p class="contents-back"><a href="#contents">↑ Contents</a></p>
 <h2 id="what-was-checked-and-found-clean">What was checked and found clean</h2>
 <ul>
 <li><strong>No <code>status:</code> frontmatter value other than <code>active</code></strong> anywhere in
@@ -564,7 +571,8 @@ entry, ever named this.</p>
   (<code>tools/routing_scope.json</code>) — are genuinely non-substantive by their own
   commit messages' own stated reasoning, and are not treated as individual
   gaps here, the same way the citation sweep already isn't.</li>
-</ul>
+</ul><p class="contents-back"><a href="#contents">↑ Contents</a></p>
+
 </main>
 <script>
 (function () {

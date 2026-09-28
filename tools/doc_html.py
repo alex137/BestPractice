@@ -201,6 +201,20 @@ DOCS = [
 # module docstring); host repos fill this in beside DOCS.
 RENDER_URLS = {}
 
+# Composite renders: a page a host builder assembles from several registered
+# documents (repo-relative .html path -> {"sources": [.md paths], "url":
+# hosted URL or None}). The staleness check below treats each one like a
+# DOCS entry with several sources.
+COMPOSITE_RENDERS = {}
+
+# The publish ledger: a JSON file (repo-relative .html path -> sha256 of the
+# render when its hosted copy was last published), kept by `--published`.
+# None disables the republish half of `--stale`. Why a ledger and not a
+# timestamp or a git comparison: nothing in the repository records that a
+# hosted copy was refreshed, so the only way a check can know a render's
+# artifact is behind it is a hash written down at publish time.
+RENDER_LEDGER = None
+
 CSS = """
 .renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
 td span[data-view] { display: none; }
@@ -260,6 +274,10 @@ h1, h2, h3 {
   font-weight: 600; line-height: 1.15; text-wrap: balance; color: var(--ink);
 }
 h1 { font-size: 2.3rem; margin: 0.4rem 0 0.2rem; }
+nav.contents { margin: 0.8rem 0 1.2rem; padding: 0.6rem 1rem; border-left: 3px solid var(--rule, #c8c8c8); }
+nav.contents .contents-label { font-weight: 600; display: block; margin-bottom: 0.2rem; }
+nav.contents ol { margin: 0; padding-left: 1.2rem; }
+p.contents-back { font-size: 0.85rem; margin: 0.4rem 0 1.6rem; }
 h2 { font-size: 1.55rem; margin: 2.4rem 0 0.6rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.25rem; }
 h3 { font-size: 1.2rem; margin: 1.8rem 0 0.5rem; }
 p, ul, ol { max-width: 72ch; }
@@ -1442,6 +1460,45 @@ def _add_heading_ids(body):
     return _HEADING_RE.sub(sub, body)
 
 
+_H2_RE = re.compile(r'<h2 id="([^"]+)">(.*?)</h2>', re.S)
+CONTENTS_MIN_SECTIONS = 3
+
+
+def _wire_contents(body):
+    """A contents block at the top and a way back to it from the end of
+    every section, so a long document is not scrolled. If the source
+    carries its own `## Contents` section (a static list, so the markdown
+    reads the same on a plain renderer), only the back-links are added;
+    otherwise a contents list of the H2 headings is generated after the
+    title. Documents with fewer than CONTENTS_MIN_SECTIONS sections get
+    nothing."""
+    heads = _H2_RE.findall(body)
+    if len(heads) < CONTENTS_MIN_SECTIONS:
+        return body
+    has_own = any(hid == "contents" for hid, _ in heads)
+    if not has_own:
+        items = "".join(f'<li><a href="#{hid}">{txt}</a></li>' for hid, txt in heads)
+        nav = f'<nav class="contents" id="contents"><span class="contents-label">Contents</span><ol>{items}</ol></nav>\n'
+        m = re.search(r"</time>\n?|</h1>\n?", body)
+        body = body[:m.end()] + nav + body[m.end():] if m else nav + body
+    back = '<p class="contents-back"><a href="#contents">↑ Contents</a></p>\n'
+    # a back-link before every H2 after the contents block, and one at the end
+    out, first = [], True
+    pos = 0
+    for m in _H2_RE.finditer(body):
+        hid = m.group(1)
+        if hid == "contents" or first:
+            first = False if hid != "contents" else first
+            if hid == "contents":
+                first = True   # the section after the contents block gets no back-link before it
+            continue
+        out.append(body[pos:m.start()])
+        out.append(back)
+        pos = m.start()
+    out.append(body[pos:])
+    return "".join(out) + back
+
+
 # Rewrites the build stamp into the reader's local time (zone abbreviated
 # as the browser names it); leaves the UTC text alone if anything fails.
 STAMP_JS = r"""(function(){
@@ -1461,6 +1518,27 @@ STAMP_JS = r"""(function(){
 })();"""
 
 
+# A page may carry its own stylesheet on top of the house one: a line
+# `<!--doc-style: FILE.css-->` in the source (FILE relative to it) appends
+# FILE after the base CSS, so a page with its own layout -- a slide deck, a
+# poster -- keeps everything else the renderer gives every page (the build
+# stamp, the sortable tables, the publish ledger, the stale check) instead of
+# reproducing it. Origin: a generated slide deck was first written as a
+# hand-built HTML page and lost the build stamp every other page carries.
+DOC_STYLE_RE = re.compile(r"<!--\s*doc-style:\s*([^\s>]+)\s*-->")
+
+
+def _page_styles(md_text, base_dir):
+    """The <style> blocks for the page's own stylesheets, in source order."""
+    out = []
+    for name in DOC_STYLE_RE.findall(md_text):
+        css_path = (Path(base_dir) / name).resolve()
+        if not css_path.is_file():
+            sys.exit(f"doc_html FAIL: doc-style names {name}, which is not a file next to the source")
+        out.append(f"\n<style>{css_path.read_text(encoding='utf-8')}</style>")
+    return "".join(out)
+
+
 def render(src, out_path, title):
     """Render one markdown document to its sortable-table HTML product."""
     src, out_path = Path(src), Path(out_path)
@@ -1473,8 +1551,10 @@ def render(src, out_path, title):
                  f"or removed, update the DOCS registry in tools/doc_html.py; "
                  f"`--list` prints what is registered.")
     md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
+    page_css = _page_styles(md_text, src.parent)
     body = markdown.markdown(md_text, extensions=["tables"])
     body = _add_heading_ids(body)
+    body = _wire_contents(body)
     body = rewrite_links(body, src.parent)
     body = _wire_note_backlinks(body)
     # wide-table wrapper + prose-width class for the small tables
@@ -1496,7 +1576,7 @@ def render(src, out_path, title):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet"
  href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
-<style>{CSS}</style>
+<style>{CSS}</style>{page_css}
 <main>
 {body}
 </main>
@@ -1522,6 +1602,124 @@ def build_all():
         render(src, src.with_suffix(".html"), title)
 
 
+# ---------------------------------------------------------------------------
+# Staleness: renders behind their sources, hosted copies behind their renders.
+# Origin (2026-09-24): a model gained two sections of new results, the
+# document and its render were rebuilt, and the hosted composite page that
+# readers actually open was not — the person noticed ("you updated the model
+# but not the artifact") and asked for the check to be mechanical. Two halves:
+#   render stale   — a source .md changed against the base branch (or is
+#                    newer on disk than the .html) and the .html did not;
+#   publish stale  — the .html's hash is not the one in RENDER_LEDGER,
+#                    for a render that has a hosted URL.
+# `--stale` prints both lists and exits 1 when either is non-empty, so a
+# stop hook can refuse to end a turn on it; `--published REL...` records the
+# hashes after the hosted copies are refreshed.
+# ---------------------------------------------------------------------------
+def _sha256(path):
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _changed_vs_base():
+    """Repo-relative paths changed against the declared base branch
+    (committed on this branch, staged, or unstaged), plus untracked files.
+    Empty when the base cannot be resolved (a detached checkout with no
+    remote), never an error."""
+    base = _default_branch()
+    out = set()
+    for args in (["diff", "--name-only", f"origin/{base}...HEAD"],
+                 ["diff", "--name-only", "HEAD"],
+                 ["ls-files", "--others", "--exclude-standard"]):
+        r = subprocess.run(["git", "-C", str(ROOT)] + args,
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            out.update(l.strip() for l in r.stdout.splitlines() if l.strip())
+    return out
+
+
+def _render_units():
+    """Every render with its sources and hosted URL: DOCS entries first,
+    then the composites."""
+    units = []
+    for rel, _title in DOCS:
+        units.append((str(Path(rel).with_suffix(".html")), [rel],
+                      RENDER_URLS.get(rel)))
+    for html_rel, spec in COMPOSITE_RENDERS.items():
+        units.append((html_rel, list(spec.get("sources", ())),
+                      spec.get("url")))
+    return units
+
+
+def _ledger():
+    import json
+    if RENDER_LEDGER is None:
+        return None
+    p = Path(RENDER_LEDGER)
+    if not p.exists():
+        return {}
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def stale():
+    """(renders behind their sources, hosted copies behind their renders):
+    two lists of (html_rel, reason)."""
+    changed = _changed_vs_base()
+    ledger = _ledger()
+    behind, unpublished = [], []
+    for html_rel, sources, url in _render_units():
+        html = ROOT / html_rel
+        if not html.exists():
+            behind.append((html_rel, "no render on disk"))
+            continue
+        moved = [s for s in sources if s in changed]
+        if moved and html_rel not in changed:
+            behind.append((html_rel, "source changed on this branch, render not: "
+                           + ", ".join(moved)))
+        else:
+            newer = [s for s in sources if (ROOT / s).exists()
+                     and (ROOT / s).stat().st_mtime > html.stat().st_mtime + 1]
+            if newer:
+                behind.append((html_rel, "source newer on disk than the render: "
+                               + ", ".join(newer)))
+        if url and ledger is not None:
+            have = ledger.get(html_rel)
+            if have != _sha256(html):
+                unpublished.append((html_rel, url if have else
+                                    f"{url} (never recorded as published)"))
+    return behind, unpublished
+
+
+def record_published(html_rels):
+    """Write the current hash of each named render into the ledger."""
+    import json
+    if RENDER_LEDGER is None:
+        raise SystemExit("RENDER_LEDGER is not configured")
+    p = Path(RENDER_LEDGER)
+    led = _ledger()
+    known = {u[0] for u in _render_units()}
+    for rel in html_rels:
+        rel = str(Path(rel).with_suffix(".html"))
+        if rel not in known:
+            raise SystemExit(f"{rel}: not a registered render")
+        led[rel] = _sha256(ROOT / rel)
+    p.write_text(json.dumps(dict(sorted(led.items())), indent=2) + "\n",
+                 encoding="utf-8")
+    print(f"recorded {len(html_rels)} render(s) as published in {p.relative_to(ROOT)}")
+
+
+def report_stale():
+    """Print the two lists; True when both are empty."""
+    behind, unpublished = stale()
+    for rel, why in behind:
+        print(f"RENDER STALE   {rel}: {why}")
+    for rel, where in unpublished:
+        print(f"UNPUBLISHED    {rel}: republish to {where}, then --published {rel}")
+    if not behind and not unpublished:
+        print("renders and hosted copies are current")
+    return not behind and not unpublished
+
+
 if __name__ == "__main__":
     # `--help` is what anyone types first; this one used to answer with a
     # traceback, because it treated the flag as a document path to render.
@@ -1532,6 +1730,10 @@ if __name__ == "__main__":
     if "--list" in sys.argv:
         for rel, title in DOCS:
             print(f"  {rel}  ->  {Path(rel).with_suffix('.html')}  ({title})")
+    elif "--stale" in sys.argv:
+        sys.exit(0 if report_stale() else 1)
+    elif "--published" in sys.argv:
+        record_published(sys.argv[sys.argv.index("--published") + 1:])
     elif len(sys.argv) > 1:
         src = Path(sys.argv[1]).resolve()
         rel = str(src.relative_to(ROOT))

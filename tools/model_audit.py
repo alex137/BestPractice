@@ -128,6 +128,86 @@ CONSTANTS_REGISTER = None
 SETTLED_WORDS = ("doctrine", "as built", "settled")
 
 
+# ---------------------------------------------------------------------------
+# The changed-only gate (--changed). A model's self-check and anchors can only
+# move when its own code or code it imports moves, so a turn that touched a
+# few models audits those, and the full run stays the pre-merge gate. The
+# closure is static: import statements resolved to files in the repo, the
+# model's own directory first, then SEARCH_DIRS. A change under
+# ALWAYS_FULL_PREFIXES (vendored engines loaded by path, which no import
+# statement names) falls back to the full list. Hosts set BASE_REF (the ref
+# the branch is compared with) and SEARCH_DIRS.
+BASE_REF = "origin/HEAD"
+SEARCH_DIRS = []
+ALWAYS_FULL_PREFIXES = ("process/", "tools/")
+
+
+def _git(*args):
+    import subprocess
+    r = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def changed_files(base=None):
+    """Repo-relative paths changed on this branch against the merge base with
+    `base`, plus uncommitted and untracked changes. None when git cannot say
+    (no such ref): the caller then audits everything."""
+    base = base or BASE_REF
+    mb = _git("merge-base", "HEAD", base)
+    if not mb:
+        return None
+    out = set()
+    for args in (("diff", "--name-only", mb), ("diff", "--name-only"),
+                 ("ls-files", "--others", "--exclude-standard")):
+        txt = _git(*args)
+        if txt is None:
+            return None
+        out.update(x for x in txt.splitlines() if x)
+    return out
+
+
+def import_closure(path):
+    """The repo files a script imports, transitively (static: import
+    statements resolved against its own directory, then SEARCH_DIRS)."""
+    import re
+    imp = re.compile(r"^\s*(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)", re.M)
+    dirs = [ROOT / d for d in SEARCH_DIRS]
+    seen, todo = set(), [Path(path).resolve()]
+    while todo:
+        q = todo.pop()
+        if q in seen or not q.exists():
+            continue
+        seen.add(q)
+        for name in imp.findall(q.read_text(errors="replace")):
+            for d in [q.parent, *dirs]:
+                c = d / f"{name}.py"
+                if c.exists():
+                    if c.resolve() not in seen:
+                        todo.append(c.resolve())
+                    break
+    return seen
+
+
+def select_changed(scripts, base=None):
+    """(the scripts whose closure holds a changed file, a note). Every
+    script when git cannot say or a changed file is under
+    ALWAYS_FULL_PREFIXES."""
+    ch = changed_files(base)
+    if ch is None:
+        return list(scripts), f"--changed: no merge base with {base or BASE_REF}; auditing all"
+    full = sorted(c for c in ch if c.startswith(ALWAYS_FULL_PREFIXES) and c.endswith(".py"))
+    if full:
+        return list(scripts), f"--changed: {full[0]} changed (an engine no import names); auditing all"
+    chp = {(ROOT / c).resolve() for c in ch if c.endswith(".py")}
+    keep = []
+    for rel in scripts:
+        p = ROOT / rel
+        if p.exists() and import_closure(p) & chp:
+            keep.append(rel)
+    return keep, (f"--changed: {len(keep)} of {len(scripts)} instrumented script(s) import "
+                  f"code changed against {base or BASE_REF}; the full run is the merge gate")
+
+
 def check_constants_register():
     import re
     if not CONSTANTS_REGISTER:
@@ -175,12 +255,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--verbose", "-v", action="store_true")
+    ap.add_argument("--changed", nargs="?", const="", default=None, metavar="BASE",
+                    help="audit only the scripts whose import closure changed against "
+                         "BASE (default BASE_REF); the full run stays the merge gate")
     args = ap.parse_args()
 
     failures, warnings, checked, anchors_ok = [], [], 0, 0
     failures.extend(check_constants_register())
 
-    for rel in INSTRUMENTED:
+    scripts = list(INSTRUMENTED)
+    if args.changed is not None:
+        scripts, note = select_changed(scripts, args.changed or None)
+        print(f"model_audit {note}")
+        if not scripts:
+            print("model_audit OK: no instrumented script imports changed code.")
+            return 0
+
+    for rel in scripts:
         # Two layouts. In the classic vendoring install this file sits at
         # <repo>/process/upstream/tools/, ROOT is the CONSUMING repo's
         # root, and the upstream scripts this list names live beside this

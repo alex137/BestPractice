@@ -172,6 +172,85 @@ def family(name):
     return re.sub(r"_[0-9a-f]{8,}(?=\.[A-Za-z0-9]+$)", "", name)
 
 
+# ---------------------------------------------------------------------------
+# The same-machine lock. The lease board keys a holder by repo and branch, so
+# two processes of one session (a gate running several models at once, two
+# emitters of one model) cannot see each other's lease and both solve. A
+# lock file beside the memo, holding the solver's pid, makes the second one
+# wait for the first one's file instead. A lock whose process is gone is
+# stale and taken over.
+LOCAL_WAIT_S = 3600
+_local = set()
+
+
+def _lock_path(path):
+    return path.with_name(path.name + ".solving")
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _local_holder(path):
+    try:
+        pid = int(_lock_path(path).read_text().strip() or 0)
+    except (OSError, ValueError):
+        return None
+    return pid if pid and pid != os.getpid() and _alive(pid) else None
+
+
+def _await_local(path):
+    """True when a solve of `path` in flight on this machine produced it."""
+    pid = _local_holder(path)
+    if not pid:
+        return False
+    print(f"[result-cache] {path.name}: process {pid} on this machine is solving it; "
+          f"waiting for its result", file=sys.stderr)
+    t0 = time.time()
+    while time.time() - t0 < LOCAL_WAIT_S:
+        if not _local_holder(path):       # released after the write (publish's finally) or gone
+            return path.exists()
+        time.sleep(2)
+    return False
+
+
+def _claim_local(path):
+    lock = _lock_path(path)
+    try:
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        if _local_holder(path):
+            return False
+        try:                                  # stale: its process is gone
+            lock.unlink()
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except OSError:
+            return False
+    except OSError:
+        return False
+    os.write(fd, str(os.getpid()).encode())
+    os.close(fd)
+    _local.add(lock)
+    return True
+
+
+def _release_local(path):
+    lock = _lock_path(pathlib.Path(path))
+    if lock in _local:
+        _local.discard(lock)
+        try:
+            lock.unlink()
+        except OSError:
+            pass
+
+
 def ready(path, claim=True):
     """True when `path` exists locally, pulling it from the cache or waiting
     on a peer's in-flight solve if needed. False means the caller solves:
@@ -179,6 +258,11 @@ def ready(path, claim=True):
     path = pathlib.Path(path)
     if path.exists():
         return True
+    if claim:
+        if _await_local(path):            # a process on this machine is solving it
+            return True
+        if not _claim_local(path) and _await_local(path):
+            return True                   # lost the race for the lock to one that finished
     if _off():
         return False
     tip = _fetch()
@@ -252,6 +336,7 @@ def claim(path):
 
 
 def release(path):
+    _release_local(path)
     lid = _claims.pop(pathlib.Path(path).name, None)
     if lid:
         try:
@@ -266,6 +351,12 @@ def _at_exit_work():
         publish(path)
     for name in list(_claims):
         release(name)
+    for lock in list(_local):
+        try:
+            lock.unlink()
+        except OSError:
+            pass
+    _local.clear()
 
 
 _at_exit = set()
