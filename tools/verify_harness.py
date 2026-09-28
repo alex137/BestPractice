@@ -31348,6 +31348,462 @@ def check_branch_report_keeps_private_names_out_of_a_public_tree():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_refuses_unknown_flags_before_the_ledger():
+    """very_deep_check.py refuses an argument it does not read, with its
+    usage and exit 2, before the ledger is touched; and --record-pass lands
+    on the last COMPLETED run, never on an aborted one after it (practice:
+    very-deep-check).
+
+    THE INCIDENT (filed 2026-09-21, still true 2026-09-28). `--check`,
+    `--explain`, `--list` and `--dry-run` -- real flags in sibling tools --
+    each started a full run and appended an incomplete row to the ledger,
+    which then became "the last run" for every since-the-last-run section,
+    and the row a hand-worked --record-pass attached to."""
+    import tempfile, shutil
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-unknown-flag-'))
+    cases = []
+    try:
+        ledger = tmp / 'ledger.json'
+        for flag in ('--check', '--dry-run', '--explain', '--list'):
+            r = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+                 '--repo', str(tmp), '--ledger', str(ledger), flag],
+                capture_output=True, text=True, cwd=str(tmp), timeout=120)
+            cases.append((f'{flag} refuses with exit 2 and the usage, and '
+                          f'writes no ledger',
+                          r.returncode == 2 and 'unknown argument' in r.stderr
+                          and 'Exit: 1 if any repo in force' in r.stderr
+                          and not ledger.exists(),
+                          f'exit {r.returncode}; ledger exists: '
+                          f'{ledger.exists()}; {r.stderr[-300:]}'))
+        # A valued flag's value is not an unknown argument (the control).
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--ledger', str(tmp / 'none.json'), '--record-pass', '2=done'],
+            capture_output=True, text=True, cwd=str(tmp), timeout=120)
+        cases.append(('CONTROL: a known valued flag is not refused as unknown',
+                      'unknown argument' not in r.stderr, r.stderr[-300:]))
+
+        good = tmp / 'good.json'
+        good.write_text(json.dumps({'runs': [
+            {'run_id': 'R-COMPLETE', 'completed': True, 'components': []},
+            {'run_id': 'R-ABORTED', 'completed': False, 'components': []},
+        ]}), encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--ledger', str(good), '--record-pass', '3=done,findings=2'],
+            capture_output=True, text=True, cwd=str(tmp), timeout=120)
+        runs = json.loads(good.read_text(encoding='utf-8'))['runs']
+        cases.append(('THE CASE: --record-pass lands on the last completed '
+                      'run, not the aborted one after it, and says so',
+                      r.returncode == 0
+                      and len(runs[0].get('passes') or []) == 1
+                      and not runs[1].get('passes')
+                      and 'did not complete' in r.stderr,
+                      f'exit {r.returncode}; {runs}; {r.stderr[-300:]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'very_deep_check refuses an unknown flag before the ledger, and '
+          f'--record-pass targets the last completed run '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_identity_reality_reads_grandfathering_the_bot_and_a_shallow_clone():
+    """IDENTITY REALITY subtracts the repo's own grandfathered_commit_shas,
+    calls a commit by the container's bot address a FINDING rather than
+    "another author", and says when a shallow clone truncated its window
+    (practice: very-deep-check, pass 2; 2026-09-28: eight bot-authored
+    commits on a shared set's main read as "not a finding")."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-identity-'))
+    cases = []
+    try:
+        up = tmp / 'up'
+        up.mkdir()
+        fixture_git(up, 'init', '-q', '-b', 'main')
+
+        def commit(msg, name, email):
+            (up / 'f.txt').write_text(msg + '\n', encoding='utf-8')
+            fixture_git(up, 'add', '-A')
+            fixture_git(up, '-c', 'core.hooksPath=/dev/null',
+                        '-c', f'user.name={name}', '-c', f'user.email={email}',
+                        'commit', '-qm', msg)
+            return fixture_git(up, 'rev-parse', 'HEAD').stdout.strip()
+
+        commit('other', 'Someone Else', 'someone@example.com')
+        old_bot = commit('bot, grandfathered', 'Claude', vdc.BOT_EMAIL)
+        new_bot = commit('bot, live', 'Claude', vdc.BOT_EMAIL)
+        (up / 'precedent.json').write_text(json.dumps({
+            'grandfathered_commit_shas': [
+                {'sha': old_bot, 'note': 'fixture: exempted on purpose'}]}),
+            encoding='utf-8')
+        rows, notes = vdc._identity_reality(up)
+        text = '\n'.join(f'{v} {m}' for v, m in rows) + '\n' + '\n'.join(notes)
+        bot_rows = [m for v, m in rows if v == 'FINDING' and vdc.BOT_EMAIL in m]
+        cases.append(('THE CASE: a bot-authored commit is a FINDING, not '
+                      'another author',
+                      len(bot_rows) == 1 and 'other authors' not in
+                      ' '.join(n for n in notes if vdc.BOT_EMAIL in n), text))
+        cases.append(('a grandfathered commit is subtracted, and said so',
+                      bot_rows and bot_rows[0].startswith('1 commit')
+                      and old_bot[:9] not in bot_rows[0]
+                      and new_bot[:9] in bot_rows[0]
+                      and any('1 grandfathered' in n for n in notes), text))
+        cases.append(('CONTROL: a person\'s commit is still only a note',
+                      any('someone@example.com' in n for n in notes), text))
+        cases.append(('CONTROL: a full clone says nothing about shallowness',
+                      not any('shallow' in n for n in notes), text))
+
+        shallow = tmp / 'shallow'
+        subprocess.run(['git', 'clone', '-q', '--depth', '1', f'file://{up}',
+                        str(shallow)], capture_output=True, text=True)
+        rows2, notes2 = vdc._identity_reality(shallow)
+        cases.append(('a shallow clone says where its history starts and '
+                      'that the window is truncated',
+                      any(n.startswith('(shallow: history starts ')
+                          and 'window truncated' in n for n in notes2),
+                      '\n'.join(notes2)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'IDENTITY REALITY subtracts grandfathered commits, flags the bot '
+          f'address and names a shallow window ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
+def check_config_keys_counts_a_key_a_practice_reads():
+    """CONFIG KEYS names the practice through which a SESSION reads a key,
+    and does not count that key as read by nothing (practice:
+    very-deep-check, pass 2; 2026-09-28: `writeup_dir`, read by whoever
+    follows write-it-up, reported as read by nothing on every run)."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-config-keys-'))
+    cases = []
+    try:
+        repo, other = tmp / 'repo', tmp / 'other'
+        for d in (repo / 'tools', repo / 'practices', other / 'practices'):
+            d.mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'zz_read_by_script': 1, 'zz_read_by_session': 2,
+            'zz_read_by_other_set': 3, 'zz_read_by_nothing': 4}),
+            encoding='utf-8')
+        (repo / 'tools' / 'reader.py').write_text(
+            "KEY = 'zz_read_by_script'\n", encoding='utf-8')
+        (repo / 'practices' / 'zz-session-rule.md').write_text(
+            '---\nslug: zz-session-rule\n---\n\n## Rule\n\nRead '
+            '`zz_read_by_session` from precedent.json.\n', encoding='utf-8')
+        (other / 'practices' / 'zz-other-rule.md').write_text(
+            '---\nslug: zz-other-rule\n---\n\n## Rule\n\nSet '
+            '"zz_read_by_other_set" where it applies.\n', encoding='utf-8')
+        rows, note = vdc._config_key_reads(
+            repo, [('repo', str(repo)), ('other set', str(other))])
+        by = {r[1]: r for r in rows}
+        try:
+            cases.append(('THE CASE: a key a practice names is read by a '
+                          'session through that practice',
+                          by['zz_read_by_session'][4] == ['zz-session-rule'],
+                          repr(by.get('zz_read_by_session'))))
+            cases.append(('a practice in ANOTHER repo in force counts too',
+                          by['zz_read_by_other_set'][4] == ['zz-other-rule'],
+                          repr(by.get('zz_read_by_other_set'))))
+            cases.append(('CONTROL: a key nothing names stays read by nothing',
+                          by['zz_read_by_nothing'][2] == []
+                          and by['zz_read_by_nothing'][4] == [],
+                          repr(by.get('zz_read_by_nothing'))))
+            cases.append(('CONTROL: a key a script reads is not searched '
+                          'further', by['zz_read_by_script'][2] != []
+                          and by['zz_read_by_script'][4] == [],
+                          repr(by.get('zz_read_by_script'))))
+        except (KeyError, IndexError) as exc:
+            cases.append(('rows carry the practice readers',
+                          False, f'{type(exc).__name__}: {exc}; {rows!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'CONFIG KEYS names the practice a session reads a key through '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_very_deep_check_catalogue_loads_are_quiet():
+    """The very deep check loads every catalogue several times a run, and
+    build_views.load_practices() printed its not-in-force roster to stderr
+    each time -- about 120 lines a run; the generator's "hook script(s) ...
+    not wired" NOTE printed once per source. `announce=False` silences the
+    roster for a caller that reports what is in force itself, the default
+    still announces, and the generator's NOTE prints once per shape
+    (2026-09-28)."""
+    import tempfile, shutil, io, contextlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-quiet-'))
+    cases = []
+    try:
+        pdir = tmp / 'practices'
+        pdir.mkdir()
+        (pdir / 'zz-live.md').write_text(
+            '---\nslug: zz-live\nstatus: active\n---\n\n## Rule\n\nLive.\n',
+            encoding='utf-8')
+        (pdir / 'zz-gone.md').write_text(
+            '---\nslug: zz-gone\nstatus: retired\n---\n\n## Rule\n\nGone.\n',
+            encoding='utf-8')
+        loud, quiet = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(loud):
+            a = bv.load_practices(pdir)
+        try:
+            with contextlib.redirect_stderr(quiet):
+                b = bv.load_practices(pdir, announce=False)
+        except TypeError as exc:
+            b = None
+            quiet.write(f'TypeError: {exc}')
+        cases.append(('CONTROL: the default still announces a dropped practice',
+                      'zz-gone is status' in loud.getvalue(), loud.getvalue()))
+        cases.append(('THE CASE: announce=False is quiet and returns the same',
+                      b is not None and quiet.getvalue() == ''
+                      and [f.name for _fm, _s, f in b]
+                      == [f.name for _fm, _s, f in a], quiet.getvalue()))
+        cat = io.StringIO()
+        with contextlib.redirect_stderr(cat):
+            rows = vdc._practice_catalogue_rows(
+                [{'level': 'shared', 'name': 'zz', 'path': str(tmp)}])
+        cases.append(('the very deep check\'s catalogue read is quiet',
+                      cat.getvalue() == '' and len(rows) == 1,
+                      cat.getvalue()[:300]))
+        vdc._GENERATOR_STDERR_SEEN.clear()
+        gen = io.StringIO()
+        with contextlib.redirect_stderr(gen):
+            vdc._pass_generator_stderr_once(
+                'NOTE: zzfixture: 3 hook script(s) are not wired (a.sh, b.sh)\n')
+            vdc._pass_generator_stderr_once(
+                'NOTE: zzfixture: 4 hook script(s) are not wired (a.sh, b.sh, c.sh)\n'
+                'NOTE: zzfixture: a different message\n')
+        lines = gen.getvalue().splitlines()
+        cases.append(('the generator\'s repeated NOTE prints once, and a '
+                      'different one still prints',
+                      len(lines) == 2 and 'a different message' in lines[1],
+                      gen.getvalue()))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'catalogue loads inside the very deep check are quiet and the '
+          f'generator NOTE prints once ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_moved_claims_skips_narrated_deletions_and_templates():
+    """MOVED CLAIMS reports a sentence saying work moved to a file that is
+    not there -- but not one NARRATING that the destination was later
+    deleted (the same line or the next three), and not one naming a file
+    this repo ships as `templates/**/<name>.template` (practice:
+    very-deep-check, pass 3; 2026-09-28: eight rows across two repos, every
+    one a history sentence about precedent-check.yml)."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-moved-'))
+    cases = []
+    try:
+        fixture_git(tmp, 'init', '-q', '-b', 'main')
+        (tmp / 'templates' / 'kind').mkdir(parents=True)
+        (tmp / 'templates' / 'kind' / 'zzshipped.yml.template').write_text(
+            'x\n', encoding='utf-8')
+        (tmp / 'a.md').write_text(
+            'Its checks were folded into zzgoneone.yml, which a refresh '
+            'later deleted.\n', encoding='utf-8')
+        (tmp / 'b.md').write_text(
+            'On the 19th the checks were folded into zzgonetwo.yml as steps.\n'
+            'That was safe while it lasted.\n\n'
+            'The destination went with it two days later.\n',
+            encoding='utf-8')
+        (tmp / 'c.md').write_text(
+            'The workflow now lives in zzshipped.yml for every consumer.\n',
+            encoding='utf-8')
+        (tmp / 'd.md').write_text(
+            'The check now lives in zzmissing.yml.\n', encoding='utf-8')
+        (tmp / 'e.md').write_text(
+            'The check has moved to zzfar.yml.\n\n\n\n\n'
+            'Much later, an unrelated file was deleted.\n', encoding='utf-8')
+        fixture_git(tmp, 'add', '-A')
+        rows = vdc._moved_claims(tmp) or []
+        targets = {r[3] for r in rows}
+        cases.append(('THE CASE: a claim whose own sentence says the '
+                      'destination was deleted is history, not a row',
+                      'zzgoneone.yml' not in targets, repr(rows)))
+        cases.append(('...and so is one whose next lines say it went with it',
+                      'zzgonetwo.yml' not in targets, repr(rows)))
+        cases.append(('a file shipped as templates/**/<name>.template exists',
+                      'zzshipped.yml' not in targets, repr(rows)))
+        cases.append(('CONTROL: a live claim naming a missing file is a row',
+                      'zzmissing.yml' in targets, repr(rows)))
+        cases.append(('CONTROL: a deletion four or more lines on does not '
+                      'excuse it', 'zzfar.yml' in targets, repr(rows)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'MOVED CLAIMS skips narrated deletions and templated targets and '
+          f'still reports a live one ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_ci_fleet_audit_counts_each_workflow_past_the_sample():
+    """ci_fleet_audit.py reads at most RUN_PAGES pages of a repo's runs. In
+    a repo busier than that, each workflow's "Last 30 days" is GitHub's own
+    total_count for that workflow, one call each, or "at least N" where
+    that cannot be asked -- never its share of the sample printed as the
+    count (practice: ci-workflow-approved, 2026-09-28). Planted against a
+    fake GitHub."""
+    import base64, datetime
+    import ci_fleet_audit as cfa
+
+    def b64(t):
+        return base64.b64encode(t.encode()).decode()
+
+    busy = 'name: busy\non:\n  pull_request:\n'
+    other = 'name: other\non:\n  pull_request:\n'
+    calls = []
+
+    def fake(path, total=450, per_wf=None):
+        calls.append(path)
+        o = 'repos/o/r'
+        if path == o:
+            return {'default_branch': 'main', 'private': False}, None
+        if path == f'{o}/actions/workflows?per_page=100':
+            return {'workflows': [
+                {'id': 7, 'path': '.github/workflows/busy.yml',
+                 'state': 'active'},
+                {'id': 8, 'path': '.github/workflows/other.yml',
+                 'state': 'active'}]}, None
+        if path.startswith(f'{o}/actions/workflows/7/runs'):
+            return {'total_count': 420, 'workflow_runs': []}, None
+        if path.startswith(f'{o}/actions/workflows/8/runs'):
+            return {'message': 'Server Error'}, 'HTTP 500'
+        if path.startswith(f'{o}/actions/runs'):
+            return {'total_count': total, 'workflow_runs': [
+                {'path': '.github/workflows/busy.yml', 'event': 'push',
+                 'created_at': '2026-09-25T10:00:00Z'}] * 90 + [
+                {'path': '.github/workflows/other.yml', 'event': 'push',
+                 'created_at': '2026-09-25T10:00:00Z'}] * 10}, None
+        if path == f'{o}/contents/.github/workflows?ref=main':
+            return [{'name': 'busy.yml', 'type': 'file', 'sha': 'b-busy'},
+                    {'name': 'other.yml', 'type': 'file', 'sha': 'b-other'}], None
+        if path.startswith(f'{o}/git/blobs/'):
+            return {'content': b64({'b-busy': busy, 'b-other': other}[
+                path.rsplit('/', 1)[1]])}, None
+        if path == f'{o}/branches?per_page=100':
+            return [{'name': 'main'}], None
+        return {'message': 'Not Found'}, None
+
+    today = datetime.date(2026, 9, 26)
+    r = cfa.audit_repo('o/r', call=fake, today=today)
+    rows = {t.split(' [')[0]: t for _v, t in r['rows'] if ' [' in t}
+    busy_t = rows.get('.github/workflows/busy.yml', '')
+    other_t = rows.get('.github/workflows/other.yml', '')
+    n_wf_calls = sum(1 for c in calls if '/actions/workflows/' in c
+                     and '/runs' in c)
+
+    calls.clear()
+    small = cfa.audit_repo('o/r', call=lambda p: fake(p, total=300),
+                           today=today)
+    small_t = {t.split(' [')[0]: t for _v, t in small['rows'] if ' [' in t}
+    n_small = sum(1 for c in calls if '/actions/workflows/' in c
+                  and '/runs' in c)
+    cases = [
+        ('THE CASE: past the sample, a workflow\'s count is GitHub\'s own',
+         '420 runs (GitHub\'s own count' in busy_t, busy_t),
+        ('where its own count cannot be asked, it says "at least"',
+         'at least 30 runs (of the newest 300 read' in other_t, other_t),
+        ('the sample is never printed as the count',
+         'Last 30 days: 270 runs' not in busy_t, busy_t),
+        ('one extra call per workflow, no more',
+         n_wf_calls == 2, f'{n_wf_calls} calls'),
+        ('CONTROL: a repo the sample covers costs no extra call and prints '
+         'its exact count', n_small == 0
+         and '270 runs (push 270)' in small_t.get(
+             '.github/workflows/busy.yml', ''),
+         f'{n_small} calls; {small_t}'),
+    ]
+    bad = [c[0] + ' -- ' + str(c[2])[:300] for c in cases if not c[1]]
+    check(f'ci_fleet_audit counts each workflow past the 300-run sample '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_very_deep_check_runs_other_sources_checks_here():
+    """A declared source's own check script whose practice is IN FORCE in
+    this repo, and which this repo's precedent_check.py never discovers, is
+    run against this checkout by the very deep check's CHECK COVERAGE, with
+    PRECEDENT_CHECK_ROOT pointing here -- a report, never a gate (practice:
+    very-deep-check, pass 2 question 15; 2026-09-28: private-repo-scrub was
+    in force in BestPractice and its check had never run here)."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-source-checks-'))
+    cases = []
+    try:
+        root, src = tmp / 'root', tmp / 'shared'
+        for d in (root / 'practices', root / 'tools' / 'checks',
+                  src / 'practices', src / 'tools' / 'checks'):
+            d.mkdir(parents=True)
+        script = ('import os, pathlib, sys\n'
+                  'root = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT") '
+                  'or ".")\n'
+                  'if not (root / "{f}").is_file():\n'
+                  '    print("VIOLATION:"); print("{f} is missing here")\n'
+                  '    sys.exit(1)\n'
+                  'sys.exit(0)\n')
+
+        def practice(slug, status='active'):
+            name = 'check_' + slug.replace('-', '_') + '.py'
+            (src / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: {status}\n'
+                f'checked_by: tools/checks/{name}\n---\n\n## Rule\n\nX.\n',
+                encoding='utf-8')
+            (src / 'tools' / 'checks' / name).write_text(
+                script.format(f=f'{slug}.marker'), encoding='utf-8')
+            return name
+
+        practice('zz-fails-here')
+        practice('zz-passes-here')
+        (root / 'zz-passes-here.marker').write_text('x\n', encoding='utf-8')
+        practice('zz-retired', status='retired')
+        dup = practice('zz-already-run')
+        (root / 'tools' / 'checks' / dup).write_text('x\n', encoding='utf-8')
+        sources = [{'level': 'universal', 'name': 'precedent',
+                    'path': str(root)},
+                   {'level': 'shared', 'name': 'zz-shared', 'path': str(src)}]
+        rows, note = vdc._source_check_scripts(root, sources)
+        by = {r[1]: r for r in rows}
+        cases.append(('THE CASE: an in-force source check runs against this '
+                      'checkout and its violation is reported',
+                      by.get('zz-fails-here', ('',))[0] == 'VIOLATION'
+                      and 'missing here' in by['zz-fails-here'][3],
+                      f'{note} {rows!r}'))
+        cases.append(('it reads THIS checkout, not the source (control: the '
+                      'marker is here)',
+                      by.get('zz-passes-here', ('',))[0] == 'PASS',
+                      repr(rows)))
+        cases.append(('a retired practice\'s check does not run',
+                      'zz-retired' not in by, repr(rows)))
+        cases.append(('a check this repo already runs is not run twice',
+                      'zz-already-run' not in by, repr(rows)))
+    except AttributeError as exc:
+        cases.append(('the very deep check can run other sources\' checks',
+                      False, f'{type(exc).__name__}: {exc}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check runs other sources\' in-force checks against '
+          f'this checkout ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -41078,6 +41534,13 @@ def main():
     check_loader_block_covers_every_declared_source()
     check_practice_catalogue_holds_back_private_sources_on_public_repo()
     check_branch_report_keeps_private_names_out_of_a_public_tree()
+    check_very_deep_check_refuses_unknown_flags_before_the_ledger()
+    check_identity_reality_reads_grandfathering_the_bot_and_a_shallow_clone()
+    check_config_keys_counts_a_key_a_practice_reads()
+    check_very_deep_check_catalogue_loads_are_quiet()
+    check_moved_claims_skips_narrated_deletions_and_templates()
+    check_ci_fleet_audit_counts_each_workflow_past_the_sample()
+    check_very_deep_check_runs_other_sources_checks_here()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
     check_push_gate_judges_only_what_a_working_branch_brings()
