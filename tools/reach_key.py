@@ -15,6 +15,14 @@ import-time side effects of every repository module the entry file imports
 names it). Syntax trees, not text: a comment or a docstring edit re-keys
 nothing.
 
+A class is followed the same way, one method at a time: reaching a class
+hashes its shell (bases, decorators, class-level assignments and fields),
+and a method is hashed only when reached code names an attribute of that
+name (`row.price()`, `self.price`, `getattr(row, "price")`), since that is
+the only way a method runs. Dunder methods are always hashed, because
+operators and the interpreter call them without naming them. So an edit to a
+pricing method re-keys a sizing solve only if the sizing code can call it.
+
 Where it cannot follow, it widens rather than narrows:
 
 * a module used as a bare value (passed to a function, aliased through a
@@ -25,6 +33,11 @@ Where it cannot follow, it widens rather than narrows:
   `importlib`, has its whole module hashed; copying a namespace whole
   (`module.__dict__.update(globals())`, the fork-pool registration idiom)
   is not a lookup;
+* a `getattr`/`hasattr`/`setattr` with a non-literal name on anything but
+  a module, or an `operator.attrgetter`/`methodcaller` with a non-literal
+  name, hashes every method of every reached class;
+* the attribute names used anywhere in a module hashed whole count as
+  referenced, so a method it calls is hashed;
 * external modules (the standard library, installed packages) are not
   followed; the interpreter's major.minor version is in the key.
 
@@ -38,6 +51,15 @@ Two things are left out on purpose, both named in the code they touch:
   never hashed.
 
     key = reach_key(path, ["solve_rows"], search_dirs=[...], extra=b"v2")
+
+Early cutoff: `stop` names functions in the entry file whose code is not
+followed, because the caller hashes what they RETURN into `extra` instead.
+Use it where one memo feeds another: a solve that consumes another solve's
+choice keys on the choice, so an edit that re-solves the first without
+changing its answer does not re-solve the second.
+
+    key = reach_key(path, ["wing_solve"], extra=repr(best_engines()).encode(),
+                    stop=["best_engines"])
 
 `search_dirs` are the directories a bare `import name` may resolve to after
 the importing file's own directory, in the order the program puts them on
@@ -66,6 +88,26 @@ def _strip_docstrings(node):
 
 def _dump(node):
     return ast.dump(node, include_attributes=False)
+
+
+_FUNCS = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _class_shell(node):
+    """A fresh copy of a class definition with its methods removed: what
+    runs when the class is defined, without what runs only when a method
+    is called."""
+    c = ast.parse(ast.unparse(node)).body[0]
+    c.body = [b for b in c.body if not isinstance(b, _FUNCS)] or [ast.Pass()]
+    return c
+
+
+def _methods(node, name):
+    return [b for b in node.body if isinstance(b, _FUNCS) and b.name == name]
+
+
+def _dunder(name):
+    return name.startswith("__") and name.endswith("__")
 
 
 def _path_only(stmt, src):
@@ -111,6 +153,7 @@ class _Module:
         self.lines = self.src.splitlines()
         self.tree = ast.parse(self.src)
         self.defs, self.assigns, self.imports, self.effects, self.io = {}, {}, {}, [], set()
+        self.dumps = {}
         for stmt in self.tree.body:
             self._classify(stmt, top=True)
 
@@ -152,6 +195,32 @@ class _Module:
         self.effects.append(stmt)
 
 
+_PARSED = {}                      # path -> (content hash, _Module): parsed once per process per content
+
+
+def _parsed(path):
+    sig = hashlib.sha256(path.read_bytes()).digest()
+    hit = _PARSED.get(path)
+    if hit is None or hit[0] != sig:
+        hit = (sig, _Module(path))
+        _PARSED[path] = hit
+    return hit[1]
+
+
+def _digest(m, kind, sym, node):
+    """The hashed form of one definition, memoised on its parsed module (a
+    caller keying many entry points in one process re-parses nothing)."""
+    k = (kind, sym, id(node))
+    d = m.dumps.get(k)
+    if d is None:
+        if kind in ("assign",):
+            d = _dump(ast.parse(ast.unparse(node)))
+        else:
+            d = _dump(_strip_docstrings(ast.parse(ast.unparse(node))))
+        m.dumps[k] = d
+    return d
+
+
 class _Resolver:
     def __init__(self, entry, search_dirs, root):
         self.root = Path(root) if root else None
@@ -161,7 +230,7 @@ class _Resolver:
 
     def load(self, path):
         if path not in self.mods:
-            self.mods[path] = _Module(path)
+            self.mods[path] = _parsed(path)
         return self.mods[path]
 
     def find(self, modname, from_dir):
@@ -204,11 +273,12 @@ class _Resolver:
         return None
 
 
-def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None):
+def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, stop=()):
     """The key: see the module docstring. `trace`, a list, receives what
     was hashed as (file, kind, symbol, digest) for inspection."""
     R = _Resolver(path, search_dirs, root)
-    items, whole, done = [], set(), set()
+    items, whole, done = [], set(), {(R.entry.path, s) for s in stop}
+    classes, attrs, widen = [], set(), [False]   # reached classes; attribute names used; dynamic attribute access seen
     work = [(R.entry.path, e) for e in entries]
 
     # every repo module the entry file imports, transitively: their
@@ -227,7 +297,7 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None):
     for p in sorted(closure):
         m = R.load(p)
         for i, st in enumerate(m.effects):
-            items.append((p, "effect", str(i), _dump(_strip_docstrings(ast.parse(ast.unparse(st))))))
+            items.append((p, "effect", str(i), _digest(m, "effect", str(i), st)))
             work.append((p, ("__stmt__", st)))
 
     def attr_ref(m, chain):
@@ -246,6 +316,19 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None):
             mod = nxt
         whole.add(mod)
 
+    def used_attrs(tree):
+        """The attribute names a module hashed whole can use, without
+        following it: enough to hash the methods it can call."""
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Attribute):
+                attrs.add(n.attr)
+            elif isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                    and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2:
+                if isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str):
+                    attrs.add(n.args[1].value)
+                else:
+                    widen[0] = True
+
     def refs(m, node, dynamic=True):
         consumed = set()                 # Name nodes already handled as a chain base or a literal getattr
         parent = {id(c): n for n in ast.walk(node) for c in ast.iter_child_nodes(n)}
@@ -261,6 +344,24 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None):
                 (isinstance(p, ast.Attribute) and p.value is call
                  and p.attr in ("get", "pop", "setdefault", "__getitem__"))
         for n in ast.walk(node):
+            if isinstance(n, ast.Attribute):
+                attrs.add(n.attr)
+            if isinstance(n, ast.Call):
+                fname = n.func.id if isinstance(n.func, ast.Name) else \
+                    n.func.attr if isinstance(n.func, ast.Attribute) else ""
+                if fname in ("attrgetter", "methodcaller"):
+                    lits = [a.value for a in n.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+                    attrs.update(x for lit in lits for x in lit.split("."))
+                    if fname == "attrgetter" and len(lits) < len(n.args) or fname == "methodcaller" and not (
+                            n.args and isinstance(n.args[0], ast.Constant)):
+                        widen[0] = True
+                if isinstance(n.func, ast.Name) and n.func.id in ("getattr", "hasattr", "setattr") \
+                        and len(n.args) >= 2:
+                    literal = isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str)
+                    if literal:
+                        attrs.add(n.args[1].value)
+                    elif not (isinstance(n.args[0], ast.Name) and R.module_alias(m, n.args[0].id)):
+                        widen[0] = True          # an object's attribute by computed name: any method may run
             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
                     and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2 \
                     and isinstance(n.args[0], ast.Name):
@@ -296,36 +397,72 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None):
             elif isinstance(n, ast.Name) and n.id == "importlib":
                 whole.add(m.path)
 
-    while work:
-        p, sym = work.pop()
-        if isinstance(sym, tuple):                 # an import-time statement: follow what it names; the
-            refs(R.load(p), sym[1], dynamic=False)  # statement itself is hashed, so its globals() use is seen
-            continue
-        if (p, sym) in done:
-            continue
-        done.add((p, sym))
-        m = R.load(p)
-        if sym in m.io:
-            continue
-        if sym in m.defs:
-            node = m.defs[sym]
-            items.append((p, "def", sym, _dump(_strip_docstrings(ast.parse(ast.unparse(node))))))
-            refs(m, node)
-        elif sym in m.assigns:
-            for st in m.assigns[sym]:
-                items.append((p, "assign", sym, _dump(ast.parse(ast.unparse(st)))))
-                refs(m, st)
-        elif sym in m.imports:
-            imp = m.imports[sym]
-            q = R.find(imp[1], p.parent)
-            if q:
-                if imp[0] == "mod":
-                    whole.add(q)
-                else:
-                    work.append((q, imp[2]))
+    def drain():
+        while work:
+            p, sym = work.pop()
+            if isinstance(sym, tuple) and sym[0] == "__method__":
+                _, cls, name = sym
+                if (p, f"{cls}.{name}") in done:
+                    continue
+                done.add((p, f"{cls}.{name}"))
+                m = R.load(p)
+                for node in _methods(m.defs[cls], name):
+                    items.append((p, "method", f"{cls}.{name}", _digest(m, "method", f"{cls}.{name}", node)))
+                    refs(m, node)
+                continue
+            if isinstance(sym, tuple):                 # an import-time statement: follow what it names; the
+                refs(R.load(p), sym[1], dynamic=False)  # statement itself is hashed, so its globals() use is seen
+                continue
+            if (p, sym) in done:
+                continue
+            done.add((p, sym))
+            m = R.load(p)
+            if sym in m.io:
+                continue
+            if sym in m.defs and isinstance(m.defs[sym], ast.ClassDef):
+                shell = m.dumps.get(("shell", sym))
+                if shell is None:
+                    shell = m.dumps[("shell", sym)] = _strip_docstrings(_class_shell(m.defs[sym]))
+                items.append((p, "class", sym, _digest(m, "class", sym, shell)))
+                refs(m, shell)
+                classes.append((p, sym))
+            elif sym in m.defs:
+                node = m.defs[sym]
+                items.append((p, "def", sym, _digest(m, "def", sym, node)))
+                refs(m, node)
+            elif sym in m.assigns:
+                for st in m.assigns[sym]:
+                    items.append((p, "assign", sym, _digest(m, "assign", sym, st)))
+                    refs(m, st)
+            elif sym in m.imports:
+                imp = m.imports[sym]
+                q = R.find(imp[1], p.parent)
+                if q:
+                    if imp[0] == "mod":
+                        whole.add(q)
+                    else:
+                        work.append((q, imp[2]))
+
+    # a method runs only when something names it, so the reached classes'
+    # methods are added to a fixed point: each hashed method can name more
+    seen_whole = set()
+    while True:
+        drain()
+        for p in sorted(whole - seen_whole):        # names used in a module hashed whole count too
+            seen_whole.add(p)
+            used_attrs(R.load(p).tree)
+        more = False
+        for p, cls in classes:
+            for b in R.load(p).defs[cls].body:
+                if isinstance(b, _FUNCS) and (p, f"{cls}.{b.name}") not in done \
+                        and (widen[0] or _dunder(b.name) or b.name in attrs):
+                    work.append((p, ("__method__", cls, b.name)))
+                    more = True
+        if not more and not work:
+            break
     for p in sorted(whole):
         m = R.load(p)
-        items.append((p, "whole", "", _dump(_strip_docstrings(ast.parse(m.src)))))
+        items.append((p, "whole", "", _digest(m, "whole", "", m.tree)))
 
     h = hashlib.sha256(f"py{sys.version_info[0]}.{sys.version_info[1]}".encode())
     base = Path(root).resolve() if root else None
@@ -396,6 +533,49 @@ def self_check():
                              f"{'moved' if should else 'held'}")
         if key({"lib": lib, "helper": helper}) != base:
             fails.append("the key is not reproducible")
+
+    # classes: a method is hashed only when reached code can call it
+    rows = (
+        'class Row:\n'
+        '    SPAN = 2\n'
+        '    def __init__(self, m):\n'
+        '        self.m = m\n'
+        '    def size(self):\n'
+        '        return self.m * self.SPAN + self.helper()\n'
+        '    def helper(self):\n'
+        '        return 1\n'
+        '    def price(self):\n'
+        '        return self.m * 10\n'
+        'def sizing():\n'
+        '    return Row(3).size()\n'
+        'def pricing(col):\n'
+        '    return getattr(Row(3), col)()\n'
+    )
+    cases = [
+        ("a method the solve never names", "sizing", lambda s: s.replace("self.m * 10", "self.m * 11"), False),
+        ("a method the solve calls", "sizing", lambda s: s.replace("self.m * self.SPAN", "self.m * self.SPAN * 2"), True),
+        ("a method reached through another method", "sizing", lambda s: s.replace("return 1", "return 2"), True),
+        ("a class-level constant", "sizing", lambda s: s.replace("SPAN = 2", "SPAN = 3"), True),
+        ("the constructor", "sizing", lambda s: s.replace("self.m = m", "self.m = m + 1"), True),
+        ("any method, under an attribute looked up by computed name", "pricing",
+         lambda s: s.replace("self.m * 10", "self.m * 11"), True),
+    ]
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        def ckey(src, entry):
+            (d / "rows.py").write_text(src)
+            return reach_key(d / "rows.py", [entry], [str(d)])
+        # early cutoff: a stopped function's code is left to the caller, who hashes its result
+        (d / "rows.py").write_text(rows)
+        a = reach_key(d / "rows.py", ["sizing"], [str(d)], stop=["Row"])
+        (d / "rows.py").write_text(rows.replace("SPAN = 2", "SPAN = 3"))
+        if reach_key(d / "rows.py", ["sizing"], [str(d)], stop=["Row"]) != a:
+            fails.append("stop: an edit inside a stopped name moved the key")
+        for what, entry, edit, should in cases:
+            moved = ckey(edit(rows), entry) != ckey(rows, entry)
+            if moved != should:
+                fails.append(f"class, {what}: the key {'moved' if moved else 'held'}, it should have "
+                             f"{'moved' if should else 'held'}")
     return fails
 
 

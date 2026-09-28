@@ -25,6 +25,20 @@ the numbers live in the script; the document is a render target.
 
 The sentinels are HTML comments, which render as nothing on hosted markdown.
 
+THE LEDGER (host knob LEDGER). Re-running every emitter to see whether its
+block still matches is the gate's whole cost, and most of it is spent
+proving that nothing changed. With a ledger, each block carries a fact:
+the fingerprint of the code its emitter can reach (reach_key.py, the same
+engine that keys memos), the hashes of the files the emit actually read
+(recorded by an audit hook in the emit process), and the hash of what it
+printed. A block whose fact still holds on all three is skipped without
+running anything; only the rest are emitted. Facts verify themselves, so
+the ledger merges by union and a stale or foreign line costs one re-emit,
+never a skipped block. An emit whose reads could not be recorded gets no
+fact and always runs. `--full` ignores the ledger.
+
+    python3 tools/doc_sync.py --full    # emit every block regardless
+
 Beyond the drift gate, this tool enforces two things a generated block alone
 cannot: a provenance footer naming the scripts that feed each document, and
 the practice-33 RESTATEMENT check -- a figure a script declares it owns
@@ -134,6 +148,89 @@ class OwnedFiguresUnavailable(Exception):
     """A script's owned_figures() could not be read -- never a silent pass."""
 
 
+_OWNED_CHILD = r"""
+import importlib.util, json, sys, io, contextlib
+path, out = sys.argv[1], sys.argv[2]
+sys.path.insert(0, __import__("os").path.dirname(path))
+spec = importlib.util.spec_from_file_location("_of_child", path)
+mod = importlib.util.module_from_spec(spec)
+with contextlib.redirect_stdout(io.StringIO()):
+    spec.loader.exec_module(mod)
+    figs = [[label, list(forms)] for label, forms in mod.owned_figures()]
+json.dump(figs, open(out, "w"))
+"""
+
+
+def owned_figures_cached(script, ledger):
+    """owned_figures() through the ledger: a script whose fingerprint and
+    recorded reads still hold is not imported at all (declaring figures can
+    cost a model's whole solve). Otherwise it runs in a child process that
+    records its reads, and the answer is kept as a fact."""
+    import json
+    import os
+    import tempfile
+    if not LEDGER:
+        return owned_figures(script)
+    if not _binds_owned(script):
+        return []
+    code = _reach_engine().reach_key(ROOT / script, ["owned_figures"],
+                                     [str((ROOT / script).parent)] + [str(ROOT / d) for d in REACH_DIRS],
+                                     extra=b"owned", root=ROOT)
+    for f in ledger.get(("#owned", script), []):
+        if not FULL and f.get("code") == code and f.get("reads") is not None and f.get("figures") is not None \
+                and all(_read_sig(k, r) == sig for k, r, sig in f["reads"]):
+            return [(lab, forms) for lab, forms in f["figures"]]
+    fd, out = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    fd, reads = tempfile.mkstemp(suffix=".reads")
+    os.close(fd)
+    try:
+        r = subprocess.run([sys.executable, "-c", _OWNED_CHILD, str(ROOT / script), out],
+                           capture_output=True, text=True, env=_hook_env(reads))
+        if r.returncode != 0:
+            raise OwnedFiguresUnavailable(f"{script}.owned_figures() could not be read: "
+                                          f"{r.stderr.strip().splitlines()[-1] if r.stderr.strip() else r.returncode}")
+        figs = json.load(open(out))
+        rd = _parse_reads(reads)
+    finally:
+        os.unlink(out)
+        os.unlink(reads)
+    if rd is not None:
+        tr = []
+        _reach_engine().reach_key(ROOT / script, ["owned_figures"],
+                                  [str((ROOT / script).parent)] + [str(ROOT / d) for d in REACH_DIRS],
+                                  extra=b"owned", root=ROOT, trace=tr)
+        covered = {rel for rel, *_ in tr} | {script}
+        keep = sorted({("f" if k == "m" else k, rel) for k, rel in rd if not (k == "m" and rel in covered)})
+        ledger[("#owned", script)] = [{"doc": "#owned", "block": script, "script": script, "code": code,
+                                       "figures": figs, "out": _sha(json.dumps(figs)),
+                                       "reads": [[k, rel, _read_sig(k, rel)] for k, rel in keep]}]
+    return [(lab, forms) for lab, forms in figs]
+
+
+def _binds_owned(script):
+    """Whether a script can define owned_figures at all (a script that never
+    binds the name has nothing to declare, and is not imported)."""
+    import ast
+    try:
+        top = ast.parse((ROOT / script).read_text()).body
+    except SyntaxError:
+        return True
+    for st in top:
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if st.name == "owned_figures":
+                return True
+        elif isinstance(st, (ast.Import, ast.ImportFrom)):
+            if any((a.asname or a.name.split(".")[0]) in ("owned_figures", "*") for a in st.names):
+                return True
+        elif any(isinstance(x, ast.Name) and x.id == "owned_figures" and isinstance(x.ctx, ast.Store)
+                 for x in ast.walk(st)) or any(isinstance(x, ast.Call) and isinstance(x.func, ast.Name)
+                                                and x.func.id in ("globals", "exec", "setattr")
+                                                for x in ast.walk(st)):
+            return True
+    return False
+
+
 def owned_figures(script):
     """Figures a script declares it owns, as (label, [rendered forms]).
 
@@ -175,15 +272,305 @@ def owned_figures(script):
             f"{script}.owned_figures() raised: {type(e).__name__}: {e}") from e
 
 
+# ---------------------------------------------------------------------------
+# The ledger (see the module docstring). Hosts set LEDGER to a repo-relative
+# path (mark it `merge=union` in .gitattributes) and REACH_DIRS to the
+# directories a bare `import name` in a script may resolve to after the
+# script's own directory -- the same list the host's memo keys use. An import
+# the fingerprint cannot resolve is not followed, so a missing directory
+# here is a block skipped on stale code; list every directory models import
+# from.
+LEDGER = None
+REACH_DIRS = ()
+FULL = False                      # --full: ignore the ledger for this run
+READS = {}                        # (script, name) -> recorded reads, or None when untracked
+_HOOK_DIR = None
+
+_READS_HOOK = r"""
+import os as _os, sys as _sys
+def _doc_sync_reads():
+    out = _os.environ.get("DOC_SYNC_READS")
+    root = _os.environ.get("DOC_SYNC_ROOT")
+    if not out or not root:
+        return
+    root = _os.path.realpath(root) + _os.sep
+    busy = [False]
+    seen = set()
+    skip = (".git" + _os.sep, ".cache" + _os.sep, "__pycache__")
+    def note(kind, path):
+        try:
+            if isinstance(path, int):
+                return
+            if isinstance(path, bytes):
+                path = path.decode(errors="replace")
+            full = _os.path.realpath(_os.fspath(path))
+        except Exception:
+            return
+        if not full.startswith(root):
+            return
+        rel = full[len(root):]
+        if rel.endswith((".py", ".pyc")) or any(x in rel for x in skip) or (kind, rel) in seen:
+            return
+        seen.add((kind, rel))
+        with open(out, "a") as f:
+            f.write(kind + "\t" + rel + "\n")
+    def hook(event, args):
+        if busy[0]:
+            return
+        busy[0] = True
+        try:
+            if event == "open" and args and args[0] is not None:
+                mode, flags = args[1], args[2] if len(args) > 2 else 0
+                if isinstance(mode, str):
+                    if any(c in mode for c in "wax") and "+" not in mode:
+                        return
+                elif flags & 3:
+                    return
+                if _os.path.isfile(args[0]) if not isinstance(args[0], int) else False:
+                    note("f", args[0])
+            elif event in ("os.listdir", "os.scandir") and args:
+                # the import system lists every directory it searches; that
+                # is where code is found, which the fingerprint covers, not
+                # data a model reads
+                f = _sys._getframe(1)
+                while f is not None:
+                    if "importlib" in f.f_code.co_filename:
+                        return
+                    f = f.f_back
+                p = args[0] if args[0] is not None else "."
+                note("d", p)
+        finally:
+            busy[0] = False
+    def modules():
+        # every repository module the process loaded: the fingerprint covers
+        # the ones it can follow, and the rest are hashed whole from this list
+        busy[0] = True
+        try:
+            with open(out, "a") as f:
+                for m in list(_sys.modules.values()):
+                    fn = getattr(m, "__file__", None)
+                    if fn and fn.endswith(".py"):
+                        full = _os.path.realpath(fn)
+                        if full.startswith(root) and ".cache" + _os.sep not in full:
+                            f.write("m\t" + full[len(root):] + "\n")
+                f.write("#done\n")
+        except Exception:
+            pass
+    import atexit as _atexit
+    _atexit.register(modules)
+    with open(out, "a") as f:
+        f.write("#active\n")
+    _sys.addaudithook(hook)
+_doc_sync_reads()
+del _doc_sync_reads
+"""
+
+
+def _hook_env(reads_file):
+    """The environment of an emit that records its reads: the hook rides in
+    a usercustomize on PYTHONPATH, so the script itself runs exactly as it
+    would from the shell."""
+    import os
+    import tempfile
+    global _HOOK_DIR
+    if _HOOK_DIR is None:
+        _HOOK_DIR = tempfile.mkdtemp(prefix="doc_sync_hook_")
+        Path(_HOOK_DIR, "usercustomize.py").write_text(_READS_HOOK)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = _HOOK_DIR + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env["DOC_SYNC_READS"] = str(reads_file)
+    env["DOC_SYNC_ROOT"] = str(ROOT)
+    return env
+
+
+def _parse_reads(reads_file):
+    """The reads an emit recorded, or None when the hook never ran (a
+    fact then cannot be recorded, and the block always emits)."""
+    try:
+        lines = Path(reads_file).read_text().splitlines()
+    except OSError:
+        return None
+    if "#active" not in lines or "#done" not in lines:
+        return None
+    return sorted({tuple(ln.split("\t", 1)) for ln in lines if "\t" in ln})
+
+
+def _sha(text):
+    import hashlib
+    return hashlib.sha256(text.encode() if isinstance(text, str) else text).hexdigest()[:16]
+
+
+def _read_sig(kind, rel):
+    p = ROOT / rel
+    try:
+        if kind == "d":
+            return _sha("\n".join(sorted(x.name for x in p.iterdir())))
+        return _sha(p.read_bytes())
+    except OSError:
+        return "missing"
+
+
+_RK = None
+_KEYS = {}
+_COVERED = {}                     # (doc-free) block key -> repo files the fingerprint follows
+_TREES = {}
+
+
+def _reach_engine():
+    global _RK
+    if _RK is None:
+        spec = importlib.util.spec_from_file_location("_doc_sync_reach_key",
+                                                      Path(__file__).resolve().parent / "reach_key.py")
+        _RK = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_RK)
+    return _RK
+
+
+def _block_entries(script, name):
+    """What the emit of one block can run: the names the script's
+    `__main__` block uses, with an EMITTERS table narrowed to the block's
+    own entry (when the table is a plain dict literal nothing else edits),
+    and the hashed text of the dispatch itself."""
+    import ast
+    tree = _TREES.get(script)
+    if tree is None:
+        tree = _TREES[script] = ast.parse((ROOT / script).read_text())
+    guards = [st for st in tree.body if isinstance(st, ast.If) and isinstance(st.test, ast.Compare)
+              and isinstance(st.test.left, ast.Name) and st.test.left.id == "__name__"]
+    names = {n.id for g in guards for n in ast.walk(g) if isinstance(n, ast.Name)}
+    extra = "".join(ast.dump(g) for g in guards)
+    table = [st for st in tree.body if isinstance(st, ast.Assign) and len(st.targets) == 1
+             and isinstance(st.targets[0], ast.Name) and st.targets[0].id == "EMITTERS"
+             and isinstance(st.value, ast.Dict)]
+    edited = any(
+        (isinstance(n, (ast.Assign, ast.AugAssign)) and any(
+            isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name) and t.value.id == "EMITTERS"
+            for t in (n.targets if isinstance(n, ast.Assign) else [n.target])))
+        or (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "EMITTERS"
+            and n.attr in ("update", "setdefault", "pop", "clear", "__setitem__"))
+        or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "EMITTERS" for t in n.targets)
+            and n not in table)
+        for n in ast.walk(tree))
+    if "EMITTERS" in names and len(table) == 1 and not edited:
+        d = table[0].value
+        vals = [v for k, v in zip(d.keys, d.values) if isinstance(k, ast.Constant) and k.value == name]
+        if len(vals) == 1 and all(isinstance(k, ast.Constant) for k in d.keys):
+            names.discard("EMITTERS")
+            names |= {n.id for n in ast.walk(vals[0]) if isinstance(n, ast.Name)}
+            extra += ast.dump(vals[0])
+    return sorted(names), extra
+
+
+def block_code_key(script, name):
+    """The fingerprint of the code one block's emit can reach."""
+    entries, extra = _block_entries(script, name)
+    k = (script, tuple(entries), extra)
+    if k not in _KEYS:
+        path = ROOT / script
+        dirs = [str(path.parent)] + [str(ROOT / d) for d in REACH_DIRS]
+        tr = []
+        _KEYS[k] = _reach_engine().reach_key(path, entries, dirs, extra=extra.encode(), root=ROOT, trace=tr)
+        # a module hashed whole is covered entirely; one reached in part is
+        # covered for what the solve can run, which is the point
+        _COVERED[_KEYS[k]] = {rel for rel, *_ in tr} | {script}
+    return _KEYS[k]
+
+
+def load_ledger():
+    """(doc, block) -> [facts]; a line that does not parse is ignored, as a
+    union merge can leave one."""
+    import json
+    out = {}
+    if not LEDGER or not (ROOT / LEDGER).is_file():
+        return out
+    for ln in (ROOT / LEDGER).read_text().splitlines():
+        try:
+            f = json.loads(ln)
+            out.setdefault((f["doc"], f["block"]), []).append(f)
+        except (ValueError, KeyError, TypeError):
+            continue
+    return out
+
+
+def save_ledger(ledger):
+    import json
+    lines = []
+    for (doc, block) in sorted(ledger):
+        f = ledger[(doc, block)][-1]
+        lines.append(json.dumps(f, sort_keys=True, separators=(",", ":")))
+    (ROOT / LEDGER).write_text("".join(ln + "\n" for ln in lines))
+
+
+def fact_holds(f, code, have):
+    return (f.get("code") == code and f.get("out") == _sha(have) and f.get("reads") is not None
+            and all(_read_sig(kind, rel) == sig for kind, rel, sig in f["reads"]))
+
+
+def make_fact(doc, name, script, code, want, reads):
+    """The fact for one verified block. A loaded module the fingerprint
+    does not cover (one loaded by file path, or by a computed name) is kept
+    as a read and hashed whole; a covered one is left to the fingerprint."""
+    covered = _COVERED.get(code, set())
+    keep = sorted({("f" if kind == "m" else kind, rel) for kind, rel in reads
+                   if not (kind == "m" and rel in covered)})
+    return {"doc": doc, "block": name, "script": script, "code": code, "out": _sha(want),
+            "reads": [[kind, rel, _read_sig(kind, rel)] for kind, rel in keep]}
+
+
+
 def block_re(name):
     return re.compile(
         rf"(<!--gen:{re.escape(name)}-->\n)(.*?)(<!--/gen:{re.escape(name)}-->)",
         re.S)
 
 
+# FAIL FAST. Emits run concurrently, and a pool waits for every running
+# task before it lets an exception out, so a script that crashed in its
+# first second was reported only when the slowest solve beside it finished
+# -- fourteen minutes, twice in one session. Every emit is its own process
+# group; the first failure stops the rest and the gate exits at once.
+_PROCS = set()
+_ABORTED = []
+
+
+def _run(argv, env=None):
+    import threading
+    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                         env=env, start_new_session=True)
+    _PROCS.add(p)
+    try:
+        out, err = p.communicate()
+    finally:
+        _PROCS.discard(p)
+    return subprocess.CompletedProcess(argv, p.returncode, out, err)
+
+
+def _abort_all():
+    import os
+    import signal
+    _ABORTED.append(True)
+    for p in list(_PROCS):
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+
+
 def emit(script, name):
-    r = subprocess.run([sys.executable, str(ROOT / script), "--emit", name],
-                       capture_output=True, text=True)
+    import os
+    import tempfile
+    env = None
+    if LEDGER:
+        fd, reads = tempfile.mkstemp(suffix=".reads")
+        os.close(fd)
+        env = _hook_env(reads)
+    try:
+        r = _run([sys.executable, str(ROOT / script), "--emit", name], env=env)
+        if LEDGER:
+            READS[(script, name)] = _parse_reads(reads)
+    finally:
+        if LEDGER:
+            os.unlink(reads)
     if r.returncode != 0:
         sys.exit(f"[doc_sync] FAIL: {script} --emit {name} exited "
                  f"{r.returncode}:\n{r.stderr}")
@@ -211,15 +598,21 @@ def emit_batch(script, names):
     import tempfile
     fd, out = tempfile.mkstemp(suffix=".json")
     os.close(fd)
+    fd, reads = tempfile.mkstemp(suffix=".reads")
+    os.close(fd)
     try:
-        r = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--_emit-batch",
-                            str(ROOT / script), out, *names], capture_output=True, text=True)
+        r = _run([sys.executable, str(Path(__file__).resolve()), "--_emit-batch",
+                  str(ROOT / script), out, *names], env=_hook_env(reads) if LEDGER else None)
         if r.returncode != 0:
             sys.exit(f"[doc_sync] FAIL: {script} (one process, {len(names)} blocks) exited "
                      f"{r.returncode}:\n{r.stderr}")
         res = json.load(open(out))
+        if LEDGER:                          # one process: its reads are every block's
+            rd = _parse_reads(reads)
+            READS.update({(script, n): rd for n in names})
     finally:
         os.unlink(out)
+        os.unlink(reads)
     return {n: res[n].rstrip("\n") + "\n" for n in names}
 
 
@@ -299,11 +692,23 @@ def emit_all(pairs, jobs=None):
         for fn, args in tasks:
             out.update(collect(fn, args, fn(*args)))
         return out
-    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=jobs)
+    try:
         futs = {ex.submit(fn, *args): (fn, args) for fn, args in tasks}
         for f in concurrent.futures.as_completed(futs):
             fn, args = futs[f]
-            out.update(collect(fn, args, f.result()))
+            try:
+                res = f.result()
+            except BaseException:
+                if not _ABORTED:            # the first failure: stop every other emit now
+                    running = len(_PROCS)
+                    _abort_all()
+                    print(f"[doc_sync] stopping {running} other emit(s): {args[0]} failed",
+                          file=sys.stderr)
+                raise
+            out.update(collect(fn, args, res))
+    finally:
+        ex.shutdown(wait=True, cancel_futures=True)
     return out
 
 
@@ -323,7 +728,11 @@ def main():
                     help="emit every block of SCRIPT per block and in one process and "
                          "report any that differ: the check a script passes before it "
                          "joins BATCH_MODELS")
+    ap.add_argument("--full", action="store_true",
+                    help="ignore the ledger and emit every selected block (facts are still recorded)")
     args = ap.parse_args()
+    global FULL
+    FULL = args.full
     if args.verify_batch:
         names = [n for _, n, s in PAIRS if s == args.verify_batch]
         if not names:
@@ -364,8 +773,36 @@ def main():
         PAIRS[:] = []
         pairs = []
 
-    wants = emit_all([(d, n, s) for d, n, s in pairs if (ROOT / d).is_file()])
+    # the ledger: a block whose fact still holds is not emitted at all
+    ledger = load_ledger() if LEDGER else {}
+    codes, held = {}, set()
+    if LEDGER:
+        import time
+        t0 = time.time()
+        for doc, name, script in pairs:
+            path = ROOT / doc
+            if not path.is_file() or not (ROOT / script).is_file():
+                continue
+            m = block_re(name).search(path.read_text())
+            if not m:
+                continue
+            try:
+                codes[(doc, name)] = block_code_key(script, name)
+            except (SyntaxError, OSError) as e:
+                print(f"[doc_sync] note  {script}: no fingerprint ({type(e).__name__}); its blocks emit")
+                continue
+            if not FULL and any(fact_holds(f, codes[(doc, name)], m.group(2))
+                                for f in ledger.get((doc, name), [])):
+                held.add((doc, name))
+        print(f"[doc_sync] ledger: {len(held)} of {len(pairs)} block(s) unchanged since their "
+              f"last check ({time.time() - t0:.1f} s); emitting {len(pairs) - len(held)}"
+              + (" (--full)" if FULL else ""), file=sys.stderr)
+    recorded = False
+    wants = emit_all([(d, n, s) for d, n, s in pairs if (ROOT / d).is_file() and (d, n) not in held])
     for doc, name, script in pairs:
+        if (doc, name) in held:
+            print(f"[doc_sync] OK    {doc} [{name}] (ledger)")
+            continue
         path = ROOT / doc
         # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
         # document renamed or deleted without updating it leaves an entry
@@ -385,12 +822,23 @@ def main():
             continue
         want = wants[(script, name)]
         have = m.group(2)
+        verified = False
         if have == want:
             print(f"[doc_sync] OK    {doc} [{name}]")
+            verified = True
         elif args.write:
             path.write_text(text[:m.start(2)] + want + text[m.end(2):])
             print(f"[doc_sync] WROTE {doc} [{name}]")
-        else:
+            verified = True
+        if verified and LEDGER and (doc, name) in codes:
+            reads = READS.get((script, name))
+            if reads is not None:
+                ledger[(doc, name)] = [make_fact(doc, name, script, codes[(doc, name)], want, reads)]
+                recorded = True
+            else:
+                print(f"[doc_sync] note  {doc} [{name}]: its reads were not recorded, so it "
+                      "gets no ledger fact and emits every run")
+        if not verified:
             print(f"[doc_sync] DRIFT {doc} [{name}] -- document block != "
                   "script output. Fix the script (numbers live there), then "
                   "run doc_sync.py --write.")
@@ -400,6 +848,9 @@ def main():
                     lineterm="", n=1):
                 print("    " + line)
             fail = True
+
+    if recorded:
+        save_ledger(ledger)
 
     # Footer check: every registered document must end with a "Numbers by:"
     # footer naming each script that feeds it, so a reader always knows
@@ -445,7 +896,7 @@ def main():
         # solve) every other model wired to the same document
         for script in sorted({s for d, n, s in pairs if d == doc}):
             try:
-                declared = owned_figures(script)
+                declared = owned_figures_cached(script, ledger)
             except OwnedFiguresUnavailable as e:
                 print(f"[doc_sync] FAIL  {doc}: {e} — the restatement scan for "
                       "this document examined nothing, which is not a pass")
@@ -462,6 +913,9 @@ def main():
                                   "line <!--owned-ok--> if the restatement is "
                                   "deliberate")
                             fail = True
+
+    if LEDGER and any(k[0] == "#owned" for k in ledger):
+        save_ledger(ledger)
 
     # Registry-consistency check: PAIRS is a hand-maintained JOIN over two facts
     # that already declare themselves -- the sentinel in the document and the

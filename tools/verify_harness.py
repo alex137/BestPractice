@@ -28210,6 +28210,198 @@ def check_refresh_sources_path_names_the_whole_target():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_reach_key_self_check():
+    """reach_key.py's own property checks: a change the solve can run moves
+    the key, one it cannot does not -- functions, constants, import-time
+    patches, and class methods one at a time (a method moves the key only
+    when reached code names it), plus early cutoff through `stop`."""
+    name = 'reach_key keys a solve on the code it can reach, a method at a time'
+    tool = ROOT / 'tools' / 'reach_key.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/reach_key.py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), '--self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'PASS' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
+
+
+def check_doc_sync_ledger():
+    """doc_sync's ledger skips a block whose code fingerprint, recorded reads
+    and output all still hold, and re-emits it when any of the three moves.
+    Built in a scratch repository with one script and one document; the
+    script counts its own emits in a file the hook does not track (a write,
+    not a read)."""
+    name = 'doc_sync skips an unchanged block and re-emits one whose code, data or text moved'
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    rk = ROOT / 'tools' / 'reach_key.py'
+    if not engine.is_file() or not rk.is_file():
+        not_applicable(name, 'tools/doc_sync.py or tools/reach_key.py is absent')
+        return
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        shutil.copy2(rk, d / 'tools' / 'reach_key.py')
+        (d / 'data.txt').write_text('7\n')
+        model = (
+            'import sys\n'
+            'def value():\n'
+            '    return int(open(__file__.rsplit("/", 1)[0] + "/data.txt").read()) * 2\n'
+            'def unrelated():\n'
+            '    return 1\n'
+            'def emit_table():\n'
+            '    open(__file__.rsplit("/", 1)[0] + "/emits.log", "a").write("x")\n'
+            '    return f"| v |\\n|---|\\n| {value()} |"\n'
+            'EMITTERS = {"table": emit_table}\n'
+            'if __name__ == "__main__":\n'
+            '    if len(sys.argv) == 3 and sys.argv[1] == "--emit":\n'
+            '        print(EMITTERS[sys.argv[2]]())\n'
+            '        sys.exit(0)\n'
+        )
+        (d / 'model.py').write_text(model)
+        (d / 'doc.md').write_text('# Doc\n\n<!--gen:table-->\n<!--/gen:table-->\n\nNumbers by: model.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util, sys\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "table", "model.py")]\n'
+            'e.LEDGER = "ledger.jsonl"\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+
+        def gate(*extra):
+            p = subprocess.run([sys.executable, 'shim.py', *extra], cwd=d, capture_output=True,
+                               text=True, env={k: v for k, v in os.environ.items()
+                                               if k not in ('PYTHONNOUSERSITE',)})
+            return p.returncode, p.stdout + p.stderr
+
+        def emits():
+            f = d / 'emits.log'
+            return len(f.read_text()) if f.is_file() else 0
+        rc, out = gate('--write')
+        if rc != 0 or '| 14 |' not in (d / 'doc.md').read_text():
+            bad.append(f'the first --write did not fill the block: {out[-300:]}')
+        if not (d / 'ledger.jsonl').is_file():
+            bad.append('no ledger fact was recorded')
+        n = emits()
+        steps = [
+            ('an unchanged tree', lambda: None, False, 0),
+            ('a function the emit never calls', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('return 1', 'return 2')), False, 0),
+            ('a function the emit calls (same output)', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('* 2\n', '* 2 + 0\n')), True, 0),
+            ('a data file the emit read', lambda: (d / 'data.txt').write_text('8\n'), True, 1),
+            ('a hand edit inside the block', lambda: (d / 'doc.md').write_text(
+                (d / 'doc.md').read_text().replace('| 16 |', '| 99 |')), True, 1),
+        ]
+        for what, edit, should_emit, should_fail in steps:
+            edit()
+            rc, out = gate()
+            ran = emits() > n
+            n = emits()
+            if ran != should_emit:
+                bad.append(f'{what}: the block {"was" if ran else "was not"} emitted')
+            if bool(rc) != bool(should_fail):
+                bad.append(f'{what}: the gate exited {rc}')
+            if should_fail:
+                gate('--write')
+                n = emits()
+    check(name, not bad, '; '.join(bad))
+
+
+def check_doc_sync_fails_fast():
+    """doc_sync runs emits concurrently; the first one that fails stops the
+    rest and the gate exits at once, instead of waiting for the slowest
+    emit beside it (origin 2026-09-28: a script that crashed in its first
+    second was reported fourteen minutes later, twice). A scratch repository
+    with one emit that sleeps a minute and one that fails."""
+    name = 'doc_sync stops every other emit when one fails'
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    if not engine.is_file():
+        not_applicable(name, 'tools/doc_sync.py is absent')
+        return
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        for f in ('reach_key.py',):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'slow.py').write_text('import time\ntime.sleep(60)\nprint("x")\n')
+        (d / 'bad.py').write_text('import time\ntime.sleep(1)\nraise SystemExit("broken")\n')
+        (d / 'doc.md').write_text('<!--gen:a-->\n<!--/gen:a-->\n<!--gen:b-->\n<!--/gen:b-->\n'
+                                  'Numbers by: slow.py bad.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "a", "slow.py"), ("doc.md", "b", "bad.py")]\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+        t0 = time.time()
+        p = subprocess.run([sys.executable, 'shim.py'], cwd=d, capture_output=True, text=True,
+                           env={**os.environ, 'DOC_SYNC_JOBS': '2'}, timeout=120)
+        took = time.time() - t0
+    check(name, p.returncode != 0 and took < 20 and 'bad.py' in p.stderr,
+          f'exit {p.returncode} after {took:.0f}s: {(p.stdout + p.stderr).strip()[-300:]}')
+
+
+def check_push_check_runs_cheap_checks_first():
+    """precedent_push_check.run() moves the slow checks (the harness suite,
+    the deep-check suites) behind every fast one, and skips them once a fast
+    one has failed -- the push is refused either way. Origin 2026-09-28: a
+    merge gate spent ten minutes on the harness suite before reporting stale
+    generated views, a one-second finding, then ten more on the fixed push.
+    Asserted on the function itself, with stand-in checks that record the
+    order they ran in."""
+    name = 'the push check runs its slow checks last, and not after a fast failure'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not tool.is_file():
+        not_applicable(name, 'precedent_push_check.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('ppc_cheap_first', tool)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        log = d / 'order.txt'
+        def stand_in(label, code):
+            f = d / f'{label}.py'
+            f.write_text(f'open({str(log)!r}, "a").write({label!r} + "\\n")\n'
+                         f'raise SystemExit({code})\n')
+            return (label, [sys.executable, str(f)], 'stand-in')
+        checks = [stand_in('verify_harness', 0), stand_in('fast_ok', 0), stand_in('fast_bad', 1),
+                  stand_in('deep_check', 0)]
+        env_all = os.environ.pop('PRECEDENT_PUSH_CHECK_ALL', None)
+        try:
+            import contextlib as _cl, io as _io
+            with _cl.redirect_stdout(_io.StringIO()):
+                failed, _m, _t, _f = mod.run(d, checks)
+            ran = log.read_text().split()
+            if ran != ['fast_ok', 'fast_bad']:
+                bad.append(f'with a fast failure, ran {ran}, expected the fast checks only')
+            if failed != ['fast_bad']:
+                bad.append(f'reported {failed} as failed')
+            log.unlink()
+            os.environ['PRECEDENT_PUSH_CHECK_ALL'] = '1'
+            with _cl.redirect_stdout(_io.StringIO()):
+                mod.run(d, checks)
+            ran = log.read_text().split()
+            if ran != ['fast_ok', 'fast_bad', 'verify_harness', 'deep_check']:
+                bad.append(f'under PRECEDENT_PUSH_CHECK_ALL=1, ran {ran}')
+        finally:
+            os.environ.pop('PRECEDENT_PUSH_CHECK_ALL', None)
+            if env_all is not None:
+                os.environ['PRECEDENT_PUSH_CHECK_ALL'] = env_all
+    check(name, not bad, '; '.join(bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -40845,6 +41037,10 @@ def main():
     check_refresh_sources_path_names_the_whole_target()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
+    check_push_check_runs_cheap_checks_first()
+    check_reach_key_self_check()
+    check_doc_sync_ledger()
+    check_doc_sync_fails_fast()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
