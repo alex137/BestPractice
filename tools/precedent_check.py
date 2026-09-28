@@ -8014,6 +8014,10 @@ DISPOSITION_FILE_GLOBS = ('**/TODO.md', 'templates/TODO.md.template')
 # prose-line grammar above cannot see a frontmatter field, so it is read
 # separately. `null` is allowed: absence already means `wait`.
 DISPOSITION_ITEM_GLOB = '**/todo/todo-*.md'
+# A harness's agent worktrees: whole other checkouts of this repo, gitignored
+# (templates/gitignore.template, since 2026-09-28's 3f6cce0f). An rglob
+# reaches into them and judges another branch's items as this one's.
+AGENT_WORKTREES = '.claude/worktrees/'
 DISPOSITION_ITEM_CLOSED = ('done', 'dropped', 'closed')
 _DISPOSITION_FM_RE = re.compile(r'\A---\n(.*?)\n---', re.S)
 _DISPOSITION_FM_FIELD_RE = re.compile(r'^(status|disposition):[ \t]*(.*?)[ \t]*$', re.M)
@@ -8072,7 +8076,8 @@ def _open_item_disposition(ctx):
         for rel in found:
             # _mirrored() guards its own import, so the fixture-safety
             # note above still holds: copied alone, it falls back.
-            if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)):
+            if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)) \
+                    or rel.startswith(AGENT_WORKTREES):
                 continue
             if rel not in files:
                 files.append(rel)
@@ -8081,7 +8086,8 @@ def _open_item_disposition(ctx):
         if p.parent.name != 'todo' or not p.is_file():
             continue
         rel = p.relative_to(ROOT).as_posix()
-        if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)):
+        if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)) \
+                or rel.startswith(AGENT_WORKTREES):
             continue
         items.append(rel)
     if not files and not items:
