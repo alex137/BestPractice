@@ -36831,6 +36831,52 @@ def check_no_engine_tool_hardcodes_a_mirror_path():
           '; '.join(bad))
 
 
+def check_templates_point_at_gotchas_rather_than_inline_them():
+    """The shipped AGENTS templates point at gotchas/ and carry no trap
+    inline, and an install seeds the catalogue they point to (very deep
+    check 2026-09-21 B1, fixed 2026-09-28): resident environment-gotchas
+    rules the catalogue out of the instructions file, and the templates
+    taught every new consumer to inline it. Discriminating case: the old
+    templates' inline stale-checkout entry, which the gotcha check's own
+    section parser reads as an entry."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_install as pi
+    import precedent_check as pc
+    cases = []
+    for rel in ('templates/AGENTS.md.loader.template',
+                'templates/AGENTS.md.template',
+                'templates/document-project/AGENTS.md'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        m = pc.GOTCHA_HEADING_RE.search(text)
+        body = text[m.end():] if m else ''
+        body = re.sub(r'<!--.*?-->', '', body, flags=re.S)
+        body = body[:re.search(r'^#{1,4}\s', body, re.M).start()] \
+            if re.search(r'^#{1,4}\s', body, re.M) else body
+        cases.append((f'{rel} points at gotchas/ and inlines no trap',
+                      m is not None and 'gotchas/' in body
+                      and 'stale enough to look complete' not in body,
+                      body[:200]))
+    seeds = [k for k in pi.ROOT_FILES if k.startswith('gotchas/gotcha-')]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='gotcha-seed-'))
+    try:
+        for k in seeds:
+            (tmp / k).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(pi.TEMPLATES / pi.ROOT_FILES[k], tmp / k)
+        got = pc._read_gotcha_files(tmp) or []
+        ok = [g for g in got if g[1] == 'live' and g[2]
+              and g[3] >= pc.STORY_MIN_WORDS and g[4] >= pc.STORY_MIN_SENTENCES]
+        cases.append(('an install seeds a live gotcha with a symptom and a '
+                      'story', bool(seeds) and len(ok) == len(seeds),
+                      repr(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the shipped templates point at gotchas/ and an install seeds it '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_installer_produces_a_clean_install():
     """tools/precedent_install.py, run against a scratch project as SETUP.md
     now runs it, yields a repo whose own gates come back clean -- and
@@ -43235,6 +43281,7 @@ def main():
     check_engine_fetch_reaches_main_in_a_single_branch_clone()
     check_update_vendors_leaves_mentions_of_a_deleted_file()
     check_no_engine_tool_hardcodes_a_mirror_path()
+    check_templates_point_at_gotchas_rather_than_inline_them()
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_move_tool_lands_then_deduplicates()

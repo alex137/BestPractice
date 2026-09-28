@@ -41,6 +41,17 @@ deliverables and indexes which documents back each part of each one.
 
 ### Build-environment gotchas — do NOT rediscover these
 
+Environment and tooling traps are written down one per file under
+[gotchas/](gotchas/), each with what failed, what it cost, and the fix
+(practice `environment-gotchas`). **None of that catalogue is copied into
+this file**: hit a confusing, hard-to-explain failure, and before
+concluding it is new, grep for it —
+`grep -ril '<a keyword from what you are seeing>' gotchas/`. Add one as
+`gotchas/gotcha-<date>-<slug>.md` with `## Symptom`, `## Story` and
+`## Fix`, and mirror its fix into the bootstrap script (practice
+`session-bootstrap`) so it applies itself. The bullets below are standing
+instructions for this repo, not gotchas.
+
 - At session start, run `bash tools/bootstrap.sh` before other work. Claude
   Code on the web runs it for you (the SessionStart hook runs it only when
   `CLAUDE_CODE_REMOTE=true`); locally, and in other harnesses, run it

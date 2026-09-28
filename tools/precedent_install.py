@@ -79,6 +79,13 @@ ROOT_FILES = {
     'TODO.md': 'TODO.md.template',
     'GLOSSARY.md': 'GLOSSARY.md.template',
     'GETTING_STARTED.md': 'GETTING_STARTED.md',
+    # The one trap every install inherits, as a file in the catalogue
+    # rather than an entry inlined into AGENTS.md: resident
+    # environment-gotchas rules the catalogue out of the instructions file,
+    # and the templates' old inline section taught every consumer the
+    # opposite (very deep check 2026-09-21, B1; fixed 2026-09-28).
+    'gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md':
+        'gotchas/stale-checkout.md.template',
 }
 # This project's own voice and its own visual identity are repo-local
 # PRACTICEs, not root documents -- see
@@ -328,6 +335,7 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
         text = (TEMPLATES / tmpl).read_text(encoding='utf-8')
         text = _substitute(text, common)
         text = _substitute(text, per_file.get(name, {}))
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding='utf-8')
         written.append(name)
     return written, skipped

@@ -177,6 +177,10 @@ list.)
    - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
+   - `templates/gotchas/stale-checkout.md.template` →
+     `gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md`,
+     unchanged: the one trap every install inherits, and the start of the
+     `gotchas/` catalogue the instructions file points to rather than copies.
    - `templates/local-practices/project-voice.md.template` →
      `local/practices/project-voice.md`, and
      `templates/local-practices/project-visual-identity.md.template` →
