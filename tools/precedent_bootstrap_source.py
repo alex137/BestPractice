@@ -949,7 +949,25 @@ def verify(level, path):
                        "the set's AGENTS.md loads only via the harness's "
                        "AGENTS.md fallback -- add a file whose body is "
                        "`@AGENTS.md`)")
-    return missing + _malformed(level, path)
+
+    # A shared set's CODEOWNERS, current with its approvers.json -- the one
+    # place the declared approvers become an enforced review (bootstrap
+    # writes it since 2026-09-28; every set before then got none). Checked
+    # only where the set carries the generator (tools/build_codeowners.py,
+    # vendored by bootstrap): a set without it cannot regenerate the file,
+    # and the engine-freshness rows above already cover a missing engine.
+    # A malformed approvers.json is _malformed's to report, not this row's.
+    malformed = _malformed(level, path)
+    if (level == 'shared' and (path / 'tools' / 'build_codeowners.py').is_file()
+            and not any('approvers.json' in m for m in malformed)):
+        rc, out = _codeowners(path, check_only=True)
+        if rc != 0:
+            missing.append(f"CODEOWNERS is missing or not current with "
+                           f"approvers.json, so the approvers it declares "
+                           f"enforce nothing -- run `python3 "
+                           f"tools/build_codeowners.py` in the set "
+                           f"({out.splitlines()[-1] if out else 'no output'})")
+    return missing + malformed
 
 
 def _template_guard_modes():
@@ -1276,8 +1294,41 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
     written.append(_write_session_load_budget(dest))
+    if level == 'shared':
+        written.append(_write_codeowners(dest))
 
     return {'dest': dest, 'written': written}
+
+
+def _codeowners(root, check_only):
+    """-> (exit status, what build_codeowners printed) for `root`, run from
+    THIS clone's copy of the generator -- the one bootstrap vendors into the
+    set, and code verify() may run (it never runs code the set carries)."""
+    import contextlib, io
+    import build_codeowners
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        try:
+            rc = build_codeowners.main(check_only=check_only,
+                                       root=pathlib.Path(root))
+        except SystemExit as e:           # a malformed approvers.json
+            rc = 1
+            if e.code and not isinstance(e.code, int):
+                print(e.code)
+    return rc, buf.getvalue().strip()
+
+
+def _write_codeowners(dest):
+    """A shared set's CODEOWNERS, generated from the approvers.json this
+    bootstrap just wrote. Until 2026-09-28 a new set got the approver list
+    and no CODEOWNERS: approvers declared, approvals enforced by nothing,
+    until somebody remembered build_codeowners.py (found rehearsing a move
+    into a freshly bootstrapped set)."""
+    rc, out = _codeowners(dest, check_only=False)
+    if rc != 0:
+        raise BootstrapRefused(f"generating CODEOWNERS from approvers.json "
+                               f"failed: {out}")
+    return pathlib.Path(dest) / 'CODEOWNERS'
 
 
 def _write_session_load_budget(dest):

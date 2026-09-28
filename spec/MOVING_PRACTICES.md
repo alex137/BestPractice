@@ -74,10 +74,18 @@ carries, an approver not listed in a team set's `approvers.json`, a
 `checked_by` naming a check the destination cannot run, a `ships:` file the
 destination does not carry yet, and `--dedupe-only`
 on a practice moving *out of* universal without `--accept-reach-loss` also
-given (below). **With `--to universal` it drafts only** — the file goes
+given (below). **Taking a practice out of a team set needs one of that
+set's own approvers**, on every run that withdraws the team copy,
+`--dedupe-only` included: `--approved-by` is checked against the source
+set's `approvers.json` too, and the name goes into the Story line (added
+2026-09-28, when a rehearsal found only the destination was ever checked).
+**With `--to universal` it drafts only** — the file goes
 into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
 `doc_sync.py --write` run so its deep check is green on the draft, and the
-source stays active. Commit that on a branch and open the pull request.
+source stays active. A source file with no `## Install` gets an empty one
+in the draft, and the tool says so: every universal practice carries the
+section, and the harness fails a draft without it while every fast check
+passes it. Commit that on a branch and open the pull request.
 **Run it again with `--dedupe-only` only once the pull request has merged
 AND every repository consuming the source set has taken the new universal
 catalogue** ([INSTALL.md](../INSTALL.md) §2 step 0, or `Update Vendors`):
@@ -110,6 +118,14 @@ audience that still needs it has moved to the destination set. That is a
 human call, the same shape [`go-update`](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md)
 already asks for on anything hard to reverse — say the read out loud and
 confirm it, rather than letting a flag default to "yes."
+That run also clears what the universal clone's own checks would hold
+against the withdrawn practice: it drops the practice's entry from
+`tools/routing_audit_state.json`, and it refuses while any file in the
+clone's `tools/` still cites it as `practice: <slug>` — reword those first.
+The stub it leaves says, in its Story, when and to which set the rule was
+withdrawn, and a consumer's `IN FORCE NOWHERE` warning for it reads that
+back: *withdrawn from universal on the date; in force in the set — declare
+that set to keep it*.
 
 Found the hard way, 2026-09-23: two practices were moved out of universal
 by hand, following this page's own two-step pattern before this tool
@@ -142,10 +158,11 @@ previous version of this page, found why: the candidate tool takes one
 a moved practice has a recurrence of one, so the promotion refused it
 until a `--cost-if-once` was invented; an honest `--against` naming the
 source set refused the landing as a duplicate; and no tool wrote the
-deduplication, so it was done from memory or not at all. Its fixture in
-[tools/verify_harness.py](../tools/verify_harness.py) moves a practice
-through every direction on every harness run, and rehearses the
-copy-and-delete below.
+deduplication, so it was done from memory or not at all. Two fixtures in
+[tools/verify_harness.py](../tools/verify_harness.py) move a practice
+through every direction on every harness run — individual to team, team
+to individual, individual and team to universal, universal to team and to
+individual — and rehearse the copy-and-delete below.
 
 **What the tool does, step by step** — the two operations below, which
 are still the definition of a correct move and what a session checks a
@@ -178,6 +195,11 @@ hand-done one against:
      ([merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md))
      and same as any new universal practice. The tool drafts the file; the
      merge is the approval.
+
+   **Re-point any link to a sibling practice that does not move with it:
+   the universal URL for a universal practice, otherwise the slug in
+   backticks — never a URL into another set**, which may be private. A
+   relative link to a sibling left behind is dead at the destination.
 2. **Deduplicate it at the source, through that level's own removal
    approval** (Stage 6's table) — **never** a plain delete, and never done as
    a side effect of step 1. Set `status: deduplicated` and
@@ -188,9 +210,9 @@ hand-done one against:
      even when the destination is the *same person's own* individual set,
      because removing something from a team's binding set is still a
      change to what the whole team is bound by, not just a personal
-     preference about where the rule lives. Nothing mechanical records who
-     approved a removal: the tool writes the approver's name into the
-     `## Story` line it appends, and a hand-done one writes the same line.
+     preference about where the rule lives. The tool checks `--approved-by`
+     against that set's `approvers.json` and writes the name into the
+     `## Story` line it appends; a hand-done one writes the same line.
    - **Universal**: a PR, same as any universal change.
 
    Done by hand, step 2 is a three-line edit of the source file — the two
@@ -232,7 +254,12 @@ views, records and vendored files are never touched, and in code only
 links and paths are fixed, never the prose of a comment.
 A fixed link inside a sentence that says the practice is *here* is
 named, `reword by hand`, because no link rewrite can fix the sentence
-around it. The repositories changed are named at the end: commit each.
+around it. History is judged a paragraph at a time, and a list item is its
+own paragraph: one dated item does not make its siblings history. A
+current line that still mentions the practice beside the old set's name,
+or beside a level named as a place, and that no rewrite recognized is
+named `could not fix`, never passed over in silence.
+The repositories changed are named at the end: commit each.
 For a move made before this existed, `--mentions-only` runs this step
 alone and refuses unless the source copy is already deduplicated.
 Added 2026-09-28 (Morgan, strength: decided): *"I don't need a detailed

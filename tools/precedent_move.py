@@ -72,8 +72,13 @@ script the destination does not have (the script and its test move by hand
 first -- see spec/PRIVATE_ENFORCEMENT_BRIEF.md); a `ships:` file the
 destination does not have (same: copy it first, and commit it with the
 practice); `--from universal --to
-universal` (nothing to move); and `--dedupe-only` on a practice that moved
-OUT of universal, without `--accept-reach-loss` also given (see below).
+universal` (nothing to move); `--dedupe-only` on a practice that moved
+OUT of universal, without `--accept-reach-loss` also given (see below), or
+while the universal clone's tools/ still cite it as `practice: <slug>`;
+withdrawing a practice from a team set without `--approved-by` naming one
+of THAT set's approvers (a removal changes what the team is bound by).
+A `--to universal` draft from a file with no ## Install gets an empty one,
+and says so: every universal practice carries the section.
 
 UNIVERSAL AS THE DESTINATION drafts only: the file is written into the
 Precedent clone's practices/ and the source is left ACTIVE, because the
@@ -158,16 +163,65 @@ def _field(fm, key):
     return str(v).strip().strip('"')
 
 
-def _check_team_approver(repo, name):
+def _check_team_approver(repo, name, removing=False):
+    """A team set's own approvers.json must list `name`. Landing in a team
+    set needs one of them; so does REMOVING a practice from one, since that
+    changes what the whole team is bound by (spec/MOVING_PRACTICES.md, step
+    2, "Team"). Until 2026-09-28 only the landing was checked: a team copy
+    was deduplicated on the destination's approval alone, and `--dedupe-only`
+    asked for no name at all."""
     f = pathlib.Path(repo) / 'approvers.json'
+    what = ('removing a practice from a team set' if removing
+            else 'landing in a team set')
     if not f.is_file():
         raise MoveRefused(f'{f} does not exist, so no approver can be verified '
-                          f'for a team destination')
+                          f'-- {what} needs one of its listed approvers')
     approvers = json.loads(f.read_text(encoding='utf-8')).get('approvers', [])
     names = {a.get('name') for a in approvers} | {a.get('github') for a in approvers}
     if name not in names:
         raise MoveRefused(f'{name!r} is not in {f} ({sorted(n for n in names if n)}) '
-                          f'-- landing in a team set needs a listed approver')
+                          f'-- {what} needs a listed approver')
+
+
+def _universal_citations(clone, slug):
+    """-> ['tools/<file>:<line>'] for each `practice: <slug>` citation in a
+    universal clone's own tools/*.py -- the files code-cites-practice reads,
+    by the same parser. Withdrawing the practice turns every one of them
+    into a citation of a practice that is not active there, and that check
+    red; found rehearsing a withdrawal, 2026-09-28."""
+    import precedent_check as pc
+    out = []
+    for f in sorted((pathlib.Path(clone) / 'tools').glob('*.py')):
+        if f.name in pc.CODE_CITE_SKIP_FILES:
+            continue
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        lines = sorted({i for i, s in pc._iter_code_citations(text) if s == slug})
+        out += [f'tools/{f.name}:{i}' for i in lines]
+    return out
+
+
+def _drop_routing_audit_entry(clone, slug, dry_run=False):
+    """-> True when `<clone>/tools/routing_audit_state.json` carried a
+    rotation entry for `slug` (and, unless dry_run, no longer does). The
+    routing-audit check reports an entry for a practice that is not active
+    as stale bookkeeping, so a withdrawal that leaves it is red on the
+    universal clone's own next check. Written the way routing_audit.py
+    writes it."""
+    f = pathlib.Path(clone) / 'tools' / 'routing_audit_state.json'
+    try:
+        state = json.loads(f.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(state, dict) or slug not in state:
+        return False
+    if not dry_run:
+        del state[slug]
+        f.write_text(json.dumps(state, indent=2, sort_keys=True) + '\n',
+                     encoding='utf-8')
+    return True
 
 
 def _check_checked_by(fm, to_level, to_path):
@@ -349,6 +403,17 @@ _MENTION_EXTS = {'.md', '.py', '.sh', '.json', '.yml', '.yaml', '.txt',
 _HISTORY_RE = re.compile(
     r'\b20\d\d-\d\d-\d\d\b|\b(?:moved|migrated|formerly|previously|used to|'
     r'until|retired|deduplicated|was (?:in|at)|lived in|came from)\b', re.I)
+# A list item starts a new unit of history: one dated item does not make its
+# siblings history. Found 2026-09-28: a numbered list whose item 5 said
+# "(verified 2026-08-28)" kept item 8's two current links to a withdrawn
+# practice from being fixed, and nothing said so.
+_LIST_ITEM_RE = re.compile(r'^\s*(?:\d+\.|[-*+])\s')
+# A level named AS a place ("the team set", "universal's", "individual
+# practice") -- not the adjective inside a slug like tabular-shared-renderer,
+# which on the first run of this report was most of what it named.
+_LEVEL_WORD_RE = re.compile(
+    r"(?<![\w-])(?:individual|team|shared|universal)"
+    r"(?:'s\b|\s+(?:set|level|catalogue|practice|copy|source|rule)s?\b)", re.I)
 
 
 def _mention_repos(from_path, to_path):
@@ -457,7 +522,7 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
     to_label = 'universal' if to_level == 'universal' else to_name
     here_re = re.compile(r"\b(?:this|our) (?:repo|repository|set)(?:'s)?\b"
                          r"|\bin here\b", re.I)
-    review = []
+    review, unfixed = [], []
 
     def home_repl(m):
         def swap(n):
@@ -503,16 +568,25 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
             lines = text.splitlines(keepends=True)
             # History is judged by the PARAGRAPH (the run of non-blank
             # lines a line sits in), not the line: a wrapped sentence keeps
-            # its date on the next line as often as on its own.
+            # its date on the next line as often as on its own. A list item
+            # is its own paragraph (_LIST_ITEM_RE).
             historical, para = [False] * len(lines), []
-            for i, line in enumerate(lines + ['\n']):
-                if line.strip():
-                    para.append(i)
-                    continue
-                if any(_HISTORY_RE.search(lines[j]) for j in para):
-                    for j in para:
+
+            def settle(run):
+                if any(_HISTORY_RE.search(lines[j]) for j in run):
+                    for j in run:
                         historical[j] = True
-                para = []
+
+            for i, line in enumerate(lines):
+                if not line.strip():
+                    settle(para)
+                    para = []
+                    continue
+                if para and _LIST_ITEM_RE.match(line):
+                    settle(para)
+                    para = []
+                para.append(i)
+            settle(para)
             out, fence, story, dirty = [], False, False, False
             for i, line in enumerate(lines):
                 stripped = line.lstrip()
@@ -569,6 +643,15 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
                     # can fix a sentence. Named for a person to reword.
                     if here_re.search(new):
                         review.append(f'{repo.name}/{rel}:{i + 1}')
+                # A current line that still names the old set beside the
+                # practice, or names a level beside it and was not touched,
+                # is a mention none of the rewrites above recognized. Named,
+                # never left silent: a fix that says nothing about what it
+                # could not fix reads as having fixed everything.
+                if slug_re.search(new) and (
+                        name_re.search(new)
+                        or (new == line and _LEVEL_WORD_RE.search(line))):
+                    unfixed.append(f'{repo.name}/{rel}:{i + 1}')
                 out.append(new)
             if dirty:
                 changed.setdefault(repo, []).append(rel)
@@ -581,6 +664,11 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
     for where in review:
         say(f'reword by hand: {where} -- its link now points where `{slug}` '
             f'lives, and the sentence still says it is in this repository')
+    for where in unfixed:
+        say(f'could not fix: {where} -- it mentions `{slug}` beside '
+            f'{from_name} or a level, and no rewrite here recognized the '
+            f'phrasing; read it and reword it by hand if it still places '
+            f'the practice in {from_name}')
     if changed and not dry_run:
         say('mentions fixed in: ' + ', '.join(str(r) for r in changed)
             + ' -- commit each of these repositories')
@@ -588,11 +676,23 @@ def _fix_mentions(slug, from_path, to_level, to_path, dry_run=False,
 
 
 def _append_story(text, line):
-    """Append one paragraph to the ## Story section, creating the section
-    when the file has none."""
-    if re.search(r'^## Story\s*$', text, re.M):
+    """Append one paragraph to the END OF the ## Story section, creating the
+    section when the file has none.
+
+    Not the end of the file: ## Install follows ## Story, and appending at
+    the end put the line inside ## Install. Found 2026-09-28: both practices
+    withdrawn from universal on 2026-09-23 carried their "Withdrawn from
+    universal" and "Also landed" lines in ## Install, where nothing that
+    reads a Story (precedent_resolve.withdrawn_from_universal among them)
+    ever saw them."""
+    m = re.search(r'^## Story[ \t]*$', text, re.M)
+    if not m:
+        return text.rstrip('\n') + '\n\n## Story\n' + line + '\n'
+    nxt = re.search(r'^## \S', text[m.end():], re.M)
+    if not nxt:
         return text.rstrip('\n') + '\n\n' + line + '\n'
-    return text.rstrip('\n') + '\n\n## Story\n' + line + '\n'
+    cut = m.end() + nxt.start()
+    return text[:cut].rstrip('\n') + '\n\n' + line + '\n\n' + text[cut:]
 
 
 def _regenerate_universal(clone):
@@ -662,6 +762,16 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     if not approved_by and not dedupe_only:
         raise MoveRefused('--approved-by NAME is required: the destination level\'s own '
                           'approval is what makes this a move rather than a copy')
+    if not approved_by and from_level == 'shared':
+        raise MoveRefused('--approved-by NAME is required: removing a practice from a '
+                          'team set changes what the whole team is bound by, so it needs '
+                          'one of that set\'s own approvers (spec/MOVING_PRACTICES.md, '
+                          'step 2)')
+    # The source copy is withdrawn on this run -- the one moment its
+    # mentions elsewhere stop being true (step 3, _fix_mentions), and the
+    # moment a team source's own approval is needed.
+    source_withdrawn = dedupe_only or (to_level != 'universal'
+                                       and not duplicate_from_universal)
 
     src = _practice_path(from_path, slug)
     if not src.is_file():
@@ -679,6 +789,16 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if _field(dfm, 'status') not in ('', 'active'):
             raise MoveRefused(f'{dest} is status: {_field(dfm, "status")}, not active -- '
                               f'the rule would be in force nowhere')
+        if from_level == 'universal':
+            cites = _universal_citations(from_path, slug)
+            if cites:
+                raise MoveRefused(
+                    f'`{slug}` is cited as `practice: {slug}` in {", ".join(cites)}. '
+                    f'Withdrawn from universal, each of those cites a practice that '
+                    f'is not active there, and code-cites-practice goes red on the '
+                    f'universal clone. Reword or remove each citation (say what the '
+                    f'code does, or cite the practice the code now serves), then run '
+                    f'this again')
     else:
         status = _field(fm, 'status') or 'active'
         if status != 'active':
@@ -697,11 +817,14 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             _check_team_approver(to_path, approved_by)
         _check_checked_by(fm, to_level, to_path)
         _check_ships(fm, to_path)
+    if source_withdrawn and from_level == 'shared':
+        _check_team_approver(from_path, approved_by, removing=True)
 
     from_name = pathlib.Path(from_path).resolve().name
     to_name = pathlib.Path(to_path).resolve().name
     plan = []
     rehomed = []
+    install_added = False
 
     if not dedupe_only:
         text = src.read_text(encoding='utf-8')
@@ -723,20 +846,39 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             updates['strength'] = strength
         new_text = _rewrite_frontmatter(text, updates)
         new_text, rehomed = _rehome_sibling_links(new_text, dest.parent)
+        if to_level == 'universal' and 'install' not in sections:
+            # Every universal practice carries ## Rule, ## Why, ## Story and
+            # ## Install, and the harness (check_practice_sections_present)
+            # fails a draft without the last while every fast check passes
+            # it -- found 2026-09-28, drafting one. The heading goes in here
+            # rather than a refusal: an empty section is legal, and what
+            # belongs in it is the person's to write, which the disclosure
+            # below says.
+            new_text = new_text.rstrip('\n') + '\n\n## Install\n'
+            install_added = True
         plan.append(('write', dest, new_text))
 
-    # The source copy is withdrawn on this run -- the one moment its
-    # mentions elsewhere stop being true (step 3, _fix_mentions).
-    source_withdrawn = dedupe_only or (to_level != 'universal'
-                                       and not duplicate_from_universal)
     if source_withdrawn:
         src_text = src.read_text(encoding='utf-8')
-        line = (f'Moved to the {to_level} set `{to_name}` on {today}'
-                + (f', approved there by {approved_by}' if approved_by else '')
-                + f'. This copy is deduplicated; the rule is in force there as `{slug}`.')
+        line = f'Moved to the {to_level} set `{to_name}` on {today}'
+        if from_level == 'shared':
+            # Who approved the REMOVAL is recorded nowhere else
+            # (spec/MOVING_PRACTICES.md, step 2, "Team").
+            if not dedupe_only:
+                line += f', approved there by {approved_by}'
+            line += (f'; its removal from `{from_name}` approved by {approved_by}, '
+                     f'one of that set\'s approvers')
+        elif approved_by:
+            line += f', approved there by {approved_by}'
+        line += f'. This copy is deduplicated; the rule is in force there as `{slug}`.'
         if duplicate_from_universal:
+            # precedent_resolve.withdrawn_from_universal() reads this line
+            # back to say where the rule went; keep "Withdrawn from
+            # universal on <date>" and "from the <level> set `<name>`".
             line = (f'Withdrawn from universal on {today}, deliberately, with '
-                    f'--accept-reach-loss: deduplicated here; the rule is in force only '
+                    f'--accept-reach-loss'
+                    + (f' (approved by {approved_by})' if approved_by else '')
+                    + f': deduplicated here; the rule is in force only '
                     f'from the {to_level} set `{to_name}` now. A consumer resolving only '
                     f'universal no longer gets it.')
         src_new = _rewrite_frontmatter(src_text, {'status': 'deduplicated',
@@ -763,9 +905,15 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         say(f'{"would rewrite" if dry_run else "rewrote"} a sibling link that does not '
             f'travel to {to_name}: {change}')
 
+    # A universal withdrawal also leaves the universal clone's own
+    # routing-audit bookkeeping behind; see _drop_routing_audit_entry.
+    withdraw_universal = source_withdrawn and from_level == 'universal'
+
     if dry_run:
         for _op, path, _content in plan:
             say(f'would write {path}')
+        if withdraw_universal and _drop_routing_audit_entry(from_path, slug, dry_run=True):
+            say(f'would drop `{slug}` from {from_name}/tools/routing_audit_state.json')
         if source_withdrawn:
             _fix_mentions(slug, from_path, to_level, to_path, dry_run=True,
                           say=say)
@@ -780,6 +928,9 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         path.write_text(content, encoding='utf-8')
         _read(path)      # the written file must parse, or say so now
         say(f'wrote {path}')
+    if withdraw_universal and _drop_routing_audit_entry(from_path, slug):
+        say(f'dropped `{slug}` from {from_name}/tools/routing_audit_state.json '
+            f'-- a rotation entry for a practice not active there is stale')
 
     # Step 3: only once the source copy is actually withdrawn. Before that
     # (a universal draft, or the first landing out of universal) the old
@@ -815,6 +966,11 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             f'consuming {from_name} has taken the new universal catalogue (INSTALL.md '
             f'\u00a72 step 0, or "Update Vendors"): a consumer that still vendors the '
             f'old catalogue sees the rule in neither source, and its next sync refuses.')
+        if install_added:
+            say(f'ADDED an empty ## Install to the draft: {src} had none, and every '
+                f'universal practice carries one. Fill it in the pull request -- what a '
+                f'repo adopting `{slug}` does to take it up -- or leave it empty if '
+                f'there is nothing.')
     elif duplicate_from_universal and dedupe_only:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` is now WITHDRAWN from universal -- '
             f'deduplicated in {from_name}, in force only from the {to_level} set '
