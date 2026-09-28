@@ -7598,6 +7598,87 @@ def check_push_to_main_skips_what_already_passed():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_leak_gate_sees_main_clone_siblings_from_a_worktree():
+    """The leak gate's survey of private clones finds the main checkout's
+    siblings when it runs from a worktree somewhere else.
+
+    2026-09-28: a push check run from a `git worktree` under a session's
+    scratchpad passed a private repository's name into a public practice
+    set, because local_clone_refs() looked only at the worktree's own
+    parent directory, which held no other clone. Run from the main clone,
+    the same gate flagged it. Builds both layouts and owns its state
+    (practice: fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leak-worktree-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='f@example.com',
+               HOME=str(tmp), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(cwd, *a):
+        subprocess.run(['git', *a], cwd=str(cwd), env=env, check=True,
+                       capture_output=True, text=True)
+    cases = []
+    try:
+        clones, scratch = tmp / 'clones', tmp / 'scratch'
+        clones.mkdir()
+        scratch.mkdir()
+        for name, url in (('public-set', 'https://github.com/fixture-owner/public-set'),
+                          ('secret-app', 'https://github.com/fixture-owner/secret-app')):
+            git(tmp, 'init', '-q', str(clones / name))
+            git(clones / name, 'remote', 'add', 'origin', url)
+            (clones / name / 'f').write_text('x\n', encoding='utf-8')
+            git(clones / name, 'add', '-A')
+            git(clones / name, 'commit', '-qm', 'init')
+        wt = scratch / 'wt'
+        git(clones / 'public-set', 'worktree', 'add', '-q', str(wt))
+        secret = ('fixture-owner', 'secret-app')
+        cases.append(('from the main clone, the private sibling is seen',
+                      secret in leak_gate.local_clone_refs(clones / 'public-set')))
+        cases.append(('the worktree\'s own parent holds no other clone (the case is real)',
+                      not any((d / '.git').exists() for d in scratch.iterdir() if d != wt)))
+        cases.append(('from a worktree elsewhere, the private sibling is still seen',
+                      secret in leak_gate.local_clone_refs(wt)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_ci_templates_install_pyyaml_before_the_checks():
+    """Every shipped CI template that runs the check suite installs PyYAML
+    before it does.
+
+    2026-09-28: precedent-check.yml.template had installed PyYAML since
+    2026-09-13, because a check script materialized from a practice set may
+    import it. light-check.yml.template runs the same scripts in consuming
+    repos and never got the step, so a set's `import yaml` crashed on the
+    bare runner and failed a consuming repo's pull request into main -- while
+    the local push check, where PyYAML is installed, had passed the same
+    tree. A template that runs the suite without the step is that crash
+    waiting for the next set that imports it."""
+    cases = []
+    tdir = ROOT / 'templates' / 'github-actions'
+    for tpl in sorted(tdir.glob('*.template')):
+        text = tpl.read_text(encoding='utf-8')
+        # The first line that RUNS it: a comment naming it is not a run.
+        run = re.search(r'^(?![ \t]*#)[^\n]*precedent_check\.py', text, re.M)
+        if not run:
+            continue
+        runs = run.start()
+        m = re.search(r'pip install[^\n]*\bpyyaml\b', text, re.I)
+        cases.append((f'{tpl.name} installs PyYAML before running the checks',
+                      bool(m) and m.start() < runs))
+    failed = [name for name, ok in cases if not ok]
+    if not cases:
+        failed.append('no template under templates/github-actions/ runs '
+                      'precedent_check.py, so this case checked nothing')
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_vendors_survives_an_upstream_deletion():
     """An update that deletes a vendored .py file upstream dropped ends DONE,
     and the deep check judges the tree the commit will hold.
@@ -37621,6 +37702,10 @@ def main():
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
+    check('every shipped CI template that runs the checks installs PyYAML first',
+          *check_ci_templates_install_pyyaml_before_the_checks())
+    check('the leak gate sees the main clone\'s private siblings from a worktree',
+          *check_leak_gate_sees_main_clone_siblings_from_a_worktree())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
           *check_push_to_main_skips_what_already_passed())
     check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',

@@ -206,6 +206,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The same step, for the same reason, as precedent-check.yml.template
+      # has carried since 2026-09-13: the engine needs no third-party module,
+      # but a check script materialized from a practice set may, and PyYAML
+      # is the common one. This template never got the step. On 2026-09-28 a
+      # set's check_light_check.py did `import yaml` on this bare runner and
+      # crashed, turning a consuming repo's pull request into main red while its
+      # local push check -- run where PyYAML is installed -- had passed the
+      # exact same tree.
+      - name: Install PyYAML
+        if: steps.already.outputs.skip != 'true'
+        run: python -m pip install pyyaml
+
       - name: Locate the vendored engine
         id: engine
         if: steps.already.outputs.skip != 'true'
