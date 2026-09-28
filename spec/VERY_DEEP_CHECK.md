@@ -262,6 +262,13 @@ refreshes without committing, so it said CURRENT where origin was behind.
 An aborted run counted as "the last run". All fixed in this run; the
 counts in earlier rows should be read with that in mind.
 
+**Then the findings themselves, the same day.** Morgan asked for as much
+fixed as possible rather than filed, while he was offline. Six fix agents,
+each in its own worktree on files no other touched, and this session
+worked the list; each mechanism change carries a planted harness case
+checked to fail without it. The four findings files now hold only what
+remains, most of it a decision for Morgan.
+
 **What needs the person, not a session.** A public practice set still
 exposes, through two old branches and 68 pull-request refs, files naming
 private repositories; the branches are a click each, the refs need GitHub

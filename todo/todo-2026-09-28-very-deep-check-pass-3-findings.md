@@ -16,35 +16,23 @@ closed:            null
 ---
 ## What
 
-What the 2026-09-28 very deep check's pass 3 (coherence read, universal and
-private sides) found and did **not** fix in the same run. Private-side items
-that could be fixed in the sets themselves were fixed there.
+What the 2026-09-28 very deep check's pass 3 found and the same day did not
+fix. The stale names, retired commands, contradictions and dead pointers it
+found in all five repos were fixed that day.
 
-- AGENTS.md's preamble is ~3,460 tokens every session. The command bullets
-  (~1,650 tokens) each restate their practice and occasion-index line; split
-  them to one line each with `precedent_vocabulary.py` as the list. "Say the
-  read out loud and confirm" appears three times. A call for Morgan.
-- `landing branch` and `Boildown` have no `defines:` entry.
-- documentation/PER_MACHINE_SETUP.md does not describe an individual set's
-  `bootstrap/pre-commit-fix`.
-- Morgan's individual resident block is at ~539 of 550 tokens and the
-  headroom notice does not check `resident_block_tokens`.
-- `so-what-test` (individual) vs the reply sections a gate requires (The
-  Boildown, Files touched): say those are not inventory to cut.
-- `push-directly`'s named-branch form vs Morgan's `promote-only`: neither
-  mentions the other; for him "push directly to main" can never pass the gate.
-- `rule-links` (writing) overrides `doc-references-are-links` and drops its
-  other two clauses (`≈` not `~`; no raw HTML `target=` anchors).
-- "Deep check" names both the mechanical push suite (`two-check-levels`) and
-  repo-maintenance's `deep-check` review; settle the keyword.
-- `todo-gate` (repo-maintenance) says remove or check off items; the todo
-  system closes on a condition and never removes.
+- **For Morgan: AGENTS.md's preamble is ~3,460 tokens every session.** The
+  command bullets (~1,650 tokens) each restate their practice and
+  occasion-index line; the recommendation is one line each, with
+  `precedent_vocabulary.py` as the list. "Say the read out loud and
+  confirm" appears three times.
+- **For Morgan: the individual resident block is at ~539 of 550 tokens**,
+  and the headroom notice does not check `resident_block_tokens`. The
+  cheapest move is audience-register's three bullets to its Detail.
 - Five rules moved to universal on 2026-09-28 are still in force from
-  repo-maintenance's copy (shared outranks universal) and have begun to
-  drift; nothing tracks the dedupe half of the move.
-- The light check's "wire it into CI" (repo-maintenance `light-check`,
-  universal `two-check-levels`) contradicts `source-sets-run-no-ci` and
-  `actions-minutes-are-scarce`.
-- Filed 2026-09-21 and still true: the three shipped AGENTS templates carry an
-  inline gotchas section that contradicts resident `environment-gotchas`
-  (todo-2026-09-21-pass-3-coherence-read-findings, B1).
+  repo-maintenance's copies (shared outranks universal); their notes now
+  say so. The dedupe half waits until every consumer of that set has taken
+  the new universal catalogue.
+- The three shipped AGENTS templates still carry an inline gotchas section,
+  which resident `environment-gotchas` rules out (filed 2026-09-21, B1).
+  Moving it to a pointer changes every consumer's AGENTS.md on its next
+  update.
