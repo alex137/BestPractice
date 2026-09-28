@@ -1136,9 +1136,9 @@ first so this pass spends its attention on what they cannot see.
 
   Added 2026-09-21 (Morgan, strength: decided) after an Update Vendors
   pass found a consuming repo's `AGENTS.md` naming a repository that does
-  not exist — `VoiceDefinitionMorgan`, twice, where the real one is
-  `VoiceDefMorgan`, in the session-start step and again in a tool's
-  description. **The file's own step 1 warns about exactly that failure**:
+  not exist — a private voice-definition repository under its old name,
+  twice, after the real one had been renamed, in the session-start step and
+  again in a tool's description. **The file's own step 1 warns about exactly that failure**:
   a source name going stale silently. A document that describes its own
   failure mode and then exhibits it twice is what an unread instruction
   file looks like from the inside.
