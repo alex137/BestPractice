@@ -52,6 +52,12 @@ the files a session created or edited and nothing a different session put
 there. A check may still READ the rest of the repository to answer, for
 instance to compare one document against another, but it only REPORTS on
 the changed files.
+A practice file sync wrote into a consuming repository -- one its
+`MANIFEST.json` names -- is not the change's own writing even when the
+change is the update that wrote it, so it is not judged there: its source
+judges it, and a repair here would be overwritten by the next sync
+(2026-09-28, an Update Vendors refused over an acronym in a vendored
+practice).
 
 **What `pre-staging` runs today.** The lint, the leak gate and the author
 checks, as before -- the leak gate still scans the whole tree, since a

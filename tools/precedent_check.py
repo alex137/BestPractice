@@ -9148,8 +9148,22 @@ def main():
     # and any finding that names no file -- wait for the full check, which
     # a Promote runs on the whole tree.
     outside_change = 0
+    materialized = 0
     if '--changed-files-only' in flags:
         in_change = {c.rstrip('/') for c in ctx.changed}
+        # A practice file sync wrote -- any the committed MANIFEST.json names
+        # -- is not this change's own writing, even when this change is the
+        # update that wrote it: its text is the publishing source's, fixed
+        # there and judged there, and anything done to it here is
+        # overwritten by the next sync. practice-links-travel skips it for
+        # the same reason. Found 2026-09-28: a consuming repo's Update
+        # Vendors failed its pre-staging check on an acronym inside
+        # vendor-update-runbook, a file it cannot change.
+        for c in list(in_change):
+            if c.startswith('practices/') and c.endswith('.md') \
+                    and _manifest_entry(c) is not None:
+                in_change.discard(c)
+                materialized += 1
         kept_results = []
         for slug, status, findings, why, uv in results:
             if status == 'VIOLATION':
@@ -9239,6 +9253,11 @@ def main():
           f'declaring the rule does not bind it, with a reason, in '
           f'precedent.json).')
     if '--changed-files-only' in flags:
+        if materialized:
+            print(f'note: --changed-files-only: {materialized} changed practice '
+                  f'file(s) are materialized from another source (MANIFEST.json '
+                  f'names them), so they were not judged as this change\'s '
+                  f'writing -- their source judges them.')
         if outside_change:
             print(f'note: --changed-files-only: {outside_change} finding(s) in '
                   f'files this change does not touch, or naming no file, were '
