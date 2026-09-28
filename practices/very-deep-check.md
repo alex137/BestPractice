@@ -90,87 +90,30 @@ one pull request is two whole minutes for however little work. Added
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 7.
 
-**It also builds him a catalogue to review, not only a verdict on the
-writing.** The `PRACTICE CATALOGUE` section lists every in-force practice's
-slug and a one-sentence description of what it does — its own
-`index_clause`, the same sentence the occasion index and
-[MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md)
-already render, so this list cannot describe a practice differently than a
-session reading the catalogue elsewhere would — grouped one section per
-source in force: this checkout, the individual source, and every shared
-source. **It is written into
-[spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
-directly on every run that reaches this section**, the same embed-block
-mechanism the merged-stale-checkout list already uses, so the list is a
-page to open rather than something a session has to remember to paste. It
-is local and offline — no fetch, no judgment, nothing dated — so the same
-catalogue produces the same list byte for byte between two runs, and only
-a change to a `practices/*.md` file changes what it prints. Regenerate it
-alone with `python3 tools/very_deep_check.py --emit practice-catalogue`.
+**It ends with a review page for the person, shown in the session only.**
+Every run writes one page with two lists: **every branch the person can
+delete**, in this checkout and every source, each with a link that opens
+GitHub's branch list filtered to it; and **every active practice, by
+source**: universal first, then this repo's own, then the individual set,
+then each shared set, each with its own one-line `index_clause`.
+[tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
+writes it under `.precedent/`, which git ignores, and the run's PRACTICE
+CATALOGUE section calls it. Add the unlanded branches you judged safe to
+delete, each with its reason, through `--recommend`. **Publish the page in
+the session only** (an Artifact, where the harness has one) **and never
+commit it, push it, or link it from a repository**: it carries the private
+sets' practice text in full, which is the point of it. Nothing about the
+practice catalogue is written into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
+any more; the run's write-up links the page in the reply, not in a file.
 
-**What gets COMMITTED is narrower than what a session sees, and the gap is
-deliberate.** The console/chat output always carries every source, held-back
-ones included — that costs nothing, since a reply is never itself a
-publication. What `_update_spec_doc_block` writes into this tracked file is
-gated by
-[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s
-own `repo_is_public()` / `sources_for_tracked_block()` — the identical rule
-that already keeps a team or individual source's practice text out of the
-generated AGENTS.md loader block, reused rather than re-derived. A repo
-that declares (or, fail-safe, never declares) `visibility: public` gets
-only its own universal and repo-local practices committed here; every
-individual or shared source is held back, named but not quoted, with a
-note in the file itself saying how many practices and which sources, and
-telling the session to **advise the person and ask which they actually
-want** before doing anything further: committed here too
-(`--catalogue-include-private`, an explicit, informed choice, never a
-default), chat-only (already true, nothing further to do), or not
-generated at all (`--skip-practice-catalogue`). A repo that declares
-`visibility: private` holds nothing back — his own words: *"if I run this
-in a private repo, it's all private for me so I don't care if it's all
-there."*
-
-**Found the hard way, the day after the section first shipped.** The first
-version wrote every source's clauses into this file unconditionally,
-including `precedent-individual`'s and every shared source's — and this
-repo declares `visibility: public`, so that first commit published private
-practice text into a world-readable file, permanently. Morgan caught it
-before it reached `precedent-beta-v01`: *"it posts your precedent-individual
-and the precedet-\* ones to the list in the main repo so (if it's a public
-repo) it will become public. I don't think that's a problem, but it should
-advise the user first and ask him if he'd rather get the list of practices
-in the deep review doc, in the chat, or he doesn't want it."* Fixed
-2026-09-24 (Morgan, strength: decided, "Go update") by gating what this file
-commits on the same visibility check `build_views.py` already runs for the
-loader block, rather than inventing a second one — pass 2's own "is there a
-duplicate implementation" question, answered before it could drift. The
-disclosure did happen once, in this branch's own prior commit, before
-`precedent-beta-v01` ever saw it — fixing it forward, never rewriting that commit's
-history, is [no-rewrite-for-warnings](no-rewrite-for-warnings.md)'s call,
-not this practice's to make on its own.
-
-**Its negative control is
-[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
-`check_practice_catalogue_holds_back_private_sources_on_public_repo`**,
-planted the same day (Morgan: *"do what you think is best to fix this now
-and going forward so the issue doesn't reappear"*) rather than trusting the
-fix to hold on its own — the same discipline
-`check_loader_block_covers_every_declared_source` already applies to the
-AGENTS.md loader block, asked of this newer mechanism. It builds a fixture
-repo declaring `visibility: public` with one individual and one shared
-source, asserts the marker clause reaches the console output but never the
-tracked-doc rendering, and — the discriminating case — asserts a `private`
-repo holds nothing back at all. Verified against the bug it guards, not
-only against the fix: reverting `_practice_catalogue_for_tracked_doc` to
-its original unconditional behaviour turns this check red immediately.
-Part of the ordinary deep-check gate every push already runs — no separate
-occasion needed for it to fire.
-
-Added
-2026-09-23 (Morgan, strength: decided) — asked for directly: a list of
-every practice by slug with one sentence each, across this repo, the
-individual source and the shared sources, generated the same way every time
-a very deep check runs, so he can review a source's practices against it.
+Morgan, 2026-09-28 (strength: decided, "Go update"): *"do NOT put the list
+of practices in the very deep check, and you can remove it now; BUT make an
+artifact (NOT linked to from the github page), that [1] lists all those
+branches I can delete, including a link I can click on for each and then
+[2] lists ALL active practices, by repo, starting with universal, then the
+individual, then the shared ones I have access to."* It replaced the
+committed catalogue (added 2026-09-23), which a public repo had to hold the
+private sets back from, so he never got the list he asked for.
 
 **Read `main`, write through the landing branch.** The check judges the
 version people are actually running, which is `main`: in every repo in
@@ -2594,6 +2537,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
 - **Extended again 2026-09-23, Morgan (strength: decided)**, with the PRACTICE CATALOGUE section -- asked directly for a list of every practice by slug with one sentence each, across this repo, the individual source and the shared sources, generated the same way every time a very deep check runs so it can be reviewed against; built to reuse each practice's own `index_clause` rather than compose a second description, and to write into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md) directly rather than leave a session to remember to paste it, the same lesson the embedded stale-branch list already carries
 - **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
+- **Replaced 2026-09-28, Morgan (strength: decided, "Go update")**: the practice catalogue is no longer committed anywhere. Every run writes a session-only review page instead (`tools/precedent_review_page.py`): the branches the person can delete, with a link each, and every active practice by source, private sets included, published in the session and never linked from a repository.
 - **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
@@ -2657,8 +2601,9 @@ would pass on an implementation that listed both, and a list that is mostly
 work already here is one a reader waves through whole. Eighth, the practice
 catalogue: every in-force practice's slug and its own `index_clause`, read
 straight off `practices/*.md` frontmatter with no judgment applied, so two
-runs against an unchanged catalogue print byte-identical rows —
-`--emit practice-catalogue` for the block alone.
+runs against an unchanged catalogue print byte-identical rows, onto the
+session-only review page (`tools/precedent_review_page.py`), never into a
+committed file.
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing

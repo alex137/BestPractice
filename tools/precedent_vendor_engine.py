@@ -545,6 +545,9 @@ ENGINE_FILES = [
     # upstream repo can do. See documentation/FOR_DEVELOPERS.md and
     # templates/GETTING_STARTED.md, which now say so.
     'very_deep_check.py',
+    # Written by very_deep_check.py's PRACTICE CATALOGUE section, so it
+    # travels with it.
+    'precedent_review_page.py',
     # Its CI FLEET AUDIT section runs this beside it (2026-09-26): every
     # workflow on every branch, asked of GitHub (practice:
     # ci-workflow-approved).

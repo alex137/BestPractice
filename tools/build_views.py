@@ -2119,6 +2119,7 @@ TOOLS_DESCRIPTIONS = {
     'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'ci_fleet_audit.py': "Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs",
+    'precedent_review_page.py': "The very deep check's session-only page: branches to delete, with a link each, and every active practice by source",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
     'precedent_engine_freshness.py': "Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes",
 }

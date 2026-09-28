@@ -241,6 +241,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) | The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic removal report; proposes, never acts |
+| [tools/precedent_review_page.py](tools/precedent_review_page.py) | The very deep check's session-only page: branches to delete, with a link each, and every active practice by source |
 | [tools/precedent_run_session_hooks.py](tools/precedent_run_session_hooks.py) | Runs each repo's own SessionStart hooks for a session opened in the folder above them |
 | [tools/precedent_session_check.py](tools/precedent_session_check.py) | Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did |
 | [tools/precedent_session_practices.py](tools/precedent_session_practices.py) | Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed |

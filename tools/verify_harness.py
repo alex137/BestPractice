@@ -32192,114 +32192,121 @@ def check_loader_block_covers_every_declared_source():
               f'{len(leaked)} leaked: {", ".join(sorted(leaked)[:6])}')
 
 
-def check_practice_catalogue_holds_back_private_sources_on_public_repo():
-    """The very deep check's PRACTICE CATALOGUE section never commits a
-    private source's practice text into a public repo's tracked
-    spec/VERY_DEEP_CHECK.md -- the same disclosure
-    `check_loader_block_covers_every_declared_source` just above already
-    guards for the AGENTS.md loader block, asked of the newer mechanism
-    (practice: very-deep-check; control-asserts-which-failure).
+def check_review_page_carries_every_source_and_is_never_committed():
+    """The very deep check hands the person one session-only page: every
+    branch they can delete, with a link each, and every active practice by
+    source -- universal, this repo's own, individual, shared -- private sets
+    included, and nothing of it committed (Morgan, 2026-09-28, strength:
+    decided). It replaced a practice list committed into the public
+    spec/VERY_DEEP_CHECK.md, which had to hold the private sets back, so he
+    never got the whole list.
 
-    THE INCIDENT (2026-09-24). The section's first version wrote every
-    resolved source's clauses into that file unconditionally. This repo
-    declares `visibility: public`, so its own first real run committed
-    `precedent-individual`'s and every shared source's practice text into a
-    world-readable file -- caught by Morgan before it reached
-    `precedent-beta-v01`, fixed the same day by routing the write through
-    `build_views.py`'s existing `repo_is_public()` /
-    `sources_for_tracked_block()` rather than a second filter. Nothing
-    proved that fix stays fixed -- this is that proof, planted so a later
-    edit that quietly writes `_practice_catalogue_markdown(sources)`
-    straight to the doc again (the exact shape of the original bug) fails
-    loudly instead of shipping quietly, the same way every other mechanism
-    in this repo that touches a privacy boundary carries a control.
-
-    THE DISCRIMINATING CASE is a private repo: nothing should be held back
-    there (Morgan's own words -- "if I run this in a private repo, it's
-    all private for me so I don't care if it's all there"), so a check that
-    only tried the public case could pass on an implementation that always
-    excludes individual/shared sources regardless of visibility, which
-    would silently break every private consumer's own catalogue.
-
-    The fixture owns its own tree (fixture-owns-its-state) -- a temp
-    checkout plus one temp individual and one temp shared source, each
-    with a single real practice file, never this repo's own."""
-    import tempfile
+    Discriminating cases: a private source's clause IS on the page (the old
+    committed list could never carry it); an unlanded branch and a tier
+    branch are NOT offered for deletion while a landed one is; and a path
+    git would track is refused. The fixture owns its repos."""
+    import shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import very_deep_check as vdc
+    import precedent_review_page as rp
 
-    MARKER = 'ZZFIXTUREMARKERZZ this clause must never reach a public tracked file'
+    MARKER = 'ZZPRIVATEMARKERZZ an individual clause the page must carry'
     PRACTICE = (
-        '---\nslug: fixture-private-practice\ntitle: fixture\ntier: on-demand\n'
+        '---\nslug: {slug}\ntitle: fixture\ntier: on-demand\n'
         'severity: advisory\nscope: any-adopter\napplies_to: ["**"]\n'
         'occasion: "a fixture fires"\ngates: []\n'
-        f'index_clause: "{MARKER}"\nchecked_by: null\ndefines: []\n'
+        'index_clause: "{clause}"\nchecked_by: null\ndefines: []\n'
         'status: active\nin_force_at: null\nsupersedes: []\noverrides: null\n'
         'added: null\napproved_by: "fixture"\n---\n'
-        '## Rule\nFixture text, never read by a person.\n')
+        '## Rule\nFixture text.\n')
+    env = dict(os.environ, GIT_AUTHOR_NAME='fixture',
+               GIT_AUTHOR_EMAIL='fixture@invalid', GIT_COMMITTER_NAME='fixture',
+               GIT_COMMITTER_EMAIL='fixture@invalid')
 
-    def build_sources(root, visibility):
-        (root / 'precedent.json').write_text(
-            json.dumps({'format_version': 1, 'visibility': visibility}),
-            encoding='utf-8')
-        ind = root.parent / (root.name + '-individual')
-        shared = root.parent / (root.name + '-shared')
-        for d in (ind, shared):
-            (d / 'practices').mkdir(parents=True, exist_ok=True)
-            (d / 'practices' / 'fixture-private-practice.md').write_text(
-                PRACTICE, encoding='utf-8')
-        return [
-            {'level': 'universal', 'name': 'precedent', 'path': str(root)},
-            {'level': 'individual', 'name': 'fixture-individual', 'path': str(ind)},
-            {'level': 'shared', 'name': 'fixture-shared', 'path': str(shared)},
-        ]
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True).stdout
 
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='review-page-'))
     cases = []
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='catalogue-visibility-'))
+    real_scope = vdc.enumerate_scope
     try:
-        pub_root = tmp / 'pub'
-        pub_root.mkdir()
-        pub_sources = build_sources(pub_root, 'public')
-
-        console_md = vdc._practice_catalogue_markdown(pub_sources)
-        cases.append(('the console/chat rendering always shows every '
-                      'source, held-back ones included',
-                      MARKER in console_md, console_md[:200]))
-
-        doc_md, held_back = vdc._practice_catalogue_for_tracked_doc(
-            pub_root, pub_sources)
-        cases.append(('THE CASE THIS EXISTS FOR: a public repo\'s tracked-doc '
-                      'rendering never carries a private source\'s clause',
-                      MARKER not in doc_md, doc_md[:200]))
-        cases.append(('and it names what it held back rather than silently '
-                      'dropping it',
-                      {s['name'] for s in held_back}
-                      == {'fixture-individual', 'fixture-shared'},
-                      repr(held_back)))
-        cases.append(('the held-back note in the doc says how many, so a '
-                      'reader is not left to guess',
-                      'held back' in doc_md, doc_md[-400:]))
-
-        priv_root = tmp / 'priv'
-        priv_root.mkdir()
-        priv_sources = build_sources(priv_root, 'private')
-        priv_doc_md, priv_held_back = vdc._practice_catalogue_for_tracked_doc(
-            priv_root, priv_sources)
-        cases.append(('THE DISCRIMINATING CASE: a private repo holds nothing '
-                      'back -- the gate is about visibility, not about '
-                      'individual/shared sources categorically',
-                      MARKER in priv_doc_md and not priv_held_back,
-                      priv_doc_md[:200]))
+        origin = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', str(origin))
+        root = tmp / 'root'
+        (root / 'practices').mkdir(parents=True)
+        git(root, 'init', '-q', '-b', 'main')
+        git(root, 'config', 'commit.gpgsign', 'false')
+        (root / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
+        (root / 'practices' / 'uni-practice.md').write_text(
+            PRACTICE.format(slug='uni-practice', clause='a universal clause'),
+            encoding='utf-8')
+        git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'base')
+        git(root, 'remote', 'add', 'origin', str(origin))
+        git(root, 'checkout', '-q', '-b', 'landed-branch')
+        (root / 'a.txt').write_text('a\n', encoding='utf-8')
+        git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'landed')
+        git(root, 'checkout', '-q', 'main')
+        git(root, 'merge', '-q', '--ff-only', 'landed-branch')
+        git(root, 'checkout', '-q', '-b', 'live-work')
+        (root / 'b.txt').write_text('b\n', encoding='utf-8')
+        git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'unlanded')
+        git(root, 'checkout', '-q', 'main')
+        git(root, 'branch', '-q', 'staging')
+        git(root, 'push', '-q', 'origin', 'main', 'staging', 'landed-branch',
+            'live-work')
+        git(root, 'fetch', '-q', 'origin')
+        srcs = []
+        for level, name in (('individual', 'fx-individual'),
+                            ('shared', 'fx-shared')):
+            d = tmp / name / 'practices'
+            d.mkdir(parents=True)
+            clause = MARKER if level == 'individual' else 'a shared clause'
+            (d / f'{name}-rule.md').write_text(
+                PRACTICE.format(slug=f'{name}-rule', clause=clause),
+                encoding='utf-8')
+            srcs.append({'level': level, 'name': name, 'path': str(d.parent)})
+        sources = [srcs[1], {'level': 'universal', 'name': 'precedent',
+                             'path': str(root)}, srcs[0]]
+        vdc.enumerate_scope = lambda repo=None, user_config=None: {
+            'sources': sources}
+        page = rp.write(root, day='fixture').read_text(encoding='utf-8')
+        cases.append(('THE CASE THIS EXISTS FOR: a private source\'s clause '
+                      'is on the page', MARKER in page, page[:200]))
+        order = [page.find('uni-practice'), page.find('fx-individual-rule'),
+                 page.find('fx-shared-rule')]
+        cases.append(('practices run universal, then individual, then shared',
+                      -1 not in order and order == sorted(order), repr(order)))
+        cases.append(('a landed branch is offered with a delete link',
+                      'branches/all?query=landed-branch' in page, page[-600:]))
+        cases.append(('an unlanded branch and a tier branch are not',
+                      'query=live-work' not in page
+                      and 'query=staging' not in page
+                      and 'query=main' not in page, page[-600:]))
+        cases.append(('the page is written where git ignores it',
+                      subprocess.run(['git', '-C', str(root), 'check-ignore',
+                                      '-q', str(root / rp.DEFAULT_OUT)]
+                                     ).returncode == 0, str(rp.DEFAULT_OUT)))
+        try:
+            rp.write(root, out='tracked-page.html')
+            refused = False
+        except SystemExit:
+            refused = True
+        cases.append(('a path git would track is refused', refused, ''))
+        src = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+        doc = (ROOT / 'spec' / 'VERY_DEEP_CHECK.md').read_text(encoding='utf-8')
+        cases.append(('the run no longer writes the catalogue into the '
+                      'public spec document',
+                      "_update_spec_doc_block(repo_root, 'practice-catalogue'"
+                      not in src and 'vdc-embed:practice-catalogue' not in doc,
+                      ''))
     finally:
-        import shutil
+        vdc.enumerate_scope = real_scope
         shutil.rmtree(tmp, ignore_errors=True)
-
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'the practice catalogue holds back a private source\'s clause from '
-          f'a public repo\'s tracked doc, and only there ({len(cases)} stated '
-          f'cases)',
+    check(f'the review page carries every source and is never committed '
+          f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
-
 
 def check_branch_report_keeps_private_names_out_of_a_public_tree():
     """The very deep check's tracked branch report (record/stale_branches.md,
@@ -44003,7 +44010,7 @@ def main():
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
-    check_practice_catalogue_holds_back_private_sources_on_public_repo()
+    check_review_page_carries_every_source_and_is_never_committed()
     check_branch_report_keeps_private_names_out_of_a_public_tree()
     check_very_deep_check_reads_live_and_names_landing_work()
     check_very_deep_check_blocked_on_and_net_empty_branches()
