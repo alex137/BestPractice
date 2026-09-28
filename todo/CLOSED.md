@@ -4,11 +4,19 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-06-actions-as-enforcement-layer`](todo-2026-09-06-actions-as-enforcement-layer.md) | Lean further into GitHub Actions as the enforcement layer. | dropped | 2026-09-28 |
+| [`todo-2026-09-06-attach-private-sources`](todo-2026-09-06-attach-private-sources.md) | Run one session rooted at each private set — this unblocks four other items at once. | done | 2026-09-28 |
+| [`todo-2026-09-06-github-issues-for-open-items`](todo-2026-09-06-github-issues-for-open-items.md) | Evaluate GitHub Issues for open items. | dropped | 2026-09-28 |
+| [`todo-2026-09-06-source-repo-consumes-no-catalogue`](todo-2026-09-06-source-repo-consumes-no-catalogue.md) | A source repo consumes no catalogue, so it cannot check itself. | done | 2026-09-28 |
 | [`todo-2026-09-07-gates-absent-from-main`](todo-2026-09-07-gates-absent-from-main.md) | Put the leak gate on `main`; the deep check cannot go there until the merge-back. | done | 2026-09-28 |
+| [`todo-2026-09-10-review-skill-level-permissions`](todo-2026-09-10-review-skill-level-permissions.md) | Review the whole technical/non-technical permission split, now that the pieces are in three separate places. | done | 2026-09-28 |
 | [`todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher`](todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher.md) | All four practice-set sources vendor the pre-fix `Source:` clause matcher. | done | 2026-09-28 |
+| [`todo-2026-09-13-reply-check-rollout`](todo-2026-09-13-reply-check-rollout.md) | Roll the blocking reply check out to the sources that want one, and land the individual set's half. | done | 2026-09-28 |
 | [`todo-2026-09-13-vendor-very-deep-check-into-sets`](todo-2026-09-13-vendor-very-deep-check-into-sets.md) | Vendor `very_deep_check.py` into the practice sets, so a set can audit its own always-loaded files instead of only gatin | done | 2026-09-28 |
 | [`todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name`](todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name.md) | The leak gate refuses a private repo named as `owner/name`, and lets the same repo through under its BARE name when no l | done | 2026-09-28 |
 | [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | done | 2026-09-28 |
+| [`todo-2026-09-15-check-default-cc-environment-staleness`](todo-2026-09-15-check-default-cc-environment-staleness.md) | Check whether the "Default CC" environment is still cloning fresh in a few days. | done | 2026-09-28 |
+| [`todo-2026-09-17-weekly-very-deep-check-trigger-decision`](todo-2026-09-17-weekly-very-deep-check-trigger-decision.md) | Decide on, and if approved create, the weekly `very-deep-check` Routine | dropped | 2026-09-28 |
 | [`todo-2026-09-21-template-freshness-reports-five-phantom-gaps`](todo-2026-09-21-template-freshness-reports-five-phantom-gaps.md) | Every one of `TEMPLATE FRESHNESS`'s five findings is a file the bootstrap generator writes | done | 2026-09-28 |
 | [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | done | 2026-09-28 |
 | [`todo-2026-09-06-retire-merge-target-practice`](todo-2026-09-06-retire-merge-target-practice.md) | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_br | done | 2026-09-27 |
