@@ -1065,7 +1065,10 @@ what a command accepts left a consumer's own session-start script calling
 it the old way — a WARN at every session start naming a fix that failed the
 same way.
 
-0. **(§0 installs) Replace the vendored universal catalogue.** From a
+0. **(§0 installs) Replace the vendored universal catalogue.**
+   [tools/precedent_update.py](tools/precedent_update.py) does this step itself since 2026-09-28, and
+   refuses any file that matches neither the last-synced upstream text nor
+   the incoming one; the commands below are the same step by hand. From a
    sibling Precedent clone, already on `staging` and pulled:
    ```
    rm -rf <your universal source path>/practices

@@ -1194,11 +1194,28 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
                                ships_written=ships_written,
                                declined_ships=declined_rows)
     if not dry_run:
-        (out_dir / 'MANIFEST.json').write_text(
-            json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        write_manifest(out_dir / 'MANIFEST.json', manifest)
     return {'written': written, 'checks': checks_written,
             'adapters': adapters_written, 'rstats': rstats,
             'ships': ships_written, 'declined_ships': declined_rows}
+
+
+def write_manifest(mf, manifest):
+    """Write MANIFEST.json, keeping the old generated_at_utc when nothing
+    else changed. The stamp says when this snapshot was produced, and a run
+    that produced the same snapshot did not produce a new one. 2026-09-28:
+    every Update Vendors rewrote only this field, leaving a one-line diff to
+    commit or throw away each time."""
+    try:
+        old = json.loads(mf.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        old = None
+    if isinstance(old, dict) and old.get('generated_at_utc'):
+        strip = lambda d: {k: v for k, v in d.items() if k != 'generated_at_utc'}
+        if strip(old) == strip(manifest):
+            manifest = dict(manifest, generated_at_utc=old['generated_at_utc'])
+    mf.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+                  encoding='utf-8')
 
 
 def _build_manifest(sources, written, checks_written, rstats,
