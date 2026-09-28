@@ -19610,7 +19610,8 @@ def check_promote_picks_its_step():
         copies = [l.split('\t')[1] for l in git(
             work, 'ls-remote', 'origin', 'refs/heads/to-main-*').stdout.splitlines()]
         cases.append(('with pre-staging empty, staging goes into main, said in '
-                      'those words', rc == 0 and out.startswith(
+                      'those words, exiting 3 since main has not moved yet',
+                      rc == 3 and out.startswith(
                           'Now promoting from staging to main')
                       and 'READY FOR MAIN' in out))
         cases.append(('into main by a throwaway copy of staging, main itself '
@@ -19629,7 +19630,7 @@ def check_promote_picks_its_step():
         commit_to('pre-staging', 'three.txt', '3\n')
         rc, out = branches('--promote', '--to', 'main', '--work', on_staging)
         cases.append(('both steps waiting, and the step named: --to main wins',
-                      rc == 0 and out.startswith(
+                      rc == 3 and out.startswith(
                           'Now promoting from staging to main')))
         rc, out = branches('--promote', '--work', on_staging)
         cases.append(('both steps waiting and none named is ambiguous: '
@@ -19640,7 +19641,7 @@ def check_promote_picks_its_step():
                       and 'ambiguous' in out))
         rc, out = branches('--promote', '--work', on_staging)
         cases.append(('with pre-staging empty again, the work just done on '
-                      'staging goes into main', rc == 0 and out.startswith(
+                      'staging goes into main', rc == 3 and out.startswith(
                           'Now promoting from staging to main')))
         commit_to('pre-staging', 'four.txt', '4\n')
         rc, out = branches('--promote', '--work', 'w-pre-staging')
@@ -32808,6 +32809,333 @@ def check_instantiated_template_links_survive_the_copy():
           '; '.join(bad))
 
 
+def _stale_ref_fixture_env(tmp):
+    """The environment every throwaway repo in the stale-ref checks below
+    runs git under: a fixed author, no global or system config, and no
+    personal Precedent config, so nothing on the machine leaks in."""
+    return dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t' + chr(64) + 'example.com',
+                GIT_COMMITTER_NAME='T',
+                GIT_COMMITTER_EMAIL='t' + chr(64) + 'example.com',
+                GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0',
+                PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+
+def check_stop_hook_ignores_commits_another_remote_ref_has():
+    """The Stop hook's "unpushed" count asks whether a commit is on ANY
+    remote ref, not whether it is ahead of origin/<current branch>.
+
+    Two false blocks reported from a consumer repo, 2026-09-28, with
+    nothing actually unpushed. (a) The branch's remote copy was deleted
+    after its pull request merged; the stale remote-tracking ref stayed,
+    and once the branch was moved onto origin/main the hook counted seven
+    commits that were all on origin/main. (b) The branch was reset onto
+    origin/pre-staging, whose tip is the merge of that same branch's pull
+    request; the hook counted one commit that was on origin/pre-staging.
+    Neither is the empty-merge case check_empty_commits_are_never_counted
+    covers: both carry real file changes, just not unpushed ones.
+
+    Both copies are run -- the template consumers install and this repo's
+    own dogfooded one -- since the two carry different headers and a fix
+    landed in only one of them before."""
+    import tempfile
+    name = ('the Stop hook counts only commits no remote ref has, so a stale '
+            'or deleted branch ref never blocks a stop')
+    hooks = [ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+             ROOT / '.claude' / 'hooks' / 'stop-git-check.sh']
+    hooks = [h for h in hooks if h.exists()]
+    if not hooks:
+        not_applicable(name, 'no stop-git-check.sh here')
+        return
+    cases = []
+    for hook in hooks:
+        label = hook.relative_to(ROOT).parts[0]
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            env = _stale_ref_fixture_env(tmp)
+
+            def git(cwd, *a):
+                return subprocess.run(['git', '-C', str(cwd), *a],
+                                      capture_output=True, text=True, env=env)
+
+            def write(repo, path, text):
+                (repo / path).write_text(text, encoding='utf-8')
+                git(repo, 'add', path)
+                git(repo, 'commit', '-q', '-m', f'edit {path}')
+
+            bare = tmp / 'origin.git'
+            git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+            work = tmp / 'work'
+            git(tmp, 'init', '-q', '-b', 'main', str(work))
+            write(work, 'a.txt', 'a\n')
+            git(work, 'remote', 'add', 'origin', f'file://{bare}')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+            # A second clone stands in for GitHub: it merges pull requests
+            # and deletes branches without this checkout hearing about it.
+            other = tmp / 'other'
+            git(tmp, 'clone', '-q', f'file://{bare}', str(other))
+
+            def stop():
+                return subprocess.run(['bash', str(hook)], cwd=str(work),
+                                      input='{}', capture_output=True,
+                                      text=True, env=env)
+
+            # (a) feature is pushed, merged into main alongside other work,
+            # and its remote copy deleted; origin/feature stays, stale.
+            git(work, 'checkout', '-q', '-b', 'feature')
+            write(work, 'f.txt', 'f\n')
+            git(work, 'push', '-q', '-u', 'origin', 'feature')
+            git(other, 'fetch', '-q', 'origin')
+            git(other, 'checkout', '-q', 'main')
+            write(other, 'x.txt', 'x\n')
+            write(other, 'y.txt', 'y\n')
+            git(other, 'merge', '-q', '--no-ff', '-m', 'merge feature',
+                'origin/feature')
+            git(other, 'push', '-q', 'origin', 'main')
+            git(other, 'push', '-q', 'origin', '--delete', 'feature')
+            git(work, 'fetch', '-q', 'origin')          # no --prune: stale ref
+            git(work, 'reset', '-q', '--hard', 'origin/main')
+            stale = bool(git(work, 'rev-parse', '-q', '--verify',
+                             'refs/remotes/origin/feature').stdout.strip())
+            r = stop()
+            cases.append((f'{label}: (a) branch moved onto origin/main after '
+                          f'its remote copy was deleted, stale ref kept: the '
+                          f'stop is not blocked [{r.returncode}: '
+                          f'{r.stderr.strip()[:160]}]',
+                          stale and r.returncode == 0))
+
+            # (b) feature2 is pushed and merged into pre-staging; the local
+            # branch is reset onto origin/pre-staging, whose tip is that merge.
+            git(work, 'checkout', '-q', '-B', 'feature2', 'origin/pre-staging')
+            write(work, 'g.txt', 'g\n')
+            git(work, 'push', '-q', '-u', 'origin', 'feature2')
+            git(other, 'fetch', '-q', 'origin')
+            git(other, 'checkout', '-q', '-B', 'pre-staging', 'origin/pre-staging')
+            write(other, 'z.txt', 'z\n')
+            git(other, 'merge', '-q', '--no-ff', '-m', 'merge feature2',
+                'origin/feature2')
+            git(other, 'push', '-q', 'origin', 'pre-staging')
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'reset', '-q', '--hard', 'origin/pre-staging')
+            r = stop()
+            cases.append((f'{label}: (b) branch reset onto origin/pre-staging, '
+                          f'whose tip merges that branch: the stop is not '
+                          f'blocked [{r.returncode}: {r.stderr.strip()[:160]}]',
+                          r.returncode == 0))
+
+            # Control: a real commit no remote has still blocks, counted once.
+            write(work, 'h.txt', 'h\n')
+            r = stop()
+            cases.append((f'{label}: a real commit no remote has still blocks, '
+                          f'and says 1 [{r.returncode}: '
+                          f'{r.stderr.strip()[:160]}]', r.returncode == 2
+                          and '1 unpushed commit(s)' in r.stderr))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def _promote_fixture(tmp, env, base_branch, tiers):
+    """-> (work, git, branches, tip): a throwaway repo with a bare origin
+    carrying `tiers`, stub checks that always pass, and the real
+    precedent_branches.py and precedent_push_check.py. Same shape as
+    check_promote_picks_its_step's fixture."""
+    import json as _json, shutil as _shutil
+
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a],
+                              capture_output=True, text=True, env=env)
+
+    bare = tmp / 'origin.git'
+    git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+    work = tmp / 'work'
+    (work / 'tools').mkdir(parents=True)
+    git(tmp, 'init', '-q', '-b', 'main', str(work))
+    for f in ('precedent_push_check.py', 'precedent_branches.py'):
+        _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+    (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+        _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+    for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+        (work / 'tools' / f'{t}.py').write_text(
+            'import sys\n'
+            + ('print("precedent_check: 3 passed, 0 violated")\n'
+               if t == 'precedent_check' else '')
+            + 'sys.exit(0)\n', encoding='utf-8')
+    (work / 'precedent.json').write_text(
+        _json.dumps({'base_branch': base_branch}), encoding='utf-8')
+    (work / 'list.txt').write_text('a\n', encoding='utf-8')
+    git(work, 'add', '-A')
+    git(work, 'commit', '-q', '-m', 'init')
+    git(work, 'remote', 'add', 'origin', f'file://{bare}')
+    for b in tiers:
+        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
+
+    def branches(*a):
+        p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                           cwd=work, capture_output=True, text=True, env=env)
+        return p.returncode, p.stdout + p.stderr
+
+    def tip(b):
+        return git(work, 'ls-remote', 'origin',
+                   f'refs/heads/{b}').stdout.split('\t')[0]
+    return work, git, branches, tip
+
+
+def check_promote_into_main_exits_nonzero_until_main_moves():
+    """Exit 0 from a Promote means the branch it names has moved.
+
+    Reported 2026-09-28: `--promote --to main` pushed the to-main copy,
+    printed READY FOR MAIN and a "Next, and not by this script" line, and
+    exited 0. A session read the 0 as done; main had not moved, because the
+    pull request, its GitHub test and the merge were all still to do. That
+    state now exits PROMOTE_MAIN_NOT_MOVED, distinct from a refusal (1) and
+    a usage error (2), and the block it prints opens by saying main has not
+    moved.
+
+    Also pinned here, from the same day's report of a Promote that "moved
+    the session's checked-out branch without pushing it": neither kind of
+    Promote touches the checkout it is run from -- the branch checked out
+    and where it points are the same before and after. Every merge the
+    tool makes happens in a throwaway detached worktree."""
+    import tempfile
+    name = ('a Promote into main exits non-zero until main moves, and no '
+            'Promote moves the checked-out branch')
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, branches, tip = _promote_fixture(
+            tmp, env, 'staging', ('main', 'staging', 'pre-staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/staging')
+        (work / 'two.txt').write_text('2\n', encoding='utf-8')
+        git(work, 'add', 'two.txt')
+        git(work, 'commit', '-q', '-m', 'work')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        before = git(work, 'rev-parse', 'HEAD').stdout.strip()
+        main_before = tip('main')
+        rc, out = branches('--promote', '--to', 'main', '--work', 'session-work')
+        ready = [l for l in out.splitlines() if 'NOT MOVED' in l or 'READY FOR' in l]
+        cases.append(('staging into main, main not yet moved: exit 3, not 0 '
+                      f'(got {rc})', rc == 3))
+        cases.append(('main really has not moved', tip('main') == main_before))
+        cases.append(('the ready block opens by saying main has NOT moved',
+                      bool(ready) and 'MAIN HAS NOT MOVED YET' in ready[0]))
+        cases.append(('the checked-out branch is where it was',
+                      git(work, 'branch', '--show-current').stdout.strip()
+                      == 'session-work'
+                      and git(work, 'rev-parse', 'HEAD').stdout.strip() == before))
+
+    # A repository whose staging tier IS main: Promote moves pre-staging
+    # straight into main, so exit 0 there does mean main moved.
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        work, git, branches, tip = _promote_fixture(
+            tmp, env, 'main', ('main', 'pre-staging'))
+        git(work, 'checkout', '-q', '-b', 'session-work', 'origin/pre-staging')
+        (work / 'three.txt').write_text('3\n', encoding='utf-8')
+        git(work, 'add', 'three.txt')
+        git(work, 'commit', '-q', '-m', 'work')
+        git(work, 'push', '-q', '-u', 'origin', 'session-work')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        before = git(work, 'rev-parse', 'HEAD').stdout.strip()
+        main_before = tip('main')
+        rc, out = branches('--promote', '--work', 'session-work')
+        cases.append(('no staging branch: pre-staging into main exits 0 and '
+                      f'main moved (got {rc})',
+                      rc == 0 and tip('main') not in ('', main_before)))
+        cases.append(('and the checked-out branch is where it was, pointing at '
+                      'what its own remote copy holds',
+                      git(work, 'branch', '--show-current').stdout.strip()
+                      == 'session-work'
+                      and git(work, 'rev-parse', 'HEAD').stdout.strip() == before
+                      == tip('session-work')))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_reply_gate_refreshes_the_landing_branch():
+    """The reply gate's NOT YET LANDED line reads origin/<landing branch>
+    fresh, not as last fetched.
+
+    Reported 2026-09-28: a session merged its pull request through the
+    GitHub API -- how every cloud session merges -- so nothing in the
+    checkout fetched, origin/pre-staging stayed at the pre-merge tip, and
+    for two turns the gate said the branch's commit was NOT on pre-staging
+    and demanded the Boildown recommend merging a pull request already
+    merged. Only `git fetch origin pre-staging` cleared it.
+
+    A second clone stands in for GitHub here. Offline, the gate keeps its
+    old answer from the ref it has, and never raises."""
+    import tempfile
+    import precedent_gate as pg
+    name = ('the reply gate refreshes the landing branch before reporting '
+            'work NOT on it')
+    cases = []
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_USER_CONFIG', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM')}
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        # _unlanded_work runs in this process, so it sees this process's
+        # environment: no personal landing branch, no machine git config.
+        for k in saved:
+            os.environ[k] = env[k]
+        try:
+            def git(cwd, *a):
+                return subprocess.run(['git', '-C', str(cwd), *a],
+                                      capture_output=True, text=True, env=env)
+
+            def write(repo, path, text):
+                (repo / path).write_text(text, encoding='utf-8')
+                git(repo, 'add', path)
+                git(repo, 'commit', '-q', '-m', f'edit {path}')
+
+            bare = tmp / 'origin.git'
+            git(tmp, 'init', '-q', '--bare', '-b', 'trunk', str(bare))
+            repo = tmp / 'repo'
+            git(tmp, 'init', '-q', '-b', 'trunk', str(repo))
+            write(repo, 'precedent.json',
+                  json.dumps({'base_branch': 'trunk', 'sources': []}))
+            git(repo, 'remote', 'add', 'origin', f'file://{bare}')
+            git(repo, 'push', '-q', '-u', 'origin', 'trunk')
+            git(repo, 'checkout', '-q', '-b', 'feature')
+            write(repo, 'b.txt', 'b\n')
+            git(repo, 'push', '-q', '-u', 'origin', 'feature')
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(('before the merge, the commit is reported',
+                          len(got) == 1, str(got)))
+
+            other = tmp / 'other'
+            git(tmp, 'clone', '-q', f'file://{bare}', str(other))
+            git(other, 'merge', '-q', '--no-ff', '-m', 'merge feature',
+                'origin/feature')
+            git(other, 'push', '-q', 'origin', 'trunk')
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(('merged on the remote with nothing fetched here: '
+                          'not reported', got == [], str(got)))
+
+            write(repo, 'c.txt', 'c\n')
+            git(repo, 'remote', 'set-url', 'origin', str(tmp / 'gone.git'))
+            got = pg._unlanded_work(repo, siblings=False)
+            cases.append(('offline, a real unlanded commit is still reported '
+                          'from the ref it has', len(got) == 1, str(got)))
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    failed = [f'{n} [{d}]' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_not_binding_actually_exempts_a_check():
     """A `not_binding` entry has to change the RUN, not just the
     reachability report.
@@ -38479,6 +38807,9 @@ def main():
     check_move_tool_lands_then_deduplicates()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
+    check_stop_hook_ignores_commits_another_remote_ref_has()
+    check_promote_into_main_exits_nonzero_until_main_moves()
+    check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
     check_practice_catalogue_holds_back_private_sources_on_public_repo()

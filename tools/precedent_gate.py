@@ -281,6 +281,28 @@ def _unpromoted(repo, staging, _git):
     return int(ahead)
 
 
+# The reply gate runs at every turn start; a fetch that cannot finish in this
+# long is treated as offline rather than held up for.
+REFRESH_TIMEOUT_SECONDS = 8
+
+
+def _refresh_remote_branch(repo, branch):
+    """Fetch origin's `branch` into refs/remotes/origin/<branch>, quietly,
+    within REFRESH_TIMEOUT_SECONDS. -> True when the ref was refreshed,
+    False offline, on a timeout or any other failure (the ref is then left
+    exactly as it was). Never prompts and never raises."""
+    import subprocess as _sp
+    env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
+    try:
+        r = _sp.run(['git', '-C', str(repo), 'fetch', '--quiet', '--no-tags',
+                     'origin', f'+refs/heads/{branch}:refs/remotes/origin/{branch}'],
+                    capture_output=True, text=True, env=env,
+                    timeout=REFRESH_TIMEOUT_SECONDS)
+    except Exception:                                         # noqa: BLE001
+        return False
+    return r.returncode == 0
+
+
 def _unlanded_work(root, siblings=True):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into. Never raises.
@@ -397,6 +419,18 @@ def _unlanded_work(root, siblings=True):
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
         if not ahead or ahead == '0':
             continue
+        # origin/<base> is only as fresh as the last fetch, and a pull request
+        # merged through the GitHub API -- how every cloud session merges --
+        # fetches nothing. Seen 2026-09-28: two turns of "NOT on pre-staging"
+        # for a pull request already merged, cleared only by a fetch. So
+        # before saying so, refresh that one branch: bounded and quiet, and
+        # only here, where there is something to report, so a turn with
+        # nothing ahead pays nothing. Offline, the ref stays as it was and
+        # the answer is today's.
+        if _refresh_remote_branch(repo, base):
+            ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
+            if not ahead or ahead == '0':
+                continue
         # rev-list answers a LINEAGE question -- is HEAD's commit an ancestor
         # of origin/base -- but the practice this backs asks a CONTENT
         # question: is this change on the base branch. A squash or rebase
