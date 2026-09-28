@@ -9156,7 +9156,7 @@ def main():
         # update that wrote it: its text is the publishing source's, fixed
         # there and judged there, and anything done to it here is
         # overwritten by the next sync. practice-links-travel skips it for
-        # the same reason. Found 2026-09-28: HavrutaPlanning's Update
+        # the same reason. Found 2026-09-28: a consuming repo's Update
         # Vendors failed its pre-staging check on an acronym inside
         # vendor-update-runbook, a file it cannot change.
         for c in list(in_change):

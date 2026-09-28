@@ -7239,7 +7239,7 @@ def check_acronym_scan_skips_wrapped_code_spans():
     """doc_lint's acronym scan -- the one detector the acronyms-glossary gate
     shares -- skips a code span that wraps onto the next line, as it skips
     one on a single line (2026-09-28: `--changed-since HEAD --staged`,
-    wrapped in vendor-update-runbook, failed HavrutaPlanning's Update
+    wrapped in vendor-update-runbook, failed a consuming repo's Update
     Vendors on HEAD). Both directions: prose around the span, a fenced
     block, and a paragraph break still end or bound it."""
     sys.path.insert(0, str(ROOT / 'tools'))
@@ -7333,7 +7333,7 @@ def check_changed_files_only_judges_the_change():
         # A consumer's practice file is sync output: an unglossed acronym in
         # one is refused where the practice is authored, and not judged in a
         # repo MANIFEST.json says it was materialized into (2026-09-28,
-        # HavrutaPlanning's Update Vendors, refused on vendor-update-runbook).
+        # a consuming repo's Update Vendors, refused on vendor-update-runbook).
         start = git('rev-parse', 'HEAD').stdout.strip()
         practice = sorted((wt / 'practices').glob('*.md'))[0]
         with open(practice, 'a', encoding='utf-8') as f:
