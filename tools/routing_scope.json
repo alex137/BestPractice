@@ -880,6 +880,13 @@
       "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same reasoning as go-update and push-directly's own entries. Reached through the occasion index; it declares no gate because it defines a word rather than governing a workflow moment.",
       "decided": "2026-09-22, when the practice landed"
     },
+    "tier-branch": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE, like primary-branch -- no file path reaches it. Reached through the occasion index; no gate, because it defines a word rather than governing a workflow moment.",
+      "decided": "2026-09-28, when the practice landed"
+    },
     "prompt-please": {
       "globs": [
         "**"

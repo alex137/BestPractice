@@ -70,6 +70,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
+| Tier branch | [tier-branch](practices/tier-branch.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | Upstream fix | [upstream-fix](practices/upstream-fix.md) |

@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 158 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 159 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -394,6 +394,8 @@ When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
   three-things — the three that matter now, one bold phrase and two lines each
+When a person says "Tier branch", or asks which branches are the tiers:
+  tier-branch — pre-staging, staging or main -- plus staging's old name and Promote's lock
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — write it with disposition ask and remind_on; never a trigger
 When a person says "Upstream fix", or asks whether a change fixes the root cause:

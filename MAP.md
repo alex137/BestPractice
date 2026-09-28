@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 153 practice files (10 resident, 143 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 154 practice files (10 resident, 144 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -142,6 +142,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for this shape of answer |
+| [tier-branch](practices/tier-branch.md) | on-demand | a person says "Tier branch", or asks which branches are the tiers |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing or triaging an open item |
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
