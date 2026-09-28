@@ -122,6 +122,18 @@ capability, and the `--accept-reach-loss` flag specifically, exist so the
 next demotion is either safe by construction or explicitly, knowingly
 risky — never silently broken the way a hand-done one was.
 
+**Between two shared sets, the reach loss is accepted** (Morgan,
+2026-09-28, strength: assented). When a practice in one set is
+deduplicated into a different shared set, a consumer that does not declare
+that destination set has none of those rules. That is what dropping a set
+means: its rules go, including the ones other sets forward to it. No
+reach-loss flag is needed here, unlike the universal case above: a
+consumer that declares a shared set chose it, and one that dropped it
+chose that too. What the tools owe the person is saying so. Update Vendors
+lists each such rule as a question for the person rather than passing
+silently, and never calls a rule in force when its forwarding address does
+not resolve.
+
 Morgan, 2026-09-14, on why this stopped being two hand steps: he had "had
 bumps doing that". A rehearsal the same day, by a session reading only the
 previous version of this page, found why: the candidate tool takes one
@@ -207,6 +219,24 @@ time step 2 runs there genuinely *is* a surviving copy to point
 real sources, rather than taking the mover's word for it. A move done in
 the other order has nothing to name, which is precisely the state a lost
 rule is in.
+
+**Then, step 3: fix what still says it lives there** — done by the tool, on the run
+that withdraws the source copy, in every repository in force (this
+Precedent clone, every source it resolves, and both sets). A link to the
+old file is re-pointed the way step 1 re-points sibling links; a path
+naming the old set's copy names the new one; a present-tense line that
+says where the practice lives (*"`x` (set)"*, *"set's `x`"*, *"`x` in
+set"*, *"`x` is a set rule"*) names the new set. **History stays as
+written**: a dated or past-tense paragraph, a `## Story`, generated
+views, records and vendored files are never touched, and in code only
+links and paths are fixed, never the prose of a comment.
+A fixed link inside a sentence that says the practice is *here* is
+named, `reword by hand`, because no link rewrite can fix the sentence
+around it. The repositories changed are named at the end: commit each.
+For a move made before this existed, `--mentions-only` runs this step
+alone and refuses unless the source copy is already deduplicated.
+Added 2026-09-28 (Morgan, strength: decided): *"I don't need a detailed
+report but for those problems to be solved."*
 
 **Who checks what, since 2026-09-14** — before that day only Precedent's
 own harness asked whether a forwarding address resolved, so for the

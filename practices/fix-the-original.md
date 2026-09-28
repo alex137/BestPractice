@@ -36,6 +36,12 @@ in the reply.** An origin this session cannot reach is a `blocked-on` item
 naming the repository — never a silent omission.
 
 ## Detail
+**Before a fix, a different rule applies.** When the bug is upstream and this
+repository only holds a copy, [upstream-bug-stops-here](upstream-bug-stops-here.md)
+stops the local edit and hands the fix to the owning repository. The questions
+here are for the fix that does get made: where it came from, who else has a
+copy, and which gate missed it.
+
 **The first two questions are one search, and the third is one comparison.**
 That is deliberate: this is a lookup, not a meditation on root causes. A
 session that cannot find an origin in one search says so and moves on. The

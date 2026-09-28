@@ -66,7 +66,11 @@ changed files only: the practice checks
 (`precedent_check.py --changed-files-only`), a compile of each changed
 Python file, a parse of each changed shell script (`bash -n`) and of each
 changed JSON file, the own test of each changed check
-(`tools/checks/check_x.py` runs `tools/checks/tests/test_x.sh`), and -- when
+(`tools/checks/check_x.py` runs `tools/checks/tests/test_x.sh`; a
+repo-local test and its materialized copy run once, as the materialized
+copy), and -- since 2026-09-28 -- a refusal of a new check that arrives
+without that test or without `SOURCE_ROOT`, naming the file and lines to
+add, and -- when
 a practice file changed -- a check that its generated views (`AGENTS.md`,
 `MAP.md`, `GLOSSARY.md`) were regenerated with it
 (`precedent_push_check.py --changed-files-check`). A push sends commits that

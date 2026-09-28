@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 147 practice files (10 resident, 137 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 154 practice files (10 resident, 144 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -15,6 +15,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive" or "Archive?", or asks whether the session can be archived |
 | [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source with the repo-attach tool, or its reply says to clone |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo or other binary asset the person supplies |
+| [automation-issues](practices/automation-issues.md) | on-demand | an unattended job hits something blocking its normal work, or something optional it cannot reach |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may have done, or opening a PR |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
 | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) | resident | a conversation is exploratory, or a person calls it a brainstorm |
@@ -51,6 +52,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [docs-are-current-state](practices/docs-are-current-state.md) | on-demand | writing or editing a document |
 | [docs-track-models](practices/docs-track-models.md) | on-demand | a document presents a script-derived figure |
 | [document-status-header](practices/document-status-header.md) | on-demand | creating, migrating, closing or superseding a document under spec/ or record/ |
+| [dont-race-another-window](practices/dont-race-another-window.md) | on-demand | being asked for something another window or session of the person's may already be working on |
 | [durable-fix](practices/durable-fix.md) | on-demand | when fixing anything -- a bug, a stale file, a broken environment |
 | [engine-plus-host-shims](practices/engine-plus-host-shims.md) | on-demand | exporting a tool across a repo boundary |
 | [environment-gotchas](practices/environment-gotchas.md) | resident | hitting an environment or tooling quirk |
@@ -61,6 +63,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [fix-the-original](practices/fix-the-original.md) | on-demand | fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy |
 | [fixture-owns-its-state](practices/fixture-owns-its-state.md) | on-demand | writing a test, fixture or control that reads or edits state it did not create |
 | [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | starting an outward-facing deliverable |
+| [fresh-before-write](practices/fresh-before-write.md) | on-demand | setting up a project a session works in, or a session reporting that its checkout is behind |
 | [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit (or "practice check") |
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
@@ -128,6 +131,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
 | [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | creating, renaming or retagging a session |
+| [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | memoizing a heavy solve, or finding a fresh session re-running one another session already ran |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve over a minute |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
@@ -138,11 +142,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for this shape of answer |
+| [tier-branch](practices/tier-branch.md) | on-demand | a person says "Tier branch", or asks which branches are the tiers |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing or triaging an open item |
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
 | [todo-reminder](practices/todo-reminder.md) | on-demand | a person says "Todo reminder", or asks to be reminded of something |
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
+| [upstream-bug-stops-here](practices/upstream-bug-stops-here.md) | on-demand | about to change a file to fix a bug, in a repository that did not write that file |
 | [upstream-fix](practices/upstream-fix.md) | on-demand | a person says "Upstream fix", or asks whether a change fixes the root cause |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a shipped practice, hook, template or engine file, before push or merge |
@@ -154,6 +160,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |
+| [wide-search-needs-asking](practices/wide-search-needs-asking.md) | on-demand | about to search or scan every clone, every repo or every file for something |
 | [workflow-file-outside-vendoring](practices/workflow-file-outside-vendoring.md) | on-demand | a .github/workflows/*.yml file is added or changed |
 | [write-it-up](practices/write-it-up.md) | on-demand | a person asks for a write-up of the issue being worked |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |

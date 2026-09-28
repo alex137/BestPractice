@@ -3,8 +3,8 @@ slug:              todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-reti
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
-disposition:       wait
+status:            done
+disposition:       null
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -63,8 +63,26 @@ closed:            null
 
 ## How It Closes
 
-(not yet stated by the migration -- a session filling this in should read ## What and say what has to be true for `status` to become `done`.)
+The sync tells a practice retired at a source that still resolves apart
+from one whose source is genuinely gone, as ## What asks, and says which it
+found -- including when the source was renamed since the manifest was
+committed.
+
+Met 2026-09-28: [tools/precedent_sync_views.py](../tools/precedent_sync_views.py)'s
+`_lost_practices()` files a recorded slug whose name matches no declared
+source, but which a declared source still carries marked retired or
+deduplicated, as withdrawn upstream and names where it is retired; a slug
+no declared source carries at all still refuses as before. The case is
+`check_update_vendors_lets_an_override_through_the_view_sync` in
+[tools/verify_harness.py](../tools/verify_harness.py). What stays out of
+reach offline, and needs no item: a renamed source that also deleted a
+live practice outright reads exactly like a dropped source, and the refusal
+still covers it.
 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-28: closed by the fix above. The same change lets a practice a
+declared source names in `overrides:` through the sync, the other removal
+that is correct by construction.

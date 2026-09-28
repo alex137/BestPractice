@@ -103,7 +103,7 @@ each one saves you a paragraph of explaining:
 |---|---|
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
-| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: per repo you worked in this week, what waits to be promoted and which recent branches are stale. |
+| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: across every repo with Precedent installed, what waits on pre-staging for staging and on staging for main, and which of this week's branches are stale. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
@@ -115,6 +115,7 @@ each one saves you a paragraph of explaining:
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
 | **Simple please** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
+| **Tier branch** | One of the three branches work climbs through -- pre-staging, then staging, then main -- or one of the two that travel with them: staging's old name precedent-beta-v01 and Promote's lock branch precedent-promote-lock. Never offered for deletion. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase. |
 | **Upstream fix** | Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo. |

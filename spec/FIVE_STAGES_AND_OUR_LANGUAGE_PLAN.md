@@ -7,14 +7,14 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Two linked changes. First, a short page of the words this project uses (practice, universal set, individual set, shared set, full set, primary branch, and the stage names), printed as a second list under Vocabulary, plus a cleanup that retires 'team set' for 'shared set' everywhere live. Second, the work ladder: five stages, Consider, Act, Booked, Debut, Picked up (step 5's word still open), each reachable as 'Promote N' or by its word, each read back aloud before it runs. Optional for everyone; required for Morgan through his individual set. Go update becomes step 3's other name."
+summary:       "Two linked changes. First, a short page of the words this project uses (practice, universal set, individual set, shared set, full set, repo-local, primary branch, feature branch, and the stage names), printed as a second list under Vocabulary, plus a cleanup that retires 'team set' for 'shared set' everywhere live. Second, the work ladder: five stages, Consider, Act, Booked, Debut, Produce, each reachable as 'Promote N', by its word or by its synonym, each read back aloud before it runs. Optional for everyone; required for Morgan through his individual set. Go update becomes step 3, Booked, and Consider sizes the plan from a one-line plan up to a full write-up."
 ---
 
 # Five stages and our language -- one ladder for work, one page of words
 
 Morgan approved the direction on 2026-09-27 and asked for this write-up in
-the same message ("Go update"). Nothing here is built yet. A few choices are
-still open and listed at the end; the build order is in
+the same message ("Go update"), then settled the remaining choices on
+2026-09-28. Nothing here is built yet; the build order is in
 [What gets built, in order](#what-gets-built-in-order).
 
 This plan came out of one brainstorm session. It is written for a reader who
@@ -26,7 +26,6 @@ was not there.
 - [Part 1 -- Our language](#part-1----our-language)
 - [Part 2 -- The five stages](#part-2----the-five-stages)
 - [Part 3 -- Retiring "team set"](#part-3----retiring-team-set)
-- [Step 5's word -- the brainstorm](#step-5s-word----the-brainstorm)
 - [Analysis -- what was tried, and the holes found](#analysis----what-was-tried-and-the-holes-found)
 - [What gets built, in order](#what-gets-built-in-order)
 - [Open questions](#open-questions)
@@ -36,18 +35,18 @@ was not there.
 
 **Three problems, found in one conversation.**
 
-1. **There was no word for the four repositories Morgan edits as a group.**
+1. **There was no word for all the practice sets a person works under.**
    Every repository he works in follows the universal set (this repository's
    own catalogue), his own individual set (`precedent-individual`), and any
    shared sets it declares (today `precedent-shared-repo-maintenance`,
    `precedent-shared-writing` and `precedent-shared-working-style`). He
-   called the four non-universal ones "the four precedent-star files".
-   Meanwhile the older word **"team set"** still appears about 390 times
+   called the four non-universal ones "the four precedent-star files", and
+   there was no word for everything together. Meanwhile the older word **"team set"** still appears about 390 times
    across roughly 140 markdown files here, although the code switched the
    level name to `shared` on 2026-09-18
    ([tools/precedent_resolve.py](../tools/precedent_resolve.py) keeps
    `LEVEL_ALIASES = {'team': 'shared'}` so older repos still load). Two
-   words for one thing, and nothing that names the group.
+   words for one thing, and nothing that names the whole.
 
 2. **Vocabulary lists commands only, and people need the nouns too.**
    [practices/vocabulary.md](../practices/vocabulary.md) prints every
@@ -82,21 +81,27 @@ Each gets one plain line.
 | **universal set** | The practices everyone gets. This repository's own catalogue, named `precedent`. |
 | **individual set** | The practices just for you. Usually a repository named `precedent-individual`. |
 | **shared set** | Practices a group of people share. A repository may declare none, one, or several. |
-| **full set** | Your individual set plus your shared sets -- the ones you edit together. **It does not include the universal set.** |
+| **full set** | Every practice set in force for you: the universal set, your individual set, your shared sets, and the repo-local practices of the repository you are in. |
+| **repo-local** | Belonging to the repository you are working in -- your work repository, the one with BestPractice vendored into it. Its own practices, kept in its `local/` folder, are its repo-local practices, and apply only there. |
 | **in force** | A practice that actually applies here, right now. |
 | **source** | Where a set of practices comes from, usually a repository. |
-| **level** | Whether a source is universal, shared, individual, or local to one repository. |
+| **level** | Whether a source is universal, shared, individual, or repo-local. |
 | **primary branch** | The one shared branch regular work lands on. |
 | **feature branch** | The short-lived branch one session works on, on GitHub -- the kind named like `claude/<topic>-<random>`. GitHub's own word for it; some teams say "topic branch". It survives a lost container but is easy to forget, and it is deleted once merged. |
-| **pre-staging, staging, main** | The three branch tiers ([spec/BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). In the stage names below, `main` is called **production**. |
-| **the five stages** | Consider, Act, Booked, Debut, Picked up -- see Part 2. |
+| **pre-staging, staging, main** | The three branch tiers ([spec/BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). In the stages below, `main` is **production**, and step 5, Produce, is what puts work there. |
+| **the five stages** | Consider, Act, Booked, Debut, Produce -- see Part 2. |
 
-**"Full set" is the word Morgan chose** (*"it's like complete but it doesn't
-imply these are the only ones"*). "Full" can still sound like "everything",
-so the definition says outright that the universal set is not part of it.
-See [Open questions](#open-questions): the reading that "full set" means the
-four non-universal sets, not everything in force, is the session's and
-still wants his yes.
+**"Full set" means everything**, the universal set included -- Morgan's
+call on 2026-09-28. It is the natural reading of "full", which was the
+worry with the earlier definition that left the universal set out. The four
+repositories he edits together have no single word of their own; "your
+individual and shared sets" is short enough.
+
+**"Repo-local" already exists as a level** in the code and in
+[practices/source-naming.md](../practices/source-naming.md): a repository's
+own practices, in its `local/` folder. The definition above keeps that
+meaning and adds the plain one -- the repository you are working in -- so
+the two never disagree.
 
 ### Where the words live
 
@@ -124,19 +129,27 @@ still wants his yes.
 
 ### The ladder
 
-| # | Word | Long title | What happens | Where the work ends up |
+| # | Word | Synonym | What happens | Where the work ends up |
 |---|---|---|---|---|
 | 1 | **Consider** | Plan | Decide how much planning this needs, then do that much. | Nowhere yet, or a plan |
 | 2 | **Act** | Build | Make the change. | The session's feature branch on GitHub |
 | 3 | **Booked** | Shared Save | Move it from the feature branch to pre-staging. After this it **won't be lost**. | pre-staging |
 | 4 | **Debut** | Test Readiness | Move pre-staging into staging, with the full checks. | staging |
-| 5 | **Picked up** *(word still open)* | Production | Move staging into main, with the full checks plus the GitHub test. | main |
+| 5 | **Produce** | Make live | Move staging into main -- production -- with the full checks plus the GitHub test. | main (production) |
 
-**Each stage is also "Promote N".** "Promote 3" and "Booked" mean the same
-thing. Morgan kept one word for the whole ladder on purpose: *"I want one
+**Each stage answers to three names: its word, its synonym, and "Promote
+N".** "Booked", "Shared Save" and "Promote 3" all mean the same thing. These
+are not exact phrases to match -- each is read for what the message means
+(below), so other wordings count too. Morgan kept one word for the whole ladder on purpose: *"I want one
 word to just use everywhere ... promote is good enough"* -- step 1 is
 promoting an idea into something worth preparing, even though nothing moves
 between branches until step 3.
+
+**The words follow a theater production**: consider it, act it, book it,
+debut it, produce it. The last step is a verb like the others ("Produce"),
+while its result keeps the noun people already use for it: the work is in
+**production**. That carries the "go live" feel the last step needs, without "launch", which is common in tech and usually means
+something much bigger.
 
 **"Graduate" is another word for Promote**, and **"Spec it out" another word
 for Write it up** -- the two words stranded on `claude/graduate-synonym`
@@ -144,9 +157,9 @@ for Write it up** -- the two words stranded on `claude/graduate-synonym`
 
 ### Every stage is read back before it runs
 
-Every time a stage is triggered -- by its word, by "Promote N", or by a
-plain request that means the same -- the session says the full version out
-loud first, naming the repository and the branches:
+Every time a stage is triggered -- by its word, its synonym, "Promote N",
+or a plain request that means the same -- the session says the full version
+out loud first, naming the repository and the branches:
 
 > Now Promote 3: Booked, the Shared Save -- moving
 > `claude/precedent-terminology-vs3o6q` into pre-staging (BestPractice).
@@ -160,17 +173,17 @@ stage's name.
 
 ### Reading the request -- intent, never a keyword match
 
-**No stage fires on a text search for its word.** Morgan, on step 5: the
+**No stage fires on a text search for its word.** Morgan, on the last step: the
 session *"should not just do a simple grep for that exact word ... I might
 use it in a slightly different grammatical way or ... I may not use that
 exact word ... you have to apply your intelligence."* That is how every
 command here is already read ([practices/go-update.md](../practices/go-update.md)),
-and it matters most at step 5, which changes production. Where a message
+and it matters most at step 5, which changes main. Where a message
 could honestly go either way, the session says its reading and confirms
 before any shared-branch step.
 
 **The same step can be asked for many ways**, and all of them mean it:
-"Debut", "Promote 4", "promote pre-staging to staging", "move BestPractice
+"Debut", "Test Readiness", "Promote 4", "promote pre-staging to staging", "move BestPractice
 staging to main", "book it into precedent-individual". A request may name
 the repository, the branch, or the from-and-to pair. **A named step wins
 over any guess**, as Promote's `--to` already does.
@@ -202,24 +215,39 @@ say that, but you don't think it's ready, maybe I meant something else. Or
 ... I meant it at ... a higher level"* -- for instance, moving work booked
 earlier up to staging. This is the one stage that may stop to ask.
 
-### Consider: four sizes of plan
+### Consider -- how much plan
 
-Consider chooses how much planning the work deserves, from four sizes, and
-names its choice in the read-back:
+**Consider always happens, and it is usually small.** It decides how much
+planning the work deserves, from four sizes, lightest first, and names its
+choice in the read-back ("Now Promote 1: Consider -- a one-line plan").
+
+**The session chooses the size itself, without asking** -- from the context
+and how complex the work is, and from whatever guidance Morgan gives in
+passing: *"Consider this, it's a brainstorm"* settles it. Asking every time
+would add a round trip, and the read-back already shows the choice, so a
+wrong pick is corrected in one word.
 
 | Size | What it produces | When |
 |---|---|---|
-| **One-line plan** | One sentence in the reply: what will change and where. Then straight to Act. | Tiny changes -- a typo, a link, a one-line fix. |
-| **Brainstorm** | Discussion only. Nothing is written or committed ([practices/brainstorm-holds-commits.md](../practices/brainstorm-holds-commits.md)). | The idea itself is still open. |
-| **Plan it** *(new)* | A written plan in the session: numbered steps, the risks, what "done" looks like, and what is out of scope. No file. | Real work, clear enough to build in this session. |
-| **Write it up** / **Spec it out** | A full committed report, as [practices/write-it-up.md](../practices/write-it-up.md) says -- like this file. | Big or cross-session work, or anything someone else will pick up. |
+| **One-line plan** | One sentence in the reply: what will change and where. Then straight to Act. | Tiny changes -- a typo, a link, a one-line fix. Most work. |
+| **Brainstorm** | The existing command: think it through in the session and write nothing to the repository ([practices/brainstorm-holds-commits.md](../practices/brainstorm-holds-commits.md)). | The idea itself is still open. |
+| **Plan it** *(new)* | The middle ground: a written plan in the session -- numbered steps, the risks, what "done" looks like, what is out of scope. More than a brainstorm, far less than a write-up. No file: it is handed back as **one paste-ready prompt**, so it can be copied into another session for a second opinion. | Real work, clear enough to build in this session. |
+| **Write it up** / **Spec it out** | The existing command: a full report committed to the repository, as [practices/write-it-up.md](../practices/write-it-up.md) says -- like this file. | A detailed plan is needed: big or cross-session work, or anything someone else will pick up. |
 
-**The one-line plan matters most.** Morgan: *"Very, very, very important. We
-don't want to have lots of documents ... when it's not needed."* Forcing a
-planning step on a typo is friction; the one-line plan is how Consider stays
-cheap.
+**The one-line plan is fine, and it matters most.** Morgan: *"Very, very,
+very important. We don't want to have lots of documents ... when it's not
+needed."* Forcing a bigger planning step on a typo is friction; the
+one-line plan is how Consider stays cheap. Consider moves up a size only
+when the work needs it, and says why when it does.
 
-"Plan it" is new and gets its own practice file and command.
+"Plan it" is the one new command here and gets its own practice file.
+**Its plan is not saved to the repository** -- work that spans sessions is
+Write it up's job -- **but it is always given as one self-contained,
+paste-ready prompt**: a fenced block that says where to paste it (a new
+session, which repository to root it in, what to attach), opens by naming
+the session that wrote it (practice: seeded-prompt-names-its-origin), and
+asks the receiving session for its critique of the plan. Getting a second
+session's feedback on a plan is then one copy and one paste.
 
 ### Who it applies to
 
@@ -236,22 +264,80 @@ cheap.
   - every stage read back;
   - the archive guard below.
 
-### Go update becomes Booked's other name
+### What happens to Go update
 
-`Go update` stays in the universal set, working exactly as it does for
-everyone else. **For work on the ladder it is step 3**: it already lands
-Morgan's work on pre-staging, because his landing branch is pre-staging
-([spec/BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). What moves:
+**This is the biggest change in shape.** Today `Go update` (and its twin
+`Approved`) is the one broad "finish this" command: it classifies the
+change, lands it on the person's landing branch -- directly, or through a
+pull request for a high-risk change -- confirms on GitHub that it arrived,
+and never asks a second time. It also means "finish whatever this needs"
+when the work is not a branch move at all. Around 30 other practice files
+lean on it: [Promote](../practices/promote.md) runs it first,
+[Update Vendors](../practices/vendor-update-runbook.md) ends by running its
+chain, [Prompt Please](../practices/prompt-please.md) hands its
+authorization to another session, and [Push directly](../practices/push-directly.md)
+is its override.
 
-- Go update's rules for **which branch** work lands on move into Booked's
-  practice, so they are written once.
-- Its **classification** -- direct push by default, the full pull request
-  chain only for high-risk changes -- stays, and Booked uses it.
-- Nothing is deleted outright: whatever text is superseded is marked that
-  way, in place (practice: current-rule-governs).
+**On the ladder, Go update is step 3, Booked.** "Go update", "Approved",
+"Booked", "Shared Save" and "Promote 3" become five names for one step: move
+this session's work from its feature branch to the landing branch, where it
+won't be lost. For Morgan that is pre-staging. What that changes:
 
-`Push directly` is unchanged: it still overrides the classification for one
-change.
+- **It stops at pre-staging.** Go update never reached further anyway,
+  because Morgan's landing branch is pre-staging; the ladder makes that
+  explicit, and staging and main are Debut and Produce, separate steps.
+- **It is read back as a stage**: *"Now Promote 3: Booked, the Shared Save
+  -- ..."*, not only "landing on pre-staging".
+- **It may stop to ask, once.** Go update today never asks. Booked judges
+  whether the work is ready first, and says so when it thinks it is not
+  (above). That is a real change to Go update's promise, and it applies only
+  where the ladder is in force -- for Morgan.
+- **What stays exactly as it is:** the classification (a direct push by
+  default, the full pull request chain for a high-risk change -- that pull
+  request targets pre-staging), bringing pre-staging in before the push,
+  confirming the result on GitHub, `Push directly` as the override, and the
+  broad "finish whatever this needs" meaning for work that is not a branch
+  move.
+
+**What Go update does today, and where each piece goes.** Everything
+[practices/go-update.md](../practices/go-update.md) does today is kept;
+most of it moves into a new Booked practice file, four pieces become common
+to every stage, and one becomes its own small practice because two commands
+share it.
+
+| What Go update does today | Where it goes |
+|---|---|
+| **Decides whether the change is high-risk.** High-risk means it touches enforcement or gating code, changes a governance or authorization practice, is hard to reverse once live, or the session is not confident it is none of those. | **Its own small practice**, referenced by both Booked and [Push directly](../practices/push-directly.md), because both depend on it and it should be written once. The four tests do not change. |
+| **Ordinary change: pushes straight to the landing branch, no pull request** (the default since 2026-09-20). | **Booked**, unchanged. |
+| **High-risk change: the full chain** -- sync, say the branch, commit, push, open a pull request into the landing branch, merge it. | **Booked**, unchanged. For Morgan the pull request targets pre-staging, as it already does. |
+| **A direct instruction about this one change wins** ("skip the PR", "open a PR for this"). | **Booked**, unchanged. `Push directly` stays the named form of "skip the PR". |
+| **Works out the landing branch** (`precedent_branches.py --landing`: pre-staging, staging or main, from the person's `landing_branch`). | **Booked**, unchanged; the tool does not change. |
+| **Brings pre-staging in first** (`--sync-pre-staging`, then merging `origin/pre-staging` before the push). | **Booked**, unchanged. |
+| **Runs the checks**: the light check before the commit, the push check at the target branch's tier (basic for pre-staging, full for staging and main). | **Unchanged** -- the hooks run them, whatever the command is called. |
+| **Says the target branch out loud** before pushing or merging. | **Every stage**, as the read-back ("Now Promote 3: Booked ... into pre-staging (BestPractice)"). |
+| **Says which path it took and why**, in one clause ("pushed directly -- a plan document"). | **Booked**, unchanged. |
+| **Confirms on GitHub that the work arrived** before saying where it went. | **Every stage** -- a stage is not done until a fetch shows the branch carries the work. |
+| **Hands off a step it cannot perform** as a Prompt Please block, the authorization travelling with it, after finishing everything it can. | **Every stage**, unchanged ([practices/prompt-please.md](../practices/prompt-please.md), [practices/relayed-authorization.md](../practices/relayed-authorization.md)). |
+| **Reads intent, not the phrase**; says its reading and confirms when a message could honestly go either way; commits locally regardless. | **Every stage**, as the ladder's own reading rule (above). |
+| **"Approved" means the same thing.** | **Booked**: "Go update", "Approved", "Booked", "Shared Save" and "Promote 3" are its names. |
+| **"Finish whatever this needs"** when the work is not a branch move at all. | **Booked**, as its meaning when there is no branch to move -- so "Go update" keeps working for that too. |
+| **One plain Boildown line** when a high-risk change landed on pre-staging, saying how far pre-staging is ahead of staging. | **Stays in** [practices/the-boildown.md](../practices/the-boildown.md), repointed to Booked. |
+| **"Go merge" is retired**, kept only as history. | Stays history, in the old file's story. |
+
+**What happens to the old file.** [practices/go-update.md](../practices/go-update.md)
+is marked `deduplicated` into Booked -- the existing mechanism
+([practices/current-rule-governs.md](../practices/current-rule-governs.md))
+by which `precedent_show.py go-update` follows the old name to the live
+rule, so every link to it keeps working. Nothing is deleted. The practices
+that call Go update (Promote, Update Vendors, Prompt Please, Push directly
+and the rest) are repointed to Booked in the same change
+(practice: rename-updates-links); "Go update" keeps working as a phrase
+throughout.
+
+**For everyone else nothing changes.** Someone not using the ladder says
+"Go update" and gets exactly today's behavior: their work lands on their own
+landing branch (staging or main), with no readiness question and no stage
+read-back. If they do use the stage words, Booked lands on that same branch.
 
 ### The archive guard
 
@@ -286,8 +372,8 @@ The archive guard stops new cases. These two find old ones.
 **"Shared set" everywhere live; history left as it was written.**
 
 - **Changed:** live documentation, practice text (Rule and Detail), code
-  comments, and the messages tools print -- here and in the four sets of the
-  full set.
+  comments, and the messages tools print -- here and in the individual set
+  and the three shared sets.
 - **Left alone:** dated records -- `## Story` sections, closed items,
   decisions, gotchas. "Team" was the right word when they were written, and
   rewriting them makes history harder to follow.
@@ -307,49 +393,21 @@ The archive guard stops new cases. These two find old ones.
 - **Consumers** get the cleaned text the ordinary way, through Update
   Vendors.
 
-## Step 5's word -- the brainstorm
-
-Morgan's set reads like a show's life: considered, acted, booked, debuts,
-picked up. He prefers **"Picked up"** over **"Launch"** because launch is
-common in tech and usually means something much bigger. He is not set on it
-and asked for other ideas.
-
-**What the word needs:** rare in everyday talk about code, so it is not
-triggered by accident; reads as an instruction; fits the show; not grander
-than "merge staging into main". Measured by counting whole-word uses across
-this repository and the four sets' markdown on 2026-09-27:
-
-| Candidate | Uses found | For | Against |
-|---|---|---|---|
-| **Picked up** | 7 ("pick up": 8 more) | His choice; in television, the network commits to the show. | Common in everyday coding talk ("CI picked up the change", "picks up where it left off"). |
-| **Aired** | 0 | The show is on air: in production. Past tense, like Booked. Almost never said about code. | Slightly odd as a command ("air it"). |
-| **On air** | 0 | Plain and vivid. | Two words; reads as a state more than an order. |
-| **Premiere** | 0 | Rare in tech. | Means the same as Debut, step 4. |
-| **Launch** | 24 | Everyone understands it. | Rejected by Morgan: too common, and too big. |
-| **Ship** | 120 | Short. | Very common here already. |
-| **Green-lit** | -- | Television word. | Wrong order: green-lighting happens before production starts. |
-| **Syndicated** | -- | Television word. | Far too big a claim for one merge. |
-
-**Recommendation: "Aired".** It fits the show, fits "production", and has no
-everyday meaning in coding talk to collide with. The read-back and
-intent-reading make any word workable, but step 5 changes production, so it
-should have the fewest accidental matches. If Morgan keeps "Picked up", it
-works: the read-back catches a misfire before anything moves. Either way,
-**one word only** -- two words for the step that touches production is two
-chances to misfire.
-
 ## Analysis -- what was tried, and the holes found
 
-**The name for the four sets.**
+**The name for the sets together.** The first aim was a word for the four
+non-universal sets.
 
 - *Add-on sets*: rejected by Morgan as ambiguous.
 - *Private sets*: rejected by the session after checking -- all three shared
   sets declare `visibility: public`, so the word would be false.
 - *Complete sets*: implies everything is included, when the biggest set, the
-  universal one, is left out.
+  universal one, was left out.
 - *Custom sets*: the session's pick; not chosen.
-- **Full set** (chosen). Hole: "full" still leans towards "everything".
-  Answer: the definition says outright that it excludes the universal set.
+- **Full set**, first defined as the four without the universal set. Hole:
+  "full" reads as "everything". Answer (Morgan, 2026-09-28): make it mean
+  everything, the universal set included, and let the four go without a
+  word of their own.
 
 **Vocabulary.** Adding nouns breaks Vocabulary's "commands only" design.
 Answer: two clearly separate lists, the commands first. Hole: a second copy
@@ -359,10 +417,18 @@ of the definitions drifts. Answer: one registry, rendered into both places.
 this way, and other repositories have no pre-staging. Answer: optional in
 the universal set, required only through Morgan's individual set.
 
-**Everyday words as triggers.** "Act", "Booked" and "Picked up" all occur in
-ordinary sentences. Answer: intent-reading, never keyword matching, plus the
-read-back before anything moves. Step 5 gets the strictest reading, and a
-rarer word is recommended.
+**Everyday words as triggers.** "Act", "Booked" and "Produce" all occur
+in ordinary sentences. Answer: intent-reading, never keyword matching, plus
+the read-back before anything moves. Step 5 gets the strictest reading.
+Morgan, on "Act" in particular: since every request is read in context, a
+common word is not a problem -- the session does not follow a word blindly.
+
+**Step 5's word.** "Launch" was rejected as common in tech and too big.
+"Picked up" was the first choice, but "picked up" is ordinary coding talk
+("CI picked up the change"). **Production** came next: it continues the
+theater metaphor, has the "go live" feel, and names exactly where the work
+ends up. It became **Produce**, a verb like the other steps, with
+"production" kept as the noun for where the work lands.
 
 **Where Act lives.** First draft: the local clone. Hole: a cloud container is
 reclaimed, and local-only work is lost. Answer: Act lives on the session's
@@ -387,9 +453,12 @@ friction. Answer: the one-line plan.
 so "promote" is a stretch there. Morgan kept it on purpose: one word
 everywhere beats accuracy at the bottom rung.
 
-**Deprecating Go update.** It is universal, and other people rely on it.
-Answer: keep it as Booked's other name and move only its branch rules into
-Booked.
+**Deprecating Go update.** It is universal, and other people rely on it,
+and some 30 practice files call it. Answer: keep the phrase as one of
+Booked's names, move the rule's text into Booked with the old file
+deduplicated into it, and leave behavior unchanged for anyone not on the
+ladder. Hole: Booked's readiness question breaks Go update's "never asks
+again" promise. Answer: accepted, and only where the ladder is in force.
 
 ## What gets built, in order
 
@@ -405,10 +474,12 @@ Each numbered item is its own landing, through the ladder itself.
 4. **The "team" cleanup** across live text here and in the four sets, and
    the check that keeps it out. *The check is enforcement code: high-risk.*
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
-   Booked, Debut and step 5; Promote's practice gains "Promote N", the
-   read-back, the bare-Promote rule and "Graduate"; Write it up gains
-   "Spec it out"; Go update's branch rules move into Booked. *Changes an
-   authorization practice (Go update, Promote): high-risk.*
+   Booked, Debut and Produce, each with its synonym; Promote's practice
+   gains "Promote N", the read-back, the bare-Promote rule and "Graduate";
+   Write it up gains "Spec it out"; the high-risk test moves into its own
+   practice; Go update is deduplicated into Booked and its callers
+   repointed. *Changes an authorization practice (Go
+   update, Promote): high-risk.*
 6. **Morgan's individual practice** requiring the ladder, in
    `precedent-individual`.
 7. **The archive guard** in the reply gate. *Enforcement code: high-risk.*
@@ -423,18 +494,8 @@ template). They reach consumers through Update Vendors, not on their own
 
 ## Open questions
 
-1. **Step 5's word.** Recommendation: "Aired". Morgan's current word:
-   "Picked up".
-2. **"Full set" means the four non-universal sets** -- confirm, or say it
-   should mean everything in force.
-3. **Does Consider choose the plan size itself, or suggest and wait?**
-   Recommendation: choose it and say so in the read-back; one word from
-   Morgan overrules. Asking every time adds a round trip, and the read-back
-   already makes the choice visible.
-4. **Does a "Plan it" plan get saved?** Recommendation: no -- it lives in
-   the session. Work that spans sessions is Write it up's job.
-5. **"Act" as step 2's word.** Not questioned so far; noted because it is
-   the commonest word on the ladder.
+None right now. Everything raised during the brainstorm is settled in the
+decision record below.
 
 ## Decision record
 
@@ -445,24 +506,32 @@ Strength per [practices/decision-strength.md](../practices/decision-strength.md)
 | Decision | Strength | Morgan's words |
 |---|---|---|
 | "Shared set" is the word; "team set" retires | decided | *"I think we should say shared sets."* |
-| The group of four is the "full set" | decided (definition to confirm) | *"for the Complete Set I like calling it "Full set" - it's like complete but it doesn't imply these are the only ones"* |
+| "Full set" is the name | decided | *"for the Complete Set I like calling it "Full set" - it's like complete but it doesn't imply these are the only ones"* |
+| "Full set" includes the universal set | decided | *"the "full set" I think should include the universal set"* |
+| "Repo-local" is a word on the list | decided | *"we should also have "Repo-local" which refers to "your primary work repo that has bestpractice vendored in""* |
 | Vocabulary becomes two lists, commands then our language | decided | *"the vocabulary should be two lists, the ... list of commands and then the list of useful words to know or our language"* |
 | The words also live on a documentation page | decided | *"it should be on the documentation page ... and repeat it on the vocabulary list"* |
 | "Primary branch" moves to the second list | decided | *"'primary branch' should be on the second list"* |
 | Internal docs and comments move to the new words | decided | *"we can go through ... all of our internal docs and comments and fix it there"* |
 | Dated records untouched; code alias kept | proposed | -- |
 | Five stages, each "Promote N" | decided | *"if I say the short title or promote with a number, it does that step I named"* |
-| Every stage read back with its long title | decided | *"every time you hear the ... [trigger] ... it repeats back the longer version"* |
+| Every stage read back with its full name | decided | *"every time you hear the ... [trigger] ... it repeats back the longer version"* |
 | Consider chooses among plan sizes, "Plan it" in the middle | decided | *"you decide if it is a "brainstorm" ... or a "write it up" ... or maybe another option in the middle ... "plan it""* |
 | One-line plan for tiny changes | decided | *"Very, very, very important."* |
 | Optional for everyone, required only for Morgan | decided | *"people can use staging, but they don't have to"* |
-| Step 5's long title is Production | decided | *"let's do that"* (on "production for the last stage") |
+| Step 5's theme is production | decided | *"For step #5 "PIcked up" maybe we say "Production"? That's used in the theater word as well"* |
+| Step 5's word is the verb "Produce"; "production" stays the noun for where work lands | decided | *"the stage 5 word should be "Produce" to make it a verb like the previous ones"* |
+| "Act" and other common words are fine, because requests are read in context | decided | *"since you review it in context, don't just blindly follow the use of the word, it's not a problem"* |
+| Consider picks the plan size itself, from context, complexity and Morgan's guidance | decided | *"You should choose, based on the context, the complexity, and also, I will sometimes give you verbal guidance"* |
+| The second name is a "Synonym" and triggers the stage too | decided | *"I think the "long title" should be called "Synonym""* |
 | The session's short-lived branch is called a "feature branch" | decided | *"can we add in the word ... feature branch, to mean the short-lived ... branch just in that session"* |
 | Act lives on the feature branch; Booked makes it safe | decided | *"booked is all about moving it from there to pre-staging so ... it won't get lost"* |
 | Bare Promote: next step not done; lowest when unclear | decided | *"If I'm ambiguous, start at the ... lowest one"* |
 | Booked checks readiness first | decided | *"you need to use your judgment and say, do you think it's ready?"* |
 | Promote stays the one word, step 1 included | decided | *"I want one word to just use everywhere ... promote is good enough"* |
 | Go update becomes part of Booked | decided | *"maybe we move the current "go update" practice to be a part of "booked" stage"* |
+| Go update's high-risk call and its other duties are listed, each with where it goes | decided | *"Update the Go update section with these details and clarify where those details wil move to / what will happen to them"* |
+| A "Plan it" plan is not saved, and is given as a paste-ready prompt for another session's feedback | decided | *"I agree, but it should be given in a prompt so that it is very easy to copy-paste that prompt to another session to get its feedback"* |
+| The plan spells out what happens to Go update | decided | *"the plan also needs to have a paragraph or section on what happens with "go update""* |
 | "Graduate" and "Spec it out" folded in | decided | *"yes fold that in"* |
 | The archive guard | assented | *"Okay, I like these ideas"* |
-| Step 5's word | open | *"I'm not insistent on that"* |
