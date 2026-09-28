@@ -33,6 +33,8 @@ THE STEPS, with no question in between:
      MAP.md and GLOSSARY.md too -- then this repo's own citations of any
      practice the update withdrew or reworded (a withdrawn one's is a call
      left for you; a reworded one's is listed to read)
+  4a. any missing branch tier made on origin: staging from pre-staging,
+     pre-staging from staging, both from main when neither exists
   5. the repo's own check at its landing branch's tier -- into pre-staging,
      the fast checks on what changed; the full check waits for the Promote
      (--skip-check to leave it out) -- run against a temporary commit of
@@ -51,8 +53,10 @@ THE REPORT, and the exit code a session acts on:
 
 It stages what it wrote and deleted, so the deep check judges the tree the
 commit will hold, and leaves anything already uncommitted alone. It never
-leaves a commit behind, and never pushes or merges: the deep check's
-temporary commit is undone before it reports. Those stay with the session, under Go update's
+leaves a commit behind, and never merges. The one thing it pushes is a
+missing branch tier (pre-staging or staging), made at a commit origin
+already has; the deep check's temporary commit is undone before it
+reports. Those stay with the session, under Go update's
 chain, where the authorization already lives.
 """
 import argparse
@@ -421,6 +425,33 @@ def update(repo, skip_check=False, ref=None):
         if rc != 0:
             return rep.close(f"the view sync failed:\n{tail(out)}")
         rep.step('views', 'regenerated')
+
+    # 4a. The branch tiers. Every repository works through pre-staging ->
+    # staging -> main, so a missing tier is made here rather than reported
+    # (Morgan, 2026-09-27, strength: decided: "Can we make sure update
+    # vendors checks for this and if they don't exist create it").
+    # ensure_tiers makes staging from pre-staging (or the old staging name),
+    # pre-staging from staging, and both from main when neither exists. It
+    # is the one thing this command pushes: a new branch at a commit origin
+    # already has, never a change to one that exists.
+    tier_lines = []
+    has_origin = run(['git', '-C', str(repo), 'remote', 'get-url', 'origin'],
+                     repo)[0] == 0
+    try:
+        rc = pb.ensure_tiers(repo, apply=True, say=tier_lines.append) \
+            if has_origin else 0
+    except Exception as e:                                     # noqa: BLE001
+        rc, tier_lines = 1, [f'{type(e).__name__}: {e}']
+    made = [l for l in tier_lines if l.startswith(('created ', 'wrote '))]
+    if not has_origin:
+        rep.step('branch tiers', 'no origin remote here, so there is nowhere to '
+                 'make them')
+    elif rc != 0:
+        rep.leave('branch tiers', 'pre-staging and staging could not both be '
+                  'made on origin -- ' + ' '.join(tier_lines)[-400:])
+    else:
+        rep.step('branch tiers', '; '.join(made) if made else
+                 'pre-staging, staging and main all present')
 
     # Staged before the check, so it judges what the commit will hold.
     n = stage_update(repo, before)

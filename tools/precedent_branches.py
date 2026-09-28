@@ -414,8 +414,10 @@ def ensure_tiers(root, apply=False, say=print):
     both exist (or were just made), 1 when something is missing and
     `apply` is off, or could not be made.
 
-    A repository whose staging tier is main (base_branch "main", no
-    staging_branch) gains a `staging` branch at main's tip, and its
+    A missing staging is made from the old name kept in step with it, else
+    from pre-staging, else from main; a missing pre-staging is made from
+    staging. A repository whose staging tier is main (base_branch "main", no
+    staging_branch) gains a `staging` branch the same way, and its
     precedent.json gains `"staging_branch": "staging"` -- written here,
     committed by the session running the migration. base_branch itself is
     left alone (see STAGING_KEY). Then pre-staging is made from staging by
@@ -445,10 +447,19 @@ def ensure_tiers(root, apply=False, say=print):
         # main was merged (cause not established), and this looked for staging
         # itself to rebuild it from, found nothing and gave up. Right after
         # such a merge, main contains staging exactly.
-        if wants_staging_branch:
-            src = MAIN
-        elif staging != LEGACY_STAGING and _remote_tip(root, LEGACY_STAGING):
+        #
+        # Then from pre-staging, and only then from main (Morgan,
+        # 2026-09-27, strength: decided: "copying the latest from
+        # pre-staging to staging or vice versa and if neither exist then
+        # copying to both the latest from main"). What lands on staging this
+        # way has not had staging's full check, and it gets it on the way to
+        # main: a Promote into main runs the full check on anything it has
+        # not seen pass.
+        if (not wants_staging_branch and staging != LEGACY_STAGING
+                and _remote_tip(root, LEGACY_STAGING)):
             src = LEGACY_STAGING
+        elif _remote_tip(root, PRE_STAGING):
+            src = PRE_STAGING
         else:
             src = MAIN
         tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
