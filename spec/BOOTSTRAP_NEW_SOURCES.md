@@ -516,9 +516,11 @@ and it needs at least one approver at creation time.
    ```
    python3 tools/precedent_bootstrap_source.py --level shared \
        --name <name> --dest <local clone path> \
-       --approver "Full Name:github-handle"
+       --approver "Full Name:github-handle" [--visibility public]
    ```
-   (Comma-separate multiple `name:handle` pairs to seed more than one
+   (`--visibility public` when the repository will be public; it defaults
+   to private, and the set's `precedent-source.json` records it.
+   Comma-separate multiple `name:handle` pairs to seed more than one
    approver at creation — still fine per
    [PRACTICE_ENGINE_PLAN.md's Stage 4](PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level):
    "whoever creates a team set is its first approver. No ceremony.")

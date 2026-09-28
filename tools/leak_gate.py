@@ -1501,9 +1501,10 @@ def main():
         print(f'leak gate NOT APPLICABLE: {_why}, so pushing this tree '
               f'publishes nothing and there is no leak for this gate to '
               f'prevent. This is a stand-down, NOT a pass -- it inspected '
-              f'nothing. What still guards content leaving here is '
-              f'practice_audit.py\'s scrub over the vendored tree, which is '
-              f'where the export actually happens.')
+              f'nothing. Content leaving here goes upstream as a pull '
+              f'request against a public source, whose own leak gate scans '
+              f'it on arrival; a loader install has no export scrub of its '
+              f'own, so review anything bound for upstream by hand.')
         return 0
 
     # The bare-name half, and the one that actually stops a private name

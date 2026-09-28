@@ -3,7 +3,7 @@ slug:              todo-2026-09-21-template-freshness-reports-five-phantom-gaps
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        "a session that is not racing the one editing tools/very_deep_check.py -- two sessions were pushing to precedent-beta-v01 while this was found, and one of them owns that file right now"
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -105,3 +105,7 @@ exactly the shape that would be lost in the noise.
 
 The 2026-09-21 very deep check, pass 2, reading the tool's sections against
 each other rather than each against its own description.
+
+## Closed 2026-09-28
+
+Fixed 2026-09-28 by the very deep check: `NOT_SKELETON` now covers every file the generator writes (`ALL_SESSION_HOOKS` plus CLAUDE.md, precedent.json and precedent-source.json).

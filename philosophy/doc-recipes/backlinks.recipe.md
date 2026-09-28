@@ -2,11 +2,8 @@
 
 # Recipe: Cross-References That Run Both Ways
 
-**Experimental, on branch `philosophy-bidirectional-slugs`, at Morgan's
-request on 2026-09-11 — explicitly not to be merged yet.** He liked that
-the AI-governance items each carry a slug other documents cite, and asked
-that every item in the core documents get one, with the citations running
-both ways.
+Every item in the core documents carries a slug other documents cite, and
+the citations run both ways.
 
 - **Every item in a core document carries a permanent slug**, written as
   `<a id="slug"></a>`. In the numbered essays it sits on its own line above
@@ -62,15 +59,8 @@ both ways.
   for no new argument, which Morgan read as the sections having become too
   long. **A connection that cannot be carried by a sentence already there
   usually needs a longer look at whether the two items are really related.**
-- **Every item carries a citation into another core document.** This
-  reverses the original rule here, which let an item nothing cites get no
-  sentence rather than have one manufactured to fill the gap. That held
-  until 2026-09-20, when six items in
-  [../HUMANS_AT_OUR_BEST.md](../HUMANS_AT_OUR_BEST.md) — Asking hard
-  questions, Verification, Managing the dirtiness of real life, Why,
-  Weirdness, Understanding problems — were each given one on request, at
-  which point an unfilled slot became the exception to argue for rather
-  than the default. A citation still has to be a real connection an essay
+- **Every item carries a citation into another core document**; an item
+  without one is the exception to argue for, not the default. A citation still has to be a real connection an essay
   elsewhere actually makes, never invented to satisfy the letter of this
   rule ([no-invented-specifics](../../practices/no-invented-specifics.md))
   — an item with no honest match yet is a sign the item, or the corpus,

@@ -15,15 +15,15 @@
     "and a project declares the ones its kind of work needs (INSTALL.md's",
     "'Which team sets does this repo declare?'):",
     "",
-    "  precedent-team-writing -- the craft of documents and prose: length,",
+    "  precedent-shared-writing -- the craft of documents and prose: length,",
     "    emphasis, lists, drafting markers, citation and linking. Wanted by",
     "    anyone writing for a human reader, on any team.",
-    "  precedent-team-working-style -- how a session works alongside the",
+    "  precedent-shared-working-style -- how a session works alongside the",
     "    person: decide small calls, don't stall on a non-blocking question,",
     "    don't repeat the same disclaimer every run. Mostly resident, so it",
     "    fires on every turn.",
     "",
-    "precedent-team-repo-maintenance is deliberately NOT declared here: it holds",
+    "precedent-shared-repo-maintenance is deliberately NOT declared here: it holds",
     "repo and practice-set mechanics -- syncs, gates, branch setup, catalogue",
     "upkeep -- which a document project has no way to act on. Not declaring a",
     "set is the cheap way to say that; a `not_binding` entry per slug is the",
@@ -80,24 +80,24 @@
       "path": "precedent/universal"
     },
     {
-      "level": "team",
-      "name": "precedent-team-writing",
-      "path": "../precedent-team-writing"
+      "level": "shared",
+      "name": "precedent-shared-writing",
+      "path": "../precedent-shared-writing"
     },
     {
-      "level": "team",
-      "name": "precedent-team-working-style",
-      "path": "../precedent-team-working-style"
+      "level": "shared",
+      "name": "precedent-shared-working-style",
+      "path": "../precedent-shared-working-style"
     }
   ],
   "not_binding": [
     {
       "slug": "catalogue-carries-stories",
-      "reason": "Governs landing practices in bulk into a catalogue. This project consumes a catalogue and holds none of its own; the practices it captures go to precedent-team-writing, where this rule is in force."
+      "reason": "Governs landing practices in bulk into a catalogue. This project consumes a catalogue and holds none of its own; the practices it captures go to precedent-shared-writing, where this rule is in force."
     },
     {
       "slug": "full-practice-audit",
-      "reason": "A sweep of every source's full catalogue. This project owns no catalogue to sweep; the audit belongs to whoever maintains precedent-team-writing and the universal set."
+      "reason": "A sweep of every source's full catalogue. This project owns no catalogue to sweep; the audit belongs to whoever maintains precedent-shared-writing and the universal set."
     },
     {
       "slug": "very-deep-check",
@@ -109,7 +109,7 @@
     },
     {
       "slug": "practice-export-loop",
-      "reason": "Vendoring an upstream practice layer and checking improvements back in. This project vendors the engine but does not maintain it, and contributes practices through precedent-team-writing instead."
+      "reason": "Vendoring an upstream practice layer and checking improvements back in. This project vendors the engine but does not maintain it, and contributes practices through precedent-shared-writing instead."
     },
     {
       "slug": "cross-source-rollout",
@@ -149,7 +149,7 @@
     },
     {
       "slug": "checkable-gets-checked",
-      "reason": "Requires attempting a mechanical check before leaving a new rule advisory-only. The people who write rules here cannot write checks; the attempt belongs with precedent-team-writing's maintainers, and this project's rules reach them as candidates."
+      "reason": "Requires attempting a mechanical check before leaving a new rule advisory-only. The people who write rules here cannot write checks; the attempt belongs with precedent-shared-writing's maintainers, and this project's rules reach them as candidates."
     },
     {
       "slug": "convention-to-audit",

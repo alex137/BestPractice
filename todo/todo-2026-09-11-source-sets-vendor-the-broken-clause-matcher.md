@@ -3,7 +3,7 @@ slug:              todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-11
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -48,3 +48,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed 2026-09-28
+
+Its own condition is met, found by the very deep check's pass 4: All four sets vendor the engine at `e8a2bc6`, which contains the matcher fix `2d8f610d`.

@@ -128,3 +128,25 @@ initial source works around the tool-level limit fine. Recorded because
 the next session reasoning about this shouldn't re-litigate whether the
 restriction is real; for this one tool, it is, and starting fresh against
 the target repo is the workaround.
+
+## Addendum, 2026-09-28: the deadline passed, and the relaxation is now the practice
+
+Phase 7 merged into `main` on 2026-09-14, and nothing reinstated the
+isolation rule or extended this record. A very deep check found that on
+2026-09-28. By then the relaxation had quietly become how every session
+works: AGENTS.md's session setup attaches the individual set and each
+declared shared set to any session here, and
+[attach-never-clone-individual](../practices/attach-never-clone-individual.md)
+says how. The leak gate is still the control that keeps private content out
+of this public tree, and it runs on every push, as this record promised.
+
+Morgan approved fixing the finding the same day ("Fix all of these,
+approved", 2026-09-28). This addendum reads that as **extending the
+relaxation as it stands, with its one remaining trigger kept**:
+**strength: assented**, because he approved a list rather than choosing
+between reinstating and extending. The trigger that still binds is the first
+one: **reinstate the rule before a session here can hold a private set that
+is not Morgan's** (another person's individual set, or a team set whose
+members have not agreed to it). The "no later than Phase 7" date is
+retired, because the two reasons above still hold for what the private sets
+contain today.

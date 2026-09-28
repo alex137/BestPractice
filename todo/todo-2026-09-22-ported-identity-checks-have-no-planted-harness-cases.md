@@ -3,7 +3,7 @@ slug:              todo-2026-09-22-ported-identity-checks-have-no-planted-harnes
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-22
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -65,3 +65,7 @@ all, which the harness's own standing suite already asks about on every
 run and will keep failing on until the fixtures actually exist. The open
 item is real, unfinished work (write the fixtures), not a question of
 which gate should be asking.
+
+## Closed 2026-09-28
+
+Its own condition is met, found by the very deep check's pass 4: tools/verify_harness.py carries planted cases for both ported checks; `verify_harness.py --all` reports every planted case run.

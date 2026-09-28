@@ -26,7 +26,9 @@ approved_by: "Morgan, 2026-09-21 (strength: decided): \"the sets don't need CI;
 `kind` is `source` — installs no continuous-integration workflow.** Not the
 check suite, not the leak gate, not a documentation lint. A consuming repo
 is a different case and keeps its leak gate; this rule is about sources
-only.
+only. A dispatch-only maintenance workflow a set's owner asked for (an
+engine-refresh button, run by a person) is not continuous integration and
+is not what this rule refuses.
 
 **It is the default for every future set, not a cleanup of four existing
 ones.** A new set created tomorrow gets no workflows, because the engine's

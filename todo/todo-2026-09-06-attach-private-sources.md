@@ -3,16 +3,16 @@ slug:              todo-2026-09-06-attach-private-sources
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Overtaken: since 2026-09-10 PRECEDENT_GIT_TOKEN clones every private set before the first turn, and sessions routinely hold all of them; the four items it was blocking were worked from such sessions."
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -123,3 +123,5 @@ closed:            null
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+**Closed 2026-09-28 (done).** Overtaken: since 2026-09-10 PRECEDENT_GIT_TOKEN clones every private set before the first turn, and sessions routinely hold all of them; the four items it was blocking were worked from such sessions. Morgan approved the very deep check's pass-4 recommendation to close it, 2026-09-28 ("Make the changes you recommend"); strength: assented.

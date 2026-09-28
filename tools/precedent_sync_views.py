@@ -471,6 +471,12 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             fwd = {(r.get('slug'), r.get('source')):
                    str((r.get('fm') or {}).get('in_force_at') or '').strip('"\' ')
                    for r in (res.get('retired') or []) if isinstance(r, dict)}
+            # A deliberate withdrawal from universal (precedent_move.py
+            # --accept-reach-loss) names the set it went to; say that, not
+            # "forwarding to <its own slug>, which is IN FORCE NOWHERE".
+            gone_to = {(r.get('slug'), r.get('source')):
+                       pr.withdrawn_from_universal(r.get('sections'))
+                       for r in (res.get('retired') or []) if isinstance(r, dict)}
 
             def _where(s, src):
                 # Where the rule went, as THIS resolution found it -- the
@@ -488,6 +494,10 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                                              res.get('retired') or [])
                 if live is not None:
                     return f", now in force as {live}"
+                gone = gone_to.get((s, src))
+                if gone:
+                    return (f", withdrawn from universal on {gone[0]}; in force "
+                            f"in `{gone[1]}` -- declare that set to keep it")
                 return (f", forwarding to {target}, which is IN FORCE NOWHERE "
                         f"here -- see above")
 
