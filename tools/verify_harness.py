@@ -7784,6 +7784,225 @@ def check_update_vendors_reports_what_it_says_it_lists():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_update_vendors_second_consumer_findings():
+    """Five update-tool defects a consumer's Update Vendors hit on
+    2026-09-28, each pinned where it is fixed and each planted here.
+
+    1. A failed update dropped its Left-for-you list, and with it the line
+       naming bootstrap.sh as lacking the shared-set clone block -- the very
+       block whose absence failed the check.
+    2. The check failed on file-header for a regenerated AGENTS.md whose
+       version the commit would have stamped. stamp_headers() stamps first,
+       and re-stages only what was already staged.
+    3. A `synced` manifest entry inside the vendored tree kept its old hash
+       after the mirror rewrote the file, so the audit reported DRIFT on an
+       upstream change. rebaseline_vendored_entries() re-records those, and
+       nothing outside the tree.
+    4. A workflow the engine took over kept its outside-vendoring exemption,
+       whose reason ("this repo's own") was now false.
+    5. The engine line said "(was <new commit>)": the second pass read the
+       manifest the first had rewritten."""
+    import io, contextlib, hashlib, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    cases = []
+    # Each fix is judged on its own, so a control run against the old code
+    # shows every one of them red rather than stopping at the first gap.
+    for n in ('engine_summary', 'stamp_headers', 'rebaseline_vendored_entries'):
+        if not hasattr(pu, n):
+            setattr(pu, n, None)
+
+    rep = pu.Report()
+    rep.leave('tools/bootstrap.sh', 'lacks 2 of its blocks (listed below)')
+    rep.details['tools/bootstrap.sh'] = ['    templates/bootstrap.sh:42 "Clone every shared practice set"']
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rep.close('the check for pre-staging is red')
+    text = buf.getvalue()
+    cases.append(('1. a FAILED update still prints what it left for the person, with detail',
+                  'tools/bootstrap.sh' in text and 'Clone every shared practice set' in text
+                  and text.index('tools/bootstrap.sh') < text.index('FAILED:')))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-update-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True)
+    try:
+        r = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', str(r)], env=env, check=True)
+        (r / 'tools' / 'checks').mkdir(parents=True)
+        # A stand-in header fixer: appends a stamp to every .md it finds, the
+        # observable thing the real one does to a file it bumps.
+        (r / 'tools' / 'checks' / 'check_file_header.py').write_text(
+            'import pathlib, sys\n'
+            'if "--fix" in sys.argv:\n'
+            '    for p in pathlib.Path(".").glob("*.md"):\n'
+            '        p.write_text(p.read_text() + "stamped\\n")\n', encoding='utf-8')
+        (r / 'AGENTS.md').write_text('v1\n', encoding='utf-8')
+        (r / 'NOTES.md').write_text('mine\n', encoding='utf-8')
+        git(r, 'add', '-A')
+        git(r, 'commit', '-qm', 'base')
+        (r / 'AGENTS.md').write_text('v2\n', encoding='utf-8')
+        git(r, 'add', 'AGENTS.md')
+        (r / 'NOTES.md').write_text('mine, edited, not staged\n', encoding='utf-8')
+        stamped = pu.stamp_headers(r) if pu.stamp_headers else None
+        staged = git(r, 'diff', '--cached', '--name-only').stdout.split()
+        cases.append(('2. the header is stamped and re-staged before the check',
+                      stamped == ['AGENTS.md'] and 'AGENTS.md' in staged
+                      and git(r, 'show', ':AGENTS.md').stdout.endswith('stamped\n')))
+        cases.append(("2. ...and a file the person left unstaged stays unstaged",
+                      'NOTES.md' not in staged))
+
+        (r / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        (r / 'process' / 'upstream' / 'tools' / 'doc_lint.py').write_text('new upstream\n')
+        (r / 'tools' / 'bootstrap.sh').write_text('edited here\n')
+        (r / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'vendored_at': 'process/upstream'},
+            'entries': [
+                {'practice': 'doc-lint', 'status': 'synced', 'granularity': 'file',
+                 'local_path': 'process/upstream/tools/doc_lint.py', 'local_sha256': 'old'},
+                {'practice': 'bootstrap', 'status': 'synced', 'granularity': 'file',
+                 'local_path': 'tools/bootstrap.sh', 'local_sha256': 'old'}]}))
+        rebased = (pu.rebaseline_vendored_entries(r)
+                   if pu.rebaseline_vendored_entries else None)
+        entries = json.loads((r / 'process' / 'manifest.json').read_text())['entries']
+        cases.append(('3. a synced entry inside the vendored tree is re-baselined',
+                      rebased == ['process/upstream/tools/doc_lint.py'] and
+                      entries[0]['local_sha256'] == hashlib.sha256(b'new upstream\n').hexdigest()))
+        cases.append(('3. ...and one outside it still reads as drift',
+                      entries[1]['local_sha256'] == 'old'))
+
+        wf = '.github/workflows/light-check.yml'
+        (r / 'precedent.json').write_text(json.dumps({
+            'github_ci_approved': {wf: {'sha256': 'x', 'approved_by': 'y'}},
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': wf, 'reason': "this repo's own"},
+                {'path': '.github/workflows/other.yml', 'reason': 'kept'}]}))
+        with contextlib.redirect_stdout(io.StringIO()):
+            pve._drop_ci_approvals(r, [wf])
+        cfg = json.loads((r / 'precedent.json').read_text())
+        cases.append(("4. a converged workflow's exemption leaves with its approval",
+                      wf not in (cfg.get('github_ci_approved') or {}) and
+                      [e['path'] for e in cfg.get('ci_workflow_outside_vendoring_exempt', [])]
+                      == ['.github/workflows/other.yml']))
+    except (OSError, subprocess.CalledProcessError, KeyError, TypeError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    out = ('precedent_vendor_engine refresh OK (consumer): 59 file(s) refreshed from main '
+           '@ e8a2bc67cc8d (was 37fc3b551579)\n'
+           'precedent_vendor_engine refresh OK (consumer): 61 file(s) refreshed from main '
+           '@ e8a2bc67cc8d (was e8a2bc67cc8d)\n')
+    cases.append(('5. the engine line names the commit the repo was on before the refresh',
+                  bool(pu.engine_summary) and
+                  '(was 37fc3b551579)' in pu.engine_summary(out, '37fc3b55157907e6')))
+    cases.append(('5. the engine hands its second pass the pre-refresh commit',
+                  hasattr(pve, '_WAS_COMMIT_ENV')))
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_run_all_warns_when_checks_are_uncommitted():
+    """The generated run_all.sh says, on a failure, when tools/checks/ has
+    uncommitted changes -- and only then.
+
+    A shipped test that clones the repo runs the COMMITTED checks, so
+    before an update is committed it pairs new cases with old scripts and
+    can fail on nothing (2026-09-28, test_file_header.sh in a consumer).
+    Several shipped tests still clone; one note in the one driver every
+    consumer generates covers them all. Plants both states."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-run-all-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    cases = []
+    try:
+        r = tmp / 'r'
+        t = r / 'tools' / 'checks' / 'tests'
+        t.mkdir(parents=True)
+        (t / 'run_all.sh').write_text(pm._run_all_script({}), encoding='utf-8')
+        (t / 'test_always_fails.sh').write_text('exit 1\n', encoding='utf-8')
+        (r / 'tools' / 'checks' / 'check_x.py').write_text('print(1)\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(r)], env=env, check=True)
+        subprocess.run(['git', '-C', str(r), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(r), 'commit', '-qm', 'base'], env=env, check=True)
+        note = 'tools/checks/ has uncommitted changes'
+        clean = subprocess.run(['bash', str(t / 'run_all.sh')], env=env,
+                               capture_output=True, text=True).stdout
+        (r / 'tools' / 'checks' / 'check_x.py').write_text('print(2)\n', encoding='utf-8')
+        dirty = subprocess.run(['bash', str(t / 'run_all.sh')], env=env,
+                               capture_output=True, text=True).stdout
+        cases.append(('a failure with tools/checks/ uncommitted carries the note',
+                      note in dirty))
+        cases.append(('a failure with everything committed does not', note not in clean))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_source_names_explains_a_proxy_refusal():
+    """A hosted session's proxy answers 403 for any repository the session has
+    not attached, public ones included. precedent_source_names reports that as
+    UNVERIFIED with the reason and the remedy -- attach it, with push access
+    for a public repo -- rather than a bare status code a reader takes for
+    GitHub's own answer (2026-09-28: all three public shared sets). The API
+    call is replaced with the proxy's real refusal; no network is used."""
+    import io, urllib.error
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_source_names as psn
+    finally:
+        sys.path.pop(0)
+    body = (b'{"message":"GitHub access to this repository is not enabled for this '
+            b'session. Use add_repo to request access."}')
+    import urllib.request
+
+    def opener_answering(payload):
+        class _Opener:
+            def open(self, req, timeout=None):
+                raise urllib.error.HTTPError(req.full_url, 403, 'Forbidden', {},
+                                             io.BytesIO(payload))
+        return lambda *a, **k: _Opener()
+    real = urllib.request.build_opener
+    try:
+        urllib.request.build_opener = opener_answering(body)
+        full, why, renamed = psn.api_full_name('o', 'public-set', {})
+        urllib.request.build_opener = opener_answering(b'{"message":"rate limited"}')
+        _f2, why2, _r2 = psn.api_full_name('o', 'public-set', {})
+    finally:
+        urllib.request.build_opener = real
+    cases = [
+        ("the proxy's refusal is explained, not relayed as GitHub's answer",
+         full is None and not renamed and 'proxy' in (why or '')),
+        ('...and names the remedy: attach it, with push access for a public repo',
+         'add_repo' in (why or '') and '"push"' in (why or '')),
+        ('any other 403 is still reported in GitHub\'s own words',
+         'rate limited' in (why2 or '') and 'proxy' not in (why2 or '')),
+    ]
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_merge_gate_judges_the_declared_base():
     """The merge gate judges a pull request by the base GitHub declares, and
     guesses from branch tips only when it cannot read it.
@@ -15002,6 +15221,153 @@ def check_compaction_offer_fires_on_context_growth():
           f'then ({len(cases)} stated cases)',
           not bad_cases,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
+def check_compaction_offer_owed_printed_at_turn_start():
+    """The turn-start reply gate says whether the compact offer is owed.
+
+    2026-09-28: the Boildown's compact offer is advisory, and the stop hook
+    drops an unmet advisory requirement without a word, while the turn-start
+    print told sessions to leave the line out until the stop hook asked. A
+    session ran from about 80,000 tokens to about 783,000 without one compact
+    line. Morgan: "you have not told me ever to compact this session." The
+    gate now reads the transcript reply-gate.sh passes it and prints the
+    answer. Each case owns its transcript (practice: fixture-owns-its-state).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-compact-owed-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-compaction',
+            'require_one_of': ['Now is a good time to compact the session'],
+            'require_when_context_grew_tokens': 100000,
+            'advisory': True,
+        }]), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(fx)], capture_output=True)
+
+        def transcript(name, turns):
+            path = tmp / name
+            path.write_text(''.join(json.dumps({
+                'type': 'assistant',
+                'message': {'usage': {'input_tokens': 2,
+                                      'cache_creation_input_tokens': 0,
+                                      'cache_read_input_tokens': max(c - 2, 0)},
+                            'content': [{'type': 'text', 'text': t}]}}) + '\n'
+                for c, t in turns), encoding='utf-8')
+            return path
+
+        def run(path):
+            # Through the hook itself, so the payload-to-env hand-off is what
+            # is tested, not only the gate's reading of the variable.
+            hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'reply-gate.sh'
+            (fx / 'tools').mkdir(exist_ok=True)
+            for f in ROOT.joinpath('tools').glob('*.py'):
+                dst = fx / 'tools' / f.name
+                if not dst.exists():
+                    dst.symlink_to(f)
+            payload = json.dumps({'transcript_path': str(path)}) if path else ''
+            return subprocess.run(
+                ['bash', str(hook)], input=payload, capture_output=True,
+                text=True, cwd=str(fx),
+                env={**os.environ, 'CLAUDE_PROJECT_DIR': str(fx),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        owed = run(transcript('owed.jsonl', [
+            (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')]))
+        cases.append(('a grown session is told the offer is OWED, with the '
+                      'sentence to say', 'OWED IN THIS REPLY' in owed.stdout
+                      and 'Now is a good time to compact the session' in owed.stdout,
+                      owed.stdout[-400:]))
+        short = run(transcript('short.jsonl', [(96000, 'Opening.'), (120000, 'Done.')]))
+        cases.append(('a short session hears nothing about compacting',
+                      'good time to compact' not in short.stdout, short.stdout[-400:]))
+        said = run(transcript('said.jsonl', [
+            (96000, 'Opening.'),
+            (205000, 'Now is a good time to compact the session.'),
+            (250000, 'More.')]))
+        cases.append(('once said, it is not owed again until another increment',
+                      'good time to compact' not in said.stdout, said.stdout[-400:]))
+        blind = run(None)
+        cases.append(('no transcript: it says it could not tell, and never '
+                      'defers to the stop hook', 'could not be worked out'
+                      in blind.stdout and 'stop hook is the thing'
+                      not in blind.stdout, blind.stdout[-400:]))
+        cases.append(('the hook exits 0 every time -- a non-zero '
+                      'UserPromptSubmit exit eats the message',
+                      all(r.returncode == 0 for r in (owed, short, said, blind)),
+                      ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the turn-start gate says when the compact offer is owed '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
+def check_killed_promote_releases_its_lock():
+    """A Promote killed by SIGTERM still releases its lock.
+
+    2026-09-28: a Promote run under a 590-second command limit was killed
+    mid-check, and its claim on precedent-promote-lock sat on origin for the
+    full stale window, so the same session's retry did nothing. try/finally
+    never runs on SIGTERM unless something turns the signal into an
+    exception. The fixture stubs everything around the lock: the step, the
+    claim, and a run that blocks, so the only thing under test is whether
+    the release still happens when the process is killed.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-lock-kill-'))
+    cases = []
+    try:
+        marker = tmp / 'released'
+        started = tmp / 'started'
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import sys, time, pathlib
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+pb.promotion_step = lambda root, to, work: (pb.STAGING, 'fixture')
+pb.staging_branch = lambda root: pb.STAGING
+pb._drifted_from_above = lambda root: []
+pb._lock_claim = lambda root, say: ('held', 'fixture-commit')
+pb._lock_release = lambda root, held, say: pathlib.Path({str(marker)!r}).write_text(held)
+def _run(root, say):
+    pathlib.Path({str(started)!r}).write_text('1')
+    time.sleep(60)
+    return 0
+pb._promote_unlocked = _run
+sys.exit(pb.promote('.', say=lambda *a: None))
+""", encoding='utf-8')
+        for sig_name in ('SIGTERM', 'SIGHUP'):
+            import signal as _signal
+            for f in (marker, started):
+                f.unlink(missing_ok=True)
+            proc = subprocess.Popen([sys.executable, str(script)], cwd=str(tmp))
+            deadline = time.time() + 20
+            while not started.exists() and time.time() < deadline:
+                time.sleep(0.05)
+            proc.send_signal(getattr(_signal, sig_name))
+            try:
+                proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            cases.append((f'a Promote killed by {sig_name} mid-run releases '
+                          f'the lock it holds',
+                          marker.exists() and marker.read_text() == 'fixture-commit',
+                          f'exit {proc.returncode}, released={marker.exists()}'))
+            cases.append((f'...and exits non-zero, so nothing reads the kill '
+                          f'as a finished Promote ({sig_name})',
+                          proc.returncode not in (0, None), f'exit {proc.returncode}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a killed Promote releases its lock ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
 
 def check_trivial_checkin_exempts_the_boildown_gate():
@@ -37927,6 +38293,13 @@ def main():
     check('Update Vendors lists what it says it lists, lets a renamed practice go, '
           'and keeps an unchanged timestamp',
           *check_update_vendors_reports_what_it_says_it_lists())
+    check('Update Vendors: left items survive a failure, headers stamp first, vendored '
+          'baselines re-record, stale exemptions go, the old commit is right',
+          *check_update_vendors_second_consumer_findings())
+    check('run_all.sh says when a failure may be uncommitted checks, and only then',
+          *check_run_all_warns_when_checks_are_uncommitted())
+    check('precedent_source_names explains a hosted proxy\'s 403 and names the remedy',
+          *check_source_names_explains_a_proxy_refusal())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
           *check_push_to_main_skips_what_already_passed())
     check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',
@@ -37979,6 +38352,8 @@ def main():
     check_advisory_requirement_never_blocks()
     check_contradiction_requirement_blocks()
     check_compaction_offer_fires_on_context_growth()
+    check_compaction_offer_owed_printed_at_turn_start()
+    check_killed_promote_releases_its_lock()
     check('the archive line is refused when the container holds '
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())

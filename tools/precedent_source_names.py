@@ -228,8 +228,27 @@ def api_full_name(owner, name, env=None):
             detail = (json.loads(e.read() or b'{}') or {}).get('message', '')
         except Exception:                                    # noqa: BLE001
             pass
-        return None, (f'GitHub answered HTTP {e.code}'
-                      + (f': {detail}' if detail else '')), False
+        why = f'GitHub answered HTTP {e.code}' + (f': {detail}' if detail else '')
+        if e.code == 403 and 'not enabled for this session' in detail:
+            # A hosted session's proxy, not GitHub: it refuses the API -- and
+            # github.com's own pages -- for every repository the session has
+            # not attached, public ones included, so no request from here can
+            # read the name. git still reads a public repo, but follows a
+            # rename silently, which is the whole problem this tool exists
+            # for. Measured 2026-09-28: the three public shared sets all
+            # answered 403 until two were attached, and then 200. add_repo
+            # with read access does not attach a public repository (git can
+            # already read it); asking with push access does.
+            why = (f'this session cannot ask GitHub about {owner}/{name}: the '
+                   f'hosted session\'s proxy refuses the API, and github.com '
+                   f'itself, for any repository it has not attached -- public '
+                   f'ones too -- and git cannot show a rename because it '
+                   f'follows redirects silently. To verify, attach it '
+                   f'(add_repo; a public repository attaches only with access '
+                   f'"push", since read access is already served) and run this '
+                   f'again, or run it from a machine with a GitHub token or '
+                   f'open https://github.com/{owner}/{name} in a browser')
+        return None, why, False
     except Exception as e:                                   # noqa: BLE001
         return None, f'the API could not be reached ({type(e).__name__}: {e})', False
     full = body.get('full_name')

@@ -61,7 +61,7 @@ Run:
       # the Rules for that moment, from DIR's practices/ instead of this
       # repo's own
 """
-import json, pathlib, subprocess, sys
+import json, os, pathlib, subprocess, sys
 
 # _ENGINE_DIR (where this file itself lives) is only for the sibling-module
 # import and for routing_scope.json below -- both ship as one fixed unit
@@ -439,6 +439,49 @@ def _unlanded_work(root, siblings=True):
     return out
 
 
+def _print_size_conditioned(src, r, one_of, every, prc):
+    """A requirement owed only once the conversation has grown `every`
+    tokens: print the ANSWER, owed or not, not the rule.
+
+    WHY, 2026-09-28. This line used to print the rule and add that "the stop
+    hook is the thing that knows whether it has" grown enough, so do not add
+    the line out of caution. But the one such requirement in force, the
+    Boildown's compact offer, is advisory, and main() in
+    precedent_reply_check.py drops an unmet advisory requirement without a
+    word. The channel that knew said nothing, and this one said to wait for
+    it: a session ran from about 80,000 tokens to about 783,000 and out of
+    context without one compact line. Morgan: "you have not told me ever to
+    compact this session."
+
+    The answer is knowable here, the same way the container verdict below
+    is: the UserPromptSubmit payload names the transcript, reply-gate.sh
+    passes it as PRECEDENT_TRANSCRIPT_PATH, and offer_is_due() is the same
+    function the stop hook calls. Silent when not owed, so nothing prompts a
+    session to add the line out of caution.
+    """
+    quoted = ' or '.join(f'"{s}"' for s in one_of)
+    path = os.environ.get('PRECEDENT_TRANSCRIPT_PATH', '').strip()
+    due = None
+    if path and os.path.isfile(path):
+        try:
+            due, ctx_now, since = prc.offer_is_due(
+                prc.assistant_timeline(path), every, one_of)
+        except Exception:                                    # noqa: BLE001
+            due = None
+    if due is None:
+        print(f"- [{src}] once this conversation has grown {every:,} tokens "
+              f"since one of these was last said, the reply contains one of "
+              f"them, verbatim: {quoted}. Whether it has could not be worked "
+              f"out this turn (no transcript reached this gate), so judge it: "
+              f"say it only if the conversation is plainly long.")
+    elif due:
+        print(f"- [{src}] OWED IN THIS REPLY: this conversation has grown "
+              f"about {since:,} tokens since one of these was last said "
+              f"(context now about {ctx_now:,}). Say one of them, verbatim: "
+              f"{quoted} -- at a clean point. Mid-task, leave it out and it "
+              f"stays owed next turn.")
+
+
 def _print_hard_requirements(root):
     """The reply requirements a source DECLARES, printed verbatim at the
     start of the turn.
@@ -494,17 +537,14 @@ def _print_hard_requirements(root):
             print(f"- [{src}] the reply carries a real markdown heading "
                   f"(`## `) matching /{pat}/i. Bold text is not a heading.")
         one_of = r.get('require_one_of') or []
-        if one_of:
+        every = r.get('require_when_context_grew_tokens')
+        if one_of and every:
+            _print_size_conditioned(src, r, one_of, int(every), prc)
+        elif one_of:
             quoted = ' or '.join(f'"{s}"' for s in one_of)
-            every = r.get('require_when_context_grew_tokens')
-            when = ('' if not every else
-                    f" -- but ONLY once this conversation has grown "
-                    f"{int(every):,} tokens since one of them was last said, "
-                    f"and the stop hook is the thing that knows whether it "
-                    f"has. Below that it is silent, so do not add the line "
-                    f"out of caution")
             print(f"- [{src}] the reply contains one of these, verbatim: "
-                  f"{quoted}{when}")
+                  f"{quoted}" + (" (advisory: a recommendation, never "
+                                 "refused)" if r.get('advisory') else ''))
         # THE TWO PREDICATES THIS BLOCK USED TO OMIT, both of them
         # BLOCKING. Until 2026-09-21 this printer handled
         # require_heading_matching and require_one_of and silently dropped

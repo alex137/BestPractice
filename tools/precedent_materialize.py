@@ -396,6 +396,18 @@ done
 
 if [ "$status" -ne 0 ]; then
   echo
+  # A test that clones this repo runs the COMMITTED checks, not the ones on
+  # disk. With tools/checks/ changed and not committed -- the state an
+  # update is in before its commit -- such a test pairs new cases with old
+  # scripts and can fail on nothing. Seen 2026-09-28 (test_file_header.sh,
+  # fixed in its source); several shipped tests still clone the repo.
+  if [ -n "$(git -C ../../.. status --porcelain -- tools/checks 2>/dev/null)" ]; then
+    echo "NOTE: tools/checks/ has uncommitted changes. A test that clones this"
+    echo "repo runs the committed scripts, not these, so a failure below may"
+    echo "vanish once they are committed. Commit (or judge a temporary commit,"
+    echo "as Update Vendors does) before treating it as real."
+    echo
+  fi
   echo "=== ${#failed[@]} materialized test(s) failed -- who owns each ==="
   shipped=0
   for t in "${failed[@]}"; do
