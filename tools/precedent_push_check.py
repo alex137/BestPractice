@@ -529,7 +529,9 @@ CHANGED_PRACTICE_CHECK = ('changed_practice',
 #   - a changed shell script parses (bash -n);
 #   - a changed JSON file parses;
 #   - a changed check (tools/checks/check_x.py), or its test, has that
-#     test (tools/checks/tests/test_x.sh) run;
+#     test (tools/checks/tests/test_x.sh) run -- once, the materialized
+#     copy where there is one;
+#   - a new check has that test, and defines SOURCE_ROOT;
 #   - a changed practice file's generated views (AGENTS.md, MAP.md,
 #     GLOSSARY.md) were regenerated with it -- in a repository whose own
 #     views build_views.py renders, which is BestPractice and a practice set.
@@ -540,9 +542,25 @@ CHANGED_FILES_CHECK = ('changed_files',
                        'practice regenerated its views')
 
 
-def _changed_paths(root, since):
-    out = git(root, 'diff', '--name-only', '--diff-filter=AMR', f'{since}...HEAD')
+def _changed_paths(root, since, kinds='AMR'):
+    out = git(root, 'diff', '--name-only', f'--diff-filter={kinds}', f'{since}...HEAD')
     return [l for l in (out or '').splitlines() if l.strip()]
+
+
+def _is_engine_check(root, rel):
+    """True for a check script the engine itself ships: BestPractice's own
+    tools/checks/, or one a vendored engine's ENGINE_MANIFEST.json lists."""
+    engine = HERE.relative_to(root) if HERE.is_relative_to(root) else None
+    if engine is None or not rel.startswith(f'{engine}/checks/'):
+        return False
+    if repo_kind(HERE) == 'upstream':
+        return True
+    try:
+        files = json.loads((HERE / 'ENGINE_MANIFEST.json').read_text(
+            encoding='utf-8')).get('files') or []
+    except (OSError, ValueError):
+        return False
+    return rel[len(f'{engine}/'):] in files
 
 
 def changed_files_check(root, since):
@@ -573,15 +591,66 @@ def changed_files_check(root, since):
                 problems.append(f'{rel}: is not valid JSON -- {e}')
     # A changed check, or a changed test, runs that check's own test: the
     # pair is tools/checks/check_x.py and tools/checks/tests/test_x.sh.
+    #
+    # ONE COPY OF EACH TEST. In a consuming repo a repo-local check lives in
+    # local/tools/checks/ and is materialized, byte for byte, into
+    # tools/checks/; both copies change together, and this used to run both.
+    # A test's `cd "$(dirname "$0")/../../.."` lands in local/ from the first
+    # and the repo root from the second, so a test written for one location
+    # failed from the other -- only here, never in run_all.sh, which runs the
+    # materialized copy alone (a consumer report, 2026-09-28). The
+    # materialized copy is what the deep check runs, so it is what runs here.
     tests = []
+    added = set(_changed_paths(root, since, 'A'))
+    judged = set()
     for rel in files:
         m = re.match(r'(?:(.*)/)?tools/checks/(?:check_(\w+)\.py|tests/test_(\w+)\.sh)$', rel)
         if not m:
             continue
         base = f'{m.group(1)}/' if m.group(1) else ''
-        test = f'{base}tools/checks/tests/test_{m.group(2) or m.group(3)}.sh'
+        name = m.group(2) or m.group(3)
+        test = f'{base}tools/checks/tests/test_{name}.sh'
+        materialized = f'tools/checks/tests/test_{name}.sh'
+        if base and (root / materialized).is_file():
+            test = materialized
         if test not in tests and (root / test).is_file():
             tests.append(test)
+        # A NEW CHECK SHIPS WITH ITS TEST. check_deep_check.py (the deep-check
+        # practice) refuses a check with no tests/test_x.sh, or one that does
+        # not define SOURCE_ROOT -- but it judges the whole tree, so the
+        # changed-files scope dropped its finding and a check added without
+        # either was first refused at the Promote. Asked here, on the commit
+        # that adds the check, with the exact file and lines to write. The
+        # engine's own checks are tested by its harness, not a test_x.sh.
+        path = root / rel
+        if not m.group(2) or rel not in added or not path.is_file() \
+                or name in judged or _is_engine_check(root, rel):
+            continue
+        judged.add(name)
+        if not (root / test).is_file():
+            problems.append(
+                f'{rel}: a new check with no test -- add {base}tools/checks/'
+                f'tests/test_{name}.sh, invoking check_{name}.py by name; '
+                f'run_all.sh runs only test_*.sh, so without it the deep '
+                f'check never runs this check and check_deep_check.py '
+                f'refuses the next Promote')
+        elif f'check_{name}.py' not in (root / test).read_text(
+                encoding='utf-8', errors='replace'):
+            problems.append(
+                f'{test}: never names check_{name}.py -- a check\'s test must '
+                f'invoke it by name, or check_deep_check.py refuses the next '
+                f'Promote')
+        text = path.read_text(encoding='utf-8', errors='replace')
+        if not re.search(r'^SOURCE_ROOT\s*=', text, re.M) \
+                or not re.search(r'PRECEDENT_CHECK_ROOT["\']', text):
+            problems.append(
+                f'{rel}: does not separate the set it ships in from the repo '
+                f'it audits -- define both at column 0, '
+                f'`SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent'
+                f'.parent` and `ROOT = pathlib.Path(os.environ.get('
+                f'"PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)`, and resolve '
+                f'PRACTICE_FILE against SOURCE_ROOT, or check_deep_check.py '
+                f'refuses the next Promote')
     for test in tests:
         try:
             r = subprocess.run(['bash', test], cwd=root, capture_output=True,
