@@ -27787,6 +27787,91 @@ def check_kept_agents_md_divergence_is_recorded():
           not bad, '; '.join(f"{n} -- {d[:1500]}" for n, d in bad))
 
 
+def check_absent_agents_md_section_is_asked_across_self_refresh():
+    """A template section a consumer's AGENTS.md lacks is put on Left for
+    you before it is ever recorded as left out on purpose -- including when
+    the refresh replaces its own vendoring tool and runs a second pass.
+
+    Measured 2026-09-28: the first pass reported the section MISSING,
+    recorded it as absent, then cleared its Left-for-you list so the second
+    pass could print its own; the second pass read "absent" as a decision
+    already made and said only "left out, as at the last refresh". So the
+    person was never asked, and check_update_vendors_is_one_command failed
+    whenever the engine had uncommitted changes (seed vendors HEAD, the
+    update vendors the working tree, so the tool replaced itself).
+
+    Discriminating cases (practice: control-asserts-which-failure): the
+    CONTROL takes the same refresh without the vendoring tool changing and
+    must list the section; the case under test differs only in an upstream
+    commit that changes the vendoring tool, and asserts the second pass
+    really ran. The follow-up asserts the fix is not a mute removed: once
+    asked, the next refresh remembers the answer and stays quiet."""
+    fx = _KeptDivergenceFixture('precedent-absent-section-')
+    pve = fx.pve
+    cases = []
+    key = '### Session start'
+    tool = 'tools/precedent_vendor_engine.py'
+    listed = f'AGENTS.md "{key}"'
+
+    def refresh(repo, ref):
+        return fx.sh(sys.executable, str(repo / tool), 'refresh', str(ROOT),
+                     '--from-ref', ref, cwd=repo)
+
+    def left(out):
+        return out.split('Left for you', 1)[1] if 'Left for you' in out else ''
+
+    try:
+        tpl = fx.template(fx.AGENTS_SRC).decode()
+        raw = pve._template_sections(tpl)[key][1]
+        stock = pve._instantiate(tpl, {'<precedent upstream URL>': pve.SOURCE_REPO,
+                                       '<default-branch>': 'main'})
+        sec = pve._instantiate(raw, {'<precedent upstream URL>': pve.SOURCE_REPO,
+                                     '<default-branch>': 'main'})
+        assert sec in stock, 'template shape moved; repoint this fixture'
+        lacking = stock.replace(sec + '\n', '', 1)
+        assert key not in lacking, 'section still present; repoint this fixture'
+
+        control = fx.consumer('control', agents=lacking)
+        # The vendoring tool exactly as seeded, so this refresh cannot
+        # replace it, whatever state the working tree is in.
+        same_tool = fx.upstream_with(tool, (control / tool).read_bytes())
+        rc, out = refresh(control, same_tool)
+        cases.append(('CONTROL: without a self-replacement, the missing section '
+                      'is on Left for you',
+                      rc == 0 and 'replaced the vendoring tool itself' not in out
+                      and listed in left(out), out[-2000:]))
+
+        repo = fx.consumer('self-refresh', agents=lacking)
+        moved_tool = fx.upstream_with(
+            tool, fx.template(tool) + b'\n# verify_harness fixture: an upstream '
+                                      b'change to the vendoring tool itself\n')
+        rc, out = refresh(repo, moved_tool)
+        cases.append(('the refresh replaced its own tool and ran the second pass',
+                      rc == 0 and 'replaced the vendoring tool itself' in out,
+                      out[-2000:]))
+        cases.append(('THE FIX: the missing section is on Left for you after the '
+                      'second pass, not only recorded as absent',
+                      listed in left(out), out[-2000:]))
+        recorded = json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                              .read_text(encoding='utf-8')
+                              ).get(pve.AGENTS_MD_SECTIONS_KEY) or {}
+        cases.append(('...and it is recorded as absent for the next refresh',
+                      key in recorded and recorded[key] is None, recorded))
+
+        rc, out = refresh(repo, moved_tool)
+        cases.append(('once asked, the next refresh remembers it: one NOTE line, '
+                      'not on Left for you',
+                      rc == 0 and 'left out, as at the last refresh' in out
+                      and listed not in left(out), out[-2000:]))
+    finally:
+        fx.close()
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a section AGENTS.md lacks is asked about before it is recorded as left '
+          f'out, across a self-replacing refresh too ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:1500]}" for n, d in bad))
+
+
 def check_kept_bootstrap_divergence_is_recorded():
     """tools/bootstrap.sh, on the same terms as the AGENTS.md check above.
     The measured case, 2026-09-28: a consumer's copy was the template plus
@@ -40795,6 +40880,7 @@ def main():
     check('duplicate detection ignores a run of lines with no word in it',
           *check_duplicate_runs_skip_wordless_lines())
     check_kept_agents_md_divergence_is_recorded()
+    check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()
     check_duplicated_resident_text_detector()
