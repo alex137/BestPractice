@@ -6989,6 +6989,10 @@ def check_update_vendors_is_one_command():
         landing = json.loads((done / 'precedent.json').read_text()).get('landing_branch')
         cases.append(('...its precedent.json now names pre-staging as the landing '
                       'branch, since it named none', landing == 'pre-staging', landing))
+        _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
+        cases.append(('...and origin, which had only main, now has staging and '
+                      'pre-staging', 'refs/heads/staging' in heads
+                      and 'refs/heads/pre-staging' in heads, heads[-400:]))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
         cases.append(('...and its loader views were regenerated',
@@ -21864,6 +21868,17 @@ def check_tier_branches_are_never_a_pull_requests_source():
         r = ensure()
         cases.append(('with no old name either, it is rebuilt from main',
                       tip('staging') == tip('main') != '', (r.stdout + r.stderr)[-300:]))
+        # Morgan, 2026-09-27: a missing staging is copied from pre-staging
+        # when pre-staging exists, and from main only when neither does.
+        (work / 'f').write_text('3', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'three')
+        git(work, 'push', '-q', 'origin', 'HEAD:pre-staging')
+        git(work, 'push', '-q', 'origin', ':staging')
+        r = ensure()
+        cases.append(('with pre-staging ahead of main and no old name, staging is '
+                      'copied from pre-staging',
+                      tip('staging') == tip('pre-staging') != tip('main'),
+                      (r.stdout + r.stderr)[-300:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f'{c} [{d}]' if d else c for c, d in bad))
