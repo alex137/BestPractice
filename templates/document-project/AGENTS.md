@@ -53,9 +53,9 @@ concluding it is new, grep for it —
 instructions for this repo, not gotchas.
 
 - At session start, run `bash tools/bootstrap.sh` before other work. Claude
-  Code on the web runs it for you (the SessionStart hook runs it only when
-  `CLAUDE_CODE_REMOTE=true`); locally, and in other harnesses, run it
-  yourself unless your adapter wires it — Precedent's
+  Code runs it for you from its SessionStart hook, on the web and
+  locally (locally it skips the package install and the machine-wide git
+  setup); in other harnesses, run it yourself unless your adapter wires it — Precedent's
   [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
   says which can.
 - **Keep `AGENTS.md`'s generated block current.** Before relying on it,
