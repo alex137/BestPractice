@@ -7598,6 +7598,115 @@ def check_push_to_main_skips_what_already_passed():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_updates_a_section_0_catalogue():
+    """Update Vendors replaces a section 0 install's vendored catalogue, and
+    never reports DONE having skipped it.
+
+    2026-09-28, a real section 0 consumer: the catalogue step ran only where
+    process/manifest.json exists, so for precedent/universal/ it did nothing,
+    printed nothing, and the update said DONE; the session copied the
+    catalogue by hand. INSTALL.md section 2 step 0 had said what to do all
+    along. Plants the three states and owns them (practice:
+    fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rev = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                         capture_output=True, text=True).stdout.strip()
+    want = sorted(subprocess.run(['git', '-C', str(ROOT), 'ls-tree', '--name-only',
+                                  rev, 'practices/'], capture_output=True,
+                                 text=True).stdout.split())
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-section0-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def repo_with(sources, stale=True):
+        d = pathlib.Path(tempfile.mkdtemp(dir=tmp))
+        subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+        (d / 'precedent.json').write_text(json.dumps({'sources': sources}),
+                                          encoding='utf-8')
+        if stale:
+            (d / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
+            (d / 'precedent' / 'universal' / 'practices' / 'retired-long-ago.md'
+             ).write_text('old\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'],
+                       env=env, check=True)
+        return d
+
+    try:
+        universal = [{'level': 'universal', 'name': 'precedent',
+                      'path': 'precedent/universal'}]
+        d = repo_with(universal)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        got = sorted('practices/' + p.name for p in
+                     (d / 'precedent' / 'universal' / 'practices').iterdir())
+        cases.append(('a stale section 0 catalogue is replaced with the source '
+                      'commit\'s practices/, exactly', ok is True and got == want))
+        cases.append(('...and the report says so',
+                      any(n == 'catalogue' and 'replaced' in o for n, o in rep.steps)))
+
+        d = repo_with(universal)
+        (d / 'precedent' / 'universal' / 'practices' / 'retired-long-ago.md'
+         ).write_text('edited here\n', encoding='utf-8')
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        cases.append(('an uncommitted local edit is refused, not overwritten',
+                      ok is None and rep.left and
+                      (d / 'precedent' / 'universal' / 'practices' /
+                       'retired-long-ago.md').read_text() == 'edited here\n'))
+
+        d = repo_with([{'level': 'universal', 'name': 'precedent',
+                        'path': '../precedent'}], stale=False)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        cases.append(('with no catalogue inside the repo, the report says there '
+                      'was nothing to update -- never silence',
+                      ok is True and any(n == 'catalogue' and 'none vendored' in o
+                                         for n, o in rep.steps)))
+    except (OSError, subprocess.CalledProcessError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_merge_gate_judges_the_declared_base():
+    """The merge gate judges a pull request by the base GitHub declares, and
+    guesses from branch tips only when it cannot read it.
+
+    2026-09-28: pre-staging and staging had just been made at main's commit,
+    so a pull request into pre-staging matched all three by tip and the gate
+    announced "main is a fully checked branch"."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_check as pmc
+    finally:
+        sys.path.pop(0)
+    tips = ['main', 'pre-staging', 'staging']
+    if not hasattr(pmc, 'choose_bases'):
+        return (False, '0 stated cases', 'precedent_merge_check.py has no '
+                'choose_bases(): the base is still guessed from branch tips')
+    cases = [
+        ('three branches at one commit, declared base pre-staging: judged as pre-staging',
+         pmc.choose_bases('pre-staging', tips) == ['pre-staging']),
+        ('no declared base (GitHub unreadable): every tip match, strictest decides',
+         pmc.choose_bases(None, tips) == tips),
+        ('a declared base with no tip match still wins',
+         pmc.choose_bases('staging', []) == ['staging']),
+    ]
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_leak_gate_sees_main_clone_siblings_from_a_worktree():
     """The leak gate's survey of private clones finds the main checkout's
     siblings when it runs from a worktree somewhere else.
@@ -37706,6 +37815,10 @@ def main():
           *check_ci_templates_install_pyyaml_before_the_checks())
     check('the leak gate sees the main clone\'s private siblings from a worktree',
           *check_leak_gate_sees_main_clone_siblings_from_a_worktree())
+    check('Update Vendors replaces a section 0 catalogue and never skips it silently',
+          *check_update_vendors_updates_a_section_0_catalogue())
+    check('the merge gate judges a pull request by its declared base',
+          *check_merge_gate_judges_the_declared_base())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
           *check_push_to_main_skips_what_already_passed())
     check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',

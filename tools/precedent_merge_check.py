@@ -178,21 +178,36 @@ def run_in_worktree(root, sha, tier, tool_rel, extra=()):
 
 
 def pull_head(owner, repo, number):
-    """-> (head branch, head repository 'owner/name') of pull request
-    `number`, or (None, None) when it cannot be read -- no network, no
-    credential where one is needed. One call, counted and cached by
-    github_budget.py like every other call this engine makes."""
+    """-> (head branch, head repository 'owner/name', base branch) of pull
+    request `number`, or (None, None, None) when it cannot be read -- no
+    network, no credential where one is needed. One call, counted and cached
+    by github_budget.py like every other call this engine makes."""
     sys.path.insert(0, str(HERE))
     try:
         import github_budget
     except ImportError:
-        return None, None
+        return None, None, None
     finally:
         sys.path.pop(0)
     data, err = github_budget.call(f'repos/{owner}/{repo}/pulls/{number}')
     if err or not isinstance(data, dict) or not isinstance(data.get('head'), dict):
-        return None, None
-    return data['head'].get('ref'), (data['head'].get('repo') or {}).get('full_name')
+        return None, None, None
+    base = data.get('base') if isinstance(data.get('base'), dict) else {}
+    return (data['head'].get('ref'), (data['head'].get('repo') or {}).get('full_name'),
+            base.get('ref'))
+
+
+def choose_bases(declared_base, tip_bases):
+    """-> the branch(es) a pull request's tier is judged by.
+
+    The base GitHub declares, when it could be read. Only without it, every
+    branch whose tip is the test merge's first parent, whose strictest
+    decides. 2026-09-28: an update had just made pre-staging and staging at
+    main's commit, so a pull request into pre-staging matched all three by
+    tip, and the merge gate announced "main is a fully checked branch" --
+    while the same call that reads the pull request's head had returned its
+    real base all along, unread."""
+    return [declared_base] if declared_base else list(tip_bases)
 
 
 def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
@@ -268,7 +283,7 @@ def main(argv):
             pb.MAIN, pb.STAGING, pb.PRE_STAGING, pb.LEGACY_STAGING]
     else:
         tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
-    head_ref, head_repo = pull_head(owner, repo, number)
+    head_ref, head_repo, declared_base = pull_head(owner, repo, number)
     why_not = tier_source_refusal(head_ref, head_repo, owner, repo, tiers)
     if why_not:
         print(f'precedent_merge_check: pull request #{number} of '
@@ -290,6 +305,7 @@ def main(argv):
         if sha is None:
             print(f'precedent_merge_check: {what}')
             return 2
+        bases = choose_bases(declared_base, bases)
         refusal = getattr(pb, 'merge_refusal', None) if pb else None
         if refusal:
             heads = branches_at(root, git(root, 'rev-parse',

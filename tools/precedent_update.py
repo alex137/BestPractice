@@ -26,8 +26,10 @@ THE STEPS, with no question in between:
   1. the source clone fetches the branch every install follows
   2. the engine refresh (the consumer's own copy, which replaces itself and
      runs a second pass), then the catalogue-pin repoint from THIS copy
-  3. the catalogue: checkin.py update, then record -- only where the repo
-     vendors one (process/manifest.json)
+  3. the catalogue: checkin.py update, then record, where the repo vendors
+     one under process/ (process/manifest.json); for a section 0 install,
+     its universal source's practices/ replaced wholesale (INSTALL.md
+     section 2, step 0); and where there is neither, a line saying so
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too -- then this repo's own citations of any
@@ -76,6 +78,74 @@ import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
 
 DONE, LEFT, FAILED = 0, 1, 2
+
+
+def universal_catalogue_path(repo):
+    """-> the repo-relative path of the universal source this repository
+    vendors inside itself (a section 0 install), or None: no precedent.json,
+    no universal source, or one that lives outside the repository."""
+    try:
+        data = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    for src in data.get('sources') or []:
+        if not isinstance(src, dict) or src.get('level') != 'universal':
+            continue
+        path = str(src.get('path') or '').strip().rstrip('/')
+        if not path or path.startswith(('/', '~')) or '..' in pathlib.PurePosixPath(path).parts:
+            return None
+        return path
+    return None
+
+
+def vendor_universal_catalogue(repo, rep, rev):
+    """Replace a section 0 install's vendored universal catalogue with the
+    source clone's practices/ at commit `rev` -- a committed ref, never the
+    clone's working tree, as the engine step reads. -> True when the step
+    ran or honestly had nothing to do (reported either way), None when it
+    left a call for the person, or the reason the update fails."""
+    import io
+    import shutil
+    import tarfile
+    import tempfile
+    rel = universal_catalogue_path(repo)
+    target = repo / rel / 'practices' if rel else None
+    if target is None or not target.is_dir():
+        rep.step('catalogue', 'none vendored here: no process/manifest.json and '
+                 'no universal source with a practices/ tree inside this repo, '
+                 'so there was nothing to update')
+        return True
+    # Zero local variance by design (INSTALL.md section 2, step 0): a local
+    # edit belongs upstream, so the replace refuses rather than eat one.
+    r = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain', '--',
+                        f'{rel}/practices'], capture_output=True, text=True)
+    dirty = [l[3:] for l in r.stdout.splitlines() if l.strip()]
+    if r.returncode != 0:
+        return f'could not read git status of {rel}/practices: {r.stderr.strip()[:200]}'
+    if dirty:
+        for p in dirty:
+            rep.leave(p, 'changed here and not committed; the catalogue is '
+                      'replaced wholesale, so export the change upstream or '
+                      'discard it first')
+        rep.step('catalogue', f'refused: {rel}/practices has uncommitted changes')
+        return None
+    arc = subprocess.run(['git', '-C', str(SOURCE), 'archive', '--format=tar',
+                          rev, 'practices'], capture_output=True)
+    if arc.returncode != 0 or not arc.stdout:
+        return (f'could not read practices/ at {rev[:12]} in {SOURCE}: '
+                f'{arc.stderr.decode(errors="replace").strip()[:200]}')
+    with tempfile.TemporaryDirectory() as td:
+        with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
+            try:
+                tf.extractall(td, filter='data')
+            except TypeError:   # a Python older than 3.11.4 has no filter
+                tf.extractall(td)
+        shutil.rmtree(target)
+        shutil.copytree(pathlib.Path(td) / 'practices', target)
+    n = sum(1 for _ in target.glob('*.md'))
+    rep.step('catalogue', f'{rel}/practices replaced from the source at '
+             f'{rev[:12]} ({n} practice files; INSTALL.md section 2, step 0)')
+    return True
 
 
 class Report:
@@ -453,6 +523,17 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
+    else:
+        # INSTALL.md section 2, step 0: a section 0 install vendors the
+        # universal catalogue at its universal source's own path
+        # (precedent/universal by default) and replaces it wholesale. Until
+        # 2026-09-28 this command skipped it without a word and still said
+        # DONE, so a section 0 repo kept its old rules under a new engine; a
+        # session caught it only by reading the diff, and copied the
+        # catalogue by hand.
+        done = vendor_universal_catalogue(repo, rep, head.strip())
+        if done is not True:
+            return rep.close(done)
 
     # 3b. Where Go update lands, for a repository that has never said.
     # Morgan, 2026-09-27 (strength: decided): every repository lands on
