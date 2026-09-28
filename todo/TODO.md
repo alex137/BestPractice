@@ -71,10 +71,10 @@
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 8d | wait |  |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 8d | wait |  |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 6d | ask |  |
-| [`todo-2026-09-28-very-deep-check-pass-1-findings`](todo-2026-09-28-very-deep-check-pass-1-findings.md) | What the 2026-09-28 very deep check's pass 1 found and the same day did not | 0d | wait |  |
-| [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and the same day did not | 0d | wait |  |
-| [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and the same day did not | 0d | wait |  |
-| [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and the same day did not | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-1-findings`](todo-2026-09-28-very-deep-check-pass-1-findings.md) | What the 2026-09-28 very deep check's pass 1 found and did not fix. Both | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 0d | wait |  |
 
 ## Verify Before External Use
 
@@ -185,10 +185,10 @@
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 8d |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 8d |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 6d |
-| [`todo-2026-09-28-very-deep-check-pass-1-findings`](todo-2026-09-28-very-deep-check-pass-1-findings.md) | What the 2026-09-28 very deep check's pass 1 found and the same day did not | 0d |
-| [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and the same day did not | 0d |
-| [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and the same day did not | 0d |
-| [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and the same day did not | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-1-findings`](todo-2026-09-28-very-deep-check-pass-1-findings.md) | What the 2026-09-28 very deep check's pass 1 found and did not fix. Both | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 0d |
 
 ## Open Decisions
 

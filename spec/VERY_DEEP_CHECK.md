@@ -242,8 +242,7 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 **2026-09-28, on the phrase, committed to the full four passes before
 anything ran**, across all five repos in force (this checkout, the individual
 set, the three shared sets) plus one real consumer the person attached for
-pass 1. Ten sub-agents did the reading and rehearsing; this session made
-every fix, so no two of them edited the same file. No other session was
+pass 1. Ten sub-agents did the reading and rehearsing. No other session was
 running against these repos.
 
 | Pass | Status | Date | Notes |
@@ -251,7 +250,7 @@ running against these repos.
 | 1 — adopter installs | done | 2026-09-28 | All five paths rehearsed from scratch (guided, loader, migration, update with a deletion, every move direction), **plus the first real consumer in this ledger's history**, updated in a copy and its own gates run. Adapters read against their harnesses' current docs. Unfixed: [todo-2026-09-28-very-deep-check-pass-1-findings](../todo/todo-2026-09-28-very-deep-check-pass-1-findings.md) |
 | 2 — mechanisms | done, gaps named | 2026-09-28 | All 22 questions attempted; question 11 read 17 enforced checks against their own Rule, none sampled before. Not done: 65 of 69 gotchas re-tested (question 12), a prevention verdict for each of 26 incidents (question 20). Unfixed: [todo-2026-09-28-very-deep-check-pass-2-findings](../todo/todo-2026-09-28-very-deep-check-pass-2-findings.md) |
 | 3 — coherence read | done, gaps named | 2026-09-28 | Every private-set practice read; the universal catalogue swept for stale names, triggers and claims and the likeliest thirty read closely, not all 154 line by line. `spec/ENFORCEMENT.md` read whole. Unfixed: [todo-2026-09-28-very-deep-check-pass-3-findings](../todo/todo-2026-09-28-very-deep-check-pass-3-findings.md) |
-| 4 — catalogue, backlog, branches | partial | 2026-09-28 | Every unlanded branch re-derived in full clones, every overdue reminder and blocked item judged, eight `retires_when` conditions checked, scope read on all 154 universal practices. **The full sequential catalogue judgment is still not done**, as in every run before it. Unfixed: [todo-2026-09-28-very-deep-check-pass-4-findings](../todo/todo-2026-09-28-very-deep-check-pass-4-findings.md) |
+| 4 — catalogue, backlog, branches | done | 2026-09-28 | Every unlanded branch re-derived in full clones, every overdue reminder and blocked item judged, eight `retires_when` conditions checked, scope read on all 154 universal practices. **The full sequential catalogue judgment was completed for the first time in this ledger's history**, the same day, after Morgan approved the pass-4 recommendations: all 216 active practices across six sources, 81 of them judgment-only, each judged against the repos it binds (19 session-behaviour rules could not be judged from the repos, and say so). Unfixed: [todo-2026-09-28-very-deep-check-pass-4-findings](../todo/todo-2026-09-28-very-deep-check-pass-4-findings.md) |
 
 **What changed how the check itself reads.** Its branch scan fetched with
 `--depth` against full clones, which turns a full clone shallow: every
@@ -268,6 +267,14 @@ each in its own worktree on files no other touched, and this session
 worked the list; each mechanism change carries a planted harness case
 checked to fail without it. The four findings files now hold only what
 remains, most of it a decision for Morgan.
+
+**A second and third round, after Morgan's review.** He approved the
+findings files' fixes and the pass-4 recommendations, asked for two
+workflow items to be explained rather than changed, and asked for the
+setup-script step to become an optional, recommended part of setup. The
+catalogue judgment then found about twenty violations and nine stale or
+contradicting rules; the text ones were fixed in all five repos, and the
+code ones went to fix agents under the same rules as before.
 
 **What needs the person, not a session.** A public practice set still
 exposes, through two old branches and 68 pull-request refs, files naming
