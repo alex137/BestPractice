@@ -122,6 +122,18 @@ capability, and the `--accept-reach-loss` flag specifically, exist so the
 next demotion is either safe by construction or explicitly, knowingly
 risky — never silently broken the way a hand-done one was.
 
+**Between two shared sets, the reach loss is accepted** (Morgan,
+2026-09-28, strength: assented). When a practice in one set is
+deduplicated into a different shared set, a consumer that does not declare
+that destination set has none of those rules. That is what dropping a set
+means: its rules go, including the ones other sets forward to it. No
+reach-loss flag is needed here, unlike the universal case above: a
+consumer that declares a shared set chose it, and one that dropped it
+chose that too. What the tools owe the person is saying so. Update Vendors
+lists each such rule as a question for the person rather than passing
+silently, and never calls a rule in force when its forwarding address does
+not resolve.
+
 Morgan, 2026-09-14, on why this stopped being two hand steps: he had "had
 bumps doing that". A rehearsal the same day, by a session reading only the
 previous version of this page, found why: the candidate tool takes one
