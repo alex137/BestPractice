@@ -7663,6 +7663,31 @@ def check_update_vendors_updates_a_section_0_catalogue():
                       (d / 'precedent' / 'universal' / 'practices' /
                        'retired-long-ago.md').read_text() == 'edited here\n'))
 
+        # Committed local edits, judged against the last-synced commit.
+        last = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', f'{rev}~1'],
+                              capture_output=True, text=True).stdout.strip()
+        at_last = subprocess.run(['git', '-C', str(ROOT), 'show',
+                                  f'{last}:practices/go-update.md'],
+                                 capture_output=True).stdout
+        d = repo_with(universal, stale=False)
+        tree = d / 'precedent' / 'universal' / 'practices'
+        tree.mkdir(parents=True)
+        (tree / 'go-update.md').write_bytes(at_last)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'synced'], env=env, check=True)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, last)
+        cases.append(('a file exactly as last synced is replaced',
+                      ok is True and not rep.left))
+        (tree / 'go-update.md').write_bytes(at_last + b'\nA line added here.\n')
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'edited'], env=env, check=True)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, last)
+        cases.append(('a COMMITTED local edit is refused and named under Left for you',
+                      ok is None and any('go-update.md' in w for w, _ in rep.left)
+                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')))
+
         d = repo_with([{'level': 'universal', 'name': 'precedent',
                         'path': '../precedent'}], stale=False)
         rep = pu.Report()
@@ -7672,6 +7697,86 @@ def check_update_vendors_updates_a_section_0_catalogue():
                       ok is True and any(n == 'catalogue' and 'none vendored' in o
                                          for n, o in rep.steps)))
     except (OSError, subprocess.CalledProcessError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_reports_what_it_says_it_lists():
+    """Three smaller update-tool defects a consumer's update hit on
+    2026-09-28, each pinned to the function that fixes it.
+
+    - "(listed above)" listed nothing: the engine prints each diverged
+      file's missing blocks, and Update Vendors kept only the Left-for-you
+      line. diverged_details() carries them through.
+    - A practice renamed upstream (go-merge -> go-update, status
+      deduplicated at its own source) blocked the view sync until someone
+      re-ran it with --allow-removals. _lost_practices() now files it as
+      withdrawn upstream, and a slug its source simply stopped producing
+      still blocks.
+    - Every run rewrote MANIFEST.json's generated_at_utc and nothing else.
+      write_manifest() keeps the stamp when the content is unchanged, and
+      moves it when anything else changed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_sync_views as psv
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+    out = ('DIVERGED: AGENTS.md "Two check levels" (line 88) has local edits, so '
+           'refresh leaves it alone. It lacks 1 block(s):\n'
+           '    templates/AGENTS.md.template:120 "run_all" -- add it\n'
+           '        lacks: "A failing test the deep check ran"\n'
+           'Left for you\n'
+           '  - AGENTS.md "Two check levels": lacks 1 of its blocks (listed above)\n')
+    det = getattr(pu, 'diverged_details', lambda o: {})(out)
+    cases.append(('the missing sentences of a diverged section reach the report',
+                  any('lacks: "A failing test' in l
+                      for l in det.get('AGENTS.md "Two check levels"', []))))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-report-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    try:
+        repo = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, check=True)
+        (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+            {'slug': 'kept', 'source': 'precedent'},
+            {'slug': 'renamed-away', 'source': 'precedent'},
+            {'slug': 'went-missing', 'source': 'precedent'}]}), encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'm'], env=env, check=True)
+        res = {'practices': {'kept': {'source': 'precedent'}},
+               'retired': [{'slug': 'renamed-away', 'source': 'precedent',
+                            'fm': {'status': 'deduplicated', 'in_force_at': 'kept'}}]}
+        lost = psv._lost_practices(repo, res, [{'name': 'precedent'}], ())
+        cases.append(('a slug deduplicated at its own source does not block the sync',
+                      ('renamed-away', 'precedent') in lost.get('withdrawn_upstream', [])
+                      and ('renamed-away', 'precedent') not in lost['blocking']))
+        cases.append(('a slug its source simply stopped producing still blocks',
+                      ('went-missing', 'precedent') in lost['blocking']))
+
+        mf = tmp / 'MANIFEST.json'
+        write = getattr(pm, 'write_manifest', None)
+        if write is None:
+            cases.append(('precedent_materialize has write_manifest()', False))
+        else:
+            write(mf, {'generated_at_utc': '2026-01-01T00:00:00+00:00', 'practices': [1]})
+            write(mf, {'generated_at_utc': '2026-09-28T09:00:00+00:00', 'practices': [1]})
+            cases.append(('an unchanged snapshot keeps its generated_at_utc',
+                          json.loads(mf.read_text())['generated_at_utc']
+                          == '2026-01-01T00:00:00+00:00'))
+            write(mf, {'generated_at_utc': '2026-09-28T09:00:00+00:00', 'practices': [2]})
+            cases.append(('a changed snapshot gets the new generated_at_utc',
+                          json.loads(mf.read_text())['generated_at_utc']
+                          == '2026-09-28T09:00:00+00:00'))
+    except (OSError, subprocess.CalledProcessError, KeyError, TypeError) as e:
         cases.append((f'fixture could not be built ({e})', False))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -37819,6 +37924,9 @@ def main():
           *check_update_vendors_updates_a_section_0_catalogue())
     check('the merge gate judges a pull request by its declared base',
           *check_merge_gate_judges_the_declared_base())
+    check('Update Vendors lists what it says it lists, lets a renamed practice go, '
+          'and keeps an unchanged timestamp',
+          *check_update_vendors_reports_what_it_says_it_lists())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
           *check_push_to_main_skips_what_already_passed())
     check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',

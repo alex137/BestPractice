@@ -98,7 +98,7 @@ def universal_catalogue_path(repo):
     return None
 
 
-def vendor_universal_catalogue(repo, rep, rev):
+def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
     """Replace a section 0 install's vendored universal catalogue with the
     source clone's practices/ at commit `rev` -- a committed ref, never the
     clone's working tree, as the engine step reads. -> True when the step
@@ -129,6 +129,36 @@ def vendor_universal_catalogue(repo, rep, rev):
                       'discard it first')
         rep.step('catalogue', f'refused: {rel}/practices has uncommitted changes')
         return None
+    # Committed local edits too: a file that matches neither the version it
+    # was last synced at nor the incoming one was changed here, and the
+    # replace would lose it. One that matches the incoming version already
+    # (a catalogue copied over by hand) loses nothing.
+    edited, unread = [], False
+    if last_synced:
+        ok = subprocess.run(['git', '-C', str(SOURCE), 'cat-file', '-e',
+                             f'{last_synced}^{{commit}}'], capture_output=True)
+        unread = ok.returncode != 0
+        for f in sorted(target.rglob('*')) if not unread else []:
+            if not f.is_file():
+                continue
+            name = f.relative_to(target).as_posix()
+            here = f.read_bytes()
+            versions = []
+            for at in (last_synced, rev):
+                b = subprocess.run(['git', '-C', str(SOURCE), 'show',
+                                    f'{at}:practices/{name}'], capture_output=True)
+                versions.append(b.stdout if b.returncode == 0 else None)
+            if here not in versions:
+                edited.append(f'{rel}/practices/{name}')
+    if edited:
+        for p in edited:
+            rep.leave(p, f'differs from upstream at {last_synced[:12]} (the last '
+                      f'sync) and at {rev[:12]}: a local edit the wholesale '
+                      f'replace would lose -- export it upstream, or restore '
+                      f'upstream\'s text, then run this again')
+        rep.step('catalogue', f'refused: {len(edited)} file(s) in {rel}/practices '
+                 f'carry local edits')
+        return None
     arc = subprocess.run(['git', '-C', str(SOURCE), 'archive', '--format=tar',
                           rev, 'practices'], capture_output=True)
     if arc.returncode != 0 or not arc.stdout:
@@ -143,8 +173,11 @@ def vendor_universal_catalogue(repo, rep, rev):
         shutil.rmtree(target)
         shutil.copytree(pathlib.Path(td) / 'practices', target)
     n = sum(1 for _ in target.glob('*.md'))
+    note = ('' if last_synced and not unread else
+            '; the last-synced commit could not be read here, so only '
+            'uncommitted edits were checked for')
     rep.step('catalogue', f'{rel}/practices replaced from the source at '
-             f'{rev[:12]} ({n} practice files; INSTALL.md section 2, step 0)')
+             f'{rev[:12]} ({n} practice files; INSTALL.md section 2, step 0){note}')
     return True
 
 
@@ -153,6 +186,7 @@ class Report:
         self.steps = []   # (name, one-line outcome)
         self.left = []    # (what, why)
         self.loud = []    # workflows left alone -- printed first and last
+        self.details = {} # what -> lines printed under its Left-for-you item
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -190,6 +224,8 @@ class Report:
                   "then run this again:")
             for what, why in self.left:
                 print(f"  - {what}: {why}")
+                for line in self.details.get(what, []):
+                    print(f"    {line}")
             if self.loud:
                 self._banner()
             return LEFT
@@ -224,6 +260,29 @@ def left_block(out):
             elif line.strip():
                 inside = False
     return items
+
+
+def diverged_details(out):
+    """-> {what: [detail line, ...]} from the engine refresh's DIVERGED
+    blocks: the blocks a locally edited file or AGENTS.md section lacks, and
+    the sentences missing from each. The engine prints them and names each
+    in Left-for-you as "(listed above)"; until 2026-09-28 this command kept
+    only the Left-for-you line, so "listed above" listed nothing and a
+    session called missing_markdown_blocks() by hand to see what to copy."""
+    details, key = {}, None
+    for line in out.splitlines():
+        if line.startswith('DIVERGED: '):
+            body = line[len('DIVERGED: '):]
+            m = re.match(r'(.+?) (?:\(line \d+\) )?has local edits', body)
+            key = m.group(1) if m else None
+            if key is not None:
+                details.setdefault(key, [])
+            continue
+        if key is not None and line.startswith('    '):
+            details[key].append(line.rstrip())
+        elif line.strip():
+            key = None
+    return {k: v for k, v in details.items() if v}
 
 
 def lost_files(out):
@@ -438,6 +497,14 @@ def update(repo, skip_check=False, ref=None):
     rep.step('source', f"{pve.SOURCE_BRANCH} @ {head.strip()[:12]}" if rc == 0
              else f"could not read {ref or 'origin/' + pve.SOURCE_BRANCH}")
 
+    # The commit the vendored engine -- and so a section 0 catalogue, which
+    # moves with it -- was last synced from. Read now: step 2 rewrites it.
+    try:
+        last_synced = json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                                 .read_text(encoding='utf-8')).get('source_commit')
+    except (OSError, ValueError):
+        last_synced = None
+
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
@@ -456,9 +523,14 @@ def update(repo, skip_check=False, ref=None):
             rep.step('engine', 'refused: a vendored file was edited here')
             return rep.close()
         return rep.close(f"the engine refresh failed:\n{tail(out)}")
+    details = diverged_details(out)
     for item in left_block(out):
         what, _, why = item.partition(': ')
-        rep.leave(what, why or item)
+        why = why or item
+        if what in details and '(listed above)' in why:
+            why = why.replace('(listed above)', '(listed below)')
+            rep.details[what] = details[what]
+        rep.leave(what, why)
     summary = [l for l in out.splitlines()
                if l.startswith('precedent_vendor_engine refresh OK')
                or 'already current with' in l]
@@ -531,7 +603,7 @@ def update(repo, skip_check=False, ref=None):
         # DONE, so a section 0 repo kept its old rules under a new engine; a
         # session caught it only by reading the diff, and copied the
         # catalogue by hand.
-        done = vendor_universal_catalogue(repo, rep, head.strip())
+        done = vendor_universal_catalogue(repo, rep, head.strip(), last_synced)
         if done is not True:
             return rep.close(done)
 
