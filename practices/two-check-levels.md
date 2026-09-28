@@ -29,6 +29,37 @@ light check before you commit that" vs. "this needs a deep check before we
 merge") instead of re-describing what "check" means every time.
 
 ## Detail
+**The fast level holds one cheap, mechanical audit, and it runs on every
+commit path.** At minimum: conflict markers, invalid JSON or YAML syntax
+(a practice file's own frontmatter included), secret-shaped strings (an
+Amazon Web Services (AWS)-style key ID, a Privacy-Enhanced Mail (PEM)
+private-key header, a token), and broken relative doc links. Run it before
+every commit, and wire it into continuous integration too, so it binds
+every push even when a session forgets to run it by hand. A style linter
+(accidental strikethrough, unlinked references, unglossed acronyms) is a
+complementary tool, not a substitute: this is the broader, cheaper net for
+"something obviously went wrong" that is not a style question.
+
+**Where a repo installs a vendored practice layer, the fast level also
+checks the install is real**, not a plain copy: the tracking manifest
+exists, parses, has at least one entry, and every recorded path exists on
+disk. Where materialization writes per-source check scripts, it can also
+confirm each one traces back to a declared source, which catches a script
+hand-dropped into the output directory, where the next sync silently
+deletes it. **Attribute through the committed provenance record** (the
+consumer's `MANIFEST.json`), never by re-resolving sources at check time: a
+private source resolves only through a sibling clone or a person's own
+config, neither of which a bare CI checkout has. So a file with no manifest
+record is the real orphan and fails; a recorded file whose source is not
+reachable here is unverifiable, not orphaned, and is skipped; only a
+recorded file whose source *is* reachable gets its bytes checked.
+
+*(2026-09-05, in a repository that installs a shared set: a first attempt
+at the provenance check resolved sources live and failed fourteen files on
+the next push, every one legitimately sourced from a private set a GitHub
+Actions checkout cannot reach. Fixed the same day by attributing through
+the committed manifest instead.)*
+
 **The deep check must run each gate in the SHAPE continuous integration (CI)
 runs it.** Naming the commands is not enough if CI runs one of them
 differently — sharded across jobs, behind a flag, with an environment
@@ -112,6 +143,14 @@ deliberate, named gate that is obviously missing when it is skipped -- and
 The rule deliberately does not mandate the words. Any repo-chosen pair is
 fine, provided the pair is fixed and written in the repo's own glossary,
 because the value is in the distinction being nameable, not in the names.
+
+**What the fast level holds was folded in on 2026-09-28**, from the shared
+set for repository maintenance, whose `light-check` practice said it: the
+minimum audit list, the CI wiring, the install-is-real extension and the
+committed-manifest lesson above. Morgan approved folding the overlap in, on
+a session's recommendation (strength: assented). The set's copy stays there
+for now because it also carries that set's own implementation of the audit,
+a check script that did not move.
 
 ## Install
 This repo's own [tools/doc_lint.py](../tools/doc_lint.py) is
