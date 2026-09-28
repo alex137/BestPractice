@@ -3620,6 +3620,125 @@ _TEMPLATE_HISTORY_NAME = 'template-history.json'
 # Closers and keywords that appear in every block, so their presence says
 # nothing about whether a particular block is there.
 _TRIVIAL_SHELL_LINES = {'fi', 'else', 'then', 'do', 'done', '}', 'esac', ';;'}
+# THE LEGACY SHIM. A pre-Precedent install wrote tools/bootstrap.sh as a
+# thin wrapper that ran process/upstream/tools/bootstrap.sh -- which is
+# BestPractice's OWN session bootstrap, vendored along with the rest of the
+# repo, not templates/bootstrap.sh. So the wrapper runs the wrong script, and
+# until 2026-09-28 the refresh reported it as a diverged copy lacking every
+# block of the template, while step 10(d) said to copy blocks in and never
+# replace the whole file. Replacing it was the only correct result. A file
+# whose every line is the call, generic shell boilerplate, or a line the
+# template already has loses nothing by being replaced, so the refresh does
+# it and says so; one with lines of its own is still reported, with a note.
+_LEGACY_SHIM_TARGET = 'process/upstream/tools/bootstrap.sh'
+_SHIM_BOILERPLATE_RE = re.compile(r'(set\s+-|cd\s|exit(\s|$)|[A-Za-z_][A-Za-z0-9_]*=)')
+
+
+def _legacy_shim_lines(text, template_text):
+    """-> None when `text` never runs _LEGACY_SHIM_TARGET, else the code
+    lines it carries beyond the call, boilerplate and the template's own
+    lines -- [] for a pure shim, which is safe to replace."""
+    code = [ln.strip() for ln in text.splitlines()
+            if ln.strip() and not ln.strip().startswith('#')]
+    if not any(_LEGACY_SHIM_TARGET in c for c in code):
+        return None
+    have = {ln.strip() for ln in template_text.splitlines()}
+    return [c for c in code
+            if _LEGACY_SHIM_TARGET not in c and c not in have
+            and c not in _TRIVIAL_SHELL_LINES and not _SHIM_BOILERPLATE_RE.match(c)]
+
+
+# --- A difference kept on purpose -------------------------------------------
+# Added 2026-09-28. A diverged tools/bootstrap.sh or AGENTS.md section went
+# on the Left-for-you list on every refresh, and precedent_update.py exits 1
+# while that list has anything on it -- so a repo that words a section its
+# own way ON PURPOSE could never finish an update. Measured in three
+# consumers the same day: one listed the same six sections across five
+# updates with the template unchanged since; one listed nine every run after
+# its session had recorded a `diverged` entry in process/manifest.json,
+# which the runbook pointed at and nothing here ever read; one's
+# bootstrap.sh was the template plus one pip package. A MISSING section was
+# already remembered; a diverged one had no way to be.
+#
+# THE DECLARATION, in precedent.json, one entry per kept item, keyed by the
+# item exactly as the report names it ("tools/bootstrap.sh", or "AGENTS.md"
+# then a space then the section's heading line):
+#
+#     "kept_template_divergences": {
+#       "tools/bootstrap.sh": {
+#         "reason": "adds pyyaml; our scripts import it",
+#         "template_sha256": "<printed by the refresh>"
+#       }
+#     }
+#
+# A REASON IS REQUIRED, for local_ci_workflows' reason: an entry without
+# one is not honoured, and the refresh says so. THE HASH PINS THE DECISION
+# to the template text it was made against -- the whole template file for
+# bootstrap.sh, the instantiated section for AGENTS.md -- the way
+# practice_audit.py pins a decline. While it matches, the item prints one
+# line with its reason and stays off the list; once upstream changes that
+# text, the decision no longer covers what is in force and the item is
+# listed again in full, with the new hash to record if it is still kept.
+KEPT_DIVERGENCES_KEY = 'kept_template_divergences'
+
+
+def kept_template_divergences(dest_root):
+    """-> {item: {'reason': str, 'template_sha256': str}} from precedent.json.
+    Never raises, for local_ci_workflows' reason: an unreadable declaration
+    is no declaration, and the item is listed as it would have been."""
+    try:
+        declared = json.loads((dest_root / 'precedent.json').read_text(
+            encoding='utf-8')).get(KEPT_DIVERGENCES_KEY) or {}
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return {}
+    if not isinstance(declared, dict):
+        return {}
+    return {str(k): {'reason': str(v.get('reason') or '').strip(),
+                     'template_sha256': str(v.get('template_sha256') or '').strip()}
+            for k, v in declared.items() if isinstance(v, dict)}
+
+
+def _kept_divergence(dest_root, item, template_sha):
+    """-> (verdict, reason) for one diverged item: 'kept' when precedent.json
+    records it with a reason against this template text, 'stale' when it
+    was recorded against older text, 'unreasoned' when it has no reason,
+    None when it is not recorded at all."""
+    entry = kept_template_divergences(dest_root).get(item)
+    if entry is None:
+        return None, ''
+    if not entry['reason']:
+        return 'unreasoned', ''
+    if entry['template_sha256'] != template_sha:
+        return 'stale', entry['reason']
+    return 'kept', entry['reason']
+
+
+def _report_kept(dest_root, item, what, template_sha):
+    """Print the kept-divergence line for a diverged `item` that lacks
+    template blocks, and -> True when the declaration covers it, so the
+    caller lists nothing. Otherwise prints, under the DIVERGED listing the
+    caller has just printed, what recording it would take (indented, so
+    precedent_update.py carries it under the item), and -> False."""
+    verdict, reason = _kept_divergence(dest_root, item, template_sha)
+    if verdict == 'kept':
+        print(f"KEPT ON PURPOSE: {item} differs from {what} as precedent.json's "
+              f"{KEPT_DIVERGENCES_KEY} records -- \"{reason}\". Not listed "
+              f"again until upstream changes that text.")
+        return True
+    if verdict == 'stale':
+        print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} as kept "
+              f"on purpose (\"{reason}\"), but upstream's {what} has changed "
+              f"since -- read it again; if it is still kept, set its "
+              f"template_sha256 to {template_sha}")
+    elif verdict == 'unreasoned':
+        print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} with no "
+              f"reason, so not honoured -- give it one")
+    snippet = json.dumps({KEPT_DIVERGENCES_KEY: {item: {
+        'reason': '<why this repo keeps it>', 'template_sha256': template_sha}}},
+        ensure_ascii=False)
+    print(f"    kept on purpose? record it in precedent.json, then run again: "
+          f"{snippet[1:-1]}")
+    return False
 
 
 def _git_blob_id(data):
@@ -3711,6 +3830,9 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
       'refresh'  -- matches the recorded hash (unedited), template moved.
       'adopt'    -- nothing recorded, but identical to a past version of
                     the template (unedited, predates tracking).
+      'legacy-shim' -- the pre-Precedent wrapper that runs upstream's own
+                    bootstrap, and nothing of its own (_LEGACY_SHIM_TARGET).
+                    Replaced with the template, and said so.
       'diverged' -- carries local edits. Reported, never written."""
     recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
     try:
@@ -3734,6 +3856,9 @@ def _template_instance_plan(dest_root, kind, templates_dir, manifest):
             action = 'refresh' if on_disk == recorded[rel] else 'diverged'
         elif _git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ()):
             action = 'adopt'
+        elif _legacy_shim_lines(path.read_text(encoding='utf-8', errors='replace'),
+                                src.read_text(encoding='utf-8')) == []:
+            action = 'legacy-shim'
         else:
             action = 'diverged'
         plan.append((src_rel, rel, action))
@@ -3744,7 +3869,7 @@ def _template_instances_pending(plan, manifest):
     """True when applying `plan` would change a file or the manifest -- what
     refresh()'s early exit has to ask, like ci_incomplete."""
     recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
-    return any(action in ('refresh', 'adopt')
+    return any(action in ('refresh', 'adopt', 'legacy-shim')
                or (action == 'current' and rel not in recorded)
                or (action == 'absent' and rel in recorded)
                for _s, rel, action in plan)
@@ -3758,23 +3883,34 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
     for src_rel, rel, action in plan:
         if action != 'diverged':
             continue
-        lacks = missing_template_blocks(
-            (dest_root / rel).read_text(encoding='utf-8', errors='replace'),
-            (templates_dir / src_rel).read_text(encoding='utf-8'))
+        local = (dest_root / rel).read_text(encoding='utf-8', errors='replace')
+        template = (templates_dir / src_rel).read_text(encoding='utf-8')
+        lacks = missing_template_blocks(local, template)
         if not lacks:
             print(f"DIVERGED: {rel} has local edits and carries every block "
                   f"of upstream's {src_rel} -- left as it is, nothing to "
                   f"copy in.")
             continue
+        template_sha = _sha256(templates_dir / src_rel)
+        if _kept_divergence(dest_root, rel, template_sha)[0] == 'kept':
+            _report_kept(dest_root, rel, src_rel, template_sha)
+            continue
+        shim_own = _legacy_shim_lines(local, template)
         print(f"DIVERGED: {rel} has local edits, so refresh leaves it "
               f"alone (it never overwrites a line of it, --force included). "
               f"It lacks {len(lacks)} block(s) upstream's {src_rel} carries:")
         for line_no, title, how in lacks:
             print(f"    {src_rel}:{line_no} \"{title}\" -- {how}")
+        if shim_own:
+            print(f"    it is the old install's wrapper, which runs "
+                  f"{_LEGACY_SHIM_TARGET} -- upstream's own bootstrap, not "
+                  f"the template -- plus {len(shim_own)} line(s) of its own: "
+                  f"replace it with {src_rel} and carry those lines in")
+        _report_kept(dest_root, rel, src_rel, template_sha)
         _left(rel, f'diverged from {src_rel} and lacks {len(lacks)} of its '
                    f'blocks (listed above) -- copy each in from the template '
-                   f'by hand, keeping this repo\'s own lines '
-                   f'(vendor-update-runbook step 10(d))')
+                   f'by hand, keeping this repo\'s own lines, or record it '
+                   f'as kept on purpose (vendor-update-runbook step 10(d))')
 
 
 def _refresh_template_instances(dest_root, kind, templates_dir, manifest, plan):
@@ -3791,12 +3927,18 @@ def _refresh_template_instances(dest_root, kind, templates_dir, manifest, plan):
     rewritten = []
     for src_rel, rel, action in plan:
         src = templates_dir / src_rel
-        if action in ('refresh', 'adopt'):
+        if action in ('refresh', 'adopt', 'legacy-shim'):
             path = dest_root / rel
             shutil.copyfile(src, path)
             path.chmod(0o755)
             rewritten.append(rel)
-        if action in ('refresh', 'adopt', 'current'):
+        if action == 'legacy-shim':
+            print(f"precedent_vendor_engine refresh: REPLACED {rel}: it was the "
+                  f"old install's wrapper, which ran {_LEGACY_SHIM_TARGET} -- "
+                  f"upstream's own session bootstrap, not {src_rel} -- and "
+                  f"carried nothing of its own. It is {src_rel} now; the "
+                  f"wrapper stays in git history.")
+        if action in ('refresh', 'adopt', 'current', 'legacy-shim'):
             recorded[rel] = _sha256(src)
         elif action == 'absent' and recorded.pop(rel, None):
             print(f"NOTE: precedent_vendor_engine refresh: {rel} is gone from "
@@ -4243,6 +4385,12 @@ def _report_agents_md(dest_root, templates_dir, plan):
         if not lacks:
             complete.append(key)
             continue
+        item = f'{AGENTS_MD} {key}'
+        what = f'{src_rel} section "{key}"'
+        template_sha = _sha_text(_instantiate(raw, subs))
+        if _kept_divergence(dest_root, item, template_sha)[0] == 'kept':
+            _report_kept(dest_root, item, what, template_sha)
+            continue
         print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "
               f"of it, --force included). It lacks {len(lacks)} block(s) the "
@@ -4251,10 +4399,11 @@ def _report_agents_md(dest_root, templates_dir, plan):
             print(f"    {src_rel}:{t_line + offset} \"{title}\" -- {how}")
             for s in absent:
                 print(f"        lacks: \"{s if len(s) <= 160 else s[:157] + '...'}\"")
+        _report_kept(dest_root, item, what, template_sha)
         _left(f'{AGENTS_MD} "{key}"', f'diverged from {src_rel} and lacks '
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
-              f'hand, keeping this repo\'s own text (vendor-update-runbook '
-              f'step 10(d))')
+              f'hand, keeping this repo\'s own text, or record it as kept on '
+              f'purpose (vendor-update-runbook step 10(d))')
     if complete:
         print(f"DIVERGED, nothing to copy in: {AGENTS_MD} "
               f"{', '.join(repr(k) for k in complete)} carr"
@@ -4775,6 +4924,10 @@ def _status_template_instances(clone, commit, kind, manifest):
                            'brings it up to date',
                 'adopt': 'an unedited past version of the template, not yet '
                          'tracked -- `refresh` brings it up to date',
+                'legacy-shim': f"the old install's wrapper around "
+                               f"{_LEGACY_SHIM_TARGET}, which is upstream's "
+                               f"own bootstrap -- `refresh` replaces it with "
+                               f"the template",
                 'absent': 'not on disk -- never recreated'}
         for _src, rel, action in plan:
             if action in says:

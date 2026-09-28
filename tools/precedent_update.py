@@ -632,6 +632,15 @@ def update(repo, skip_check=False, ref=None):
             rep.details[what] = details[what]
         rep.leave(what, why)
     rep.step('engine', engine_summary(out, last_synced))
+    # A difference precedent.json records as kept on purpose, and a legacy
+    # bootstrap wrapper the refresh replaced, are said once each as a note
+    # -- never a call to make (precedent_vendor_engine.KEPT_DIVERGENCES_KEY).
+    # A self-replacing refresh prints them on both passes.
+    for line in dict.fromkeys(l.strip() for l in out.splitlines()):
+        if line.startswith('KEPT ON PURPOSE: '):
+            rep.step('kept on purpose', line[len('KEPT ON PURPOSE: '):])
+        elif line.startswith('precedent_vendor_engine refresh: REPLACED '):
+            rep.step('replaced', line.split('REPLACED ', 1)[1])
     # A consumer's CI converges to upstream without asking (2026-09-27, see
     # precedent_vendor_engine.CI_CONVERGES_KINDS), so what the refresh
     # replaced or removed is reported here as done, never as a question.
