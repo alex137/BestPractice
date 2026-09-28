@@ -24422,8 +24422,11 @@ def check_leak_gate_scans_the_consuming_repo():
                       'NOT APPLICABLE' in out and r.returncode == 0))
         cases.append(('and says plainly that it is not a pass',
                       'NOT a pass' in out))
+        # Since 2026-09-28 that is the upstream source's own leak gate: a
+        # loader install has no practice_audit.py, which the message used
+        # to name.
         cases.append(('and names what still guards the export path',
-                      'practice_audit' in out))
+                      'scans it on arrival' in out))
 
         # A private repo holding its OWN private blocklist -- the individual
         # source -- stands down; a public one holding it still fails.
