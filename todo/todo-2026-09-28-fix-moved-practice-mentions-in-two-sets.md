@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       ask
 remind_on:         "2026-09-28"
-blocked_on:        "push access to themorgan/precedent-individual and themorgan/precedent-shared-working-style, which the session that found this did not have"
+blocked_on:        "a Promote of BestPractice pre-staging to staging: precedent-individual's link check refuses its fixed links to fresh-before-write and dont-race-another-window until staging carries them"
 batch:             null
 decision:          null
 decision_strength: null
@@ -49,6 +49,22 @@ Morgan, 2026-09-28 (strength: decided), on moves leaving stale mentions
 behind: "I don't need a detailed report but for those problems to be
 solved." The tool fix landed in this repo; the two sets could not be
 pushed from the session that wrote it (the git proxy refused both).
+
+## Progress
+
+**2026-09-28, run from a session with push access to both sets.**
+precedent-shared-working-style is done: its fix is on its `pre-staging`
+(`68acaf1`), and the `small-calls` dry run prints "nothing to fix".
+
+precedent-individual's fix is committed (`e82312d`, saved on its branch
+`claude/moved-practice-mentions`) but not on its `pre-staging`: its push
+check refuses it under `practice-links-travel`. The tool points the links
+at `blob/staging/practices/...` in this repo, and `fresh-before-write` and
+`dont-race-another-window` exist only on this repo's `pre-staging` so far,
+so those links would 404 today. The check is right. Once a Promote puts
+both on `staging` (and the BestPractice clone beside the set is on a
+branch that carries them), rerun its push check and fast-forward its
+`pre-staging` to that commit.
 
 ## Closes when
 

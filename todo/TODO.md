@@ -149,7 +149,7 @@
 | [`todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback`](todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback.md) | Every consumer's occasion index is capped at 4,000 tokens, and nobody decided that number. | 2d | ask |  |
 | [`todo-2026-09-26-frontmatter-field-order-goes-blocking`](todo-2026-09-26-frontmatter-field-order-goes-blocking.md) | Make `frontmatter-field-order` blocking. | 2d | wait | the four practice sets taking the engine update that carries frontmatter-field-o… |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2d | ask |  |
-| [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 0d | ask | push access to themorgan/precedent-individual and themorgan/precedent-shared-wor… |
+| [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 0d | ask | a Promote of BestPractice pre-staging to staging: precedent-individual's link ch… |
 
 ## Decisions (the Person's Call)
 
