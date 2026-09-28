@@ -70,6 +70,13 @@
       "why": "Its own applies_to: common binary/asset extensions, a real locus for the moment such a file is actually being written. Deliberately not `**` -- a rule about handling original binaries has nothing to say to a session editing a practice file. index_required: true because the glob only fires once the write is already chosen; the decision it governs -- attach the original versus decline or recreate -- happens earlier, at the request, which only the occasion index reaches.",
       "decided": "2026-09-16, when the practice landed"
     },
+    "automation-issues": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is an unattended job hitting a blocker at run time, which is a property of an automation's run history, not of a file a session edits. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
+    },
     "base-branch-is-the-record": {
       "globs": [
         "**"
@@ -388,6 +395,13 @@
       "why": "Its own applies_to, and the path IS the distinguishing condition: the standard is scoped to those two trees by definition, so a glob over them is exactly the practice's own scope rather than an approximation of it. Deliberately not '**/*.md' -- a document at the repository root or in documentation/ is out of scope, and surfacing the Rule there would be telling a reader to stamp a file the check will never look at.",
       "decided": "2026-09-07, when the practice was added"
     },
+    "dont-race-another-window": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is a REQUEST that collides with work another of the person's windows has in flight -- the start of a turn, before any file is touched, so no glob can reach it and no gate fires early enough. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
+    },
     "durable-fix": {
       "globs": [
         "**"
@@ -478,6 +492,13 @@
       ],
       "why": "No path tells you who the audience is.",
       "decided": "phase 4 routing pass"
+    },
+    "fresh-before-write": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is setting up a project or a session finding its checkout behind; the guard it describes fires on the first write of any file, so no path distinguishes it. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
     },
     "full-practice-audit": {
       "globs": [
@@ -1100,6 +1121,13 @@
         "reply"
       ],
       "gates_why": "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
+    },
+    "session-trailer": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is committing anything -- a moment, not a place, and every path is committed. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
     },
     "shared-result-cache": {
       "globs": [
