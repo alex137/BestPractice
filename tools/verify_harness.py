@@ -17876,6 +17876,256 @@ def check_retirement_record_is_not_a_stranded_link():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_rename_links_spares_a_commit_pinned_permalink():
+    """A permalink pinned to a 40-hex commit is how a file that no longer
+    exists is cited correctly: it names the file as it was, and cannot go
+    stale. rename-updates-links read the path inside one as a reference
+    left behind and refused the deletion (a consumer report, 2026-09-28).
+
+    Three references to one deleted path in one fixture: inside a
+    commit-pinned permalink (spared), inside a link to a branch (still
+    reported -- a branch moves), and bare in prose (still reported). The
+    last two are the control: without them a check that stopped running
+    would pass the first case.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    checker = ROOT / 'tools' / 'precedent_check.py'
+    name = 'rename-updates-links spares a commit-pinned permalink'
+    if not checker.exists():
+        not_applicable(name, 'tools/precedent_check.py is not present here')
+        return
+    sha = 'a' * 40
+    pages = {
+        'PINNED.md': f'Cited: https://github.com/fixture/repo/blob/{sha}/'
+                     f'process/doomed.md#L3\n',
+        'BRANCH.md': 'See https://github.com/fixture/repo/blob/main/'
+                     'process/doomed.md\n',
+        'PROSE.md': 'Step 3: read `process/doomed.md` first.\n',
+    }
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td) / 'repo'
+        (base / 'process').mkdir(parents=True)
+        (base / 'tools').mkdir()
+        # Seeded, then overwritten with this tree's checker -- seeding copies
+        # the COMMITTED engine (see check_retirement_record_is_not_a_stranded_link).
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(base), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        (base / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
+                      base / 'practices' / 'rename-updates-links.md')
+        _shutil.copy2(checker, base / 'tools' / 'precedent_check.py')
+        (base / 'precedent.json').write_text(
+            _json.dumps({'format_version': 1, 'sources': [],
+                         'visibility': 'private'}), encoding='utf-8')
+        (base / 'process' / 'doomed.md').write_text('# doomed\n', encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(base), *a],
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 'h@example.com')
+        g('config', 'user.name', 'H')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        (base / 'process' / 'doomed.md').unlink()
+        for page, text in pages.items():
+            (base / page).write_text(text, encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'delete it, cite it three ways')
+        r = subprocess.run(
+            [sys.executable, 'tools/precedent_check.py',
+             '--only', 'rename-updates-links'],
+            capture_output=True, text=True, cwd=str(base), timeout=300, env=env)
+        out = r.stdout + r.stderr
+    cases = [
+        ('the path inside a commit-pinned permalink is not reported',
+         'PINNED.md' not in out),
+        ('the path inside a link to a branch is still reported',
+         'BRANCH.md' in out),
+        ('the bare path in prose is still reported', 'PROSE.md' in out),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-600:]}'))
+
+
+def _changed_files_fixture(tmp):
+    """-> (repo, run) for precedent_push_check.changed_files_check against a
+    consumer-shaped repo at `tmp`, run in-process: the script's own main()
+    always judges the checkout it lives in, never the fixture."""
+    import contextlib, io
+    repo = tmp / 'repo'
+    repo.mkdir(parents=True)
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(repo), '-c',
+                               'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env)
+    git('init', '-q', '-b', 'main')
+    (repo / 'README.md').write_text('fixture\n', encoding='utf-8')
+    git('add', '-A'); git('commit', '-qm', 'base')
+    since = git('rev-parse', 'HEAD').stdout.strip()
+    spec = importlib.util.spec_from_file_location(
+        'ppc_fixture', ROOT / 'tools' / 'precedent_push_check.py')
+    ppc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ppc)
+
+    def commit(files):
+        for rel, text in files.items():
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(text, encoding='utf-8')
+        git('add', '-A'); git('commit', '-qm', 'fixture change')
+
+    def run():
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = ppc.changed_files_check(repo, since)
+        return rc, buf.getvalue()
+    return commit, run
+
+
+_FIXTURE_CHECK_HEAD = (
+    'import os, pathlib\n'
+    'SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent\n'
+    'ROOT = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)\n')
+
+
+def check_changed_files_asks_a_new_check_for_its_test():
+    """A check added without its test, or without SOURCE_ROOT, is refused on
+    the commit that adds it, and the refusal names what to write.
+
+    check_deep_check.py refuses both, but judges the whole tree, so the
+    changed-files scope a pre-staging push runs dropped its finding: in a
+    consumer repo four repo-local checks landed with neither, and nothing
+    said so until a Promote ran the full check (2026-09-28). The clean case
+    is the control -- the same check with its test and SOURCE_ROOT passes.
+    """
+    import tempfile
+    name = 'the changed-files check asks a new check for its test and SOURCE_ROOT'
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'bare')
+        commit({'local/tools/checks/check_zzbare.py': 'import sys\nsys.exit(0)\n'})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'ok')
+        commit2({'local/tools/checks/check_zzok.py': _FIXTURE_CHECK_HEAD,
+                 'local/tools/checks/tests/test_zzok.sh':
+                     'python3 -c "print(1)" # check_zzok.py\nexit 0\n'})
+        rc2, out2 = run2()
+    cases = [
+        ('a new check with no test is refused', rc == 1),
+        ('the refusal names the test file to add, where the check lives',
+         'add local/tools/checks/tests/test_zzbare.sh' in out),
+        ('and gives the SOURCE_ROOT and ROOT lines to write',
+         'SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent'
+         in out and 'PRECEDENT_CHECK_ROOT' in out),
+        ('control: the same shape with its test and SOURCE_ROOT passes',
+         rc2 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
+def check_changed_files_runs_one_copy_of_a_repo_local_test():
+    """A repo-local test and its materialized copy change together, and only
+    the materialized copy runs -- the one run_all.sh runs. Running both put
+    the same `cd "$(dirname "$0")/../../.."` in local/ once and at the root
+    once, and a test written for one failed from the other, only in the gate
+    (a consumer report, 2026-09-28). The control: with no materialized copy
+    (BestPractice's own local/), the original still runs.
+    """
+    import tempfile
+    name = 'the changed-files check runs one copy of a repo-local test'
+    test = ('cd "$(dirname "$0")/../../.."\n'
+            '[ -d local ] || { echo "not at the repo root"; exit 1; }\n'
+            '# check_zzloc.py\n')
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'both')
+        commit({'local/tools/checks/check_zzloc.py': _FIXTURE_CHECK_HEAD,
+                'local/tools/checks/tests/test_zzloc.sh': test,
+                'tools/checks/check_zzloc.py': _FIXTURE_CHECK_HEAD,
+                'tools/checks/tests/test_zzloc.sh': test})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'local-only')
+        commit2({'local/tools/checks/check_zzsolo.py': _FIXTURE_CHECK_HEAD,
+                 'local/tools/checks/tests/test_zzsolo.sh':
+                     '# check_zzsolo.py\nexit 0\n'})
+        rc2, out2 = run2()
+    cases = [
+        ('with both copies changed, only the materialized one runs, and passes',
+         rc == 0 and 'ran 1 test(s) of changed checks: '
+         'tools/checks/tests/test_zzloc.sh' in out),
+        ('control: with no materialized copy, the original runs',
+         rc2 == 0 and 'local/tools/checks/tests/test_zzsolo.sh' in out2),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
+def check_boildown_contradiction_spares_work_waiting_upstream():
+    """"Still waiting upstream" beside "You can archive this session" is not
+    a contradiction: the work sits in another repository's queue, not this
+    session's. The shipped reply_check.json refused exactly that reply
+    (2026-09-28). Read from the real file, so the test is of the pattern that
+    ships; the control is "still waiting" about this session's own work,
+    which must still be refused.
+    """
+    import tempfile
+    name = 'the Boildown contradiction spares work waiting upstream'
+    shipped = json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+    entry = next((e for e in shipped if any(
+        c.get('if_says') == 'You can archive this session'
+        for c in e.get('require_no_contradiction', []))), None)
+    if entry is None:
+        not_applicable(name, 'reply_check.json carries no archive contradiction')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-upstream-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-contradiction',
+            'require_no_contradiction': entry['require_no_contradiction']}]),
+            encoding='utf-8')
+
+        def replycheck(text):
+            p = tmp / 'reply.md'
+            p.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(p)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+        up = replycheck('## The Boildown\n\n- The six updater fixes are still '
+                        'waiting upstream.\n\nYou can archive this session.\n')
+        other = replycheck('## The Boildown\n\n- Its fix is still open in '
+                           'another repo.\n\nYou can archive this session.\n')
+        own = replycheck('## The Boildown\n\n- The pull request is still '
+                         'waiting.\n\nYou can archive this session.\n')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('"still waiting upstream" beside the archive sentence passes',
+         up.returncode == 0),
+        ('"still open in another repo" beside it passes', other.returncode == 0),
+        ('control: a bare "still waiting" beside it is still refused',
+         own.returncode == 2 and 'cannot both be true' in own.stderr),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {up.stderr[:300]}'))
+
+
 def check_commit_identity_prevents_the_wrong_offset():
     """The declared zone is made TRUE for the session, not merely enforced.
 
@@ -38820,6 +39070,10 @@ def main():
     check_checkin_update_never_mutates_the_clone()
     check_checkin_ignores_files_git_does_not_track_in_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
+    check_rename_links_spares_a_commit_pinned_permalink()
+    check_changed_files_asks_a_new_check_for_its_test()
+    check_changed_files_runs_one_copy_of_a_repo_local_test()
+    check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()
     check_leak_gate_refresh_declines_a_dirty_clone()
