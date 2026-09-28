@@ -866,7 +866,9 @@ not this section.
    reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
    they are not.
 
-   **Then give the repo its three branches**:
+   **Then give the repo its three branches** -- `precedent_install.py` does
+   it when the repo already has an origin with `main`, and the first Update
+   Vendors does it otherwise; by hand it is
    `python3 tools/precedent_branches.py --ensure-tiers --apply`. It creates
    `staging` and `pre-staging` on origin where they are missing and, in a
    repo whose staging tier was `main`, writes `"staging_branch": "staging"`

@@ -280,6 +280,32 @@ def judged_as_committed(repo, argv):
                            capture_output=True)
 
 
+def tiers_step(repo, rep):
+    """Make any missing branch tier on origin and report it on `rep` -- the
+    update's step 4a, and the one thing a repository still to be migrated
+    gets before it is sent to the migration (Morgan, 2026-09-27: "the same
+    issue with migrations: when migrating check for these and create
+    them")."""
+    tier_lines = []
+    has_origin = run(['git', '-C', str(repo), 'remote', 'get-url', 'origin'],
+                     repo)[0] == 0
+    try:
+        rc = pb.ensure_tiers(repo, apply=True, say=tier_lines.append) \
+            if has_origin else 0
+    except Exception as e:                                     # noqa: BLE001
+        rc, tier_lines = 1, [f'{type(e).__name__}: {e}']
+    made = [l for l in tier_lines if l.startswith(('created ', 'wrote '))]
+    if not has_origin:
+        rep.step('branch tiers', 'no origin remote here, so there is nowhere to '
+                 'make them')
+    elif rc != 0:
+        rep.leave('branch tiers', 'pre-staging and staging could not both be '
+                  'made on origin -- ' + ' '.join(tier_lines)[-400:])
+    else:
+        rep.step('branch tiers', '; '.join(made) if made else
+                 'pre-staging, staging and main all present')
+
+
 def update(repo, skip_check=False, ref=None):
     rep = Report()
     before = dirty_paths(repo)
@@ -288,6 +314,8 @@ def update(repo, skip_check=False, ref=None):
         rep.leave(str(repo), "no vendored loader engine (tools/ENGINE_MANIFEST.json), "
                   "so this is a migration, not an update -- "
                   "spec/MIGRATING_EXISTING_INSTALLS.md")
+        # The migration still gets its three branches now, from here.
+        tiers_step(repo, rep)
         return rep.close()
 
     # 1. The source clone. Both halves read committed refs, never its
@@ -434,24 +462,7 @@ def update(repo, skip_check=False, ref=None):
     # pre-staging from staging, and both from main when neither exists. It
     # is the one thing this command pushes: a new branch at a commit origin
     # already has, never a change to one that exists.
-    tier_lines = []
-    has_origin = run(['git', '-C', str(repo), 'remote', 'get-url', 'origin'],
-                     repo)[0] == 0
-    try:
-        rc = pb.ensure_tiers(repo, apply=True, say=tier_lines.append) \
-            if has_origin else 0
-    except Exception as e:                                     # noqa: BLE001
-        rc, tier_lines = 1, [f'{type(e).__name__}: {e}']
-    made = [l for l in tier_lines if l.startswith(('created ', 'wrote '))]
-    if not has_origin:
-        rep.step('branch tiers', 'no origin remote here, so there is nowhere to '
-                 'make them')
-    elif rc != 0:
-        rep.leave('branch tiers', 'pre-staging and staging could not both be '
-                  'made on origin -- ' + ' '.join(tier_lines)[-400:])
-    else:
-        rep.step('branch tiers', '; '.join(made) if made else
-                 'pre-staging, staging and main all present')
+    tiers_step(repo, rep)
 
     # Staged before the check, so it judges what the commit will hold.
     n = stage_update(repo, before)
