@@ -39,6 +39,9 @@ run the BestPractice clone's own copy -- never a vendored one:
     python3 ../BestPractice/tools/precedent_update.py --repo .
 
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
+and **makes any missing branch tier on origin** -- `staging` from
+`pre-staging`, `pre-staging` from `staging`, both from `main` when neither
+exists (Morgan, 2026-09-27, strength: decided) --
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
 0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls

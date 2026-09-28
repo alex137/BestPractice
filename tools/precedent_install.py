@@ -519,6 +519,28 @@ def _mirror_words_left(dest, names):
     return hits
 
 
+def _tiers(dest):
+    """Give the new repository pre-staging and staging on origin when it can
+    (Morgan, 2026-09-27: these branches are essential to the process, so a
+    missing one is made, never only reported). A repository installed before
+    it has an origin, or before origin has its main, gets them from its first
+    Update Vendors instead -- which is said."""
+    later = ('the first Update Vendors makes them once origin has main '
+             '(or: python3 tools/precedent_branches.py --ensure-tiers --apply)')
+    if _run(['git', 'remote', 'get-url', 'origin'], dest).returncode != 0:
+        return f'branch tiers: no origin yet -- {later}'
+    lines = []
+    try:
+        rc = precedent_branches.ensure_tiers(dest, apply=True, say=lines.append)
+    except Exception as e:                                     # noqa: BLE001
+        rc, lines = 1, [f'{type(e).__name__}: {e}']
+    if rc != 0:
+        return f'branch tiers: not made yet ({" ".join(lines)[-200:]}) -- {later}'
+    made = [l for l in lines if l.startswith(('created ', 'wrote '))]
+    return 'branch tiers: ' + ('; '.join(made) if made
+                               else 'pre-staging, staging and main all present')
+
+
 def install(dest, project, about=None, base_branch=None, visibility='private',
             output_paths=None, admin=None, teams=(), force=False, quiet=False):
     dest = pathlib.Path(dest).resolve()
@@ -558,6 +580,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  {note}; hooks: {", ".join(wired)}')
     for line in _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         say(f'  {line}')
+    say(f'  {_tiers(dest)}')
 
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
     if r.returncode != 0:

@@ -6989,6 +6989,10 @@ def check_update_vendors_is_one_command():
         landing = json.loads((done / 'precedent.json').read_text()).get('landing_branch')
         cases.append(('...its precedent.json now names pre-staging as the landing '
                       'branch, since it named none', landing == 'pre-staging', landing))
+        _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
+        cases.append(('...and origin, which had only main, now has staging and '
+                      'pre-staging', 'refs/heads/staging' in heads
+                      and 'refs/heads/pre-staging' in heads, heads[-400:]))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
         cases.append(('...and its loader views were regenerated',
@@ -7059,6 +7063,25 @@ def check_update_vendors_is_one_command():
         rc, out = update(bare)
         cases.append(('a repo with no vendored engine is sent to the migration, '
                       'not updated', rc == 1 and 'this is a migration' in out, out[-600:]))
+
+        # ...and a repo to be migrated still gets its branch tiers from here
+        # (Morgan, 2026-09-27: "when migrating check for these and create them").
+        classic = tmp / 'classic'
+        classic.mkdir()
+        sh('git', 'init', '-q', '-b', 'main', cwd=classic)
+        (classic / 'README.md').write_text('# classic install\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=classic)
+        sh('git', 'commit', '-qm', 'classic', cwd=classic)
+        sh('git', 'clone', '-q', '--bare', str(classic), str(tmp / 'classic.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / 'classic.git'), cwd=classic)
+        sh('git', 'fetch', '-q', 'origin', cwd=classic)
+        rc, out = update(classic)
+        _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=classic)
+        cases.append(('a repo still to be migrated is sent to the migration AND leaves '
+                      'with staging and pre-staging on origin',
+                      rc == 1 and 'this is a migration' in out
+                      and 'refs/heads/staging' in heads
+                      and 'refs/heads/pre-staging' in heads, (out + heads)[-800:]))
 
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(ROOT), cwd=ROOT)
@@ -21864,6 +21887,17 @@ def check_tier_branches_are_never_a_pull_requests_source():
         r = ensure()
         cases.append(('with no old name either, it is rebuilt from main',
                       tip('staging') == tip('main') != '', (r.stdout + r.stderr)[-300:]))
+        # Morgan, 2026-09-27: a missing staging is copied from pre-staging
+        # when pre-staging exists, and from main only when neither does.
+        (work / 'f').write_text('3', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'three')
+        git(work, 'push', '-q', 'origin', 'HEAD:pre-staging')
+        git(work, 'push', '-q', 'origin', ':staging')
+        r = ensure()
+        cases.append(('with pre-staging ahead of main and no old name, staging is '
+                      'copied from pre-staging',
+                      tip('staging') == tip('pre-staging') != tip('main'),
+                      (r.stdout + r.stderr)[-300:]))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f'{c} [{d}]' if d else c for c, d in bad))
