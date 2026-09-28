@@ -259,19 +259,23 @@ with contributors should think twice before adding it.
 A team's or a person's practice set is its own repository, and its settings
 are simpler:
 
-- **Private**, always. Its practice text is the thing a public tree must
-  never receive, and the leak gate checks that direction; nothing checks
-  the repository's own visibility except a person, at creation.
+- **Private for an individual set; a shared set may be public.** A
+  person's own set is the thing a public tree must never receive, and the
+  leak gate checks that direction. A shared set written for anyone to
+  declare can be public (the writing and working-style sets are); its
+  `precedent-source.json` records which, and nothing checks the
+  repository's own visibility except a person, at creation.
 - **CODEOWNERS** at the root, generated from `approvers.json`, owning `*`.
   With "Require review from Code Owners" on the set's base branch, every
   change to the set waits for an approver — the platform-enforced half of
   "only an approver lands a practice". Adding an approver is itself a
   change to `approvers.json`, so it waits for a current approver too.
-- **One workflow**, carrying the views-drift gate as a job
-  ([templates/github-actions/precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)),
-  installed by the bootstrap tool, read-only. (It was its own
-  views-drift.yml.template until 2026-09-19, when the two templates were
-  consolidated into one workflow with two jobs.)
+  **With a single approver, allow the administrator to bypass**, or add a
+  second approver: GitHub never lets authors approve their own pull
+  requests, so a sole approver's own changes could otherwise never merge.
+- **No workflow**, since 2026-09-21 (universal `source-sets-run-no-ci`):
+  the set's checks run in the session before a push. Until then the
+  bootstrap tool installed one, carrying the views-drift gate as a job.
 - **A token to reach it from a hosted session**: the read-only
   `PRECEDENT_GIT_TOKEN` plus `PRECEDENT_SOURCE_BASE_URL` on the environment,
   which is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s subject, not

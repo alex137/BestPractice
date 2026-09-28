@@ -46,8 +46,12 @@ deliverables and indexes which documents back each part of each one.
 
 ### Session start
 
-- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
-  with a hook mechanism run it automatically — see `templates/harness/`).
+- At session start, run `bash tools/bootstrap.sh` before other work. Claude
+  Code on the web runs it for you (the SessionStart hook runs it only when
+  `CLAUDE_CODE_REMOTE=true`); locally, and in other harnesses, run it
+  yourself unless your adapter wires it — Precedent's
+  [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
+  says which can.
 - **Keep `AGENTS.md`'s generated block current.** Before relying on it,
   run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
   if any declared source (`precedent.json`) has moved since the block was
