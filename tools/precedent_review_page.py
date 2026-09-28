@@ -213,6 +213,9 @@ SCRIPT = """
 
 def render(by_source, groups, recommend=(), day=None):
     e = html.escape
+    # A recommended branch that has since landed is listed once, as landed.
+    landed = {(g['slug'], b) for g in groups for b, _d in g['branches']}
+    recommend = [r for r in recommend if (r['repo'], r['branch']) not in landed]
     n_landed = sum(len(g['branches']) for g in groups)
     n_prac = sum(len(s['practices']) for s in by_source)
     out = ['<title>Branch and Practice Review</title>',
