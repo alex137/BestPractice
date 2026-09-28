@@ -79,6 +79,10 @@ move refuses exactly this direction (`--from universal`) for exactly this
 reason, which this incident confirms rather than merely asserts. Reverted
 the same day, Morgan F: stays universal, `tier: resident`, as before.
 
+Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
+
+Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.
+
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line
 convention it depends on (every heavy tool prints its estimated duration
@@ -88,7 +92,3 @@ progress line and the memo, and
 [scripts-assert-properties](scripts-assert-properties.md) for the
 model-side discipline). A wait longer than a minute reports elapsed and
 remaining time on its own.
-
-Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
-
-Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.

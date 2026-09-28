@@ -6442,6 +6442,27 @@ CI_SHARDS = (
 )
 
 
+def _shard_failure_detail(proc, tail_lines=20):
+    """-> [str] what a failed shard says about WHY: every `FAIL:` verdict it
+    printed, then the last `tail_lines` lines of its stderr. Until
+    2026-09-28 a failed shard printed `SHARD FAILED (exit 1)` and nothing
+    else, so the reason -- a named failing case, or a traceback that killed
+    the shard before its first verdict -- meant rerunning four minutes of
+    suite to find out."""
+    out = []
+    fails = [l for l in (proc.stdout or '').splitlines() if l.startswith('FAIL:')]
+    if fails:
+        out.append(f'  {len(fails)} failing case(s):')
+        out += [f'    {l}' for l in fails]
+    err = [l for l in (proc.stderr or '').splitlines() if l.strip()]
+    if err:
+        out.append(f'  last {min(tail_lines, len(err))} line(s) of its stderr:')
+        out += [f'    {l}' for l in err[-tail_lines:]]
+    if not out:
+        out.append('  it printed no FAIL: line and nothing on stderr')
+    return out
+
+
 def run_as_ci():
     """-> exit status. Run this suite the two ways CI runs it, in sequence.
 
@@ -6478,6 +6499,8 @@ def run_as_ci():
         if proc.returncode != 0:
             failed.append(label)
             print(f'  SHARD FAILED (exit {proc.returncode})')
+            for line in _shard_failure_detail(proc):
+                print(line)
     if failed:
         print(f'\n--as-ci: {len(failed)} of {len(CI_SHARDS)} shard(s) '
               f'failed: {"; ".join(failed)}')
@@ -36672,6 +36695,449 @@ def check_move_tool_lands_then_deduplicates():
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def _move_fixture_env(tmp):
+    """The environment every move fixture below runs its tools in: no
+    individual source, no hosted-session self-heal, the commit backstop
+    waved, and a mention fix that reads only the fixture's own repositories
+    (practice: fixture-owns-its-state)."""
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'),
+               PRECEDENT_MOVE_MENTION_REPOS='')
+    env.pop('CLAUDE_CODE_REMOTE', None)
+    return env
+
+
+def _move_fixture_practice(slug, story='A dated incident.', install=None):
+    """A minimal practice file, optionally with an ## Install section."""
+    return ('---\nslug:        ' + slug + '\n'
+            'title:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\n'
+            'applies_to:  ["fixture/**"]\noccasion:    "fixture"\n'
+            'gates:       []\nindex_clause: "fixture"\nchecked_by:  null\n'
+            'defines:     []\nstatus:      active\nin_force_at: null\n'
+            'supersedes:  []\noverrides:   null\nadded:       "2026-09-14"\n'
+            'approved_by: "Fixture, 2026-09-14"\n---\n\n## Rule\nDo the thing.\n\n'
+            '## Why\nBecause.\n\n## Story\n' + story + '\n'
+            + ('' if install is None else '\n## Install\n' + install + '\n'))
+
+
+def check_move_tool_covers_every_direction_and_team_removals():
+    """The directions check_move_tool_lands_then_deduplicates does not run
+    -- team to individual, universal to individual, individual to universal
+    -- and the approval a TEAM REMOVAL needs, which the tool never checked.
+
+    WHY. A very deep check on 2026-09-28 rehearsed every direction and found
+    three things this fixture now holds: spec/MOVING_PRACTICES.md said the
+    harness moved a practice "through every direction" when it ran three;
+    a team copy was deduplicated on the DESTINATION's approval alone, and
+    `--dedupe-only` from a team asked for no name at all, though the
+    procedure says removing a team's practice is that team's approvers'
+    call; and a universal draft with no ## Install passed every fast check
+    and failed the harness. Separately, the Story line a move appends went
+    to the end of the FILE, which is inside ## Install whenever the file
+    has one -- so it is planted with one here."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-dirs-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+
+    def run(*args):
+        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                               *args], cwd=str(ROOT), capture_output=True, text=True,
+                              env=env)
+
+    def text(p):
+        return p.read_text(encoding='utf-8') if p.is_file() else ''
+
+    try:
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
+        for args in ((boot, '--level', 'team', '--name', 'precedent-team-fixture',
+                      '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'),
+                     (boot, '--level', 'individual', '--name', 'precedent-individual',
+                      '--dest', str(indiv))):
+            subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env)
+        uclone = tmp / 'precedent-universal-fixture'
+        (uclone / 'practices').mkdir(parents=True)
+        P = _move_fixture_practice
+        (team / 'practices' / 'zz-down.md').write_text(
+            P('zz-down', install='Nothing to install.'), encoding='utf-8')
+        (team / 'practices' / 'zz-guarded.md').write_text(P('zz-guarded'), encoding='utf-8')
+        (uclone / 'practices' / 'zz-out.md').write_text(P('zz-out'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-up.md').write_text(P('zz-up'), encoding='utf-8')
+
+        # -- team -> individual: a removal from the team needs ITS approver --
+        r = run('--slug', 'zz-guarded', '--from', 'team', '--from-path', str(team),
+                '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Somebody Else')
+        cases.append(('team -> individual by a name the team does not list is refused as a '
+                      'REMOVAL needing that team\'s approver, and writes nothing',
+                      r.returncode == 1 and 'removing a practice from a team set' in r.stderr
+                      and not (indiv / 'practices' / 'zz-guarded.md').exists()
+                      and 'status:      active' in text(team / 'practices' / 'zz-guarded.md'),
+                      r.stderr[-400:]))
+        r = run('--slug', 'zz-down', '--from', 'team', '--from-path', str(team),
+                '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Fixture Approver')
+        src, dest = text(team / 'practices' / 'zz-down.md'), text(indiv / 'practices' / 'zz-down.md')
+        story = src[src.find('## Story'):src.find('## Install')]
+        cases.append(('team -> individual lands active and deduplicates the team copy',
+                      r.returncode == 0 and 'status:      active' in dest
+                      and 'status:      deduplicated' in src and 'in_force_at: zz-down' in src,
+                      (r.stdout + r.stderr)[-500:]))
+        cases.append(('the team copy\'s Story line names who approved the removal, and sits '
+                      'in ## Story -- not after ## Install, where nothing reads a Story',
+                      'removal from `precedent-team-fixture` approved by Fixture Approver'
+                      in story and 'Moved to the individual set' in story
+                      and src.rstrip().endswith('Nothing to install.'), src[-700:]))
+
+        # -- --dedupe-only from a team needs --approved-by at all --
+        (indiv / 'practices' / 'zz-guarded.md').write_text(P('zz-guarded'), encoding='utf-8')
+        r = run('--slug', 'zz-guarded', '--from', 'team', '--from-path', str(team),
+                '--to', 'individual', '--to-path', str(indiv), '--dedupe-only')
+        cases.append(('--dedupe-only from a team set with no --approved-by is refused',
+                      r.returncode == 1 and '--approved-by' in r.stderr
+                      and 'status:      active' in text(team / 'practices' / 'zz-guarded.md'),
+                      r.stderr[-400:]))
+
+        # -- universal -> individual: duplicate, then a deliberate withdrawal --
+        r = run('--slug', 'zz-out', '--from', 'universal', '--from-path', str(uclone),
+                '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Owner')
+        u = text(uclone / 'practices' / 'zz-out.md')
+        cases.append(('universal -> individual lands the copy and keeps the universal one ACTIVE',
+                      r.returncode == 0 and 'status:      active' in u
+                      and 'status:      active' in text(indiv / 'practices' / 'zz-out.md'),
+                      (r.stdout + r.stderr)[-500:]))
+        r = run('--slug', 'zz-out', '--from', 'universal', '--from-path', str(uclone),
+                '--to', 'individual', '--to-path', str(indiv), '--dedupe-only',
+                '--accept-reach-loss', '--approved-by', 'Owner')
+        u = text(uclone / 'practices' / 'zz-out.md')
+        cases.append(('universal -> individual withdraws with --accept-reach-loss, and the '
+                      'Story line names the set and who approved it',
+                      r.returncode == 0 and 'status:      deduplicated' in u
+                      and '--accept-reach-loss (approved by Owner)' in u
+                      and 'from the individual set `precedent-individual`' in u,
+                      (r.stdout + r.stderr)[-500:]))
+
+        # -- individual -> universal: a draft, given the ## Install it lacked --
+        clone = tmp / 'precedent-clone'
+        (clone / 'practices').mkdir(parents=True)
+        r = run('--slug', 'zz-up', '--from', 'individual', '--from-path', str(indiv),
+                '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Owner')
+        draft = clone / 'practices' / 'zz-up.md'
+        try:
+            _fm, secs = sp._read_practice_file(draft)
+        except Exception:                                    # noqa: BLE001
+            secs = {}
+        cases.append(('individual -> universal drafts, leaves the source active, and gives '
+                      'the draft the ## Install every universal practice carries -- saying so',
+                      r.returncode == 0 and 'install' in secs and 'DRAFTED' in r.stdout
+                      and 'ADDED an empty ## Install' in r.stdout
+                      and 'status:      active' in text(indiv / 'practices' / 'zz-up.md'),
+                      (r.stdout + r.stderr)[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_move.py runs the remaining directions and asks a team\'s own '
+          f'approver before removing its practice ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_move_withdrawal_from_universal_leaves_universal_green():
+    """Withdrawing a universal practice (`--dedupe-only --accept-reach-loss`)
+    leaves nothing behind that turns the universal clone's own checks red,
+    and a consumer that no longer gets the rule is told where it went.
+
+    WHY. Rehearsed 2026-09-28: the withdrawal left a `routing_audit_state.json`
+    rotation entry for the slug (routing-audit: stale bookkeeping) and a
+    `# practice: <slug>` citation under tools/ (code-cites-practice: cites a
+    practice that is not active). And every consumer's sync then said IN FORCE
+    NOWHERE "-- this is the deduplication that silently loses a rule" about
+    two practices withdrawn on purpose, with the set named in their Story."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-withdraw-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+
+    def run(*args):
+        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                               *args], cwd=str(ROOT), capture_output=True, text=True,
+                              env=env)
+
+    try:
+        team = tmp / 'precedent-team-fixture'
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'team', '--name', 'precedent-team-fixture', '--dest', str(team),
+                        '--approver', 'Fixture Approver:fixture-gh'],
+                       capture_output=True, text=True, env=env)
+        uclone = tmp / 'precedent'
+        (uclone / 'practices').mkdir(parents=True)
+        (uclone / 'tools').mkdir()
+        (uclone / 'practices' / 'zz-gone.md').write_text(
+            _move_fixture_practice('zz-gone', install='Nothing.'), encoding='utf-8')
+        (uclone / 'practices' / 'zz-stays.md').write_text(
+            _move_fixture_practice('zz-stays'), encoding='utf-8')
+        state = uclone / 'tools' / 'routing_audit_state.json'
+        state.write_text(json.dumps({'zz-gone': {'commit': 'x', 'last_reviewed': '2026-09-01'},
+                                     'zz-stays': {'commit': 'x', 'last_reviewed': '2026-09-01'}},
+                                    indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        code = uclone / 'tools' / 'thing.py'
+        code.write_text('x = 1  # practice: zz-gone\n', encoding='utf-8')
+
+        r = run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver')
+        cases.append(('the universal practice lands in the team, duplicated', r.returncode == 0,
+                      (r.stdout + r.stderr)[-400:]))
+        before = (uclone / 'practices' / 'zz-gone.md').read_text(encoding='utf-8')
+        r = run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                '--to', 'team', '--to-path', str(team), '--dedupe-only', '--accept-reach-loss')
+        cases.append(('the withdrawal is refused while the clone\'s tools/ still cite the '
+                      'practice, naming the file and line, and writes nothing',
+                      r.returncode == 1 and 'tools/thing.py:1' in r.stderr
+                      and (uclone / 'practices' / 'zz-gone.md').read_text(encoding='utf-8') == before
+                      and 'zz-gone' in json.loads(state.read_text(encoding='utf-8')),
+                      r.stderr[-400:]))
+        code.write_text('x = 1  # counts one thing\n', encoding='utf-8')
+        r = run('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                '--to', 'team', '--to-path', str(team), '--dedupe-only', '--accept-reach-loss')
+        st = json.loads(state.read_text(encoding='utf-8'))
+        cases.append(('with the citation reworded, the withdrawal runs and drops the '
+                      'practice\'s routing-audit entry, and only that one',
+                      r.returncode == 0 and 'zz-gone' not in st and 'zz-stays' in st
+                      and 'routing_audit_state.json' in r.stdout, (r.stdout + r.stderr)[-500:]))
+
+        # A consumer declaring only this universal source: the stub resolves
+        # nowhere, and the warning says it was withdrawn and to which set.
+        consumer = tmp / 'consumer'
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uclone)}]}),
+            encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True, env=env)
+        try:
+            dangling = json.loads(r.stdout).get('dangling') or []
+        except json.JSONDecodeError:
+            dangling = []
+        d = next((x for x in dangling if x.get('slug') == 'zz-gone'), {})
+        cases.append(('a consumer that no longer gets the rule is told it was withdrawn from '
+                      'universal, when, and which set to declare to keep it -- not that a '
+                      'deduplication silently lost it',
+                      d.get('withdrawn_to') == 'precedent-team-fixture'
+                      and 'withdrawn from universal on' in d.get('why', '')
+                      and 'declare that set to keep it' in d.get('why', '')
+                      and 'silently loses' not in d.get('why', ''),
+                      (r.stdout + r.stderr)[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'withdrawing a universal practice leaves the universal clone\'s own checks '
+          f'green and tells a consumer where the rule went ({len(cases)} stated cases)',
+          not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
+    """The mention fix judges history a list item at a time, and names a
+    current mention it could not rewrite instead of passing over it.
+
+    WHY. Rehearsed 2026-09-28 on a real universal withdrawal: a numbered
+    list in a sibling practice had one item saying "(verified 2026-08-28)",
+    so the whole list read as history and the two current links to the
+    withdrawn practice in a later item were neither fixed nor reported."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-lists-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+    try:
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
+        for args in ((boot, '--level', 'team', '--name', 'precedent-team-fixture',
+                      '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'),
+                     (boot, '--level', 'individual', '--name', 'precedent-individual',
+                      '--dest', str(indiv))):
+            subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env)
+        (indiv / 'practices' / 'zz-moves.md').write_text(
+            _move_fixture_practice('zz-moves'), encoding='utf-8')
+        (indiv / 'NOTES.md').write_text(
+            '1. **Drag** -- pointer events, verified 2026-08-28 in a frame.\n'
+            '2. **Frontier** -- where it applies\n'
+            '   ([zz-moves](practices/zz-moves.md)), the render opens there.\n'
+            '3. Oddly phrased: precedent-individual keeps `zz-moves` close.\n',
+            encoding='utf-8')
+        for repo in (indiv, team):
+            subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                            '--slug', 'zz-moves', '--from', 'individual', '--from-path', str(indiv),
+                            '--to', 'team', '--to-path', str(team),
+                            '--approved-by', 'Fixture Approver'],
+                           cwd=str(ROOT), capture_output=True, text=True, env=env)
+        notes = (indiv / 'NOTES.md').read_text(encoding='utf-8')
+        cases.append(('the move completes', r.returncode == 0, (r.stdout + r.stderr)[-400:]))
+        cases.append(('a current link in a list item is fixed although a SIBLING item is dated',
+                      '(`zz-moves`), the render opens there.' in notes, notes))
+        cases.append(('the dated item itself stays as written',
+                      'verified 2026-08-28 in a frame.' in notes, notes))
+        cases.append(('a current line naming the old set beside the practice that no rewrite '
+                      'recognized is named "could not fix", with its line',
+                      'could not fix: precedent-individual/NOTES.md:4' in r.stdout,
+                      r.stdout[-600:]))
+        cases.append(('and a line that WAS fixed is not also reported as unfixed',
+                      'could not fix: precedent-individual/NOTES.md:3' not in r.stdout,
+                      r.stdout[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [c for c in cases if not c[1]]
+    check(f'a move\'s mention fix reads each list item on its own and names what it could '
+          f'not fix ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_bootstrapped_shared_set_carries_current_codeowners():
+    """A shared set bootstrapped with an approver gets a CODEOWNERS generated
+    from its approvers.json, and verify() reports one that is missing or
+    stale in a set carrying the generator.
+
+    WHY. Found 2026-09-28: bootstrap wrote approvers.json and no CODEOWNERS,
+    so the approvers a new set declared enforced nothing until somebody
+    remembered build_codeowners.py, and verify() called the set complete."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_bootstrap_source as pbs
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-boot-codeowners-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+    try:
+        team = tmp / 'precedent-team-fixture'
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                            '--level', 'team', '--name', 'precedent-team-fixture',
+                            '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'],
+                           capture_output=True, text=True, env=env)
+        co = team / 'CODEOWNERS'
+        cases.append(('bootstrap writes a CODEOWNERS naming the approver',
+                      r.returncode == 0 and co.is_file()
+                      and '@fixture-gh' in co.read_text(encoding='utf-8'),
+                      (r.stdout + r.stderr)[-400:]))
+        # This clone's generator, not the set's vendored copy: bootstrap
+        # vendors from committed blobs, so in an uncommitted tree the set's
+        # copy can be an older generator than the one that wrote the file.
+        chk = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_codeowners.py'),
+                              '--repo', str(team), '--check'],
+                             capture_output=True, text=True)
+        cases.append(('and build_codeowners --check calls it current',
+                      chk.returncode == 0, chk.stdout + chk.stderr))
+        cases.append(('verify() raises no CODEOWNERS row on the fresh set',
+                      not [m for m in pbs.verify('shared', team) if 'CODEOWNERS' in m], ''))
+        co.unlink(missing_ok=True)
+        cases.append(('verify() reports a missing CODEOWNERS in a set that carries the generator',
+                      any('CODEOWNERS is missing or not current' in m
+                          for m in pbs.verify('shared', team)), ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [c for c in cases if not c[1]]
+    check(f'a bootstrapped shared set carries a current CODEOWNERS and verify() checks it '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_codeowners_stamp_hashes_only_the_registry():
+    """CODEOWNERS' stamp is a hash of the registry it is rendered from, so a
+    key in precedent.json that has nothing to do with it does not make the
+    file read stale -- and a file stamped the old way still checks OK.
+
+    WHY. Found 2026-09-28: the stamp hashed the whole precedent.json, and
+    every Update Vendors writes `landing_branch` into it, so the template's
+    own .github/CODEOWNERS read "hand-edited or stale" with no change to its
+    maintainers or owned paths."""
+    import importlib, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_codeowners as bco
+    importlib.reload(bco)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-codeowners-stamp-'))
+    cases = []
+
+    def check_rc(root):
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()):
+            return bco.main(check_only=True, root=root)
+
+    def write(root):
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()):
+            return bco.main(check_only=False, root=root)
+
+    try:
+        proj = tmp / 'project'
+        proj.mkdir()
+        cfg = {'maintainers': [{'name': 'M', 'github': 'maint'}],
+               'owned_paths': [{'path': '/tools/', 'why': 'machinery'}]}
+        (proj / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        write(proj)
+        cases.append(('a freshly written project CODEOWNERS checks OK', check_rc(proj) == 0))
+        (proj / 'precedent.json').write_text(json.dumps(dict(cfg, landing_branch='pre-staging'),
+                                                        indent=4), encoding='utf-8')
+        cases.append(('an unrelated key (and reformatting) in precedent.json leaves it current',
+                      check_rc(proj) == 0))
+        (proj / 'precedent.json').write_text(json.dumps(dict(
+            cfg, maintainers=[{'name': 'N', 'github': 'other'}])), encoding='utf-8')
+        cases.append(('a change to the maintainers is still detected', check_rc(proj) == 1))
+
+        cset = tmp / 'set'
+        cset.mkdir()
+        (cset / 'approvers.json').write_text(json.dumps(
+            {'_comment': ['one'], 'approvers': [{'name': 'A', 'github': 'a'}]}), encoding='utf-8')
+        write(cset)
+        (cset / 'approvers.json').write_text(json.dumps(
+            {'_comment': ['one', 'two'], 'approvers': [{'name': 'A', 'github': 'a'}]}),
+            encoding='utf-8')
+        cases.append(('a set\'s comment changing leaves its CODEOWNERS current', check_rc(cset) == 0))
+        # The pre-2026-09-28 stamp: whole-file hash, old wording.
+        try:
+            (cset / 'CODEOWNERS').write_text(bco.render(
+                [{'name': 'A', 'github': 'a'}], bco._file_hash(cset / 'approvers.json'),
+                legacy=True), encoding='utf-8')
+            legacy_ok = check_rc(cset) == 0
+        except (AttributeError, TypeError):
+            legacy_ok = False
+        cases.append(('a CODEOWNERS stamped the old way still checks OK for one release',
+                      legacy_ok))
+        cases.append(('the template project\'s committed CODEOWNERS checks OK',
+                      check_rc(ROOT / 'templates' / 'document-project') == 0))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'CODEOWNERS is stamped with a hash of its registry, not the whole file '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_as_ci_says_why_a_shard_failed():
+    """`--as-ci` prints, for a failed shard, its FAIL: lines and the tail of
+    its stderr -- not just `SHARD FAILED (exit 1)`.
+
+    WHY. Found 2026-09-28: a failed shard said only its exit status, so
+    learning which case failed, or what traceback killed the shard, meant
+    rerunning four minutes of suite by hand."""
+    cases = []
+    proc = subprocess.CompletedProcess(
+        args=[], returncode=1,
+        stdout='PASS: a\nFAIL: the broken case -- why it broke\nPASS: b\n',
+        stderr='\n'.join(f'noise {i}' for i in range(30)) + '\nTraceback: boom\n')
+    out = '\n'.join(_shard_failure_detail(proc))
+    cases.append(('the failing case is named', 'FAIL: the broken case -- why it broke' in out))
+    cases.append(('the end of stderr is shown', 'Traceback: boom' in out and 'noise 29' in out))
+    lines = out.splitlines()
+    cases.append(('only the last 20 lines of stderr',
+                  '    noise 10' not in lines and '    noise 11' in lines))
+    empty = subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr='')
+    cases.append(('a shard that said nothing is said to have said nothing',
+                  'no FAIL: line' in '\n'.join(_shard_failure_detail(empty))))
+    failed = [n for n, ok in cases if not ok]
+    check(f'--as-ci names why a shard failed ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     """`commit-author` and `buenos-aires-dates` have to be able to PASS in
     a repo many people commit to.
@@ -41731,6 +42197,12 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_move_tool_lands_then_deduplicates()
+    check_move_tool_covers_every_direction_and_team_removals()
+    check_move_withdrawal_from_universal_leaves_universal_green()
+    check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix()
+    check_bootstrapped_shared_set_carries_current_codeowners()
+    check_codeowners_stamp_hashes_only_the_registry()
+    check_as_ci_says_why_a_shard_failed()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
