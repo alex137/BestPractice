@@ -175,6 +175,22 @@ every practice by slug with one sentence each, across this repo, the
 individual source and the shared sources, generated the same way every time
 a very deep check runs, so he can review a source's practices against it.
 
+**Read `main`, write through the landing branch.** The check judges the
+version people are actually running, which is `main`: in every repo in
+force, the run reads a working branch cut from `origin/main` (cut one if
+the harness checked out something else). It changes nothing there
+directly. Every fix is committed on that working branch and lands the
+ordinary way, `Go update` onto the person's landing branch and a Promote
+from there, never pushed to `main`. **Reading `main` alone would re-find
+what is already fixed and waiting to be promoted**, so the tool's
+`LIVE VERSUS LANDING` section names, per repo, the files the landing
+branch carries that are not live yet; before fixing a finding in one of
+them, check whether the landing branch already did. Morgan, 2026-09-28
+(strength: decided): *"it's better to do a deep check on the live version
+(main), but we don't want to edit it, to edit it we should use the normal
+process."* Until then a run read whatever the harness checked out --
+`main` in one repo and `pre-staging` in four others, the same afternoon.
+
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) fetches and compares

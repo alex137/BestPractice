@@ -6188,6 +6188,69 @@ def instruction_file_repo_refs_audit(repo_root, sources=(), missing=(),
     return findings, notes
 
 
+def _live_vs_landing(repo_dir, live='main'):
+    """-> [(verdict, message)]: what this run reads in `repo_dir`, against
+    the live version, and what the landing branch carries that is not live
+    yet.
+
+    READ MAIN, WRITE THROUGH THE LANDING BRANCH (Morgan, 2026-09-28,
+    strength: decided): a very deep check judges the version people are
+    actually running, which is `main`, and changes it only by the ordinary
+    route -- a working branch landed on the person's landing branch by
+    `Go update`, then a Promote. Until then a run read whatever the harness
+    had checked out: `main` in one repo and `pre-staging` in four others,
+    the same afternoon, with nothing saying so.
+
+    The landing branch half exists because reading `main` alone would
+    re-find what is already fixed and waiting to be promoted, and a second
+    fix for it is a merge conflict, not a contribution."""
+    out = []
+    if _run_git(repo_dir, 'rev-parse', '--git-dir')[0] != 0:
+        return out
+    ref = f'origin/{live}'
+    if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)[0] != 0:
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin', live)
+    rc, live_tree, _ = _run_git(repo_dir, 'rev-parse', f'{ref}^{{tree}}')
+    if rc != 0:
+        return [('UNVERIFIED', f'no {ref} in this clone, so what is live '
+                               f'cannot be compared')]
+    _, head_tree, _ = _run_git(repo_dir, 'rev-parse', 'HEAD^{tree}')
+    _, branch, _ = _run_git(repo_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
+    _, live_sha, _ = _run_git(repo_dir, 'rev-parse', '--short', ref)
+    if head_tree.strip() == live_tree.strip():
+        out.append(('OK', f'reads the live version: {branch.strip()} has '
+                          f'exactly {ref}\'s tree ({live_sha.strip()})'))
+    else:
+        _, diff, _ = _run_git(repo_dir, 'diff', '--name-only', ref, 'HEAD')
+        files = [f for f in diff.splitlines() if f.strip()]
+        out.append(('NOTE', f'reads {branch.strip()}, which differs from '
+                            f'the live {ref} in {len(files)} file(s) -- a '
+                            f'finding there may describe work that is not '
+                            f'live, or already be fixed here'))
+    try:
+        import precedent_branches as _pb
+        landing = _pb.landing_branch(pathlib.Path(repo_dir))[0]
+    except Exception:                                            # noqa: BLE001
+        landing = None
+    if landing and landing != live:
+        lref = f'origin/{landing}'
+        if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', lref)[0] == 0:
+            _, ahead, _ = _run_git(repo_dir, 'diff', '--name-only', ref, lref)
+            files = [f for f in ahead.splitlines() if f.strip()]
+            if files:
+                shown = ', '.join(files[:8]) + (f' (+{len(files) - 8} more)'
+                                                if len(files) > 8 else '')
+                out.append(('NOTE', f'{lref} (the landing branch) is not yet '
+                                    f'live in {len(files)} file(s): {shown}. '
+                                    f'Before fixing a finding in one of '
+                                    f'these, check whether {landing} already '
+                                    f'did'))
+            else:
+                out.append(('OK', f'{lref} (the landing branch) carries '
+                                  f'nothing that is not live'))
+    return out
+
+
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
                          out=None):
     """-> (findings, notes). One API call per repo in force."""
@@ -7652,6 +7715,30 @@ def _main(box):
     elif led and skip_liveness:
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
+
+    # LIVE VERSUS LANDING: what this run reads, against what is live, and
+    # what the landing branch already carries -- see _live_vs_landing.
+    if not as_json:
+        if led:
+            led.start('LIVE VERSUS LANDING -- read main, write through the landing branch')
+        print("LIVE VERSUS LANDING -- read main, write through the landing branch\n")
+        _seen_lv, _lv_notes = set(), 0
+        for _lbl, _pth in [('this checkout', repo_root)] + [
+                (f"{s['level']} source {s['name']}", s['path'])
+                for s in data['sources']]:
+            try:
+                _key = pathlib.Path(_pth).resolve()
+            except OSError:
+                continue
+            if _key in _seen_lv or not (_key / '.git').exists():
+                continue
+            _seen_lv.add(_key)
+            for _v, _m in _live_vs_landing(_key):
+                _lv_notes += _v != 'OK'
+                print(f'  {_v:<10} {_lbl}: {_m}')
+        print()
+        if led:
+            led.end(findings=_lv_notes)
 
     # CONTRIBUTOR BOUNDARY (practice: very-deep-check, pass 2). Right after
     # ACCESS, because it answers the next question about the same repos: not

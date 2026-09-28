@@ -32030,6 +32030,66 @@ def check_branch_report_keeps_private_names_out_of_a_public_tree():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_reads_live_and_names_landing_work():
+    """The very deep check says what it reads against the live `main`, and
+    names what the landing branch carries that is not live yet (practice:
+    very-deep-check -- read main, write through the landing branch; Morgan,
+    2026-09-28). Planted: a clone on a branch equal to main (reads the live
+    version), then the same clone on a branch that differs (a NOTE), and a
+    pre-staging carrying one file main lacks (named, so a finding in it is
+    checked there before it is fixed twice)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-live-landing-'))
+    cases = []
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), '-c', 'user.name=F',
+                               '-c', 'user.email=f@invalid', *a],
+                              capture_output=True, text=True, check=True).stdout
+    try:
+        origin, work, clone = tmp / 'origin.git', tmp / 'work', tmp / 'clone'
+        subprocess.run(['git', 'init', '-q', '--bare', str(origin)], check=True)
+        work.mkdir()
+        git(work, 'init', '-q', '-b', 'main')
+        (work / 'precedent.json').write_text(
+            json.dumps({'format_version': 1, 'landing_branch': 'pre-staging'}),
+            encoding='utf-8')
+        (work / 'a.md').write_text('live\n', encoding='utf-8')
+        git(work, 'add', '-A'); git(work, 'commit', '-q', '-m', 'live')
+        git(work, 'remote', 'add', 'origin', str(origin))
+        git(work, 'push', '-q', 'origin', 'main')
+        git(work, 'checkout', '-q', '-b', 'pre-staging')
+        (work / 'zz-not-live.md').write_text('waiting\n', encoding='utf-8')
+        git(work, 'add', '-A'); git(work, 'commit', '-q', '-m', 'unpromoted')
+        git(work, 'push', '-q', 'origin', 'pre-staging')
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)], check=True)
+        git(clone, 'fetch', '-q', 'origin', 'pre-staging:refs/remotes/origin/pre-staging')
+        git(clone, 'checkout', '-q', '-b', 'work', 'origin/main')
+        rows = vdc._live_vs_landing(clone)
+        text = ' | '.join(f'{v} {m}' for v, m in rows)
+        cases.append(('a branch equal to main reads the live version',
+                      any(v == 'OK' and 'live version' in m for v, m in rows),
+                      text))
+        cases.append(('the landing branch\'s not-yet-live file is named',
+                      any('zz-not-live.md' in m for v, m in rows), text))
+        (clone / 'a.md').write_text('edited\n', encoding='utf-8')
+        git(clone, 'commit', '-qam', 'edit')
+        rows = vdc._live_vs_landing(clone)
+        text = ' | '.join(f'{v} {m}' for v, m in rows)
+        cases.append(('THE DISCRIMINATING CASE: a branch that differs from '
+                      'main is not reported as reading the live version',
+                      not any('live version' in m for v, m in rows)
+                      and any('differs from the live' in m for v, m in rows),
+                      text))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check says whether it reads the live main, and what '
+          f'the landing branch has not yet made live ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_very_deep_check_refuses_unknown_flags_before_the_ledger():
     """very_deep_check.py refuses an argument it does not read, with its
     usage and exit 2, before the ledger is touched; and --record-pass lands
@@ -42987,6 +43047,7 @@ def main():
     check_loader_block_covers_every_declared_source()
     check_practice_catalogue_holds_back_private_sources_on_public_repo()
     check_branch_report_keeps_private_names_out_of_a_public_tree()
+    check_very_deep_check_reads_live_and_names_landing_work()
     check_very_deep_check_refuses_unknown_flags_before_the_ledger()
     check_identity_reality_reads_grandfathering_the_bot_and_a_shallow_clone()
     check_config_keys_counts_a_key_a_practice_reads()
