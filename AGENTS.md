@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 159 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 158 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -496,8 +496,6 @@ When writing a script whose numbers a document will cite:
   scripts-assert-properties — scripts assert their own properties and their cited anchors
 When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
-When writing content that will vendor or ship into another repo:
-  private-repo-scrub — name a private repo only in general terms in anything that ships elsewhere
 When writing or changing anything that automatically repairs a state it found wrong:
   repair-cannot-discard-work — an auto-repair must never discard work; reporting is not repairing
 When writing or running a gate, audit or solve over a minute:

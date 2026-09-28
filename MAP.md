@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 154 practice files (10 resident, 144 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 153 practice files (10 resident, 143 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -104,7 +104,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs |
-| [private-repo-scrub](practices/private-repo-scrub.md) | on-demand | writing content that will vendor or ship into another repo |
 | [promote](practices/promote.md) | on-demand | a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main |
 | [prompt-please](practices/prompt-please.md) | on-demand | handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |

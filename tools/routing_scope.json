@@ -880,13 +880,6 @@
       "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same reasoning as go-update and push-directly's own entries. Reached through the occasion index; it declares no gate because it defines a word rather than governing a workflow moment.",
       "decided": "2026-09-22, when the practice landed"
     },
-    "private-repo-scrub": {
-      "globs": [
-        "**"
-      ],
-      "why": "Anything that ships elsewhere can carry a private name, and what ships differs per repository, so no glob identifies the distinguishing condition. Reached through the merge and push gates and the occasion index.",
-      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
-    },
     "prompt-please": {
       "globs": [
         "**"
