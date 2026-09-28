@@ -239,6 +239,8 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 
 ## Current run
 
+**The full account of this run, pass by pass: [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md).**
+
 **2026-09-28, on the phrase, committed to the full four passes before
 anything ran**, across all five repos in force (this checkout, the individual
 set, the three shared sets) plus one real consumer the person attached for
