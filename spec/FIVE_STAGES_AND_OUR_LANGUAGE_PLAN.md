@@ -7,14 +7,14 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Two linked changes. First, a short page of the words this project uses (practice, universal set, individual set, shared set, full set, repo-local, primary branch, feature branch, and the stage names), printed as a second list under Vocabulary, plus a cleanup that retires 'team set' for 'shared set' everywhere live. Second, the work ladder: five stages, Consider, Act, Booked, Debut, Production, each reachable as 'Promote N', by its word or by its synonym, each read back aloud before it runs. Optional for everyone; required for Morgan through his individual set. Go update becomes step 3, Booked, and Consider sizes the plan from a one-line plan up to a full write-up."
+summary:       "Two linked changes. First, a short page of the words this project uses (practice, universal set, individual set, shared set, full set, repo-local, primary branch, feature branch, and the stage names), printed as a second list under Vocabulary, plus a cleanup that retires 'team set' for 'shared set' everywhere live. Second, the work ladder: five stages, Consider, Act, Booked, Debut, Produce, each reachable as 'Promote N', by its word or by its synonym, each read back aloud before it runs. Optional for everyone; required for Morgan through his individual set. Go update becomes step 3, Booked, and Consider sizes the plan from a one-line plan up to a full write-up."
 ---
 
 # Five stages and our language -- one ladder for work, one page of words
 
 Morgan approved the direction on 2026-09-27 and asked for this write-up in
-the same message ("Go update"). Nothing here is built yet. A few choices are
-still open and listed at the end; the build order is in
+the same message ("Go update"), then settled the remaining choices on
+2026-09-28. Nothing here is built yet; the build order is in
 [What gets built, in order](#what-gets-built-in-order).
 
 This plan came out of one brainstorm session. It is written for a reader who
@@ -88,8 +88,8 @@ Each gets one plain line.
 | **level** | Whether a source is universal, shared, individual, or repo-local. |
 | **primary branch** | The one shared branch regular work lands on. |
 | **feature branch** | The short-lived branch one session works on, on GitHub -- the kind named like `claude/<topic>-<random>`. GitHub's own word for it; some teams say "topic branch". It survives a lost container but is easy to forget, and it is deleted once merged. |
-| **pre-staging, staging, main** | The three branch tiers ([spec/BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). In the stage names below, `main` is called **production**. |
-| **the five stages** | Consider, Act, Booked, Debut, Production -- see Part 2. |
+| **pre-staging, staging, main** | The three branch tiers ([spec/BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). In the stages below, `main` is **production**, and step 5, Produce, is what puts work there. |
+| **the five stages** | Consider, Act, Booked, Debut, Produce -- see Part 2. |
 
 **"Full set" means everything**, the universal set included -- Morgan's
 call on 2026-09-28. It is the natural reading of "full", which was the
@@ -135,7 +135,7 @@ the two never disagree.
 | 2 | **Act** | Build | Make the change. | The session's feature branch on GitHub |
 | 3 | **Booked** | Shared Save | Move it from the feature branch to pre-staging. After this it **won't be lost**. | pre-staging |
 | 4 | **Debut** | Test Readiness | Move pre-staging into staging, with the full checks. | staging |
-| 5 | **Production** | Make live | Move staging into main, with the full checks plus the GitHub test. | main |
+| 5 | **Produce** | Make live | Move staging into main -- production -- with the full checks plus the GitHub test. | main (production) |
 
 **Each stage answers to three names: its word, its synonym, and "Promote
 N".** "Booked", "Shared Save" and "Promote 3" all mean the same thing. These
@@ -145,9 +145,10 @@ word to just use everywhere ... promote is good enough"* -- step 1 is
 promoting an idea into something worth preparing, even though nothing moves
 between branches until step 3.
 
-**The words follow a theater production**: considered, acted, booked,
-debuts, and then a production -- which also has the "go live" feel the last
-step needs, without "launch", which is common in tech and usually means
+**The words follow a theater production**: consider it, act it, book it,
+debut it, produce it. The last step is a verb like the others ("Produce"),
+while its result keeps the noun people already use for it: the work is in
+**production**. That carries the "go live" feel the last step needs, without "launch", which is common in tech and usually means
 something much bigger.
 
 **"Graduate" is another word for Promote**, and **"Spec it out" another word
@@ -218,7 +219,13 @@ earlier up to staging. This is the one stage that may stop to ask.
 
 **Consider always happens, and it is usually small.** It decides how much
 planning the work deserves, from four sizes, lightest first, and names its
-choice in the read-back ("Now Promote 1: Consider -- a one-line plan"):
+choice in the read-back ("Now Promote 1: Consider -- a one-line plan").
+
+**The session chooses the size itself, without asking** -- from the context
+and how complex the work is, and from whatever guidance Morgan gives in
+passing: *"Consider this, it's a brainstorm"* settles it. Asking every time
+would add a round trip, and the read-back already shows the choice, so a
+wrong pick is corrected in one word.
 
 | Size | What it produces | When |
 |---|---|---|
@@ -278,7 +285,7 @@ won't be lost. For Morgan that is pre-staging. What that changes:
 
 - **It stops at pre-staging.** Go update never reached further anyway,
   because Morgan's landing branch is pre-staging; the ladder makes that
-  explicit, and staging and main are Debut and Production, separate steps.
+  explicit, and staging and main are Debut and Produce, separate steps.
 - **It is read back as a stage**: *"Now Promote 3: Booked, the Shared Save
   -- ..."*, not only "landing on pre-staging".
 - **It may stop to ask, once.** Go update today never asks. Booked judges
@@ -410,14 +417,18 @@ of the definitions drifts. Answer: one registry, rendered into both places.
 this way, and other repositories have no pre-staging. Answer: optional in
 the universal set, required only through Morgan's individual set.
 
-**Everyday words as triggers.** "Act", "Booked" and "Production" all occur
+**Everyday words as triggers.** "Act", "Booked" and "Produce" all occur
 in ordinary sentences. Answer: intent-reading, never keyword matching, plus
 the read-back before anything moves. Step 5 gets the strictest reading.
+Morgan, on "Act" in particular: since every request is read in context, a
+common word is not a problem -- the session does not follow a word blindly.
 
 **Step 5's word.** "Launch" was rejected as common in tech and too big.
 "Picked up" was the first choice, but "picked up" is ordinary coding talk
-("CI picked up the change"). **Production** won: it continues the theater
-metaphor, has the "go live" feel, and names exactly where the work ends up.
+("CI picked up the change"). **Production** came next: it continues the
+theater metaphor, has the "go live" feel, and names exactly where the work
+ends up. It became **Produce**, a verb like the other steps, with
+"production" kept as the noun for where the work lands.
 
 **Where Act lives.** First draft: the local clone. Hole: a cloud container is
 reclaimed, and local-only work is lost. Answer: Act lives on the session's
@@ -463,7 +474,7 @@ Each numbered item is its own landing, through the ladder itself.
 4. **The "team" cleanup** across live text here and in the four sets, and
    the check that keeps it out. *The check is enforcement code: high-risk.*
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
-   Booked, Debut and Production, each with its synonym; Promote's practice
+   Booked, Debut and Produce, each with its synonym; Promote's practice
    gains "Promote N", the read-back, the bare-Promote rule and "Graduate";
    Write it up gains "Spec it out"; the high-risk test moves into its own
    practice; Go update is deduplicated into Booked and its callers
@@ -483,12 +494,8 @@ template). They reach consumers through Update Vendors, not on their own
 
 ## Open questions
 
-1. **Does Consider choose the plan size itself, or suggest and wait?**
-   Recommendation: choose it and say so in the read-back; one word from
-   Morgan overrules. Asking every time adds a round trip, and the read-back
-   already makes the choice visible.
-2. **"Act" as step 2's word.** Not questioned so far; noted because it is
-   the commonest word on the ladder.
+None right now. Everything raised during the brainstorm is settled in the
+decision record below.
 
 ## Decision record
 
@@ -512,7 +519,10 @@ Strength per [practices/decision-strength.md](../practices/decision-strength.md)
 | Consider chooses among plan sizes, "Plan it" in the middle | decided | *"you decide if it is a "brainstorm" ... or a "write it up" ... or maybe another option in the middle ... "plan it""* |
 | One-line plan for tiny changes | decided | *"Very, very, very important."* |
 | Optional for everyone, required only for Morgan | decided | *"people can use staging, but they don't have to"* |
-| Step 5's word is Production | decided | *"For step #5 "PIcked up" maybe we say "Production"? That's used in the theater word as well"* |
+| Step 5's theme is production | decided | *"For step #5 "PIcked up" maybe we say "Production"? That's used in the theater word as well"* |
+| Step 5's word is the verb "Produce"; "production" stays the noun for where work lands | decided | *"the stage 5 word should be "Produce" to make it a verb like the previous ones"* |
+| "Act" and other common words are fine, because requests are read in context | decided | *"since you review it in context, don't just blindly follow the use of the word, it's not a problem"* |
+| Consider picks the plan size itself, from context, complexity and Morgan's guidance | decided | *"You should choose, based on the context, the complexity, and also, I will sometimes give you verbal guidance"* |
 | The second name is a "Synonym" and triggers the stage too | decided | *"I think the "long title" should be called "Synonym""* |
 | The session's short-lived branch is called a "feature branch" | decided | *"can we add in the word ... feature branch, to mean the short-lived ... branch just in that session"* |
 | Act lives on the feature branch; Booked makes it safe | decided | *"booked is all about moving it from there to pre-staging so ... it won't get lost"* |
