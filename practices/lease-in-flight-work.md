@@ -67,6 +67,13 @@ A tool that only *waits* on a lease may stop waiting on an old one without
 releasing it. An unreachable board warns loudly and lets harmless work go
 ahead; the warning names the command that takes the lease by hand.
 
+**The judgment half is [dont-race-another-window](dont-race-another-window.md).**
+A board catches the collisions somebody wired a call site for; a request
+for work another of the person's windows already has in flight arrives in
+conversation, usually before any tool runs. There the session declines and
+sends the person back to the window that has it, and an overlapping lease
+is one of the signals that tells it so.
+
 **A single-slot lock is the special case.** A lock that lets one session at a
 time run an operation is a lease board with one item; the same push-as-lock
 mechanics apply.

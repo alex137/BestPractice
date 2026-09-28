@@ -27,3 +27,8 @@ __pycache__/
 # be retyped on every commit. It is one contributor's environment, not the
 # repository's: .claude/settings.json is the tracked, shared one.
 .claude/settings.local.json
+
+# Working copies Claude Code makes for background agents it runs in their
+# own worktree. Scratch space, never work to commit; without this the stop
+# hook refuses to end the turn over "untracked files" (2026-09-28).
+.claude/worktrees/

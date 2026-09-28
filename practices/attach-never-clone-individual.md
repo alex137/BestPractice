@@ -1,12 +1,12 @@
 ---
 slug:        attach-never-clone-individual
-title:       Attach the individual set, never clone it by hand
+title:       Attach the individual set, never make a second clone of it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "attaching a practice source with the repo-attach tool, or its reply says to clone"
 gates:       []
-index_clause: "attach the individual set, never hand-clone it; shared sets clone beside"
+index_clause: "attach the individual set; keep one clone, both paths; shared sets clone beside"
 checked_by:  null
 defines:     []
 status:      active
@@ -20,16 +20,24 @@ approved_by: "Morgan, 2026-09-25, in a handoff relayed from a consumer repo's
   own pick among the two routes the handoff named)"
 ---
 ## Rule
-**Attach the individual set; never clone it by hand.** When the repo-attach
-tool (`add_repo` in Claude Code on the web) grants this session read access
-to `precedent-individual`, its reply says to clone the repo to
-`/home/user/<name>`. **Ignore that part.** The session-start hook, or the
-resolver's self-heal on the next resolve, clones the individual set to the
-path `~/.config/precedent/config.json`'s `individual.path` names — normally
-`~/precedent-individual` — and that is the only copy anything reads. **To
-edit the individual set, work in that directory.** If the config is missing,
-run `python3 tools/precedent_session_check.py --apply`, which re-runs the
-bootstrap into the right place; a hand clone is not a substitute.
+**Attach the individual set; never make a second clone of it.** Call the
+repo-attach tool (`add_repo` in Claude Code on the web) for
+`precedent-individual` as the session-start step says: it is what grants
+this session access, push included. Its reply says to clone the repo to
+`/home/user/<name>`, the directory the project lives in, while the source
+bootstrap clones it to `~/precedent-individual`. **The bootstrap keeps one
+working tree and makes both paths lead to it.** If it cloned first, it has
+left a link at the attach path, so the reply's clone command stops with
+"destination path already exists": that is the set, already there, and that
+path is fine to register, open and edit in. If the session cloned first, the
+next bootstrap run (the resolver's self-heal, or `python3
+tools/precedent_session_check.py --apply`) reuses that clone, points
+`~/.config/precedent/config.json`'s `individual.path` at it, and links
+`~/precedent-individual` to it. **Either path is the same tree; a clone
+anywhere else is a second copy nothing loads.** If two separate trees are
+already on disk, the bootstrap and the session check report both and touch
+neither: carry any work out of one into the other, remove the emptied one,
+and re-run the bootstrap, which links its path instead of cloning again.
 
 **A shared set is the other way round:** its clone lives at the path the
 repo's `precedent.json` resolves (`../<name>`, beside the repo). If that path
@@ -79,12 +87,37 @@ them, so the diff is mostly noise, and it would be a new mechanism to build
 and maintain where the practice route already exists and already reaches
 every repo.
 
-## Install
-Nothing to install. The templates' own attach bullet points here, and the
-line reaches an installed repo with its next refresh.
+**2026-09-28: telling sessions to ignore the reply did not hold.** Two
+consumer sessions reported the same "cloned exactly once" row failing every
+turn, one with both copies at one commit and one with the two diverged. The
+rule then said to ignore the half of the attach reply that says where to
+clone; the reply is the more recent and more specific instruction a session
+has in front of it, and it won. Telling sessions to skip the attach
+altogether was ruled out, because the attach is what grants push access. So
+the fix moved into the engine, the same answer
+[`_clone_elsewhere_on_disk`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
+already gave the shared sets: one working tree, with every other path a
+symlink to it. Whichever route clones first keeps its tree, and the other
+path becomes a link. Two trees that already exist are reported and never
+merged or removed by the bootstrap (practice `repair-cannot-discard-work`),
+since in the diverged report the hand clone could have held commits nobody
+had pushed.
 
-**Not mechanically checked before the fact.** The mistake is a session
-running `git clone` into the wrong directory, which leaves nothing in any
-tree for a check to read until the clone exists. After the fact it is
-caught: [precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)'s "cloned exactly once" row fails on
-two working trees for one source and names which one the config reads.
+## Install
+Nothing to install beyond the engine. The templates' own attach bullet
+points here, and the line reaches an installed repo with its next refresh;
+the linking lives in the vendored
+[`tools/precedent_source_bootstrap.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py),
+so it reaches a consumer with its next engine refresh and needs no change to
+the consumer's own bootstrap hook. It finds the attach path as the parent
+of `$PRECEDENT_PROJECT_DIR`, else of `$CLAUDE_PROJECT_DIR`; a harness that
+sets neither gets the old single-path behaviour. It only looks there for a
+hosted repository URL, and only reuses a clone whose origin names the same
+repository.
+
+**Checked by the harness, and caught after the fact.**
+[`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
+pins both orders (attach first, bootstrap first) and the diverged pair.
+[precedent_session_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_check.py)'s "cloned exactly once" row still fails on
+two working trees for one source and names both; a symlink counts as one
+tree.

@@ -124,9 +124,16 @@ def _self_heal_individual_source(repo_root):
     hook = repo_root / INDIVIDUAL_BOOTSTRAP_HOOK
     if not hook.is_file():
         return 'no-hook'
+    # The project dir is passed on because this runs from a shell tool call,
+    # which carries no project-dir variable, and the bootstrap needs one to
+    # find a clone the attach tool already put beside the project -- without
+    # it, this self-heal is what cloned the individual set a second time
+    # (precedent_source_bootstrap.attach_workspace, 2026-09-28).
+    env = dict(os.environ)
+    env.setdefault('PRECEDENT_PROJECT_DIR', str(repo_root))
     try:
         subprocess.run(['bash', str(hook)], cwd=str(repo_root),
-                       capture_output=True, timeout=60)
+                       capture_output=True, timeout=60, env=env)
     except (OSError, subprocess.TimeoutExpired):
         pass
     return 'attempted'

@@ -73,13 +73,15 @@ deliverables and indexes which documents back each part of each one.
   A repo declaring several subject-scoped sets is the ordinary case now, not
   an exception.
 
-  **Attach the individual set, but never clone it by hand** (practice
+  **Attach the individual set, and keep one clone of it** (practice
   `attach-never-clone-individual`). The attach tool's reply says to clone
-  it to `/home/user/<name>`; ignore that part. The session-start hook
-  clones it to the path `~/.config/precedent/config.json` names (normally
-  `~/precedent-individual`), and that is the only copy anything reads, so
-  edit the individual set there. A hand clone is a second copy nothing
-  loads, and it drifts from the first within the hour. A shared set is the
+  it to `/home/user/<name>`. If the session-start hook got there first,
+  that path is already a link to its clone and the clone command stops
+  with "already exists": use the path as it is. If not, clone it there;
+  the next bootstrap run points `~/.config/precedent/config.json` at that
+  clone and links `~/precedent-individual` to it. Either path is the same
+  tree. Never clone it anywhere else: a second copy is one nothing loads,
+  and it drifts from the first within the hour. A shared set is the
   other way round: its clone lives at the path
   [`precedent.json`](precedent.json) resolves, beside this repo, so clone it
   there if nothing has.
