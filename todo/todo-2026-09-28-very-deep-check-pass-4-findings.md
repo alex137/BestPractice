@@ -43,7 +43,7 @@ found and did **not** act on in the same run.
   `tools/ENGINE_MANIFEST.json` against BestPractice's own tree; both rows are
   false positives. A branch whose commits cancel out still reads as carrying
   unlanded work (filed 2026-09-21).
-- `record/automated-actions.md`, which pass 4 asks for, exists in no repo; a
+- `record/automated_actions.md`, which pass 4 asks for, exists in no repo; a
   draft was written in this run's scratch space.
 - The gotcha `github-actions-rejects-yaml-anchors-python-accepts` may be
   obsolete; one dispatch test would settle it.

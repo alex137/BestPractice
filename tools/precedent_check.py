@@ -7962,9 +7962,12 @@ def _migration_scrubs_vocabulary(ctx):
         # never this repo's own content, and process/upstream/ is a
         # byte-identical mirror of a DIFFERENT repo, never hand-edited
         # regardless of what it happens to still say.
+        # And a harness's agent worktrees: other checkouts of this repo, on
+        # other branches, gitignored (AGENT_WORKTREES).
         dirnames[:] = [d for d in dirnames
                        if (f'{rel_dir}/{d}' if rel_dir else d)
-                       not in ('.git', 'process/upstream')]
+                       not in ('.git', 'process/upstream',
+                               AGENT_WORKTREES.rstrip('/'))]
         for name in filenames:
             rel = f'{rel_dir}/{name}' if rel_dir else name
             if rel in RETIRED_VOCAB_SKIP_FILES:

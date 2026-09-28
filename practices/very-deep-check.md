@@ -1692,7 +1692,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   to one somebody forgot to finish decommissioning, and only a person who
   remembers the reason can tell the two apart. Write the full inventory —
   live and retired alike, with its verdict and the reason — to a committed
-  `record/automated-actions.md`, for the same reason the branch sweep
+  `record/automated_actions.md`, for the same reason the branch sweep
   stopped living in the chat transcript: a list nobody can reopen gets
   rediscovered from scratch next run rather than read.
 - **Deprecated files nothing has decommissioned.**
@@ -1711,7 +1711,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   clean, or the file's status is genuinely unclear, name it and ask the
   session's user** rather than deleting on a hunch or leaving it for the
   next run to rediscover unchanged. Record every path this pass looked at,
-  and its verdict, in the same `record/automated-actions.md` the bullet
+  and its verdict, in the same `record/automated_actions.md` the bullet
   above writes, so a path already cleared as deliberate is not re-examined
   from nothing next time.
 - **Branches, both directions, one verdict each.** **Every branch on the
