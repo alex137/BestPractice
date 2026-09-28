@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 153 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 154 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -406,6 +406,8 @@ When a tool, hook, check or gate flags something the person would otherwise have
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; fewer windows at once
+When about to search or scan every clone, every repo or every file for something:
+  wide-search-needs-asking — never sweep every clone unasked; fix the known source, ask for an example
 When adding a file beside others of its kind:
   filename-separator — one word separator per directory and kind; never both - and _
 When asked to include an image, logo or other binary asset the person supplies:
