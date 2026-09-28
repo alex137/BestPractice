@@ -770,6 +770,7 @@ RETIRED_ENGINE_FILES = {
         '(the mechanism sense of "retire" became "decommission")',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
+_WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass
 
 # --- Hook files: the .claude/hooks/*.sh adapter scripts --------------------
 # Distinct from ENGINE_FILES above in two ways: they live in a different
@@ -3246,6 +3247,7 @@ def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
 
 
 GITHUB_CI_APPROVED_KEY = 'github_ci_approved'
+CI_OUTSIDE_VENDORING_EXEMPT_KEY = 'ci_workflow_outside_vendoring_exempt'
 
 
 def _unsafe_to_replace(dest_root, rel):
@@ -3432,17 +3434,38 @@ def _drop_ci_approvals(dest_root, rels):
     except (OSError, ValueError):
         return []
     approved = cfg.get(GITHUB_CI_APPROVED_KEY)
-    if not isinstance(approved, dict):
-        return []
-    dropped = [r for r in rels if r in approved]
-    if not dropped:
-        return []
+    dropped = ([r for r in rels if r in approved]
+               if isinstance(approved, dict) else [])
     for r in dropped:
         del approved[r]
-    if not approved:
+    if isinstance(approved, dict) and not approved:
         del cfg[GITHUB_CI_APPROVED_KEY]
+    # Its outside-vendoring exemption goes in the same step. That entry's
+    # reason says the file is this repo's own ("runs tools/light_check.py"),
+    # which stops being true the moment the engine owns or removes it; left
+    # behind, it is a false statement a reader takes for a live one
+    # (2026-09-28, a consumer whose light-check.yml converged to the
+    # template kept exactly that).
+    exempt = cfg.get(CI_OUTSIDE_VENDORING_EXEMPT_KEY)
+    gone = []
+    if isinstance(exempt, list):
+        keep = [e for e in exempt
+                if not (isinstance(e, dict) and e.get('path') in rels)]
+        gone = [e.get('path') for e in exempt
+                if isinstance(e, dict) and e.get('path') in rels]
+        if gone:
+            if keep:
+                cfg[CI_OUTSIDE_VENDORING_EXEMPT_KEY] = keep
+            else:
+                del cfg[CI_OUTSIDE_VENDORING_EXEMPT_KEY]
+    if not dropped and not gone:
+        return []
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
+    for r in gone:
+        print(f"precedent_vendor_engine refresh: removed {r}'s "
+              f"{CI_OUTSIDE_VENDORING_EXEMPT_KEY} entry -- the file is no "
+              f"longer this repo's own, so its reason no longer holds.")
     return dropped
 
 
@@ -5399,8 +5422,13 @@ def refresh(clone, force=False, ref=None):
                                            engine_path_sources, manifest)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
+    # The commit this repo was on BEFORE the refresh. A second pass reads a
+    # manifest the first pass already rewrote, so it is handed the first
+    # pass's answer: "(was e8a2bc67cc8d)" on a repo that had been at
+    # 37fc3b55 until a moment earlier, 2026-09-28.
+    was = os.environ.get(_WAS_COMMIT_ENV) or manifest.get('source_commit') or '?'
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
-          f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
+          f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
@@ -5465,7 +5493,9 @@ def refresh(clone, force=False, ref=None):
         r = subprocess.run(
             [sys.executable, str(HERE), 'refresh', str(clone), '--force']
             + (['--from-ref', ref] if ref else []),
-            env={**os.environ, _SECOND_PASS_ENV: '1'})
+            env={**os.environ, _SECOND_PASS_ENV: '1',
+                 _WAS_COMMIT_ENV: (os.environ.get(_WAS_COMMIT_ENV)
+                                   or manifest.get('source_commit') or '')})
         if r.returncode != 0:
             return r.returncode
 

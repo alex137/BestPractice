@@ -80,6 +80,47 @@ import precedent_branches as pb  # noqa: E402
 DONE, LEFT, FAILED = 0, 1, 2
 
 
+def rebaseline_vendored_entries(repo):
+    """-> [local_path] whose recorded local_sha256 was re-recorded.
+
+    A `synced` manifest entry whose local file sits INSIDE the vendored
+    tree is not this repo's copy of anything: the catalogue mirror rewrites
+    it wholesale, and refuses to run over a local edit. So after the mirror
+    its old hash is stale by construction, and practice_audit read that as
+    DRIFT -- "changed since baseline" -- on a file upstream changed, not
+    this repo (2026-09-28, a consumer's doc-lint entry at
+    process/upstream/tools/doc_lint.py). The pre-staging check does not run
+    the audit, so the update said done and the Promote would have gone red.
+    Only those entries are touched: a file outside the tree that drifted is
+    still an unexported local change, and still fails."""
+    import hashlib
+    mf = repo / 'process' / 'manifest.json'
+    try:
+        raw = mf.read_text(encoding='utf-8')
+        data = json.loads(raw)
+    except (OSError, ValueError):
+        return []
+    tree = str((data.get('upstream') or {}).get('vendored_at')
+               or 'process/upstream').rstrip('/') + '/'
+    done = []
+    for e in data.get('entries') or []:
+        rel = str(e.get('local_path') or '')
+        if (e.get('status') != 'synced' or e.get('granularity', 'file') != 'file'
+                or not rel.startswith(tree)):
+            continue
+        f = repo / rel
+        if not f.is_file():
+            continue
+        cur = hashlib.sha256(f.read_bytes()).hexdigest()
+        if e.get('local_sha256') and e['local_sha256'] != cur:
+            e['local_sha256'] = cur
+            done.append(rel)
+    if done:
+        mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                      encoding='utf-8')
+    return done
+
+
 def universal_catalogue_path(repo):
     """-> the repo-relative path of the universal source this repository
     vendors inside itself (a section 0 install), or None: no precedent.json,
@@ -213,6 +254,18 @@ class Report:
         for name, outcome in self.steps:
             print(f"  {name}: {outcome}")
         if failed:
+            # What the update left for the person is printed on a failure
+            # too. 2026-09-28: a consumer's refresh named its bootstrap.sh as
+            # lacking the shared-set clone block, the check then failed on
+            # exactly that, and the report printed the failure alone -- the
+            # line that explained it was on this list and was dropped.
+            if self.left:
+                print("\nLEFT FOR YOU -- found before the failure, and likely "
+                      "part of it:")
+                for what, why in self.left:
+                    print(f"  - {what}: {why}")
+                    for line in self.details.get(what, []):
+                        print(f"    {line}")
             print(f"\nFAILED: {failed}")
             print("Nothing is committed. Fix what is named above and run this "
                   "again; files the steps before it wrote are still in the "
@@ -262,6 +315,21 @@ def left_block(out):
     return items
 
 
+def engine_summary(out, last_synced):
+    """-> the one-line engine outcome for the report. The last summary line
+    is the second pass's, whose "(was ...)" an engine older than
+    2026-09-28 reads from the manifest the first pass already rewrote --
+    "(was e8a2bc67cc8d)" on a repo that had been at 37fc3b55. This command
+    read the real commit before the refresh began, so that one is shown."""
+    summary = [l for l in out.splitlines()
+               if l.startswith('precedent_vendor_engine refresh OK')
+               or 'already current with' in l]
+    line = summary[-1].split(': ', 1)[-1] if summary else 'refreshed'
+    if last_synced:
+        line = re.sub(r'\(was [0-9a-f?]+\)', f'(was {last_synced[:12]})', line)
+    return line
+
+
 def diverged_details(out):
     """-> {what: [detail line, ...]} from the engine refresh's DIVERGED
     blocks: the blocks a locally edited file or AGENTS.md section lacks, and
@@ -276,7 +344,10 @@ def diverged_details(out):
             m = re.match(r'(.+?) (?:\(line \d+\) )?has local edits', body)
             key = m.group(1) if m else None
             if key is not None:
-                details.setdefault(key, [])
+                # A refresh that replaced itself runs a second pass, which
+                # prints every block again: the later list is the one that
+                # stands.
+                details[key] = []
             continue
         if key is not None and line.startswith('    '):
             details[key].append(line.rstrip())
@@ -391,6 +462,35 @@ def citations(repo):
 
 TEMP_COMMIT_MESSAGE = ('precedent_update: the staged update, committed only so the '
                        'deep check judges it as committed -- undone right after')
+
+
+def stamp_headers(repo):
+    """-> [path] whose version header the repo's own header check stamped.
+
+    A regenerated AGENTS.md changes content, and the commit is where its
+    header gets bumped -- after the check. So the check failed the update on
+    file-header ("content changed ... but version stayed at 9") for a stamp
+    the real commit would have made (2026-09-28, a consumer's update). The
+    repo's own tools/checks/check_file_header.py --fix stamps the working
+    tree first, and only paths already staged -- the update's own -- are
+    staged again; anything the person left unstaged stays unstaged."""
+    fixer = repo / 'tools' / 'checks' / 'check_file_header.py'
+    if not fixer.is_file():
+        return []
+    staged = [l for l in subprocess.run(
+        ['git', '-C', str(repo), 'diff', '--cached', '--name-only'],
+        capture_output=True, text=True).stdout.splitlines() if l]
+    if not staged:
+        return []
+    subprocess.run([sys.executable, str(fixer), '--fix'], cwd=repo,
+                   capture_output=True, text=True)
+    changed = set(subprocess.run(['git', '-C', str(repo), 'diff', '--name-only'],
+                                 capture_output=True, text=True).stdout.split())
+    stamped = [p for p in staged if p in changed]
+    if stamped:
+        subprocess.run(['git', '-C', str(repo), 'add', '--', *stamped],
+                       capture_output=True)
+    return stamped
 
 
 def judged_as_committed(repo, argv):
@@ -531,10 +631,7 @@ def update(repo, skip_check=False, ref=None):
             why = why.replace('(listed above)', '(listed below)')
             rep.details[what] = details[what]
         rep.leave(what, why)
-    summary = [l for l in out.splitlines()
-               if l.startswith('precedent_vendor_engine refresh OK')
-               or 'already current with' in l]
-    rep.step('engine', summary[-1].split(': ', 1)[-1] if summary else 'refreshed')
+    rep.step('engine', engine_summary(out, last_synced))
     # A consumer's CI converges to upstream without asking (2026-09-27, see
     # precedent_vendor_engine.CI_CONVERGES_KINDS), so what the refresh
     # replaced or removed is reported here as done, never as a question.
@@ -595,6 +692,11 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
+        rebased = rebaseline_vendored_entries(repo)
+        if rebased:
+            rep.step('manifest baselines', 're-recorded for files inside the '
+                     'vendored tree, which the mirror just rewrote: '
+                     + ', '.join(rebased))
     else:
         # INSTALL.md section 2, step 0: a section 0 install vendors the
         # universal catalogue at its universal source's own path
@@ -706,6 +808,10 @@ def update(repo, skip_check=False, ref=None):
     if skip_check:
         rep.step(label, 'skipped (--skip-check) -- run it before pushing')
     elif check.is_file():
+        stamped = stamp_headers(repo)
+        if stamped:
+            rep.step('file headers', 'stamped before the check, as the commit '
+                     'would: ' + ', '.join(stamped))
         rc, out = judged_as_committed(repo, argv)
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out)}")
