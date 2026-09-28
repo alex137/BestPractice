@@ -1,12 +1,12 @@
 ---
 slug:        rename-updates-links
-title:       "A rename is not done until every link to the old path is updated"
+title:       "A rename is not done until every link to the old path, and every use of the old name, is updated"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "renaming, moving or deleting a file others may link to"
+occasion:    "renaming, moving or deleting a file others may link to, or renaming or retiring a name"
 gates:       []
-index_clause: "repoint every link to it in the same commit"
+index_clause: "repoint every link, and every use of a retired name, in the same commit"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -25,6 +25,14 @@ repository is never in a state where the rename has landed and the links
 have not. Search the whole tracked tree for the old path, not just the
 directory the file lived in.
 
+**A name is renamed the same way.** When a product, an organisation, a
+term or a code is renamed or retired, every place that still uses the old
+name to mean the thing is updated in the same commit, and the search is
+for the name as well as for any path spelled with it. A use that quotes or
+records the past — a dated decision, a filed or sent document, a
+changelog entry — keeps the old name on purpose and is left as it stands;
+everything else follows the new one.
+
 ## Why
 A rename is the one edit that breaks files it never touches. The moved
 file is fine, its own links are fine, and the damage lands in documents
@@ -36,6 +44,12 @@ no clue that a rename is what did it.
 Splitting it also loses the only cheap moment to fix it: at rename time
 the old path is known exactly, and one search finds every reference. A
 week later the same job means guessing what the file used to be called.
+
+A retired name does the same damage more quietly. No link breaks, so no
+check fails; the old name goes on appearing in prose, in headings and in
+generated text, and a reader who meets it cannot tell whether it is a
+different thing or the same thing under its old name. The fix is the same
+search at the same moment, run on the name.
 
 ## Story
 Not a hypothetical here. A 2026-09-06 sweep of this repository found 96
@@ -64,6 +78,11 @@ skips the generated loader block as a *region* so the hand-written half of
 the same document is still checked. A check whose findings a repo cannot act
 on trains people to ignore it, which costs more than the findings were
 worth.
+
+2026-09-28: a consuming repository retired a name and asked whether this
+rule covered the leftovers. It covered the files and paths spelled with
+the name, and not the prose that still used it, which is what a reader
+actually meets; the rule now names the name as well as the path.
 
 ## Install
 `tools/precedent_check.py`'s `rename-updates-links` check compares the
