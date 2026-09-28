@@ -848,6 +848,16 @@ def _cite_the_incident(ctx):
 VERSION_SUFFIX_RE = re.compile(
     r'(?:^|[-_.])(?:v\d+|version\d*|rev\d+|final|latest|old|new|copy|backup|bak|'
     r'draft|\d{4}[-_]\d{2}[-_]\d{2})$', re.I)
+# State words are a different case from version and date tokens. A version
+# or date token at the end of a name is a label on an evolving file whatever
+# sits beside it; a state word is also ordinary English -- whats-new.md,
+# deep_copy.py, a draft.md that IS the draft -- and refusing it anywhere
+# refused honest names (a very deep check, 2026-09-28). What the practice is
+# about is the FORK: report-final.md added beside report.md. So a state word
+# is flagged only when the name with it stripped already exists beside it,
+# which is the reverse of the coexistence exception a version token gets.
+VERSION_SUFFIX_STATE_WORDS = frozenset(
+    {'final', 'latest', 'old', 'new', 'copy', 'backup', 'bak', 'draft'})
 
 
 _FRONTMATTER_RE = re.compile(r'\A---\n(.*?)\n---\n', re.S)
@@ -1780,11 +1790,14 @@ def _practice_carries_its_files(ctx):
     return out
 
 @check('no-version-suffix', 'change',
-       'a file added by this change must not carry a version, date or state '
-       'suffix in its name',
-       'a versioned name that was already committed, and a version token that '
-       'is not at the END of the name. It gates what a change ADDS, one file '
-       'at a time.',
+       'a file added by this change must not end its name in a version or '
+       'date token (unless it sits beside the unsuffixed predecessor it must '
+       'coexist with), nor in a state word -- final, draft, copy, new, old, '
+       'latest, backup -- beside the unsuffixed original it forks',
+       'a versioned name that was already committed, a version token that '
+       'is not at the END of the name, and a state-word fork whose original '
+       'has a different name. It gates what a change ADDS, one file at a '
+       'time.',
        # A practice file added under a versioned name is published under it.
        # Audit: spec/PUBLISHER_GATE_AUDIT.md.
        binds_publishers=True)
@@ -1803,15 +1816,26 @@ def _no_version_suffix(ctx):
         m = VERSION_SUFFIX_RE.search(stem)
         if not m:
             continue
+        predecessor = path.with_name(stem[:m.start()] + ext)
+        has_predecessor = bool(stem[:m.start()]) and \
+            (ctx.root / predecessor).exists()
+        token = stem[m.start():].lstrip('-_.').lower()
+        if token in VERSION_SUFFIX_STATE_WORDS:
+            # A state word names a fork only when the original is beside it.
+            if has_predecessor:
+                out.append(Finding(f, f'the file name carries a state word '
+                                      f'({token!r}) beside {predecessor.name} '
+                                      f'-- a forked copy the repository '
+                                      f'already versions; edit the original'))
+            continue
         # The Rule's own coexistence exception: a version suffix earns its
         # place when two versions must coexist and it is the NEW file that is
         # suffixed beside its unsuffixed predecessor. If a sibling with the
         # suffix stripped already exists in the same directory, this added
         # file is that legitimate case, not a redundant-with-VCS label.
-        predecessor = path.with_name(stem[:m.start()] + ext)
-        if (ctx.root / predecessor).exists():
+        if has_predecessor:
             continue
-        out.append(Finding(f, 'the file name carries its version or state '
+        out.append(Finding(f, 'the file name carries its version or date '
                               '— name it for what it is'))
     return out
 
@@ -1851,7 +1875,13 @@ def _technical_describes_people(ctx):
     # technical-describes-people.md, inside a mirror the consumer may not
     # edit and cannot rename. Ask the engine (practice: durable-fix).
     skip = ('practices/', 'record/') + _mirrored(ROOT)
-    for f in ctx.changed:
+    # The WHOLE tree, not ctx.changed. This is a tree-scope check, and
+    # --full-sweep builds no whole-tree ctx (only --all does), so on a clean
+    # checkout ctx.changed is empty and the sweep passed without reading a
+    # single path -- found 2026-09-28 by a very deep check. Untracked files
+    # are included for the same reason timestamps-carry-offset includes
+    # them: the tree being judged is the one the next commit will hold.
+    for f in _ls_files_on_disk('--cached', '--others', '--exclude-standard'):
         if f.startswith(skip):
             continue
         for part in pathlib.PurePath(f).parts:
@@ -2855,6 +2885,45 @@ def _gotcha_record_entries(rel):
 # so this universal check does not start failing every not-yet-migrated
 # consumer the day it is vendored.
 _GOTCHA_FM_FIELD_RE = re.compile(r'^([a-z_]+):\s*(.*)$')
+# A line of an INDEX of the catalogue, as opposed to a citation of one trap
+# in running prose: a list item or table row whose link goes to one gotcha
+# file (or into an old GOTCHAS record's anchor). The Rule says none of the
+# catalogue loads into the instructions file, "not even a one-line-per-trap
+# index", and until 2026-09-28 the migrated branch of this check never looked
+# at the instructions file at all, so an index could regrow there unseen.
+# Prose that cites the trap it is talking about -- this repo's AGENTS.md
+# does, twice -- is a pointer at one story, not a catalogue, and passes.
+_GOTCHA_INDEX_LINE_RE = re.compile(
+    r'^[ \t]*(?:[-*+]|\d+[.)]|\|)[ \t].*\]\([^)]*'
+    r'(?:gotchas/gotcha-[^)]*\.md|GOTCHAS[^)#]*\.md#[A-Za-z0-9_-]+)[^)]*\)',
+    re.M)
+GOTCHA_INDEX_MAX_LINES = 1
+
+
+def _gotcha_index_findings():
+    """Findings for an instructions file that carries an index of the
+    gotcha catalogue -- two or more list or table lines each linking one
+    trap -- where the catalogue has migrated to gotchas/."""
+    out = []
+    for name in ('AGENTS.md', 'CLAUDE.md'):
+        f = ROOT / name
+        if not f.is_file():
+            continue
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        lines = [m for m in _GOTCHA_INDEX_LINE_RE.finditer(text)]
+        if len(lines) > GOTCHA_INDEX_MAX_LINES:
+            first = text.count('\n', 0, lines[0].start()) + 1
+            out.append(Finding(f'{name}:{first}',
+                               f'carries an index of the gotcha catalogue '
+                               f'({len(lines)} list or table lines each '
+                               f'linking one trap) -- none of the catalogue '
+                               f'loads into the instructions file, not even '
+                               f'a one-line index; keep one pointer to '
+                               f'gotchas/ and its generated overview'))
+    return out
 
 
 def _read_gotcha_files(root):
@@ -2905,8 +2974,10 @@ def _read_gotcha_files(root):
 @check('environment-gotchas', 'tree',
        'the session instructions point at a gotcha catalogue and every live '
        'entry in it carries what failed, not only the fix — reading '
-       'gotchas/*.md directly where a repo has migrated to that shape, or '
-       'following the link into the record on the pre-migration shape',
+       'gotchas/*.md directly where a repo has migrated to that shape (and '
+       'then refusing an index of it -- two or more list or table lines '
+       'each linking one trap -- in AGENTS.md or CLAUDE.md), or following '
+       'the link into the record on the pre-migration shape',
        'whether the story is a good story, whether it is true, or whether the '
        'catalogue is complete. It tells a one-line command from an entry that '
        'took the trouble to say what happened, and no more — padding defeats '
@@ -2926,9 +2997,10 @@ def _environment_gotchas(ctx):
     if gotcha_files is not None:
         out = []
         live = [g for g in gotcha_files if g[1] == 'live']
+        out.extend(_gotcha_index_findings())
         if not live:
-            return [Finding(name, 'gotchas/ exists but has no status: live '
-                                  'entries')]
+            return out + [Finding(name, 'gotchas/ exists but has no status: '
+                                        'live entries')]
         for f, status, symptom_ok, words, sentences in live:
             rel = f.relative_to(ROOT)
             if not symptom_ok:
@@ -4223,10 +4295,21 @@ def _no_hardcoded_git_identity(ctx):
         raise NotApplicable('this repo has no tracked .claude/settings.json')
     try:
         payload = json.loads(settings.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        # Unparseable JSON is the harness's problem to report, not this
-        # check's to guess at.
-        return []
+    except (OSError, ValueError) as e:
+        # Used to return clean, on the theory that the harness reports it.
+        # Nothing did: a broken settings.json passed this check silently,
+        # and it is the one state in which this check cannot say whether
+        # an identity is hardcoded at all (very deep check, 2026-09-28).
+        return [Finding(str(settings.relative_to(ROOT)),
+                        f'could not be read as JSON ({e}) -- so whether it '
+                        f'hardcodes GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL '
+                        f'cannot be checked, and a harness that cannot parse '
+                        f'it runs none of the hooks it wires either')]
+    if not isinstance(payload, dict):
+        return [Finding(str(settings.relative_to(ROOT)),
+                        f'is JSON but not an object (it is a '
+                        f'{type(payload).__name__}), so it has no env block '
+                        f'or hooks a harness could read')]
     env = payload.get('env')
     if not isinstance(env, dict):
         return []
@@ -6608,8 +6691,37 @@ def _index_remembers_past(ctx):
     return out
 
 
-TWO_CHECK_LEVELS_RE = re.compile(
-    r'\*\*light check\*\*.{0,400}?\*\*deep check\*\*', re.S | re.I)
+# The practice's Rule puts the two names in the repo's GLOSSARY.md and says
+# any repo-chosen pair is fine; the check used to demand the literal bold
+# pair `**light check**` ... `**deep check**` in the instructions file, which
+# failed a repo that followed the Rule with its own names. The pair is now
+# read from GLOSSARY.md -- every row whose link points at the practice file,
+# wherever the repo keeps it (practices/, a mirror, a GitHub URL) -- and only
+# where the glossary names none does the practice's own suggested pair stand
+# in, so a repo that never wrote a glossary row is judged as before.
+TWO_CHECK_LEVELS_DEFAULT = ('light check', 'deep check')
+_TWO_CHECK_LEVELS_ROW_RE = re.compile(
+    r'^\|\s*([^|]+?)\s*\|.*\]\([^)]*two-check-levels\.md(?:#[^)]*)?\)',
+    re.M)
+
+
+def _two_check_level_names():
+    """-> (names, where) -- the repo's own level names from GLOSSARY.md, or
+    the practice's default pair when the glossary names none."""
+    g = ROOT / 'GLOSSARY.md'
+    if g.is_file():
+        try:
+            text = g.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            text = ''
+        names = []
+        for m in _TWO_CHECK_LEVELS_ROW_RE.finditer(text):
+            term = m.group(1).strip().strip('*`').strip()
+            if term and term.lower() not in [n.lower() for n in names]:
+                names.append(term)
+        if names:
+            return tuple(names), 'GLOSSARY.md'
+    return TWO_CHECK_LEVELS_DEFAULT, None
 
 
 
@@ -6896,21 +7008,35 @@ def _decommission_deletes_files(ctx):
 
 
 @check('two-check-levels', 'tree',
-       'the session instructions name two fixed, distinct check levels '
-       '("light check" / "deep check") and say which gates a commit versus '
-       'a push',
-       'whether those are the RIGHT two tools per level, or whether a '
+       'the session instructions name both of the repo\'s two check levels '
+       '-- the pair GLOSSARY.md defines against this practice, or "light '
+       'check" / "deep check" where the glossary defines none -- and the '
+       'glossary, when it names any, names two distinct levels',
+       'whether those are the RIGHT two tools per level, whether the file '
+       'says which level gates a commit and which a push, or whether a '
        'session actually runs the one it names -- only that a repo-chosen '
-       'pair of names exists, so "run the light check" and "run the deep '
-       'check" are unambiguous requests rather than needing re-description '
-       'every time.')
+       'pair of names exists and the instructions use it, so "run the light '
+       'check" and "run the deep check" are unambiguous requests rather than '
+       'needing re-description every time.')
 def _two_check_levels(ctx):
     name, text = _instructions_file()
-    if not TWO_CHECK_LEVELS_RE.search(text):
-        return [Finding(name, 'does not name a fixed "light check" / "deep '
-                              'check" pair, so a session asked to run '
-                              '"the check" has to re-derive what that '
-                              'means every time')]
+    names, source = _two_check_level_names()
+    if source and len(names) < 2:
+        return [Finding(source, f'defines only one check level against '
+                                f'two-check-levels ({names[0]!r}) -- the '
+                                f'practice names two, a fast one and a full '
+                                f'one')]
+    missing = [n for n in names
+               if not re.search(r'(?<![\w-])' + re.escape(n) + r'(?![\w-])',
+                                text, re.I)]
+    if missing:
+        origin = (f'the pair {source} defines' if source else
+                  'a fixed pair (GLOSSARY.md defines none, so "light check" '
+                  '/ "deep check" stands in)')
+        return [Finding(name, f'does not name {" or ".join(repr(n) for n in missing)} '
+                              f'-- {origin} -- so a session asked to run '
+                              f'"the check" has to re-derive what that '
+                              f'means every time')]
     return []
 
 
@@ -7880,12 +8006,49 @@ DISPOSITION_STAMP_RE = re.compile(r'^(?P<date>\d{4}-\d{2}-\d{2}),[ \t]*(?P<who>\
 # out of the practice file: a check that derives its own scope from the
 # document it is checking cannot report that the two disagree.
 DISPOSITION_FILE_GLOBS = ('**/TODO.md', 'templates/TODO.md.template')
+# The per-item format's half of the same applies_to (`**/todo/todo-*.md`).
+# Until 2026-09-28 only the two globs above were read, so after the
+# 2026-09-16 migration nothing validated the frontmatter `disposition:` the
+# items actually carry -- two open items sat on `raise`, a word that is not a
+# disposition at all, until a very deep check read them by hand. The
+# prose-line grammar above cannot see a frontmatter field, so it is read
+# separately. `null` is allowed: absence already means `wait`.
+DISPOSITION_ITEM_GLOB = '**/todo/todo-*.md'
+DISPOSITION_ITEM_CLOSED = ('done', 'dropped', 'closed')
+_DISPOSITION_FM_RE = re.compile(r'\A---\n(.*?)\n---', re.S)
+_DISPOSITION_FM_FIELD_RE = re.compile(r'^(status|disposition):[ \t]*(.*?)[ \t]*$', re.M)
+
+
+def _item_disposition_findings(rel, text):
+    """Findings for one todo/todo-*.md item's frontmatter `disposition:`.
+
+    Only an OPEN item is judged: a done or dropped item's disposition no
+    longer governs anything, and several closed items carry `done` there,
+    which is harmless history rather than a word a session acts on."""
+    fm = _DISPOSITION_FM_RE.match(text)
+    if not fm:
+        return []
+    fields = {}
+    for mm in _DISPOSITION_FM_FIELD_RE.finditer(fm.group(1)):
+        fields.setdefault(mm.group(1), mm.group(2).strip().strip('"\''))
+    if fields.get('status', '').lower() in DISPOSITION_ITEM_CLOSED:
+        return []
+    value = fields.get('disposition')
+    if value is None or value in ('null', '~', '') or value in DISPOSITION_VALUES:
+        return []
+    line_no = text.count('\n', 0, fm.start(1) + fm.group(1).find('disposition:')) + 1
+    return [Finding(f'{rel}:{line_no}',
+                    f'open item has disposition {value!r}, which is not one '
+                    f'of {", ".join(DISPOSITION_VALUES)} (or null, meaning '
+                    f'wait) -- a session reading it cannot tell whether it '
+                    f'may raise the item')]
 
 
 @check('open-item-disposition', 'tree',
        'every `**Disposition:` line in a TODO file names one of the three '
        'dispositions, and a `parked` or `ask` line records the date it was '
-       'set and who set it',
+       'set and who set it; and every OPEN todo/todo-*.md item\'s frontmatter '
+       '`disposition:` is one of the three, or null',
        'whether a disposition is HONOURED -- nothing mechanical can see a '
        'session raising a parked item in chat, which is the behaviour the '
        'practice is actually about. It also cannot tell a correct `wait` '
@@ -7913,10 +8076,25 @@ def _open_item_disposition(ctx):
                 continue
             if rel not in files:
                 files.append(rel)
-    if not files:
+    items = []
+    for p in sorted(ROOT.rglob(DISPOSITION_ITEM_GLOB.split('/')[-1])):
+        if p.parent.name != 'todo' or not p.is_file():
+            continue
+        rel = p.relative_to(ROOT).as_posix()
+        if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)):
+            continue
+        items.append(rel)
+    if not files and not items:
         raise NotApplicable('this repository has no TODO file to check')
 
     out = []
+    for rel in items:
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError) as e:
+            out.append(Finding(rel, f'could not be read ({e})'))
+            continue
+        out.extend(_item_disposition_findings(rel, text))
     for rel in sorted(files):
         try:
             text = (ROOT / rel).read_text(encoding='utf-8')
