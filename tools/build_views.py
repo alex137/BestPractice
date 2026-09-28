@@ -2038,6 +2038,7 @@ TOOLS_DESCRIPTIONS = {
     'checkin.py': "Drives the periodic check-in (INSTALL.md §4) mechanically",
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
     'result_cache.py': "The shared result cache -- code-keyed memos on one snapshot branch, a leased cold solve that peers wait for",
+    'reach_key.py': "A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing",
     'parse_check.py': "Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check",
     'doc_lint.py': "Markdown hygiene checks — strikethrough, links, acronyms",
     'frontmatter_yaml.py': "The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift",
