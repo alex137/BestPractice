@@ -35443,7 +35443,7 @@ def check_move_fixes_mentions_of_the_moved_practice():
         (team / 'NOTES.md').write_text(
             'See [zz-moves](../precedent-individual/practices/zz-moves.md).\n')
         (other / 'docs' / 'x.md').write_text(
-            'URL https://github.com/o/precedent-individual/blob/main/practices/'
+            'URL https://github.com/example/precedent-individual/blob/main/practices/'
             'zz-moves.md here\n'
             'path ../precedent-individual/practices/zz-moves.md here\n'
             'unrelated precedent-individual line\n\n'
