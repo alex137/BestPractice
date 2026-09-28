@@ -22,27 +22,27 @@ strength:    decided
 **A file you are fixing may be a copy, and the copy is never the whole
 job.** Before reporting any fix done, answer three questions out loud:
 
-1. **Where did this file come from?** A template it was instantiated from, a
-   vendored tree it was copied out of, another repo that had it first.
+1. **Where did this file come from?** A template, a vendored tree, another
+   repo that had it first.
 2. **Who else has a copy?** Every other place the same file, or the same
-   mistake, was propagated to.
-3. **What should have caught it earlier, and why didn't it?** When a gate
-   passed what a later one failed — local green but GitHub red, pre-staging
-   green but main red, one checkout's gate green and another's red — **the
-   difference between the two is its own bug, and its fix ships with this
-   one.**
+   mistake, went.
+3. **What should have caught it earlier, and why didn't it?** When one gate
+   passed what a later one failed — local green but GitHub red, one
+   checkout's gate green and another's red — **that difference is its own
+   bug, and its fix ships with this one.**
 
-**The fix goes to the origin first**, then to the copies, and **the reply
-names all of them**, and the gate that missed it. If the origin cannot be
-reached from this session, that is a `blocked-on` item naming the
-repository — never a silent omission.
-
-The first two are answerable with one search. That is deliberate: they are a
-lookup, not a meditation on root causes. **A session that cannot find an
-origin in one search says so and moves on.** The third is one comparison:
-what the gate that passed had, or lacked, that the gate that failed did not.
+**Fix the origin first, then the copies and the gate, and name all of them
+in the reply.** An origin this session cannot reach is a `blocked-on` item
+naming the repository — never a silent omission.
 
 ## Detail
+**The first two questions are one search, and the third is one comparison.**
+That is deliberate: this is a lookup, not a meditation on root causes. A
+session that cannot find an origin in one search says so and moves on. The
+third asks what the gate that passed had, or lacked, that the gate that
+failed did not — a machine with a module installed, a directory with the
+other clones beside it.
+
 **This is a different axis from the three practices that look like it**, and
 the gap between them is where the failure lives:
 
