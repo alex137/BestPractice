@@ -458,6 +458,15 @@ def checks(offline=False):
     # clones nothing, so the re-clone is the resolve-time self-heal running
     # underneath it -- worth stating, because the next person will go
     # looking in leak_gate.py for a clone call that is not there.)
+    #
+    # 2026-09-28, the individual set's own cause, reported by two consumer
+    # sessions: the attach tool's reply puts a clone in the project's
+    # directory while the bootstrap's is in $HOME. The bootstrap now links
+    # the empty one of the two to the tree that exists
+    # (precedent_source_bootstrap._one_individual_tree), which also makes
+    # "remove the emptied copy" hold -- the next run links that path rather
+    # than cloning it again. Two trees already present are still only
+    # reported, by the bootstrap and by this row.
     name = 'each practice source is cloned exactly once on this disk'
     by_name = {}
     for shown, _base in _attachable_sources():
@@ -505,16 +514,20 @@ def checks(offline=False):
                     '(precedent_source_bootstrap._clone_elsewhere_on_disk); '
                     'deleting a stray by hand does not hold, because '
                     'whatever resolved that path re-creates it next session. '
-                    'FOR THE INDIVIDUAL SET, THE FIX IS THE CONFIG, '
-                    'NOT THE DIRECTORY: point '
-                    '~/.config/precedent/config.json\'s individual.path (and '
-                    'any sibling source path) at the copy that holds the '
-                    'work. Moving or deleting the other one does not hold -- '
-                    'the source self-heal re-clones whatever path the config '
-                    'still names, within the same session. Then confirm from '
-                    'a tool\'s OWN output which path it loaded, rather than '
-                    'assuming the change took. This tool never deletes a '
-                    'clone and never rewrites your config'))
+                    'FOR THE INDIVIDUAL SET, THE USUAL CAUSE IS THE ATTACH '
+                    'TOOL: its reply says to clone into the directory the '
+                    'project lives in, while the bootstrap clones to '
+                    '$HOME. The bootstrap now links whichever of those two '
+                    'paths is empty to the tree that exists, so a pair on '
+                    'disk predates that or was cloned by hand. Carry any '
+                    'work (unpushed commits, uncommitted files) out of one '
+                    'copy into the other, remove the emptied one, and re-run '
+                    'the individual bootstrap (--apply): it links that path '
+                    'to the remaining tree and points '
+                    '~/.config/precedent/config.json\'s individual.path at '
+                    'it. Then confirm from a tool\'s OWN output which path it '
+                    'loaded, rather than assuming the change took. This tool '
+                    'never deletes a clone and never rewrites your config'))
     # THE CATALOGUE IS READ OFF THESE WORKING TREES, and nothing fetches
     # before it reads: precedent_materialize.py has no fetch call in it at
     # all. So a clone sitting behind its own origin does not fail anything,
@@ -910,10 +923,16 @@ def apply_repair():
         print('  SKIP -- no SessionStart hooks declared in .claude/settings.json')
         return True
     failed = []
+    # A shell tool call carries no project-dir variable, and the individual
+    # bootstrap finds the attach tool's clone through one
+    # (precedent_source_bootstrap.attach_workspace). Without it a repair run
+    # from here would clone a second copy beside the one already attached.
+    env = dict(os.environ)
+    env.setdefault('PRECEDENT_PROJECT_DIR', str(ROOT))
     for cmd in commands:
         resolved = cmd.replace('$CLAUDE_PROJECT_DIR', str(ROOT))
         print(f'  running: {resolved}')
-        p = subprocess.run(resolved, shell=True, cwd=str(ROOT))
+        p = subprocess.run(resolved, shell=True, cwd=str(ROOT), env=env)
         if p.returncode != 0:
             failed.append(resolved)
     # Never silent: a repair that half-worked is the state this whole tool
