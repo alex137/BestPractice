@@ -1131,7 +1131,13 @@ def _shared_runs(named_line_lists, min_run):
     windows = collections.defaultdict(list)
     for name, lines in named_line_lists:
         for i in range(len(lines) - min_run + 1):
-            windows[tuple(lines[i:i + min_run])].append((name, i))
+            window = tuple(lines[i:i + min_run])
+            # A run with no word in it -- closing braces and a code fence --
+            # is how every JSON example ends, not copied text (2026-09-28:
+            # two practices' examples both ended `}`, `}`, and a fence).
+            if not any(re.search(r'[A-Za-z0-9]', l) for l in window):
+                continue
+            windows[window].append((name, i))
     seen_pairs = {}
     for window, places in windows.items():
         names = {n for n, _i in places}
@@ -1149,6 +1155,25 @@ def _shared_runs(named_line_lists, min_run):
                     seen_pairs[key] = (min_run, window[0])
     return [(a, b, n, first) for (a, b), (n, first) in sorted(seen_pairs.items())]
 
+
+
+def check_duplicate_runs_skip_wordless_lines():
+    """_shared_runs reports shared prose, not shared punctuation: two JSON
+    examples that both end with closing braces and a fence are not a
+    duplicated span, and a real shared run is still found."""
+    punct = ['}', '}', '```']
+    prose = ['the same sentence here', 'and a second line', 'and a third']
+    cases = [
+        ('three wordless lines shared by two practices are not reported',
+         _shared_runs([('a', ['x'] + punct), ('b', ['y'] + punct)], 3) == []),
+        ('three shared lines of prose still are',
+         len(_shared_runs([('a', prose), ('b', prose)], 3)) == 1),
+        ('a run mixing a word line with braces still counts',
+         len(_shared_runs([('a', ['"k": 1', '}', '}']),
+                           ('b', ['"k": 1', '}', '}'])], 3)) == 1),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 def check_no_cross_practice_duplication(files, original_practices_by_number):
     """Catches the class of defect that produced this conversion's worst bug
@@ -38746,6 +38771,8 @@ def main():
     check_fixtures_own_the_credential_environment()
     check_todo_progress_discriminates()
     check_split_projection_is_costed_and_ordered()
+    check('duplicate detection ignores a run of lines with no word in it',
+          *check_duplicate_runs_skip_wordless_lines())
     check_kept_agents_md_divergence_is_recorded()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()
