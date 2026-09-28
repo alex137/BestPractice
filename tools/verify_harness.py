@@ -32156,6 +32156,110 @@ def check_very_deep_check_reads_live_and_names_landing_work():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_very_deep_check_blocked_on_and_net_empty_branches():
+    """Two very deep check signals that reported something that was not
+    there (2026-09-28 very deep check, approved by Morgan).
+
+    BLOCKED-ON NAMES SOMETHING GONE resolved every path in an item's
+    `blocked_on` against this tree, so a path that only exists in a
+    consumer (`process/upstream`, `tools/ENGINE_MANIFEST.json`) read as
+    gone. Planted: one item per shape -- the classic layout, the engine's
+    manifest, a path the item frames as a consumer's, a backticked path
+    that does exist at the root (read from todo/ before, so gone) -- none
+    reported; and one path genuinely gone, still reported.
+
+    UNLANDED WORK counted a branch whose commits cancel out (a change and
+    its revert) as carrying unlanded work. Planted beside a branch with
+    real work, which must still read as unlanded."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-blocked-netempty-'))
+    cases = []
+
+    def item(slug, blocked):
+        return ('---\n'
+                f'slug:              {slug}\n'
+                'kind:              analysis\n'
+                'status:            open\n'
+                'disposition:       wait\n'
+                f'blocked_on:        {json.dumps(blocked)}\n'
+                'noted:             2026-01-01\n'
+                '---\n\n## What\n\n'
+                f'**{slug} title.**\n')
+    try:
+        repo = tmp / 'repo'
+        (repo / 'todo').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'real_tool.py').write_text('x\n', encoding='utf-8')
+        planted = {
+            'todo-2026-01-01-classic':
+                'make the gate quiet under the `process/upstream` layout.',
+            'todo-2026-01-01-manifest':
+                'the engine reads its kind from `tools/ENGINE_MANIFEST.json`.',
+            'todo-2026-01-01-framed':
+                'a consumer that carries `tools/consumer_config.json` says so.',
+            'todo-2026-01-01-exists':
+                'a fix to `tools/real_tool.py`.',
+            'todo-2026-01-01-gone':
+                'the fix in `tools/retired_tool.py`.',
+        }
+        for slug, blocked in planted.items():
+            (repo / 'todo' / f'{slug}.md').write_text(item(slug, blocked),
+                                                      encoding='utf-8')
+        out = '\n'.join(vdc._open_item_sweep(repo))
+        block = out.split('BLOCKED-ON NAMES SOMETHING GONE', 1)[-1] \
+            if 'BLOCKED-ON NAMES SOMETHING GONE' in out else ''
+        block = block.split('OLDEST', 1)[0]
+        for slug in ('classic', 'manifest', 'framed', 'exists'):
+            cases.append((f'a {slug} path is not reported as gone',
+                          f'todo-2026-01-01-{slug}' not in block, out))
+        cases.append(('THE CONTROL: a path genuinely gone from this tree is '
+                      'still reported',
+                      'todo-2026-01-01-gone' in block
+                      and 'missing: tools/retired_tool.py' in block, out))
+
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        fixture_git(up, 'init', '-q', '-b', 'main')
+        fixture_git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
+        fixture_git(up, 'config', 'user.email', 'harness@example.com')
+        fixture_git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        fixture_git(up, 'add', '-A'); fixture_git(up, 'commit', '-qm', 'base')
+        fixture_git(up, 'checkout', '-q', '-b', 'cancels-out')
+        (up / 'base.txt').write_text('base\nadded\n')
+        fixture_git(up, 'commit', '-qam', 'add a line')
+        (up / 'base.txt').write_text('base\n')
+        fixture_git(up, 'commit', '-qam', 'take it back out')
+        fixture_git(up, 'checkout', '-q', 'main')
+        fixture_git(up, 'checkout', '-q', '-b', 'real-work')
+        (up / 'feature.txt').write_text('unlanded\n')
+        fixture_git(up, 'add', '-A')
+        fixture_git(up, 'commit', '-qm', 'unlanded work')
+        fixture_git(up, 'checkout', '-q', 'main')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        scan = vdc.scan_branches(work, 'main')
+        rows = {r['name']: r for r in (scan or {}).get('unmerged', [])}
+        ce = rows.get('cancels-out', {})
+        rw = rows.get('real-work', {})
+        cases.append(('a branch whose commits cancel out reads as net-empty',
+                      (ce.get('verdict') or '').startswith(
+                          'net-empty: its commits cancel out; nothing to land'),
+                      repr(ce)))
+        cases.append(('THE CONTROL: a branch with real work still CARRIES it',
+                      not rw.get('net_empty')
+                      and 'CARRIES' in (rw.get('verdict') or ''), repr(rw)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check reports neither a consumer-only path as gone '
+          f'nor a net-empty branch as unlanded work ({len(cases)} stated '
+          f'cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_very_deep_check_refuses_unknown_flags_before_the_ledger():
     """very_deep_check.py refuses an argument it does not read, with its
     usage and exit 2, before the ledger is touched; and --record-pass lands
@@ -43151,6 +43255,7 @@ def main():
     check_practice_catalogue_holds_back_private_sources_on_public_repo()
     check_branch_report_keeps_private_names_out_of_a_public_tree()
     check_very_deep_check_reads_live_and_names_landing_work()
+    check_very_deep_check_blocked_on_and_net_empty_branches()
     check_very_deep_check_refuses_unknown_flags_before_the_ledger()
     check_identity_reality_reads_grandfathering_the_bot_and_a_shallow_clone()
     check_config_keys_counts_a_key_a_practice_reads()
