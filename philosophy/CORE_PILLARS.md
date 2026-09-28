@@ -11,7 +11,7 @@ Several things, not one, are what set this repo's approach apart from other AI h
 
 None of them is new on its own; together, they make collaborative work look and feel different from anything a solo-developer-focused harness sets out to do.
 
-## See Also
+## See also
 
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own

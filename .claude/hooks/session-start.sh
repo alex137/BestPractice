@@ -358,7 +358,8 @@ _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 # which is correct: this is the engine's own origin and has nothing
 # vendored. It earns its place in the repos this hook is copied into.
 #
-# --quiet, so it speaks only when the repo is actually behind: a line that
+# --quiet, so it speaks only when the repo is behind or a source could not
+# be checked: a line that
 # says "current" every single session is a line nobody reads by the third
 # day. It exits 0 on no network, no manifest and a malformed one, so a
 # hiccup cannot block a session start (practice: fail-gracefully).

@@ -7,6 +7,12 @@
       "date": "2026-09-21",
       "by": "",
       "note": "read end to end 2026-09-21; found the Session Text bullet contradicting prompt-please on waking a live session and on default merge authorization"
+    },
+    {
+      "path": "spec/ENFORCEMENT.md",
+      "date": "2026-09-28",
+      "by": "",
+      "note": "Read whole 2026-09-28; stale present-tense claims at L63 L177 L333 L467 fixed; phase-4 history sound"
     }
   ]
 }

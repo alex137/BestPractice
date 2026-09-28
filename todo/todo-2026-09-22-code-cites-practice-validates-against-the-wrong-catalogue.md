@@ -4,7 +4,7 @@ kind:              manual
 domain:            engine
 severity:          medium
 status:            open
-disposition:       raise
+disposition: ask
 remind_on:         null
 blocked_on:        null
 batch:             null

@@ -2,9 +2,7 @@
 
 # Recipe: philosophy/README.md
 
-- **The page is one sentence and a list, and nothing else.** Morgan asked
-  for exactly that on 2026-09-09, replacing a page that had grown four
-  sections of standing guidance. Anything that wants to be said about how
+- **The page is one sentence and a list, and nothing else.** Anything that wants to be said about how
   these documents are maintained belongs in this recipe, not on the page.
 - In "What's Here", give **every file and directory in `philosophy/` its
   own bullet** — never group two under one bullet, and never leave one
@@ -20,8 +18,6 @@
   also update — and **never vendor this directory anywhere**. A consuming
   repo gets [../../practices/](../../practices/); carrying the essays too
   would make a second copy of documents that exist to have exactly one.
-  This used to be a section on the page itself, and moved here when the
-  page was cut back.
 - The provenance line at the top of each document — origin file and the
   version it was taken at — is a historical record, not a sync pointer.
   Never delete it, and never rewrite it to make text look native to this

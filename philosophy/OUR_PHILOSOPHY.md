@@ -163,7 +163,7 @@ hold them to that standard, not a machine's. (Full list:
 its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 [`instinct`](HUMANS_AT_OUR_BEST.md#instinct) entries.)
 
-## See Also
+## See also
 
 - [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle these
   ideas run through, end to end.

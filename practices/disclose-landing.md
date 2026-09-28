@@ -69,8 +69,9 @@ The three shapes this actually takes:
   is a proposal sitting where an approver will see it, and the reply names
   both the team and, if known, who has to say yes.
 - **Universal** — never in force yet on landing; it is a draft that needs a
-  pull request (PR) merged into `precedent-beta-v01`, gated by that
-  branch's own deep check rather than a second reviewer
+  pull request (PR) merged into this repository's landing branch
+  (`pre-staging` or `staging`), gated by that branch's own check tier
+  rather than a second reviewer
   ([merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)).
   Say so explicitly rather than letting "landed" read as "done."
 

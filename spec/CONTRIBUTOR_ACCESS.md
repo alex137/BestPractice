@@ -353,7 +353,7 @@ either; that is finding 7.
    is a one-sentence check there.
 
 **Where this is documented for the people who will meet it** (2026-09-14):
-[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
+[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)'s
 step 10 is the install step; [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md)'s
 "Who May Change What" is the technical summary;
 [FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md)'s "What You

@@ -353,6 +353,11 @@ commit's state, and one per poll while a started test runs.
 
 ## Who it binds
 
+**Changed 2026-09-27** (Morgan, strength: decided): the built-in default
+landing branch is `staging`; a person's `landing_branch` wins, then the
+repository's; new repositories are written with `pre-staging`. The
+paragraph below is the plan as first written.
+
 **Every repository has the three branches, and `Go update` lands on
 pre-staging by default, for everyone.** Pushing straight to staging stays
 allowed, and is fully checked, so someone who prefers to work that way --

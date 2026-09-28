@@ -464,7 +464,7 @@ def status_contract_violation(fm, sections=None, slug_in_force=None):
     return None
 
 
-def load_practices(practices_dir=None, in_force_only=True):
+def load_practices(practices_dir=None, in_force_only=True, announce=True):
     """Every practice file in the directory, minus the ones not in force.
 
     WHY THE FILTER EXISTS (2026-09-06). This function read every *.md and
@@ -483,7 +483,12 @@ def load_practices(practices_dir=None, in_force_only=True):
 
     A dropped practice is announced rather than silently skipped -- a
     retirement that vanishes without a word is the same silence in a
-    smaller place."""
+    smaller place.
+
+    `announce=False` is for a caller that loads the same catalogue many
+    times in one run and reports what is in force itself (the very deep
+    check loaded it once per source per section, and printed this roster
+    about 120 times a run, 2026-09-28). The default is unchanged."""
     practices_dir = practices_dir if practices_dir is not None else PRACTICES_DIR
     out, dropped = [], []
     for f in sorted(practices_dir.glob('*.md')):
@@ -493,7 +498,7 @@ def load_practices(practices_dir=None, in_force_only=True):
             dropped.append((fm.get('slug', f.stem), status))
             continue
         out.append((fm, sections, f))
-    for slug, status in dropped:
+    for slug, status in (dropped if announce else ()):
         print(f"build_views: {slug} is status: {status}, so it is not in "
               f"force and is left out of the generated views.", file=sys.stderr)
     return out
@@ -1258,8 +1263,8 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
                              if lvl == 'individual')
         if _individual:
             lines.append(
-                f"**{len(_individual)} of these practices came from an "
-                f"INDIVIDUAL source**, which resolves through this machine's "
+                f"**{len(_individual)} of the practices in this generated "
+                f"tree came from an INDIVIDUAL source**, which resolves through this machine's "
                 f"user-level config rather than through this repository's "
                 f"own `precedent.json`. That is deliberate -- a person's own "
                 f"practices follow them into every project they touch -- but "
@@ -2081,6 +2086,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_update.py': "Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)",
     'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
+    'precedent_run_session_hooks.py': "Runs each repo's own SessionStart hooks for a session opened in the folder above them",
     'precedent_identity.py': "Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing",
     'precedent_decommission.py': "Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it",
     'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
@@ -2113,6 +2119,7 @@ TOOLS_DESCRIPTIONS = {
     'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'ci_fleet_audit.py': "Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs",
+    'precedent_review_page.py': "The very deep check's session-only page: branches to delete, with a link each, and every active practice by source",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
     'precedent_engine_freshness.py': "Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes",
 }

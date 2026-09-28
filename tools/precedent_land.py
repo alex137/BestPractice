@@ -256,8 +256,9 @@ def land(candidate_path, level, repo_path, approved_by, against,
               "force for anyone. Stage 4's universal approval is a PR to "
               "Precedent -- commit this file on a branch and open a PR; this "
               "tool does not merge it, and nothing is in force until that PR "
-              "merges into precedent-beta-v01, gated by that branch's own "
-              "deep check, same as any other PR there.")
+              "merges into this repository's landing branch (python3 "
+              "tools/precedent_branches.py --landing), gated by that "
+              "branch's own check tier, same as any other PR there.")
     return dest, level
 
 

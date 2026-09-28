@@ -20,10 +20,28 @@ set -euo pipefail
 #     echo "WARN: <package> install failed - <what degrades without it>" >&2
 # fi
 
+# A LOCAL SESSION: PRECEDENT_LOCAL_SESSION=1, exported by the Claude Code
+# adapter's session-start.sh when CLAUDE_CODE_REMOTE is not "true" (any
+# other harness can set it the same way). Everything in this script runs
+# on a person's own machine too, except the steps gated on this variable:
+#   - the package install below: a local machine manages its own Python
+#     environment, and a pip install into it is not a hook's call;
+#   - commit-identity.sh, further down: it sets the GLOBAL git identity,
+#     installs a global core.hooksPath under $HOME, and repoints the system
+#     timezone -- a container's own state, and the person's own settings on
+#     their machine.
+# Everything else only reads, or writes inside this checkout (its git config
+# and a clean fast-forward), or clones a declared practice set beside it.
+local_session="${PRECEDENT_LOCAL_SESSION:-}"
+
 # Python deps the repo's scripts import (cmarkgfm is doc_lint's exact
 # GitHub-renderer check; keep it even if you add nothing else):
-pip install --quiet cmarkgfm 2>/dev/null || \
-  echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
+if [ "$local_session" = "1" ]; then
+  echo "NOTE: local session -- skipped pip install (cmarkgfm); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
+else
+  pip install --quiet cmarkgfm 2>/dev/null || \
+    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
+fi
 
 # Set the commit author to whoever is actually running this session, not
 # a container's own bot identity -- practice `session-bootstrap`. Claude
@@ -34,7 +52,12 @@ pip install --quiet cmarkgfm 2>/dev/null || \
 # other harness has no such hook, so this is the only place it runs.
 # Depends on nothing Claude-Code-specific beyond how it's invoked: it reads
 # $CLAUDE_PROJECT_DIR, falling back to $PWD, and otherwise just needs git.
-if [ -f .claude/hooks/commit-identity.sh ]; then
+#
+# Not in a local session (see the top of this script): its global and
+# system-wide writes are for a container. Claude Code's settings.json wires
+# commit-identity.sh as a SessionStart hook of its own, so a local Claude
+# Code session is not relying on this call either way.
+if [ "$local_session" != "1" ] && [ -f .claude/hooks/commit-identity.sh ]; then
   bash .claude/hooks/commit-identity.sh || \
     echo "WARN: commit-identity.sh failed - commits may be authored as whatever git is already configured with" >&2
 fi
@@ -322,7 +345,8 @@ fi
 # and a live sibling clone whose practices load as it stands. A source is
 # covered from the moment it is declared, or it is not covered: a second
 # shared set had no freshness check on either half until this ran, and
-# nothing said so. --quiet speaks only when something is behind; a
+# nothing said so. --quiet speaks only when something is behind or could
+# not be checked; a
 # session start that a network hiccup can block is worse than the
 # staleness, so the tool exits 0 in every failure mode and this line
 # never gates. Taking an update stays "Update Vendors".

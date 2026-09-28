@@ -5,10 +5,10 @@
 
 # {{NAME}} — a shared practice set
 
-This is **{{NAME}}'s own private space** — a set for one kind of work or
-one team, holding the conventions its members have agreed on. Everyone
-who declares it can read it; nobody else can. Its `precedent-source.json`
-says what it is; the repository holding it may be called anything.
+This is **{{NAME}}** — a set for one kind of work or one team, holding the
+conventions its members have agreed on. Its `precedent-source.json` says
+what it is, including whether the repository is public or private; the
+repository holding it may be called anything.
 
 ## What's here
 

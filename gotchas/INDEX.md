@@ -108,15 +108,11 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **`python3 tools/leak_gate.py` reports a wall of undeclared-repo hits against a tree that is actually fine, all naming things the session never touched. The gate's own printed remedy -- `git -C <root> pull --ff-only` -- can itself fail with no further guidance.** [story](gotcha-2026-09-20-leak-gates-private-blocklist-clone-fails-open-stale.md)
 
-- **In a multi-repo session rooted under `/home/user` (rather than a single set), `themorgan/precedent-individual`'s own `precedent.json` names its shared sources as `../precedent-shared-*`, but the sibling clones actually on disk are named `precedent-team-*`, and `PRECEDENT_FRESHNESS_ALSO` names the old paths too.** [story](gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets.md)
-
 - **tools/verify_harness.py passes locally with `0 failed`, and the deep-check CI job fails anyway — with a traceback instead of a verdict, before a single `PASS:` line is printed.** [story](gotcha-2026-09-21-a-green-local-verify-harness-run-does-not-mean-green-ci.md)
 
 - **A session is asked whether GitHub Actions is actually **enabled** on a repository — during an install audit, or when a workflow that should be running is not. The obvious answer is `GET /repos/{owner}/{repo}/actions/permissions`, and **there is no way to call it from inside a session.**** [story](gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)
 
 - **You edit `practices/<slug>.md` **inside the source repo that owns that practice**, then run one of the engine tools to confirm the change — tools/precedent_vocabulary.py is the measured case. **The tool prints the old value.** Exit code 0, no warning, file on disk demonstrably correct.** [story](gotcha-2026-09-21-editing-a-practice-in-its-own-source-repo-does-not-change-the-tools-answer.md)
-
-- **A workflow file uses a YAML **anchor and alias** (`&name` to define, `*name` to reuse) to avoid repeating a list — most naturally a long `paths:` filter that both `push:` and `pull_request:` need. `python3 -c "import yaml; yaml.safe_load(open('w.yml'))"` parses it cleanly, every local check passes, the file looks right. **GitHub's own workflow parser rejects it**, and the workflow does not run at all.** [story](gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts.md)
 
 - **`precedent_reply_check.py`, copied on its own into another directory, exits **0 on every input** — including replies that plainly violate a blocking requirement in the `reply_check.json` it was pointed at.** [story](gotcha-2026-09-22-a-copied-precedent-reply-check-py-silently-checks-nothing.md)
 
@@ -141,3 +137,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **`checkin.py record` refuses an ordinary Update Vendors with a long list of `LOST from <file>:` lines and "pending vendored additions are MISSING from the landed upstream tree", while `checkin.py status` reads 0 files differing against the clone. Every listed line turns out to be one upstream removed itself.** [story](gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)
 
 - **The first tool call of a session is refused, and so is every call after it except plain `git` commands:** [story](gotcha-2026-09-26-the-freshness-guard-held-attached-source-clones-to-pre-stagin.md)
+
+- **A tool that lists every past version of a file from `git log --raw`, `git log -p` or `git log --name-only` misses a version, and a copy of the file that is byte-identical to that version is treated as locally edited. Update Vendors reports a consumer's untouched `tools/bootstrap.sh` as DIVERGED and never updates it.** [story](gotcha-2026-09-28-git-log-skips-merge-commits-so-a-version-made-in-a-merge-is-in.md)

@@ -599,8 +599,22 @@ def _declared_base_branch(root):
 
 
 def _default_branch(clone):
-    return (_git(clone, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').rsplit('/', 1)[-1]
-            or 'main')
+    # Everything after the remote's name, not after the last slash: a
+    # default branch can carry slashes of its own, and `origin/claude/x`
+    # read as `x` named a branch that does not exist (2026-09-28).
+    ref = _git(clone, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
+    return (ref.split('/', 1)[1] if '/' in ref else ref) or 'main'
+
+
+def _followed_branch():
+    """The branch every install follows (precedent_vendor_engine.SOURCE_BRANCH),
+    or 'main' where that module is not beside this one -- an old vendored
+    tree, or a fixture that copies this file alone."""
+    try:
+        import precedent_vendor_engine
+        return precedent_vendor_engine.SOURCE_BRANCH
+    except Exception:                                          # noqa: BLE001
+        return 'main'
 
 
 def _tree_at(clone, ref, into):
@@ -740,6 +754,11 @@ def _pinned_branch_hold(clone, allow=False):
         return
     pinned = (_manifest().get('upstream', {}) or {}).get('branch')
     if not pinned:
+        return
+    # The branch every install follows is never a pin to hold, whatever a
+    # clone's origin/HEAD says: a clone whose default is some working branch
+    # held a correctly pointed install (2026-09-28).
+    if pinned == _followed_branch():
         return
     default = _default_branch(clone)
     if default and pinned == default:

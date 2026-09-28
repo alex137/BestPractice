@@ -90,3 +90,6 @@ Harness: `check_vendor_engine_removes_a_hook_upstream_dropped`, five stated
 cases covering deletion, the manifest record, the still-shipped hook left
 alone, the hand-edited copy kept, and the empty-upstream refusal.
 
+## Found still broken, and fixed again, 2026-09-28
+
+The very deep check's update rehearsal showed the 2026-09-22 fix never fired through `refresh()`: `_write_engine_files` rewrote the manifest without `hook_files` before `_remove_dropped_hook_files` read it, so the remover always saw an empty record; and after a self-replacing first pass the same was true of engine files. Both now read the record from before the update (`_previous_manifest`, which merges the committed manifest in). The harness case gained a two-pass case (E), checked to fail without the fix.

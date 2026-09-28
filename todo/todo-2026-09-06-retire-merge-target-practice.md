@@ -18,7 +18,7 @@ closed:            2026-09-27
 
 - <a id="retire-merge-target-practice"></a>**Retire [local/practices/merge-target-is-beta-branch.md](../local/practices/merge-target-is-beta-branch.md)
     (and its check at
-    [local/tools/checks/check_merge_target_is_beta_branch.py](../local/tools/checks/check_merge_target_is_beta_branch.py),
+    [local/tools/checks/check_merge_target_is_beta_branch.py](https://github.com/alex137/BestPractice/blob/84ca4958f4de50413f631b27b87ef9be12c7a06b/local/tools/checks/check_merge_target_is_beta_branch.py) (decommissioned in ef73a52c),
     and the pointer in [AGENTS.md](../AGENTS.md)'s opening paragraph) the
     moment Alex reviews and merges `precedent-beta-v01` into `main` for
     real.** Delete the practice file, delete the check script, and remove

@@ -873,7 +873,8 @@ def main():
     # kept happening silently -- 18 of 22 repositories had never taken an
     # update, measured 2026-09-20.
     #
-    # --quiet: it prints ONLY when this repo is actually behind. A gate
+    # --quiet: it prints only when this repo is behind, or when a source
+    # could not be checked (not verified is not current). A gate
     # that says "current" at every push is a gate people stop reading, and
     # the notice has to stay worth noticing. Never fatal, and the tool
     # itself exits 0 on no network, no manifest and a malformed one, so
