@@ -18,6 +18,11 @@ summary:       A brainstormed design for talking to a Claude session about a rep
 > approved, and no other document should cite it as a commitment. It is
 > written down because the thinking was worth keeping
 > ([repo-is-memory](../practices/repo-is-memory.md)).
+>
+> **One part now exists: a local test build, for Morgan alone**, in
+> [bridge/](../bridge/README.md). Morgan asked for it the same day, to try the
+> loop on his own computer before anything else. It is a test, not a decision
+> to run this for anyone; everything beyond it here is still speculation.
 
 **It builds on
 [SPECULATIVE_WHATSAPP_BRIDGE.md](SPECULATIVE_WHATSAPP_BRIDGE.md)** (2026-09-09,
@@ -76,6 +81,30 @@ different builds**, so this is the first fork:
 **Nothing below re-opens the 2026-09-11 decision.** If Telegram is now meant
 to be the destination for other people too, that is Morgan's call to make,
 and the document should be updated to say so in his words.
+
+### What Morgan answered, and what it changed
+
+Morgan, 2026-09-28: *"I want to do a test, with just me … it needs to be
+general so others could use it if they want … the messages that are
+instructions must be limited to content -- even from me, from anyone."*
+
+- **The first user is Morgan, on a local test** — `strength: decided`, in his
+  words above.
+- **Content only applies to everyone, the owner included** — `strength:
+  decided`, in his words above. **This rules out route A for the test**:
+  Channels runs with its operator's full permissions, and he asked for the
+  opposite.
+- **So the test build is a small route B, run locally.** Instead of the Agent
+  SDK it runs `claude -p` locked down (`--restricted`, file tools only, a
+  guard hook), because that uses the owner's existing Claude Code login and
+  needs no API key. That choice is the session's; Morgan has not weighed in
+  on it. The Agent SDK remains the natural swap for a hosted version, where
+  an API key is the norm anyway.
+- **Voice is the expected input.** Telegram does not transcribe voice notes
+  for bots, so the bridge transcribes them itself (an OpenAI-compatible
+  service, or a local program).
+- **The full answer lives behind a More button** on the bridge's computer in
+  this build, not on a GitHub issue. Links to changes still point at GitHub.
 
 ## What has actually been checked
 
@@ -497,11 +526,12 @@ repository.
 
 ## Open questions
 
-1. **Who the first Telegram user is** — Morgan or someone else. Decides the
-   route.
-2. **Whether Telegram is a destination for anyone but Morgan** — only asked
-   if the answer to 1 is someone else, since the 2026-09-11 decision says
-   not.
+1. **Whether Telegram is a destination for anyone but Morgan.** The local
+   test doesn't need an answer; running it for other people does, since the
+   2026-09-11 decision says not.
+2. **What the test showed**: whether a few sentences were enough, how often
+   More got tapped, how long turns took, and what transcription got wrong.
+   Recorded here once Morgan has used it.
 3. **Whether content users may merge** their own content changes, or only
    propose them. This document assumes they may, as the bridge document does,
    because the machinery boundary is enforced by GitHub either way.
@@ -514,7 +544,8 @@ repository.
 ## Where this came from
 
 A single brainstorm on 2026-09-28, in the words quoted under
-[What it is](#what-it-is). **It records the analysis, and no decision to
-proceed.** The idea is Morgan's; the routes, the enforcement layering, the
-reply design and the repository mapping are the session's proposal, and
-nobody has agreed to any of them yet.
+[What it is](#what-it-is). The idea is Morgan's; the routes, the enforcement
+layering, the reply design and the repository mapping are the session's
+proposal. Morgan then asked for the local test build and set its two rules
+(him alone, content only for everyone). Nobody has decided anything beyond
+that test.
