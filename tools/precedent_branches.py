@@ -1304,10 +1304,69 @@ def promote(root, say=print, to=None, work=None):
         say(f'NOTE: could not take the Promote lock ({info}); going ahead '
             f'without it.')
         return run(root, say)
+    old_handlers = _exit_cleanly_on_signal()
     try:
         return run(root, say)
     finally:
-        _lock_release(root, info, say)
+        _ignore_signals(old_handlers)
+        try:
+            _lock_release(root, info, say)
+        finally:
+            _restore_signals(old_handlers)
+
+
+# A KILLED PROMOTE RELEASES ITS LOCK (2026-09-28). The try/finally above
+# frees the lock on an error or a Ctrl-C, but SIGTERM -- what a command
+# timeout, a closed session or `kill` sends -- ends Python without running
+# any finally block. A session ran a Promote under a 590-second limit, the
+# limit killed it mid-check, and its claim sat on origin for the full
+# LOCK_STALE_SECONDS: the same session's retry was told another window was
+# promoting, and so would every other window have been. Turning SIGTERM and
+# SIGHUP into SystemExit makes the finally run; the child check is killed
+# by subprocess.run on the way out. SIGKILL cannot be caught, which is what
+# the staleness timeout is still for. Morgan: "Yes approved! Please add
+# this!!" (strength: decided).
+_CLEAN_EXIT_SIGNALS = ('SIGTERM', 'SIGHUP')
+
+
+def _exit_cleanly_on_signal():
+    """Make SIGTERM and SIGHUP raise SystemExit, so finally blocks run.
+    -> the previous handlers, for _restore_signals. Never raises: off the
+    main thread signal.signal refuses, and the Promote goes on as before."""
+    import signal
+
+    def _raise(signum, _frame):
+        raise SystemExit(128 + signum)
+    old = {}
+    for name in _CLEAN_EXIT_SIGNALS:
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            old[sig] = signal.signal(sig, _raise)
+        except (ValueError, OSError):
+            pass
+    return old
+
+
+def _ignore_signals(old):
+    """While the release itself runs -- one small push -- a second SIGTERM
+    must not cut it short, or the kill that started it wins after all."""
+    import signal
+    for sig in old:
+        try:
+            signal.signal(sig, signal.SIG_IGN)
+        except (ValueError, OSError):
+            pass
+
+
+def _restore_signals(old):
+    import signal
+    for sig, handler in old.items():
+        try:
+            signal.signal(sig, handler)
+        except (ValueError, OSError, TypeError):
+            pass
 
 
 def _drifted_from_above(root):
