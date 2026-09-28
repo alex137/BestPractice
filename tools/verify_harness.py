@@ -11864,13 +11864,11 @@ def check_precedent_check_fires():
                       in planted['no-hardcoded-git-identity'][1]))
 
         # workflow-yaml-github-can-parse -- a workflow file using a YAML
-        # anchor and alias, which PyYAML resolves happily and GitHub's own
-        # workflow parser refuses. The plant carries `&&`, `2>&1` and a
-        # `*.md` glob in its run step ON PURPOSE: a detector that matched
-        # `&` and `*` in the text would fire on all three, and the first
-        # version of any such detector does. The case proves the check
-        # separates a YAML anchor from shell punctuation, not merely that
-        # it noticed an ampersand.
+        # merge key, which PyYAML resolves and GitHub's workflow parser
+        # refuses. The plant also carries a plain anchor and alias (legal on
+        # GitHub since 2025-09-18) and a heredoc `cat <<EOF` in a run step,
+        # ON PURPOSE: the check must name the merge-key line and neither of
+        # the others. Line 11 is the merge key.
         def _plant_workflow_anchor(repo):
             wf = repo / '.github' / 'workflows'
             wf.mkdir(parents=True, exist_ok=True)
@@ -11882,20 +11880,23 @@ def check_precedent_check_fires():
                 "      - '**/*.md'\n"
                 '  pull_request:\n'
                 '    paths: *probe_paths\n'
+                'env: &base_env\n'
+                '  A: 1\n'
+                'defaults:\n'
+                '  <<: *base_env\n'
                 'jobs:\n'
                 '  a:\n'
                 '    runs-on: ubuntu-latest\n'
                 '    steps:\n'
-                '      - run: echo "a && b" 2>&1; ls *.md || true\n',
+                '      - run: cat <<EOF && echo "a && b" 2>&1; ls *.md || true\n',
                 encoding='utf-8')
         case('workflow-yaml-github-can-parse', _plant_workflow_anchor)
+        _wy = planted['workflow-yaml-github-can-parse'][1]
         cases.append(('workflow-yaml-github-can-parse: the planted violation '
-                      'names the file and the anchor, and does not fire on '
-                      'the shell punctuation beside it',
-                      'anchor-probe.yml'
-                      in planted['workflow-yaml-github-can-parse'][1]
-                      and 'anchor'
-                      in planted['workflow-yaml-github-can-parse'][1]))
+                      'names the file and the merge key at its line only, '
+                      'not the plain anchor, the alias or the heredoc',
+                      'anchor-probe.yml' in _wy and 'merge key' in _wy
+                      and 'line 11 ' in _wy))
 
         # ...and the same failure in the OTHER hook layout. A practice set
         # created by precedent_bootstrap_source.py wires its hooks out of a
