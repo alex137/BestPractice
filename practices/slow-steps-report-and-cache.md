@@ -31,10 +31,13 @@ never be repeated for nothing:
 - **Memoize the expensive pure function to disk.** When several gates (a
   self-check, a drift gate that spawns one subprocess per generated block, an
   audit) each re-derive the same expensive table, cache the solved result
-  under a gitignored directory, keyed by the **content hash of the function's
-  static, transitive in-repo import closure** — never a timestamp, never the
-  calling process's import set (a caller-dependent key produces one entry per
-  caller and never hits). Load the cache lazily at **every** entry point, not
+  under a gitignored directory, keyed by **a hash of the code the solve can
+  reach** — the syntax trees of the functions and constants it can run,
+  followed from its entry points across the repository's modules
+  (`tools/reach_key.py`), widening to a whole module wherever the reach
+  cannot be followed — never a timestamp, never the calling process's
+  import set (a caller-dependent key produces one entry per caller and
+  never hits). Load the cache lazily at **every** entry point, not
   only the first one written, and keep an environment switch that forces a
   fresh solve: the cache is an accelerator, never a dependency.
 
@@ -61,6 +64,26 @@ that function ever moves the key; and a heavy search never runs from a
 stdin or `-c` main under a process pool — a worker spawned from such a main
 re-imports `<stdin>`, dies, and is respawned forever, which reads as "a task
 that has been running for a long time".
+
+**Follow a class a method at a time.** Reaching a class hashes its
+shell (bases, decorators, fields); a method is hashed only when reached
+code names an attribute of that name, and dunder methods always are.
+Hashing the whole class ties a solve to every method of a shared record
+type — in the originating repository, a change to one pricing method
+re-keyed a geometry solve that never called it.
+
+**Split a memo by what invalidates it.** When one solve produces an
+expensive part (a geometry fit, a sizing search) and a cheap part computed
+from it (a cost rollup, a ranking), memoize the expensive part's **state**
+— enough to rebuild the solved object with one cheap evaluation — under a
+key that stops at the cheap part, and recompute the cheap part every time
+(or under a second memo keyed on everything). A memo that consumes another
+memo's answer keys on **that answer**, not on the code that produced it
+(early cutoff): an edit that re-solves the first without changing its
+answer leaves the second warm. Verify the rebuild at solve time, against
+the figure the solve itself computed, with a tolerance set by measuring
+how much the solve's figure depends on what the process did before it; a
+rebuild that is exact whatever came before is the better-defined figure.
 
 ## Why
 A gate that takes twenty minutes gets skipped, run concurrently with its
@@ -92,3 +115,17 @@ sequentially; record measured durations, dated, in the run instructions;
 export the pattern to any other heavy model the moment it appears.
 A memo on a container's disk dies with the container: to share it across
 sessions, see [shared-result-cache](shared-result-cache.md).
+
+The key and the split came three weeks later, from one pricing edit that
+cost two hours. A rate constant moved; the fingerprint then covered the
+whole record class, so it re-keyed a sizing sweep of five hundred variants
+(six minutes) and an engine sweep (eight) that never used the rate. The
+sweeps stored their prices beside their sizes, so even a method-level key
+could not spare them. Split into a sizing memo and a pricing pass that
+rebuilds each variant from its stored state in seventeen milliseconds
+(against three and a half seconds to size it), a pricing edit re-prices
+in seconds. The solve-time check first disagreed at the fifth figure; the
+measurement showed the rebuild exact in any order and after any other
+work, and the solve's own figure dependent on what its worker had sized
+before — the old memo's last digits had depended on how the pool
+scheduled the variants.

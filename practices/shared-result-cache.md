@@ -57,6 +57,14 @@ it stops at once if the lease disappears without a result, and ignores a
 lease old enough to be abandoned. An environment switch skips the shared
 cache entirely.
 
+**A memo filled one entry at a time, on demand and without the lock,
+is re-solved by every process that misses at once.** When the processes
+that read such a table need all of it -- a gate that emits many blocks
+from one model does -- solve the whole table once under the lock and let
+the others wait. Measured in the originating repository: an engine sweep
+filled per class, re-keyed by one edit, was sized by every batch emit
+process at the same moment, and a three-minute solve took nine.
+
 ## Why
 A memo on a container's disk dies with the container, so every fresh session
 pays every cold solve again — and the gates that need those results get

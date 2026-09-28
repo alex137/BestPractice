@@ -2050,6 +2050,7 @@ TOOLS_DESCRIPTIONS = {
     'doc_lifecycle.py': "The document status header — kind, status, "
                         "supersession — checked across spec/ and record/",
     'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",
+    'fact_ledger.py': "Verified facts (code fingerprint, recorded reads, result) that let a drift gate or an audit skip a unit whose fact still holds",
     'full_practice_audit.py': "The full practice audit — on-demand, whole-catalogue sweep across every source",
     'lease_board.py': "The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock",
     'leak_gate.py': "The push-time leak gate — structural rules always, private-term blocklist when configured",

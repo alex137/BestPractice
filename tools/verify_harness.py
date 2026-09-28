@@ -29358,6 +29358,8 @@ def check_doc_sync_ledger():
         (d / 'tools').mkdir()
         shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
         shutil.copy2(rk, d / 'tools' / 'reach_key.py')
+        if (ROOT / 'tools' / 'fact_ledger.py').is_file():
+            shutil.copy2(ROOT / 'tools' / 'fact_ledger.py', d / 'tools' / 'fact_ledger.py')
         (d / 'data.txt').write_text('7\n')
         model = (
             'import sys\n'
@@ -29442,7 +29444,7 @@ def check_doc_sync_fails_fast():
         (d / '.git').mkdir()
         (d / 'tools').mkdir()
         shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
-        for f in ('reach_key.py',):
+        for f in ('reach_key.py', 'fact_ledger.py'):
             if (ROOT / 'tools' / f).is_file():
                 shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
         (d / 'slow.py').write_text('import time\ntime.sleep(60)\nprint("x")\n')
@@ -29462,6 +29464,73 @@ def check_doc_sync_fails_fast():
         took = time.time() - t0
     check(name, p.returncode != 0 and took < 20 and 'bad.py' in p.stderr,
           f'exit {p.returncode} after {took:.0f}s: {(p.stdout + p.stderr).strip()[-300:]}')
+
+
+def check_model_audit_ledger():
+    """model_audit with a ledger audits each model in its own process and
+    records a fact for a clean audit; a model whose fact holds is not run
+    again, a change to its self-check or to a file it read runs it, and a
+    failing audit is never recorded. A scratch repository with one model
+    that counts its own runs."""
+    name = 'model_audit skips a model whose clean audit still holds, and re-runs a changed one'
+    engine = ROOT / 'tools' / 'model_audit.py'
+    needs = [engine, ROOT / 'tools' / 'fact_ledger.py', ROOT / 'tools' / 'reach_key.py']
+    if not all(p.is_file() for p in needs):
+        not_applicable(name, 'model_audit.py, fact_ledger.py or reach_key.py is absent')
+        return
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        for p in needs:
+            shutil.copy2(p, d / 'tools' / p.name)
+        (d / 'limit.txt').write_text('10\n')
+        (d / 'model.py').write_text(
+            'import os\n'
+            'def value():\n'
+            '    return 3\n'
+            'def self_check():\n'
+            '    open(os.path.join(os.path.dirname(__file__), "runs.log"), "a").write("x")\n'
+            '    lim = int(open(os.path.join(os.path.dirname(__file__), "limit.txt")).read())\n'
+            '    return [] if value() < lim else ["value over the limit"]\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util, sys\n'
+            'spec = importlib.util.spec_from_file_location("ma_engine", "tools/model_audit.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.INSTRUMENTED = ["model.py"]\n'
+            'e.LEDGER = "audit.jsonl"\n'
+            'sys.exit(e.main())\n')
+
+        def audit():
+            p = subprocess.run([sys.executable, 'shim.py'], cwd=d, capture_output=True, text=True)
+            return p.returncode
+
+        def runs():
+            f = d / 'runs.log'
+            return len(f.read_text()) if f.is_file() else 0
+        steps = [
+            ('the first audit', lambda: None, True, 0),
+            ('an unchanged tree', lambda: None, False, 0),
+            ('a comment in the model', lambda: (d / 'model.py').write_text(
+                '# a note\n' + (d / 'model.py').read_text()), False, 0),
+            ('a function the self-check calls', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('return 3', 'return 4')), True, 0),
+            ('a file the self-check read (now failing)', lambda: (d / 'limit.txt').write_text('2\n'), True, 1),
+            ('the same failing tree again', lambda: None, True, 1),
+        ]
+        n = 0
+        for what, edit, should_run, should_fail in steps:
+            edit()
+            rc = audit()
+            ran = runs() > n
+            n = runs()
+            if ran != should_run:
+                bad.append(f'{what}: the model {"was" if ran else "was not"} audited')
+            if bool(rc) != bool(should_fail):
+                bad.append(f'{what}: the audit exited {rc}')
+    check(name, not bad, '; '.join(bad))
 
 
 def check_push_check_runs_cheap_checks_first():
@@ -44169,6 +44238,7 @@ def main():
     check_reach_key_self_check()
     check_doc_sync_ledger()
     check_doc_sync_fails_fast()
+    check_model_audit_ledger()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()

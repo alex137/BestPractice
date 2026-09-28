@@ -89,6 +89,15 @@ telling -- how loudly a tool reports a part that could not run. This one
 governs the *reader*: what a session may assert on the strength of having
 read it.
 
+**"Where did the time go?" is a measurement too.** Asked why a piece of
+work was slow, read the timestamped record — the session's own log of
+commands and results, each stage's echoed elapsed seconds — and build the
+timeline before explaining it. The recollection names the solve that felt
+long; the timeline, in the case that added this paragraph, showed two
+ten-minute gaps that were a merge gate's harness check, a check that had
+already reported the failure before the merge was tried, and two
+regenerations a one-minute trial would have saved.
+
 ## Why
 **A guard's cause list is written from the author's imagination, and the
 failures that actually happen are the ones nobody imagined.** A condition
