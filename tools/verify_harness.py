@@ -26027,6 +26027,61 @@ def check_bootstrap_writes_what_real_sets_converged_on():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_session_hooks_run_for_a_session_opened_above_the_repos():
+    """tools/precedent_run_session_hooks.py runs each repository's own
+    SessionStart hooks when a session is opened in the directory ABOVE them
+    -- the multi-repo shape in which Claude Code runs no repo's hooks at all
+    (gotcha-2026-09-25; very deep check, 2026-09-28). Planted: two repos
+    whose hook records the CLAUDE_PROJECT_DIR it saw and prints context; the
+    discriminating case is a root WITH its own settings, where the native
+    hooks already ran and the runner must do nothing."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_run_session_hooks as rsh
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='session-hooks-above-'))
+    cases = []
+    try:
+        root = tmp / 'root'
+        for name in ('alpha', 'beta'):
+            repo = root / name
+            (repo / '.git').mkdir(parents=True)
+            (repo / '.claude').mkdir()
+            (repo / '.claude' / 'settings.json').write_text(json.dumps({
+                'hooks': {'SessionStart': [{'hooks': [{
+                    'type': 'command',
+                    'command': 'echo "$CLAUDE_PROJECT_DIR" > "$CLAUDE_PROJECT_DIR/ran"; '
+                               'echo "context from ' + name + '"'}]}]}}),
+                encoding='utf-8')
+        (root / 'not-a-repo').mkdir()
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ran = rsh.run(root, log=tmp / 'log', say=lambda m: None)
+        out = buf.getvalue()
+        for name in ('alpha', 'beta'):
+            seen = (root / name / 'ran')
+            cases.append((f'{name}\'s own hook ran, with its own project dir',
+                          seen.is_file() and seen.read_text().strip()
+                          == str((root / name).resolve()), repr(ran)))
+        cases.append(('what each hook printed reaches the session as one '
+                      'context block', 'context from alpha' in out
+                      and 'context from beta' in out, out[:300]))
+        (root / 'alpha' / 'ran').unlink()
+        (root / '.claude').mkdir()
+        (root / '.claude' / 'settings.json').write_text('{}', encoding='utf-8')
+        ran2 = rsh.run(root, log=tmp / 'log', say=lambda m: None)
+        cases.append(('THE DISCRIMINATING CASE: a root with its own settings '
+                      'runs nothing (its hooks ran natively)',
+                      ran2 == [] and not (root / 'alpha' / 'ran').exists(),
+                      repr(ran2)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a session opened above its repos still runs their SessionStart '
+          f'hooks ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_bootstrap_source_engine_is_functional():
     """spec/BOOTSTRAP_NEW_SOURCES.md's newer claim, tested rather than
     trusted: precedent_bootstrap_source.py's output carries a real, working
@@ -42949,6 +43004,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_writes_what_real_sets_converged_on()
+    check_session_hooks_run_for_a_session_opened_above_the_repos()
     check_bootstrap_source_engine_is_functional()
     check_session_start_refreshes_an_attached_team_clone()
     check_views_drift_gate_reaches_a_source_set()

@@ -464,6 +464,11 @@ ENGINE_FILES = [
     'precedent_detect.py',
     'precedent_promote.py',
     'precedent_candidate.py',
+    # What a user-level SessionStart hook calls when a session opens above
+    # the repos it works in, so each repo's own SessionStart hooks run
+    # anyway (2026-09-28). Every repo carries it, so the hook finds a copy
+    # in whichever clones a session has.
+    'precedent_run_session_hooks.py',
     # The generator and the one-time converter for the 2026-09-16 todo/gotcha
     # migration's per-item TODO.md format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
     # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the

@@ -49,6 +49,52 @@ nothing can resolve on its own is your timezone in that set's
 `identity.json`; `PRECEDENT_COMMIT_TZ` above covers the same ground without
 it.
 
+## When a Session Opens Above Your Repos
+
+Claude Code runs the hooks of the folder a session is opened in. A session
+that works across several repositories is opened in the folder that holds
+them all (`/home/user`), which has no hooks of its own, so **none of the
+repositories' SessionStart hooks run**: no commit identity, no practice list
+from your own and your team's sets, no engine refresh. Nothing inside a
+repository can fix this, because nothing inside one runs. A user-level hook
+does run, wherever the session opens, and
+[tools/precedent_run_session_hooks.py](../tools/precedent_run_session_hooks.py)
+is what it calls: it runs each repository's own SessionStart hooks, and does
+nothing in a session opened inside a repository.
+
+Add this to the environment's **setup script** (the environment's settings,
+under Setup script). It writes the user-level hook each time a container
+starts; new sessions pick it up:
+
+```sh
+mkdir -p ~/.claude
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path.home() / '.claude' / 'settings.json'
+d = json.loads(p.read_text()) if p.exists() else {}
+cmd = ('f=$(ls -d /home/user/*/tools/precedent_run_session_hooks.py '
+       '2>/dev/null | head -1); [ -n "$f" ] && python3 "$f" || true')
+starts = d.setdefault('hooks', {}).setdefault('SessionStart', [])
+if cmd not in json.dumps(starts):
+    starts.append({'hooks': [{'type': 'command', 'command': cmd}]})
+p.write_text(json.dumps(d, indent=2))
+PY
+```
+
+**Not yet seen working end to end (2026-09-28).** The runner itself was
+run in a real session opened in `/home/user` and ran all 25 hooks across six
+repositories, but whether the hosted harness reads a user-level
+`~/.claude/settings.json` written by the setup script has not been
+confirmed. The first session after adding it says:
+`python3 tools/precedent_session_check.py` reports whether
+`.precedent/SESSION_PRACTICES.md` exists and whether commits are authored
+by you, and both are red when no hook ran.
+
+While there, check `PRECEDENT_FRESHNESS_ALSO`: on a hosted session the
+sets are cloned under `/home/user/`, not `~`, and
+`python3 tools/precedent_session_check.py` prints the value computed from
+the clones actually on disk.
+
 ## Two Things That Each Cost a Day When Skipped
 
 - **A change here never reaches a session that is already running.** Test

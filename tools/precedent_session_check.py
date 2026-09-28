@@ -127,7 +127,10 @@ def checks(offline=False):
             f'CLAUDE_PROJECT_DIR={proj!r}, but this repository is {ROOT}. '
             f'Every hook in .claude/settings.json is written as '
             f'$CLAUDE_PROJECT_DIR/.claude/hooks/... so NONE of them resolve, '
-            f'and none of them ran. This is the incident in the docstring')
+            f'and none of them ran. This is the incident in the docstring. '
+            f'For a session opened above several repos, the environment '
+            f'setup-script step in documentation/CLOUD_SETUP.md ("When a '
+            f'Session Opens Above Your Repos") runs them')
         out.append(('the harness rooted the session at this repository',
                     ok, detail))
 

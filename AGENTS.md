@@ -86,7 +86,9 @@ shared set, silently, and attach the individual set, never clone it by hand
 before trusting any "the hook does this" claim, and read a failing row's own
 remedy before `--apply`. A session rooted above the repos it works in runs
 none of their hooks
-([gotcha-2026-09-25](gotchas/gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)).
+([gotcha-2026-09-25](gotchas/gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md));
+`python3 tools/precedent_run_session_hooks.py` runs their SessionStart
+hooks by hand.
 The long form, with its history, is in
 [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#session-setup).
 
