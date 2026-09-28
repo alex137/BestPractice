@@ -6650,6 +6650,11 @@ def _published_default_branch():
     return None
 
 
+PINNED_PERMALINK_RE = re.compile(
+    r'https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|tree|raw)/'
+    r'|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+/)[0-9a-f]{40}/[^\s)\]>"\'`]*')
+
+
 @check('rename-updates-links', 'tree',
        'no tracked file still references a path this branch renamed away '
        'or deleted',
@@ -6662,7 +6667,8 @@ def _published_default_branch():
        'a materialized practice or check, or the generated loader block, '
        'each of which is overwritten by its own next sync. It also says '
        'nothing about a file the decommissioning registry exempts -- the record OF a deletion naming what went is not a reference left behind '
-       'by one.')
+       'by one -- or about a path inside a permalink pinned to a 40-hex '
+       'commit, which cites the file as it was and cannot go stale.')
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -6804,7 +6810,11 @@ def _rename_updates_links(ctx):
                     continue
                 if in_generated:
                     continue
-                if old in line:
+                # A permalink pinned to a commit names the file as it was at
+                # that commit, which is the right way to cite a file that no
+                # longer exists -- it cannot go stale. A link to a branch can,
+                # and still counts.
+                if old in line and old in PINNED_PERMALINK_RE.sub('', line):
                     where = f'renamed to {new_path}' if new_path else 'deleted'
                     out.append(Finding(
                         f'{rel}:{i}',
@@ -9140,6 +9150,42 @@ def main():
                     f"_run_with_coverage_retry's docstring for the incident "
                     f"this closes).")
 
+    # --changed-files-only: judge a push by what it brings, never by the
+    # repository's standing state (Morgan, 2026-09-27, strength: decided:
+    # "let's do it ONLY for files that changed (or were added) in that
+    # session ... NOT for every file in the repo"). Every check still runs;
+    # a finding is kept only when it names a file in the change. The rest --
+    # and any finding that names no file -- wait for the full check, which
+    # a Promote runs on the whole tree.
+    outside_change = 0
+    materialized = 0
+    if '--changed-files-only' in flags:
+        in_change = {c.rstrip('/') for c in ctx.changed}
+        # A practice file sync wrote -- any the committed MANIFEST.json names
+        # -- is not this change's own writing, even when this change is the
+        # update that wrote it: its text is the publishing source's, fixed
+        # there and judged there, and anything done to it here is
+        # overwritten by the next sync. practice-links-travel skips it for
+        # the same reason. Found 2026-09-28: a consuming repo's Update
+        # Vendors failed its pre-staging check on an acronym inside
+        # vendor-update-runbook, a file it cannot change.
+        for c in list(in_change):
+            if c.startswith('practices/') and c.endswith('.md') \
+                    and _manifest_entry(c) is not None:
+                in_change.discard(c)
+                materialized += 1
+        kept_results = []
+        for slug, status, findings, why, uv in results:
+            if status == 'VIOLATION':
+                kept = [f for f in findings
+                        if str(getattr(f, 'where', '') or '').split(':', 1)[0]
+                        in in_change]
+                outside_change += len(findings) - len(kept)
+                status = 'VIOLATION' if kept else 'PASS'
+                findings = kept
+            kept_results.append((slug, status, findings, why, uv))
+        results = kept_results
+
     all_violated = [r for r in results if r[1] == 'VIOLATION']
     skipped = [r for r in results if r[1] == 'SKIPPED']
     errored = [r for r in results if r[1] == 'ERROR']
@@ -9216,6 +9262,22 @@ def main():
           f'advisory findings do not fail the run; an exemption is this repo '
           f'declaring the rule does not bind it, with a reason, in '
           f'precedent.json).')
+    if '--changed-files-only' in flags:
+        if materialized:
+            print(f'note: --changed-files-only: {materialized} changed practice '
+                  f'file(s) are materialized from another source (MANIFEST.json '
+                  f'names them), so they were not judged as this change\'s '
+                  f'writing -- their source judges them.')
+        if outside_change:
+            print(f'note: --changed-files-only: {outside_change} finding(s) in '
+                  f'files this change does not touch, or naming no file, were '
+                  f'not judged here -- the full check judges them.')
+        if errored:
+            # A check that crashed names no file, so it cannot be this
+            # change's doing; it is reported and left to the full check.
+            print(f'note: --changed-files-only: {len(errored)} check(s) '
+                  f'errored and were not held against this change.')
+        return 1 if violated else 0
     if violated or errored:
         return 1
     if (skipped or unverified) and '--strict' in flags:

@@ -150,9 +150,14 @@ The command does the whole promotion, and a session adds nothing to it:
 **Staging into main runs step 1 first, then the same full check** on staging merged into main
 (standing on an earlier pass of the same files, as above), then pushes a
 throwaway copy of staging, `to-main-DATE`, and stops: the tool never moves
-main. The session opens the pull request from that copy into main, waits
-for its GitHub test -- main's last gate -- and merges it with a merge
-commit. Report the copy, the pull request and the merge, and confirm with a
+main. **That stop exits 3, not 0**, and its block opens with *"MAIN HAS NOT
+MOVED YET"*: exit 0 from Promote means the branch it names has moved, so a
+3 means the work below is still owed (2026-09-28: a session read the old
+exit 0 as done while main had not moved). The session opens the pull request from that copy into main, waits
+for its GitHub test -- main's last gate -- with
+`python3 tools/precedent_branches.py --wait-main-test COPY` (exit 0 only on
+a pass; never a poller of the session's own, since one crashed mid-wait on
+2026-09-27), and merges it with a merge commit. Report the copy, the pull request and the merge, and confirm with a
 fetch that `origin/main` carries staging's tip.
 
 **Main takes staging by a pull request from a throwaway copy, never from

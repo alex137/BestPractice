@@ -88,7 +88,7 @@ PAIRS = [
 
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in
 # the host shim if the whole tree is too broad.
-DOC_GLOB = "**/*.md"
+DOC_GLOB = "**/*.md"          # a pattern, or a list of patterns (e.g. slides generated as HTML)
 
 # Directories the orphan-sentinel scan must not walk. A repo that VENDORS an
 # upstream practice layer carries a whole copy of that upstream's documents,
@@ -190,6 +190,123 @@ def emit(script, name):
     return r.stdout.rstrip("\n") + "\n"
 
 
+# ---------------------------------------------------------------------------
+# One process per model (BATCH_MODELS). A model's blocks are otherwise each
+# their own process, and a model that re-derives its state per process (a
+# cold solve, a sizing loop, a sweep) repeats it once per block -- 29 times
+# for one host model. A script listed in BATCH_MODELS is imported once in a
+# child process and its own `__main__` block is re-run for each block name
+# with sys.argv set to `SCRIPT --emit NAME`, so it keeps whatever dispatch
+# it has and shares its in-process memos across its blocks. The output of
+# each block is what the per-block run prints: the import-time output
+# followed by the dispatch's. Blocks then share module state, so a script
+# joins the list only after `--verify-batch SCRIPT` shows every one of its
+# blocks identical both ways; hosts set BATCH_MODELS.
+BATCH_MODELS = ()
+
+
+def emit_batch(script, names):
+    import json
+    import os
+    import tempfile
+    fd, out = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        r = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--_emit-batch",
+                            str(ROOT / script), out, *names], capture_output=True, text=True)
+        if r.returncode != 0:
+            sys.exit(f"[doc_sync] FAIL: {script} (one process, {len(names)} blocks) exited "
+                     f"{r.returncode}:\n{r.stderr}")
+        res = json.load(open(out))
+    finally:
+        os.unlink(out)
+    return {n: res[n].rstrip("\n") + "\n" for n in names}
+
+
+def _emit_batch_child(script, out, names):
+    """The child of emit_batch: the script's module body once, its
+    `__main__` block once per name."""
+    import ast
+    import contextlib
+    import io
+    import json
+    import types
+    path = Path(script).resolve()
+    tree = ast.parse(path.read_text(), str(path))
+    guards = [st for st in tree.body if isinstance(st, ast.If) and isinstance(st.test, ast.Compare)
+              and isinstance(st.test.left, ast.Name) and st.test.left.id == "__name__"]
+    if len(guards) != 1:
+        sys.exit(f"{script}: expected one `if __name__ == ...` block, found {len(guards)}")
+    body = [st for st in tree.body if st is not guards[0]]
+    sys.path.insert(0, str(path.parent))
+    mod = types.ModuleType(path.stem)
+    mod.__file__ = str(path)
+    sys.modules[path.stem] = mod          # a fork pool pickles its workers by module name
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exec(compile(ast.Module(body=body, type_ignores=[]), str(path), "exec"), mod.__dict__)
+    head = buf.getvalue()
+    main = compile(ast.Module(body=guards[0].body, type_ignores=[]), str(path), "exec")
+    res = {}
+    for n in names:
+        sys.argv = [str(path), "--emit", n]
+        b = io.StringIO()
+        code = 0
+        with contextlib.redirect_stdout(b):
+            try:
+                exec(main, mod.__dict__)
+            except SystemExit as e:
+                if isinstance(e.code, str):
+                    sys.stderr.write(e.code + "\n")
+                    code = 1
+                else:
+                    code = e.code or 0
+        if code:
+            sys.stderr.write(f"{script} --emit {n} exited {code}\n")
+            sys.exit(code)
+        res[n] = head + b.getvalue()
+    json.dump(res, open(out, "w"))
+
+
+def verify_batch(script, names):
+    """Every block of `script` emitted both ways; the names that differ."""
+    one = {n: emit(script, n) for n in names}
+    many = emit_batch(script, names)
+    return [n for n in names if one[n] != many[n]]
+
+
+def emit_all(pairs, jobs=None):
+    """Every registered block's script output, run concurrently: each emit
+    is its own process, and a model that re-derives its state per process
+    spends most of a gate's wall clock doing so one block at a time. The
+    number of concurrent emits is DOC_SYNC_JOBS, else the CPU count.
+    Returns {(script, name): text}; the first failing emit exits the gate,
+    as the serial loop did."""
+    import concurrent.futures
+    import os
+    keys = list(dict.fromkeys((s, n) for _, n, s in pairs))
+    batched = [s for s in dict.fromkeys(s for s, _ in keys) if s in BATCH_MODELS]
+    tasks = [(emit_batch, (s, [n for s2, n in keys if s2 == s])) for s in batched]
+    tasks += [(emit, k) for k in keys if k[0] not in batched]
+
+    def collect(fn, args, res):
+        if fn is emit_batch:
+            return {(args[0], n): t for n, t in res.items()}
+        return {args: res}
+    jobs = jobs or int(os.environ.get("DOC_SYNC_JOBS", "0") or 0) or os.cpu_count() or 1
+    out = {}
+    if jobs <= 1 or len(tasks) <= 1:
+        for fn, args in tasks:
+            out.update(collect(fn, args, fn(*args)))
+        return out
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+        futs = {ex.submit(fn, *args): (fn, args) for fn, args in tasks}
+        for f in concurrent.futures.as_completed(futs):
+            fn, args = futs[f]
+            out.update(collect(fn, args, f.result()))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true",
@@ -199,9 +316,25 @@ def main():
     ap.add_argument("--only", action="append", default=[], metavar="SUBSTR",
                     help="restrict to pairs whose document, block or script path "
                          "contains SUBSTR (repeatable) -- the fast gate for a "
-                         "turn that touched a few documents; the bare run stays "
-                         "the pre-merge gate")
+                         "turn that touched a few documents (its restatement scan "
+                         "reads only the selected scripts' owned figures); the "
+                         "bare run stays the pre-merge gate")
+    ap.add_argument("--verify-batch", metavar="SCRIPT",
+                    help="emit every block of SCRIPT per block and in one process and "
+                         "report any that differ: the check a script passes before it "
+                         "joins BATCH_MODELS")
     args = ap.parse_args()
+    if args.verify_batch:
+        names = [n for _, n, s in PAIRS if s == args.verify_batch]
+        if not names:
+            sys.exit(f"[doc_sync] {args.verify_batch}: no registered blocks")
+        bad = verify_batch(args.verify_batch, list(dict.fromkeys(names)))
+        if bad:
+            print(f"[doc_sync] FAIL  {args.verify_batch}: {len(bad)} of {len(names)} block(s) differ "
+                  f"in one process: {', '.join(bad)}")
+            sys.exit(1)
+        print(f"[doc_sync] OK    {args.verify_batch}: all {len(names)} block(s) identical in one process")
+        return
     pairs = [p for p in PAIRS if not args.only
              or any(o in p[0] or o in p[1] or o in p[2] for o in args.only)]
 
@@ -231,6 +364,7 @@ def main():
         PAIRS[:] = []
         pairs = []
 
+    wants = emit_all([(d, n, s) for d, n, s in pairs if (ROOT / d).is_file()])
     for doc, name, script in pairs:
         path = ROOT / doc
         # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
@@ -249,7 +383,7 @@ def main():
             print(f"[doc_sync] FAIL  {doc}: no <!--gen:{name}--> block")
             fail = True
             continue
-        want = emit(script, name)
+        want = wants[(script, name)]
         have = m.group(2)
         if have == want:
             print(f"[doc_sync] OK    {doc} [{name}]")
@@ -305,7 +439,11 @@ def main():
     for doc, scripts in docs.items():
         text = (ROOT / doc).read_text()
         outside = re.sub(r"<!--gen:.*?<!--/gen:[\w-]+-->", "", text, flags=re.S)
-        for script in sorted({s for d, n, s in PAIRS if d == doc}):
+        # the scripts of the SELECTED pairs: a bare run selects every pair, so
+        # the pre-merge gate scans exactly what it did; an --only run checks
+        # the figures of the scripts it regenerated and does not import (and
+        # solve) every other model wired to the same document
+        for script in sorted({s for d, n, s in pairs if d == doc}):
             try:
                 declared = owned_figures(script)
             except OwnedFiguresUnavailable as e:
@@ -337,7 +475,8 @@ def main():
     # sentinels; set it to wherever this repo keeps prose.
     registered = {(d, n) for d, n, _ in PAIRS}
     found = set()
-    for path in sorted(ROOT.glob(DOC_GLOB)):
+    globs = [DOC_GLOB] if isinstance(DOC_GLOB, str) else list(DOC_GLOB)   # one pattern or several
+    for path in sorted({p for g in globs for p in ROOT.glob(g)}):
         rel = str(path.relative_to(ROOT))
         if any(rel.startswith(d) for d in SKIP_DIRS):
             continue
@@ -364,4 +503,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--_emit-batch":
+        _emit_batch_child(sys.argv[2], sys.argv[3], sys.argv[4:])
+        sys.exit(0)
     main()

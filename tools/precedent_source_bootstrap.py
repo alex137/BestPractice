@@ -73,6 +73,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -418,9 +419,153 @@ def _sync_once(repo_url, clone_path, branch=None):
     return _run_git(cmd)
 
 
+# ONE TREE FOR THE INDIVIDUAL SET, WHICHEVER ROUTE CLONED IT (2026-09-28).
+#
+# Two routes put the individual set on disk and they disagreed about where.
+# This tool clones it to `--clone` ($HOME/precedent-individual, the path the
+# user config records). The repo-attach tool (`add_repo` on Claude Code on
+# the web) grants the session access to it -- push access included, which is
+# why sessions are told to call it -- and its reply tells the session to
+# clone the repo into the directory the project lives in
+# (/home/user/<name>). Where $HOME is not that directory, the two land in
+# different places. Two consumer sessions reported it the same day: the
+# session check's "cloned exactly once" row failing every turn, in one case
+# with both copies at one commit and in the other with the two DIVERGED, so
+# whichever copy a tool happened to read decided which practices were in
+# force.
+#
+# The same answer _clone_elsewhere_on_disk gives the shared sets: one working
+# tree, and every other path a symlink to it. Whichever route cloned first
+# keeps its tree. When this tool is first, it leaves a link at the attach
+# path, so the clone the attach reply suggests stops at "destination path
+# already exists" instead of making a second copy. When the session was
+# first, this tool reuses that clone, records it in the config, and links
+# $HOME's path to it.
+#
+# Two separate trees already on disk are REPORTED and neither is touched
+# (practice: repair-cannot-discard-work): which one holds the work is not
+# something a startup hook gets to decide, and a diverged pair has work in
+# both.
+#
+# The attach path is only considered for a HOSTED url, and a tree found there
+# only counts when its origin names the same repository. The attach tool
+# only ever hands out hosted repositories, so a file:// source has no attach
+# clone to meet -- and that keeps a test fixture with a fake $HOME from ever
+# reaching a real workspace through an inherited project-dir variable.
+
+
+def attach_workspace():
+    """-> the directory a repo-attach tool clones into, or None: the parent
+    of the session's project, read from the same two variables as
+    _clone_elsewhere_on_disk (engine's own first, provider's second)."""
+    for var in ('PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR'):
+        proj = os.environ.get(var, '').strip()
+        if proj:
+            return pathlib.Path(proj).parent
+    return None
+
+
+def _is_hosted(url):
+    u = (url or '').strip()
+    return u.startswith(('https://', 'http://', 'ssh://', 'git://')) or \
+        bool(re.match(r'^[\w.-]+@[\w.-]+:', u))
+
+
+def _repo_key(url):
+    """`owner/repo`, lowercased, for comparing two remotes of one repository.
+    The attach tool's clone URL goes through a local proxy and is lowercased
+    (gotchas/gotcha-2026-09-06-a-repository-attached-mid-session-clones-
+    single-branch-so-ev.md), so only the last two path segments compare."""
+    u = (url or '').strip().rstrip('/')
+    if u.endswith('.git'):
+        u = u[:-4]
+    parts = [p for p in re.split(r'[/:]', u) if p]
+    return '/'.join(parts[-2:]).lower()
+
+
+def _copy_state(path):
+    """-> 'e4ff664, 2 unpushed commit(s), uncommitted changes' for a report."""
+    _, head = _run_git(['-C', str(path), 'rev-parse', '--short', 'HEAD'])
+    bits = [head or 'unreadable']
+    ok, ahead = _run_git(['-C', str(path), 'rev-list', '--count', '--branches',
+                          '--not', '--remotes'])
+    if ok and ahead.strip() not in ('', '0'):
+        bits.append(f'{ahead.strip()} unpushed commit(s)')
+    ok, dirty = _run_git(['-C', str(path), 'status', '--porcelain'])
+    if ok and dirty.strip():
+        bits.append('uncommitted changes')
+    return head, ', '.join(bits)
+
+
+def _one_individual_tree(name, repo_url, clone_path, workspace):
+    """-> (the path to sync, [paths that should lead to it], report or None).
+
+    See the block above. Never deletes, moves or overwrites anything: the
+    only change it makes is removing a DANGLING symlink, which holds
+    nothing."""
+    attach = None
+    if workspace is not None and clone_path.name == name \
+            and _is_hosted(repo_url):
+        attach = pathlib.Path(workspace) / name
+    trees = []                                  # [(resolved, as found)]
+    for cand, must_match in ((clone_path, False), (attach, True)):
+        if cand is None or not (cand / '.git').exists():
+            continue
+        real = cand.resolve()
+        if any(real == r for r, _ in trees):
+            continue                            # a link to a tree already seen
+        if must_match:
+            ok, url = _run_git(['-C', str(cand), 'remote', 'get-url', 'origin'])
+            if not ok or _repo_key(url) != _repo_key(repo_url):
+                continue                        # somebody else's repository
+        trees.append((real, cand))
+    links = [p for p in (clone_path, attach) if p is not None]
+    if not trees:
+        if clone_path.is_symlink() and not clone_path.exists():
+            clone_path.unlink()                 # dangling: nothing to lose
+        return clone_path, links, None
+    if len(trees) == 1:
+        real, found = trees[0]
+        return (real if found.is_symlink() else found), links, None
+    heads, shown = [], []
+    for real, found in trees:
+        head, state = _copy_state(real)
+        heads.append(head)
+        shown.append(f'{found} @ {state}')
+    diverged = len(set(heads)) > 1
+    return clone_path, [], (
+        f'precedent_source_bootstrap: {name} is cloned twice on this disk -- '
+        + ' and '.join(shown)
+        + (' -- THESE HAVE DIVERGED' if diverged else '')
+        + f'. Neither was touched: this tool never deletes, moves or '
+          f'overwrites a clone, and which one holds the work is not its call. '
+          f'Tools read {clone_path}. To end up with one, push or carry any '
+          f'work out of the other copy, remove it, and run this bootstrap '
+          f'again -- it links that path to the remaining tree instead of '
+          f'cloning a second one.')
+
+
+def _link_to(tree, paths):
+    """Make each of `paths` lead to `tree` where nothing is there yet. A path
+    that already exists is left exactly as it is, and a failure only costs
+    the link (practice: fail-gracefully)."""
+    for path in paths:
+        try:
+            if path.is_symlink() and not path.exists():
+                path.unlink()                   # dangling: nothing to lose
+            if os.path.lexists(path) or not path.parent.is_dir():
+                continue
+            path.symlink_to(pathlib.Path(tree).resolve(),
+                            target_is_directory=True)
+        except OSError as e:
+            print(f'precedent_source_bootstrap: could not link {path} to '
+                  f'{tree} ({e}). A clone made there later is a second '
+                  f'copy of the same source.', file=sys.stderr)
+
+
 def ensure_source(level, name, repo_url, clone_path, config_path,
                    retries=DEFAULT_RETRIES, retry_delay=DEFAULT_RETRY_DELAY,
-                   sleep=time.sleep, branch=None):
+                   sleep=time.sleep, branch=None, workspace=None):
     """The mechanism, callable in-process as well as from main() below.
     (tools/precedent_resolve.py's own self-heal does NOT call this
     in-process -- it shells out to the project's session-start hook, the
@@ -431,12 +576,25 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     -> (True, None) on success; (False, last_output) once every retry is
     spent. Never raises for an ordinary sync failure — a source this
     session cannot yet reach is the expected, common case (see module
-    docstring), not a bug to propagate."""
+    docstring), not a bug to propagate.
+
+    `workspace` (individual only) is where a repo-attach tool clones; see
+    _one_individual_tree. None keeps the one-path behaviour."""
     clone_path = pathlib.Path(clone_path)
+    links = []
+    if level == 'individual':
+        clone_path, links, report = _one_individual_tree(
+            name, repo_url, clone_path, workspace)
+        if report:
+            print(report, file=sys.stderr)
     attempts = max(1, retries)
     last_output = ''
     for attempt in range(1, attempts + 1):
         ok, last_output = _try_sync(repo_url, clone_path, branch=branch)
+        # Linked whether or not the pull worked: a tree on disk is in force
+        # either way, and the link is what stops a second clone.
+        if links and (clone_path / '.git').exists():
+            _link_to(clone_path, links)
         if ok:
             # The credential helper is persisted by _try_sync itself, for
             # every caller rather than only this one -- see its docstring for
@@ -825,7 +983,8 @@ def main(argv=None):
                                     args.clone, args.config,
                                     retries=args.retries,
                                     retry_delay=args.retry_delay,
-                                    branch=args.branch)
+                                    branch=args.branch,
+                                    workspace=attach_workspace())
     if not ok:
         print(f"precedent_source_bootstrap: {_diagnose(last_output)} "
               f"could not reach {args.repo_url!r} "

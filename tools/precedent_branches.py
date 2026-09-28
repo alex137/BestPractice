@@ -75,7 +75,8 @@ steps waiting makes the Promote ambiguous -- else the one --work needs. It print
 anything else. Into main it runs the same full check on staging merged into
 main, then pushes a throwaway copy of staging for the pull request into
 main; that pull request's GitHub test is main's last gate, so main itself
-is never pushed from here.
+is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
+0, and says first that main has not moved: exit 0 means the branch moved.
 
 CLI:
   precedent_branches.py                     the tiers, as this repo resolves them
@@ -87,11 +88,17 @@ CLI:
                                             reached staging or main another way --
                                             what has had its tier's checks, or with
                                             --check, whatever passes them once run
+  precedent_branches.py --wait-main-test COPY
+                                            wait for main's GitHub test on the to-main
+                                            copy's pull request; 0 only when it passed
   precedent_branches.py --drift             what staging and main carry that pre-staging
                                             lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
                                             pre-staging into staging, or staging into
-                                            main, fully checked; says which first
+                                            main, fully checked; says which first.
+                                            0 moved or nothing to move, 1 refused,
+                                            3 main not moved yet (its pull request
+                                            is still to open, test and merge)
   precedent_branches.py --ensure-tiers [--apply]
                                             report (or make) pre-staging and a real
                                             staging branch on origin -- the migration step
@@ -414,8 +421,10 @@ def ensure_tiers(root, apply=False, say=print):
     both exist (or were just made), 1 when something is missing and
     `apply` is off, or could not be made.
 
-    A repository whose staging tier is main (base_branch "main", no
-    staging_branch) gains a `staging` branch at main's tip, and its
+    A missing staging is made from the old name kept in step with it, else
+    from pre-staging, else from main; a missing pre-staging is made from
+    staging. A repository whose staging tier is main (base_branch "main", no
+    staging_branch) gains a `staging` branch the same way, and its
     precedent.json gains `"staging_branch": "staging"` -- written here,
     committed by the session running the migration. base_branch itself is
     left alone (see STAGING_KEY). Then pre-staging is made from staging by
@@ -445,10 +454,19 @@ def ensure_tiers(root, apply=False, say=print):
         # main was merged (cause not established), and this looked for staging
         # itself to rebuild it from, found nothing and gave up. Right after
         # such a merge, main contains staging exactly.
-        if wants_staging_branch:
-            src = MAIN
-        elif staging != LEGACY_STAGING and _remote_tip(root, LEGACY_STAGING):
+        #
+        # Then from pre-staging, and only then from main (Morgan,
+        # 2026-09-27, strength: decided: "copying the latest from
+        # pre-staging to staging or vice versa and if neither exist then
+        # copying to both the latest from main"). What lands on staging this
+        # way has not had staging's full check, and it gets it on the way to
+        # main: a Promote into main runs the full check on anything it has
+        # not seen pass.
+        if (not wants_staging_branch and staging != LEGACY_STAGING
+                and _remote_tip(root, LEGACY_STAGING)):
             src = LEGACY_STAGING
+        elif _remote_tip(root, PRE_STAGING):
+            src = PRE_STAGING
         else:
             src = MAIN
         tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
@@ -631,6 +649,10 @@ def _check(root, wt, tier):
 # so. A run that is still queued after it is not failed, only not answered.
 GITHUB_TEST_WAIT_SECONDS = 30 * 60
 GITHUB_POLL_SECONDS = 45
+# A pull request's run shows up on GitHub within a minute or two of the
+# pull request opening. One that has not appeared by this long is never
+# going to, and waiting the full half hour for it would only hide that.
+GITHUB_START_WAIT_SECONDS = 5 * 60
 
 
 def _tree(root, rev):
@@ -893,6 +915,41 @@ def _check_tier(root, branch, tip, say, gh=None):
     if state == 'passed':
         return True, f'{local}; GitHub test: {detail}'
     return False, f'{local}, but the GitHub test is {state}: {detail}'
+
+
+def wait_for_main_test(root, sha, say=print, gh=None):
+    """Wait for main's GitHub test on `sha` -- the to-main copy's tip, once
+    its pull request into main is open -- and -> 0 passed, 1 anything else.
+
+    The last step of a Promote into main is "wait for its GitHub test, then
+    merge", and until 2026-09-27 nothing here did the waiting, so each
+    session wrote its own poller; one crashed mid-wait that day on a Python
+    version quirk and was read by eye instead. This is that wait, once:
+    `--wait-main-test COPY` after opening the pull request. A run that has
+    not appeared within GITHUB_START_WAIT_SECONDS is reported as never
+    started rather than waited on for the full half hour."""
+    tests = github_tests(root, sha)
+    if not tests:
+        say(f'no GitHub test is installed here, so there is nothing to wait for '
+            f'on {sha[:12]}: the full local check at the Promote was the whole check.')
+        return 0
+    say(f'waiting for the GitHub test on {sha[:12]} (up to '
+        f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes): ' + ', '.join(p for p, _ in tests))
+    t0 = time.monotonic()
+    state, detail = github_test_state(root, sha, tests, gh)
+    while state in ('running', 'none'):
+        waited = time.monotonic() - t0
+        if waited >= GITHUB_TEST_WAIT_SECONDS or (
+                state == 'none' and waited >= GITHUB_START_WAIT_SECONDS):
+            break
+        time.sleep(GITHUB_POLL_SECONDS)
+        state, detail = github_test_state(root, sha, tests, gh)
+    if state == 'passed':
+        say(f'GitHub test PASSED on {sha[:12]}: {detail}. Merge the pull request '
+            f'into {MAIN} with a merge commit.')
+        return 0
+    say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
+    return 1
 
 
 def sync_pre_staging(root, say=print, check=False):
@@ -1219,7 +1276,9 @@ def promotion_step(root, to=None, work=None):
 def promote(root, say=print, to=None, work=None):
     """Pick the step (promotion_step), SAY it, then run it, one window at a
     time. -> 0 promoted, nothing to promote, or another window already
-    promoting; 1 refused (a failing check, a conflict, a race)."""
+    promoting; 1 refused (a failing check, a conflict, a race);
+    PROMOTE_MAIN_NOT_MOVED when staging into main is ready for its pull
+    request and main has not moved yet."""
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
     above = _drifted_from_above(root) if step is None else []
@@ -1251,10 +1310,69 @@ def promote(root, say=print, to=None, work=None):
         say(f'NOTE: could not take the Promote lock ({info}); going ahead '
             f'without it.')
         return run(root, say)
+    old_handlers = _exit_cleanly_on_signal()
     try:
         return run(root, say)
     finally:
-        _lock_release(root, info, say)
+        _ignore_signals(old_handlers)
+        try:
+            _lock_release(root, info, say)
+        finally:
+            _restore_signals(old_handlers)
+
+
+# A KILLED PROMOTE RELEASES ITS LOCK (2026-09-28). The try/finally above
+# frees the lock on an error or a Ctrl-C, but SIGTERM -- what a command
+# timeout, a closed session or `kill` sends -- ends Python without running
+# any finally block. A session ran a Promote under a 590-second limit, the
+# limit killed it mid-check, and its claim sat on origin for the full
+# LOCK_STALE_SECONDS: the same session's retry was told another window was
+# promoting, and so would every other window have been. Turning SIGTERM and
+# SIGHUP into SystemExit makes the finally run; the child check is killed
+# by subprocess.run on the way out. SIGKILL cannot be caught, which is what
+# the staleness timeout is still for. Morgan: "Yes approved! Please add
+# this!!" (strength: decided).
+_CLEAN_EXIT_SIGNALS = ('SIGTERM', 'SIGHUP')
+
+
+def _exit_cleanly_on_signal():
+    """Make SIGTERM and SIGHUP raise SystemExit, so finally blocks run.
+    -> the previous handlers, for _restore_signals. Never raises: off the
+    main thread signal.signal refuses, and the Promote goes on as before."""
+    import signal
+
+    def _raise(signum, _frame):
+        raise SystemExit(128 + signum)
+    old = {}
+    for name in _CLEAN_EXIT_SIGNALS:
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            old[sig] = signal.signal(sig, _raise)
+        except (ValueError, OSError):
+            pass
+    return old
+
+
+def _ignore_signals(old):
+    """While the release itself runs -- one small push -- a second SIGTERM
+    must not cut it short, or the kill that started it wins after all."""
+    import signal
+    for sig in old:
+        try:
+            signal.signal(sig, signal.SIG_IGN)
+        except (ValueError, OSError):
+            pass
+
+
+def _restore_signals(old):
+    import signal
+    for sig, handler in old.items():
+        try:
+            signal.signal(sig, handler)
+        except (ValueError, OSError, TypeError):
+            pass
 
 
 def _drifted_from_above(root):
@@ -1291,13 +1409,22 @@ def _to_main_copy(root):
     return base if not _remote_tip(root, base) else f'to-main-{moment}'
 
 
+# Exit 0 from a Promote means the branch it names has moved. Into main it
+# stops short -- the pull request, its GitHub test and the merge are the
+# session's -- and until 2026-09-28 it still exited 0 there: a session read
+# the 0 as done while main had not moved. That state has its own code now,
+# distinct from a refusal (1) and a usage error (2).
+PROMOTE_MAIN_NOT_MOVED = 3
+
+
 def _promote_to_main(root, say=print):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
     GitHub test is the last gate (spec/BRANCH_TIERS_PLAN.md: main gets "all
     those local tests AND the most important GitHub test"). Main is moved by
-    that pull request, never by this script. -> 0 ready or nothing to
-    promote; 1 refused."""
+    that pull request, never by this script. -> PROMOTE_MAIN_NOT_MOVED when
+    the copy is ready and main has not moved yet; 0 nothing to promote; 1
+    refused."""
     staging = staging_branch(root)
     # What reached main or staging by another route is checked and copied
     # down first, the same as before the step into staging.
@@ -1344,13 +1471,17 @@ def _promote_to_main(root, say=print):
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
         return 1
-    say(f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
+    say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
+        f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
+        f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
         f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
-        f'commit(s))", wait for its GitHub test, and merge it with a merge '
-        f'commit. Never open it from {staging} itself.')
-    return 0
+        f'commit(s))", wait for its GitHub test with\n'
+        f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
+        f'and merge it with a merge commit once that says PASSED. Never open '
+        f'it from {staging} itself.')
+    return PROMOTE_MAIN_NOT_MOVED
 
 
 def _promote_unlocked(root, say=print):
@@ -1559,6 +1690,15 @@ def _main(argv):
                   '[--work BRANCH-OR-COMMIT]', file=sys.stderr)
             return 2
         return promote(root, to=opts.get('to'), work=opts.get('work'))
+    if argv[:1] == ['--wait-main-test'] and len(argv) == 2:
+        _run(root, 'fetch', '-q', 'origin', argv[1])
+        sha = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{argv[1]}^{{commit}}')
+               or _git(root, 'rev-parse', '--verify', '--quiet', f'{argv[1]}^{{commit}}'))
+        if not sha:
+            print(f'precedent_branches: {argv[1]} names no branch or commit here.',
+                  file=sys.stderr)
+            return 2
+        return wait_for_main_test(root, sha)
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)

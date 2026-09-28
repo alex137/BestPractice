@@ -39,6 +39,9 @@ run the BestPractice clone's own copy -- never a vendored one:
     python3 ../BestPractice/tools/precedent_update.py --repo .
 
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
+and **makes any missing branch tier on origin** -- `staging` from
+`pre-staging`, `pre-staging` from `staging`, both from `main` when neither
+exists (Morgan, 2026-09-27, strength: decided) --
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
 0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
@@ -55,7 +58,7 @@ Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 **This does not lift the gate the chain already runs through**, and it does
 not add one. `Go update` publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all. Step 6 below is the
-full check, and it sits before the merge for that reason: a red check stops this merge exactly as it stops any
+landing branch's check, and it sits before the merge for that reason: a red check stops this merge exactly as it stops any
 other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
@@ -79,7 +82,10 @@ version conflict with what upstream now ships, and is it still needed?**
 **`--force`, `record-ci` and "take theirs" come after this review, never
 instead of it**; each one discards the local side in a single step. A
 difference kept on purpose is recorded so the next update does not ask
-again: a `diverged` or `declined` entry in `process/manifest.json`, a
+again: a `diverged` or `declined` entry in `process/manifest.json` for a
+file of the vendored catalogue, a `kept_template_divergences` entry in
+`precedent.json` for `tools/bootstrap.sh` or an `AGENTS.md` section (step
+10(d) says how), a
 declared file under `local_ci_workflows` in a practice source's `precedent.json`, a repo-local
 practice with `overrides:`, or a hand-written rule worded as an exception
 to the practice it departs from. **The pull request lists every conflicted
@@ -409,14 +415,17 @@ says so, both from the vendored tree under `process/upstream/`.
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on
    work that is otherwise correct. The bump and its output land together.
-6. **Run this repo's own full check**, not the upstream's:
-   `python3 tools/precedent_push_check.py --tier full`. **Run it by hand;
-   the push gate will not.** Under the branch tiers a push to a working
-   branch or to pre-staging gets only the basic check, so the full one first
-   runs at the merge, and a finding there refuses the merge after
-   everything else is done. On 2026-09-25 a vendor update's regenerated
-   AGENTS.md went out with its version header unbumped, and the merge gate
-   was the first thing to notice.
+6. **Run this repo's own check at the tier of the branch it lands on**, not
+   the upstream's -- the one command does, with `--push-command`. Into
+   pre-staging that is the fast checks on what the update changed; **the
+   full check runs at the Promote to staging, not here** (Morgan,
+   2026-09-27, strength: decided: *"The point of pre-staging is to move
+   fast, so I want the 10 minute checks to happen at the staging level,
+   not pre-staging"*; practice
+   [checks-follow-the-tier](checks-follow-the-tier.md)). This step used to
+   ask for the full check by hand, after a regenerated AGENTS.md went out
+   on 2026-09-25 with its version header unbumped; the commit now stamps
+   that header, and pre-staging's own checks refuse stale views.
 7. **Check that this environment can still reach its PRIVATE sources**,
    before you call the update done. A vendor update is when a new engine
    file arrives that the environment may not be configured for, and it is
@@ -529,10 +538,13 @@ says so, both from the vendored tree under `process/upstream/`.
 
     **(c) Fix stale source paths.** Each source in `precedent.json` whose
     path is not its current name gets both corrected — the practice sets
-    were renamed `precedent-team-*` → `precedent-shared-*`. The refresh
-    lists each one. GitHub redirects the old name, so nothing fails: the
-    repo just clones the same set twice, or not at all. Run step 8's tool
-    afterwards.
+    were renamed `precedent-team-*` → `precedent-shared-*`. Since
+    2026-09-28 the refresh makes that repoint itself (name, path, and level
+    `team` → `shared`) and says so; it lists only a set whose clone still
+    sits at the old path with nothing at the new one, which you clone or
+    move before running it again, and any other mismatch. GitHub redirects
+    the old name, so nothing fails: the repo just clones the same set
+    twice, or not at all. Run step 8's tool afterwards.
 
     **(d) Bring diverged template-written text up to the template:
     `tools/bootstrap.sh`, `AGENTS.md`'s sections, and retired branch
@@ -544,7 +556,41 @@ says so, both from the vendored tree under `process/upstream/`.
     each listed block in from the template, **keeping every line this repo
     added**, then re-run step 3's refresh: it should report the file as
     carrying every block. Never replace the whole file to get there, and
-    never reach for `--force`, which does not touch it anyway.
+    never reach for `--force`, which does not touch it anyway. **The one
+    exception is the old install's wrapper**, a `tools/bootstrap.sh` that
+    only runs `process/upstream/tools/bootstrap.sh` — BestPractice's own
+    session bootstrap, not the template, so it runs the wrong script. Since
+    2026-09-28 the refresh recognises one that carries nothing else and
+    replaces it with the template itself, saying `REPLACED`. One with lines
+    of its own is reported with a note saying so: replace it with
+    `templates/bootstrap.sh` by hand and carry those lines in.
+
+    **A difference kept on purpose is recorded, not re-decided every
+    update** (since 2026-09-28). When the person confirms a reported
+    `tools/bootstrap.sh` or `AGENTS.md` section is worded this repo's way
+    deliberately, add it to `precedent.json` under
+    `kept_template_divergences`, keyed exactly as the report names it —
+    `tools/bootstrap.sh`, or `AGENTS.md` and a space and the heading line —
+    with the reason and the `template_sha256` the report prints under the
+    item:
+
+    ```json
+    "kept_template_divergences": {
+      "AGENTS.md ### Session start": {
+        "reason": "we start sessions our own way; see the section",
+        "template_sha256": "<the hash the refresh printed>"
+      }
+    }
+    ```
+
+    From then on the refresh prints one `KEPT ON PURPOSE` line with the
+    reason, leaves it off **Left for you**, and `precedent_update.py` can
+    end DONE. The hash pins the decision to the template text it was made
+    against: when upstream changes that text, the item is listed again in
+    full, with the new hash to record if it is still kept. An entry with no
+    reason is not honoured. A `diverged` entry in `process/manifest.json`
+    does not do this — that manifest tracks the vendored catalogue, and
+    nothing that reads it looks at these files.
 
     **For each `AGENTS.md` section reported `DIVERGED`**, the output names
     the template line of each block the section lacks, and under a block it

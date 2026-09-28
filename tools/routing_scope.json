@@ -70,6 +70,13 @@
       "why": "Its own applies_to: common binary/asset extensions, a real locus for the moment such a file is actually being written. Deliberately not `**` -- a rule about handling original binaries has nothing to say to a session editing a practice file. index_required: true because the glob only fires once the write is already chosen; the decision it governs -- attach the original versus decline or recreate -- happens earlier, at the request, which only the occasion index reaches.",
       "decided": "2026-09-16, when the practice landed"
     },
+    "automation-issues": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is an unattended job hitting a blocker at run time, which is a property of an automation's run history, not of a file a session edits. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
+    },
     "base-branch-is-the-record": {
       "globs": [
         "**"
@@ -170,6 +177,15 @@
       ],
       "why": "The distinguishing condition is that a CHECK is being written or changed, and in this engine a check is one of two things: a @check function in precedent_check.py, or a source's own check_*.py under tools/checks/. Both are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT practices/** -- editing a practice file is necessary for writing a rule and says nothing about whether a check is involved, which is the test this file's note sets.",
       "decided": "2026-09-14, on landing the practice"
+    },
+    "checks-follow-the-tier": {
+      "globs": [
+        "tools/precedent_push_check.py",
+        "tools/precedent_merge_check.py",
+        "tools/precedent_branches.py"
+      ],
+      "why": "It governs which branch tier a check runs at, so it binds the three files that decide that: the push check, the merge gate and the tier resolver. Editing any of them is the moment a check's tier is set.",
+      "decided": "2026-09-27, when the practice landed"
     },
     "checks-plant-their-state": {
       "globs": [
@@ -379,6 +395,13 @@
       "why": "Its own applies_to, and the path IS the distinguishing condition: the standard is scoped to those two trees by definition, so a glob over them is exactly the practice's own scope rather than an approximation of it. Deliberately not '**/*.md' -- a document at the repository root or in documentation/ is out of scope, and surfacing the Rule there would be telling a reader to stamp a file the check will never look at.",
       "decided": "2026-09-07, when the practice was added"
     },
+    "dont-race-another-window": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is a REQUEST that collides with work another of the person's windows has in flight -- the start of a turn, before any file is touched, so no glob can reach it and no gate fires early enough. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
+    },
     "durable-fix": {
       "globs": [
         "**"
@@ -469,6 +492,13 @@
       ],
       "why": "No path tells you who the audience is.",
       "decided": "phase 4 routing pass"
+    },
+    "fresh-before-write": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is setting up a project or a session finding its checkout behind; the guard it describes fires on the first write of any file, so no path distinguishes it. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
     },
     "full-practice-audit": {
       "globs": [
@@ -1092,6 +1122,13 @@
       ],
       "gates_why": "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
     },
+    "session-trailer": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is committing anything -- a moment, not a place, and every path is committed. Reached through the occasion index.",
+      "decided": "2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance"
+    },
     "shared-result-cache": {
       "globs": [
         "**"
@@ -1223,6 +1260,25 @@
       "why": "Fires once, when a repo names its check levels. Nothing recurring to trigger on.",
       "decided": "phase 4 routing pass"
     },
+    "upstream-bug-stops-here": {
+      "globs": [
+        "process/upstream/**",
+        "precedent/universal/**",
+        "tools/*.py",
+        "tools/checks/**",
+        "practices/**",
+        ".claude/hooks/**",
+        "tools/bootstrap.sh",
+        ".github/workflows/light-check.yml",
+        ".github/workflows/leak-gate.yml"
+      ],
+      "why": "The paths where a copy of another repository's file usually lives: the vendored upstream tree, a declared universal source path, the engine and check scripts, practices, hooks, the bootstrap script and the two shipped workflows. The distinguishing condition is who wrote the file, which no glob can express, so these are where the edit that should stop tends to start; a session that owns the file says so and carries on.",
+      "decided": "2026-09-28, when the practice landed",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "`review` is the moment a fix is chosen, before the edit, which is the only moment this rule can still stop a local patch to an upstream bug."
+    },
     "upstream-fix": {
       "globs": [
         "**"
@@ -1324,6 +1380,13 @@
       ],
       "why": "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run.",
       "decided": "2026-09-25, when the practice landed"
+    },
+    "wide-search-needs-asking": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. What the rule governs is the decision to start a search whose reach is every clone or every file -- a choice made before any file is opened, leaving nothing in the tree. Reached through the occasion index, which lists it.",
+      "decided": "2026-09-28, when the practice landed"
     },
     "workflow-file-outside-vendoring": {
       "globs": [

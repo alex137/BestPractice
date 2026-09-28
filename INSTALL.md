@@ -866,7 +866,9 @@ not this section.
    reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
    they are not.
 
-   **Then give the repo its three branches**:
+   **Then give the repo its three branches** -- `precedent_install.py` does
+   it when the repo already has an origin with `main`, and the first Update
+   Vendors does it otherwise; by hand it is
    `python3 tools/precedent_branches.py --ensure-tiers --apply`. It creates
    `staging` and `pre-staging` on origin where they are missing and, in a
    repo whose staging tier was `main`, writes `"staging_branch": "staging"`
@@ -1063,7 +1065,14 @@ what a command accepts left a consumer's own session-start script calling
 it the old way — a WARN at every session start naming a fix that failed the
 same way.
 
-0. **(§0 installs) Replace the vendored universal catalogue.** From a
+0. **(§0 installs) Replace the vendored universal catalogue.**
+   [tools/precedent_update.py](tools/precedent_update.py) does this step itself since 2026-09-28, and
+   refuses any file that matches neither the last-synced upstream text nor
+   the incoming one. It records the commit it synced from in
+   `CATALOGUE_SYNC.json` beside `practices/` and judges the next update
+   against that; a catalogue with no record yet has each file checked
+   against every version upstream ever had at its path. The commands below
+   are the same step by hand, without the record. From a
    sibling Precedent clone, already on `staging` and pulled:
    ```
    rm -rf <your universal source path>/practices
@@ -1080,17 +1089,15 @@ same way.
    practices, changed Rules and retired ones all arrive here, and this is
    the only place a reader sees them.
 
-   **Expect a refusal if anything was retired, and read it before reaching
-   for the flag.** If anything was retired upstream since you installed
-   (nothing may have been — a six-day update on 2026-09-14 saw none), the
-   sync refuses
-   rather than deleting a practice your committed `MANIFEST.json` records.
-   Retirement is the ordinary case when you have just replaced the whole
-   catalogue, and then `--allow-removals` is the correct answer — but the
-   same refusal also fires when your vendored copy is *stale*, which needs a
-   refresh instead. The message names both and says which is which; check
-   the named practices against upstream's
-   [MAP.md](MAP.md) withdrawn-practices table before overriding.
+   **A retirement no longer refuses, and neither does an override.** Since
+   2026-09-28 a practice your committed `MANIFEST.json` records goes through
+   when its own source now marks it retired or deduplicated, or when a
+   declared source names it in `overrides:`; the sync says which. **Any
+   other removal still refuses** rather than deleting it — a practice the
+   source simply stopped producing, which usually means your vendored copy
+   is *stale* and needs a refresh. Read that message before reaching for
+   `--allow-removals`, and check the named practices against upstream's
+   [MAP.md](MAP.md) withdrawn-practices table first.
 
    **A second refusal names a source your `precedent.json` no longer
    declares**, and it is worth reading rather than flagging past: the match

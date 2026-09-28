@@ -754,7 +754,9 @@ widening what sessions may run
    its `precedent.json` and a real user-level individual config in place.
    Last, since 2026-09-25: `python3 tools/precedent_branches.py
    --ensure-tiers --apply`, so the migrated repo has `pre-staging` and a
-   `staging` branch of its own on origin, and commit the
+   `staging` branch of its own on origin -- since 2026-09-27 Update
+   Vendors makes them too, even on a repo it sends to this migration, so
+   this is a check that they exist -- and commit the
    `"staging_branch": "staging"` it writes into `precedent.json` when the
    repo's staging tier had been `main`.
    Check the reported precedence, any `overridden`/`blocked` entries, the

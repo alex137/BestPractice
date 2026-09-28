@@ -807,7 +807,8 @@ confidently.
     are written once and re-tested never, and a stale one is worse than none:
     it teaches the next session to skip a check that now works. *(Found: a
     gotcha describing a `ROOT` bug fixed weeks earlier, still telling
-    sessions to work around it.)*
+    sessions to work around it.)* What happens to each verdict -- close,
+    record, ask -- is Pass 4's open-item and gotcha review.
 13. **What does a session inherit that a person configured by hand?** List
     every `git config`, environment variable, user-level config file, and
     sibling clone this session or a recent one set up or relied on. Each is
@@ -1629,12 +1630,35 @@ Last because none of it strands an adopter, and none of it is cheap.
   one needs an answer — a stem, an `allow` line saying the name may be said,
   or a decision to leave it — and the answer is the person's, not the
   session's.
-- **Backlog drift.** Read [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md) (and each source's equivalent)
-  end to end: entries already done, no longer relevant, or never actually
-  decided. Treat an entry that is really just an unfixed bug as work, not as
-  backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
-  blocked or out of scope, so anything else there is either doable now or
-  should be closed.
+- **Every open item and every gotcha gets a verdict, and each one is acted
+  on.** Read every open item in `todo/` and every live entry in `gotchas/`,
+  in this repo and in each source in force, end to end. Each gets one of
+  three verdicts, with its evidence in the same line:
+  - **Still live** -- the item still waits on what it says, or the gotcha
+    still bites (reproduce it, per question 12 above). Leave it.
+  - **Outdated** -- the item is done, overtaken or no longer relevant; the
+    gotcha's trap has been fixed or can no longer fire. **Close it in the same
+    pass**: an item on its condition, with the commit or pull request that
+    met it ([item-closes-on-its-condition](item-closes-on-its-condition.md)); a
+    gotcha as `status: retired` in its own file, with the verdict and what
+    fixed it ([environment-gotchas](environment-gotchas.md)). Name each one in
+    the run record.
+  - **Ambiguous** -- the evidence does not settle it. **Both** write it into
+    the run record in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md), under
+    its own heading for open items or gotchas, **and** ask the person in the
+    reply: one line each, the item linked, what is unclear, and what the
+    session would do and why. The record keeps the question for a later
+    session; the reply is where the person actually answers it.
+
+  **A `parked` item is never asked about** ([park-it](park-it.md)): it is
+  reviewed only for being plainly done, closed if so, and noted in the run
+  record alone. Treat an item that is really just an unfixed bug as work,
+  not as backlog -- [todo-is-a-handoff](todo-is-a-handoff.md) queues only what
+  is blocked or out of scope, so anything else there is either doable now or
+  should be closed. Morgan, 2026-09-28 (strength: decided): *"review all to
+  do's and see if any are outdated ... close them ... and then also to do the
+  same with all the gotchas ... for both of these, the to-dos and the gotchas,
+  should be both in the doc and ask the session user."*
 - **Automated actions and schedules — crons, scheduled workflows, session
   triggers — across every repo and account in force.** Nothing else here
   sweeps these: a `schedule:` trigger in a `.github/workflows/*.yml`, an

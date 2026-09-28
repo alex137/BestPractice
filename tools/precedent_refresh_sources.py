@@ -501,7 +501,11 @@ def make_current(repo, branch):
     unpushed commits needs a person -- rebasing or resetting someone's work
     to get a vendoring tool unstuck is exactly the trade this whole loop was
     made of. It is reported and left alone."""
-    ok, _ = _git('fetch', '--quiet', 'origin', branch, cwd=repo)
+    # An explicit refspec: in a single-branch clone a bare `fetch origin
+    # <branch>` writes only FETCH_HEAD, and origin/<branch> below would be
+    # missing or stale (2026-09-28).
+    ok, _ = _git('fetch', '--quiet', 'origin',
+                 f'+refs/heads/{branch}:refs/remotes/origin/{branch}', cwd=repo)
     if not ok:
         return False, f'could not fetch origin/{branch}'
     ok, counts = _git('rev-list', '--left-right', '--count',

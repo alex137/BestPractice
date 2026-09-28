@@ -774,10 +774,29 @@ def local_clone_refs(root):
     """
     root = pathlib.Path(root)
     candidates = [root]
+    # A WORKTREE'S SIBLINGS ARE THE WRONG ONES. `git worktree add` can put a
+    # checkout anywhere -- a scratch directory, say -- and then root.parent
+    # holds none of the other clones. 2026-09-28: a push check run from a
+    # worktree under a session's scratchpad passed a private repository's
+    # name into a public set's commit, while the same gate run from the main
+    # clone flagged it. So the main checkout's siblings are surveyed too,
+    # found from the worktree's shared git directory.
+    parents = [root.parent]
     try:
-        candidates += [d for d in sorted(root.parent.iterdir()) if d.is_dir()]
-    except OSError:
+        r = subprocess.run(['git', '-C', str(root), 'rev-parse',
+                            '--path-format=absolute', '--git-common-dir'],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and r.stdout.strip():
+            main_parent = pathlib.Path(r.stdout.strip()).parent.parent
+            if main_parent != root.parent:
+                parents.append(main_parent)
+    except (OSError, subprocess.SubprocessError):
         pass
+    for parent in parents:
+        try:
+            candidates += [d for d in sorted(parent.iterdir()) if d.is_dir()]
+        except OSError:
+            pass
     # SIBLINGS ARE NOT ALL OF THEM, and this container is the proof: a
     # person's individual practice set is cloned wherever their user-level
     # config says, which here is $HOME/precedent-individual while this repo

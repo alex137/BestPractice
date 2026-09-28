@@ -539,7 +539,8 @@ def status(clone):
     # working tree are untouched. Without it, status would compare against
     # whatever origin/<branch> was at the last fetch.
     subprocess.run(['git', '-C', str(clone), 'fetch', 'origin',
-                    _tracked_branch(clone)], capture_output=True, text=True)
+                    _tracking_refspec(_tracked_branch(clone))],
+                   capture_output=True, text=True)
     ref, head = _landed_commit(clone)
     with tempfile.TemporaryDirectory() as landed_dir:
         added, modified, deleted = _diff(_tree_at(clone, head, landed_dir))
@@ -647,6 +648,15 @@ def _tracked_branch(clone):
     """
     recorded = (_manifest().get('upstream', {}) or {}).get('branch')
     return recorded or _default_branch(clone)
+
+
+def _tracking_refspec(branch):
+    """Fetch `branch` into origin/<branch> explicitly. A single-branch clone
+    (`git clone --branch X --depth 1`) is configured to track X alone, so a
+    bare `fetch origin <branch>` there writes only FETCH_HEAD and every
+    origin/<branch> lookup after it finds nothing (2026-09-28, a consumer's
+    update against a clone taken at precedent-beta-v01)."""
+    return f'+refs/heads/{branch}:refs/remotes/origin/{branch}'
 
 
 def _landed_commit(clone):
@@ -819,7 +829,8 @@ def update(clone, force=False, allow_pinned=False):
     branch = _tracked_branch(clone)
     # Fetch updates remote-tracking refs only -- it does not touch the
     # clone's working tree, HEAD, or any local branch.
-    fetched = subprocess.run(['git', '-C', str(clone), 'fetch', 'origin', branch],
+    fetched = subprocess.run(['git', '-C', str(clone), 'fetch', 'origin',
+                              _tracking_refspec(branch)],
                              capture_output=True, text=True)
     if fetched.returncode != 0:
         print(f"NOTICE: could not fetch origin/{branch} in {clone} "
@@ -909,7 +920,7 @@ def push(clone, force=False):
         # branch's head entirely -- refusing or allowing a push on evidence
         # about a branch the install does not follow.
         branch = _tracked_branch(clone)
-        _git(clone, 'fetch', 'origin', branch)
+        _git(clone, 'fetch', 'origin', _tracking_refspec(branch))
         head = _rev_parse_quiet(clone, f'origin/{branch}')
         if head is None:
             sys.exit(f"checkin FAIL: {clone} has no origin/{branch} to compare "
@@ -1205,7 +1216,8 @@ def record(clone, note, accept_loss=False):
     # not the clone's configured default. `fetch` updates remote-tracking
     # refs only; it never touches the working tree, HEAD, or a local branch.
     branch = _tracked_branch(clone)
-    fetched = subprocess.run(['git', '-C', str(clone), 'fetch', 'origin', branch],
+    fetched = subprocess.run(['git', '-C', str(clone), 'fetch', 'origin',
+                              _tracking_refspec(branch)],
                              capture_output=True, text=True)
     if fetched.returncode != 0:
         print(f"NOTICE: could not fetch origin/{branch} in {clone} "

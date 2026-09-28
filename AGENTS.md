@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 151 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 158 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -406,12 +406,18 @@ When a tool, hook, check or gate flags something the person would otherwise have
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; fewer windows at once
+When about to search or scan every clone, every repo or every file for something:
+  wide-search-needs-asking — never sweep every clone unasked; fix the known source, ask for an example
 When adding a file beside others of its kind:
   filename-separator — one word separator per directory and kind; never both - and _
+When an unattended job hits something blocking its normal work, or something optional it cannot reach:
+  automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
 When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual set, never hand-clone it; shared sets clone beside
+  attach-never-clone-individual — attach the individual set; keep one clone, both paths; shared sets clone beside
+When being asked for something another window or session of the person's may already be working on:
+  dont-race-another-window — say so and decline; send them to the window already on it
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else it now serves
 When building a permutation or configuration-sweep table:
@@ -422,6 +428,8 @@ When checking whether practices that should have fired for recent work did:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When committing a shipped practice, hook, template or engine file, before push or merge:
   vendor-rollout-disclosed — say whether shipped content must reach consumers, and whether it will
+When committing anything:
+  session-trailer — a Session: <url> trailer on every commit
 When committing anything that touches the vendored/public tree:
   scrub-gate — the public tree stays public-safe always, not just at check-in
 When comparing an option against a baseline:
@@ -466,6 +474,8 @@ When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
+When setting up a project a session works in, or a session reporting that its checkout is behind:
+  fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
 When starting slow, costly or external work from a snapshot of trunk that another session could start too:
@@ -605,7 +615,9 @@ place — nothing is ever deleted, and nothing moves.
   a push to `staging` or `main` runs the deep check; a
   push to any other branch runs the basic tier -- the lint, the leak gate
   and the commit-author checks, seconds -- unless the person's
-  `branch_push_checks` says `full`. A pull request merged through GitHub
+  `branch_push_checks` says `full`. A push or pull request into
+  `pre-staging` also checks the files it changes, and nothing more, in
+  seconds ([checks-follow-the-tier](practices/checks-follow-the-tier.md)). A pull request merged through GitHub
   gets the same check at its base branch's tier, from `merge-check-gate.sh`.
   `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are

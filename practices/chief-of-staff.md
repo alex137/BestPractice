@@ -9,13 +9,16 @@ gates:       ["reply"]
 index_clause: "on request only; name the window read, link each session; Promotion Reviews last"
 checked_by:  null
 defines:     ["Chief of Staff", "the sweeper", "the desk", "Promotion Reviews"]
-command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: per repo you worked in this week, what waits to be promoted and which recent branches are stale."}
+command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: across every repo with Precedent installed, what waits on pre-staging for staging and on staging for main, and which of this week's branches are stale."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-14"
-approved_by: "extended 2026-09-26 again, Morgan (strength: decided) --
+approved_by: "extended 2026-09-28, Morgan (strength: decided) -- Promotion
+  Reviews A and B cover every repository with a Precedent install, not only
+  the week's active ones;
+  extended 2026-09-26 again, Morgan (strength: decided) --
   the branch list is a one-click page, never a downloaded file;
   extended 2026-09-26, Morgan (strength: decided) -- asked
   for a Promotion Reviews section, last in the report, covering staging
@@ -52,10 +55,11 @@ is a one-click delete link, built the one way
 [branch-delete-links](branch-delete-links.md) specifies — the mechanism is
 there, in full, and is not restated here.
 
-**It ends on Promotion Reviews**, one block per repository the person worked
-in that week: whether staging waits to go into main, whether pre-staging waits
-to go into staging, and which of the week's branches are stale, with the
-unlanded work on each read and judged keep or discard. Detail says how.
+**It ends on Promotion Reviews**: across **every repository with a
+Precedent install**, whether pre-staging waits to go into staging and whether
+staging waits to go into main; and, for the repositories worked in that week,
+which of the week's branches are stale, with the unlanded work on each read
+and judged keep or discard. Detail says how.
 
 ## Detail
 ### What counts as blocked, and what does not
@@ -179,13 +183,23 @@ block answers three questions:
 - **C. Which branches from the last seven days are stale, and is the work on
   them worth keeping?**
 
-**Its repository set is the repositories the person was active in during the
-same seven days**: the repositories of every session updated inside the
-window, plus every repository `list_repos` shows pushed to inside it. Name the
-set and the window, as the other two halves do. It is a third bound, and a
-different one on purpose: the branch sweep reads every repository with an
-install because its rows are old by nature, while a promotion is only waiting
-where work has recently moved.
+**A and B read every repository with a Precedent install** -- the same set
+the branch sweep reads, named the same way. A promotion can wait anywhere: work
+landed on pre-staging last month and never promoted is exactly what a
+seven-day window hides, and it is what the person most needs told. Morgan,
+2026-09-28 (strength: decided): *"when I run the chief of staff command ...
+let the user know if there is anything on pre-staging across all my repos with
+best practice that has not been sent to staging, and similarly across all my
+repos, if there is anything on staging that has not been sent to main."* List
+only the repositories with something waiting, then one line naming how many
+were checked and found level, so a clean fleet costs one line.
+
+**C reads the repositories the person was active in during the same seven
+days**: the repositories of every session updated inside the window, plus
+every repository `list_repos` shows pushed to inside it. Name that set and the
+window. A stale branch is a recent one by definition, so C keeps the week's
+bound. (Until 2026-09-28 A and B had this bound too, and a promotion waiting
+in a repository nobody had touched that week went unreported.)
 
 **A and B read the tiers each repository actually has.** The names come from
 [precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py)'s

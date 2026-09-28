@@ -13,7 +13,10 @@ checked.
 
 WHAT IT CHECKS. The commit GitHub would merge -- `refs/pull/N/merge`, the
 test merge of the pull request into its base -- when GitHub has one, else
-the pull request's head. The tier is the base branch's (precedent_branches.py):
+the pull request's head. The test merge counts only once its second parent
+is the pull request's current head: right after a push GitHub still serves
+the merge of the old head, so this waits briefly for the rebuilt one, and
+judges the head itself, saying so, if it never comes. The tier is the base branch's (precedent_branches.py):
 full for staging and main, the person's setting for anything else. The base
 branch is read from that merge commit's first parent, matched against the
 remote's branch tips; when it cannot be matched, the check is full.
@@ -41,12 +44,23 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 TOOL_CANDIDATES = ('tools/precedent_push_check.py',
                    'process/upstream/tools/precedent_push_check.py')
 RECORD = 'precedent-push-check.json'
 TAIL_LINES = 60
+# GitHub rebuilds refs/pull/N/merge some time after the head moves, not with
+# it. 2026-09-28, measured: a session pushed a fix to a pull request's head
+# and merged at once; this judged the test merge of the OLD head, still
+# carrying the bug, refused, and reported it as the merge GitHub would make.
+# A minute later the merge ref had the new head as its second parent and the
+# same merge passed. So the merge ref is judged only once its second parent
+# is the pull request's current head, waited for up to this long.
+MERGE_REF_WAIT_SECONDS = 90
+MERGE_REF_POLL_SECONDS = 10
+_sleep = time.sleep
 
 
 def git(root, *args):
@@ -103,29 +117,56 @@ def branches_module():
         sys.path.pop(0)
 
 
-def resolve_pull(root, number):
+def resolve_pull(root, number, head_sha=None):
     """-> (sha, bases, what) for pull request `number`, fetched into a
     private ref namespace, or (None, [], why) when it cannot be. `bases` is
     every branch on origin whose tip is the test merge's first parent --
     more than one when branches sit at the same commit, which is exactly
     when guessing one of them would be wrong (AGENTS.md's merge-target rule
-    was born of two branches at one commit)."""
+    was born of two branches at one commit).
+
+    `head_sha` is the head GitHub reports for the pull request, when it
+    could be read; without it, the fetched head ref. The test merge is used
+    only once its second parent is that head (MERGE_REF_WAIT_SECONDS); if
+    it never is, the head itself is judged and `what` says so."""
     ns = f'refs/precedent-merge-check/{number}'
-    head = subprocess.run(['git', '-C', str(root), 'fetch', '-q', 'origin',
-                           f'+refs/pull/{number}/head:{ns}/head'],
-                          capture_output=True, text=True)
-    if head.returncode != 0:
-        return None, [], (f'could not fetch pull request #{number} from '
-                          f'origin: {head.stderr.strip()[:300]}')
-    merged = subprocess.run(['git', '-C', str(root), 'fetch', '-q', 'origin',
-                             f'+refs/pull/{number}/merge:{ns}/merge'],
-                            capture_output=True, text=True)
-    if merged.returncode != 0:
-        sha = git(root, 'rev-parse', f'{ns}/head')
-        return sha, [], 'its head (GitHub has no test merge for it)'
-    sha = git(root, 'rev-parse', f'{ns}/merge')
-    base_tip = git(root, 'rev-parse', f'{ns}/merge^1')
-    return sha, branches_at(root, base_tip), 'the merge GitHub would make'
+    waited = 0
+    while True:
+        head = subprocess.run(['git', '-C', str(root), 'fetch', '-q', 'origin',
+                               f'+refs/pull/{number}/head:{ns}/head'],
+                              capture_output=True, text=True)
+        if head.returncode != 0:
+            return None, [], (f'could not fetch pull request #{number} from '
+                              f'origin: {head.stderr.strip()[:300]}')
+        fetched = git(root, 'rev-parse', f'{ns}/head')
+        want = head_sha or fetched
+        merged = subprocess.run(['git', '-C', str(root), 'fetch', '-q', 'origin',
+                                 f'+refs/pull/{number}/merge:{ns}/merge'],
+                                capture_output=True, text=True)
+        if merged.returncode != 0 and fetched == want:
+            return fetched, [], 'its head (GitHub has no test merge for it)'
+        carried = (git(root, 'rev-parse', f'{ns}/merge^2')
+                   if merged.returncode == 0 else None)
+        if fetched == want and carried == want:
+            sha = git(root, 'rev-parse', f'{ns}/merge')
+            base_tip = git(root, 'rev-parse', f'{ns}/merge^1')
+            return sha, branches_at(root, base_tip), 'the merge GitHub would make'
+        if waited >= MERGE_REF_WAIT_SECONDS:
+            break
+        _sleep(MERGE_REF_POLL_SECONDS)
+        waited += MERGE_REF_POLL_SECONDS
+    if fetched != want:
+        return None, [], (f'GitHub reports {want[:12]} as the head of pull '
+                          f'request #{number}, but after {waited}s its head '
+                          f'ref still reads {(fetched or "nothing")[:12]}, so '
+                          f'nothing current could be checked. Wait a minute '
+                          f'and merge again.')
+    print(f'precedent_merge_check: after {waited}s GitHub\'s test merge of pull '
+          f'request #{number} still carries the older head '
+          f'{(carried or "none")[:12]}, not the current {want[:12]}, so it is '
+          f'NOT judged -- the head itself is.', flush=True)
+    return want, [], ('its current head, NOT merged with its base (the test '
+                      'merge GitHub has is of an older head)')
 
 
 def branches_at(root, tip):
@@ -146,7 +187,7 @@ def _cleanup_refs(root, number):
                        capture_output=True, text=True)
 
 
-def run_in_worktree(root, sha, tier, tool_rel):
+def run_in_worktree(root, sha, tier, tool_rel, extra=()):
     """-> (returncode, output). The push check, in a throwaway worktree of
     `sha`, carrying over the checkout's recorded pass so an already-checked
     tree is not checked twice."""
@@ -166,8 +207,8 @@ def run_in_worktree(root, sha, tier, tool_rel):
             if src_p.is_file():
                 dst_p.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src_p, dst_p)
-        p = subprocess.run([sys.executable, tool_rel, '--gate', '--tier', tier],
-                           cwd=wt, capture_output=True, text=True)
+        p = subprocess.run([sys.executable, tool_rel, '--gate', '--tier', tier,
+                            *extra], cwd=wt, capture_output=True, text=True)
         return p.returncode, p.stdout + p.stderr
     finally:
         subprocess.run(['git', '-C', str(root), 'worktree', 'remove', '--force',
@@ -178,21 +219,36 @@ def run_in_worktree(root, sha, tier, tool_rel):
 
 
 def pull_head(owner, repo, number):
-    """-> (head branch, head repository 'owner/name') of pull request
-    `number`, or (None, None) when it cannot be read -- no network, no
-    credential where one is needed. One call, counted and cached by
-    github_budget.py like every other call this engine makes."""
+    """-> (head branch, head repository 'owner/name', base branch, head sha)
+    of pull request `number`, or four Nones when it cannot be read -- no
+    network, no credential where one is needed. One call, counted and cached
+    by github_budget.py like every other call this engine makes."""
     sys.path.insert(0, str(HERE))
     try:
         import github_budget
     except ImportError:
-        return None, None
+        return None, None, None, None
     finally:
         sys.path.pop(0)
     data, err = github_budget.call(f'repos/{owner}/{repo}/pulls/{number}')
     if err or not isinstance(data, dict) or not isinstance(data.get('head'), dict):
-        return None, None
-    return data['head'].get('ref'), (data['head'].get('repo') or {}).get('full_name')
+        return None, None, None, None
+    base = data.get('base') if isinstance(data.get('base'), dict) else {}
+    return (data['head'].get('ref'), (data['head'].get('repo') or {}).get('full_name'),
+            base.get('ref'), data['head'].get('sha'))
+
+
+def choose_bases(declared_base, tip_bases):
+    """-> the branch(es) a pull request's tier is judged by.
+
+    The base GitHub declares, when it could be read. Only without it, every
+    branch whose tip is the test merge's first parent, whose strictest
+    decides. 2026-09-28: an update had just made pre-staging and staging at
+    main's commit, so a pull request into pre-staging matched all three by
+    tip, and the merge gate announced "main is a fully checked branch" --
+    while the same call that reads the pull request's head had returned its
+    real base all along, unread."""
+    return [declared_base] if declared_base else list(tip_bases)
 
 
 def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
@@ -268,7 +324,7 @@ def main(argv):
             pb.MAIN, pb.STAGING, pb.PRE_STAGING, pb.LEGACY_STAGING]
     else:
         tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
-    head_ref, head_repo = pull_head(owner, repo, number)
+    head_ref, head_repo, declared_base, head_sha = pull_head(owner, repo, number)
     why_not = tier_source_refusal(head_ref, head_repo, owner, repo, tiers)
     if why_not:
         print(f'precedent_merge_check: pull request #{number} of '
@@ -286,10 +342,11 @@ def main(argv):
               f'is nothing to run.')
         return 2
     try:
-        sha, bases, what = resolve_pull(root, number)
+        sha, bases, what = resolve_pull(root, number, head_sha)
         if sha is None:
             print(f'precedent_merge_check: {what}')
             return 2
+        bases = choose_bases(declared_base, bases)
         refusal = getattr(pb, 'merge_refusal', None) if pb else None
         if refusal:
             heads = branches_at(root, git(root, 'rev-parse',
@@ -312,7 +369,12 @@ def main(argv):
         print(f'precedent_merge_check: pull request #{number} of '
               f'{owner}/{repo} into {base} -- '
               f'{tier} check of {what} ({sha[:12]}); {why}.', flush=True)
-        rc, out = run_in_worktree(root, sha, tier, tool_rel)
+        # A pull request into pre-staging is judged by the practice checks
+        # on the files it changes (precedent_push_check.CHANGED_PRACTICE_CHECK).
+        extra = ()
+        if tier == 'basic' and pb and pb.PRE_STAGING in bases:
+            extra = ('--changed-since', f'origin/{pb.PRE_STAGING}')
+        rc, out = run_in_worktree(root, sha, tier, tool_rel, extra)
     finally:
         _cleanup_refs(root, number)
     tail = out.rstrip().splitlines()[-TAIL_LINES:]

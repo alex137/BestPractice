@@ -61,7 +61,7 @@ Run:
       # the Rules for that moment, from DIR's practices/ instead of this
       # repo's own
 """
-import json, pathlib, subprocess, sys
+import json, os, pathlib, subprocess, sys
 
 # _ENGINE_DIR (where this file itself lives) is only for the sibling-module
 # import and for routing_scope.json below -- both ship as one fixed unit
@@ -281,6 +281,28 @@ def _unpromoted(repo, staging, _git):
     return int(ahead)
 
 
+# The reply gate runs at every turn start; a fetch that cannot finish in this
+# long is treated as offline rather than held up for.
+REFRESH_TIMEOUT_SECONDS = 8
+
+
+def _refresh_remote_branch(repo, branch):
+    """Fetch origin's `branch` into refs/remotes/origin/<branch>, quietly,
+    within REFRESH_TIMEOUT_SECONDS. -> True when the ref was refreshed,
+    False offline, on a timeout or any other failure (the ref is then left
+    exactly as it was). Never prompts and never raises."""
+    import subprocess as _sp
+    env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
+    try:
+        r = _sp.run(['git', '-C', str(repo), 'fetch', '--quiet', '--no-tags',
+                     'origin', f'+refs/heads/{branch}:refs/remotes/origin/{branch}'],
+                    capture_output=True, text=True, env=env,
+                    timeout=REFRESH_TIMEOUT_SECONDS)
+    except Exception:                                         # noqa: BLE001
+        return False
+    return r.returncode == 0
+
+
 def _unlanded_work(root, siblings=True):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into. Never raises.
@@ -397,6 +419,18 @@ def _unlanded_work(root, siblings=True):
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
         if not ahead or ahead == '0':
             continue
+        # origin/<base> is only as fresh as the last fetch, and a pull request
+        # merged through the GitHub API -- how every cloud session merges --
+        # fetches nothing. Seen 2026-09-28: two turns of "NOT on pre-staging"
+        # for a pull request already merged, cleared only by a fetch. So
+        # before saying so, refresh that one branch: bounded and quiet, and
+        # only here, where there is something to report, so a turn with
+        # nothing ahead pays nothing. Offline, the ref stays as it was and
+        # the answer is today's.
+        if _refresh_remote_branch(repo, base):
+            ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
+            if not ahead or ahead == '0':
+                continue
         # rev-list answers a LINEAGE question -- is HEAD's commit an ancestor
         # of origin/base -- but the practice this backs asks a CONTENT
         # question: is this change on the base branch. A squash or rebase
@@ -437,6 +471,49 @@ def _unlanded_work(root, siblings=True):
         out.append(f"{name}: {ahead} commit(s) on '{head}' that are NOT on "
                    f"'{base}' -- the branch this repo lands work on")
     return out
+
+
+def _print_size_conditioned(src, r, one_of, every, prc):
+    """A requirement owed only once the conversation has grown `every`
+    tokens: print the ANSWER, owed or not, not the rule.
+
+    WHY, 2026-09-28. This line used to print the rule and add that "the stop
+    hook is the thing that knows whether it has" grown enough, so do not add
+    the line out of caution. But the one such requirement in force, the
+    Boildown's compact offer, is advisory, and main() in
+    precedent_reply_check.py drops an unmet advisory requirement without a
+    word. The channel that knew said nothing, and this one said to wait for
+    it: a session ran from about 80,000 tokens to about 783,000 and out of
+    context without one compact line. Morgan: "you have not told me ever to
+    compact this session."
+
+    The answer is knowable here, the same way the container verdict below
+    is: the UserPromptSubmit payload names the transcript, reply-gate.sh
+    passes it as PRECEDENT_TRANSCRIPT_PATH, and offer_is_due() is the same
+    function the stop hook calls. Silent when not owed, so nothing prompts a
+    session to add the line out of caution.
+    """
+    quoted = ' or '.join(f'"{s}"' for s in one_of)
+    path = os.environ.get('PRECEDENT_TRANSCRIPT_PATH', '').strip()
+    due = None
+    if path and os.path.isfile(path):
+        try:
+            due, ctx_now, since = prc.offer_is_due(
+                prc.assistant_timeline(path), every, one_of)
+        except Exception:                                    # noqa: BLE001
+            due = None
+    if due is None:
+        print(f"- [{src}] once this conversation has grown {every:,} tokens "
+              f"since one of these was last said, the reply contains one of "
+              f"them, verbatim: {quoted}. Whether it has could not be worked "
+              f"out this turn (no transcript reached this gate), so judge it: "
+              f"say it only if the conversation is plainly long.")
+    elif due:
+        print(f"- [{src}] OWED IN THIS REPLY: this conversation has grown "
+              f"about {since:,} tokens since one of these was last said "
+              f"(context now about {ctx_now:,}). Say one of them, verbatim: "
+              f"{quoted} -- at a clean point. Mid-task, leave it out and it "
+              f"stays owed next turn.")
 
 
 def _print_hard_requirements(root):
@@ -494,17 +571,14 @@ def _print_hard_requirements(root):
             print(f"- [{src}] the reply carries a real markdown heading "
                   f"(`## `) matching /{pat}/i. Bold text is not a heading.")
         one_of = r.get('require_one_of') or []
-        if one_of:
+        every = r.get('require_when_context_grew_tokens')
+        if one_of and every:
+            _print_size_conditioned(src, r, one_of, int(every), prc)
+        elif one_of:
             quoted = ' or '.join(f'"{s}"' for s in one_of)
-            every = r.get('require_when_context_grew_tokens')
-            when = ('' if not every else
-                    f" -- but ONLY once this conversation has grown "
-                    f"{int(every):,} tokens since one of them was last said, "
-                    f"and the stop hook is the thing that knows whether it "
-                    f"has. Below that it is silent, so do not add the line "
-                    f"out of caution")
             print(f"- [{src}] the reply contains one of these, verbatim: "
-                  f"{quoted}{when}")
+                  f"{quoted}" + (" (advisory: a recommendation, never "
+                                 "refused)" if r.get('advisory') else ''))
         # THE TWO PREDICATES THIS BLOCK USED TO OMIT, both of them
         # BLOCKING. Until 2026-09-21 this printer handled
         # require_heading_matching and require_one_of and silently dropped

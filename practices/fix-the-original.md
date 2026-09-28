@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy"
 gates:       ["review", "reply"]
-index_clause: "fix the origin first, then every copy -- name them all in the reply"
+index_clause: "fix the origin, every copy, and the gate that missed it -- name them all"
 index_required: false
 checked_by:  null
 defines:     ["the origin artifact"]
@@ -20,22 +20,35 @@ strength:    decided
 ---
 ## Rule
 **A file you are fixing may be a copy, and the copy is never the whole
-job.** Before reporting any fix done, answer two questions out loud:
+job.** Before reporting any fix done, answer three questions out loud:
 
-1. **Where did this file come from?** A template it was instantiated from, a
-   vendored tree it was copied out of, another repo that had it first.
+1. **Where did this file come from?** A template, a vendored tree, another
+   repo that had it first.
 2. **Who else has a copy?** Every other place the same file, or the same
-   mistake, was propagated to.
+   mistake, went.
+3. **What should have caught it earlier, and why didn't it?** When one gate
+   passed what a later one failed — local green but GitHub red, one
+   checkout's gate green and another's red — **that difference is its own
+   bug, and its fix ships with this one.**
 
-**The fix goes to the origin first**, then to the copies, and **the reply
-names all of them.** If the origin cannot be reached from this session, that
-is a `blocked-on` item naming the repository — never a silent omission.
-
-Both questions are answerable with one search. That is deliberate: this is a
-lookup, not a meditation on root causes. **A session that cannot find an
-origin in one search says so and moves on.**
+**Fix the origin first, then the copies and the gate, and name all of them
+in the reply.** An origin this session cannot reach is a `blocked-on` item
+naming the repository — never a silent omission.
 
 ## Detail
+**Before a fix, a different rule applies.** When the bug is upstream and this
+repository only holds a copy, [upstream-bug-stops-here](upstream-bug-stops-here.md)
+stops the local edit and hands the fix to the owning repository. The questions
+here are for the fix that does get made: where it came from, who else has a
+copy, and which gate missed it.
+
+**The first two questions are one search, and the third is one comparison.**
+That is deliberate: this is a lookup, not a meditation on root causes. A
+session that cannot find an origin in one search says so and moves on. The
+third asks what the gate that passed had, or lacked, that the gate that
+failed did not — a machine with a module installed, a directory with the
+other clones beside it.
+
 **This is a different axis from the three practices that look like it**, and
 the gap between them is where the failure lives:
 
@@ -115,6 +128,21 @@ install path and no repair path."* Both are downstream of the copy already
 having diverged. **Nothing asked, at the moment of the fix, where the file
 came from** — and that moment is the only one at which the drift costs
 nothing to prevent.
+
+**The third question was added 2026-09-28, after the first two passed twice
+in one session and the root was still missed.** A shared practice set's
+check script did `import yaml` unconditionally and crashed on GitHub's bare
+runner, turning a consuming repo's pull request into main red. The session
+fixed the script at its origin, the set, which answered questions 1 and 2
+correctly. It never asked why the local push check had passed the same tree:
+the local machine had PyYAML, and BestPractice's consumer CI template, unlike
+its practice-set template, never installed it. The same hour, the leak gate
+passed a private repository's name into a public set, because it was run
+from a worktree whose directory held none of the other clones; run from the
+main clone, it flagged the name. Both times the bug that mattered was the
+gap between a gate that passed and one that failed. Morgan asked *"can we
+make that practice stronger"* and approved this wording with *"Go update on
+the fixes and wording"* (strength: decided).
 
 ## Install
 Two questions before any fix is reported, and one line in the reply.
