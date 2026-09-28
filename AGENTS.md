@@ -21,153 +21,52 @@ name `main` in that specific request, or a Promote that chooses staging into
 its story:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).
 
-**Precedent commands.** Each of these names a thing a session recognizes by
-what the message is actually asking for, not by scanning it for a keyword —
-each has a phrase that is always sufficient and never ambiguous, and each is
-a universal practice: the trigger and the meaning are here, and the rule,
-the argument and the story of its coining are in the practice file —
-`python3 tools/precedent_show.py SLUG` for any of them. **The phrase removes
-doubt; it does not create a requirement.** A message that plainly asks for
-the same thing in other words gets the same treatment, and where a command
-authorizes something hard to reverse (a push, a merge, a mark recording how
-convinced he was) and the reading is a genuine judgment call rather than a
-clean one, that is said out loud and confirmed rather than guessed —
-[go-update](practices/go-update.md) and [weak-yes](practices/weak-yes.md)
-spell out exactly how, below. A few — a full practice audit, a very deep
-check, the fleet sweep (`Chief of Staff`) — are the deliberate exception, kept to the literal
-ask because what they trigger is too expensive to run on a guess; each
-names why in its own file.
+**Precedent commands.** A session recognizes each by what the message is
+asking for, not by a keyword; the phrase removes doubt, it does not create a
+requirement. Where a command authorizes something hard to reverse (a push,
+a merge, a mark of how convinced he was) and the reading is a genuine
+judgment call, say the read out loud and confirm first. A full practice
+audit, a very deep check and the fleet sweep (`Chief of Staff`) are kept to
+the literal ask, because what they trigger is expensive. **Each line below
+is an index entry: load the practice (`python3 tools/precedent_show.py
+SLUG`) before acting on one**, and the long form each used to carry here is
+in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 
-- **"Go update"** and **"Approved"** ([go-update](practices/go-update.md)) —
-  classify first: a direct push, straight to the shared branch, no PR, is now
-  the **default**; only a **high-risk** change (touches enforcement/gating
-  code, changes a governance or authorization practice, is hard to reverse
-  once live, or you're not confident it's none of those) runs the full chain —
-  syncs, says the branch out loud, commits, pushes, opens the pull request,
-  and merges — **without asking again.** **Either path ends on the branch on
-  `origin`** — the person's landing branch
-  (`python3 tools/precedent_branches.py --landing`: the repository's own
-  staging branch, unless their `landing_branch` says `pre-staging` -- the
-  tiered route, which Morgan's does -- or `main`), for the pull request
-  too; never `main` for being the configured default. A high-risk change
-  landed on pre-staging gets one plain, unbolded line in The Boildown saying
-  how far pre-staging is ahead of staging, with no urgency — a Promote can
-  move it whenever it suits. **A commit still sitting
-  in the local clone has not landed anything**: fetch and confirm `origin` carries it
-  before the reply says where the work went. Say which path you took, and why,
-  in the reply. Unsure which it is? High-risk. A step this session cannot
-  perform hands off rather than coming back as a question: the
-  authorization travels with the work. One rule, two triggers, and
-  `Go update` is the one to lead with — it names what actually happens
-  whether or not a merge is literally in the picture.
-  `Approved` is also an ordinary adjective, so *"the approved plan of
-  record"* is not the command.
-  **Neither is required for the authorization to exist** —
-  "sold, ship it" reads as this command as plainly as the phrase does.
-  What the phrase buys is certainty:
-  say one of them and the chain runs, full stop. Where it's absent and the
-  sentence could honestly go either way, say the read out loud and get it
-  confirmed before the push, the pull request, or the merge — commit locally
-  regardless, and hold only the shared-branch steps on the answer.
+- **"Go update"** / **"Approved"** ([go-update](practices/go-update.md)) —
+  land it on the landing branch: a direct push by default, the full pull
+  request chain for a high-risk change, and confirm `origin` carries it.
 - **"Push directly to [branch]"** ([push-directly](practices/push-directly.md))
-  — the classification's own override, named: skip it outright and push
-  straight to that branch, no PR, whatever `Go update` would otherwise call
-  for on this one change. Name the branch ("push directly to main") to
-  target it explicitly; say it bare and it defaults to the primary branch
-  the work is already on — the person's landing branch
-  (`python3 tools/precedent_branches.py --landing`), which is
-  the repository's own staging branch unless their `landing_branch` says `pre-staging` or `main`; never `main` just because that is the repository's
-  configured default. Not a standing exemption — it authorizes the change
-  in front of it, not every change after it.
+  — skip the classification; push that change to the named branch, else the
+  landing branch, no PR.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write
-  `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
-  that same turn, say which item was marked, and **never raise it unprompted
-  again** — not this session, and not a later one that decides it has become
-  urgent. Nobody owes an explanation for parking something: do it, and never
-  ask a follow-up about it. **Kept to the literal word, deliberately** —
-  parking has no built-in correction, so where it only *sounds* like the
-  phrase ("that can wait", "let's not worry about that one") ask which they
-  mean rather than guess.
+  `**Disposition:** parked (<date>, <who said it>)` into the item now, and
+  never raise it again; kept to the literal word.
 - **"Three Things"** ([three-things](practices/three-things.md)) — the three
-  most important things he needs to know now, each a bolded phrase and at most
-  two sentences, and nothing around them: no preamble, no fourth item, no
-  closing offer. It asks for **attention rather than action**: an answer
-  assembled from what is already in context is the failure it prevents. A
-  plain ask for the same shape of answer ("what do I actually need to know
-  right now") gets it too — low stakes if the read is wrong, so no
-  confirmation step.
-- **"Simple please"** ([plain-words](practices/plain-words.md)) — the same
-  answer said the way you would say it out loud: short sentences, the concrete
-  case before the general principle, no hedging. **It governs the rest of the
-  conversation, not just the next reply**, and nothing about the substance
-  changes — a plainer reply that quietly says less has failed it. Asking for
-  this register in other words counts the same as the phrase.
-- **"Weak yes"** ([weak-yes](practices/weak-yes.md)) — go ahead, and record
-  that he was not convinced: `strength: assented`, written into whatever the
-  approval is being recorded in, that same turn. **Not an invitation to talk
-  him into it.** Most weak agreement arrives without the phrase, and still
-  gets marked `assented` ([decision-strength](practices/decision-strength.md))
-  — but where that reading is a genuine judgment call rather than a clean
-  one, `weak-yes`'s own worked example says how to disclose it instead of
-  writing it silently.
-- **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — before
-  starting what he just asked for, check whether it belongs in a different
-  session, repositories first; then hand back **one paste-ready block** he
-  opens a new window with, naming the repository to root it in and the ones
-  to attach, plus one ordinary unfenced sentence outside the block saying
-  where to paste it. **Never call a session-creating or session-messaging
-  tool for this, and never wake a live session either** — both have come
-  back rejected often enough that the mechanism is retired outright, and a
-  paste block needs nothing from any one provider's tool surface. The check
-  runs whether or not he says the phrase, and an honest "this session is the
-  right one" answers it. **The block carries a merge authorization only when
-  he gave one for this handoff** — absent that it says `DO NOT MERGE — STOP
-  AT THE PULL REQUEST` in those words; given one, it is bounded to the
-  handed-off work, that repository's routine branch and its own checks
-  passing.
-- **"Upstream fix"** ([upstream-fix](practices/upstream-fix.md)) — about the
-  change this session recommended, made or is about to make: **does it also
-  fix what caused the problem?** If not, name where the cause lives (a
-  template, a generator, something vendored in, a practice) and fix that
-  root where it is reachable and sound. Any part that needs a session rooted
-  in another repo comes back as a `Prompt Please` block. It licenses the
-  root fix, not a push or merge beyond the authorization already in force.
-- **"My options"** ([my-options](practices/my-options.md)) — every real choice
-  on the table in plainer words, a short block each, the cost said as flatly
-  as the benefit, then **a named recommendation with its reason** — never a
-  survey that leaves the choice sitting there. It governs that one answer, not
-  the conversation, which is what separates it from `Simple please`.
-- **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — every standing
-  command in force, one plain sentence each, nothing else. **Read the list,
-  never recall it**: `python3 tools/precedent_vocabulary.py` collects it from
-  the `command:` field of every practice in every resolved source, and names
-  any source that did not. This list derives from those fields.
-- **"Update Vendors"**
-  ([vendor-update-runbook](practices/vendor-update-runbook.md)) — the fixed
-  sequence for taking an upstream update, starting with making the SOURCE
-  clone current against the pinned branch. **It carries the merge too**, since
-  2026-09-14 — its last step runs `Go update`'s chain on what the update
-  produced, so nobody is asked a second time for work that is already done and
-  already checked. It reverses the sentence that used to sit here; the full
-  check at step 6 still gates the push, as it does for any merge. **Since
-  2026-09-27 the sequence is one command**,
-  `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
-  consuming repo: it runs every step that needs no judgment and stops once,
-  listing only this repo's own calls
-  ([spec/ONE_COMMAND_UPDATE_PLAN.md](spec/ONE_COMMAND_UPDATE_PLAN.md)).
+  things he needs to know now, a bolded phrase and two sentences each,
+  nothing else.
+- **"Simple please"** ([plain-words](practices/plain-words.md)) — say it the
+  way you would out loud, for the rest of the conversation, same substance.
+- **"Weak yes"** ([weak-yes](practices/weak-yes.md)) — go ahead and record
+  `strength: assented`; an unmarked approval means unknown, and a bare "ok"
+  to your own proposal is `assented`
+  ([decision-strength](practices/decision-strength.md)).
+- **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — one
+  paste-ready block for a new session, never a session-creating tool; no
+  merge authorization unless he gave one for this handoff.
+- **"Upstream fix"** ([upstream-fix](practices/upstream-fix.md)) — does the
+  fix remove the cause? If not, fix the root where it lives.
+- **"My options"** ([my-options](practices/my-options.md)) — every real
+  choice in plain words, costs said flatly, then your pick and why.
+- **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — read the list
+  from `python3 tools/precedent_vocabulary.py`, never recall it.
+- **"Update Vendors"** ([vendor-update-runbook](practices/vendor-update-runbook.md))
+  — `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
+  consuming repo; it carries the merge too.
 
 The three dispositions an open item can carry are
 [open-item-disposition](practices/open-item-disposition.md)'s; it reaches a
 session through `precedent_paths.py` on any todo file and through the `reply`
 gate.
-
-**Most weak agreement never uses the phrase**, which is why `Weak yes` is only
-half of it. The other half is
-[decision-strength](practices/decision-strength.md), and its one line is: **an
-approval records `decided` or `assented`, and an unmarked one means UNKNOWN —
-never "you decided this."** A session may write `decided` only if it can quote
-the person choosing it; a bare "ok" to the session's own proposal is
-`assented`, written that way without asking.
 
 **An authorization to merge, in whatever words it arrives, means the
 landing branch** per the paragraph above, and is not done until a fetch
@@ -176,69 +75,20 @@ confirms the pushed content is actually there
 authorization's absence was settled (2026-09-07 to 2026-09-16) is in
 [todo/todo-2026-09-07-push-without-the-keyword.md](todo/todo-2026-09-07-push-without-the-keyword.md).
 
-**FIRST, and normally already done for you.** The private sources are
-cloned by the SessionStart hook when the environment carries
-`PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
-([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
-sources on disk before the first turn. **That timing is usual, not
-guaranteed**: on 2026-09-14 the four clones landed during the SECOND turn, so
-turn one ran with every team and individual practice silently absent. Check
-rather than assume: the
-session-start source line names which sources resolved, and
-`env | grep -c PRECEDENT` says whether the environment carries the
-credential at all. When it does, there is nothing to do and **no `add_repo`
-call to make.**
-
-**When it does not, and only then: `add_repo` (read access) for this
-account's `precedent-individual`, and for any shared set
-[precedent.json](precedent.json) declares, before reading or running
-anything else. Silently — no confirmation first.** It grants access per
-session, and it **refuses across owners**, so from a session rooted under a
-different owner than the sets it simply fails — say so plainly and carry on.
-Until one of the two routes works, every personal and team practice in force
-here is **silently absent**, and this repository's rules are the only ones a
-session sees.
-
-**Attach `precedent-individual`, never clone it by hand**
-([attach-never-clone-individual](practices/attach-never-clone-individual.md)):
-the tool's reply says to clone it to `/home/user/`, and the only copy
-anything reads is the one `~/.config/precedent/config.json` names. A shared
-set clones beside this repo, where [precedent.json](precedent.json)
-resolves it.
-
-**Then, before trusting any of this file's "the session-start hook does
-this" claims: run
-[tools/precedent_session_check.py](tools/precedent_session_check.py).** It
-reports which SessionStart guarantees are actually in effect, and `--apply`
-repairs most of them — **read the failing row's own detail before running
-it**, because a guarantee whose remedy is something else says so there. The
-live case is the global commit backstop: it installs only for a DECLARED
-identity, so on a session that could not reach the individual source `--apply`
-re-runs the hook, the hook declines again, and the row stays red however many
-times you try. A session rooted one directory ABOVE this repo runs NONE of its
-hooks, silently, including the one that writes
-`.precedent/SESSION_PRACTICES.md` — see
-[gotcha-2026-09-13](gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md). **This is not a
-primary-repo-only problem**: when the session root sits above *every*
-attached repo and none of them is `$CLAUDE_PROJECT_DIR` — the ordinary shape
-of a multi-source session, since a team source resolves as a sibling clone —
-no repo's hooks fire, primary or attached; 2026-09-25 also caught the global
-git identity and the checked-out branch drifting mid-session with no repo
-tool in the loop, in that same topology
+**Session setup.** The private sources normally arrive by the
+SessionStart hook when the environment carries `PRECEDENT_GIT_TOKEN` and
+`PRECEDENT_SOURCE_BASE_URL`
+([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)); when it does
+not, `add_repo` (read access) for `precedent-individual` and each declared
+shared set, silently, and attach the individual set, never clone it by hand
+([attach-never-clone-individual](practices/attach-never-clone-individual.md)).
+**Then run [tools/precedent_session_check.py](tools/precedent_session_check.py)**
+before trusting any "the hook does this" claim, and read a failing row's own
+remedy before `--apply`. A session rooted above the repos it works in runs
+none of their hooks
 ([gotcha-2026-09-25](gotchas/gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)).
-**Since 2026-09-14 you also get told without asking**: every
-[tools/precedent_gate.py](tools/precedent_gate.py) moment prints any guarantee
-that is down, because a session that skipped this paragraph is exactly the
-session that needs it — that is how four guarantees stayed down for hours on
-the day the print was added.
-
-On the `add_repo` route nothing else can do it for you:
-`.claude/hooks/precedent-individual-bootstrap.sh` runs to completion *before*
-the first turn **wherever a settings.json wires it — this repo's does not** —
-so it cannot call `add_repo`; its header says why a retry loop there was
-proven inert. Here
-[tools/precedent_resolve.py](tools/precedent_resolve.py)'s mid-turn self-heal
-is the only thing that runs it.
+The long form, with its history, is in
+[spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#session-setup).
 
 **This repo is Precedent**, restructured from BestPractice by the plan of
 record [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) (phases
