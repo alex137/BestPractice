@@ -910,6 +910,44 @@ def already_landed(root, argv, out, landed):
     return None if left else found
 
 
+def _run_streaming_stderr(argv, cwd):
+    """subprocess.run(argv, capture_output=True, text=True), except that
+    each line the child writes to stderr is ALSO passed through to this
+    process's stderr as it arrives. Returns the same CompletedProcess, so
+    every guard, stand-down and finding below reads exactly what it read
+    before.
+
+    WHY (practice: slow-steps-report-and-cache; very deep check,
+    2026-09-28). verify_harness prints its progress and time-remaining
+    lines to stderr for about four minutes, and a captured run swallowed
+    every one of them: the person watching saw `[1/5] harness: ...` and
+    then nothing until it finished or failed. Only stderr is streamed --
+    a gate's stdout is its verdict, printed below in the shape this file
+    has always used."""
+    import threading
+    proc = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+    out_chunks = []
+    reader = threading.Thread(target=lambda: out_chunks.append(
+        proc.stdout.read()), daemon=True)
+    reader.start()
+    err_lines = []
+    for line in iter(proc.stderr.readline, ''):
+        err_lines.append(line)
+        try:
+            sys.stderr.write(f'      {line}' if line.endswith('\n')
+                             else f'      {line}\n')
+            sys.stderr.flush()
+        except (OSError, ValueError):
+            pass                  # a closed stderr never costs the verdict
+    proc.stderr.close()
+    reader.join()
+    proc.stdout.close()
+    rc = proc.wait()
+    return subprocess.CompletedProcess(argv, rc, ''.join(out_chunks),
+                                       ''.join(err_lines))
+
+
 def run(root, checks, landed=None, reported=None):
     """`landed`: the refs whose findings a working-branch push is not
     refused over (RANGE_JUDGED), or a callable returning them, called only
@@ -940,7 +978,7 @@ def run(root, checks, landed=None, reported=None):
             continue
         print(f'[{i}/{len(checks)}] {name}: {shown}', flush=True)
         t0 = time.monotonic()
-        p = subprocess.run(argv, cwd=root, capture_output=True, text=True)
+        p = _run_streaming_stderr(argv, root)
         took = time.monotonic() - t0
         guard = GUARDS.get(name)
         why = guard(p.stdout + p.stderr, HERE) if guard and p.returncode == 0 \
