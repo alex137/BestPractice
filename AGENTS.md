@@ -470,8 +470,8 @@ When publishing a sortable multi-column table:
   tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
   quote-discipline — compression rounds against you; qualifiers travel with the figure
-When renaming, moving or deleting a file others may link to:
-  rename-updates-links — repoint every link to it in the same commit
+When renaming, moving or deleting a file others may link to, or renaming or retiring a name:
+  rename-updates-links — repoint every link, and every use of a retired name, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
 When seeding or scheduling a prompt into another session:
