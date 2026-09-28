@@ -7598,6 +7598,301 @@ def check_push_to_main_skips_what_already_passed():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_updates_a_section_0_catalogue():
+    """Update Vendors replaces a section 0 install's vendored catalogue, and
+    never reports DONE having skipped it.
+
+    2026-09-28, a real section 0 consumer: the catalogue step ran only where
+    process/manifest.json exists, so for precedent/universal/ it did nothing,
+    printed nothing, and the update said DONE; the session copied the
+    catalogue by hand. INSTALL.md section 2 step 0 had said what to do all
+    along. Plants the three states and owns them (practice:
+    fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rev = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                         capture_output=True, text=True).stdout.strip()
+    want = sorted(subprocess.run(['git', '-C', str(ROOT), 'ls-tree', '--name-only',
+                                  rev, 'practices/'], capture_output=True,
+                                 text=True).stdout.split())
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-section0-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def repo_with(sources, stale=True):
+        d = pathlib.Path(tempfile.mkdtemp(dir=tmp))
+        subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+        (d / 'precedent.json').write_text(json.dumps({'sources': sources}),
+                                          encoding='utf-8')
+        if stale:
+            (d / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
+            (d / 'precedent' / 'universal' / 'practices' / 'retired-long-ago.md'
+             ).write_text('old\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'],
+                       env=env, check=True)
+        return d
+
+    try:
+        universal = [{'level': 'universal', 'name': 'precedent',
+                      'path': 'precedent/universal'}]
+        d = repo_with(universal)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        got = sorted('practices/' + p.name for p in
+                     (d / 'precedent' / 'universal' / 'practices').iterdir())
+        cases.append(('a stale section 0 catalogue is replaced with the source '
+                      'commit\'s practices/, exactly', ok is True and got == want))
+        cases.append(('...and the report says so',
+                      any(n == 'catalogue' and 'replaced' in o for n, o in rep.steps)))
+
+        d = repo_with(universal)
+        (d / 'precedent' / 'universal' / 'practices' / 'retired-long-ago.md'
+         ).write_text('edited here\n', encoding='utf-8')
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        cases.append(('an uncommitted local edit is refused, not overwritten',
+                      ok is None and rep.left and
+                      (d / 'precedent' / 'universal' / 'practices' /
+                       'retired-long-ago.md').read_text() == 'edited here\n'))
+
+        # Committed local edits, judged against the last-synced commit.
+        last = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', f'{rev}~1'],
+                              capture_output=True, text=True).stdout.strip()
+        at_last = subprocess.run(['git', '-C', str(ROOT), 'show',
+                                  f'{last}:practices/go-update.md'],
+                                 capture_output=True).stdout
+        d = repo_with(universal, stale=False)
+        tree = d / 'precedent' / 'universal' / 'practices'
+        tree.mkdir(parents=True)
+        (tree / 'go-update.md').write_bytes(at_last)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'synced'], env=env, check=True)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, last)
+        cases.append(('a file exactly as last synced is replaced',
+                      ok is True and not rep.left))
+        (tree / 'go-update.md').write_bytes(at_last + b'\nA line added here.\n')
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'edited'], env=env, check=True)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, last)
+        cases.append(('a COMMITTED local edit is refused and named under Left for you',
+                      ok is None and any('go-update.md' in w for w, _ in rep.left)
+                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')))
+
+        d = repo_with([{'level': 'universal', 'name': 'precedent',
+                        'path': '../precedent'}], stale=False)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        cases.append(('with no catalogue inside the repo, the report says there '
+                      'was nothing to update -- never silence',
+                      ok is True and any(n == 'catalogue' and 'none vendored' in o
+                                         for n, o in rep.steps)))
+    except (OSError, subprocess.CalledProcessError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_reports_what_it_says_it_lists():
+    """Three smaller update-tool defects a consumer's update hit on
+    2026-09-28, each pinned to the function that fixes it.
+
+    - "(listed above)" listed nothing: the engine prints each diverged
+      file's missing blocks, and Update Vendors kept only the Left-for-you
+      line. diverged_details() carries them through.
+    - A practice renamed upstream (go-merge -> go-update, status
+      deduplicated at its own source) blocked the view sync until someone
+      re-ran it with --allow-removals. _lost_practices() now files it as
+      withdrawn upstream, and a slug its source simply stopped producing
+      still blocks.
+    - Every run rewrote MANIFEST.json's generated_at_utc and nothing else.
+      write_manifest() keeps the stamp when the content is unchanged, and
+      moves it when anything else changed."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_sync_views as psv
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+    out = ('DIVERGED: AGENTS.md "Two check levels" (line 88) has local edits, so '
+           'refresh leaves it alone. It lacks 1 block(s):\n'
+           '    templates/AGENTS.md.template:120 "run_all" -- add it\n'
+           '        lacks: "A failing test the deep check ran"\n'
+           'Left for you\n'
+           '  - AGENTS.md "Two check levels": lacks 1 of its blocks (listed above)\n')
+    det = getattr(pu, 'diverged_details', lambda o: {})(out)
+    cases.append(('the missing sentences of a diverged section reach the report',
+                  any('lacks: "A failing test' in l
+                      for l in det.get('AGENTS.md "Two check levels"', []))))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-report-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    try:
+        repo = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, check=True)
+        (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+            {'slug': 'kept', 'source': 'precedent'},
+            {'slug': 'renamed-away', 'source': 'precedent'},
+            {'slug': 'went-missing', 'source': 'precedent'}]}), encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'm'], env=env, check=True)
+        res = {'practices': {'kept': {'source': 'precedent'}},
+               'retired': [{'slug': 'renamed-away', 'source': 'precedent',
+                            'fm': {'status': 'deduplicated', 'in_force_at': 'kept'}}]}
+        lost = psv._lost_practices(repo, res, [{'name': 'precedent'}], ())
+        cases.append(('a slug deduplicated at its own source does not block the sync',
+                      ('renamed-away', 'precedent') in lost.get('withdrawn_upstream', [])
+                      and ('renamed-away', 'precedent') not in lost['blocking']))
+        cases.append(('a slug its source simply stopped producing still blocks',
+                      ('went-missing', 'precedent') in lost['blocking']))
+
+        mf = tmp / 'MANIFEST.json'
+        write = getattr(pm, 'write_manifest', None)
+        if write is None:
+            cases.append(('precedent_materialize has write_manifest()', False))
+        else:
+            write(mf, {'generated_at_utc': '2026-01-01T00:00:00+00:00', 'practices': [1]})
+            write(mf, {'generated_at_utc': '2026-09-28T09:00:00+00:00', 'practices': [1]})
+            cases.append(('an unchanged snapshot keeps its generated_at_utc',
+                          json.loads(mf.read_text())['generated_at_utc']
+                          == '2026-01-01T00:00:00+00:00'))
+            write(mf, {'generated_at_utc': '2026-09-28T09:00:00+00:00', 'practices': [2]})
+            cases.append(('a changed snapshot gets the new generated_at_utc',
+                          json.loads(mf.read_text())['generated_at_utc']
+                          == '2026-09-28T09:00:00+00:00'))
+    except (OSError, subprocess.CalledProcessError, KeyError, TypeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_merge_gate_judges_the_declared_base():
+    """The merge gate judges a pull request by the base GitHub declares, and
+    guesses from branch tips only when it cannot read it.
+
+    2026-09-28: pre-staging and staging had just been made at main's commit,
+    so a pull request into pre-staging matched all three by tip and the gate
+    announced "main is a fully checked branch"."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_check as pmc
+    finally:
+        sys.path.pop(0)
+    tips = ['main', 'pre-staging', 'staging']
+    if not hasattr(pmc, 'choose_bases'):
+        return (False, '0 stated cases', 'precedent_merge_check.py has no '
+                'choose_bases(): the base is still guessed from branch tips')
+    cases = [
+        ('three branches at one commit, declared base pre-staging: judged as pre-staging',
+         pmc.choose_bases('pre-staging', tips) == ['pre-staging']),
+        ('no declared base (GitHub unreadable): every tip match, strictest decides',
+         pmc.choose_bases(None, tips) == tips),
+        ('a declared base with no tip match still wins',
+         pmc.choose_bases('staging', []) == ['staging']),
+    ]
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_leak_gate_sees_main_clone_siblings_from_a_worktree():
+    """The leak gate's survey of private clones finds the main checkout's
+    siblings when it runs from a worktree somewhere else.
+
+    2026-09-28: a push check run from a `git worktree` under a session's
+    scratchpad passed a private repository's name into a public practice
+    set, because local_clone_refs() looked only at the worktree's own
+    parent directory, which held no other clone. Run from the main clone,
+    the same gate flagged it. Builds both layouts and owns its state
+    (practice: fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leak-worktree-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='f@example.com',
+               HOME=str(tmp), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(cwd, *a):
+        subprocess.run(['git', *a], cwd=str(cwd), env=env, check=True,
+                       capture_output=True, text=True)
+    cases = []
+    try:
+        clones, scratch = tmp / 'clones', tmp / 'scratch'
+        clones.mkdir()
+        scratch.mkdir()
+        for name, url in (('public-set', 'https://github.com/fixture-owner/public-set'),
+                          ('secret-app', 'https://github.com/fixture-owner/secret-app')):
+            git(tmp, 'init', '-q', str(clones / name))
+            git(clones / name, 'remote', 'add', 'origin', url)
+            (clones / name / 'f').write_text('x\n', encoding='utf-8')
+            git(clones / name, 'add', '-A')
+            git(clones / name, 'commit', '-qm', 'init')
+        wt = scratch / 'wt'
+        git(clones / 'public-set', 'worktree', 'add', '-q', str(wt))
+        secret = ('fixture-owner', 'secret-app')
+        cases.append(('from the main clone, the private sibling is seen',
+                      secret in leak_gate.local_clone_refs(clones / 'public-set')))
+        cases.append(('the worktree\'s own parent holds no other clone (the case is real)',
+                      not any((d / '.git').exists() for d in scratch.iterdir() if d != wt)))
+        cases.append(('from a worktree elsewhere, the private sibling is still seen',
+                      secret in leak_gate.local_clone_refs(wt)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_ci_templates_install_pyyaml_before_the_checks():
+    """Every shipped CI template that runs the check suite installs PyYAML
+    before it does.
+
+    2026-09-28: precedent-check.yml.template had installed PyYAML since
+    2026-09-13, because a check script materialized from a practice set may
+    import it. light-check.yml.template runs the same scripts in consuming
+    repos and never got the step, so a set's `import yaml` crashed on the
+    bare runner and failed a consuming repo's pull request into main -- while
+    the local push check, where PyYAML is installed, had passed the same
+    tree. A template that runs the suite without the step is that crash
+    waiting for the next set that imports it."""
+    cases = []
+    tdir = ROOT / 'templates' / 'github-actions'
+    for tpl in sorted(tdir.glob('*.template')):
+        text = tpl.read_text(encoding='utf-8')
+        # The first line that RUNS it: a comment naming it is not a run.
+        run = re.search(r'^(?![ \t]*#)[^\n]*precedent_check\.py', text, re.M)
+        if not run:
+            continue
+        runs = run.start()
+        m = re.search(r'pip install[^\n]*\bpyyaml\b', text, re.I)
+        cases.append((f'{tpl.name} installs PyYAML before running the checks',
+                      bool(m) and m.start() < runs))
+    failed = [name for name, ok in cases if not ok]
+    if not cases:
+        failed.append('no template under templates/github-actions/ runs '
+                      'precedent_check.py, so this case checked nothing')
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_vendors_survives_an_upstream_deletion():
     """An update that deletes a vendored .py file upstream dropped ends DONE,
     and the deep check judges the tree the commit will hold.
@@ -37621,6 +37916,17 @@ def main():
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
+    check('every shipped CI template that runs the checks installs PyYAML first',
+          *check_ci_templates_install_pyyaml_before_the_checks())
+    check('the leak gate sees the main clone\'s private siblings from a worktree',
+          *check_leak_gate_sees_main_clone_siblings_from_a_worktree())
+    check('Update Vendors replaces a section 0 catalogue and never skips it silently',
+          *check_update_vendors_updates_a_section_0_catalogue())
+    check('the merge gate judges a pull request by its declared base',
+          *check_merge_gate_judges_the_declared_base())
+    check('Update Vendors lists what it says it lists, lets a renamed practice go, '
+          'and keeps an unchanged timestamp',
+          *check_update_vendors_reports_what_it_says_it_lists())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
           *check_push_to_main_skips_what_already_passed())
     check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',
