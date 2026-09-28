@@ -19547,6 +19547,29 @@ def check_sync_copies_work_from_above_once_checked():
             cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
                           'started, and that holds the copy and is said',
                           not ok and not gh.posted and 'no workflow_dispatch' in detail))
+
+            # --wait-main-test: the wait a Promote into main hands the session.
+            pb.github_tests = lambda root, sha: tests
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([ok_run]))
+            cases.append(('--wait-main-test exits 0 and says PASSED once the '
+                          'GitHub test passed', rc == 0 and 'PASSED' in said[-1]))
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH(
+                [dict(ok_run, conclusion='failure', html_url='U')]))
+            cases.append(('--wait-main-test exits 1 and says "Do not merge" on a '
+                          'failed test', rc == 1 and 'Do not merge' in said[-1]))
+            pb.GITHUB_START_WAIT_SECONDS = 0
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
+            cases.append(('--wait-main-test stops on a test that never started '
+                          'rather than waiting the full half hour',
+                          rc == 1 and 'NONE' in said[-1]))
+            pb.github_tests = lambda root, sha: []
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
+            cases.append(('--wait-main-test with no GitHub test installed exits 0 '
+                          'and says so', rc == 0 and 'no GitHub test' in said[-1]))
         finally:
             sys.path.pop(0)
     failed = [n for n, ok in cases if not ok]
