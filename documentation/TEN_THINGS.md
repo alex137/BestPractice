@@ -22,8 +22,8 @@ project stays whole.
 
 ## 2. The Project on GitHub Is the Memory, and Nothing Is Real Until It Is Merged
 
-A conversation is disposable; the project is what lasts, so anything that
-matters has to end up in it. Work happens on a private copy, is proposed as
+A conversation is disposable: all is lost when you close the session;
+the project is what lasts, so anything that matters has to end up in it. Work happens on a private copy, is proposed as
 a pull request, and becomes real only when it is merged — which means
 several people and their AI Assistants can work at once without
 overwriting each other. **"Go update"** is the phrase that ends a piece of work: save it,

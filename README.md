@@ -2,10 +2,16 @@
 
 *Humans should do what humans do best, and leave the rest to the
 machines. ([Humans at our
-Best](philosophy/HUMANS_AT_OUR_BEST.md))*\
-*All is lost when you close a Claude/ChatGPT/AI Assistant Session.
-That's a problem, but we don't want our AI conversations to be shared.
-Precedent tries to find the balance that works for us.*
+Best](philosophy/HUMANS_AT_OUR_BEST.md))*
+
+Attempts to Describe Precedent in <20 words:
+
+- Humans collaborate and AI pattern matches.
+- All is lost when you close a Claude/ChatGPT/AI Assistant Session. It
+  should be smartly shared and learned from.
+- AI watches you collaborate, and suggests (and can enforce) patterns,
+  protocols, rules.
+- You work; AI uses github to remember, organize, and suggest protocols.
 
 The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:

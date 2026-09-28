@@ -18,9 +18,9 @@ closed:            2026-09-21
 
 An always-loaded instructions file can name a repository that does not
 exist, and nothing asks. Found 2026-09-21 in an Update Vendors pass: a
-consuming repo's `AGENTS.md` named `VoiceDefinitionMorgan` **twice** — in
-the session-start step and again in a tool's description — where the real
-repository is `VoiceDefMorgan`. The file's own step 1 warns about a source
+consuming repo's `AGENTS.md` named a private voice-definition repository
+under its old name **twice** — in the session-start step and again in a
+tool's description — after the real repository had been renamed. The file's own step 1 warns about a source
 name going stale silently.
 
 ## Why nothing caught it

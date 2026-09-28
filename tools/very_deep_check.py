@@ -6166,9 +6166,10 @@ def _repo_refs_in_instruction_files(rows):
     instructions file NAMES, across every repo in force.
 
     WHY THIS IS NOT A CLOSE READ (Morgan, 2026-09-21, strength: decided).
-    An Update Vendors pass found a consuming repo's AGENTS.md naming
-    `VoiceDefinitionMorgan` twice -- in the session-start step and again in
-    a tool's description -- where the real repository is `VoiceDefMorgan`.
+    An Update Vendors pass found a consuming repo's AGENTS.md naming a
+    private voice-definition repository under its old name, twice -- in the
+    session-start step and again in a tool's description -- after the real
+    repository had been renamed.
     That file's own step 1 warns about a source name going stale silently.
 
     Two checks came close and neither asks this. `repo-reference-allowlist`
