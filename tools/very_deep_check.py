@@ -3358,6 +3358,42 @@ _REMINDER_WELL_PAST_DAYS = 7
 _OPEN_ITEM_OLDEST_N = 5
 
 
+# A path an open item names in `blocked_on` can be one that only ever exists
+# in a CONSUMER -- the engine writes it there, or the classic §1 layout puts
+# it there -- and never in this repository. Resolving it here always misses,
+# and reporting that as "gone" says the item is blocked on something that no
+# longer exists when it was never ours to find (2026-09-28 very deep check:
+# `process/upstream` and `tools/ENGINE_MANIFEST.json` read as gone on two
+# live items). These are the consumer-only paths the engine itself defines;
+# the prose test below catches the ones an item names by its own framing.
+_CONSUMER_ONLY_PREFIXES = ('process/upstream/', 'process/manifest')
+_CONSUMER_FRAMING = re.compile(
+    r"\b(consumers?|consumer's|consuming (repo|project)|dependent repo|"
+    r"vendored|vendoring repo)\b", re.I)
+
+
+def _consumer_side_path(path, text):
+    """True when `path`, missing from this tree, is one that lives only in a
+    consumer: a file precedent_vendor_engine writes into a consumer's tools/
+    and never keeps here (its manifest), the classic process/upstream/
+    layout, or a path the item's own sentence frames as a consumer's. A path
+    that is simply gone from this repository answers False."""
+    p = re.sub(r'^(\.\.?/)+', '', path)
+    if p == 'process/upstream' or p.startswith(_CONSUMER_ONLY_PREFIXES):
+        return True
+    try:
+        import precedent_vendor_engine as pve
+        written = {f'tools/{pve.MANIFEST_NAME}'}
+    except ImportError:
+        written = {'tools/ENGINE_MANIFEST.json'}
+    if p in written:
+        return True
+    for sentence in re.split(r'(?<=[.;!?])\s+', text or ''):
+        if path in sentence and _CONSUMER_FRAMING.search(sentence):
+            return True
+    return False
+
+
 def _open_item_sweep(repo_dir):
     """-> findings (list[str]) for the OPEN ITEMS section. Three mechanical
     signals, each a question rather than a verdict -- matching
@@ -3390,18 +3426,28 @@ def _open_item_sweep(repo_dir):
             out.append(f'    {it.slug} -- {it.title[:80]}')
 
     named_gone = []
+    repo_root = pathlib.Path(repo_dir)
     for it in items:
         blocked = it.get('blocked_on') or ''
-        named = set(_GOTCHA_MD_LINK.findall(blocked))
-        named |= set(_GOTCHA_PATH_IN_TICKS.findall(blocked))
-        gone = sorted(p for p in named
-                     if not p.startswith(('http', 'mailto:', '#'))
-                     and not p.endswith('/')
-                     # resolved against todo/, not the repo root -- these
-                     # are links as written INSIDE a todo/*.md file, so a
-                     # bare sibling name or a "../" prefix both mean what
-                     # they say from there, same as a browser would read it
-                     and not (todo_dir / p.split('#')[0]).resolve().exists())
+        links = set(_GOTCHA_MD_LINK.findall(blocked))
+        ticks = set(_GOTCHA_PATH_IN_TICKS.findall(blocked)) - links
+        gone = []
+        for p in sorted(links | ticks):
+            if p.startswith(('http', 'mailto:', '#')) or p.endswith('/'):
+                continue
+            bare = p.split('#')[0]
+            # A markdown link is resolved against todo/ -- it is written
+            # INSIDE a todo/*.md file, so a bare sibling name or a "../"
+            # prefix means what it says from there, as a browser reads it.
+            # A backticked `tools/...` path is a repo path, not a link, and
+            # is resolved against the root: until 2026-09-28 both were read
+            # from todo/, so every backticked path read as gone.
+            base = todo_dir if p in links else repo_root
+            if (base / bare).resolve().exists():
+                continue
+            if _consumer_side_path(bare, blocked):
+                continue
+            gone.append(p)
         if gone:
             named_gone.append((it, gone))
     if named_gone:
@@ -4549,6 +4595,14 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
         if rc == 0:
             row['unique'] = sum(1 for ln in out.splitlines()
                                 if ln.startswith('+'))
+        # `git cherry` counts commits, not change: a branch that adds a
+        # line and then reverts it carries two `+` commits and nothing at
+        # all to land. The three-dot diff (merge base to branch tip) is the
+        # net change; exit 0 means there is none (filed 2026-09-21, pass 4).
+        if row['unique']:
+            rc, _, _ = _run_git(repo_dir, 'diff', '--quiet',
+                                f'{target_ref}...{ref}')
+            row['net_empty'] = rc == 0
     if row['unique'] is None:
         # Never guess here. A fabricated verdict is worse than none: this is
         # the branch someone might delete on it.
@@ -4562,6 +4616,9 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
                           f'equivalent on {target} (rebased or squash-merged '
                           f'in), so there is nothing to merge. Deletion '
                           f'candidate that the ancestor test cannot see')
+    elif row.get('net_empty'):
+        row['verdict'] = ('net-empty: its commits cancel out; nothing to '
+                          'land')
     else:
         _age = ''
         if row.get('stale'):
@@ -8931,9 +8988,14 @@ def _main(box):
             led.start('UNLANDED WORK')
         _unlanded = []
         _unknown = []
+        _net_empty = []
         for _name, _scan in branch_scans.items():
             for _r in (_scan or {}).get('unmerged', []):
-                if _r.get('unique'):
+                if _r.get('unique') and _r.get('net_empty'):
+                    # Commits with no patch-equivalent whose sum is no
+                    # change: nothing to read, nothing to land.
+                    _net_empty.append((_name, _scan['target'], _r))
+                elif _r.get('unique'):
                     _unlanded.append((_name, _scan['target'], _r))
                 elif _r.get('unique') is None:
                     # NOT falsy-equivalent to zero, and the distinction is the
@@ -8964,6 +9026,11 @@ def _main(box):
             print("  No branch carries unlanded work. (A branch reported unmerged\n"
                   "  but carrying nothing was rebased or squash-merged in -- pass 4\n"
                   "  still gives it a deletion verdict.)\n")
+        for _name, _target, _r in _net_empty:
+            print(f"  {_name}: {_r['name']}")
+            print(f"      {_r['verdict']}")
+        if _net_empty:
+            print()
         if _unknown:
             print("  COULD NOT DETERMINE, which is not the same as clean -- these\n"
                   "  branches may carry unlanded work and this run cannot say:\n")
