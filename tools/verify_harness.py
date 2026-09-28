@@ -25980,6 +25980,53 @@ def check_bootstrap_source_produces_resolvable_set():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_bootstrap_writes_what_real_sets_converged_on():
+    """A newly bootstrapped set starts with what every real set ended up
+    writing for itself by hand (very deep check, 2026-09-28, CONVERGENT
+    DRIFT): the shipped Claude Code CLAUDE.md byte for byte rather than a
+    shorter stub of its own, a "Working in this repo" section describing
+    the mechanism, and a precedent-source.json whose `visibility` is what
+    the person said -- all three real shared sets are public and each had
+    to correct a hard-coded "private" by hand. The discriminating case: the
+    default is still private."""
+    import shutil, tempfile
+    tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-bootstrap-conv-'))
+    cases = []
+    try:
+        pub, priv = tmp / 'pub', tmp / 'priv'
+        for dest, extra in ((pub, ['--visibility', 'public']), (priv, [])):
+            r = subprocess.run([sys.executable, tool, '--level', 'shared',
+                                '--name', 'precedent-shared-zzfixture',
+                                '--dest', str(dest), '--approver',
+                                'Fixture Person:fixture', *extra],
+                               capture_output=True, text=True)
+            cases.append((f'bootstrap succeeds ({dest.name})',
+                          r.returncode == 0, (r.stdout + r.stderr)[-300:]))
+        vis = lambda d: json.loads((d / 'precedent-source.json').read_text(
+            encoding='utf-8')).get('visibility')
+        cases.append(('--visibility public is recorded', vis(pub) == 'public',
+                      repr(vis(pub))))
+        cases.append(('THE DISCRIMINATING CASE: the default stays private',
+                      vis(priv) == 'private', repr(vis(priv))))
+        shipped = (ROOT / 'templates' / 'harness' / 'claude-code' /
+                   'CLAUDE.md').read_text(encoding='utf-8')
+        cases.append(('CLAUDE.md is the shipped adapter, byte for byte',
+                      (pub / 'CLAUDE.md').read_text(encoding='utf-8') == shipped,
+                      ''))
+        agents = (pub / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('AGENTS.md carries the Working in this repo section, '
+                      'with the approval line for a shared set',
+                      '## Working in this repo' in agents
+                      and 'approvers.json' in agents, agents[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a new practice set starts with what real sets converged on '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_bootstrap_source_engine_is_functional():
     """spec/BOOTSTRAP_NEW_SOURCES.md's newer claim, tested rather than
     trusted: precedent_bootstrap_source.py's output carries a real, working
@@ -42841,6 +42888,7 @@ def main():
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
+    check_bootstrap_writes_what_real_sets_converged_on()
     check_bootstrap_source_engine_is_functional()
     check_session_start_refreshes_an_attached_team_clone()
     check_views_drift_gate_reaches_a_source_set()

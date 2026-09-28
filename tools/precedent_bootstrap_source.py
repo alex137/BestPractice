@@ -50,6 +50,8 @@ Usage:
 
   precedent_bootstrap_source.py --level shared --name NAME --dest PATH \\
       --approver "Full Name:github-handle"[,"Second Name:handle2"...]
+      [--visibility private|public]  # what precedent-source.json records;
+                                      # private unless the repository is public
       [--write-repo-config PATH]     # merge the shared source into
                                       # PATH/precedent.json (default: cwd)
                                       # `--level team` is the pre-2026-09-18
@@ -78,6 +80,7 @@ import os
 import re
 import subprocess
 import pathlib
+import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -1246,10 +1249,14 @@ def _git(*args):
     return r.returncode == 0, (r.stdout or '').strip()
 
 
-def bootstrap(level, name, dest, approvers=None, force=False):
+def bootstrap(level, name, dest, approvers=None, force=False,
+              visibility='private'):
     level = LEVEL_ALIASES.get(level, level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
+    if visibility not in ('private', 'public'):
+        raise BootstrapRefused(f"--visibility must be private or public, got "
+                               f"{visibility!r}")
     dest = pathlib.Path(dest).expanduser().resolve()
     if dest.exists() and any(dest.iterdir()) and not force:
         raise BootstrapRefused(
@@ -1271,7 +1278,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
 
     _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
-    written.append(_write_source_manifest(dest, level, name))
+    written.append(_write_source_manifest(dest, level, name, visibility))
     if level == 'shared':
         _seed_approvers_json(dest, approvers)
     written += _install_session_hooks(dest)
@@ -1384,9 +1391,10 @@ def _write_session_load_budget(dest):
             'early-warning notice starts ON. headroom_floor_pct matches '
             "BestPractice's own value; each surface's ceiling is measured "
             'plus ~20% headroom, the convention every hand-written entry '
-            'in that repo already uses. Add .precedent/SESSION_PRACTICES'
-            '.md once the universal-catalogue hook is wired -- verify() '
-            'flags that gap directly once it is. A ceiling is a '
+            'in that repo already uses. .precedent/SESSION_PRACTICES.md '
+            'is regenerated at every session start and grows with the '
+            'universal catalogue, so re-measure it when it trips rather '
+            'than reading the trip as this set growing. A ceiling is a '
             'watermark, not an endorsement: review and reduce, never '
             'just raise, when it is crossed for real.',
         ],
@@ -1396,16 +1404,50 @@ def _write_session_load_budget(dest):
     return path
 
 
-def _write_source_manifest(dest, level, name):
+def _working_in_this_repo(level):
+    """-> the hand-written "Working in this repo" section a new set's
+    AGENTS.md starts with: the mechanism every real set ended up writing for
+    itself, identically, by hand (very deep check, 2026-09-28, CONVERGENT
+    DRIFT). It describes the MECHANISM, never the inventory, so it cannot
+    go stale as practices come and go."""
+    lines = [
+        '## Working in this repo',
+        '',
+        '- **Practices are in [practices/](practices/)**, one file per practice,',
+        '  in Precedent\'s practice-file format -- frontmatter plus `## Rule` /',
+        '  `## Detail` / `## Why` / `## Story` / `## Install`.',
+        '- **The loader block above is generated, and so are MAP.md and',
+        '  GLOSSARY.md** -- regenerate all three with the full',
+        '  `python3 tools/build_views.py` after any practice change, never',
+        '  `--agents-only`, and commit what it rewrites.',
+        '- **Before committing:** `python3 tools/precedent_check.py --full-sweep`',
+        '  -- `0 violated` is what matters. The bare command runs only a',
+        '  rotation slice, and a practice source runs no CI',
+        '  (universal `source-sets-run-no-ci`), so nothing else catches what',
+        '  it misses.',
+        '- **This file describes the MECHANISM, never the INVENTORY.** A rule',
+        '  goes in a practice file, where the loader dedupes it and precedence',
+        '  ranks it; restated here as prose it is invisible to both.',
+    ]
+    if level == 'shared':
+        lines += ['- **Approval** is a listed approver\'s own yes, in',
+                  '  [approvers.json](approvers.json).']
+    return '\n'.join(lines) + '\n'
+
+
+def _write_source_manifest(dest, level, name, visibility='private'):
     """The set's own identity file (precedent_resolve.SOURCE_MANIFEST): the
-    name its author chose, its level, and that it is private. A consumer
+    name its author chose, its level, and whether its repository is public.
+    Private by default; all three real shared sets turned out public and
+    had to correct this by hand (2026-09-19), so --visibility public says
+    it at creation. A consumer
     declares the name; the resolver checks the clone answers to it. The
     repository may be called anything (practice: source-naming)."""
     path = pathlib.Path(dest) / precedent_resolve.SOURCE_MANIFEST
     path.write_text(json.dumps({
         'name': name,
         'level': level,
-        'visibility': 'private',
+        'visibility': visibility,
         'subject': '',
         'code': [],
         '_comment': [
@@ -1448,7 +1490,8 @@ def _write_instructions_and_views(dest, level, name):
             f'[Precedent](https://github.com/alex137/BestPractice). '
             f'[README.md](README.md) says what is here and how a practice lands.\n\n'
             f'<!-- BEGIN GENERATED: precedent-loader -->\n'
-            f'<!-- END GENERATED -->\n',
+            f'<!-- END GENERATED -->\n\n'
+            + _working_in_this_repo(level),
             encoding='utf-8')
         written.append(agents)
 
@@ -1468,7 +1511,14 @@ def _write_instructions_and_views(dest, level, name):
     # hook had not run yet and a duplicate where it had
     # (spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
     claude_md = dest / 'CLAUDE.md'
-    if not claude_md.exists():
+    shipped = ROOT / 'templates' / 'harness' / 'claude-code' / 'CLAUDE.md'
+    if not claude_md.exists() and shipped.is_file():
+        # The adapter every consumer gets, byte for byte. This function used
+        # to write its own, shorter stub, and all three real shared sets
+        # replaced it with this file by hand (very deep check, 2026-09-28).
+        shutil.copyfile(shipped, claude_md)
+        written.append(claude_md)
+    elif not claude_md.exists():
         claude_md.write_text(
             '<!-- Claude Code adapter: CLAUDE.md is the file Claude Code\n'
             '     auto-loads; the canonical instructions live in AGENTS.md\n'
@@ -1775,7 +1825,8 @@ def main():
     approvers = _parse_approvers(args['--approver']) if args.get('--approver') else []
 
     try:
-        result = bootstrap(level, name, dest, approvers=approvers, force=force)
+        result = bootstrap(level, name, dest, approvers=approvers, force=force,
+                           visibility=args.get('--visibility', 'private'))
     except BootstrapRefused as e:
         print(f"REFUSED: {e}")
         return 1
