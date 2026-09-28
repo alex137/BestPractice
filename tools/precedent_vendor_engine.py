@@ -771,6 +771,9 @@ RETIRED_ENGINE_FILES = {
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 _WAS_COMMIT_ENV = 'PRECEDENT_REFRESH_WAS_COMMIT'  # the pre-refresh source_commit, for a second pass
+# The first pass's Left-for-you list, as JSON, for the second pass to print.
+# See _take_carried_left.
+_CARRIED_LEFT_ENV = 'PRECEDENT_REFRESH_LEFT_FOR_YOU'
 
 # --- Hook files: the .claude/hooks/*.sh adapter scripts --------------------
 # Distinct from ENGINE_FILES above in two ways: they live in a different
@@ -2726,10 +2729,44 @@ LEGACY_SECRETS = ('PERSONAL_PACK_TOKEN',)
 # Filled by the sweeps below, printed once at the end of refresh() as
 # "Left for you": what the code would not do, and why.
 _LEFT_FOR_YOU = []
+# What the first pass of a self-replacing refresh found, handed to the second
+# pass (_CARRIED_LEFT_ENV) and printed there unless that pass found the same
+# item itself. A finding can be one the second pass cannot find again: the
+# first pass records a missing AGENTS.md section as absent, and the second
+# reads "absent" as a decision already made. Until 2026-09-28 the first pass
+# cleared its list before handing over, so that section was recorded as left
+# out on purpose without the person ever seeing it on the list.
+_CARRIED_LEFT = []
 
 
 def _left(item, why):
     _LEFT_FOR_YOU.append((item, why))
+
+
+def _drop_left(keep):
+    """Filter both lists by keep(item) -- a finding answered in this pass is
+    answered whichever pass first found it."""
+    _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if keep(i)]
+    _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT if keep(i)]
+
+
+def _take_carried_left():
+    """In a second pass: load the first pass's list into _CARRIED_LEFT and
+    -> True. -> False when this is a second pass whose first pass predates
+    the hand-over (an engine older than 2026-09-28 cleared its list and
+    passed nothing), so what it found is gone and the caller must find it
+    again. -> None when this is not a second pass at all."""
+    if not os.environ.get(_SECOND_PASS_ENV):
+        return None
+    raw = os.environ.pop(_CARRIED_LEFT_ENV, None)
+    if raw is None:
+        return False
+    try:
+        items = json.loads(raw)
+    except ValueError:
+        return False
+    _CARRIED_LEFT[:] = [(str(i), str(w)) for i, w in items]
+    return True
 
 
 def _decommission_module():
@@ -2946,7 +2983,7 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         _drop_ci_approvals(dest_root, sorted(removed))
         # Anything an earlier sweep left "for you" about a file now gone is
         # already answered.
-        _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if i not in removed]
+        _drop_left(lambda i: i not in removed)
         _warn_about_dependents(dest_root, sorted(removed),
                                'removed: upstream does not ship it and '
                                'nobody approved it')
@@ -3335,12 +3372,17 @@ def print_left_for_you():
                   + (f" Recorded as {todo}." if todo else ''))
         print(bar)
         _KEPT_LOUD.clear()
-    if not _LEFT_FOR_YOU:
+    # The first pass's findings, where this pass did not find the item
+    # itself: this pass's wording is the current engine's, so it wins.
+    fresh = {i for i, _w in _LEFT_FOR_YOU}
+    items = _LEFT_FOR_YOU + [(i, w) for i, w in _CARRIED_LEFT if i not in fresh]
+    _CARRIED_LEFT.clear()
+    if not items:
         return
     print("\nLeft for you -- this refresh would not do these by itself "
           "(vendor-update-runbook, \"Retire legacy leftovers\"):")
     seen = set()
-    for item, why in _LEFT_FOR_YOU:
+    for item, why in items:
         if (item, why) in seen:
             continue
         seen.add((item, why))
@@ -3543,8 +3585,8 @@ def _held_back(dest_root, rel, lost, verb):
     """Leave `rel` alone, loudly: a banner at the end of the refresh, a line
     under "Left for you", and an open item in the repo's todo/. Replaces any
     quieter message an earlier sweep left about the same file."""
-    _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if i != rel]
-    todo = _record_kept_workflow_todo(dest_root, rel, lost, verb)
+    _drop_left(lambda i: i != rel)
+    todo =_record_kept_workflow_todo(dest_root, rel, lost, verb)
     done = 'replaced' if verb == 'replacing' else 'removed'
     _KEPT_LOUD.append((rel, lost, done, todo))
     _left(rel, f'LEFT ALONE, not {done}: it runs {", ".join(lost)}, which the '
@@ -4153,6 +4195,9 @@ def record_template_instances(dest_root, kind, source_root):
 #               repo has rearranged is a judgment. Recorded as absent, so
 #               the next refresh says it in one line rather than again in
 #               full -- a section a repo chose not to have is a decision.
+#               It is only a decision once the person has been asked, so a
+#               self-replacing refresh hands this item to its second pass,
+#               which reads "absent" (_CARRIED_LEFT).
 #   absent   -- that, on a later refresh.
 # A heading that appears twice in AGENTS.md is diverged: no write can know
 # which of the two was meant.
@@ -4475,11 +4520,18 @@ def missing_markdown_blocks(local_section, template_section):
     return out
 
 
-def _report_agents_md(dest_root, templates_dir, plan):
+def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
     run, the early exit included, for the reason
-    _report_diverged_template_instances gives."""
+    _report_diverged_template_instances gives.
+
+    `reask_absent`: report an 'absent' section as 'missing' again. Set in the
+    second pass of a self-replacing refresh whose first pass, an engine older
+    than 2026-09-28, recorded sections as absent and handed nothing over --
+    this pass cannot tell which of them that pass recorded a moment ago, and
+    asking once more about a section left out on purpose costs a re-run,
+    where staying quiet about one nobody was asked about costs the section."""
     if not plan:
         return
     subs = _agents_md_subs(dest_root)
@@ -4487,6 +4539,11 @@ def _report_agents_md(dest_root, templates_dir, plan):
     template_text = None
     complete = []
     for key, src_rel, line_no, action, span in plan:
+        if action == 'absent' and reask_absent:
+            print(f"  NOTE: {AGENTS_MD} \"{key}\" is recorded as left out, but "
+                  f"possibly only by the first pass of this refresh, whose "
+                  f"older engine did not hand its list over -- asking again.")
+            action = 'missing'
         if action == 'missing':
             print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
                   f"{src_rel}:{line_no} has one. Not written in: where it goes "
@@ -5449,6 +5506,8 @@ def refresh(clone, force=False, ref=None):
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
+    # False only in a second pass whose first pass handed nothing over.
+    handed_over = _take_carried_left() is not False
 
     # Before anything else, including the drift check below: a retired CI
     # workflow entry is cleaned up unconditionally, --force or not, so its
@@ -5622,7 +5681,8 @@ def refresh(clone, force=False, ref=None):
         # reported. See AGENTS_MD_TEMPLATES.
         agents_plan = _agents_md_plan(ROOT, kind, engine_dir / 'templates', manifest)
         agents_pending = _agents_md_pending(agents_plan, manifest)
-        _report_agents_md(ROOT, engine_dir / 'templates', agents_plan)
+        _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
+                          reask_absent=not handed_over)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
@@ -5787,13 +5847,19 @@ def refresh(clone, force=False, ref=None):
         print("precedent_vendor_engine refresh: this refresh replaced the "
               "vendoring tool itself, so its own file list may have changed "
               "-- running once more with the new copy.")
-        # The second pass runs every sweep again and prints its own list;
-        # printing this one too would say each item twice.
+        # The second pass runs every sweep again and prints the one list, so
+        # this pass hands its findings over rather than printing them: what
+        # the second pass finds again it says in its own words, and what it
+        # cannot find again (a section this pass just recorded as absent) it
+        # prints from here. Clearing without handing over lost exactly those
+        # until 2026-09-28 -- see _CARRIED_LEFT.
+        carried = json.dumps(_LEFT_FOR_YOU + _CARRIED_LEFT)
         _LEFT_FOR_YOU.clear()
+        _CARRIED_LEFT.clear()
         r = subprocess.run(
             [sys.executable, str(HERE), 'refresh', str(clone), '--force']
             + (['--from-ref', ref] if ref else []),
-            env={**os.environ, _SECOND_PASS_ENV: '1',
+            env={**os.environ, _SECOND_PASS_ENV: '1', _CARRIED_LEFT_ENV: carried,
                  _WAS_COMMIT_ENV: (os.environ.get(_WAS_COMMIT_ENV)
                                    or manifest.get('source_commit') or '')})
         if r.returncode != 0:
