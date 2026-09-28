@@ -29,7 +29,8 @@ THE STEPS, with no question in between:
   3. the catalogue: checkin.py update, then record, where the repo vendors
      one under process/ (process/manifest.json); for a section 0 install,
      its universal source's practices/ replaced wholesale (INSTALL.md
-     section 2, step 0); and where there is neither, a line saying so
+     section 2, step 0) and the commit recorded in CATALOGUE_SYNC.json
+     beside it; and where there is neither, a line saying so
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too -- then this repo's own citations of any
@@ -139,12 +140,83 @@ def universal_catalogue_path(repo):
     return None
 
 
+# The section 0 catalogue's own sync record, beside its practices/: the
+# upstream commit the catalogue was last replaced from. The engine manifest's
+# source_commit is the ENGINE's, and the two part ways whenever the engine
+# refresh is committed before the catalogue step succeeds, or the two were
+# ever vendored from different commits. 2026-09-28, a consumer: engine at
+# one commit, catalogue at an older one recorded only in README prose, and
+# 52 files refused as local edits that were every one upstream's own text.
+CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
+
+
+def _blob_id(data):
+    """-> the git object id of `data` as a blob (git's default sha1 format)."""
+    import hashlib
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+def _tree_blobs(where, ref, prefix):
+    """-> {path under `prefix`: blob id} at commit `ref` of the repo at
+    `where`; {} when `ref` cannot be read there."""
+    r = subprocess.run(['git', '-C', str(where), 'ls-tree', '-r', '-z', ref,
+                        '--', f'{prefix}/'], capture_output=True, text=True)
+    out = {}
+    for entry in r.stdout.split('\0') if r.returncode == 0 else []:
+        meta, _, path = entry.partition('\t')
+        parts = meta.split()
+        if len(parts) == 3 and parts[1] == 'blob' and path.startswith(prefix + '/'):
+            out[path[len(prefix) + 1:]] = parts[2]
+    return out
+
+
+def _upstream_history_blobs(rev):
+    """-> {(path under practices/, blob id)} for every version any upstream
+    commit -- `rev`'s history and every ref the source clone holds -- ever
+    carried. The same allowance the carry check makes for upstream's own
+    history: a file equal to one of these is upstream's text, not a local
+    edit, whichever commit it was vendored from."""
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw',
+                        '--no-abbrev', '--no-renames', rev, '--all', '--',
+                        'practices/'], capture_output=True, text=True)
+    out = set()
+    for line in r.stdout.splitlines() if r.returncode == 0 else []:
+        meta, _, path = line.partition('\t')
+        parts = meta.split()
+        if not line.startswith(':') or len(parts) < 4 or not path.startswith('practices/'):
+            continue
+        for oid in parts[2:4]:
+            if oid.strip('0'):
+                out.add((path[len('practices/'):], oid))
+    return out
+
+
+def _catalogue_record(text):
+    """-> the source_commit a CATALOGUE_SYNC.json's text names, or None."""
+    try:
+        c = json.loads(text).get('source_commit')
+    except (ValueError, AttributeError):
+        return None
+    return c if isinstance(c, str) and re.fullmatch(r'[0-9a-f]{7,64}', c) else None
+
+
+def _is_commit(rev):
+    return rev and subprocess.run(['git', '-C', str(SOURCE), 'cat-file', '-e',
+                                   f'{rev}^{{commit}}'], capture_output=True).returncode == 0
+
+
 def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
     """Replace a section 0 install's vendored universal catalogue with the
     source clone's practices/ at commit `rev` -- a committed ref, never the
-    clone's working tree, as the engine step reads. -> True when the step
-    ran or honestly had nothing to do (reported either way), None when it
-    left a call for the person, or the reason the update fails."""
+    clone's working tree, as the engine step reads -- and record `rev` in
+    CATALOGUE_SYNC.json beside it. -> True when the step ran or honestly had
+    nothing to do (reported either way), None when it left a call for the
+    person, or the reason the update fails.
+
+    `last_synced` is the engine manifest's commit, which says only that this
+    repo has synced before: the catalogue's local edits are judged against
+    its own committed record, or, where it has none yet, against every
+    version upstream ever had at each path."""
     import io
     import shutil
     import tarfile
@@ -158,11 +230,31 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         return True
     # Zero local variance by design (INSTALL.md section 2, step 0): a local
     # edit belongs upstream, so the replace refuses rather than eat one.
-    r = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain', '--',
-                        f'{rel}/practices'], capture_output=True, text=True)
-    dirty = [l[3:] for l in r.stdout.splitlines() if l.strip()]
-    if r.returncode != 0:
-        return f'could not read git status of {rel}/practices: {r.stderr.strip()[:200]}'
+    dirty, err = status_paths(repo, f'{rel}/practices')
+    if dirty is None:
+        return f'could not read git status of {rel}/practices: {err}'
+    dirty = sorted(dirty)
+    # Except this command's own output. A run that failed after this step
+    # (the view sync, the check) leaves the replaced catalogue uncommitted,
+    # and "run this again" refused over it (2026-09-28). A path whose working
+    # state is exactly upstream's at `rev`, or at the commit the uncommitted
+    # record names, is what the replace writes -- not a change of anyone's.
+    if dirty:
+        try:
+            pending = _catalogue_record((repo / rel / CATALOGUE_SYNC_NAME)
+                                        .read_text(encoding='utf-8'))
+        except OSError:
+            pending = None
+        at = [_tree_blobs(SOURCE, c, 'practices') for c in dict.fromkeys(
+            c for c in (rev, pending) if c)]
+        prefix = f'{rel}/practices/'
+        foreign = []
+        for p in dirty:
+            f = repo / p
+            here = _blob_id(f.read_bytes()) if f.is_file() else None
+            if not any(here == blobs.get(p[len(prefix):]) for blobs in at):
+                foreign.append(p)
+        dirty = foreign
     if dirty:
         for p in dirty:
             rep.leave(p, 'changed here and not committed; the catalogue is '
@@ -170,33 +262,37 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
                       'discard it first')
         rep.step('catalogue', f'refused: {rel}/practices has uncommitted changes')
         return None
-    # Committed local edits too: a file that matches neither the version it
-    # was last synced at nor the incoming one was changed here, and the
-    # replace would lose it. One that matches the incoming version already
-    # (a catalogue copied over by hand) loses nothing.
-    edited, unread = [], False
-    if last_synced:
-        ok = subprocess.run(['git', '-C', str(SOURCE), 'cat-file', '-e',
-                             f'{last_synced}^{{commit}}'], capture_output=True)
-        unread = ok.returncode != 0
-        for f in sorted(target.rglob('*')) if not unread else []:
-            if not f.is_file():
-                continue
-            name = f.relative_to(target).as_posix()
-            here = f.read_bytes()
-            versions = []
-            for at in (last_synced, rev):
-                b = subprocess.run(['git', '-C', str(SOURCE), 'show',
-                                    f'{at}:practices/{name}'], capture_output=True)
-                versions.append(b.stdout if b.returncode == 0 else None)
-            if here not in versions:
+    # Committed local edits too: a committed file that matches neither the
+    # upstream text it was last synced from nor the incoming one was changed
+    # here, and the replace would lose it. One that matches the incoming
+    # version already (a catalogue copied over by hand) loses nothing.
+    shown = subprocess.run(['git', '-C', str(repo), 'show',
+                            f'HEAD:{rel}/{CATALOGUE_SYNC_NAME}'],
+                           capture_output=True, text=True)
+    recorded = _catalogue_record(shown.stdout) if shown.returncode == 0 else None
+    edited, basis, unread = [], None, False
+    if recorded and _is_commit(recorded):
+        base = _tree_blobs(SOURCE, recorded, 'practices')
+        basis = f'{recorded[:12]} (the catalogue\'s own last sync)'
+        upstream = lambda name, oid: base.get(name) == oid          # noqa: E731
+    elif recorded or last_synced:
+        history = _upstream_history_blobs(rev)
+        basis = ('any upstream commit (the catalogue\'s recorded sync, '
+                 f'{recorded[:12]}, is not in the source clone)' if recorded else
+                 f'any upstream commit (no {CATALOGUE_SYNC_NAME} yet)')
+        upstream = lambda name, oid: (name, oid) in history         # noqa: E731
+    else:
+        unread = True
+    if not unread:
+        incoming = _tree_blobs(SOURCE, rev, 'practices')
+        for name, oid in sorted(_tree_blobs(repo, 'HEAD', f'{rel}/practices').items()):
+            if incoming.get(name) != oid and not upstream(name, oid):
                 edited.append(f'{rel}/practices/{name}')
     if edited:
         for p in edited:
-            rep.leave(p, f'differs from upstream at {last_synced[:12]} (the last '
-                      f'sync) and at {rev[:12]}: a local edit the wholesale '
-                      f'replace would lose -- export it upstream, or restore '
-                      f'upstream\'s text, then run this again')
+            rep.leave(p, f'differs from upstream at {basis} and at {rev[:12]}: a '
+                      f'local edit the wholesale replace would lose -- export it '
+                      f'upstream, or restore upstream\'s text, then run this again')
         rep.step('catalogue', f'refused: {len(edited)} file(s) in {rel}/practices '
                  f'carry local edits')
         return None
@@ -213,10 +309,16 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
                 tf.extractall(td)
         shutil.rmtree(target)
         shutil.copytree(pathlib.Path(td) / 'practices', target)
+    (repo / rel / CATALOGUE_SYNC_NAME).write_text(json.dumps({
+        'source_commit': rev,
+        'written_by': 'tools/precedent_update.py (Update Vendors)',
+        'why': 'the upstream commit practices/ here was last replaced from; '
+               'the next update judges local edits against it'}, indent=2) + '\n',
+        encoding='utf-8')
     n = sum(1 for _ in target.glob('*.md'))
-    note = ('' if last_synced and not unread else
-            '; the last-synced commit could not be read here, so only '
-            'uncommitted edits were checked for')
+    note = (f'; local edits judged against {basis}' if not unread else
+            '; no record of the last sync here, so only uncommitted edits '
+            'were checked for')
     rep.step('catalogue', f'{rel}/practices replaced from the source at '
              f'{rev[:12]} ({n} practice files; INSTALL.md section 2, step 0){note}')
     return True
@@ -228,6 +330,7 @@ class Report:
         self.left = []    # (what, why)
         self.loud = []    # workflows left alone -- printed first and last
         self.details = {} # what -> lines printed under its Left-for-you item
+        self.asks = []    # (what, question) -- for the person, not this repo
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -236,6 +339,20 @@ class Report:
     def leave(self, what, why):
         if (what, why) not in self.left:
             self.left.append((what, why))
+
+    def ask(self, what, question):
+        """A question only the person can answer and this repo cannot act
+        on -- so it holds nothing (the exit code is unchanged), and it is
+        printed in every outcome, never left in a step's scrollback."""
+        if (what, question) not in self.asks:
+            self.asks.append((what, question))
+
+    def _questions(self):
+        if self.asks:
+            print("\nQUESTIONS FOR THE PERSON -- nothing here blocks the update, "
+                  "and none is this repo's call; ask before Go update:")
+            for what, question in self.asks:
+                print(f"  - {what}: {question}")
 
     def _banner(self):
         # A workflow the update had to leave alone still runs in GitHub, and
@@ -253,6 +370,7 @@ class Report:
         print("\n== Update Vendors ==")
         for name, outcome in self.steps:
             print(f"  {name}: {outcome}")
+        self._questions()
         if failed:
             # What the update left for the person is printed on a failure
             # too. 2026-09-28: a consumer's refresh named its bootstrap.sh as
@@ -282,6 +400,11 @@ class Report:
             if self.loud:
                 self._banner()
             return LEFT
+        if self.asks:
+            print("\nDONE -- nothing left for this repo to decide. Ask the "
+                  "question(s) above, review the staged diff, commit, then run "
+                  "Go update's chain.")
+            return DONE
         print("\nDONE -- nothing left to decide. Review the staged diff, "
               "commit, then run Go update's chain.")
         return DONE
@@ -356,6 +479,18 @@ def diverged_details(out):
     return {k: v for k, v in details.items() if v}
 
 
+def in_force_nowhere(out):
+    """-> the view sync's IN FORCE NOWHERE warnings, each 'slug (source):
+    why'. The sync prints them and still passes, and until 2026-09-28 this
+    command said DONE with them left in the sync's own output: a
+    deduplication whose forwarding address names a set this repo does not
+    declare, so the rule binds nowhere here. Whether that is acceptable is
+    the person's call, never this repo's."""
+    mark = 'IN FORCE NOWHERE -- '
+    return list(dict.fromkeys(l.split(mark, 1)[1].strip()
+                              for l in out.splitlines() if mark in l))
+
+
 def lost_files(out):
     return [l.strip()[len('LOST from '):].rstrip(':')
             for l in out.splitlines() if l.strip().startswith('LOST from ')]
@@ -364,8 +499,17 @@ def lost_files(out):
 def dirty_paths(repo):
     """Every path `git status` reports, staged or not, tracked or not. A
     staged rename lists both its sides."""
+    return status_paths(repo)[0] or set()
+
+
+def status_paths(repo, *pathspec):
+    """-> (dirty_paths()'s set, limited to `pathspec` when given, '') -- or
+    (None, the error) when `git status` could not run."""
     r = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain=v1', '-z',
-                        '--untracked-files=all'], capture_output=True, text=True)
+                        '--untracked-files=all', '--', *pathspec],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None, r.stderr.strip()[:200]
     fields, paths, i = r.stdout.split('\0'), set(), 0
     while i < len(fields):
         entry = fields[i]
@@ -376,7 +520,7 @@ def dirty_paths(repo):
         if entry[0] in 'RC' and i < len(fields):
             paths.add(fields[i])
             i += 1
-    return paths
+    return paths, ''
 
 
 def stage_update(repo, before):
@@ -708,6 +852,13 @@ def update(repo, skip_check=False, ref=None):
         done = vendor_universal_catalogue(repo, rep, head.strip(), last_synced)
         if done is not True:
             return rep.close(done)
+        # What was uncommitted there when this began was a failed run's own
+        # output -- the step refuses anything else -- and is now replaced:
+        # the update's to stage, not someone's work to leave alone.
+        rel = universal_catalogue_path(repo)
+        if rel:
+            before = {p for p in before if not (p.startswith(f'{rel}/practices/')
+                                                or p == f'{rel}/{CATALOGUE_SYNC_NAME}')}
 
     # 3b. Where Go update lands, for a repository that has never said.
     # Morgan, 2026-09-27 (strength: decided): every repository lands on
@@ -742,6 +893,10 @@ def update(repo, skip_check=False, ref=None):
         rep.step('views', 'regenerated (loader block, MAP.md, GLOSSARY.md)')
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
+        for found in in_force_nowhere(out):
+            rep.ask('IN FORCE NOWHERE', f'{found} -- the rule binds nowhere in '
+                    f'this repo. Declare the set it forwards to, or accept that '
+                    f'it does not apply here?')
         if rc != 0:
             return rep.close(f"the view sync failed:\n{tail(out)}")
         rep.step('views', 'regenerated')

@@ -7912,6 +7912,293 @@ def check_update_vendors_second_consumer_findings():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def _section0_fixture_env():
+    return dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+                GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+                PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+
+def _section0_repo(parent, files, env):
+    """A section 0 consumer whose precedent/universal/ holds `files`
+    ({relative path: bytes}), committed. -> its root."""
+    import tempfile
+    d = pathlib.Path(tempfile.mkdtemp(dir=parent))
+    subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+    (d / 'precedent.json').write_text(json.dumps({'sources': [
+        {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}),
+        encoding='utf-8')
+    for rel, data in files.items():
+        f = d / 'precedent' / 'universal' / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(data)
+    subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+    subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'], env=env, check=True)
+    return d
+
+
+def check_update_vendors_trusts_the_catalogues_own_sync_commit():
+    """The section 0 catalogue step judges a local edit against the commit
+    the CATALOGUE was last synced from, not the engine's.
+
+    2026-09-28, a consumer: engine vendored at one commit, catalogue at an
+    older one (recorded only in prose), and the step read the engine
+    manifest's source_commit as the catalogue's -- 52 files refused as local
+    edits, every one byte-identical to upstream at the catalogue's real
+    commit. The step now writes its own CATALOGUE_SYNC.json and reads that;
+    a consumer without one has each file checked against every version
+    upstream ever had at that path."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    env = _section0_fixture_env()
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(ROOT), *a], capture_output=True)
+
+    rev = git('rev-parse', 'HEAD').stdout.decode().strip()
+    now_blob = git('rev-parse', f'{rev}:practices/go-update.md').stdout.strip()
+    older = next((c for c in git('log', '--format=%H', rev, '--',
+                                 'practices/go-update.md').stdout.decode().split()
+                  if git('rev-parse', f'{c}:practices/go-update.md').stdout.strip()
+                  not in (b'', now_blob)), None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-catalogue-sync-'))
+    try:
+        if older is None:
+            raise OSError('this clone holds no older go-update.md to plant')
+        at_older = git('show', f'{older}:practices/go-update.md').stdout
+        # The engine was synced at `rev`, the catalogue at `older`.
+        d = _section0_repo(tmp, {'practices/go-update.md': at_older}, env)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
+        cases.append(('with no record of its own, a file equal to an older upstream '
+                      'version is not a local edit', ok is True and not rep.left))
+        rec = d / 'precedent' / 'universal' / 'CATALOGUE_SYNC.json'
+        try:
+            got = json.loads(rec.read_text(encoding='utf-8')).get('source_commit')
+        except (OSError, ValueError):
+            got = None
+        cases.append(('the replace records the commit it synced from', got == rev))
+
+        d = _section0_repo(tmp, {'practices/go-update.md': at_older + b'\nMine.\n'}, env)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
+        cases.append(('...and a real local edit is still refused',
+                      ok is None and any('go-update.md' in w for w, _ in rep.left)))
+
+        d = _section0_repo(tmp, {
+            'practices/go-update.md': at_older,
+            'CATALOGUE_SYNC.json': json.dumps({'source_commit': older}).encode()}, env)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
+        cases.append(('with its own record, the catalogue is judged against the '
+                      'commit it names', ok is True and not rep.left
+                      and any(n == 'catalogue' and older[:12] in o
+                              for n, o in rep.steps)))
+    except (OSError, subprocess.CalledProcessError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_reruns_over_its_own_output():
+    """"Run this again" after a FAILED update is not refused over the
+    catalogue the failed run itself wrote.
+
+    2026-09-28: the view sync failed after the section 0 catalogue was
+    replaced, and the re-run refused because precedent/universal/practices
+    held uncommitted changes -- the update's own output. Output it would
+    write again byte for byte is recognised; a hand edit on top of it still
+    refuses."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    env = _section0_fixture_env()
+    rev = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                         capture_output=True, text=True).stdout.strip()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-catalogue-rerun-'))
+    try:
+        d = _section0_repo(tmp, {'practices/retired-long-ago.md': b'old\n'}, env)
+        tree = d / 'precedent' / 'universal' / 'practices'
+        rep = pu.Report()
+        first = pu.vendor_universal_catalogue(d, rep, rev)
+        rep = pu.Report()
+        again = pu.vendor_universal_catalogue(d, rep, rev)
+        cases.append(('a second run over the first run\'s uncommitted output goes ahead',
+                      first is True and again is True and not rep.left))
+        (tree / 'go-update.md').write_bytes((tree / 'go-update.md').read_bytes()
+                                            + b'\nA hand edit.\n')
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev)
+        cases.append(('...and a hand edit on top of that output is still refused',
+                      ok is None and any('go-update.md' in w for w, _ in rep.left)
+                      and (tree / 'go-update.md').read_bytes().endswith(b'hand edit.\n')))
+    except (OSError, subprocess.CalledProcessError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def _sync_views_fixture(tmp, universal, team):
+    """A consumer with a universal catalogue inside it and one team source
+    beside it, each {slug: extra frontmatter lines}. -> (repo, team_dir,
+    user_config, write) where write(dir, slug, extra) (re)writes a practice."""
+    repo, team_dir = tmp / 'c', tmp / 'precedent-team-x'
+
+    def write(where, slug, extra=''):
+        (where / 'practices').mkdir(parents=True, exist_ok=True)
+        status = '' if 'status:' in extra else 'status: active\n'
+        (where / 'practices' / f'{slug}.md').write_text(
+            f'---\nslug: {slug}\ntitle: The {slug} rule\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "doing {slug}"\n'
+            f'index_clause: "do {slug}"\n{status}{extra}---\n'
+            f'## Rule\nDo {slug}.\n\n## Story\nIt was not done.\n', encoding='utf-8')
+
+    for slug, extra in universal.items():
+        write(repo / 'precedent' / 'universal', slug, extra)
+    for slug, extra in team.items():
+        write(team_dir, slug, extra)
+    (repo / 'AGENTS.md').write_text(
+        f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+    (repo / 'precedent.json').write_text(json.dumps({
+        'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
+        'sources': [{'level': 'universal', 'name': 'precedent',
+                     'path': 'precedent/universal'},
+                    {'level': 'team', 'name': 'precedent-team-x',
+                     'path': str(team_dir)}]}), encoding='utf-8')
+    user = tmp / 'u.json'
+    user.write_text(json.dumps({'format_version': 1}), encoding='utf-8')
+    for c in (['init', '-q', '-b', 'main'],
+              ['config', 'user.email', 'harness@example.com'],
+              ['config', 'user.name', 'Harness']):
+        subprocess.run(['git', '-C', str(repo)] + c, capture_output=True)
+    return repo, team_dir, user, write
+
+
+def _sync_views_run(repo, user, commit=False):
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                        '--repo', str(repo), '--user-config', str(user)],
+                       capture_output=True, text=True)
+    if commit:
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'catalogue'],
+                       capture_output=True)
+    return r
+
+
+def check_update_vendors_lets_an_override_through_the_view_sync():
+    """A practice a declared source now OVERRIDES is not a lost rule.
+
+    2026-09-28, a consumer's update: the view sync refused because it "would
+    remove session-title-names-the-difference (from precedent)" -- the cause
+    was an individual practice carrying `overrides:` on it, a removal as
+    correct as a deduplication, which the sync already lets through. A
+    retirement at its own source goes through too, and so, since this item
+    closed the 2026-09-14 todo, does one retired at a source whose name
+    changed since the manifest was committed. A rule that simply vanished
+    still refuses."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, team, user, write = _sync_views_fixture(
+            tmp, {'names-the-difference': '', 'old-rule': '', 'keeper-u': ''},
+            {'abbreviates-repo': '', 'keeper-t': ''})
+        r = _sync_views_run(repo, user, commit=True)
+        cases.append(('the fixture syncs and commits', r.returncode == 0))
+        write(team, 'abbreviates-repo', 'overrides: names-the-difference\n')
+        write(repo / 'precedent' / 'universal', 'old-rule',
+              'status: retired\nin_force_at: none\n')
+        r = _sync_views_run(repo, user)
+        cases.append(('a slug a declared source overrides does not block the sync',
+                      r.returncode == 0))
+        cases.append(('...and the sync names what now stands in its place',
+                      'abbreviates-repo' in r.stderr
+                      and 'names-the-difference' in r.stderr))
+        cases.append(('a slug retired at its own source goes through as well',
+                      r.returncode == 0 and 'old-rule' in r.stderr))
+
+        _sync_views_run(repo, user, commit=True)
+        (repo / 'precedent' / 'universal' / 'practices' / 'keeper-u.md').unlink()
+        r = _sync_views_run(repo, user)
+        cases.append(('a rule its source simply stopped producing still refuses',
+                      r.returncode != 0 and 'keeper-u' in r.stderr
+                      and 'whose source is still declared' in r.stderr))
+        write(repo / 'precedent' / 'universal', 'keeper-u')
+
+        # The todo's condition: a retirement at a RENAMED source is told
+        # apart from a source that is gone.
+        cfg = json.loads((repo / 'precedent.json').read_text())
+        cfg['sources'][1]['name'] = 'precedent-team-x-renamed'
+        (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        write(team, 'keeper-t', 'status: retired\nin_force_at: none\n')
+        write(team, 'still-here')
+        r = _sync_views_run(repo, user)
+        cases.append(('a slug retired at a source renamed since the commit is a '
+                      'retirement, not a dropped source',
+                      r.returncode == 0 and 'keeper-t' in r.stderr))
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_asks_about_a_rule_in_force_nowhere():
+    """IN FORCE NOWHERE reaches the person, and the sync stops contradicting it.
+
+    2026-09-28, a consumer's update: the sync warned that a deduplicated
+    practice's forwarding address named a set this consumer does not
+    declare, then in the same run said "name-the-branch ... now in force as
+    name-the-branch", and Update Vendors said DONE with the warning nowhere
+    in its report. Whether that deduplication is acceptable is the person's
+    call; this pins only that the question reaches them."""
+    import io, contextlib, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, team, user, write = _sync_views_fixture(
+            tmp, {'name-the-branch': '', 'keeper-u': ''}, {'keeper-t': ''})
+        _sync_views_run(repo, user, commit=True)
+        write(repo / 'precedent' / 'universal', 'name-the-branch',
+              'status: deduplicated\nin_force_at: name-the-branch\n')
+        r = _sync_views_run(repo, user)
+        out = r.stdout + r.stderr
+        cases.append(('the fixture reaches IN FORCE NOWHERE',
+                      'IN FORCE NOWHERE' in out and 'name-the-branch' in out))
+        cases.append(('the sync no longer claims the rule is in force as itself',
+                      'now in force as name-the-branch' not in out))
+        found = getattr(pu, 'in_force_nowhere', lambda o: [])(out)
+        cases.append(('Update Vendors picks the warning out of the sync\'s output',
+                      any('name-the-branch' in f for f in found)))
+        rep = pu.Report()
+        for f in found:
+            getattr(rep, 'ask', rep.leave)('IN FORCE NOWHERE', f)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = rep.close()
+        text = buf.getvalue()
+        cases.append(('...and its report asks the person, without holding the update',
+                      rc == pu.DONE and 'QUESTION' in text
+                      and 'name-the-branch' in text))
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_run_all_warns_when_checks_are_uncommitted():
     """The generated run_all.sh says, on a failure, when tools/checks/ has
     uncommitted changes -- and only then.
@@ -38469,6 +38756,14 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
+    check('Update Vendors judges a section 0 catalogue against its own sync commit',
+          *check_update_vendors_trusts_the_catalogues_own_sync_commit())
+    check('Update Vendors re-runs over the catalogue a failed run wrote',
+          *check_update_vendors_reruns_over_its_own_output())
+    check('the view sync lets an override and a retirement through',
+          *check_update_vendors_lets_an_override_through_the_view_sync())
+    check('IN FORCE NOWHERE reaches the Update Vendors report, uncontradicted',
+          *check_update_vendors_asks_about_a_rule_in_force_nowhere())
     check_gotcha_currency_signals_fire()
     check_relayed_authorization_reader()
     check_pretooluse_hook_fires()

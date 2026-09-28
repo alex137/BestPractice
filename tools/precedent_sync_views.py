@@ -84,7 +84,7 @@ def _lost_practices(repo, res, sources, withheld):
     on every fresh install.
     """
     empty = {'blocking': [], 'source_dropped': [], 'moved_without_record': [],
-             'withdrawn_upstream': []}
+             'withdrawn_upstream': [], 'overridden': []}
     try:
         r = subprocess.run(['git', '-C', str(repo), 'show', 'HEAD:MANIFEST.json'],
                            capture_output=True, text=True, timeout=30)
@@ -122,12 +122,13 @@ def _lost_practices(repo, res, sources, withheld):
     declared = {s.get('name') for s in sources}
 
     out = {'blocking': [], 'source_dropped': [], 'moved_without_record': [],
-           'withdrawn_upstream': []}
+           'withdrawn_upstream': [], 'overridden': []}
     # Where each slug's record at its OLD source went: still there and
     # shadowed (a copy, both ends active), or withdrawn with a forwarding
     # address (a move done right), or simply gone (a copy-and-delete).
-    shadowed_at = {(s['slug'], s['shadowed'].get('source'))
+    shadowed_by = {(s['slug'], s['shadowed'].get('source')): s.get('by') or {}
                    for s in (res.get('shadowed') or []) if isinstance(s, dict)}
+    shadowed_at = set(shadowed_by)
     withdrawn_at = {(r.get('slug'), r.get('source'))
                     for r in (res.get('retired') or []) if isinstance(r, dict)}
     for entry in recorded:
@@ -161,6 +162,28 @@ def _lost_practices(repo, res, sources, withheld):
         # --allow-removals.
         if src in declared and (slug, src) in withdrawn_at:
             out['withdrawn_upstream'].append((slug, src))
+            continue
+        # OVERRIDDEN BY A DECLARED SOURCE: a practice elsewhere names this
+        # slug in `overrides:`, so the resolver put that one in its place --
+        # as correct a removal as a deduplication. 2026-09-28: an individual
+        # set's session-title-abbreviates-repo overrides the universal
+        # session-title-names-the-difference, and a consumer's update was
+        # refused as if the universal rule had gone stale.
+        by = shadowed_by.get((slug, src))
+        if src in declared and by is not None:
+            out['overridden'].append((slug, src, by.get('slug'), by.get('source')))
+            continue
+        # RETIRED AT A SOURCE WHOSE NAME CHANGED since the manifest was
+        # committed: the recorded name matches nothing declared, but a
+        # declared source still carries the slug, marked retired or
+        # deduplicated -- a retirement, not a dropped source, so it is told
+        # apart here (todo-2026-09-14-sync-views-blames-a-dropped-source-for-
+        # a-retirement). A source that is gone leaves no such record and
+        # still refuses below.
+        at = next((where for which, where in sorted(withdrawn_at, key=str)
+                   if which == slug and where in declared), None)
+        if src not in declared and at is not None:
+            out['withdrawn_upstream'].append((slug, at))
             continue
         (out['source_dropped'] if src not in declared
          else out['blocking']).append((slug, src))
@@ -407,10 +430,11 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 "`process/upstream/tools/checkin.py update <clone>` on an "
                 "INSTALL.md \u00a71 install and INSTALL.md \u00a72 step 0 "
                 "on a \u00a70 one, which has no process/upstream/ to run "
-                "anything from. Or the practice was RETIRED upstream, which "
-                "is the ordinary case when you have just replaced the "
-                "catalogue with a newer one -- then the removal is correct "
-                "and `--allow-removals` is the answer, not a workaround.")
+                "anything from. Or the source DELETED the file outright "
+                "instead of marking it retired or deduplicated (either mark, "
+                "or an `overrides:` naming it, goes through without this "
+                "refusal) -- then the removal is correct and "
+                "`--allow-removals` is the answer, not a workaround.")
         # THE NAME IS NOT THE SOURCE'S IDENTITY, and treating it as one let a
         # RENAME delete practices under a sentence saying the person had
         # dropped the source on purpose (practice: cite-the-incident). On
@@ -447,14 +471,40 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             fwd = {(r.get('slug'), r.get('source')):
                    str((r.get('fm') or {}).get('in_force_at') or '').strip('"\' ')
                    for r in (res.get('retired') or []) if isinstance(r, dict)}
+
+            def _where(s, src):
+                # Where the rule went, as THIS resolution found it -- the
+                # forwarding address followed, never quoted. 2026-09-28: a
+                # consumer read "name-the-branch (... now in force as
+                # name-the-branch)" a few lines under IN FORCE NOWHERE for
+                # the same slug, because the address named a set it does not
+                # declare and this line printed the address as written.
+                target = fwd.get((s, src)) or ''
+                if target in ('', 'null', bv.IN_FORCE_AT_NOWHERE):
+                    return ''
+                if target == bv.IN_FORCE_AT_ENGINE:
+                    return ', now enforced by the engine'
+                live = pr.follow_in_force_at(s, res.get('practices') or {},
+                                             res.get('retired') or [])
+                if live is not None:
+                    return f", now in force as {live}"
+                return (f", forwarding to {target}, which is IN FORCE NOWHERE "
+                        f"here -- see above")
+
             print("precedent_sync_views: removing "
                   f"{len(_lost['withdrawn_upstream'])} practice(s) their own "
                   "source now marks deduplicated or retired, so the removal is "
                   "correct: " + '; '.join(
-                      f"{s} (from {src}"
-                      + (f", now in force as {fwd[(s, src)]}"
-                         if fwd.get((s, src)) and fwd[(s, src)] != 'null' else '')
-                      + ")" for s, src in sorted(_lost['withdrawn_upstream'])),
+                      f"{s} (from {src}{_where(s, src)})"
+                      for s, src in sorted(_lost['withdrawn_upstream'])),
+                  file=sys.stderr)
+        if _lost.get('overridden'):
+            print("precedent_sync_views: removing "
+                  f"{len(_lost['overridden'])} practice(s) a declared source now "
+                  "names in `overrides:`, so the removal is correct: " + '; '.join(
+                      f"{s} (from {src}, overridden by {by} from {by_src})"
+                      for s, src, by, by_src in sorted(_lost['overridden'],
+                                                       key=str)),
                   file=sys.stderr)
         for slug, was, here in sorted(_lost['moved_without_record']):
             # A warning, not a refusal: the rule IS in force, from `here`.
