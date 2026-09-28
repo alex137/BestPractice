@@ -224,7 +224,7 @@ choice in the read-back ("Now Promote 1: Consider -- a one-line plan"):
 |---|---|---|
 | **One-line plan** | One sentence in the reply: what will change and where. Then straight to Act. | Tiny changes -- a typo, a link, a one-line fix. Most work. |
 | **Brainstorm** | The existing command: think it through in the session and write nothing to the repository ([practices/brainstorm-holds-commits.md](../practices/brainstorm-holds-commits.md)). | The idea itself is still open. |
-| **Plan it** *(new)* | The middle ground: a written plan in the session -- numbered steps, the risks, what "done" looks like, what is out of scope. More than a brainstorm, far less than a write-up. No file. | Real work, clear enough to build in this session. |
+| **Plan it** *(new)* | The middle ground: a written plan in the session -- numbered steps, the risks, what "done" looks like, what is out of scope. More than a brainstorm, far less than a write-up. No file: it is handed back as **one paste-ready prompt**, so it can be copied into another session for a second opinion. | Real work, clear enough to build in this session. |
 | **Write it up** / **Spec it out** | The existing command: a full report committed to the repository, as [practices/write-it-up.md](../practices/write-it-up.md) says -- like this file. | A detailed plan is needed: big or cross-session work, or anything someone else will pick up. |
 
 **The one-line plan is fine, and it matters most.** Morgan: *"Very, very,
@@ -234,6 +234,13 @@ one-line plan is how Consider stays cheap. Consider moves up a size only
 when the work needs it, and says why when it does.
 
 "Plan it" is the one new command here and gets its own practice file.
+**Its plan is not saved to the repository** -- work that spans sessions is
+Write it up's job -- **but it is always given as one self-contained,
+paste-ready prompt**: a fenced block that says where to paste it (a new
+session, which repository to root it in, what to attach), opens by naming
+the session that wrote it (practice: seeded-prompt-names-its-origin), and
+asks the receiving session for its critique of the plan. Getting a second
+session's feedback on a plan is then one copy and one paste.
 
 ### Who it applies to
 
@@ -285,9 +292,33 @@ won't be lost. For Morgan that is pre-staging. What that changes:
   broad "finish whatever this needs" meaning for work that is not a branch
   move.
 
-**Where the text goes.** A new Booked practice file becomes the home of the
-rule. [practices/go-update.md](../practices/go-update.md) is marked
-`deduplicated` into it -- the existing mechanism
+**What Go update does today, and where each piece goes.** Everything
+[practices/go-update.md](../practices/go-update.md) does today is kept;
+most of it moves into a new Booked practice file, four pieces become common
+to every stage, and one becomes its own small practice because two commands
+share it.
+
+| What Go update does today | Where it goes |
+|---|---|
+| **Decides whether the change is high-risk.** High-risk means it touches enforcement or gating code, changes a governance or authorization practice, is hard to reverse once live, or the session is not confident it is none of those. | **Its own small practice**, referenced by both Booked and [Push directly](../practices/push-directly.md), because both depend on it and it should be written once. The four tests do not change. |
+| **Ordinary change: pushes straight to the landing branch, no pull request** (the default since 2026-09-20). | **Booked**, unchanged. |
+| **High-risk change: the full chain** -- sync, say the branch, commit, push, open a pull request into the landing branch, merge it. | **Booked**, unchanged. For Morgan the pull request targets pre-staging, as it already does. |
+| **A direct instruction about this one change wins** ("skip the PR", "open a PR for this"). | **Booked**, unchanged. `Push directly` stays the named form of "skip the PR". |
+| **Works out the landing branch** (`precedent_branches.py --landing`: pre-staging, staging or main, from the person's `landing_branch`). | **Booked**, unchanged; the tool does not change. |
+| **Brings pre-staging in first** (`--sync-pre-staging`, then merging `origin/pre-staging` before the push). | **Booked**, unchanged. |
+| **Runs the checks**: the light check before the commit, the push check at the target branch's tier (basic for pre-staging, full for staging and main). | **Unchanged** -- the hooks run them, whatever the command is called. |
+| **Says the target branch out loud** before pushing or merging. | **Every stage**, as the read-back ("Now Promote 3: Booked ... into pre-staging (BestPractice)"). |
+| **Says which path it took and why**, in one clause ("pushed directly -- a plan document"). | **Booked**, unchanged. |
+| **Confirms on GitHub that the work arrived** before saying where it went. | **Every stage** -- a stage is not done until a fetch shows the branch carries the work. |
+| **Hands off a step it cannot perform** as a Prompt Please block, the authorization travelling with it, after finishing everything it can. | **Every stage**, unchanged ([practices/prompt-please.md](../practices/prompt-please.md), [practices/relayed-authorization.md](../practices/relayed-authorization.md)). |
+| **Reads intent, not the phrase**; says its reading and confirms when a message could honestly go either way; commits locally regardless. | **Every stage**, as the ladder's own reading rule (above). |
+| **"Approved" means the same thing.** | **Booked**: "Go update", "Approved", "Booked", "Shared Save" and "Promote 3" are its names. |
+| **"Finish whatever this needs"** when the work is not a branch move at all. | **Booked**, as its meaning when there is no branch to move -- so "Go update" keeps working for that too. |
+| **One plain Boildown line** when a high-risk change landed on pre-staging, saying how far pre-staging is ahead of staging. | **Stays in** [practices/the-boildown.md](../practices/the-boildown.md), repointed to Booked. |
+| **"Go merge" is retired**, kept only as history. | Stays history, in the old file's story. |
+
+**What happens to the old file.** [practices/go-update.md](../practices/go-update.md)
+is marked `deduplicated` into Booked -- the existing mechanism
 ([practices/current-rule-governs.md](../practices/current-rule-governs.md))
 by which `precedent_show.py go-update` follows the old name to the live
 rule, so every link to it keeps working. Nothing is deleted. The practices
@@ -434,8 +465,9 @@ Each numbered item is its own landing, through the ladder itself.
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
    Booked, Debut and Production, each with its synonym; Promote's practice
    gains "Promote N", the read-back, the bare-Promote rule and "Graduate";
-   Write it up gains "Spec it out"; Go update is deduplicated into Booked
-   and its callers repointed. *Changes an authorization practice (Go
+   Write it up gains "Spec it out"; the high-risk test moves into its own
+   practice; Go update is deduplicated into Booked and its callers
+   repointed. *Changes an authorization practice (Go
    update, Promote): high-risk.*
 6. **Morgan's individual practice** requiring the ladder, in
    `precedent-individual`.
@@ -455,9 +487,7 @@ template). They reach consumers through Update Vendors, not on their own
    Recommendation: choose it and say so in the read-back; one word from
    Morgan overrules. Asking every time adds a round trip, and the read-back
    already makes the choice visible.
-2. **Does a "Plan it" plan get saved?** Recommendation: no -- it lives in
-   the session. Work that spans sessions is Write it up's job.
-3. **"Act" as step 2's word.** Not questioned so far; noted because it is
+2. **"Act" as step 2's word.** Not questioned so far; noted because it is
    the commonest word on the ladder.
 
 ## Decision record
@@ -490,6 +520,8 @@ Strength per [practices/decision-strength.md](../practices/decision-strength.md)
 | Booked checks readiness first | decided | *"you need to use your judgment and say, do you think it's ready?"* |
 | Promote stays the one word, step 1 included | decided | *"I want one word to just use everywhere ... promote is good enough"* |
 | Go update becomes part of Booked | decided | *"maybe we move the current "go update" practice to be a part of "booked" stage"* |
+| Go update's high-risk call and its other duties are listed, each with where it goes | decided | *"Update the Go update section with these details and clarify where those details wil move to / what will happen to them"* |
+| A "Plan it" plan is not saved, and is given as a paste-ready prompt for another session's feedback | decided | *"I agree, but it should be given in a prompt so that it is very easy to copy-paste that prompt to another session to get its feedback"* |
 | The plan spells out what happens to Go update | decided | *"the plan also needs to have a paragraph or section on what happens with "go update""* |
 | "Graduate" and "Spec it out" folded in | decided | *"yes fold that in"* |
 | The archive guard | assented | *"Okay, I like these ideas"* |
