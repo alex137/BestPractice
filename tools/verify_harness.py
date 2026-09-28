@@ -7235,6 +7235,38 @@ def check_update_adopts_engine_written_ahead():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_acronym_scan_skips_wrapped_code_spans():
+    """doc_lint's acronym scan -- the one detector the acronyms-glossary gate
+    shares -- skips a code span that wraps onto the next line, as it skips
+    one on a single line (2026-09-28: `--changed-since HEAD --staged`,
+    wrapped in vendor-update-runbook, failed a consuming repo's Update
+    Vendors on HEAD). Both directions: prose around the span, a fenced
+    block, and a paragraph break still end or bound it."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    name = 'the acronym scan skips code spans that wrap across lines'
+    toks = lambda t: [tok for _i, tok in dl.scan_unglossed(t, set(), 'x.md')
+                      if tok in ('QZXA', 'QZXB', 'QZXC', 'QZXD')]
+    cases = [
+        ('a span wrapping onto the next line hides its second half',
+         toks('Run `tool --flag\nQZXA --staged` now.\n') == []),
+        ('prose after the wrapped span is still scanned',
+         toks('Run `tool --flag\nx --staged` then QZXB.\n') == ['QZXB']),
+        ('a paragraph break ends a span, so the next paragraph is scanned',
+         toks('An open ` tick.\n\nQZXC and a close ` tick.\n') == ['QZXC']),
+        ('a fenced block is not joined to prose around it',
+         toks('Open `\n```\ncode\n```\nQZXD` here.\n') == ['QZXD']),
+        ('line numbers still point at the right line',
+         [i for i, tok in dl.scan_unglossed('a `b\nc` d\nQZXA\n', set(), 'x.md')
+          if tok == 'QZXA'] == [3]),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_changed_files_only_judges_the_change():
     """A push into pre-staging runs the practice checks on the files it
     changes, and only those (Morgan, 2026-09-27, strength: decided: "ONLY for
@@ -7297,6 +7329,31 @@ def check_changed_files_only_judges_the_change():
         cases.append(('a change elsewhere passes while the mismatch sits in the tree, '
                       'and says it left it to the full check',
                       rc == 0 and 'not judged here' in out, out[-800:]))
+
+        # A consumer's practice file is sync output: an unglossed acronym in
+        # one is refused where the practice is authored, and not judged in a
+        # repo MANIFEST.json says it was materialized into (2026-09-28,
+        # a consuming repo's Update Vendors, refused on vendor-update-runbook).
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        practice = sorted((wt / 'practices').glob('*.md'))[0]
+        with open(practice, 'a', encoding='utf-8') as f:
+            f.write('\nThe QZXW fixture line.\n')
+        git('commit', '-qam', 'an unglossed acronym in a practice')
+        rc, out = run_check(start)
+        cases.append(('an unglossed acronym added to a practice where it is authored '
+                      'is refused', rc == 1 and 'acronyms-glossary' in out
+                      and 'QZXW' in out, out[-800:]))
+        (wt / 'MANIFEST.json').write_text(json.dumps({'practices': [
+            {'slug': practice.stem, 'level': 'universal'}]}), encoding='utf-8')
+        git('add', 'MANIFEST.json')
+        git('commit', '-qm', 'the practice is materialized here')
+        rc, out = run_check(start)
+        cases.append(('...and the same line in a practice MANIFEST.json says was '
+                      'materialized is not judged, and the note says why',
+                      rc == 0 and 'materialized from another source' in out, out[-800:]))
+        git('rm', '-q', 'MANIFEST.json')
+        git('checkout', '-q', start, '--', str(practice.relative_to(wt)))
+        git('commit', '-qam', 'undo the materialized fixture')
 
         # The file-level checks (checks-follow-the-tier): only the changed
         # files, and the views a changed practice feeds.
@@ -37646,6 +37703,7 @@ def main():
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
+    check_acronym_scan_skips_wrapped_code_spans()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()

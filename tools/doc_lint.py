@@ -561,6 +561,51 @@ def looks_like_roman_numeral(tok):
     return bool(m) and m.group(0) != ''
 
 
+# A code span, or one that wraps onto the next line or two: markdown lets an
+# inline code span run across a soft line break inside a paragraph, and a
+# document wrapped at 72 columns does it whenever a long command lands at
+# the margin. A blank line ends a paragraph, and with it any span. The
+# single-line form is listed first so a span that closes on
+# its own line is consumed whole, and its closing backtick is never read as
+# the opening of a wrapped one.
+_CODE_SPAN_OR_WRAPPED_RE = re.compile(
+    r'(?<!`)`(?!`)[^`\n]*(?<!`)`(?!`)'
+    r'|(?<!`)`(?!`)[^`\n]*\n(?:[^`\n]*[^`\s][^`\n]*\n)?[^`\n]*(?<!`)`(?!`)')
+
+
+def blank_wrapped_code_spans(text):
+    """`text` with every inline code span that wraps across lines replaced
+    by blanks, its newlines kept so line numbers still point at the right
+    line. Fenced blocks are left alone -- a backtick inside one is content,
+    not markdown.
+
+    Found 2026-09-28: vendor-update-runbook's step 10(i) wraps
+    `python3 tools/precedent_practice_refs.py --withdrawn --changed-since
+    HEAD --staged` across two lines, and a line-at-a-time scan read the
+    second half as prose, so HEAD was reported as an unglossed acronym in
+    every consumer that took the update."""
+    lines, out, run, fenced = (text or '').split('\n'), [], [], False
+
+    def flush():
+        if run:
+            joined = '\n'.join(run)
+            out.append(_CODE_SPAN_OR_WRAPPED_RE.sub(
+                lambda m: re.sub(r'[^\n]', ' ', m.group(0))
+                if '\n' in m.group(0) else m.group(0), joined))
+            run.clear()
+    for line in lines:
+        if line.lstrip().startswith('```'):
+            flush()
+            fenced = not fenced
+            out.append(line)
+        elif fenced:
+            out.append(line)
+        else:
+            run.append(line)
+    flush()
+    return '\n'.join(out)
+
+
 def scan_unglossed(text, known, path=None):
     """[(lineno, TOKEN)] — every ALL-CAPS token in `text` that is not a
     known acronym, not glossed inline as `LONG FORM (TOK)`, not a filename
@@ -581,6 +626,7 @@ def scan_unglossed(text, known, path=None):
     # an acronym anybody can gloss. Blanked rather than removed so line
     # numbers still point at the right line.
     text = HTML_COMMENT_RE.sub(lambda m: '\n' * m.group(0).count('\n'), text or '')
+    text = blank_wrapped_code_spans(text)
     out, seen, incode = [], set(), False
     for i, line in enumerate(text.splitlines(), 1):
         if line.lstrip().startswith('```'):
