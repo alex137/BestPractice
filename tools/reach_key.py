@@ -273,34 +273,31 @@ class _Resolver:
         return None
 
 
-def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, stop=()):
-    """The key: see the module docstring. `trace`, a list, receives what
-    was hashed as (file, kind, symbol, digest) for inspection."""
-    R = _Resolver(path, search_dirs, root)
-    items, whole, done = [], set(), {(R.entry.path, s) for s in stop}
-    classes, attrs, widen = [], set(), [False]   # reached classes; attribute names used; dynamic attribute access seen
-    work = [(R.entry.path, e) for e in entries]
+# A session shares work across many keys computed over unchanged files (a
+# gate keying hundreds of blocks in one process): what each definition
+# names, and where each import resolves, is worked out once. Opt-in, and
+# only valid while no file changes -- begin_session() / end_session().
+_SESSION = None
 
-    # every repo module the entry file imports, transitively: their
-    # import-time side effects run whatever the solve reaches
-    closure, todo = set(), [R.entry.path]
-    while todo:
-        p = todo.pop()
-        if p in closure:
-            continue
-        closure.add(p)
-        m = R.load(p)
-        for imp in m.imports.values():
-            q = R.find(imp[1], p.parent)
-            if q and q not in closure:
-                todo.append(q)
-    for p in sorted(closure):
-        m = R.load(p)
-        for i, st in enumerate(m.effects):
-            items.append((p, "effect", str(i), _digest(m, "effect", str(i), st)))
-            work.append((p, ("__stmt__", st)))
 
-    def attr_ref(m, chain):
+def begin_session():
+    global _SESSION
+    _SESSION = {}
+
+
+def end_session():
+    global _SESSION
+    _SESSION = None
+
+
+def _refs_record(R, m, node, dynamic):
+    """What one definition names: (work, whole, attrs, widen) -- the
+    definitions and statements to follow, the modules to hash whole, the
+    attribute names used, and whether an attribute is looked up by a
+    computed name."""
+    work, whole, attrs, widen = [], set(), set(), [False]
+
+    def attr_ref(chain):
         """Follow base.a1.a2... through module aliases; queue the first
         non-module attribute, or hash a module reached as a bare value."""
         mod = R.module_alias(m, chain[0])
@@ -316,6 +313,111 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
             mod = nxt
         whole.add(mod)
 
+    consumed = set()                 # Name nodes already handled as a chain base or a literal getattr
+    parent = {id(c): n for n in ast.walk(node) for c in ast.iter_child_nodes(n)}
+
+    def lookup(call):
+        """globals()/vars() used to look a name up (indexed, .get,
+        .pop, .setdefault), as against copied whole (the fork-pool
+        registration idiom `module.__dict__.update(globals())`)."""
+        if call.func.id not in ("globals", "vars"):
+            return True                  # exec, eval, __import__: always dynamic
+        p = parent.get(id(call))
+        return (isinstance(p, ast.Subscript) and p.value is call) or \
+            (isinstance(p, ast.Attribute) and p.value is call
+             and p.attr in ("get", "pop", "setdefault", "__getitem__"))
+    for n in ast.walk(node):
+        if isinstance(n, ast.Attribute):
+            attrs.add(n.attr)
+        if isinstance(n, ast.Call):
+            fname = n.func.id if isinstance(n.func, ast.Name) else \
+                n.func.attr if isinstance(n.func, ast.Attribute) else ""
+            if fname in ("attrgetter", "methodcaller"):
+                lits = [a.value for a in n.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+                attrs.update(x for lit in lits for x in lit.split("."))
+                if fname == "attrgetter" and len(lits) < len(n.args) or fname == "methodcaller" and not (
+                        n.args and isinstance(n.args[0], ast.Constant)):
+                    widen[0] = True
+            if isinstance(n.func, ast.Name) and n.func.id in ("getattr", "hasattr", "setattr") \
+                    and len(n.args) >= 2:
+                literal = isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str)
+                if literal:
+                    attrs.add(n.args[1].value)
+                elif not (isinstance(n.args[0], ast.Name) and R.module_alias(m, n.args[0].id)):
+                    widen[0] = True          # an object's attribute by computed name: any method may run
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2 \
+                and isinstance(n.args[0], ast.Name):
+            if isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str):
+                attr_ref([n.args[0].id, n.args[1].value])
+                consumed.add(id(n.args[0]))
+            elif dynamic:
+                modp = R.module_alias(m, n.args[0].id)
+                if modp:
+                    whole.add(modp)
+                    consumed.add(id(n.args[0]))
+        if isinstance(n, ast.Attribute) and not isinstance(getattr(n, "_parent_attr", None), ast.Attribute):
+            chain, cur = [], n
+            while isinstance(cur, ast.Attribute):
+                chain.append(cur.attr)
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                consumed.add(id(cur))
+                attr_ref([cur.id, *reversed(chain)])
+        for c in ast.iter_child_nodes(n):
+            if isinstance(n, ast.Attribute) and isinstance(c, ast.Attribute):
+                c._parent_attr = n
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name) and id(n) not in consumed:
+            modp = R.module_alias(m, n.id)
+            if modp:
+                whole.add(modp)
+            elif n.id in m.defs or n.id in m.assigns or n.id in m.imports:
+                work.append((m.path, n.id))
+        elif dynamic and isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                and n.func.id in _DYNAMIC_CALLS and lookup(n):
+            whole.add(m.path)
+        elif isinstance(n, ast.Name) and n.id == "importlib":
+            whole.add(m.path)
+    return work, whole, attrs, widen[0]
+
+
+def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, stop=(), files=None):
+    """The key: see the module docstring. `trace`, a list, receives what
+    was hashed as (file, kind, symbol, digest) for inspection. `files`, a
+    set, receives every repository module the key accounts for: the static
+    import closure (whatever of it can run is hashed, and the rest cannot
+    change a result) plus every module hashed in part or whole."""
+    R = _Resolver(path, search_dirs, root)
+    items, whole, done = [], set(), {(R.entry.path, s) for s in stop}
+    classes, attrs, widen = [], set(), [False]   # reached classes; attribute names used; dynamic attribute access seen
+    work = [(R.entry.path, e) for e in entries]
+    dirs_key = tuple(str(d) for d in R.dirs)
+
+    # every repo module the entry file imports, transitively: their
+    # import-time side effects run whatever the solve reaches
+    ck = ("closure", R.entry.path, dirs_key)
+    closure = _SESSION.get(ck) if _SESSION is not None else None
+    if closure is None:
+        closure, todo = set(), [R.entry.path]
+        while todo:
+            p = todo.pop()
+            if p in closure:
+                continue
+            closure.add(p)
+            m = R.load(p)
+            for imp in m.imports.values():
+                q = R.find(imp[1], p.parent)
+                if q and q not in closure:
+                    todo.append(q)
+        if _SESSION is not None:
+            _SESSION[ck] = closure
+    for p in sorted(closure):
+        m = R.load(p)
+        for i, st in enumerate(m.effects):
+            items.append((p, "effect", str(i), _digest(m, "effect", str(i), st)))
+            work.append((p, ("__stmt__", st)))
+
     def used_attrs(tree):
         """The attribute names a module hashed whole can use, without
         following it: enough to hash the methods it can call."""
@@ -330,72 +432,17 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
                     widen[0] = True
 
     def refs(m, node, dynamic=True):
-        consumed = set()                 # Name nodes already handled as a chain base or a literal getattr
-        parent = {id(c): n for n in ast.walk(node) for c in ast.iter_child_nodes(n)}
-
-        def lookup(call):
-            """globals()/vars() used to look a name up (indexed, .get,
-            .pop, .setdefault), as against copied whole (the fork-pool
-            registration idiom `module.__dict__.update(globals())`)."""
-            if call.func.id not in ("globals", "vars"):
-                return True                  # exec, eval, __import__: always dynamic
-            p = parent.get(id(call))
-            return (isinstance(p, ast.Subscript) and p.value is call) or \
-                (isinstance(p, ast.Attribute) and p.value is call
-                 and p.attr in ("get", "pop", "setdefault", "__getitem__"))
-        for n in ast.walk(node):
-            if isinstance(n, ast.Attribute):
-                attrs.add(n.attr)
-            if isinstance(n, ast.Call):
-                fname = n.func.id if isinstance(n.func, ast.Name) else \
-                    n.func.attr if isinstance(n.func, ast.Attribute) else ""
-                if fname in ("attrgetter", "methodcaller"):
-                    lits = [a.value for a in n.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
-                    attrs.update(x for lit in lits for x in lit.split("."))
-                    if fname == "attrgetter" and len(lits) < len(n.args) or fname == "methodcaller" and not (
-                            n.args and isinstance(n.args[0], ast.Constant)):
-                        widen[0] = True
-                if isinstance(n.func, ast.Name) and n.func.id in ("getattr", "hasattr", "setattr") \
-                        and len(n.args) >= 2:
-                    literal = isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str)
-                    if literal:
-                        attrs.add(n.args[1].value)
-                    elif not (isinstance(n.args[0], ast.Name) and R.module_alias(m, n.args[0].id)):
-                        widen[0] = True          # an object's attribute by computed name: any method may run
-            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
-                    and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2 \
-                    and isinstance(n.args[0], ast.Name):
-                if isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str):
-                    attr_ref(m, [n.args[0].id, n.args[1].value])
-                    consumed.add(id(n.args[0]))
-                elif dynamic:
-                    modp = R.module_alias(m, n.args[0].id)
-                    if modp:
-                        whole.add(modp)
-                        consumed.add(id(n.args[0]))
-            if isinstance(n, ast.Attribute) and not isinstance(getattr(n, "_parent_attr", None), ast.Attribute):
-                chain, cur = [], n
-                while isinstance(cur, ast.Attribute):
-                    chain.append(cur.attr)
-                    cur = cur.value
-                if isinstance(cur, ast.Name):
-                    consumed.add(id(cur))
-                    attr_ref(m, [cur.id, *reversed(chain)])
-            for c in ast.iter_child_nodes(n):
-                if isinstance(n, ast.Attribute) and isinstance(c, ast.Attribute):
-                    c._parent_attr = n
-        for n in ast.walk(node):
-            if isinstance(n, ast.Name) and id(n) not in consumed:
-                modp = R.module_alias(m, n.id)
-                if modp:
-                    whole.add(modp)
-                elif n.id in m.defs or n.id in m.assigns or n.id in m.imports:
-                    work.append((m.path, n.id))
-            elif dynamic and isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
-                    and n.func.id in _DYNAMIC_CALLS and lookup(n):
-                whole.add(m.path)
-            elif isinstance(n, ast.Name) and n.id == "importlib":
-                whole.add(m.path)
+        k = (m, id(node), dynamic, dirs_key)
+        rec = _SESSION.get(k) if _SESSION is not None else None
+        if rec is None:
+            rec = _refs_record(R, m, node, dynamic)
+            if _SESSION is not None:
+                _SESSION[k] = rec
+        work.extend(rec[0])
+        whole.update(rec[1])
+        attrs.update(rec[2])
+        if rec[3]:
+            widen[0] = True
 
     def drain():
         while work:
@@ -466,6 +513,9 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
 
     h = hashlib.sha256(f"py{sys.version_info[0]}.{sys.version_info[1]}".encode())
     base = Path(root).resolve() if root else None
+    if files is not None:
+        for p in set(closure) | {i[0] for i in items} | set(whole):
+            files.add(str(p.relative_to(base)) if base and base in p.parents else p.name)
     for p, kind, sym, d in sorted(set(items)):
         rel = str(p.relative_to(base)) if base and base in p.parents else p.name
         if trace is not None:

@@ -196,11 +196,11 @@ def owned_figures_cached(script, ledger):
         os.unlink(out)
         os.unlink(reads)
     if rd is not None:
-        tr = []
+        files = set()
         _reach_engine().reach_key(ROOT / script, ["owned_figures"],
                                   [str((ROOT / script).parent)] + [str(ROOT / d) for d in REACH_DIRS],
-                                  extra=b"owned", root=ROOT, trace=tr)
-        covered = {rel for rel, *_ in tr} | {script}
+                                  extra=b"owned", root=ROOT, files=files)
+        covered = files | {script} | set(LEDGER_IGNORE)
         keep = sorted({("f" if k == "m" else k, rel) for k, rel in rd if not (k == "m" and rel in covered)})
         ledger[("#owned", script)] = [{"doc": "#owned", "block": script, "script": script, "code": code,
                                        "figures": figs, "out": _sha(json.dumps(figs)),
@@ -282,6 +282,11 @@ def owned_figures(script):
 # from.
 LEDGER = None
 REACH_DIRS = ()
+# Modules whose loading a fact does not count, because their only effect is
+# to fetch or store a result (a memo loader, a shared-cache client, the key
+# engine it calls): an edit to one never changes a number a block prints.
+# Repo-relative paths; the host lists them.
+LEDGER_IGNORE = ()
 FULL = False                      # --full: ignore the ledger for this run
 READS = {}                        # (script, name) -> recorded reads, or None when untracked
 _HOOK_DIR = None
@@ -468,11 +473,11 @@ def block_code_key(script, name):
     if k not in _KEYS:
         path = ROOT / script
         dirs = [str(path.parent)] + [str(ROOT / d) for d in REACH_DIRS]
-        tr = []
-        _KEYS[k] = _reach_engine().reach_key(path, entries, dirs, extra=extra.encode(), root=ROOT, trace=tr)
-        # a module hashed whole is covered entirely; one reached in part is
-        # covered for what the solve can run, which is the point
-        _COVERED[_KEYS[k]] = {rel for rel, *_ in tr} | {script}
+        files = set()
+        _KEYS[k] = _reach_engine().reach_key(path, entries, dirs, extra=extra.encode(), root=ROOT, files=files)
+        # the fingerprint accounts for its whole static import closure: what
+        # of it can run is hashed, and the rest cannot change the output
+        _COVERED[_KEYS[k]] = files | {script}
     return _KEYS[k]
 
 
@@ -510,7 +515,7 @@ def make_fact(doc, name, script, code, want, reads):
     """The fact for one verified block. A loaded module the fingerprint
     does not cover (one loaded by file path, or by a computed name) is kept
     as a read and hashed whole; a covered one is left to the fingerprint."""
-    covered = _COVERED.get(code, set())
+    covered = _COVERED.get(code, set()) | set(LEDGER_IGNORE)
     keep = sorted({("f" if kind == "m" else kind, rel) for kind, rel in reads
                    if not (kind == "m" and rel in covered)})
     return {"doc": doc, "block": name, "script": script, "code": code, "out": _sha(want),
@@ -779,6 +784,9 @@ def main():
     if LEDGER:
         import time
         t0 = time.time()
+        rk = _reach_engine()
+        if hasattr(rk, "begin_session"):     # no file changes while the keys are taken
+            rk.begin_session()
         for doc, name, script in pairs:
             path = ROOT / doc
             if not path.is_file() or not (ROOT / script).is_file():
@@ -794,6 +802,8 @@ def main():
             if not FULL and any(fact_holds(f, codes[(doc, name)], m.group(2))
                                 for f in ledger.get((doc, name), [])):
                 held.add((doc, name))
+        if hasattr(rk, "end_session"):
+            rk.end_session()
         print(f"[doc_sync] ledger: {len(held)} of {len(pairs)} block(s) unchanged since their "
               f"last check ({time.time() - t0:.1f} s); emitting {len(pairs) - len(held)}"
               + (" (--full)" if FULL else ""), file=sys.stderr)
