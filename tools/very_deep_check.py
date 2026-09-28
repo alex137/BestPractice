@@ -1640,6 +1640,55 @@ def _pending_deletions(repo_dir):
     return [(r, deps.get(r, [])) for r in rels], f'kind {kind!r}'
 
 
+def _bot_email():
+    """The container's bot address, read from the hook that replaces it
+    (.claude/hooks/commit-identity.sh's BOT_EMAIL), so the two cannot
+    disagree; the literal is only the fallback for a tree without it."""
+    try:
+        m = re.search(r'^BOT_EMAIL="([^"]+)"', (
+            ROOT / '.claude' / 'hooks' / 'commit-identity.sh').read_text(
+                encoding='utf-8'), re.M)
+        if m:
+            return m.group(1).strip().lower()
+    except OSError:
+        pass
+    return 'noreply@anthropic.com'
+
+
+BOT_EMAIL = _bot_email()
+
+
+def _grandfathered_shas(repo_dir):
+    """-> set of full SHAs the repo exempts in `grandfathered_commit_shas`
+    of its root identity.json or precedent.json. A malformed entry is not
+    exempt (check_commit_author.py reports those)."""
+    shas = set()
+    for name in ('identity.json', 'precedent.json'):
+        try:
+            data = json.loads((pathlib.Path(repo_dir) / name).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for entry in (data or {}).get('grandfathered_commit_shas') or []:
+            sha = entry.get('sha') if isinstance(entry, dict) else None
+            if isinstance(sha, str) and re.fullmatch(r'[0-9a-f]{40}', sha):
+                shas.add(sha)
+    return shas
+
+
+def _shallow_start(repo_dir):
+    """-> 'YYYY-MM-DD' of the oldest commit a SHALLOW clone holds, or None
+    for a full clone (or one git cannot read)."""
+    rc, out, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    if rc != 0 or out.strip() != 'true':
+        return None
+    rc, out, _ = _run_git(repo_dir, 'log', '--all', '--format=%cs',
+                          '--max-parents=0')
+    dates = sorted(d for d in out.split()
+                   if re.fullmatch(r'\d{4}-\d\d-\d\d', d))
+    return dates[0] if rc == 0 and dates else None
+
+
 def _identity_reality(repo_dir, days=30, cap=300):
     """-> (rows, notes) for one repo: who the commits that LANDED say wrote
     them, read against the identity this repo declares.
@@ -1696,15 +1745,43 @@ def _identity_reality(repo_dir, days=30, cap=300):
         notes.append('git log could not be read here')
         return rows, notes
     commits = [l.split('\t') for l in out.split('\n') if l.count('\t') == 3]
+    # A shallow clone's window is only as long as its history (2026-09-28):
+    # "no commits in the last 30 days" from a clone fetched at depth 50 is
+    # a statement about the fetch, not about the repo.
+    _shallow = _shallow_start(repo_dir)
+    if _shallow:
+        _since = (datetime.date.fromisoformat(precedent_time.today(repo_dir))
+                  - datetime.timedelta(days=days)).isoformat()
+        if _shallow > _since:
+            notes.append(f'(shallow: history starts {_shallow}; window '
+                         f'truncated)')
+    # The repo's own exemptions, read the way check_commit_author.py and
+    # check_buenos_aires_dates.py read them (identity.json and
+    # precedent.json at the root): a commit a person already exempted, with
+    # a note saying why, is not a finding a second time.
+    _exempt = _grandfathered_shas(repo_dir)
+    if _exempt:
+        _kept = [c for c in commits if c[0] not in _exempt]
+        if len(_kept) != len(commits):
+            notes.append(f'{len(commits) - len(_kept)} grandfathered '
+                         f'commit(s) in the window, not read (the repo\'s '
+                         f'own grandfathered_commit_shas)')
+        commits = _kept
     if not commits:
         notes.append(f'no commits in the last {days} days to read')
         return rows, notes
 
     # 1 -- who wrote them
-    others, anonymous = {}, []
+    others, anonymous, bot = {}, [], []
     for sha, name, mail, _when in commits:
         low = (mail or '').strip().lower()
         if email and low == email:
+            continue
+        # The container's own bot identity is not "another author": it is
+        # what a commit carries when commit-identity.sh never ran, which is
+        # the failure that hook exists to prevent. Same test as its _is_bot.
+        if low == BOT_EMAIL or (name or '').strip() == 'Claude':
+            bot.append((sha[:9], name, mail))
             continue
         # The shapes a container invents when nothing configured an
         # identity. Matched on the ADDRESS, never the name: a person may
@@ -1721,6 +1798,13 @@ def _identity_reality(repo_dir, days=30, cap=300):
                                 f'container invents when nothing set one: '
                                 + ', '.join(f'{s} <{m}>'
                                             for s, _n, m in anonymous[:3])))
+    if bot:
+        rows.append(('FINDING', f'{len(bot)} commit(s) authored by the '
+                                f'container\'s bot identity <{BOT_EMAIL}> -- '
+                                f'what a commit carries when '
+                                f'commit-identity.sh did not set one: '
+                                + ', '.join(f'{s} <{m}>'
+                                            for s, _n, m in bot[:3])))
     if others:
         notes.append('other authors in the window (not a finding): '
                      + ', '.join(f'{k} x{v}' for k, v in
@@ -1828,8 +1912,16 @@ def _config_key_reads(repo_dir, others=()):
     what this removes is assembling the list.
 
     Keys beginning with `_` are skipped: this tree uses them for comments,
-    by convention, and they are not read by design."""
+    by convention, and they are not read by design.
+
+    Each row is (file, key, scripts here, repos in force whose scripts
+    mention it, practices that name it). The last is the READER THAT IS A
+    SESSION (2026-09-28): `writeup_dir` is read by whoever follows
+    practices/write-it-up.md, not by any script, and was reported as read
+    by nothing on every run until practice files joined the search."""
     repo_dir = pathlib.Path(repo_dir)
+    practice_texts = _practice_texts(
+        [('', repo_dir)] + [(l, pathlib.Path(o)) for l, o in others])
     # THE CORPUS IS NOT JUST tools/*.py, AND THAT WAS THIS CHECK'S OWN FIRST
     # FALSE POSITIVE. Run against tools/ alone, it reported
     # `stale_checkout_hours` as read by nothing -- and it is read, by
@@ -1865,7 +1957,7 @@ def _config_key_reads(repo_dir, others=()):
         try:
             doc = json.loads(f.read_text(encoding='utf-8'))
         except (OSError, ValueError):
-            rows.append((name, '(unreadable)', [], []))
+            rows.append((name, '(unreadable)', [], [], []))
             continue
         if not isinstance(doc, dict):
             continue
@@ -1905,8 +1997,36 @@ def _config_key_reads(repo_dir, others=()):
                             break
                     if hit:
                         elsewhere.append(label)
-            rows.append((name, key, where, elsewhere))
+            via = []
+            if not where:
+                quoted = (f'`{key}`', f'"{key}"', f"'{key}'")
+                via = sorted({slug for slug, text in practice_texts
+                              if any(q in text for q in quoted)})
+            rows.append((name, key, where, elsewhere, via))
     return rows, ''
+
+
+def _practice_texts(repos):
+    """-> [(slug, text)] for every practice file (practices/*.md and
+    local/practices/*.md) in each (label, path) repo, deduplicated by path.
+    The corpus a key's session-side reader lives in."""
+    out, seen = [], set()
+    for _label, repo in repos:
+        repo = pathlib.Path(repo)
+        for sub in ('practices', 'local/practices'):
+            d = repo / sub
+            if not d.is_dir():
+                continue
+            for f in sorted(d.glob('*.md')):
+                key = str(f.resolve())
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    out.append((f.stem, f.read_text(encoding='utf-8')))
+                except (OSError, UnicodeDecodeError):
+                    continue
+    return out
 
 
 _MOVED_CLAIM = re.compile(
@@ -1924,6 +2044,12 @@ _MOVED_CLAIM = re.compile(
     r'(?P<target>(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+'
     r'\.(?:md|py|sh|yml|yaml|json|template))',
     re.IGNORECASE)
+
+
+# The words that say a move's destination is itself gone, on the claim's
+# own line or the three after it.
+_MOVED_GONE = re.compile(r'\b(?:deleted|retired|removed|went with it)\b',
+                         re.IGNORECASE)
 
 
 def _moved_claims(repo_dir, cap=40):
@@ -1973,6 +2099,12 @@ def _moved_claims(repo_dir, cap=40):
         return None
     basenames = {pathlib.PurePosixPath(x).name
                  for x in out_ls.splitlines()}
+    # A file the engine SHIPS as a template exists in the only form this
+    # repo carries it: `templates/**/<name>.template` is what a consumer
+    # gets as <name> (2026-09-28, a false row on every run).
+    templated = {pathlib.PurePosixPath(x).name[:-len('.template')]
+                 for x in out_ls.splitlines()
+                 if x.startswith('templates/') and x.endswith('.template')}
     # THIS REPO WROTE IT vs THIS REPO RECEIVED IT, which is pass 2's own
     # first question applied here. A vendored engine file's comments are
     # UPSTREAM's prose, citing upstream's paths, and a repo that received
@@ -1990,7 +2122,8 @@ def _moved_claims(repo_dir, cap=40):
     for rel, text in files:
         if rel in vendored:
             continue
-        for i, line in enumerate(text.splitlines(), 1):
+        lines = text.splitlines()
+        for i, line in enumerate(lines, 1):
             # A markdown link carries its own target and doc_lint checks
             # that target; matching the link TEXT would report the label.
             bare = re.sub(r'\[[^\]]*\]\([^)]*\)', ' ', line)
@@ -2000,8 +2133,16 @@ def _moved_claims(repo_dir, cap=40):
                 beside = (repo_dir / rel).parent / target
                 if here.exists() or beside.exists():
                     continue
-                if pathlib.PurePosixPath(target).name in basenames:
+                name = pathlib.PurePosixPath(target).name
+                if name in basenames:
                     continue              # exists, just named without its path
+                if name in templated:
+                    continue              # shipped as templates/**/<name>.template
+                # A sentence NARRATING the deletion is history, not a live
+                # claim: "folded into precedent-check.yml, and it went with
+                # it when that was deleted" is true and stays true.
+                if _MOVED_GONE.search(' '.join(lines[i - 1:i + 3])):
+                    continue
                 out.append((rel, i, m.group('claim').strip(), target))
                 if len(out) >= cap:
                     return out
@@ -2080,6 +2221,74 @@ def _check_coverage(repo_dir, timeout=300):
         causes[key] = causes.get(key, 0) + 1
     return {'counts': counts, 'violated': violated, 'skipped': len(skipped),
             'causes': causes}, ''
+
+
+def _source_check_scripts(repo_root, sources, timeout=180):
+    """-> (rows, note). Every declared source's own check script whose
+    practice is IN FORCE here and that this repo's precedent_check.py never
+    runs, run against this checkout. rows are (verdict, slug, script,
+    detail), verdict one of PASS, VIOLATION, SKIPPED, ERROR.
+    (practice: very-deep-check, pass 2 question 15)
+
+    THE GAP (2026-09-28). precedent_check.py discovers check scripts only
+    in the repo's own tools/checks/ and local/tools/checks/ -- what
+    materialize wrote in, or a repo-local source's own. A repo that
+    materializes nothing (Precedent itself, whose universal source is `.`)
+    therefore has shared-set practices in force whose checks never run in
+    it: `private-repo-scrub` binds here, and its script had never been run
+    against this tree. The scripts already take PRECEDENT_CHECK_ROOT for
+    exactly this, so the check runs them from the source, pointed here.
+
+    A REPORT, NEVER A GATE: nothing here changes an exit code, and a
+    script's own "could not run" (exit 2) is SKIPPED, never a pass."""
+    repo_root = pathlib.Path(repo_root).resolve()
+    try:
+        res = pr.resolve([dict(s) for s in sources])
+    except Exception as exc:                                  # noqa: BLE001
+        return [], f'could not resolve the practices in force ({type(exc).__name__}: {exc})'
+    own = set()
+    for d in (repo_root / 'tools' / 'checks',
+              repo_root / 'local' / 'tools' / 'checks'):
+        if d.is_dir():
+            own |= {f.name for f in d.glob('check_*.py')}
+    by_name = {s['name']: pathlib.Path(s['path']).resolve()
+               for s in sources if s.get('path')}
+    rows = []
+    for slug, practice in sorted(res.get('practices', {}).items()):
+        src = by_name.get(practice.get('source'))
+        if src is None or src == repo_root or repo_root in src.parents:
+            continue                  # this repo's own: precedent_check runs it
+        cb = bv._json_str((practice.get('fm') or {}).get('checked_by', ''))
+        cb = cb.strip().strip('"').strip("'")
+        if not (cb.endswith('.py') and '/checks/' in cb):
+            continue
+        script = src / cb
+        if pathlib.PurePath(cb).name in own:
+            continue                  # a copy here is already run
+        if not script.is_file():
+            rows.append(('ERROR', slug, cb, f'checked_by names {cb}, which '
+                                             f'{practice.get("source")} does '
+                                             f'not carry'))
+            continue
+        try:
+            r = subprocess.run([sys.executable, str(script)],
+                               cwd=str(repo_root), capture_output=True,
+                               text=True, timeout=timeout,
+                               env=dict(os.environ,
+                                        PRECEDENT_CHECK_ROOT=str(repo_root)))
+        except (OSError, subprocess.SubprocessError) as exc:
+            rows.append(('ERROR', slug, cb, type(exc).__name__))
+            continue
+        text = (r.stdout + r.stderr).strip()
+        first = next((l.strip() for l in text.splitlines()
+                      if l.strip() and not l.strip().startswith('VIOLATION:')),
+                     '')
+        verdict = {0: 'PASS', 1: 'VIOLATION', 2: 'SKIPPED'}.get(r.returncode,
+                                                                'ERROR')
+        rows.append((verdict, slug, f'{practice.get("source")}:{cb}',
+                     '' if verdict == 'PASS' else
+                     (first or f'exit {r.returncode}, no output')[:200]))
+    return rows, ''
 
 
 def _job_count(path):
@@ -3987,8 +4196,14 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         try:
             # bootstrap() prints its own stale-clone warning; that belongs to
             # a person bootstrapping a set, not to this section's output.
-            with contextlib.redirect_stdout(io.StringIO()):
-                bootstrap_source.bootstrap(level, name, gen_root, approvers=approvers)
+            _err = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), \
+                        contextlib.redirect_stderr(_err):
+                    bootstrap_source.bootstrap(level, name, gen_root,
+                                               approvers=approvers)
+            finally:
+                _pass_generator_stderr_once(_err.getvalue())
         except Exception as exc:                                  # noqa: BLE001
             return [f'FINDING {level}: the generator could not be run for '
                     f'{name!r}, so NOTHING here was compared -- '
@@ -4147,6 +4362,27 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         return out
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# What the generator printed to stderr, by shape, across this process.
+# bootstrap() runs once per source, and its engine prints the same "N hook
+# script(s) ... are not wired" NOTE every time -- the same words, a different
+# scratch set -- so a run with five sources printed it five times.
+_GENERATOR_STDERR_SEEN = set()
+
+
+def _pass_generator_stderr_once(text):
+    """Print each line the generator wrote to stderr, once per shape: a
+    line that differs from one already printed only in its counts or its
+    parenthesized list is the same message again."""
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        key = re.sub(r'\([^)]*\)', '()', re.sub(r'\d+', 'N', line))
+        if key in _GENERATOR_STDERR_SEEN:
+            continue
+        _GENERATOR_STDERR_SEEN.add(key)
+        print(line, file=sys.stderr)
 
 
 def _bootstrap_drift(sources, collect=None):
@@ -6447,10 +6683,27 @@ def _record_pass(value, path=None, repo=None):
         print(f"very deep check FAIL: {path} records no run yet.",
               file=sys.stderr)
         return 1
-    runs[-1].setdefault('passes', []).append(entry)
+    # The last COMPLETED run (2026-09-28), same rule as _last_run_date: a
+    # pass worked by hand belongs to the run whose enumeration it worked
+    # from, and a run refused at FRESHNESS, or killed partway, enumerated
+    # nothing to work from.
+    done = [r for r in runs if r.get('completed', True)]
+    if not done:
+        print(f"very deep check FAIL: {path} records no completed run yet "
+              f"-- run the check to the end before recording a pass "
+              f"against it.", file=sys.stderr)
+        return 1
+    target = done[-1]
+    if target is not runs[-1]:
+        later = runs[runs.index(target) + 1:]
+        print(f"  note: the newest {len(later)} run(s) in the ledger did not "
+              f"complete (newest {runs[-1].get('run_id')}); this pass is "
+              f"recorded against the last completed run instead.",
+              file=sys.stderr)
+    target.setdefault('passes', []).append(entry)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
-          f"of {runs[-1].get('run_id')} in {path}.")
+          f"of {target.get('run_id')} in {path}.")
     return 0
 
 
@@ -6599,7 +6852,10 @@ def _practice_catalogue_rows(sources):
         pdir = pathlib.Path(s['path']) / 'practices'
         if not pdir.is_dir():
             continue
-        for fm, sections, f in bv.load_practices(pdir):
+        # Quiet: this loads every catalogue up to three times a run, and
+        # the not-in-force roster it would print each time is ~120 lines
+        # of stderr saying nothing this section does not already say.
+        for fm, sections, f in bv.load_practices(pdir, announce=False):
             slug = bv._json_str(fm.get('slug', '')) or f.stem
             clause = bv._index_clause(fm, sections) or '(no description on file)'
             rows.append((s['level'], s['name'], slug, clause))
@@ -7026,8 +7282,48 @@ def main():
             led.finish(completed=box['completed'])
 
 
+# Every flag _main reads. A flag outside these two sets used to fall
+# through to a full run: `--check`, `--explain`, `--list` and `--dry-run`
+# (each a real flag in a sibling tool) each started the whole audit and
+# appended an incomplete row to the ledger -- which then became "the last
+# run" every since-the-last-run section reads from (filed 2026-09-21, still
+# true 2026-09-28). An unknown flag is refused before anything is read or
+# recorded.
+VALUED_FLAGS = ('--repo', '--user-config', '--target', '--stale-days',
+                '--session-days', '--record-pass', '--record-read',
+                '--ledger', '--branch-report', '--emit')
+BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
+                 '--skip-practice-catalogue', '--catalogue-include-private',
+                 '--checklist', '--with-harness', '--skip-visibility',
+                 '--skip-liveness', '--landable-only', '--skip-endgame-merge',
+                 '--skip-base-drift', '--skip-session-sweep', '--allow-stale',
+                 '--freshen', '--help', '-h')
+
+
+def _unknown_args(argv):
+    """-> the arguments in `argv` that are no flag _main reads (a valued
+    flag's value is skipped with it)."""
+    unknown, i = [], 0
+    while i < len(argv):
+        a = argv[i]
+        if a in VALUED_FLAGS:
+            i += 2
+            continue
+        if a not in BOOLEAN_FLAGS:
+            unknown.append(a)
+        i += 1
+    return unknown
+
+
 def _main(box):
     args = sys.argv[1:]
+    _bad = _unknown_args(args)
+    if _bad:
+        print(f"very deep check FAIL: unknown argument(s) "
+              f"{', '.join(repr(a) for a in _bad)} -- refused before "
+              f"anything ran, so the ledger is untouched.\n\n"
+              f"{(__doc__ or '').strip()}", file=sys.stderr)
+        return 2
     repo, user_config, checkout_target, stale_days = None, None, None, None
     session_days = None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
@@ -7836,16 +8132,23 @@ def _main(box):
             continue
         _unread = [r for r in _rows if not r[2]]
         _ck_rows += len(_rows)
-        _ck_unread += len(_unread)
+        # A key a practice names is read -- by the session following it --
+        # so it is listed, never counted as a key nothing reads.
+        _ck_unread += len([r for r in _unread if not r[4]])
         if not _unread:
             print(f"  {_name}: {len(_rows)} declared key(s), every one "
                   f"mentioned by a script here")
             continue
         print(f"  {_name}: {len(_rows)} declared key(s), {len(_unread)} "
-              f"read by nothing here:")
-        for _file, _key, _where, _elsewhere in _unread:
-            _tail = (f" -- mentioned in {', '.join(_elsewhere)}"
-                     if _elsewhere else
+              f"read by no script here:")
+        for _file, _key, _where, _elsewhere, _via in _unread:
+            _parts = []
+            if _elsewhere:
+                _parts.append(f"mentioned in {', '.join(_elsewhere)}")
+            if _via:
+                _parts.append(f"read by a session through practice "
+                              f"{', '.join(_via)}")
+            _tail = (' -- ' + '; '.join(_parts) if _parts else
                      " -- mentioned in no repo in force")
             print(f"      {_file}: {_key}{_tail}")
     if _ck_rows:
@@ -7887,6 +8190,21 @@ def _main(box):
             _flag = 'ONE CAUSE' if _n >= 5 else 'cause    '
             print(f"      {_flag} {_n:>3} skip(s): {_cause[:96]}")
             if _n >= 5:
+                _cc_findings += 1
+    # The other sources' own checks, against THIS checkout: in force here,
+    # run by nothing here (see _source_check_scripts).
+    _sc_rows, _sc_note = _source_check_scripts(repo_root, data['sources'])
+    if _sc_note:
+        print(f"\n  other sources' checks here: not measured -- {_sc_note}")
+    elif _sc_rows:
+        _sc_bad = [r for r in _sc_rows if r[0] != 'PASS']
+        print(f"\n  other sources' checks, in force here and run by nothing "
+              f"here -- {len(_sc_rows)} run\n  against this checkout, "
+              f"{len(_sc_rows) - len(_sc_bad)} passed (a report, never a "
+              f"gate):")
+        for _v, _slug, _script, _detail in _sc_bad:
+            print(f"      {_v:<9} {_slug} ({_script}): {_detail}")
+            if _v == 'VIOLATION':
                 _cc_findings += 1
     if not _cc_measured:
         print("  nothing measured -- no repo in force carries a check "

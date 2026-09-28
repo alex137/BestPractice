@@ -464,7 +464,7 @@ def status_contract_violation(fm, sections=None, slug_in_force=None):
     return None
 
 
-def load_practices(practices_dir=None, in_force_only=True):
+def load_practices(practices_dir=None, in_force_only=True, announce=True):
     """Every practice file in the directory, minus the ones not in force.
 
     WHY THE FILTER EXISTS (2026-09-06). This function read every *.md and
@@ -483,7 +483,12 @@ def load_practices(practices_dir=None, in_force_only=True):
 
     A dropped practice is announced rather than silently skipped -- a
     retirement that vanishes without a word is the same silence in a
-    smaller place."""
+    smaller place.
+
+    `announce=False` is for a caller that loads the same catalogue many
+    times in one run and reports what is in force itself (the very deep
+    check loaded it once per source per section, and printed this roster
+    about 120 times a run, 2026-09-28). The default is unchanged."""
     practices_dir = practices_dir if practices_dir is not None else PRACTICES_DIR
     out, dropped = [], []
     for f in sorted(practices_dir.glob('*.md')):
@@ -493,7 +498,7 @@ def load_practices(practices_dir=None, in_force_only=True):
             dropped.append((fm.get('slug', f.stem), status))
             continue
         out.append((fm, sections, f))
-    for slug, status in dropped:
+    for slug, status in (dropped if announce else ()):
         print(f"build_views: {slug} is status: {status}, so it is not in "
               f"force and is left out of the generated views.", file=sys.stderr)
     return out

@@ -256,16 +256,43 @@ def _runs(call, slug, since, pages=RUN_PAGES):
     return counts, total, seen >= total
 
 
-def _runs_words(by_event):
+def _runs_words(by_event, complete=True, exact=None):
+    """The run count in words. `complete` is False when the repo-wide read
+    stopped at RUN_PAGES pages, so the per-event counts are a SAMPLE: then
+    `exact` is GitHub's own total for this one workflow, or None when that
+    could not be asked -- and the count says "at least" rather than passing
+    a sample off as the number (2026-09-28: a repo with more than 300 runs
+    in the window printed each workflow's share of the newest 300 as its
+    30-day count)."""
     by_event = dict(by_event or {})
     last = by_event.pop('_last', None)
-    if not by_event:
-        return 'no runs'
     n = sum(by_event.values())
     parts = ', '.join(f'{e} {c}' for e, c in sorted(by_event.items(),
                                                      key=lambda x: -x[1]))
-    return (f'{n} run{"s" if n != 1 else ""} ({parts})'
-            + (f', the last on {last}' if last else ''))
+    tail = f', the last on {last}' if last else ''
+    if complete or (exact is not None and exact == n):
+        if not by_event:
+            return 'no runs'
+        return f'{n} run{"s" if n != 1 else ""} ({parts})' + tail
+    read = f'the newest {RUN_PAGES * 100} read'
+    if exact is not None:
+        return (f'{exact} run{"s" if exact != 1 else ""} (GitHub\'s own '
+                f'count; by event in {read}: {parts or "none"})' + tail)
+    return (f'at least {n} run{"s" if n != 1 else ""} (of {read}'
+            + (f': {parts}' if parts else '') + ')' + tail)
+
+
+def _workflow_run_total(call, slug, workflow_id, since):
+    """-> GitHub's total_count of one workflow's runs since `since`, or
+    None. One call, per_page=1: the count is in the envelope."""
+    if workflow_id is None:
+        return None
+    data, err = call(f'repos/{slug}/actions/workflows/{workflow_id}/runs'
+                     f'?per_page=1&created=%3E%3D{since}')
+    if err or not isinstance(data, dict):
+        return None
+    n = data.get('total_count')
+    return n if isinstance(n, int) else None
 
 
 def _branch_date(call, slug, name):
@@ -303,6 +330,9 @@ def audit_repo(slug, call=_default_call, days=DAYS,
     states = {w.get('path'): w.get('state')
               for w in (wf_meta or {}).get('workflows') or []
               if isinstance(w, dict)} if isinstance(wf_meta, dict) else {}
+    ids = {w.get('path'): w.get('id')
+           for w in (wf_meta or {}).get('workflows') or []
+           if isinstance(w, dict)} if isinstance(wf_meta, dict) else {}
 
     cfg = _json_file(call, slug, 'precedent.json', default)
     manifest = _json_file(call, slug, 'tools/ENGINE_MANIFEST.json', default)
@@ -334,8 +364,17 @@ def audit_repo(slug, call=_default_call, days=DAYS,
         digest = hashlib.sha256(text.encode('utf-8')).hexdigest()
         on = _on(text)
         when = _triggers_text(text) or 'unreadable triggers'
-        ran = _runs_words((runs or {}).get(path, {})) if runs is not None \
-            else 'runs unknown'
+        if runs is None:
+            ran = 'runs unknown'
+        elif complete:
+            ran = _runs_words(runs.get(path, {}))
+        else:
+            # The repo-wide read stopped short, so ask this workflow's own
+            # count: one call, and only in a repo busy enough to need it.
+            ran = _runs_words(runs.get(path, {}), complete=False,
+                              exact=_workflow_run_total(
+                                  call, slug, ids.get(path),
+                                  since.isoformat()))
         state = states.get(path)
         state_s = f', {state}' if state and state != 'active' else ''
         entry = approved.get(path)
@@ -427,13 +466,17 @@ def audit_repo(slug, call=_default_call, days=DAYS,
                 live = str(by_event.get('_last', '')) >= recent
                 rows.append((bad if live else 'NOTE',
                              f'{path}: not on {default}, yet GitHub ran it -- '
-                             f'{_runs_words(by_event)}, in the last {days} '
+                             f'{_runs_words(by_event, complete=complete)}, '
+                             f'in the last {days} '
                              f'days' + ('' if live else
                                         ' (none in the last 7, so it has '
                                         'stopped)')))
         if not complete:
             rows.append(('NOTE', f'{total} runs in {days} days; only the '
-                                 f'newest {RUN_PAGES * 100} were counted'))
+                                 f'newest {RUN_PAGES * 100} were read, so '
+                                 f'each workflow above carries GitHub\'s own '
+                                 f'count where it could be asked and "at '
+                                 f'least" where it could not'))
     return out
 
 
