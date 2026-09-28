@@ -7173,6 +7173,68 @@ def check_update_judges_the_committed_tree():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_adopts_engine_written_ahead():
+    """precedent_update stages, as its own, engine files a source refresh
+    wrote before it ran -- but only when every one of them hashes to what
+    the pinned manifest records (2026-09-27: on all four of Morgan's sets
+    the refresh had already written the pinned engine, the update said
+    "already current", left both files unstaged as someone else's, and
+    reported DONE on an update that would have committed nothing)."""
+    import hashlib
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    name = 'Update Vendors adopts the pinned engine a refresh wrote ahead of it'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='adopt-engine-'))
+    try:
+        repo = tmp / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / 'bootstrap').mkdir()
+        files = {'tools/x.py': 'x = 1\n', '.claude/hooks/g.sh': 'exit 0\n',
+                 'bootstrap/b.sh': 'true\n', 'tools/y.py': 'y = 1\n'}
+        for rel, text in files.items():
+            (repo / rel).write_text(text, encoding='utf-8')
+        sha = lambda t: hashlib.sha256(t.encode()).hexdigest()
+        pin = 'a' * 40
+
+        def manifest(commit=pin, x=files['tools/x.py']):
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'source_commit': commit,
+                'sha256': {'x.py': sha(x), 'y.py': sha(files['tools/y.py'])},
+                'hooks_sha256': {'g.sh': sha(files['.claude/hooks/g.sh'])},
+                'engine_paths_sha256': {'bootstrap/b.sh': sha(files['bootstrap/b.sh'])},
+            }), encoding='utf-8')
+        m = 'tools/ENGINE_MANIFEST.json'
+        before = {m, 'tools/x.py', '.claude/hooks/g.sh', 'bootstrap/b.sh', 'notes.md'}
+        manifest()
+        got = pu.adopt_engine_output(repo, before, pin)
+        cases.append(('the manifest and every uncommitted file it tracks, matching its '
+                      'hashes, are taken as the update\'s -- and nothing it does not track',
+                      sorted(got) == sorted([m, 'tools/x.py', '.claude/hooks/g.sh',
+                                             'bootstrap/b.sh']), got))
+        manifest(x='x = 2\n')
+        got = pu.adopt_engine_output(repo, before, pin)
+        cases.append(('one file that differs from the manifest means nothing is taken',
+                      got == [], got))
+        manifest(commit='b' * 40)
+        got = pu.adopt_engine_output(repo, before, pin)
+        cases.append(('a manifest naming another commit than the pin is not the update\'s',
+                      got == [], got))
+        manifest()
+        got = pu.adopt_engine_output(repo, before - {m}, pin)
+        cases.append(('a committed manifest takes nothing: the refresh did not run ahead',
+                      got == [], got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_changed_files_only_judges_the_change():
     """A push into pre-staging runs the practice checks on the files it
     changes, and only those (Morgan, 2026-09-27, strength: decided: "ONLY for
@@ -19547,6 +19609,29 @@ def check_sync_copies_work_from_above_once_checked():
             cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
                           'started, and that holds the copy and is said',
                           not ok and not gh.posted and 'no workflow_dispatch' in detail))
+
+            # --wait-main-test: the wait a Promote into main hands the session.
+            pb.github_tests = lambda root, sha: tests
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([ok_run]))
+            cases.append(('--wait-main-test exits 0 and says PASSED once the '
+                          'GitHub test passed', rc == 0 and 'PASSED' in said[-1]))
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH(
+                [dict(ok_run, conclusion='failure', html_url='U')]))
+            cases.append(('--wait-main-test exits 1 and says "Do not merge" on a '
+                          'failed test', rc == 1 and 'Do not merge' in said[-1]))
+            pb.GITHUB_START_WAIT_SECONDS = 0
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
+            cases.append(('--wait-main-test stops on a test that never started '
+                          'rather than waiting the full half hour',
+                          rc == 1 and 'NONE' in said[-1]))
+            pb.github_tests = lambda root, sha: []
+            said = []
+            rc = pb.wait_for_main_test(two, 'SHA', said.append, GH([]))
+            cases.append(('--wait-main-test with no GitHub test installed exits 0 '
+                          'and says so', rc == 0 and 'no GitHub test' in said[-1]))
         finally:
             sys.path.pop(0)
     failed = [n for n, ok in cases if not ok]
@@ -37560,6 +37645,7 @@ def main():
     check_push_check_gate()
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
+    check_update_adopts_engine_written_ahead()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()
