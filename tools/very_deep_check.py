@@ -2227,8 +2227,18 @@ def _source_check_scripts(repo_root, sources, timeout=180):
     """-> (rows, note). Every declared source's own check script whose
     practice is IN FORCE here and that this repo's precedent_check.py never
     runs, run against this checkout. rows are (verdict, slug, script,
-    detail), verdict one of PASS, VIOLATION, SKIPPED, ERROR.
+    detail), verdict one of PASS, VIOLATION, SKIPPED, ERROR, EXEMPT, and
+    NOTE for a `not_binding` list that could not be read.
     (practice: very-deep-check, pass 2 question 15)
+
+    `not_binding` IS HONOURED THE WAY precedent_check.py HONOURS IT
+    (2026-09-28). This read no exemption at all, so a practice a repo had
+    declared not binding in its precedent.json still ran here and still
+    reported its violations as findings. Now a declared slug is not run and
+    comes back EXEMPT with the recorded reason -- reported, never dropped --
+    unless the practice is `severity: blocking`, which no exemption can
+    switch off (precedent_check.load_exemptions()'s rule). A malformed list
+    exempts nothing and says so in the note.
 
     THE GAP (2026-09-28). precedent_check.py discovers check scripts only
     in the repo's own tools/checks/ and local/tools/checks/ -- what
@@ -2246,6 +2256,13 @@ def _source_check_scripts(repo_root, sources, timeout=180):
         res = pr.resolve([dict(s) for s in sources])
     except Exception as exc:                                  # noqa: BLE001
         return [], f'could not resolve the practices in force ({type(exc).__name__}: {exc})'
+    exempt_note = ''
+    try:
+        not_binding = pr.load_not_binding(repo_root)
+    except Exception as exc:                                  # noqa: BLE001
+        not_binding = {}
+        exempt_note = (f'`not_binding` could not be read ({exc}), so no '
+                       f'check is exempted')
     own = set()
     for d in (repo_root / 'tools' / 'checks',
               repo_root / 'local' / 'tools' / 'checks'):
@@ -2265,6 +2282,13 @@ def _source_check_scripts(repo_root, sources, timeout=180):
         script = src / cb
         if pathlib.PurePath(cb).name in own:
             continue                  # a copy here is already run
+        severity = str((practice.get('fm') or {}).get('severity')
+                       or 'default').strip('" \'')
+        if slug in not_binding and severity != 'blocking':
+            rows.append(('EXEMPT', slug, f'{practice.get("source")}:{cb}',
+                         f'declared not binding in precedent.json: '
+                         f'{not_binding[slug]}'[:200]))
+            continue
         if not script.is_file():
             rows.append(('ERROR', slug, cb, f'checked_by names {cb}, which '
                                              f'{practice.get("source")} does '
@@ -2288,6 +2312,8 @@ def _source_check_scripts(repo_root, sources, timeout=180):
         rows.append((verdict, slug, f'{practice.get("source")}:{cb}',
                      '' if verdict == 'PASS' else
                      (first or f'exit {r.returncode}, no output')[:200]))
+    if exempt_note:
+        rows.append(('NOTE', 'not_binding', 'precedent.json', exempt_note))
     return rows, ''
 
 
@@ -8341,12 +8367,16 @@ def _main(box):
     if _sc_note:
         print(f"\n  other sources' checks here: not measured -- {_sc_note}")
     elif _sc_rows:
-        _sc_bad = [r for r in _sc_rows if r[0] != 'PASS']
+        _sc_exempt = [r for r in _sc_rows if r[0] in ('EXEMPT', 'NOTE')]
+        _sc_bad = [r for r in _sc_rows
+                   if r[0] not in ('PASS', 'EXEMPT', 'NOTE')]
+        _sc_ran = len(_sc_rows) - len(_sc_exempt)
+        _sc_n_exempt = sum(1 for r in _sc_exempt if r[0] == 'EXEMPT')
         print(f"\n  other sources' checks, in force here and run by nothing "
-              f"here -- {len(_sc_rows)} run\n  against this checkout, "
-              f"{len(_sc_rows) - len(_sc_bad)} passed (a report, never a "
-              f"gate):")
-        for _v, _slug, _script, _detail in _sc_bad:
+              f"here -- {_sc_ran} run\n  against this checkout, "
+              f"{_sc_ran - len(_sc_bad)} passed, {_sc_n_exempt} exempted "
+              f"(a report, never a gate):")
+        for _v, _slug, _script, _detail in _sc_exempt + _sc_bad:
             print(f"      {_v:<9} {_slug} ({_script}): {_detail}")
             if _v == 'VIOLATION':
                 _cc_findings += 1

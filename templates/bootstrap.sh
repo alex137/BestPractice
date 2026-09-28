@@ -345,7 +345,8 @@ fi
 # and a live sibling clone whose practices load as it stands. A source is
 # covered from the moment it is declared, or it is not covered: a second
 # shared set had no freshness check on either half until this ran, and
-# nothing said so. --quiet speaks only when something is behind; a
+# nothing said so. --quiet speaks only when something is behind or could
+# not be checked; a
 # session start that a network hiccup can block is worse than the
 # staleness, so the tool exits 0 in every failure mode and this line
 # never gates. Taking an update stays "Update Vendors".

@@ -2,12 +2,13 @@
 # precedent-universal-catalogue.sh -- put the universal catalogue in front of a
 # session rooted in a practice SET, at session start.
 #
-# Three ordered steps and an emit, and the order matters: the first puts
+# Four ordered steps and an emit, and the order matters: the first puts
 # universal's tree on disk beside this set, the second renders what this set's
 # TRACKED loader block cannot carry into an untracked
 # .precedent/SESSION_PRACTICES.md, the third says which repos in force this
-# session can actually push to. The emit at the bottom is what puts any of it
-# in the model's context.
+# session can actually push to, the fourth says whether anything it loads has
+# fallen behind upstream. The emit at the bottom is what puts any of it in the
+# model's context.
 #
 # WHY A SCRIPT RATHER THAN TWO COMMANDS IN settings.json, which is what shape 3
 # shipped on 2026-09-13 and had to be walked back the same day. The Claude Code
@@ -109,6 +110,18 @@ python3 "$P/tools/precedent_session_practices.py" --repo "$P" || true
 # there is nothing else it could be printing.
 if [ -f "$P/tools/precedent_access_check.py" ]; then
   python3 "$P/tools/precedent_access_check.py" "$P" 2>>"$DIAG" || true
+fi
+
+# FOURTH STEP, added 2026-09-28: has anything this set loads fallen behind its
+# upstream? (The maintainers' drift-notice and fresh-check-escalation.) A
+# consumer's session-start.sh already ran this; a practice set never did, so
+# a session rooted in a set worked from a stale engine or a stale sibling
+# clone and was never told. Inside the capture so its lines reach the model;
+# --quiet prints only what is behind, plus one line when a source could not
+# be verified. Guarded like the steps above: a set whose engine predates the
+# tool simply skips it.
+if [ -f "$P/tools/precedent_engine_freshness.py" ]; then
+  python3 "$P/tools/precedent_engine_freshness.py" --root "$P" --quiet 2>>"$DIAG" || true
 fi
 
 exec 1>&3 3>&-

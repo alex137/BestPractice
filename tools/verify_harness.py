@@ -26094,6 +26094,254 @@ def check_session_hooks_run_for_a_session_opened_above_the_repos():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_freshness_quiet_says_when_a_source_is_unverified():
+    """`precedent_engine_freshness.py --quiet`, which every session-start
+    hook runs, prints one NOT VERIFIED line when a declared source could not
+    be checked -- it printed nothing, which is what current looks like
+    (the maintainers' fresh-check-escalation; very deep check, 2026-09-28).
+    Planted: a consumer whose engine manifest points at an upstream that is
+    not there. Controls: a current source stays silent, and a repo with no
+    engine manifest at all (the engine's own origin) is not an unverified
+    source."""
+    import io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_engine_freshness as pef
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='freshness-quiet-'))
+    saved_env = os.environ.get(pef.USER_CONFIG_ENV)
+    cases = []
+    try:
+        os.environ[pef.USER_CONFIG_ENV] = str(tmp / 'no-such-config.json')
+        up = tmp / 'upstream'
+        up.mkdir()
+        for args in (('init', '-q', '-b', 'main'),
+                     ('config', 'user.email', 'harness@example.com'),
+                     ('config', 'user.name', 'harness')):
+            subprocess.run(['git', '-C', str(up), *args], check=True,
+                           capture_output=True)
+        (up / 'f.txt').write_text('v1\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(up), 'add', '-A'], check=True,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'first'],
+                       check=True, capture_output=True)
+        tip = subprocess.run(['git', '-C', str(up), 'rev-parse', 'HEAD'],
+                             check=True, capture_output=True,
+                             text=True).stdout.strip()
+
+        def consumer(name, repo_url):
+            c = tmp / name
+            (c / 'tools').mkdir(parents=True)
+            if repo_url is not None:
+                (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                    'format_version': 1, 'kind': 'consumer',
+                    'source_repo': repo_url, 'source_branch': 'main',
+                    'source_commit': tip, 'files': []}), encoding='utf-8')
+            return c
+
+        def quiet(c):
+            buf = io.StringIO()
+            rc = pef.report(c, quiet=True, out=buf)
+            return rc, buf.getvalue()
+
+        rc, out = quiet(consumer('unreachable', str(tmp / 'gone')))
+        cases.append(('THE CASE: --quiet says a source could not be verified',
+                      'freshness: NOT VERIFIED -- 1 source(s) could not be '
+                      'checked this session' in out
+                      and 'not verified is not current' in out, out))
+        cases.append(('the exit status is still 0', rc == 0, repr(rc)))
+        _rc, out = quiet(consumer('current', str(up)))
+        cases.append(('CONTROL: --quiet says nothing while every source is '
+                      'current', out == '', out))
+        _rc, out = quiet(consumer('origin', None))
+        cases.append(('CONTROL: no engine manifest at all is not an '
+                      'unverified source', out == '', out))
+    finally:
+        if saved_env is None:
+            os.environ.pop(pef.USER_CONFIG_ENV, None)
+        else:
+            os.environ[pef.USER_CONFIG_ENV] = saved_env
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'freshness --quiet never lets not verified read as current '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_catalogue_hook_runs_the_freshness_notice():
+    """The SessionStart hook every practice SET runs
+    (templates/harness/claude-code/hooks/precedent-universal-catalogue.sh)
+    runs `precedent_engine_freshness.py --quiet` and its lines reach the
+    model through the hook's JSON -- a set never ran it, so a session in a
+    set was never told its engine or a sibling clone had fallen behind
+    (the maintainers' drift-notice; very deep check, 2026-09-28). Planted: a set
+    whose vendored tools are stubs that print a marker. Control: a set whose
+    engine predates the tool still starts cleanly."""
+    import shutil, tempfile
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / \
+        'precedent-universal-catalogue.sh'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='catalogue-freshness-'))
+    cases = []
+    try:
+        s = tmp / 'set'
+        (s / 'tools').mkdir(parents=True)
+        (s / 'tools' / 'precedent_session_practices.py').write_text(
+            'print("render ran")\n', encoding='utf-8')
+        (s / 'tools' / 'precedent_engine_freshness.py').write_text(
+            'import sys\nprint("FRESHNESS-MARKER " + " ".join(sys.argv[1:]))\n',
+            encoding='utf-8')
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=str(s))
+
+        def run_hook():
+            return subprocess.run(['bash', str(hook)], cwd=str(s), env=env,
+                                  capture_output=True, text=True, timeout=60)
+
+        p = run_hook()
+        try:
+            ctx = json.loads(p.stdout)['hookSpecificOutput']['additionalContext']
+        except (ValueError, KeyError, TypeError):
+            ctx = None
+        cases.append(('the hook still prints one JSON object',
+                      ctx is not None, p.stdout[:300] + p.stderr[:300]))
+        cases.append(('THE CASE: the freshness notice reaches the model, run '
+                      '--quiet', ctx is not None
+                      and 'FRESHNESS-MARKER' in ctx and '--quiet' in ctx,
+                      str(ctx)[:300]))
+        (s / 'tools' / 'precedent_engine_freshness.py').unlink()
+        p2 = run_hook()
+        cases.append(('CONTROL: a set without the tool starts cleanly',
+                      p2.returncode == 0 and 'render ran' in p2.stdout,
+                      p2.stdout[:300] + p2.stderr[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a practice set\'s SessionStart hook runs the freshness notice '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_push_check_streams_a_gate_progress_live():
+    """precedent_push_check.run() passes a gate's stderr through while the
+    gate is still running -- it captured everything, so verify_harness's
+    progress and time-remaining lines were invisible for about four minutes
+    (practice: slow-steps-report-and-cache; very deep check, 2026-09-28).
+    Planted: a gate that prints a progress line to stderr and then waits for
+    a file that only this process's stderr creates on seeing that line, so
+    it passes only if the line arrived while the gate was alive. Control: a
+    failing gate's stdout and stderr still both reach its failure report."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='push-check-stream-'))
+    cases = []
+    try:
+        (tmp / 'gates').mkdir()
+        sentinel = tmp / 'seen'
+        (tmp / 'gates' / 'slow.py').write_text(
+            'import pathlib, sys, time\n'
+            'print("  -- 1/2 checks done, ~3s remaining", file=sys.stderr, '
+            'flush=True)\n'
+            'deadline = time.monotonic() + 8\n'
+            f'while not pathlib.Path({str(sentinel)!r}).exists():\n'
+            '    if time.monotonic() > deadline:\n'
+            '        print("progress was not seen live"); sys.exit(1)\n'
+            '    time.sleep(0.05)\n'
+            'print("slow gate done")\n', encoding='utf-8')
+        (tmp / 'gates' / 'bad.py').write_text(
+            'import sys\nprint("VIOLATION: zz-out-line")\n'
+            'print("zz-err-line", file=sys.stderr)\nsys.exit(1)\n',
+            encoding='utf-8')
+
+        class Watcher(io.StringIO):
+            def write(self, text):
+                if 'remaining' in text:
+                    sentinel.write_text('x', encoding='utf-8')
+                return super().write(text)
+
+        err, out = Watcher(), io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            failed, missing, _total, _findings = ppc.run(tmp, [
+                ('zz_slow', [sys.executable, 'gates/slow.py'], 'nothing'),
+                ('zz_bad', [sys.executable, 'gates/bad.py'], 'nothing')])
+        cases.append(('THE CASE: a gate\'s progress line reached stderr while '
+                      'it ran', 'zz_slow' not in failed
+                      and '~3s remaining' in err.getvalue(),
+                      f'failed={failed} err={err.getvalue()[:300]}'))
+        cases.append(('CONTROL: a failing gate is still reported with its '
+                      'stdout and stderr', failed == ['zz_bad']
+                      and 'zz-out-line' in out.getvalue()
+                      and 'zz-err-line' in out.getvalue(),
+                      f'failed={failed} out={out.getvalue()[-400:]}'))
+        cases.append(('nothing is reported missing', missing == [],
+                      repr(missing)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the push check shows a long gate\'s progress as it runs '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_very_deep_check_honours_not_binding_for_other_sources_checks():
+    """The very deep check's "other sources' checks" report honours this
+    repo's `not_binding` the way precedent_check.py does: a declared slug is
+    not run and is reported EXEMPT with its reason, never dropped, and a
+    `severity: blocking` practice cannot be exempted (very deep check,
+    2026-09-28: the report ignored not_binding, so an exemption the repo had
+    written down still surfaced as a finding)."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-not-binding-'))
+    cases = []
+    try:
+        root, src = tmp / 'root', tmp / 'shared'
+        for d in (root / 'practices', src / 'practices',
+                  src / 'tools' / 'checks'):
+            d.mkdir(parents=True)
+
+        def practice(slug, severity=None):
+            name = 'check_' + slug.replace('-', '_') + '.py'
+            sev = f'severity: {severity}\n' if severity else ''
+            (src / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: active\n{sev}'
+                f'checked_by: tools/checks/{name}\n---\n\n## Rule\n\nX.\n',
+                encoding='utf-8')
+            (src / 'tools' / 'checks' / name).write_text(
+                'import sys\nprint("VIOLATION:"); print("zz found it")\n'
+                'sys.exit(1)\n', encoding='utf-8')
+
+        practice('zz-exempted')
+        practice('zz-blocking', severity='blocking')
+        practice('zz-plain')
+        (root / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'not_binding': [
+                {'slug': 'zz-exempted', 'reason': 'zz does not apply here'},
+                {'slug': 'zz-blocking', 'reason': 'zz tries anyway'}]}),
+            encoding='utf-8')
+        sources = [{'level': 'universal', 'name': 'precedent',
+                    'path': str(root)},
+                   {'level': 'shared', 'name': 'zz-shared', 'path': str(src)}]
+        rows, note = vdc._source_check_scripts(root, sources)
+        by = {r[1]: r for r in rows}
+        cases.append(('THE CASE: a not_binding slug is reported EXEMPT with '
+                      'its reason, not run',
+                      by.get('zz-exempted', ('',))[0] == 'EXEMPT'
+                      and 'zz does not apply here' in by['zz-exempted'][3],
+                      f'{note} {rows!r}'))
+        cases.append(('a severity: blocking practice cannot be exempted -- '
+                      'it still runs', by.get('zz-blocking', ('',))[0]
+                      == 'VIOLATION', repr(rows)))
+        cases.append(('CONTROL: an undeclared practice still runs',
+                      by.get('zz-plain', ('',))[0] == 'VIOLATION',
+                      repr(rows)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check honours not_binding for other sources\' '
+          f'checks ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_bootstrap_source_engine_is_functional():
     """spec/BOOTSTRAP_NEW_SOURCES.md's newer claim, tested rather than
     trusted: precedent_bootstrap_source.py's output carries a real, working
@@ -43592,6 +43840,10 @@ def main():
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_writes_what_real_sets_converged_on()
     check_session_hooks_run_for_a_session_opened_above_the_repos()
+    check_freshness_quiet_says_when_a_source_is_unverified()
+    check_catalogue_hook_runs_the_freshness_notice()
+    check_push_check_streams_a_gate_progress_live()
+    check_very_deep_check_honours_not_binding_for_other_sources_checks()
     check_bootstrap_source_engine_is_functional()
     check_session_start_refreshes_an_attached_team_clone()
     check_views_drift_gate_reaches_a_source_set()
