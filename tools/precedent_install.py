@@ -358,19 +358,36 @@ def _readme(dest, project, about):
                                                         ' -- its opening is a placeholder')
 
 
-def _gitignore(dest):
-    tmpl = (TEMPLATES / 'gitignore.template').read_text(encoding='utf-8')
-    target = dest / '.gitignore'
+def merge_gitignore(target, tmpl, header):
+    """Write templates/gitignore.template's text `tmpl` to `target` when it
+    does not exist, else append, under the comment `header`, each of its
+    non-comment lines `target` lacks. Additive only: nothing already there is
+    changed or removed. -> None when written whole, else [lines appended].
+
+    Shared with precedent_update.py: the template gains lines after a repo is
+    installed (.claude/worktrees/, 2026-09-28), and a file written once is
+    never looked at again unless the update does it."""
     if not target.exists():
         target.write_text(tmpl, encoding='utf-8')
-        return '.gitignore: written'
+        return None
     have = target.read_text(encoding='utf-8')
-    missing = [l for l in tmpl.splitlines()
-               if l.strip() and not l.startswith('#') and l not in have.splitlines()]
+    lines = set(have.splitlines())
+    missing = list(dict.fromkeys(l for l in tmpl.splitlines()
+                                 if l.strip() and not l.startswith('#')
+                                 and l not in lines))
     if missing:
-        target.write_text(have.rstrip('\n') + '\n\n# Added by Precedent\'s installer\n'
+        target.write_text(have.rstrip('\n') + f'\n\n# {header}\n'
                           + '\n'.join(missing) + '\n', encoding='utf-8')
-        return f'.gitignore: {len(missing)} line(s) appended'
+    return missing
+
+
+def _gitignore(dest):
+    tmpl = (TEMPLATES / 'gitignore.template').read_text(encoding='utf-8')
+    added = merge_gitignore(dest / '.gitignore', tmpl, 'Added by Precedent\'s installer')
+    if added is None:
+        return '.gitignore: written'
+    if added:
+        return f'.gitignore: {len(added)} line(s) appended'
     return '.gitignore: already complete'
 
 
@@ -413,6 +430,27 @@ def _harness(dest, base_branch, force):
         if not (dest / name).exists() or force:
             shutil.copy2(src / name, dest / name)
     return note, sorted(set(wired))
+
+
+def _record_hooks(dest):
+    """Record the hooks _harness() just wired in ENGINE_MANIFEST.json's
+    `hook_files`/`hooks_sha256`, through the engine's own _write_hook_files,
+    so a refresh tracks them from the first update on.
+
+    seed() runs before _harness(), when no settings.json wires anything, so
+    it records no hook at all -- and until 2026-09-28 nothing recorded them
+    after: a fresh install's hooks were untracked, and a later refresh could
+    neither tell a hand-edit from the stock file nor deliver an upstream
+    fix to one. The engine's own copy writes the same bytes _harness() just
+    copied from the same templates, then hashes them; its notes about hooks
+    this kind does not wire are for a refresh reader, not an installer's."""
+    import contextlib
+    import io
+    with contextlib.redirect_stderr(io.StringIO()):
+        written = precedent_vendor_engine._write_hook_files(
+            dest, TEMPLATES / 'harness' / 'claude-code' / 'hooks')
+    return (f'hooks tracked in tools/ENGINE_MANIFEST.json: {len(written)}'
+            if written else 'hooks tracked: none wired')
 
 
 def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
@@ -578,6 +616,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  {_gitignore(dest)}')
     note, wired = _harness(dest, branch, force)
     say(f'  {note}; hooks: {", ".join(wired)}')
+    say(f'  {_record_hooks(dest)}')
     for line in _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         say(f'  {line}')
     say(f'  {_tiers(dest)}')

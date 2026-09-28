@@ -35470,6 +35470,320 @@ def check_installer_produces_a_clean_install():
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def check_update_vendors_rehearsal_findings():
+    """Ten defects a rehearsal of Update Vendors and a fresh install found on
+    2026-09-28, run against a real consumer and a scratch one. Each group
+    plants the state that exposed it and reads what the tool said or wrote.
+
+    - A bare mention of a renamed practice (`go-merge`, now `go-update`) was
+      dropped by citations(), which said "no live citation" while
+      precedent_practice_refs.py --withdrawn listed one.
+    - A root STYLEGUIDE.md or VOICE.md was left behind under a DONE.
+    - .gitignore, installed once, never gained a line the template added.
+    - An engine that landed off the fetched tip was not said.
+    - A fresh install recorded none of its hooks in ENGINE_MANIFEST.json.
+    - A vendored copy of the update fetched the consumer's own origin.
+    - checkin.py read `origin/claude/x` as `x`, and held an install pinned
+      to the branch every install follows.
+    - One small edit to a template block read as the whole block missing.
+    - The retired-name sweep missed precedent-team-* and MAP.md/GLOSSARY.md.
+    - A run budget upstream gives a vendored tool went unmentioned."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rehearsal-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    def verdict(name, cases):
+        bad = [(n, d) for n, ok, d in cases if not ok]
+        check(f'{name} ({len(cases)} stated cases)', not bad,
+              '; '.join(f'{n}: {d}' for n, d in bad))
+
+    saved_source, saved_run = pu.SOURCE, pu.run
+    try:
+        # -- citations: a bare mention of a withdrawn slug is listed --------
+        cases = []
+        fake = tmp / 'fake-source'
+        (fake / 'tools').mkdir(parents=True)
+        hits = [dict(source='this repository', kind='live', file='docs/X.md',
+                     line=3, slug='go-merge', must_fix=False),
+                dict(source='this repository', kind='live', file='docs/X.md',
+                     line=5, slug='reworded-one', must_fix=False),
+                dict(source='this repository', kind='live', file='docs/X.md',
+                     line=7, slug='gone-hard', must_fix=True),
+                dict(source='precedent', kind='live', file='practices/y.md',
+                     line=1, slug='go-merge', must_fix=False)]
+        (fake / 'tools' / 'precedent_practice_refs.py').write_text(
+            'import json\nprint(json.dumps(' + repr({
+                'slugs': {'go-merge': 'deduplicated', 'reworded-one': 'Rule reworded',
+                          'gone-hard': 'retired'},
+                'successors': {'go-merge': 'go-update'}, 'hits': hits}) + '))\n',
+            encoding='utf-8')
+        pu.SOURCE = fake
+        got = pu.citations(tmp)
+        pu.SOURCE = saved_source
+        fix, read = got if got else ([], [])
+        cases.append(('a pointer to a withdrawn practice is still one to fix',
+                      [w for w, _y in fix] == ['docs/X.md:7'], str(got)))
+        cases.append(('a bare mention of a renamed practice is listed to read, '
+                      'naming its successor',
+                      any(r.startswith('docs/X.md:3') and 'go-update' in r
+                          for r in read), str(read)))
+        cases.append(('...beside a reworded one, and nothing from another source',
+                      'docs/X.md:5' in read and len(read) == 2, str(read)))
+        verdict('Update Vendors lists a bare mention of a renamed practice', cases)
+
+        # -- a vendored copy refuses before any fetch ------------------------
+        cases = []
+        cons = tmp / 'vendored-consumer'
+        (cons / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        (cons / 'tools').mkdir()
+        (cons / 'tools' / pve.MANIFEST_NAME).write_text('{}', encoding='utf-8')
+        (cons / 'tools' / 'precedent_vendor_engine.py').write_text('', encoding='utf-8')
+        git(tmp, 'init', '-q', str(cons))
+        fetched = []
+
+        def recording_run(argv, cwd):
+            if 'fetch' in argv:
+                fetched.append(argv)
+                return 1, 'fatal: couldn\'t find remote ref main'
+            return saved_run(argv, cwd)
+        pu.SOURCE = cons / 'process' / 'upstream'
+        pu.run = recording_run
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = pu.update(cons, skip_check=True)
+        pu.SOURCE, pu.run = saved_source, saved_run
+        text = out.getvalue()
+        cases.append(('a copy inside a consumer\'s vendored tree FAILS, naming '
+                      'the clone\'s own copy to run', rc == pu.FAILED
+                      and '../BestPractice/tools/precedent_update.py --repo .' in text,
+                      text[-600:]))
+        cases.append(('...before any fetch', not fetched, str(fetched)))
+        cases.append(('a BestPractice clone is its own clone',
+                      pu.source_is_its_own_clone() is None if hasattr(
+                          pu, 'source_is_its_own_clone') else False, ''))
+        verdict('Update Vendors refuses to run from a vendored copy', cases)
+
+        # -- one update over a planted consumer: legacy docs, .gitignore,
+        # -- a missing run budget; then an engine that landed elsewhere -----
+        tip = git(ROOT, 'rev-parse', 'HEAD').stdout.strip()
+
+        def planted(name, landed):
+            repo = tmp / name
+            (repo / 'tools').mkdir(parents=True)
+            (repo / 'local' / 'practices').mkdir(parents=True)
+            (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps({
+                'source_commit': landed, 'kind': 'consumer',
+                'files': ['precedent_branches.py', 'github_budget.py']}),
+                encoding='utf-8')
+            (repo / 'tools' / 'precedent_vendor_engine.py').write_text(
+                'print("precedent_vendor_engine refresh OK: already current")\n',
+                encoding='utf-8')
+            (repo / 'tools' / 'github_api_budgets.json').write_text(json.dumps({
+                'floors': {'core': 20}, 'run_budgets': {'github_budget.py': 1}}),
+                encoding='utf-8')
+            (repo / 'STYLEGUIDE.md').write_text('# Style\n', encoding='utf-8')
+            (repo / 'VOICE.md').write_text('# Voice\n', encoding='utf-8')
+            (repo / 'local' / 'practices' / 'project-voice.md').write_text(
+                '# voice\n', encoding='utf-8')
+            (repo / '.gitignore').write_text('__pycache__/\nbuild/\n', encoding='utf-8')
+            git(tmp, 'init', '-q', str(repo))
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'installed')
+            return repo
+
+        def fetchless(argv, cwd):
+            if argv[:1] == ['git'] and 'fetch' in argv:
+                return 0, ''
+            if argv[:1] == ['git'] and 'rev-parse' in argv \
+                    and argv[-1] == f'origin/{pve.SOURCE_BRANCH}':
+                return 0, tip + '\n'
+            return saved_run(argv, cwd)
+
+        def run_update(repo):
+            pu.run = fetchless
+            out = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(out):
+                    rc = pu.update(repo, skip_check=True)
+            finally:
+                pu.run = saved_run
+            return rc, out.getvalue()
+
+        cases = []
+        repo = planted('planted', tip)
+        rc, text = run_update(repo)
+        left = text.split('LEFT FOR YOU', 1)[-1] if 'LEFT FOR YOU' in text else ''
+        cases.append(('a root STYLEGUIDE.md with no project-visual-identity.md is '
+                      'left for you, naming the migration step',
+                      rc == pu.LEFT and '- STYLEGUIDE.md:' in left
+                      and 'project-visual-identity.md' in left and 'step 3b' in left,
+                      text[-1500:]))
+        cases.append(('a root VOICE.md beside project-voice.md is left to delete',
+                      '- VOICE.md:' in left and 'exists too' in left, left[-800:]))
+        gi = (repo / '.gitignore').read_text(encoding='utf-8')
+        cases.append(('.gitignore gains the template lines it lacked, its own kept once',
+                      '.claude/worktrees/' in gi.splitlines()
+                      and '.precedent/' in gi.splitlines()
+                      and gi.splitlines().count('__pycache__/') == 1
+                      and 'build/' in gi.splitlines()
+                      and '.gitignore:' in text, gi))
+        cases.append(('a run budget upstream gives a vendored tool, missing here, '
+                      'is left for you -- and the registry is not written',
+                      'tools/github_api_budgets.json: precedent_branches.py' in left
+                      and 'precedent_branches' not in (repo / 'tools' /
+                                                       'github_api_budgets.json').read_text(),
+                      left[-800:]))
+        cases.append(('...and nothing for a tool this repo already budgets',
+                      'github_api_budgets.json: github_budget.py' not in left, ''))
+        elsewhere = planted('landed-elsewhere', '1' * 40)
+        rc, text = run_update(elsewhere)
+        cases.append(('an engine that landed off the fetched tip FAILS, saying '
+                      'where it landed and where it should have',
+                      rc == pu.FAILED and 'the engine landed at 111111111111' in text
+                      and f'{pve.SOURCE_BRANCH} @ {tip[:12]}' in text, text[-800:]))
+        verdict('Update Vendors brings install-once files and migrations forward', cases)
+    finally:
+        pu.SOURCE, pu.run = saved_source, saved_run
+
+    # -- checkin.py: a slash in the default branch, and the followed branch --
+    cases = []
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import checkin
+        finally:
+            sys.path.pop(0)
+        origin, clone = tmp / 'origin', tmp / 'clone'
+        git(tmp, 'init', '-q', '-b', 'claude/x', str(origin))
+        (origin / 'f').write_text('x\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '-qm', 'x')
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)], env=env,
+                       capture_output=True)
+        git(clone, 'remote', 'set-head', 'origin', 'claude/x')
+        cases.append(('origin/claude/x is the default branch claude/x, not x',
+                      checkin._default_branch(clone) == 'claude/x',
+                      checkin._default_branch(clone)))
+        saved_manifest = checkin._manifest
+        held = {}
+        for pin in (pve.SOURCE_BRANCH, 'precedent-beta-v01'):
+            checkin._manifest = lambda pin=pin: {'upstream': {'branch': pin}}
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    checkin._pinned_branch_hold(clone)
+                held[pin] = False
+            except SystemExit:
+                held[pin] = True
+        checkin._manifest = saved_manifest
+        cases.append((f'an install pinned to {pve.SOURCE_BRANCH} is not held, '
+                      f'whatever the clone\'s default', not held[pve.SOURCE_BRANCH],
+                      str(held)))
+        cases.append(('...and one pinned to any other non-default branch still is',
+                      held['precedent-beta-v01'], str(held)))
+    except (OSError, ImportError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    verdict('checkin.py reads a slashed default branch and never holds the '
+            'followed branch', cases)
+
+    # -- missing_template_blocks: a changed block is not a missing one ------
+    cases = []
+    tmpl = ('#!/bin/sh\n\n# Python dependencies\npip install --quiet cmarkgfm\n\n'
+            'git fetch --quiet origin\ngit status --short\n\n'
+            '# A block this copy does not have\necho "the freshness check"\n'
+            'python3 tools/fresh.py --quiet\n')
+    local = ('#!/bin/sh\n\n# Python dependencies\n'
+             'pip install --quiet cmarkgfm pyyaml\n\n'
+             'git fetch --quiet --prune origin\ngit status --short --branch\n\n'
+             'echo "a block of this repo\'s own"\n')
+    got = {title: how for _n, title, how in pve.missing_template_blocks(local, tmpl)}
+    cases.append(('a block with its heading and one word added reads changed, '
+                  'not missing', got.get('Python dependencies') == 'changed (1 of 1 lines)',
+                  str(got)))
+    cases.append(('a block with no heading, edited, reads changed by its words',
+                  got.get('git fetch --quiet origin') == 'changed (2 of 2 lines)',
+                  str(got)))
+    cases.append(('a block nothing local resembles is still missing',
+                  got.get('A block this copy does not have') == 'missing', str(got)))
+    verdict('missing_template_blocks tells a changed block from a missing one', cases)
+
+    # -- the retired-name sweep: precedent-team-*, MAP.md and GLOSSARY.md ---
+    cases = []
+    sweep = tmp / 'sweep'
+    sweep.mkdir()
+    (sweep / 'MAP.md').write_text('# Map\n\nRules come from precedent-team-writing.\n',
+                                  encoding='utf-8')
+    (sweep / 'GLOSSARY.md').write_text(
+        '<!-- GENERATED by tools/build_views.py -->\nprecedent-team-writing\n',
+        encoding='utf-8')
+    (sweep / 'AGENTS.md').write_text(
+        'Clone precedent-team-x.\n'
+        'precedent-shared-x (named precedent-team-x until 2026-09-18).\n'
+        'Branch precedent-beta-v01 here.\n', encoding='utf-8')
+    hits = pve.retired_branch_mentions(sweep)
+    cases.append(('a hand-kept MAP.md naming a precedent-team-* set is flagged',
+                  ('MAP.md', 3, 'precedent-team-', 'precedent-shared-') in hits, str(hits)))
+    cases.append(('...and AGENTS.md\'s, beside the retired branch name still found',
+                  ('AGENTS.md', 1, 'precedent-team-', 'precedent-shared-') in hits
+                  and ('AGENTS.md', 3, 'precedent-beta-v01', 'staging') in hits, str(hits)))
+    cases.append(('a line recording the rename, and a file generated whole, are not',
+                  not any(r == 'GLOSSARY.md' or (r, n) == ('AGENTS.md', 2)
+                          for r, n, _o, _n in hits), str(hits)))
+    saved_left = list(pve._LEFT_FOR_YOU)
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            pve._report_retired_branch_names(sweep)
+        said = out.getvalue()
+        cases.append(('the report names the prefix rename without calling it a branch',
+                      'RETIRED NAME: 2 line(s)' in said and 'precedent-shared-*' in said
+                      and 'RETIRED BRANCH NAME: 1 line(s)' in said, said[-600:]))
+    except (KeyError, TypeError) as e:
+        cases.append((f'the report ran ({type(e).__name__}: {e})', False, ''))
+    finally:
+        pve._LEFT_FOR_YOU[:] = saved_left
+    verdict('the retired-name sweep covers precedent-team-* and the index files', cases)
+
+    # -- a fresh install tracks its hooks ------------------------------------
+    cases = []
+    ienv = dict(env, PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        ienv.pop(k, None)
+    proj = tmp / 'proj'
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], env=ienv,
+                       capture_output=True, check=True)
+        (proj / 'README.md').write_text('# Notes\n', encoding='utf-8')
+        git(proj, 'add', '-A')
+        git(proj, 'commit', '-qm', 'before')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(proj), '--project-name', 'Notes'], cwd=str(ROOT),
+                           env=ienv, capture_output=True, text=True)
+        m = json.loads((proj / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
+        hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        recorded = m.get('hooks_sha256') or {}
+        cases.append(('a fresh install records every hook it wrote, by hash',
+                      r.returncode == 0 and bool(hooks)
+                      and sorted(m.get('hook_files') or []) == hooks
+                      and all(recorded.get(h) == hashlib.sha256(
+                          (proj / '.claude' / 'hooks' / h).read_bytes()).hexdigest()
+                          for h in hooks),
+                      f'rc={r.returncode} on disk={hooks} recorded={sorted(recorded)} '
+                      + (r.stdout + r.stderr)[-400:]))
+    except (OSError, ValueError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    verdict('a fresh install tracks its hooks in ENGINE_MANIFEST.json', cases)
+
+
 def check_move_fixes_mentions_of_the_moved_practice():
     """After a move withdraws the source copy, tools/precedent_move.py fixes
     what still says the practice lives there -- in both sets and in every
@@ -40908,6 +41222,7 @@ def main():
     check_update_vendors_leaves_mentions_of_a_deleted_file()
     check_no_engine_tool_hardcodes_a_mirror_path()
     check_installer_produces_a_clean_install()
+    check_update_vendors_rehearsal_findings()
     check_move_tool_lands_then_deduplicates()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
