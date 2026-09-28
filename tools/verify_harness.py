@@ -34341,6 +34341,173 @@ def check_environment_gotchas_follows_a_split_index():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_environment_gotchas_advises_migrating_an_inline_catalogue():
+    """The pre-migration fallback of `environment-gotchas` still validates
+    an inline catalogue, AND says to move it to gotchas/ -- as advice that
+    never fails the run (practice: control-asserts-which-failure).
+
+    WHY. Until 2026-09-28 a consumer with no gotchas/ directory passed this
+    check green forever while carrying the catalogue in AGENTS.md, which the
+    Rule says must not load there at all, and nothing ever told it to
+    migrate. Turning that into a violation would redden every unmigrated
+    consumer on the day the engine is vendored, so the fallback prints an
+    advisory instead and keeps its validation.
+
+    Four stated cases. THE DISCRIMINATING ONE is the clean inline section:
+    it must print the advisory AND return no finding -- a finding there
+    would make the advice a gate. A gutted inline entry still returns its
+    bare-fix finding, so the validation did not go away with the advice;
+    and a migrated repo prints no advisory. The fixture owns its own tree
+    (fixture-owns-its-state)."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    STORY = ('It failed on 2026-09-13 in a way that read as something else '
+             'entirely, and the session spent an hour on the wrong '
+             'hypothesis. The remedy is to check the exit code rather than '
+             'the printed output.')
+    HEAD = ('# fixture\n\n## Build-environment gotchas -- do NOT rediscover '
+            'these\n\n')
+
+    def run(agents, gotcha=None):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            if gotcha is not None:
+                (d / 'gotchas').mkdir()
+                (d / 'gotchas' / 'gotcha-2026-09-13-a-trap.md').write_text(
+                    gotcha, encoding='utf-8')
+            old = pc.ROOT
+            pc.ROOT = d
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    findings = pc._environment_gotchas(None)
+            finally:
+                pc.ROOT = old
+            return '; '.join(str(f) for f in findings), buf.getvalue()
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    ADVICE = 'migrate to gotchas/ (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2)'
+    cases = []
+
+    found, said = run(HEAD + '- **A trap.** ' + STORY + '\n\n## Next\n')
+    cases.append(('THE DISCRIMINATING CASE: a clean inline catalogue prints '
+                  'the advisory and returns no finding',
+                  found == '' and ADVICE in said and 'ADVISORY' in said
+                  and 'AGENTS.md' in said, f'findings={found!r} said={said!r}'))
+
+    found, said = run(HEAD + '- **A trap.** Use `git cat-file -e`.\n\n'
+                             '## Next\n')
+    cases.append(('a bare-fix inline entry is still a finding, with the '
+                  'advisory printed beside it',
+                  'bare fix' in found and ADVICE in said,
+                  f'findings={found!r} said={said!r}'))
+
+    found, said = run(HEAD + '- **A trap.** [story](record/GOTCHAS.md#g1)\n'
+                             '\n## Next\n')
+    cases.append(('an index into a pre-migration record gets the advisory '
+                  'too, and its own finding stays',
+                  'leads nowhere' in found and ADVICE in said,
+                  f'findings={found!r} said={said!r}'))
+
+    migrated = ('---\nstatus: live\n---\n\n## Symptom\n\nA command reports '
+                'success and did nothing.\n\n## Story\n\n' + STORY +
+                '\n\n## Fix\n\nCheck the exit code.\n')
+    found, said = run(HEAD + 'Grep [gotchas/](gotchas/) before concluding a '
+                             'failure is new.\n\n## Next\n', migrated)
+    cases.append(('a migrated repo prints no advisory',
+                  found == '' and ADVICE not in said,
+                  f'findings={found!r} said={said!r}'))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'environment-gotchas advises migrating an inline catalogue to '
+          f'gotchas/ without failing on it ({len(cases)} stated cases, the '
+          f'clean inline section being the discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_beta_watermark_commit_carries_a_session_trailer():
+    """Every commit tools/precedent_beta_watermark_check.py writes carries a
+    session trailer the shared set's check_session_trailer.py accepts
+    (practice: session-trailer).
+
+    WHY. Until 2026-09-28 the watermark commit was a bare subject line, and
+    the very deep check's run of that shared check against this repository
+    found eight of them -- the one source of trailer-less commits here that
+    was a tool repeating the omission rather than a session forgetting once.
+
+    Two cases, each committing for real into a throwaway repository through
+    the tool's own _commit_and_push, with the person's global git config
+    held out so no installed hook can add or strip a trailer: with no
+    session link the trailer is the practice's explicit opt-out naming the
+    tool, and with PRECEDENT_SESSION_URL it is that link. The trailer shape
+    is judged by the shared check's own pattern, copied here, not by a
+    looser one."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_beta_watermark_check as pbw
+
+    TRAILER_RE = re.compile(r'^(?:Session|Claude-Session):\s+(\S.*)$',
+                            re.MULTILINE)
+    ident = {'name': 'Watermark Owner', 'email': 'watermark-owner@example.com'}
+    saved = {k: os.environ.get(k)
+             for k in ('GIT_CONFIG_GLOBAL', 'PRECEDENT_SESSION_URL')}
+    cases = []
+    d = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-trailer-'))
+    try:
+        os.environ['GIT_CONFIG_GLOBAL'] = os.devnull
+        subprocess.run(['git', 'init', '-q', '-b', 'staging', str(d)],
+                       capture_output=True, check=True)
+        wm = d / 'tools' / 'beta_branch_watermark.json'
+        wm.parent.mkdir()
+
+        def commit(n):
+            wm.write_text(json.dumps({'n': n}) + '\n', encoding='utf-8')
+            said = pbw._commit_and_push(d, wm, f'Advance staging watermark '
+                                               f'to {n:09d}', True, 'staging',
+                                        identity=ident)
+            body = subprocess.run(['git', '-C', str(d), 'log', '-1',
+                                   '--format=%B'], capture_output=True,
+                                  text=True).stdout
+            return said, body
+
+        os.environ.pop('PRECEDENT_SESSION_URL', None)
+        said, body = commit(1)
+        m = TRAILER_RE.search(body)
+        cases.append(('with no session link, the commit carries the explicit '
+                      'opt-out naming the tool',
+                      said.startswith('committed') and m is not None
+                      and 'none available' in m.group(1)
+                      and 'precedent_beta_watermark_check.py' in m.group(1),
+                      f'{said!r} {body!r}'))
+
+        os.environ['PRECEDENT_SESSION_URL'] = \
+            'https://claude.ai/code/session_example'
+        said, body = commit(2)
+        m = TRAILER_RE.search(body)
+        cases.append(('with PRECEDENT_SESSION_URL, the commit carries that '
+                      'link', m is not None and m.group(1).strip()
+                      == 'https://claude.ai/code/session_example',
+                      f'{said!r} {body!r}'))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(d, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a beta-watermark commit carries a session trailer '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {x[:300]}" for n, x in bad))
+
+
 def check_gotcha_currency_signals_fire():
     """tools/very_deep_check.py's gotcha-currency pass actually fires, and
     fires on the right entry (practice: control-asserts-which-failure).
@@ -43065,6 +43232,8 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
+    check_environment_gotchas_advises_migrating_an_inline_catalogue()
+    check_beta_watermark_commit_carries_a_session_trailer()
     check('Update Vendors judges a section 0 catalogue against its own sync commit',
           *check_update_vendors_trusts_the_catalogues_own_sync_commit())
     check('Update Vendors re-runs over the catalogue a failed run wrote',

@@ -2898,6 +2898,13 @@ _GOTCHA_INDEX_LINE_RE = re.compile(
     r'(?:gotchas/gotcha-[^)]*\.md|GOTCHAS[^)#]*\.md#[A-Za-z0-9_-]+)[^)]*\)',
     re.M)
 GOTCHA_INDEX_MAX_LINES = 1
+# Printed, never returned as a Finding, by the pre-migration fallback below:
+# advice to move, which must not fail a run that is otherwise clean.
+GOTCHA_MIGRATE_ADVISORY = (
+    '  (environment-gotchas: ADVISORY, not a violation -- {name} still '
+    'carries the gotcha catalogue, or an index of it; migrate to gotchas/ '
+    '(spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2), one file per trap, with '
+    'tools/todo_migrate.py, and leave {name} one pointer)')
 
 
 def _gotcha_index_findings():
@@ -3013,6 +3020,15 @@ def _environment_gotchas(ctx):
                                              f'{"sentence" if sentences == 1 else "sentences"}) '
                                              f'with no account of what failed'))
         return out
+
+    # THE PRE-MIGRATION SHAPE, still validated -- and now also told to move.
+    # Until 2026-09-28 this fallback judged an inline index in AGENTS.md and
+    # said nothing else, so a consumer that never migrated passed green
+    # forever while carrying the very catalogue the Rule says must not load
+    # into the instructions file. The validation stays, so an unmigrated
+    # consumer does not turn red the day this is vendored; the advisory is
+    # printed on every run, and never fails it.
+    print(GOTCHA_MIGRATE_ADVISORY.format(name=name))
 
     rest = text[m.end():]
     end = re.search(r'^#{1,4}\s', rest, re.M)

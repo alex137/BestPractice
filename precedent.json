@@ -270,6 +270,420 @@
       "reason": "each is named after the file it generates; those names are set by GitHub and by the leak gate, not here"
     }
   ],
+  "_grandfathered_commit_shas_comment": [
+    "Commits exempted from the shared check_session_trailer.py, which",
+    "the very deep check runs against this repository from the",
+    "precedent-shared-repo-maintenance source (its CHECK COVERAGE",
+    "section, 'other sources' checks'). Each carries its own note.",
+    "They are published history, and rewriting it to quiet a check is",
+    "what no-rewrite-for-warnings forbids; the check's own Install",
+    "names this list as the remedy. Every commit made after them is",
+    "still fully checked.",
+    "",
+    "Eight are watermark commits: the tool that wrote them put no",
+    "trailer on anything until 2026-09-28, and now writes the",
+    "practice's explicit opt-out (or PRECEDENT_SESSION_URL when a",
+    "session hands one over). The rest are sessions that forgot.",
+    "",
+    "THE SAME KEY IS READ BY tools/checks/check_commit_author.py,",
+    "check_buenos_aires_dates.py and very_deep_check.py's commit-",
+    "identity window, so an entry here exempts that commit from those",
+    "too. Measured before adding these: check_commit_author.py passed",
+    "on this history, so none of its findings is hidden. Two of them",
+    "are Morgan's with a -0400 offset (2026-09-25, the evening commits",
+    "here took the repository's fallback zone), which the very deep",
+    "check's date read will no longer list."
+  ],
+  "grandfathered_commit_shas": [
+    {
+      "sha": "8f86c439a598a4e223fde04831967cb9c09e3a06",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "79102c386b507961a498d5acb5f6d8e1f0c337b0",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "8863356280b816e771b92a2970a3d351a61abbed",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "4c4b020aff145f0a4d994729ffb546c16dcd1ced",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "3f0a8f23dc2e7b52c1636ea0744818bddc253029",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "75187adecf22cd502520c3d1075fb7c58309c9c5",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "3a59555aa515e5b1a6da4a76c68b9d5211c538e9",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "ebe368a1d609b38d62fe2214a1e10bbf27b143a9",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "081b442eafdb45740a53f7de44a73e303a0f5cb0",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "b45f6fd706dd460fbd0f6b6400ac945941a9ca7e",
+      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "7e6c61f485479a2d910b7f3e51d362c39f1fbfcb",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "12e126a94621bc0eba90107a145c16eaa24daa65",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "a8d0740049b0a73b2f2cf1f191a3c42f576940ee",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "45a68061658a74e52f9b9c158307afea4e0eab36",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "f5d0634f52c5056ec9f54b3e4c980e65c3de3810",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "44d428dcaeae77461a7d26fcf506bfaaf8617d83",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "2cf076785aca88f8c93baf650b069a6b677fa40e",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "8f43b908b427fd38e2f42b332cb095e3a82df6b9",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "e2525a4911a0018e06e48a1d6c5a2763befb48e3",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "1c2d17390f86f666c82d5e745318904ed3b02a3e",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "42675b6bdb0cb824dbdc6208b4c7ec6313f45eba",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "edcd68ed8ce78d3c93a641d43c2712460621a83a",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "86a0d7700a2602d1844836f4fe8d902d1e62bf24",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "c414c805b0ba899863c384810e8c1bd7f4e61824",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "f2e2bdd1530136fe3a4bada3703523396a070404",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "c0c19c49c1bd098f88ee79fdbd90a04b7942f6d6",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "a15513cb2f83131db66ed49152df5141465299a8",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "f7f09124945021c4d5bcd953cbd49f11d11a46fa",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "b15acd29c8cbc258a2406c49c18274fd7d300c7c",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9ebf1608cfac5d616ec8de32e3027434b062d0be",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "5e93b275dd75dfc52c25b0a5e893bca10cf2f774",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "01a3296455a1f9512999bd4ee9bfdc0688d8f499",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "b6463223d2d10efe29cba8167d460bbba15718f7",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "e1fc663a7775fc497fd28443dc3eb7cf67fbae61",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "96ecde28f2bd45f08564839e08f566b857eb9867",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "949bcdf9ea1d51b136dfa086c822ba4cd6d059ab",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9031b1e7da15e98be2e6b737aa704642dc044d02",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "799e344955bc22b032fcb7811a2c8cc950d6d12d",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "1b22738ab17fa771796561ecce26516462cc4304",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "a6a99cc652f098ec9ae034f4eabc77ac3873e009",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "261c8983ffee801c016b0c9f81497b4eb8aef3c4",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "7eecc3af0d8711c3086d2d63c9b851c5bfc6e4c4",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "0791e9d297d39ab9051430938a9169929b01beb7",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "6c971102cd01ab25d13ba4c35ef03d0846f461ea",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "6f1afffe3fa249da6d544af91eefd15e56a8526e",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "ca25e4e3eccde7582ecf3a648b86060e3167a506",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "87c97e6520b00b37a8d322bf12ce7f883f9061a6",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9160b0f71abf6f23dbc108942410751dbb8e53e0",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "597ee968c1258204261f069a71089479a29f51ca",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "f34a216697f725c4c1d3c955435d1c9b539201cd",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "936cd89cc5215555e5997bb814cae827db33b9ef",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "b811dde5b5f35858193108f2097ae251ba855884",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "decd9c4759be9d72c36e49874f68a5524952fa66",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "68c351a141fb3642ca19a4a5decb7060a52f2fb6",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "2de7938fac41aed40da3199343dd24f3c4300114",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "0fbc2a224d6a22354b4136109ec2738b17400aff",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "3cd211116e333ae4e87ab8c76a369904b3c9787b",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "6d9b849e6c12e5975bb75606b4faf8beb3a962a3",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "6a1bc8782ba5da9c4cdd33ceec80fd1847b3858c",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "4a0241ba104f51707da0d0bb05e4970a8b7528e4",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "5b3750790074491e14a3910ce73ab3d5dd019692",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "03f261b6b8117174581052cf0fc4cda928e1d9ab",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "97ed07859fd1574e32d04e9f278e2115109022e9",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9adf8815e66046ea3e57a04c826be9320dd28f60",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9990ab23a563a5c0abdd4719c09d05a02abd98d9",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "969be87c8ad9268795276febe7c597d274e515bd",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "45b630306974c23abaeefb778b5081d7d8e9b859",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9907d6263cc422b9e9c04b2f55c082f9a3bd2a9a",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "c6f73530f4b74221f69185eebf922485b2a07dc9",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "78625c4e2fecb6585767f9700f1ef2459e50f41a",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "500ad039cb3a8a54db5e03da6260d1a8e89821c3",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "c242d63e926ee774aba206785d67c8d60198c2a3",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "199b108d8208e1cc6050e5a7532e18c101495596",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "67f5ee3f07f521a491112708481eb83c59035b44",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9f6ab5448d5c8e84a7d9e567a9c8dbe7697cc1c6",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "b394ad774fbcc39341e3529a41631a813ca851cc",
+      "note": "Made without a session trailer before the shared set's session-trailer check was first run against this repository, by the very deep check on 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "9de83a283735da32985142bbbb3e3239cf68737f",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "91c082f192c4d60e30921b675ffff401cc836dd1",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "2d0a4d2c081712a29316ea98ce6ff1dcbb487ed8",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "1e02203402490cd3f25f9ff2137c28b3685b456e",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "41594ce8a0077461496a567efff5dfa2ef31e787",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "cfdd5cad64308fbaee11317f9feedbf21f15a570",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "30bb2db7fefe3e6ba20a1b5c1e1b7aa1cfde7aa1",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "1feeb6dcddfa3baf05b87717e4ce51f44043cb6e",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "89f9a8ad880f83199b1cc03da1bf7ce56f097e19",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "a29d27a9966719a933951851703ffd6dcb24b5fd",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "1a480e15bd6a924adbb0cefe5496ebb3723b4020",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "24a1f982e7b58b96d8a5825267eeb3f74579f599",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "8dba5f6398f32cce8cd493ce9d23f0f602e7cb47",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "01bfe308cfecd91ee9dbe5655b9209bdd3b93259",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "3493bb81f310b027a9a977684f94916d72ab44bd",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "31ead47839ab24e10699a1c3f91e40dd533ebc39",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "f3f15e63347b4543dba995d6f42c9fe4dc6e5e97",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "a11dc0cdb7fe4f71f4eff183dc5ebd0fa6735e47",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "b591c3b994dba3ea625a3fd9fe0cdd5d1449cbce",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "20152cd061952cdfdb03dae08fbc33cc9a12c970",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    },
+    {
+      "sha": "7a7f7cedb7ae1d98cbf3b48e46e4aa712f03a11c",
+      "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
+    }
+  ],
   "_source_purpose_comment": [
     "One disambiguating sentence per declared source, for a session sorting",
     "where a practice belongs -- added 2026-09-19 after `push-back` was found",
