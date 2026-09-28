@@ -9320,10 +9320,10 @@ def check_instruction_files_name_repos_that_exist():
     about, and the pattern that finds those names does not find noise.
 
     2026-09-21: an Update Vendors pass found a consuming repo's AGENTS.md
-    naming `VoiceDefinitionMorgan` twice -- the session-start step and a
-    tool's description -- where the real repository is `VoiceDefMorgan`,
-    in the file whose own step 1 warns about a source name going stale
-    silently. `repo-reference-allowlist` asks whether a name may be
+    naming a private voice-definition repository under its old name, twice
+    -- the session-start step and a tool's description -- after the real
+    one had been renamed, in the file whose own step 1 warns about a source
+    name going stale silently. `repo-reference-allowlist` asks whether a name may be
     MENTIONED; `repos_in_force_audit` asks whether a SOURCE exists. A name
     in prose is neither, so it was checked for permission and never for
     existence.
