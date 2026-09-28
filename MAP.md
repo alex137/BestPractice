@@ -157,7 +157,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [verdict-not-mechanism](practices/verdict-not-mechanism.md) | on-demand | a tool, hook, check or gate flags something the person would otherwise have to judge |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | reporting a computed total or a negative feasibility result |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
-| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check", or after work that invites drift |
+| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" |
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |

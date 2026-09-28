@@ -36,7 +36,7 @@ no branch named, means the landing branch. **No merge needs Alex's
 sign-off, `main` included** (Morgan, 2026-09-26: *"Alex said we no longer
 need his authorization to post to main so please remove that"*, strength:
 decided; Alex's word relayed by Morgan). Once a PR's own deep check
-(`two-check-levels`) passes, a session may merge it into the landing branch.
+([two-check-levels](../../practices/two-check-levels.md)) passes, a session may merge it into the landing branch.
 
 **This rule is this repository's alone and is never vendored**: a
 repository that takes updates from here works on its own primary branch,

@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
-occasion:    "a person explicitly asks for a \"very deep check\", or after work that invites drift"
+occasion:    "a person explicitly asks for a \"very deep check\""
 gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never routine"
 checked_by:  null
@@ -19,10 +19,7 @@ added:       null
 approved_by: "Morgan F -- he revised, restructured, extended and bounded this practice repeatedly between 2026-09-05 and 2026-09-23. The practice itself first landed pending review, and one 2026-09-12 extension is still PENDING REVIEW, approved by nobody. Every change, its date, its strength and the words that authorized it: ## Story, 'Approval history'."
 ---
 ## Rule
-When a person explicitly asks for a "very deep check", or after work that
-invites drift (a batch of practices added or reordered, a practice that
-changed shape, an install into a new repo, a merge that resolved conflicts
-across several shared files), run
+When a person explicitly asks for a "very deep check", run
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) and work the four
 passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
@@ -147,8 +144,8 @@ in the deep review doc, in the chat, or he doesn't want it."* Fixed
 commits on the same visibility check `build_views.py` already runs for the
 loader block, rather than inventing a second one — pass 2's own "is there a
 duplicate implementation" question, answered before it could drift. The
-disclosure did happen once, in this branch's own prior commit, before the
-base branch ever saw it — fixing it forward, never rewriting that commit's
+disclosure did happen once, in this branch's own prior commit, before
+`precedent-beta-v01` ever saw it — fixing it forward, never rewriting that commit's
 history, is [no-rewrite-for-warnings](no-rewrite-for-warnings.md)'s call,
 not this practice's to make on its own.
 
@@ -347,8 +344,16 @@ run, so the decision belongs in the run record rather than in the tool.
 
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
-Anything deliberately left alone gets a line in [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md) saying
-so, rather than being silently dropped.
+Anything deliberately left alone gets its own item under
+[todo/](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md))
+saying so, rather than being silently dropped.
+
+**After work that invites drift** (a batch of practices added or
+reordered, a practice that changed shape, an install into a new repo, a
+merge that resolved conflicts across several shared files), **propose one;
+never start it unasked.** It is expensive, and AGENTS.md keeps it to the
+literal ask.
 
 ## Detail
 **This is not `full-practice-audit` under another name — the two ask

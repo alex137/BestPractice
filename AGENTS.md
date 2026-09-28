@@ -210,7 +210,7 @@ When a model or comparison rests on an operating constant nobody decided:
   constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
 When a person asks for a write-up of the issue being worked:
   write-it-up — "Write it up": commit a full report of issue and fix, then link it
-When a person explicitly asks for a "very deep check", or after work that invites drift:
+When a person explicitly asks for a "very deep check":
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person explicitly asks for a full practice audit (or "practice check"):
   full-practice-audit — every source's catalogue, one practice at a time; on request only

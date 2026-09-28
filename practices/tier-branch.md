@@ -33,7 +33,7 @@ are the list.
 **Saying it does not itself trigger an action.** It is a word to look up,
 like [primary-branch](primary-branch.md). What it carries is one standing
 consequence stated elsewhere: a tier branch is never offered for deletion,
-by any route ([branch-delete-links](branch-delete-links.md) rule 4, and
+by any route ([branch-delete-links](branch-delete-links.md#never-a-tier-branch) rule 4, and
 [very-deep-check](very-deep-check.md)'s branch sweep).
 
 ## Why

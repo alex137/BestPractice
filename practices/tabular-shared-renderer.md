@@ -89,7 +89,7 @@ of this practice is entitled to assume when a repo says
    decimals, magnitude suffixes (k, M — recognized on currency amounts
    only, since a bare "M" is usually a unit), trailing units; empty and
    em-dash cells sort last. The same key drives the frontier axis
-   pull-down (item 8), so a column ranks exactly as it sorts.
+   pull-down ([item 8](#frontier-axis-pulldown)), so a column ranks exactly as it sorts.
 3. **A filter dropdown on every column** — no column is left without
    one. The panel offers what the column supports: a multi-select
    checkbox list of distinct values where the set is usefully small
@@ -105,7 +105,7 @@ of this practice is entitled to assume when a repo says
    over Y t" ask value columns get. A value column is one whose cells
    *lead* with a number (the practice-46 item-12 test): "Rotax 916"
    contains a digit but is a name. On a text column that is a frontier
-   ordinal axis (item 8), the dropdown's value rows list in the axis's
+   ordinal axis ([item 8](#frontier-axis-pulldown)), the dropdown's value rows list in the axis's
    current best→worst order and each carries a ⠿ grip that drags the
    row to re-rank — the same order the frontier picker edits, editable
    from whichever panel the reader has open; the checkbox still
@@ -120,7 +120,7 @@ of this practice is entitled to assume when a repo says
    act, not a side effect.)
 5. **Draggable column order** — drag a header to move a column; dragging
    is the only way columns move. Implement every drag (this and the
-   ordinal value lists of item 8) with **pointer events, never native
+   ordinal value lists of [item 8](#frontier-axis-pulldown)) with **pointer events, never native
    HTML5 drag-and-drop**: hosted artifact viewers run renders in
    sandboxed frames where native DnD never fires (verified 2026-08-28),
    and pointer events also work on touch. Two traps: put the
@@ -139,7 +139,7 @@ of this practice is entitled to assume when a repo says
    re-sorting on the visible values (filters clear, since their value
    sets changed). Sorting, filtering, and the row count always read
    the ACTIVE view's text, never the concatenation.
-8. **Frontier axis pull-down** — where a Frontier column exists
+8. <a id="frontier-axis-pulldown"></a>**Frontier axis pull-down** — where a Frontier column exists
    ([permutation-frontier-column](permutation-frontier-column.md)), the render opens showing frontier rows only, and the
    control is an axis pull-down that works on any such table with no
    per-document wiring: the printed ✓/— marks (the model's own
