@@ -57,7 +57,7 @@ they would let everything through.
   [../LEDGER.md](../LEDGER.md) for the history of this gap; if your
   environment signs commits by default in a way that collides with a
   human-only authorship policy, see
-  [CLOUD_SETUP.md](<upstream-docs>/documentation/CLOUD_SETUP.md#when-the-containers-own-signing-collides-with-a-human-only-policy).
+  [CLOUD_SETUP.md](../../../documentation/CLOUD_SETUP.md#when-the-containers-own-signing-collides-with-a-human-only-policy).
 
 ## The Markdown Check Does Not Run Here Yet
 

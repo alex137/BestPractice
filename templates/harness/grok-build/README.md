@@ -6,7 +6,7 @@ access, not the plain chat-only Grok this repo's other guides used to treat
 as unverified. Everything below is grounded in xAI's own current
 documentation, found and read on 2026-09-17; nothing here has been
 confirmed by an actual Grok Build session working in this repo yet — that
-is exactly what [spec/PROVIDER_PORTABILITY_PLAN.md](../../spec/PROVIDER_PORTABILITY_PLAN.md)'s
+is exactly what [spec/PROVIDER_PORTABILITY_PLAN.md](../../../spec/PROVIDER_PORTABILITY_PLAN.md)'s
 Phase 5 test is for.
 
 Grok reads **`AGENTS.md` natively** — no pointer file needed; xAI's own
