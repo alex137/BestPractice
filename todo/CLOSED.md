@@ -4,7 +4,13 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-07-gates-absent-from-main`](todo-2026-09-07-gates-absent-from-main.md) | Put the leak gate on `main`; the deep check cannot go there until the merge-back. | done | 2026-09-28 |
+| [`todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher`](todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher.md) | All four practice-set sources vendor the pre-fix `Source:` clause matcher. | done | 2026-09-28 |
+| [`todo-2026-09-13-vendor-very-deep-check-into-sets`](todo-2026-09-13-vendor-very-deep-check-into-sets.md) | Vendor `very_deep_check.py` into the practice sets, so a set can audit its own always-loaded files instead of only gatin | done | 2026-09-28 |
+| [`todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name`](todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name.md) | The leak gate refuses a private repo named as `owner/name`, and lets the same repo through under its BARE name when no l | done | 2026-09-28 |
 | [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | done | 2026-09-28 |
+| [`todo-2026-09-21-template-freshness-reports-five-phantom-gaps`](todo-2026-09-21-template-freshness-reports-five-phantom-gaps.md) | Every one of `TEMPLATE FRESHNESS`'s five findings is a file the bootstrap generator writes | done | 2026-09-28 |
+| [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | done | 2026-09-28 |
 | [`todo-2026-09-06-retire-merge-target-practice`](todo-2026-09-06-retire-merge-target-practice.md) | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_br | done | 2026-09-27 |
 | [`todo-2026-09-08-upstream-notice-silent-when-rooted-above`](todo-2026-09-08-upstream-notice-silent-when-rooted-above.md) | The upstream-carry notice is silent in exactly the layout this project requires, and nothing reports its absence. | dropped | 2026-09-27 |
 | [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | done | 2026-09-26 |

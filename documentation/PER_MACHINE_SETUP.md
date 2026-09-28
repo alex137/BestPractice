@@ -32,6 +32,8 @@ interrupting you for a value you can change in one sentence later
 | `PRECEDENT_COMMIT_TZ`, and `identity.json`'s `timezone` | This repository's declared `fallback_timezone`, `America/New_York`, and the author-date check downgrades from enforced to guessed |
 | `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](../practices/declared-pronouns.md)) |
 | `identity.json`'s `relayed_authorization` | `refused` — your approval does not travel to a session you are not typing in |
+| `identity.json`'s `landing_branch` | The repository's `precedent.json` `landing_branch`, else `staging` — where `Go update` lands your work ([tier-branch](../practices/tier-branch.md)) |
+| `identity.json`'s `branch_push_checks` | `basic` on every branch except `staging` and `main`, which always get the full check |
 | `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` | No private set resolves, so your own and your team's practices are silently absent — **the one row here whose default is genuinely bad**, and the reason the rest of this page exists |
 
 **The defaults are cheap to be wrong about; the last row is not.** A record
@@ -52,7 +54,7 @@ the environment's own configuration; locally, in your shell profile
 ```sh
 # Reaching your private practice sets from a hosted session
 export PRECEDENT_GIT_TOKEN="github_pat_<your read-only token>"
-export PRECEDENT_SOURCE_BASE_URL="https://github.com/<your-github-account>"
+export PRECEDENT_SOURCE_BASE_URL="https://github.com/<the account that owns your team's practice sets>"
 export PRECEDENT_PING=1          # throwaway: proves the variables arrive at all
 
 # Who your commits are by, and in what zone
@@ -159,13 +161,13 @@ follow a session into every repository it touches.
 | Variable | Status | Example value |
 |---|---|---|
 | `PRECEDENT_GIT_TOKEN` | Required to reach a private practice set from a hosted session; irrelevant without one | `github_pat_<the rest of your read-only token>` |
-| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/your-github-account` |
+| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/<the account that owns your team's practice sets>` — if your own `precedent-individual` lives under a different account (it does, unless you own the team sets), also set `PRECEDENT_INDIVIDUAL_REPO` |
 | `PRECEDENT_COMMIT_NAME` | Recommended | `Your Name` |
 | `PRECEDENT_COMMIT_EMAIL` | Recommended, alongside the name | `you@example.com` |
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
 | `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
-| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
+| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
 
 **Give your environments distinct names, and set a throwaway

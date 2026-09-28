@@ -22,7 +22,7 @@ set -euo pipefail
 
 # Python deps the repo's scripts import (cmarkgfm is doc_lint's exact
 # GitHub-renderer check; keep it even if you add nothing else):
-pip install --quiet cmarkgfm 2>/dev/null || \
+pip install --quiet cmarkgfm markdown 2>/dev/null || \
   echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
 
 # Set the commit author to whoever is actually running this session, not

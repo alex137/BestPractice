@@ -430,7 +430,11 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None):
     watermark_path = _watermark_path(repo)
 
     if not no_fetch:
-        code, _ = git(repo, 'fetch', '--depth=50', 'origin', branch)
+        # --depth only on an already-shallow clone: on a full one it
+        # truncates the history every later check reads (2026-09-28).
+        _, shallow = git(repo, 'rev-parse', '--is-shallow-repository')
+        depth = ['--depth=50'] if str(shallow).strip() == 'true' else []
+        code, _ = git(repo, 'fetch', *depth, 'origin', branch)
         if code != 0:
             return 'unknown', [f'could not fetch origin/{branch} (offline, or '
                                 f'no access) -- this says nothing about who '

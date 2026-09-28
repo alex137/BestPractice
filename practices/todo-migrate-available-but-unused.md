@@ -22,7 +22,7 @@ When `tools/todo_migrate.py` is vendored into a repo and that repo's
 directory, the file does not open on the `# TODO has moved` stub heading,
 and it has actual content to convert, not just a fresh install's unused
 pointer template — the migration tool is present and has never been run.
-Run it: `python3 tools/todo_migrate.py --apply`, then `python3
+Run it: `python3 tools/todo_migrate.py --source todo.md --apply`, then `python3
 tools/build_todo_index.py`, per
 [vendor-update-runbook](vendor-update-runbook.md)'s step for a
 newly-vendored migration tool. A vendor refresh can ship a mechanism;

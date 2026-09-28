@@ -8090,7 +8090,7 @@ def _todo_migrate_available_but_unused(ctx):
     return [Finding('TODO.md',
         'tools/todo_migrate.py is vendored into this repo but TODO.md is '
         'still the old single-file format and no todo/ directory exists '
-        '-- run `python3 tools/todo_migrate.py --apply` then `python3 '
+        '-- run `python3 tools/todo_migrate.py --source todo.md --apply` then `python3 '
         'tools/build_todo_index.py` (practices/vendor-update-runbook.md)')]
 
 

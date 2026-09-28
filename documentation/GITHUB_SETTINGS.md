@@ -294,7 +294,7 @@ are simpler:
 
 ## Where This Is Used
 
-[INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+[INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
 is the install step that draws the boundary;
 [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md) is the design
 and the list of what is still unverified;

@@ -28441,6 +28441,51 @@ def check_vendor_engine_removes_a_hook_upstream_dropped():
                       and (hooks_d / 'zzz-dropped.sh').exists()
                       and (hooks_d / 'zzz-live.sh').exists(),
                       repr(removed_d)))
+
+        # E (2026-09-28): the real update shape. The consumer's OLD copy of
+        # the tool runs first and rewrites the manifest without the dropped
+        # hook, so the manifest on disk no longer names it. The record from
+        # before the update is the COMMITTED one, and _previous_manifest
+        # reads it; without it this removed nothing, every time.
+        repo_e = tmp / 'two-pass'
+        (repo_e / 'tools').mkdir(parents=True)
+        hooks_e = repo_e / pve.HOOK_DEST_DIR
+        hooks_e.mkdir(parents=True)
+        src_e = tmp / 'two-pass-upstream'
+        src_e.mkdir()
+        gone, live = '#!/bin/sh\necho dropped\n', '#!/bin/sh\necho live\n'
+        (hooks_e / 'zzz-dropped.sh').write_text(gone, encoding='utf-8')
+        (hooks_e / 'zzz-live.sh').write_text(live, encoding='utf-8')
+        (src_e / 'zzz-live.sh').write_text(live, encoding='utf-8')
+        mpath = repo_e / 'tools' / pve.MANIFEST_NAME
+        sha = lambda s: hashlib.sha256(s.encode('utf-8')).hexdigest()
+        mpath.write_text(json.dumps({
+            'files': ['zzz_dropped_tool.py'],
+            'sha256': {'zzz_dropped_tool.py': 'x'},
+            'hook_files': ['zzz-dropped.sh', 'zzz-live.sh'],
+            'hooks_sha256': {'zzz-dropped.sh': sha(gone),
+                             'zzz-live.sh': sha(live)}}), encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A'],
+                     ['-c', 'user.name=Fixture', '-c', 'user.email=f@invalid',
+                      'commit', '-q', '-m', 'installed']):
+            subprocess.run(['git', '-C', str(repo_e), *args], check=True,
+                           capture_output=True)
+        pass_one = {'files': [], 'sha256': {}}      # what the old copy wrote
+        mpath.write_text(json.dumps(pass_one), encoding='utf-8')
+        before = pve._previous_manifest(repo_e, pass_one)
+        removed_e = pve._remove_dropped_hook_files(
+            repo_e, mpath, set(pve._hook_file_names(src_e)), src_e,
+            previous=before)
+        cases.append(('E: after a self-replacing first pass, the committed '
+                      'record still finds the dropped hook, and it is deleted',
+                      removed_e == ['zzz-dropped.sh']
+                      and not (hooks_e / 'zzz-dropped.sh').exists()
+                      and (hooks_e / 'zzz-live.sh').exists(),
+                      repr(removed_e)))
+        cases.append(('E: and the engine file list the old pass forgot is '
+                      'recovered the same way',
+                      'zzz_dropped_tool.py' in before.get('files', []),
+                      repr(before.get('files'))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

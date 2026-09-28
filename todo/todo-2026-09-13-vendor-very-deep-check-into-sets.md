@@ -3,7 +3,7 @@ slug:              todo-2026-09-13-vendor-very-deep-check-into-sets
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         "2026-09-13"
 blocked_on:        "four repositories under a different owner, each with its own merge rules. Established 2026-09-13 rather than assumed: `git push --dry-run` to `precedent-individual` returned *\"not in this session's authorized repository set… 403\"*, and `add_repo` with `access: \"push\"` returned *\"cross-tier adds are "
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-13
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -80,3 +80,7 @@ Not open until: four repositories under a different owner, each with its own mer
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed 2026-09-28
+
+Its own condition is met, found by the very deep check's pass 4: All four practice sets carry `tools/very_deep_check.py` on origin/main, listed in each set's ENGINE_MANIFEST at `e8a2bc6`.

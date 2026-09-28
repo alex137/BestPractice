@@ -331,7 +331,7 @@ run, so the decision belongs in the run record rather than in the tool.
 
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
-Anything deliberately left alone gets a line in [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md) saying
+Anything deliberately left alone gets a line in [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md) saying
 so, rather than being silently dropped.
 
 ## Detail
@@ -493,7 +493,7 @@ method"). Build the fixtures.
   2026-09-14 run found 65 defects this way where the previous run's
   session-built fixtures found five.
 - **A real from-scratch install.** A scratch repository with nothing in it,
-  installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §0 against `precedent-beta-v01`
+  installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §0 against `main`
   alone — no team set, no individual set, none of the sibling clones this
   session happens to have — following the documents exactly as written,
   without leaning on what this session already knows. Then run the deep
@@ -768,7 +768,7 @@ confidently.
     forever, tracked by nothing. That was found on 2026-09-21 by asking,
     and fixed the same day.
 
-    **The answers as of 2026-09-21** — a rule about a mechanism carries its
+    **The answers as of 2026-09-21, updated 2026-09-28** — a rule about a mechanism carries its
     date ([volatile-rules-carry-dates](volatile-rules-carry-dates.md)), and
     each cell is a claim to re-verify in the code rather than to inherit:
 
@@ -776,8 +776,8 @@ confidently.
     |---|---|---|---|
     | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
     | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
-    | Hooks (`.claude/hooks/`) | **no** — a hook reaches only a repo whose `settings.json` already wires the name, which a new hook cannot be | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships rather than on what this repo wires |
-    | `settings.json` itself | no — a refresh never writes it | no | no |
+    | Hooks (`.claude/hooks/`) | **yes**, since 2026-09-25 — `HOOK_WIRING` adds the `settings.json` entry for a hook the repo's kind gets (add-only; a repo may decline it in `precedent.json`) | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships; it read the already-rewritten manifest and removed nothing until 2026-09-28, when it began reading the record from before the update |
+    | `settings.json` itself | yes, add-only hook entries, since 2026-09-25 | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
     | Vocabulary | yes — derived at render time | yes | yes |
@@ -975,17 +975,12 @@ confidently.
     the ledger row's own prose, reachable by nobody who starts from the
     adapter they actually use. Every family member with an adapter
     directory gets read this way, present tense: today that is
-    `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. The last of
-    these deliberately carries no ledger rows to check yet --
+    `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. All four
+    carry ledger rows since 2026-09-21. grok-build's hooks syntax is still
+    unverified against xAI's docs, so its rows record verdicts, not wiring:
+    read them like the others, and confirm the unverified-hooks caveat in
     [templates/harness/grok-build/README.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/grok-build/README.md)
-    says outright that it is not wired into `LEDGER.md`'s enforced
-    tracking, because the hooks syntax it would need to confirm is
-    unverified against xAI's docs, and extending enforcement on a guess
-    would be worse than leaving the gap named -- so its read is narrower
-    than the other three: confirm that disclaimer is still true (the
-    directory still isn't in `LEDGER.md`'s family line, the unverified
-    claims are still unverified) rather than comparing rows that don't
-    exist. A fifth member joins the full read the day it gets a directory
+    still holds. A fifth member joins the full read the day it gets a directory
     of its own -- there is nothing to check for one that does not exist
     yet, which is a finding this pass should say plainly rather than
     passing over in silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
@@ -1361,15 +1356,13 @@ first so this pass spends its attention on what they cannot see.
   trigger word reachable only by already knowing it is not a keyword, it is
   folklore. The usual home is a practice's `defines:` field, which lands it
   in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/staging/GLOSSARY.md) — **but a glossary entry is not the
-  property; being findable is.** "Go merge" and "Drop it" are deliberately
-  NOT in the glossary (Morgan, 2026-09-08: *"Don't put it in the
-  glossary."*); both are defined in [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md), which is
-  where a session actually reads them, and `check_park_it.py` fails if that
-  paragraph goes missing. This bullet named "Go merge" as its own example
-  until 2026-09-08, when a run followed it, found the phrase missing from
-  the glossary, and was one edit away from reversing a decision made that
-  morning — so check where a keyword IS defined before calling it
-  undefined.
+  property; being findable is.** Every standing command is listed by
+  `python3 tools/precedent_vocabulary.py` and in AGENTS.md's command list,
+  and `check_park_it.py` fails if the "Drop it" paragraph goes missing — so
+  check where a keyword IS defined before calling it undefined. (An early
+  "don't put it in the glossary", Morgan 2026-09-08, was later read
+  narrowly; park-it's Story records why, and "Drop it" and "Go update" are
+  in the glossary now.)
 - **What every session loads, and what it costs.** The rule is
   [session-load-budget](session-load-budget.md) — every always-loaded surface
   carries a declared ceiling in
@@ -2393,7 +2386,7 @@ is that somebody asked the right question before it cost anything.
 **Its first real run, the same day, found drift in all four live sets and
 also found the check too long to read.** Every set's vendored engine was an
 older upstream vendoring, and `commit-identity.sh` differed from canonical
-in every one — the drift [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)'s `source-hook-drift` item
+in every one — the drift [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)'s `source-hook-drift` item
 already tracks, confirmed here by a mechanism that knew nothing about it.
 **The defect was the output.** A set vendored at an older commit differs in
 *every* engine file at once, so one fact printed as a dozen findings: 60

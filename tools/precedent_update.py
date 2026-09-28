@@ -244,6 +244,11 @@ def retired_mentions(repo, engine_out):
     except (OSError, ValueError, AttributeError):
         tree = 'process/upstream'
     received = (tree.rstrip('/') + '/', 'practices/', 'tools/checks/')
+    # A section 0 install's vendored catalogue is received too: a mention
+    # there is upstream's to fix, never this repo's (2026-09-28).
+    rel = universal_catalogue_path(repo)
+    if rel:
+        received += (rel.rstrip('/') + '/',)
     out = []
     for line in engine_out.splitlines():
         m = _MENTION.match(line.strip())

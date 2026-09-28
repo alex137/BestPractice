@@ -455,6 +455,15 @@ ENGINE_FILES = [
     # repo receives a detector that detects nothing until a source declares
     # what it should fire on -- which is the honest default, not a gap.
     'precedent_close_detect.py',
+    # ...and the detector it imports for the one signal that needs no
+    # declaration: a person saying "from now on, always ...". The import is
+    # guarded, so until 2026-09-28 every install silently got an empty list
+    # and the pitch's "it notices and offers a rule" never fired anywhere
+    # but here (very deep check, pass 1). precedent_detect imports the other
+    # two.
+    'precedent_detect.py',
+    'precedent_promote.py',
+    'precedent_candidate.py',
     # The generator and the one-time converter for the 2026-09-16 todo/gotcha
     # migration's per-item TODO.md format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
     # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
@@ -1582,7 +1591,37 @@ def _vendorable_hook_names(dest_root, hooks_src_dir):
             if f'{HOOK_DEST_DIR}/{n}' not in claimed}
 
 
-def _write_hook_files(dest_root, hooks_src_dir):
+def _previous_manifest(dest_root, loaded):
+    """-> the engine record as it stood before this update, for the removal
+    passes: the manifest loaded from disk, merged with the one COMMITTED at
+    HEAD.
+
+    WHY THE COMMITTED ONE TOO (very deep check, 2026-09-28). A real update
+    runs twice: the consumer's OLD copy of this tool first, which vendors the
+    new one and rewrites the manifest from its own file list, leaving out
+    whatever upstream dropped; then the new copy. By the second pass the
+    manifest on disk no longer names the dropped file, so nothing removed
+    it and the message promising "the second pass cleans up" was false. An
+    update never commits, so HEAD still holds the record from before it."""
+    committed = {}
+    r = subprocess.run(['git', '-C', str(dest_root), 'show',
+                        f'HEAD:tools/{MANIFEST_NAME}'],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        try:
+            committed = json.loads(r.stdout)
+        except ValueError:
+            committed = {}
+    merged = {**committed, **loaded}
+    for key in ('files', 'hook_files'):
+        merged[key] = sorted(set(loaded.get(key) or [])
+                             | set(committed.get(key) or []))
+    for key in ('sha256', 'hooks_sha256'):
+        merged[key] = {**(committed.get(key) or {}), **(loaded.get(key) or {})}
+    return merged
+
+
+def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     """Copy every hook script in `hooks_src_dir` into
     <dest_root>/.claude/hooks/, and record them in the SAME
     ENGINE_MANIFEST.json _write_engine_files just wrote (one provenance
@@ -1657,7 +1696,7 @@ def _write_hook_files(dest_root, hooks_src_dir):
     dest_hooks = dest_root / HOOK_DEST_DIR
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
     _remove_dropped_hook_files(dest_root, manifest_path, available,
-                               hooks_src_dir)
+                               hooks_src_dir, previous=previous)
     if not names:
         # Nothing wired here to write -- but a drop sweep may still have had
         # something to do, so this return comes AFTER it, not before. When
@@ -1695,7 +1734,7 @@ def _write_hook_files(dest_root, hooks_src_dir):
 
 
 def _remove_dropped_hook_files(dest_root, manifest_path, available,
-                               hooks_src_dir):
+                               hooks_src_dir, previous=None):
     """Delete a vendored hook that upstream no longer ships. -> [names]
 
     THE GAP THIS CLOSES (found 2026-09-21 by the very deep check's own
@@ -1736,8 +1775,14 @@ def _remove_dropped_hook_files(dest_root, manifest_path, available,
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
-    previous = list(manifest.get('hook_files') or [])
-    prev_hashes = manifest.get('hooks_sha256') or {}
+    # `previous` is the record as it stood BEFORE this refresh wrote
+    # anything (see _previous_manifest). The manifest on disk cannot serve:
+    # _write_engine_files has already rewritten it without `hook_files`, so
+    # read alone it always said nothing was vendored, and nothing was ever
+    # dropped (very deep check, 2026-09-28).
+    before = previous if previous is not None else manifest
+    previous = list(before.get('hook_files') or [])
+    prev_hashes = before.get('hooks_sha256') or {}
     dropped = sorted(n for n in previous
                      if n not in available or n in RETIRED_HOOK_FILES)
     if not dropped:
@@ -1771,8 +1816,12 @@ def _remove_dropped_hook_files(dest_root, manifest_path, available,
     if removed or kept:
         # The record has to lose the names too, or the next refresh reads
         # them as dropped all over again and says so all over again.
-        manifest['hook_files'] = [n for n in previous if n not in removed]
-        manifest['hooks_sha256'] = {k: v for k, v in prev_hashes.items()
+        manifest['hook_files'] = [n for n in (manifest.get('hook_files')
+                                              or previous)
+                                  if n not in removed]
+        manifest['hooks_sha256'] = {k: v for k, v in
+                                    (manifest.get('hooks_sha256')
+                                     or prev_hashes).items()
                                     if k not in removed}
         manifest_path.write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
@@ -4296,6 +4345,23 @@ def _section_text(lines, first, end):
     return '\n'.join(ln.rstrip() for ln in lines[first:end])
 
 
+def _heading_key(key):
+    """A section heading as the matcher compares it: whitespace collapsed,
+    case folded. A consumer following universal's headline-capitalization
+    writes "## Git / Workflow" where the template has "## Git / workflow";
+    matched exactly, eight sections a real consumer has were reported MISSING
+    and its real text was never compared again (very deep check,
+    2026-09-28)."""
+    return re.sub(r'\s+', ' ', key.strip()).casefold()
+
+
+def _same_section(local, template):
+    """True when two section texts differ at most in their heading's case."""
+    a, _, rest_a = local.partition('\n')
+    b, _, rest_b = template.partition('\n')
+    return rest_a == rest_b and _heading_key(a) == _heading_key(b)
+
+
 def _template_sections(text):
     """-> {key: (line_no, raw_text)} for every trackable section of a
     template: fixed heading, first occurrence."""
@@ -4372,10 +4438,10 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     lines = local.split('\n')
     spans = collections.defaultdict(list)
     for key, first, end in _md_sections(local):
-        spans[key].append((first, end))
+        spans[_heading_key(key)].append((first, end))
     plan = []
     for key, (line_no, raw) in template.items():
-        found = spans.get(key) or []
+        found = spans.get(_heading_key(key)) or []
         if not found:
             plan.append((key, srcs[0], line_no,
                          'absent' if key in recorded else 'missing', None))
@@ -4385,11 +4451,12 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
             continue
         span = found[0]
         text = _section_text(lines, *span)
-        if text == _instantiate(raw, subs):
+        if _same_section(text, _instantiate(raw, subs)):
             action = 'current'
         elif recorded.get(key):
             action = 'refresh' if _sha_text(text) == recorded[key] else 'diverged'
-        elif any(text in (past, _instantiate(past, subs))
+        elif any(_same_section(text, past)
+                 or _same_section(text, _instantiate(past, subs))
                  for past in history.get(key) or ()):
             action = 'adopt'
         else:
@@ -4639,11 +4706,19 @@ def _apply_agents_md_plan(dest_root, templates_dir, plan, recorded):
     for key, _src, _n, action, span in sorted(
             plan, key=lambda p: p[4][0] if p[4] else -1, reverse=True):
         new = _instantiate(template[key][1], subs)
+        if span:
+            # The repo's own heading line stays: only its case can differ
+            # from the template's (see _heading_key), and that difference is
+            # the repo following headline-capitalization, not drift.
+            head, sep, body = new.partition('\n')
+            new = lines[span[0]].rstrip() + sep + body
         if action in ('refresh', 'adopt'):
             lines[span[0]:span[1]] = new.split('\n')
             rewritten.append(key)
-        if action in ('refresh', 'adopt', 'current'):
+        if action in ('refresh', 'adopt'):
             recorded[key] = _sha_text(new)
+        elif action == 'current':
+            recorded[key] = _sha_text(_section_text(lines, *span))
         elif action in ('missing', 'absent'):
             recorded[key] = None
     if rewritten:
@@ -4876,7 +4951,8 @@ def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
     if previous:
         _remove_dropped_engine_files(dest_tools, previous, kind)
     if hooks_dir is not None:
-        written += _write_hook_files(dest_tools.parent, hooks_dir)
+        written += _write_hook_files(dest_tools.parent, hooks_dir,
+                                     previous=previous)
     return written
 
 
@@ -5630,7 +5706,8 @@ def refresh(clone, force=False, ref=None):
                   f"repo's vendored engine still carries {len(set_orphaned)} "
                   f"file(s) this kind no longer includes "
                   f"({', '.join(set_orphaned)}) -- removing them.")
-            _remove_dropped_engine_files(dest_tools, manifest, kind)
+            _remove_dropped_engine_files(
+                dest_tools, _previous_manifest(ROOT, manifest), kind)
             _rewrite_manifest_file_list(dest_tools, kind)
 
         # Hook analog of set_incomplete, above -- but the "wanted" hook names
@@ -5750,6 +5827,7 @@ def refresh(clone, force=False, ref=None):
                   f"({', '.join(engine_paths_incomplete)}) -- refreshing anyway.")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
+        before = _previous_manifest(ROOT, manifest)
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
         if catalogue_repointed:
             written.append(catalogue_repointed)
@@ -5758,7 +5836,7 @@ def refresh(clone, force=False, ref=None):
         # by then the dropped name is already gone from the record and there
         # is nothing left to find it by. `manifest` is the copy loaded at the
         # top of this function, which is the one that still remembers.
-        _remove_dropped_engine_files(dest_tools, manifest, kind)
+        _remove_dropped_engine_files(dest_tools, before, kind)
         # Wire first, then vendor: _write_hook_files is still gated on what
         # settings.json wires, so the entries it needs have to be there
         # before it looks. Never the other way round -- a file written
@@ -5766,7 +5844,8 @@ def refresh(clone, force=False, ref=None):
         if _apply_hook_wiring(ROOT, kind if 'kind' in manifest else None,
                               engine_dir / 'hooks'):
             written.append(ROOT / '.claude' / 'settings.json')
-        written += _write_hook_files(ROOT, engine_dir / 'hooks')
+        written += _write_hook_files(ROOT, engine_dir / 'hooks',
+                                     previous=before)
         ci_refreshed, ci_catchup, ci_replaced = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
         written += [ROOT / rel for rel in ci_refreshed + ci_replaced]

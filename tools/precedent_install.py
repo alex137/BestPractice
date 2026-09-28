@@ -37,15 +37,14 @@ the team/individual question is a conversation with the administrator
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
-IT DOES NOT INSTALL THE GITHUB ACTIONS WORKFLOW EITHER, unless the
-individual or team source it resolves declares `"ci_workflows": "enabled"`
-in identity.json (2026-09-15, reversing the previous unconditional
-install). GitHub Actions minutes are metered per PRIVATE repository and
-billed per run, rounded up to the minute; installing the workflow into
-every dependent repo by default charges an adopter who vendors Precedent
-into many private repos for checks they never asked to run. Nothing
-declared resolves to disabled -- the tool still names the reason in its
-output and in the project's own GETTING_STARTED.md. See GITHUB_ACTIONS.md.
+IT INSTALLS TWO GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
+leak-gate.yml and light-check.yml -- one light check on a pull request into
+main, and a leak gate that never runs in a private repository. An individual
+or team source whose identity.json declares `"github_ci_workflows":
+"disabled"` switches both off (the old key `ci_workflows` is still read).
+From 2026-09-15 to 2026-09-25 nothing declared meant disabled. The tool names
+the reason in its output and in the project's own GETTING_STARTED.md. See
+documentation/GITHUB_ACTIONS.md.
 
 Exit 0 when the install completed and the lint of the written files passed;
 exit 1 when it refused (already installed, not a git repository) or a step
@@ -156,12 +155,35 @@ def _vendor_catalogue(dest):
     return sum(1 for _ in target.glob('*.md'))
 
 
+def _tool_lines(r, summary_prefix, drop=()):
+    """-> the lines of a child tool's output worth showing an adopter: its
+    own summary line (the stdout line starting `summary_prefix`, else its
+    last stdout line), then every distinct stderr line not starting with one
+    of `drop`. Until 2026-09-28 the installer showed only the last line of
+    stdout+stderr combined, so the sync's `OK` line -- the one INSTALL.md §0
+    step 6 tells the reader to confirm -- was never shown, and one warning of
+    two was."""
+    out = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    summary = next((ln for ln in out if ln.startswith(summary_prefix)),
+                   out[-1] if out else '')
+    lines = [summary] if summary else []
+    seen = set()
+    for ln in r.stderr.splitlines():
+        if not ln.strip() or ln in seen or ln.startswith(drop):
+            continue
+        seen.add(ln)
+        lines.append(ln)
+    return lines
+
+
 def _seed_engine(dest):
     r = _run([sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
               'seed', str(dest), '--kind', 'consumer'], ROOT)
     if r.returncode != 0:
         raise InstallRefused(f'the engine seed failed:\n{r.stdout}{r.stderr}')
-    return (r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else ''
+    # The hook NOTE is always true at seed time and never actionable: the
+    # harness step below writes the hooks it names.
+    return _tool_lines(r, 'SEEDED', drop=('NOTE: precedent_vendor_engine:',))
 
 
 def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force):
@@ -477,7 +499,13 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
 
 
 _PLACEHOLDER = re.compile(r'<[A-Za-z][^<>\n]{0,70}>')
-_HTML_LIKE = re.compile(r'^</?[a-z]+(\s|>|/)|^<!--|^-->')
+# An explicit tag list: a lowercase `<word ...>` is far more often a
+# template placeholder (`<name them>`, `<path>`) than markup, and treating
+# every one as a tag hid a dozen real placeholders from the report
+# (very deep check, 2026-09-28).
+_HTML_LIKE = re.compile(r'^</?(a|b|br|code|details|div|em|hr|i|img|kbd|li|ol|p|'
+                        r'pre|span|strong|sub|summary|sup|table|td|th|tr|ul)'
+                        r'(\s|>|/)|^<!--|^-->')
 
 
 def _placeholders_left(dest, names):
@@ -555,6 +583,14 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
                              f'engine is already vendored here. This is an '
                              f'UPDATE, not an install: INSTALL.md §2. Pass '
                              f'--force to reinstall over it anyway.')
+    # A team set that is not on disk makes the sync refuse AFTER everything
+    # else is written, and the engine it just seeded makes a re-run refuse
+    # as "already installed" -- so check before writing anything.
+    for name, tp in teams:
+        if not ((dest / tp).resolve() / 'practices').is_dir():
+            raise InstallRefused(f'--team {name}={tp}: no practices/ at '
+                                 f'{(dest / tp).resolve()}. Clone that set '
+                                 f'there first. Nothing was written.')
     branch, how = _base_branch(dest, base_branch)
     owner, repo = _remote_owner_repo(dest)
     owner_repo = f'{owner}/{repo}' if owner else None
@@ -567,7 +603,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
         + ('' if visibility == 'private' else ' -- private-level practices will NOT render into AGENTS.md'))
     n = _vendor_catalogue(dest)
     say(f'  vendored {n} practice(s) to {UNIVERSAL_PATH}/practices/')
-    say(f'  {_seed_engine(dest)}')
+    for line in _seed_engine(dest):
+        say(f'  {line}')
     _write_precedent_json(dest, branch, visibility, output_paths, teams, force)
     say('  wrote precedent.json')
     written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, ci_enabled, force)
@@ -585,7 +622,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
     if r.returncode != 0:
         raise InstallRefused(f'the sync failed:\n{r.stdout}{r.stderr}')
-    say(f'  {(r.stdout + r.stderr).strip().splitlines()[-1]}')
+    for line in _tool_lines(r, 'precedent_sync_views OK'):
+        say(f'  {line}')
 
     all_instantiated = list(ROOT_FILES) + list(LOCAL_PRACTICE_FILES)
     md = all_instantiated + ['README.md']

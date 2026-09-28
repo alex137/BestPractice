@@ -60,7 +60,7 @@ being checked by it.
 |---|---|---|
 | Practices with `checked_by` are enforced | [tools/precedent_check.py](../tools/precedent_check.py) — one registry entry per enforced practice | Built. `--list`, `--only SLUG`, `--paths`, `--range`, `--turn-end`, `--all`, `--strict`. |
 | The check's failure message **is** the rule | `rule_of()` reads the practice's own `## Rule` through `split_practices._read_practice_file` | Built. The same reader [tools/precedent_show.py](../tools/precedent_show.py) uses, per "one code path" — a paraphrase in the check would be a second copy of the rule with nothing holding the two together. |
-| Each converted practice has a test proving its check fires | `check_precedent_check_fires` in [tools/verify_harness.py](../tools/verify_harness.py) | Built. 53 stated cases against throwaway repositories. |
+| Each converted practice has a test proving its check fires | `check_precedent_check_fires` in [tools/verify_harness.py](../tools/verify_harness.py) | Built. At least one stated case per registered check, against throwaway repositories. |
 | A check that cannot run says so | `NotApplicable`, reported as SKIPPED | Built. See below — this is the part that had been getting silently wrong. |
 | Coverage materially above 8 of 52 | The registry | Built, and the eight it started from were re-established rather than assumed. |
 
@@ -174,10 +174,11 @@ All three were fixed at the source rather than worked around, so the
 underlying tools now report NOT APPLICABLE with the reason, and
 `precedent_check` passes that through as a skip.
 
-Three checks skip in this repository as a permanent and correct condition:
-`scrub-gate`, `practice-export-loop` and `engine-plus-host-shims` all describe
-the boundary between a vendored upstream and its host, and this repo **is**
-the upstream. Their firing tests build the vendored tree in a fixture, so the
+Checks that describe the boundary between a vendored upstream and its host
+can skip here as a permanent and correct condition, because this repo **is**
+the upstream: as of 2026-09-28 that is `engine-plus-host-shims`
+(`scrub-gate` and `practice-export-loop` skipped here when this was
+written, and run now). Their firing tests build the vendored tree in a fixture, so the
 checks are verified even though this tree cannot exercise them.
 
 ## A check can bind the repo that PUBLISHES a practice
@@ -330,8 +331,8 @@ its rule. Where it nearly is — `quick-index` asks for a table in the
 instructions file, and the check asserts one is there with rows in it, though
 not that they are the right rows — dropping the prose costs little. Where it is not, dropping the prose
 trades a preventive channel for a detective one that cannot detect the case in
-question. Four of the six resident practices now carry a check and all six stay
-resident.
+question. Four of the six resident practices carried a check when this was
+written, and all six stayed resident (2026-09-28: four of ten).
 
 ## What the routing eval says, and what it cannot
 
@@ -464,11 +465,10 @@ it. Every gate was green, because no gate can see a number in a sentence.
 - **The creation pipeline should ask for a check, not a `checked_by`.** The
   thing phase 4 found is that the field is easy to fill in and the check is
   not; a promotion step that accepts a string has re-created the problem.
-- **This channel exists only for the universal catalogue.** Both private
-  sets' practices carry `checked_by: null` with no infrastructure to change
-  that — [tools/precedent_check.py](../tools/precedent_check.py) is written
-  against this repo's own tree and cannot run against a private set from
-  here. [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md)
-  hands off what a session opened directly against one of those repos needs
-  to close the gap; phase 5's creation pipeline should not have to
-  rediscover it.
+- **This channel existed only for the universal catalogue when phase 4
+  closed**; it no longer does. Every practice set now runs
+  `precedent_check.py --full-sweep` against its own tree, and a private
+  set's check can run upstream too (the individual set's
+  `check_commit_author` and `check_buenos_aires_dates` do) — see
+  [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md) for how
+  that gap was closed.

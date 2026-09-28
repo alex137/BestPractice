@@ -85,8 +85,9 @@ clone's own generated surfaces are regenerated (build_views.py, doc_sync.py
 --write) so its deep check is green on the draft. Run this tool again with
 `--dedupe-only` once the PR has merged AND every repository consuming the
 source set has taken the new universal catalogue -- a consumer still
-vendoring the old one sees the rule in neither source, and its sync refuses
-to write until it is refreshed (INSTALL.md \u00a72 step 0, "Update Vendors").
+vendoring the old one sees the rule in neither source, and its sync prints
+IN FORCE NOWHERE and drops it (exit 0) until it is refreshed (INSTALL.md
+\u00a72 step 0, "Update Vendors").
 
 UNIVERSAL AS THE SOURCE duplicates, never deduplicates, on landing.
 `--from universal --to shared|individual` writes the destination copy
@@ -96,9 +97,10 @@ structural, not caution: universal is the one level every Precedent
 consumer resolves, and a team or individual set is not, so a universal
 practice deduplicated to point at one leaves the rule genuinely in force
 nowhere for any consumer that never declared that destination -- most of
-them. [tools/precedent_sync_views.py](precedent_sync_views.py) treats an unresolvable `in_force_at` as a
-hard failure (IN FORCE NOWHERE), not an advisory, so that state breaks a
-plain consumer's own sync, not just a reader's understanding. Confirmed by
+them. [tools/precedent_sync_views.py](precedent_sync_views.py) reports an unresolvable `in_force_at` on
+every sync (IN FORCE NOWHERE; exit 0 -- `precedent_resolve.py --strict`
+fails on it), so that state alarms every plain consumer, not just a
+reader. Confirmed by
 incident, 2026-09-23: done by hand instead of by a tool, this exact move
 passed every fast check and was only caught by \u2018verify_harness.py
 --as-ci\u2019's consumer-fixture check hours later, after both copies had
@@ -814,7 +816,8 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             f'source copy only once the pull request has merged AND every repository '
             f'consuming {from_name} has taken the new universal catalogue (INSTALL.md '
             f'\u00a72 step 0, or "Update Vendors"): a consumer that still vendors the '
-            f'old catalogue sees the rule in neither source, and its next sync refuses.')
+            f'old catalogue sees the rule in neither source, and its next sync '
+            f'prints IN FORCE NOWHERE and drops it.')
     elif duplicate_from_universal and dedupe_only:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` is now WITHDRAWN from universal -- '
             f'deduplicated in {from_name}, in force only from the {to_level} set '

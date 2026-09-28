@@ -375,6 +375,20 @@ def _credential_args(repo_dir):
         return []
 
 
+def _depth(repo_dir, n):
+    """-> ['--depth=N'] for a clone that is ALREADY shallow, else [].
+
+    Passing --depth to a FULL clone does not limit the fetch: it truncates
+    the repository into a shallow one. merge-base then still resolves, to
+    the wrong commit, and every unlanded-work count downstream is fiction --
+    116 "unlanded" commits on a branch carrying 2, measured 2026-09-28. The
+    comments here used to say a depth-limited fetch "works on a shallow and
+    a full clone alike"; it does not. Same rule as freshness-guard.sh's
+    _fetch_base."""
+    rc, out, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    return [f'--depth={n}'] if rc == 0 and out.strip() == 'true' else []
+
+
 def _run_git(repo_dir, *args):
     pre = _credential_args(repo_dir) if args and args[0] in _NETWORK_GIT else []
     try:
@@ -441,9 +455,10 @@ def freshness(repo_dir, fetch=True):
         return out
     out['branch'] = branch
     if fetch:
-        # Bounded: --unshallow is blocked by some git policy hooks, and a
-        # depth-limited fetch works on a shallow and a full clone alike.
-        rc, _, err = _run_git(repo_dir, 'fetch', '--depth=500', 'origin', branch)
+        # Bounded, on a shallow clone only (--unshallow is blocked by some
+        # git policy hooks); see _depth for why never on a full one.
+        rc, _, err = _run_git(repo_dir, 'fetch', *_depth(repo_dir, 500),
+                              'origin', branch)
         if rc != 0:
             rc, _, err = _run_git(repo_dir, 'fetch', 'origin', branch)
         if rc != 0:
@@ -464,6 +479,13 @@ def freshness(repo_dir, fetch=True):
                         f"git -C {repo_dir} fetch --depth=50 origin {branch}   "
                         f"# origin has {branch}; this clone's refspec does not "
                         f"fetch it")
+                elif _contains_origin_base(repo_dir, out):
+                    # A local-only branch that already carries everything on
+                    # origin's base branch is current in every sense this
+                    # check needs. Refusing it cost a push, and on a repo
+                    # whose workflow runs on every push, an Actions job, to
+                    # prove nothing (2026-09-28).
+                    return out
                 else:
                     out['status'] = 'branch-not-on-origin'
                     out['remedy'] = (
@@ -556,6 +578,21 @@ def freshen(repo_dir, verdict):
     # verify-postcondition: re-read the state we wanted, rather than
     # trusting that the command reported success.
     return freshness(repo_dir, fetch=False)
+
+
+def _contains_origin_base(repo_dir, out):
+    """For a branch origin does not have: True, with `out` set to 'ahead',
+    when HEAD contains origin's declared base branch (else `main`)."""
+    base = _declared_base_branch(repo_dir) or 'main'
+    _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin', base)
+    ref = f'origin/{base}'
+    if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] != 0:
+        return False
+    rc, n, _ = _run_git(repo_dir, 'rev-list', '--count', f'{ref}..HEAD')
+    out['status'] = 'ahead'
+    out['behind'] = 0
+    out['ahead'] = int(n.strip()) if rc == 0 and n.strip().isdigit() else 0
+    return True
 
 
 def report_freshness(label, verdict, out=None):
@@ -774,7 +811,14 @@ def _github_slug(repo_dir):
 # one -- and staging itself was deleted from a merge page on 2026-09-26.
 NEVER_DELETE_BRANCHES = frozenset({
     'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
-    'precedent-promote-lock'})
+    'precedent-promote-lock', 'precedent-check-receipts'})
+
+# Branches that hold machinery, never work: Promote's lock (claims and
+# releases) and the push check's receipts (precedent_push_check.RECEIPT_BRANCH,
+# an orphan history). No branch's work can land on either, and neither has a
+# merge base to measure -- so "deepen and re-check", which this check used to
+# print for the receipts branch in every repo, could never resolve it.
+INFRA_BRANCHES = ('precedent-promote-lock', 'precedent-check-receipts')
 
 
 _NEVER_DELETABLE_CACHE = {}
@@ -950,7 +994,18 @@ def _orphan_scan(repo_dir):
     if checks_dir.is_dir() and practices_dir.is_dir():
         for f in sorted(checks_dir.glob('check_*.py')):
             slug = f.stem[len('check_'):].replace('_', '-')
-            if not (practices_dir / f'{slug}.md').is_file():
+            if (practices_dir / f'{slug}.md').is_file():
+                continue
+            # A script something here still RUNS has a job, whichever
+            # source owns its practice: BestPractice's ported identity
+            # checks run from the push gate, their practices live in the
+            # individual set (a false orphan on every run until 2026-09-28).
+            runners = [r for r in (list((repo_dir / '.claude' / 'hooks')
+                                        .glob('*.sh'))
+                                   + list(tools_dir.glob('*.py')))
+                       if f.name in r.read_text(encoding='utf-8',
+                                                errors='replace')]
+            if not runners:
                 out.append(f'tools/checks/{f.name} -- no '
                            f'practices/{slug}.md in this source for it to '
                            f'check (renamed or retired practice?)')
@@ -1256,7 +1311,11 @@ def _last_run_date(repo_dir):
     it is also the only honest start date for "what has happened since"."""
     try:
         data = json.loads(ledger_path_for(repo_dir).read_text(encoding='utf-8'))
-        runs = data.get('runs') or []
+        # COMPLETED runs only (2026-09-28): a run refused at FRESHNESS in
+        # two seconds used to become "the last run", and shrank every
+        # "since the last run" section to the last few minutes.
+        runs = [r for r in (data.get('runs') or [])
+                if r.get('completed', True)]
         return str(runs[-1].get('date')) if runs else None
     except (OSError, ValueError, AttributeError, IndexError):
         return None
@@ -1485,7 +1544,7 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
                 body = (proc.stdout or '') + (proc.stderr or '')
                 why = ''
                 for line in body.splitlines():
-                    if line.startswith(('SKIPPED', 'VIOLATION')):
+                    if line.startswith(('SKIPPED', 'VIOLATION', 'ADVISORY')):
                         for sep in ('\u2014', '--'):
                             if sep in line:
                                 why = line.split(sep, 1)[1].strip()
@@ -1498,6 +1557,12 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
                     verdicts.append((slug, 'UNREADABLE', 'no summary line'))
                 elif int(m.group(2)):
                     verdicts.append((slug, 'VIOLATION', why))
+                elif int(m.group(3)):
+                    # An advisory check reports here, not in "passed";
+                    # reading only passed/skipped called it "did not run".
+                    verdicts.append((slug, 'ADVISORY', why))
+                elif int(m.group(4)):
+                    verdicts.append((slug, 'ERRORED', why))
                 elif int(m.group(1)):
                     verdicts.append((slug, 'clean', ''))
                 elif int(m.group(5)):
@@ -2133,6 +2198,25 @@ def _carry_through(repo_dir):
     manifest, why = pef.read_manifest(repo_dir)
     if manifest is None:
         return 'n/a', [why]
+    # WHAT IS COMMITTED, not what this container holds (2026-09-28). The
+    # session-start hook refreshes a source's engine in its working tree and
+    # never commits, so read from disk this said CURRENT in every session
+    # while origin never took the update -- the gap the section exists for.
+    rc, head_text, _ = _run_git(repo_dir, 'show',
+                                'HEAD:tools/ENGINE_MANIFEST.json')
+    worktree_note = None
+    if rc == 0:
+        try:
+            committed = json.loads(head_text)
+        except ValueError:
+            committed = None
+        if committed and committed.get('source_commit') \
+                and committed.get('source_commit') != manifest.get('source_commit'):
+            worktree_note = (f"working tree refreshed to "
+                             f"{str(manifest.get('source_commit'))[:12]}, NOT "
+                             f"COMMITTED -- HEAD still vendors "
+                             f"{committed['source_commit'][:12]}")
+            manifest = committed
     url = manifest.get('source_repo')
     branch = manifest.get('source_branch')
     recorded = manifest.get('source_commit')
@@ -2149,6 +2233,8 @@ def _carry_through(repo_dir):
         return 'current', [f'vendored engine matches {branch} at '
                            f'{recorded[:12]}']
     lines = [f'vendored {recorded[:12]}; upstream {branch} is at {tip[:12]}']
+    if worktree_note:
+        lines.append(worktree_note)
     result = pef.changed_files(repo_dir, url, recorded, tip,
                               manifest.get('files') or [])
     if result is None:
@@ -2166,6 +2252,25 @@ def _carry_through(repo_dir):
                      + (f' (+{len(removed) - 6} more)' if len(removed) > 6
                         else ''))
     return 'behind', lines
+
+
+def _manual_only(repo_dir, rel):
+    """True when every trigger of workflow `rel` is one a person or another
+    workflow fires by hand -- nothing a push or a clock can start. Unparseable
+    means False, so the caller keeps its FINDING."""
+    try:
+        import yaml
+        doc = yaml.safe_load((pathlib.Path(repo_dir) / rel)
+                             .read_text(encoding='utf-8'))
+    except Exception:                                            # noqa: BLE001
+        return False
+    if not isinstance(doc, dict):
+        return False
+    on = doc.get('on', doc.get(True))      # YAML 1.1 reads a bare `on` as True
+    names = ({on} if isinstance(on, str) else set(on or ())
+             if isinstance(on, (list, dict)) else set())
+    return bool(names) and names <= {'workflow_dispatch', 'workflow_call',
+                                     'repository_dispatch'}
 
 
 def _workflow_reality(repo_dir, max_workflows=25):
@@ -2287,6 +2392,10 @@ def _workflow_reality(repo_dir, max_workflows=25):
                                 f'never run. Either nothing has matched its '
                                 f'triggers yet or it is newer than the last '
                                 f'event -- read it, do not assume'))
+        elif edited_day and newest < edited_day and _manual_only(repo_dir, rel):
+            out.append(('NOTE', f'{rel}: manual triggers only, not '
+                                f'dispatched since it was last edited '
+                                f'({edited_day}) -- expected'))
         elif edited_day and newest < edited_day:
             out.append(('FINDING', f'{rel}: last run {newest}, last edited '
                                    f'{edited_day}. Every event since the '
@@ -3436,7 +3545,13 @@ def _template_freshness(sources):
     # reporting them as gaps would be a false positive in every set at once.
     # Read from the module rather than retyped: a hook added to SESSION_HOOKS
     # upstream would otherwise start reading as a template gap here.
-    NOT_SKELETON |= set(bss.SESSION_HOOKS) | {'settings.json'}
+    # Every file the GENERATOR writes, not only the three session hooks:
+    # these five were reported as template gaps on every run although
+    # bootstrap writes each one (todo-2026-09-21-template-freshness-reports-
+    # five-phantom-gaps).
+    NOT_SKELETON |= (set(bss.ALL_SESSION_HOOKS)
+                     | {'settings.json', 'CLAUDE.md', 'precedent.json',
+                        'precedent-source.json'})
     # WHICH DIRECTORIES COUNT. Root files plus the two directories bootstrap
     # itself writes into -- those are the set's SHAPE. `practices/` and
     # anything else is the set's own content, where a name every set happens
@@ -4175,10 +4290,10 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     # `git merge-base` is the honest witness: on the same fixture it exits
     # 1 where cherry exits 0 (AGENTS.md records that exit-1 separately, as
     # something NOT to read as a rewritten branch -- here it is the signal).
-    # Deepen once before giving up: the answer is usually reachable, and a
-    # bounded fetch works on a shallow and a full clone alike.
+    # Deepen once before giving up: the answer is usually reachable. A full
+    # clone is fetched plainly -- see _depth.
     if not _merge_base_resolves(repo_dir, target_ref, ref):
-        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin')
     resolves = _merge_base_resolves(repo_dir, target_ref, ref)
     # `rev-list --count target..ref` moved here, gated on the SAME
     # precondition as `cherry` (practice: very-deep-check). On a shallow
@@ -4261,7 +4376,8 @@ def _fetch_all_heads(repo_dir):
     # `have - server` never having been computed here is why nothing caught
     # it. `--prune` deletes only local tracking refs; it touches nothing on
     # the remote.
-    rc, _, _ = _run_git(repo_dir, 'fetch', '--prune', '--depth=50', 'origin')
+    rc, _, _ = _run_git(repo_dir, 'fetch', '--prune', *_depth(repo_dir, 50),
+                        'origin')
     if rc != 0:
         _run_git(repo_dir, 'fetch', '--prune', 'origin')
     # ls-remote asks the SERVER and ignores local refs entirely, so it is the
@@ -4359,7 +4475,7 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # The lock branch holds claims, never work, so it is nowhere a branch's
     # work can have landed.
     others = [b for b in sorted(protected)
-              if b != target and b != 'precedent-promote-lock'
+              if b != target and b not in INFRA_BRANCHES
               and _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
                            f'origin/{b}')[0] == 0]
     merged, elsewhere, unmerged = [], [], []
@@ -4466,7 +4582,8 @@ def recent_activity(repo_dir, days):
     # its commits are claims and releases, never work, so neither they nor
     # the branch are listed here.
     rc, log, _ = _run_git(repo_dir, 'log',
-                          '--exclude=refs/remotes/origin/precedent-promote-lock',
+                          *(f'--exclude=refs/remotes/origin/{b}'
+                            for b in INFRA_BRANCHES),
                           '--remotes=origin',
                           f'--since={since}', '--date-order',
                           '--format=%h%x00%cs%x00%an%x00%s')
@@ -4495,7 +4612,7 @@ def recent_activity(repo_dir, days):
             if '/' not in parts[0]:
                 continue
             name = parts[0].split('/', 1)[1]
-            if name in ('HEAD', 'precedent-promote-lock'):
+            if name == 'HEAD' or name in INFRA_BRANCHES:
                 continue
             out['branches'].append({'name': name, 'last': parts[1],
                                     'author': parts[2]})
@@ -4734,7 +4851,7 @@ def tier_pairs(repo_dir, target=None):
         if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
                     f'origin/{b}')[0] == 0:
             return True
-        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin', b)
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin', b)
         return _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
                         f'origin/{b}')[0] == 0
 
@@ -4799,7 +4916,7 @@ def base_branch_drift(repo_dir, target=None, base=None, limit=25):
     for ref in (base_ref, target_ref):
         rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
         if rc != 0:
-            _run_git(repo_dir, 'fetch', '--depth=5000', 'origin',
+            _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin',
                      ref.split('/', 1)[1])
         rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
         if rc != 0:
@@ -4814,7 +4931,7 @@ def base_branch_drift(repo_dir, target=None, base=None, limit=25):
     # commit `+`, which here would invent a base branch's whole history as
     # undelivered drift. Deepen once, then refuse rather than guess.
     if not _merge_base_resolves(repo_dir, target_ref, base_ref):
-        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin')
     if not _merge_base_resolves(repo_dir, target_ref, base_ref):
         out['note'] = (f'no merge base between {target_ref} and {base_ref} '
                        f'resolves in this clone, so the patch comparison '
@@ -8543,7 +8660,13 @@ def _main(box):
             led.start('REPOSITORY VISIBILITY')
         print()
         print("REPOSITORY VISIBILITY -- private names in a public tree\n")
-        _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
+        # The push gate's own resolution (env, else the individual source's
+        # list), never a second, weaker copy of it: reading only the env
+        # variable reported a name the individual list allows on purpose.
+        try:
+            _bl = str(leak_gate.resolve_blocklist_path()[0] or '') or None
+        except Exception:                                        # noqa: BLE001
+            _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
         _vf, _vn = repo_visibility_audit(repo_root, _bl)
         for f in _vf:
             print(f'  FINDING: {f}')

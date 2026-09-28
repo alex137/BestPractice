@@ -322,6 +322,17 @@ GUARDS = {'precedent_check': _guard_precedent_check,
           'build_views': _guard_build_views}
 
 
+# A STAND-DOWN IS NOT A PASS, and says so. These tools exit 0 when they had
+# nothing to inspect -- correctly, since failing would punish a state the
+# repo chose -- but the line printed here used to read "passed" regardless,
+# and the receipt recorded the same (very deep check, 2026-09-28). The
+# marker is the tool's own wording; the note replaces "passed".
+STAND_DOWNS = {'leak_gate': ('NOT APPLICABLE', 'stood down -- it inspected '
+                             'nothing (a private repository)'),
+               'doc_lint': ('NOTHING IS BEING GATED', 'stood down -- no '
+                            'Markdown file was in scope')}
+
+
 def git(root, *args):
     p = subprocess.run(['git', '-C', str(root), *args],
                        capture_output=True, text=True)
@@ -407,8 +418,16 @@ def already_passed(root, checks, also=()):
 
 
 def _shared_off(root):
-    return (os.environ.get('PRECEDENT_NO_SHARED_PASS') == '1'
-            or not git(root, 'remote', 'get-url', 'origin'))
+    if (os.environ.get('PRECEDENT_NO_SHARED_PASS') == '1'
+            or not git(root, 'remote', 'get-url', 'origin')):
+        return True
+    # AN EMPTY ORIGIN GETS NO RECEIPT BRANCH (2026-09-28). The first branch
+    # pushed to an empty GitHub repository becomes its default branch, and
+    # on a fresh install the push gate runs before the first `git push` --
+    # so the receipt branch would be the repository's first, and default,
+    # branch. Unreachable is not empty: only a clean, empty answer counts.
+    r = _git_env(root, ['ls-remote', '--heads', 'origin'], 15)
+    return r is not None and r.returncode == 0 and not r.stdout.strip()
 
 
 def _git_env(root, args, timeout, env=None):
@@ -932,6 +951,10 @@ def run(root, checks, landed=None, reported=None):
                   flush=True)
             continue
         if p.returncode == 0:
+            marker, note = STAND_DOWNS.get(name, (None, None))
+            if marker and marker in p.stdout + p.stderr:
+                print(f'      {note} ({took:.0f}s)', flush=True)
+                continue
             print(f'      passed in {took:.0f}s', flush=True)
             continue
         if (p.returncode == 2 and name in SKIP_IS_FINE_WITHOUT_IDENTITY

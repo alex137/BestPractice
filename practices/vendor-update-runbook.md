@@ -256,8 +256,9 @@ says so, both from the vendored tree under `process/upstream/`.
    normally from then on.
    **Since 2026-09-27, in a consuming repo, none of that caution applies,
    and nothing is asked.** A consumer's CI converges to upstream: the
-   refresh writes `leak-gate.yml` and `light-check.yml` from the current
-   templates over whatever is there, tracked or not, hand-edited or not, and
+   refresh rewrites whichever of `leak-gate.yml` and `light-check.yml` is
+   installed to the current template, tracked or not, hand-edited or not
+   (an absent one stays absent), and
    removes every other workflow upstream does not ship, unless the person
    approved it in their own words in `github_ci_approved`. A declaration
    under `local_ci_workflows` no longer keeps one in a consumer. **Nothing
@@ -329,7 +330,7 @@ says so, both from the vendored tree under `process/upstream/`.
    on 2026-09-19 — and confirmed the same day that most consumers had
    never run it, three or more days after it arrived. If `TODO.md` is
    still the old single-file format (no `todo/` directory, no `# TODO has
-   moved` stub heading), run `python3 tools/todo_migrate.py --apply` then
+   moved` stub heading), run `python3 tools/todo_migrate.py --source todo.md --apply` then
    `python3 tools/build_todo_index.py` as part of this refresh, not as a
    follow-up. Step 6's full check also catches this —
    [todo-migrate-available-but-unused](todo-migrate-available-but-unused.md)

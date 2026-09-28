@@ -108,8 +108,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **`python3 tools/leak_gate.py` reports a wall of undeclared-repo hits against a tree that is actually fine, all naming things the session never touched. The gate's own printed remedy -- `git -C <root> pull --ff-only` -- can itself fail with no further guidance.** [story](gotcha-2026-09-20-leak-gates-private-blocklist-clone-fails-open-stale.md)
 
-- **In a multi-repo session rooted under `/home/user` (rather than a single set), `themorgan/precedent-individual`'s own `precedent.json` names its shared sources as `../precedent-shared-*`, but the sibling clones actually on disk are named `precedent-team-*`, and `PRECEDENT_FRESHNESS_ALSO` names the old paths too.** [story](gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets.md)
-
 - **tools/verify_harness.py passes locally with `0 failed`, and the deep-check CI job fails anyway — with a traceback instead of a verdict, before a single `PASS:` line is printed.** [story](gotcha-2026-09-21-a-green-local-verify-harness-run-does-not-mean-green-ci.md)
 
 - **A session is asked whether GitHub Actions is actually **enabled** on a repository — during an install audit, or when a workflow that should be running is not. The obvious answer is `GET /repos/{owner}/{repo}/actions/permissions`, and **there is no way to call it from inside a session.**** [story](gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)

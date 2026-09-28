@@ -27,7 +27,9 @@ nothing to choose here — this page installs §0, always.
 2. **Ask exactly five questions** — the canonical list, in
    [spec/INSTALL_QUESTIONS.md](spec/INSTALL_QUESTIONS.md) — together in one
    message, and wait:
-   - *What is this project about?* (one or two sentences)
+   - *What is this project about?* (one or two sentences) — and: fill in
+     `MAP.md`'s deliverables and `AGENTS.md`'s quick index now, or leave
+     placeholders? (Default: placeholders, filled in a later conversation.)
    - *Are there private names or code words that must never appear in
      anything public?* Explain why in one sentence: parts of the practice
      layer can flow back to a public repository, and this list is the
@@ -39,33 +41,34 @@ nothing to choose here — this page installs §0, always.
      facts, can each live in their own repo and be wired in too. Most
      projects have neither yet — that's a complete answer on its own — but
      it costs nothing to offer setting one up in the same conversation, so
-     ask rather than assume no.
+     ask rather than assume no. Mention the two public sets anyone can
+     declare: [precedent-shared-writing](https://github.com/themorgan/precedent-shared-writing)
+     and [precedent-shared-working-style](https://github.com/themorgan/precedent-shared-working-style);
+     a documents project usually wants both, and without working-style two
+     rules withdrawn from the universal set are in force nowhere.
    - *Which AI Assistant will actually be working in this repo* — Claude
      Code, ChatGPT connected to GitHub, or something else? Explain in one
      sentence: an AI Assistant with no access to a terminal needs
      GitHub's own automated checks for things one with terminal access
      does not.
    - *Should the vendored GitHub Actions workflow be on or off?* **Default
-     depends on the answer just above.** If the AI Assistant has no
-     terminal access (ChatGPT, or anything else with no local shell), default
-     **enabled** — GitHub Actions is not a cost optimization for that
-     case, it is the only place any check can run at all, and defaulting
-     it off silently leaves that repo with zero enforcement regardless of
-     what a session recommends. Otherwise (Claude Code, Codex, Gemini
-     CLI — anything with its own bootstrap and hooks), default
-     **disabled** — GitHub Actions minutes are metered per private
-     repository, and local enforcement already covers it. Either way, say
-     the default out loud and let them override it. If they want it on
-     and answered "no" to the third question, say plainly that it stays
-     off until a source declares `"github_ci_workflows": "enabled"`
-     ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md)),
-     since there is nowhere else this install can
-     record the preference. **What "declares" means, concretely**: this is
+     on, since 2026-09-25**: one light check that runs only on a pull
+     request into `main` (about one billed minute per merge into `main`),
+     plus a leak gate that runs only in a public repository. For an AI
+     Assistant with no terminal access (ChatGPT, or anything else with no
+     local shell) it is the only place any check can run at all, so say
+     so. Say the default out loud and let them override it. If they want
+     it off, it takes `"github_ci_workflows": "disabled"` in an individual
+     or team source's `identity.json`
+     ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md));
+     if they answered "no" to the third question there is nowhere this
+     install can record that yet, so say plainly that it stays on until a
+     source declares it. **What "declares" means, concretely**: this is
      a standing field in `identity.json` — the person's individual (or
      team) source, never `precedent.json` — so activating it is either
      something you do right now, if this session can reach that source,
-     or something the person has to get done in a session that can (Session
-     Text, if this one isn't it). Either way it is a standing preference
+     or something the person has to get done in a session that can (Prompt
+     Please, if this one isn't it). Either way it is a standing preference
      for every repo that resolves through that identity, not a
      this-repo-only switch, and it takes effect for a given dependent repo
      only the next time that repo installs, migrates, or takes an Update
@@ -73,9 +76,11 @@ nothing to choose here — this page installs §0, always.
      whole fleet at once.
 3. **Install without further questions.** Clone the public repo
    `https://github.com/alex137/BestPractice` beside the project (a sibling
-   directory, not inside it) **on its `staging` branch** — the
-   branch this file lives on; `main` took the same tree on 2026-09-14 but
-   everything after that lands here first — and run, from that clone:
+   directory, not inside it) **on its `main` branch** — every install
+   takes its updates from `main` (`SOURCE_BRANCH` in
+   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py),
+   since 2026-09-25), so installing from any other branch makes the first
+   session report the engine as behind — and run, from that clone:
 
    ```
    python3 tools/precedent_install.py <path to the project> \
@@ -94,13 +99,18 @@ nothing to choose here — this page installs §0, always.
    and the pull-request template, runs the sync, lints what it wrote, and
    then prints **the placeholders it left** — each is a `<…>` in a file it
    names, to be filled with the project's own subject matter from their
-   first answer (the README opening and `MAP.md`'s deliverables first; a
-   `GLOSSARY.md` row can be deleted rather than invented). The project
+   first answer where they asked for that now, else left as placeholders
+   (a `GLOSSARY.md` row can be deleted rather than invented). The project
    comes first ([lead-with-what-it-is](practices/lead-with-what-it-is.md)):
    the README opens with what the project *is*, and the entry block sits
    under that. Their second answer goes into the leak blocklist the
    per-machine page describes — it protects what leaves the project, and
-   the loader install has no `process/scrub_blocklist.txt`.
+   the loader install has no `process/scrub_blocklist.txt`. That list
+   needs a private home: their individual set's `leak-blocklist.txt`. If
+   they have none, this is a reason to set one up now (third question);
+   never write the words into the project itself. In a private repository
+   the leak gate stands down, so say the list only matters for what goes
+   back upstream, or if the repository is ever made public.
    If they answered yes to the third question, follow INSTALL.md §1 step 9
    for what to actually do with a team or individual repo (a team source
    goes in a new `precedent.json`; an individual source is never touched
@@ -121,8 +131,8 @@ nothing to choose here — this page installs §0, always.
    Respect the root-hygiene rule (INSTALL.md §0 step 7): nothing from
    Precedent lands loose at the repo root except the instantiated files,
    `precedent.json`, and the sync's own `practices/` and `MANIFEST.json`.
-   Then `python3 tools/precedent_check.py` from the project — it must say
-   `0 violated` — and commit everything on a branch. If the repository has
+   Then `python3 tools/precedent_check.py --full-sweep` from the project
+   (the bare command runs only a slice) — it must say `0 violated` — and commit everything on a branch. If the repository has
    no `origin` yet, it needs one before the first working session: the
    freshness guard refuses a session's first write while it cannot reach
    one.
@@ -143,8 +153,9 @@ nothing to choose here — this page installs §0, always.
 5. **Merge for them or with them.** If you can merge, ask "Shall I make
    this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
-6. **Verify the automatic checks.** After merge, confirm the Actions
-   workflow ran. If the repository or organization has Actions disabled,
+6. **Verify the automatic checks, while Actions is on.** On the pull
+   request into `main`, confirm `light-check` appears and passes; in a
+   private repository nothing runs after the merge, by design. If the repository or organization has Actions disabled,
    give the administrator the exact clicks (repository **Settings →
    Actions**, or the **Actions** tab's enable button) and confirm the
    check appears afterward. Never leave this step silently unfinished —
@@ -159,20 +170,19 @@ nothing to choose here — this page installs §0, always.
    1. **If the project's repository is being created now, make it
       private** unless it is meant to be public — that choice is made at
       creation time and is easy to walk past.
-   2. **Make a developer key and store it in the project.** In GitHub,
-      create a personal access token that can reach this repository, then
-      save it under **Settings → Secrets and variables → Actions → New
-      repository secret**, named `PRECEDENT_REPO_TOKEN` unless something
-      already expects another name. Without a key of its own, an AI
-      Assistant working here can read and prepare changes but cannot
-      push them or open a proposal on the project's behalf.
+   2. **Only if they later add automation that opens pull requests: a
+      developer key.** No shipped check needs one
+      ([documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md)).
+      If they do, create a personal access token that can reach this
+      repository and save it under **Settings → Secrets and variables →
+      Actions → New repository secret**. Say that it is not needed today.
    3. **Check the main line of work is called `main`** — **Settings →
       General → Default branch**, renaming it there if it is called
       anything else. The automatic check installed above watches a branch
       by that exact name.
-   4. **Let the automation open proposals** — **Settings → Actions →
-      General → Workflow permissions**, ticking *Allow GitHub Actions to
-      create and approve pull requests*.
+   4. **Only with the automation in item 2: let it open proposals** —
+      **Settings → Actions → General → Workflow permissions**, ticking
+      *Allow GitHub Actions to create and approve pull requests*.
    5. **Optional: turn GitHub Actions off, if this project needs no
       automatic checks on GitHub** — **Settings → Actions → General →
       Actions permissions → Disable actions** (as of 2026-09-26). In a
@@ -239,7 +249,7 @@ where the decision is genuinely theirs rather than yours; everything not on
 it runs inside your ordinary work. The section references are to
 [INSTALL.md](INSTALL.md), which you are following and they are not.
 
-- **At install (§0).** They answer the three questions in step 2 — what
+- **At install (§0).** They answer the five questions in step 2 — what
   the project is about, what private names or code words must never go
   public, and whether a team or personal practices repo exists or should be
   set up now (§1 step 9; most projects have neither yet, and saying so is a
@@ -261,7 +271,7 @@ it runs inside your ordinary work. The section references are to
   touches, never by who they are — the documents are any contributor's,
   the project's settings and checks wait for its maintainer, and a new
   rule is landed only by a listed approver. Drawing that line is
-  [INSTALL.md §0 step 10](INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
+  [INSTALL.md §0 step 10](INSTALL.md#0-installing-directly-onto-the-precedent-loader),
   a decision about people made after the install, not part of this
   conversation: say once that it exists and that the branch-protection
   clicks are theirs to make.

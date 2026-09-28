@@ -1311,7 +1311,10 @@ def _write_session_load_budget(dest):
     dest = pathlib.Path(dest)
     today = precedent_time.today(dest)
     surfaces = {}
-    for rel in ('AGENTS.md', 'CLAUDE.md'):
+    # .precedent/SESSION_PRACTICES.md too: bootstrap has already rendered
+    # it and wired its hook, and --verify refuses a registry without it, so
+    # leaving it out made every new set fail its own check (2026-09-28).
+    for rel in ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md'):
         f = dest / rel
         if not f.is_file():
             continue

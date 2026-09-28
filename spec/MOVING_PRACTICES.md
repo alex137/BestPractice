@@ -82,9 +82,9 @@ source stays active. Commit that on a branch and open the pull request.
 AND every repository consuming the source set has taken the new universal
 catalogue** ([INSTALL.md](../INSTALL.md) §2 step 0, or `Update Vendors`):
 a consumer still vendoring the old catalogue sees the rule in neither
-source, and its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) refuses to write until it is
-refreshed. That refusal is correct and is what you will see if you
-deduplicate early.
+source: its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) prints `IN FORCE NOWHERE` and
+**removes the rule, exit 0**, so deduplicating early silently drops it
+there until that consumer takes the new catalogue.
 
 **With `--from universal` the tool now runs, added 2026-09-23** — this
 was the one direction it refused outright until this incident showed why
@@ -95,10 +95,10 @@ destination. This is not caution for its own sake — it is the only
 correct behavior, given what a deduplicated pointer means to
 [`precedent_sync_views.py`](../tools/precedent_sync_views.py). A team or
 individual destination is not resolvable by a plain, universal-only
-consumer, which is most of them; that tool treats an `in_force_at` that
-does not resolve as a hard failure (`IN FORCE NOWHERE`), not an advisory,
-so deduplicating the universal copy at this point would break that
-consumer's own sync, not just mislead a reader.
+consumer, which is most of them; that tool reports an `in_force_at` that
+does not resolve as `IN FORCE NOWHERE` and drops the rule -- a warning, not
+a refusal -- so deduplicating the universal copy at this point would lose
+the rule in that consumer, not just mislead a reader.
 Both copies are genuinely in force at once, on purpose, until a human
 decides otherwise.
 

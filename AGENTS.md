@@ -9,7 +9,8 @@
 targets your landing branch, never `main`** -- `pre-staging` for a person
 whose landing branch is pre-staging, `staging` otherwise
 (`python3 tools/precedent_branches.py --landing` says which). Work reaches
-`staging`, and then `main`, only by a Promote. **No merge needs Alex's
+`main` only by a Promote (and reaches `staging` that way too, for anyone who
+lands on `pre-staging`). **No merge needs Alex's
 sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
 deep check passes, a session may merge a PR into the landing branch. A
 general "PR and merge it" authorization, with no branch named, means the
@@ -33,17 +34,9 @@ convinced he was) and the reading is a genuine judgment call rather than a
 clean one, that is said out loud and confirmed rather than guessed —
 [go-update](practices/go-update.md) and [weak-yes](practices/weak-yes.md)
 spell out exactly how, below. A few — a full practice audit, a very deep
-check, the fleet sweep — are the deliberate exception, kept to the literal
+check, the fleet sweep (`Chief of Staff`) — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
-
-**A command means what its practice says today, and you do it**
-([current-rule-governs](practices/current-rule-governs.md)). Superseded or
-deduplicated copies, `## Story` sections, old deferrals and past decisions
-are history: read them to investigate or to back a proposal to reconsider,
-never to decide whether to carry out what was asked. Do it first and
-propose after. A command you are not carrying out is said in the reply's
-first line, with the reason.
 
 - **"Go update"** and **"Approved"** ([go-update](practices/go-update.md)) —
   classify first: a direct push, straight to the shared branch, no PR, is now
@@ -164,8 +157,9 @@ first line, with the reason.
   ([spec/ONE_COMMAND_UPDATE_PLAN.md](spec/ONE_COMMAND_UPDATE_PLAN.md)).
 
 The three dispositions an open item can carry are
-[open-item-disposition](practices/open-item-disposition.md)'s; its one line is
-in the occasion index below.
+[open-item-disposition](practices/open-item-disposition.md)'s; it reaches a
+session through `precedent_paths.py` on any todo file and through the `reply`
+gate.
 
 **Most weak agreement never uses the phrase**, which is why `Weak yes` is only
 half of it. The other half is
@@ -175,20 +169,12 @@ never "you decided this."** A session may write `decided` only if it can quote
 the person choosing it; a bare "ok" to the session's own proposal is
 `assented`, written that way without asking.
 
-**What a merge authorization's ABSENCE means was an open question from
-2026-09-07 to 2026-09-16.** Morgan, 2026-09-07, ruled out "use judgment" as
-the content of the hard rule he wanted eventually, and asked not to be
-asked again while he found one — recorded in
+**An authorization to merge, in whatever words it arrives, means the
+landing branch** per the paragraph above, and is not done until a fetch
+confirms the pushed content is actually there
+([verify-postcondition](practices/verify-postcondition.md)). How a merge
+authorization's absence was settled (2026-09-07 to 2026-09-16) is in
 [todo/todo-2026-09-07-push-without-the-keyword.md](todo/todo-2026-09-07-push-without-the-keyword.md).
-**He gave it 2026-09-16**, in the same conversation that moved this whole
-section from phrase-matching to intent: read the message for what it is
-asking, and where reading it is a genuine judgment call rather than a clean
-one, say the read out loud and confirm before the shared-branch steps run,
-rather than either guessing silently or holding silently. `Go update` and
-`Weak yes` above spell out what that looks like for each. An authorization
-to merge, in whatever words it arrives, means `staging` per the
-paragraph above, and is not done until a fetch confirms the pushed content
-is actually there ([verify-postcondition](practices/verify-postcondition.md)).
 
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
@@ -231,8 +217,8 @@ identity, so on a session that could not reach the individual source `--apply`
 re-runs the hook, the hook declines again, and the row stays red however many
 times you try. A session rooted one directory ABOVE this repo runs NONE of its
 hooks, silently, including the one that writes
-`.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
-does not run its SessionStart hooks either" below. **This is not a
+`.precedent/SESSION_PRACTICES.md` — see
+[gotcha-2026-09-13](gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md). **This is not a
 primary-repo-only problem**: when the session root sits above *every*
 attached repo and none of them is `$CLAUDE_PROJECT_DIR` — the ordinary shape
 of a multi-source session, since a team source resolves as a sibling clone —
@@ -254,19 +240,12 @@ proven inert. Here
 [tools/precedent_resolve.py](tools/precedent_resolve.py)'s mid-turn self-heal
 is the only thing that runs it.
 
-**This repo is becoming Precedent, a restructuring of BestPractice — read
-[spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) first, in full, before
-touching anything else here.** It is the approved plan of record; its "For
-the Session Implementing This" section says how to work from it (phase by
-phase, in order — do not read the whole plan trying to hold it all in
-context at once; work from the phase you are on).
-[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) documents the phase-1
-practice-file format this repo's `practices/*.md` files are written in,
-including where the actual conversion had to make a call the plan's own
-illustrative example left open. [spec/LOADER.md](spec/LOADER.md) documents
-phase 2's loader: what got built, the resident-set curation and why, and
-what the behavioral-replay measurement does and does not prove about the
-plan's premise.
+**This repo is Precedent**, restructured from BestPractice by the plan of
+record [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) (phases
+0-7, merged into `main` 2026-09-14) — read it to learn why a mechanism
+exists, not before every task.
+[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) documents the
+practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- BEGIN GENERATED: precedent-loader -->
 
@@ -463,7 +442,7 @@ When naming or scoping something around a person's skill level:
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — PRs target pre-staging or staging, never main; main moves by a Promote
+  merge-target-is-beta-branch — PRs target pre-staging or staging; main moves only by a Promote or when the person names main
 When printing a number compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a sortable multi-column table:
@@ -514,15 +493,10 @@ Before starting work of a kind named in the occasion index above, run `python3 t
 
 <!-- END GENERATED -->
 
-The rest of this file (below) is BestPractice's own pre-fork orientation —
-still accurate for [`INSTALL.md`](INSTALL.md) and the rest of the
-inherited tree, which the plan has not restructured yet. It will be rewritten
-in place as later phases land (the plan's own generated-views work, phase 2)
-rather than kept as a second, drifting copy.
-
 ---
 
-**Orientation: read [README.md](README.md) first.** This repo is
+**Orientation: read [MAP.md](MAP.md) first**; [README.md](README.md) is
+the pitch for people. This repo is
 BestPractice itself — the upstream practice layer that dependent repos
 vendor. Practices you follow here are the ones this repo teaches; a session
 that skips them in this repo of all places is the joke writing itself.
@@ -535,7 +509,7 @@ before searching the repo, and add new rows there rather than here.
 
 | Looking for… | Go to |
 |---|---|
-| The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
+| The plan Precedent was built from (phases 0-7) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
 | Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
@@ -545,7 +519,7 @@ before searching the repo, and add new rows there rather than here.
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
-| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by CI. |
+| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by the deep check. |
 | The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 
@@ -582,9 +556,10 @@ place — nothing is ever deleted, and nothing moves.
   table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
-- **Default branch is `main`; work on a feature branch; PRs are the norm**
-  here (this repo is public and is the shared upstream).
-- **Most changes arrive as check-in PRs from dependent repos** (INSTALL.md
+- **Work lands on your landing branch, never `main`** (the opening
+  paragraph; `python3 tools/precedent_branches.py --landing`). `Go update`
+  decides whether that is a direct push or a pull request.
+- **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
   §4). Reviewing one, you are the **second scrub line**: the contributing
   repo's blocklist caught its known private vocabulary; you catch what it
   didn't know yet. A name, number, or incident detail that reads
@@ -595,7 +570,7 @@ place — nothing is ever deleted, and nothing moves.
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
 - **A pull request touching [`TODO.md`](TODO.md) after the 2026-09-16 todo/gotcha
-  migration is refused by CI** (`precedent_check.py --only
+  migration is refused by the deep check** (`precedent_check.py --only
   todo-gotcha-stale-reference`). File the item under `todo/` instead
   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
 - **Before committing:** `python3 tools/doc_lint.py` on markdown you
@@ -644,8 +619,9 @@ place — nothing is ever deleted, and nothing moves.
 
 ## Conventions (every session, every reply)
 
-The loader carries three more in full — `doc-references-are-links` and
-`volatile-rules-carry-dates` in the occasion index above, and
+The loader carries three more in full — `doc-references-are-links` through
+`precedent_paths.py` on any Markdown file, `volatile-rules-carry-dates` in
+the occasion index above, and
 `reply-links-files` through the `reply` gate
 ([tools/precedent_gate.py](tools/precedent_gate.py)) since it was demoted out
 of the resident block on 2026-09-21 — so they are not repeated here.

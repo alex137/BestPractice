@@ -154,7 +154,7 @@ widening what sessions may run
      read from the repo rather than assumed. Omitting `visibility` counts as
      public, and a private repo that omits it silently loses its team and
      individual practices from the materialized tree
-     ([INSTALL.md §0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+     ([INSTALL.md §0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
      has both keys).
    - `level: "universal"` pointing at `process/upstream` — **stays a real
      vendored copy**, not a live path reference, even though Precedent's
@@ -302,8 +302,9 @@ widening what sessions may run
    listed.** For commits already published, rewriting history costs more
    than the wrong value does
    ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md)),
-   so exempt them: each one an entry in `identity.json`'s
-   `grandfathered_commit_shas`, with a `sha` and a **note saying why**. Do
+   so exempt them: each one an entry in the migrating repo's
+   `precedent.json` `grandfathered_commit_shas` (an individual or shared
+   source uses its own `identity.json`; a consumer must not carry one), with a `sha` and a **note saying why**. Do
    this deliberately at migration time and the list stays short and
    explicable; leave it and every later session meets a check that has
    never once been green, which is the state people learn to ignore.
@@ -314,9 +315,11 @@ widening what sessions may run
    the harness needs it.** For a Claude Code Web session specifically, this
    is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) —
    instantiate it with
-   `python3 tools/precedent_bootstrap_source.py --level individual
-   --name <the set's name> --dest <local clone path>
-   --write-session-hook <target repo path> --repo-url <the set's git URL>`
+   `python3 ../BestPractice/tools/precedent_bootstrap_source.py --level
+   individual --name <the set's name> --write-session-hook <target repo
+   path> [--repo-url <the set's git URL>; omit in a public repo]` -- the
+   hook-only form, which creates and touches no set (with `--dest` it is
+   create mode, and refuses a set that already exists)
    (see [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), which writes
    the target repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh`
    for you. Then wire it yourself — the tool writes the hook and nothing
@@ -554,10 +557,6 @@ widening what sessions may run
    `process/PRECEDENT_MIGRATION.md` is **yours to write** — a short record
    of what this migration moved where, which pack section became which
    practice — and it is the one file where the old names may stay in full.
-   ```json
-   {
-   }
-   ```
    — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
@@ -640,8 +639,8 @@ widening what sessions may run
    |---|---|
    | `bestpractice-upstream-sync.yml` | **Retired** (2026-09-24, above). The refresh deletes a copy with the old shape automatically; anything else it lists for the session. |
    | `bestpractice-docs.yml` | **Retired** (2026-09-21 — [tools/doc_lint.py](../tools/doc_lint.py) already gates every commit). The refresh deletes a copy that only runs that linter, hand-paused or not, tracked or not. |
-   | `views-drift.yml` | **Retired** (2026-09-19, folded into `precedent-check.yml`). Deleted by the refresh when paused and stock-shaped; a live copy is listed, to be paused first. |
-   | `practice-links-travel.yml` | Superseded once `precedent-check.yml` is installed and green — its check now runs as one case inside that whole-suite job (`practice-links-travel` in `tools/precedent_check.py`'s registry). Confirm the suite run covers it, then delete the standalone file. The refresh lists it; it never deletes it. |
+   | `views-drift.yml` | **Retired** (2026-09-19). Its check runs in the local push check as `generated-artifact-provenance` in `tools/precedent_check.py`. Deleted by the refresh when paused and stock-shaped; a live copy is listed, to be paused first. |
+   | `practice-links-travel.yml` | **Retired.** Its check runs in the local push check as `practice-links-travel`; since 2026-09-27 a consumer's CI converges to upstream, so the refresh removes this copy. |
    | `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. The refresh lists each one it finds. |
    | `light-check.yml` | **Not a leftover.** It is a current template ([templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template), added 2026-09-21) and a live check in most installs, sometimes running the repo's own `tools/light_check.py`. Nothing deletes it. Until 2026-09-24 this table listed it with the "never a Precedent template" row, which stopped being true the day the template landed. |
 
@@ -745,7 +744,7 @@ widening what sessions may run
    fresh container and the loader block reads as drifted
    ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); create `process/scrub_blocklist.txt`
    if the manifest names one (`scrub-gate`); and, since 2026-09-19, run
-   `python3 tools/todo_migrate.py --apply` then `python3
+   `python3 tools/todo_migrate.py --source todo.md --apply` then `python3
    tools/build_todo_index.py` if `TODO.md` is still the old single-file
    format — no `todo/` directory, no `# TODO has moved` stub heading — now
    that the migration is vendored into every migrated repo, not only

@@ -1258,8 +1258,8 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
                              if lvl == 'individual')
         if _individual:
             lines.append(
-                f"**{len(_individual)} of these practices came from an "
-                f"INDIVIDUAL source**, which resolves through this machine's "
+                f"**{len(_individual)} of the practices in this generated "
+                f"tree came from an INDIVIDUAL source**, which resolves through this machine's "
                 f"user-level config rather than through this repository's "
                 f"own `precedent.json`. That is deliberate -- a person's own "
                 f"practices follow them into every project they touch -- but "

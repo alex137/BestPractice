@@ -9,13 +9,13 @@ to, but nothing here needs them.
 
 | You are… | Read |
 |---|---|
-| not a programmer, and want this installed | [SETUP.md](SETUP.md) — paste it to an assistant and it runs the whole install as a conversation, asking you three questions |
+| not a programmer, and want this installed | [SETUP.md](SETUP.md) — paste it to an assistant and it runs the whole install as a conversation, asking you five questions |
 | still deciding whether to adopt it | [documentation/WHY_PRECEDENT.md](documentation/WHY_PRECEDENT.md), then [documentation/ADOPTING.md](documentation/ADOPTING.md) |
 | a developer who wants the short form plus how to work here | [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) |
 | not a developer, and it is already installed | [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md), then [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
 | setting up your own machine rather than a repository | [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) |
 
-**There is one install path: [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
+**There is one install path: [§0](#0-installing-directly-onto-the-precedent-loader),
 `python3 tools/precedent_install.py`.** It vendors the practice catalogue
 *and* the loader that puts it in front of every session — the resident
 block, the occasion index, the gates, the enforced checks. **§1 below is no
@@ -93,7 +93,7 @@ list.)
 
 > **Not an install path — retired 2026-09-23. Do not install this way,
 > even when asked to.** A new project installs with
-> [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+> [§0](#0-installing-directly-onto-the-precedent-loader)
 > (`python3 tools/precedent_install.py`); a project already installed this
 > way migrates, per
 > [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
@@ -463,12 +463,14 @@ list.)
      would resolve on some *future* session, purely because `add_repo` for
      it was named as a standing instruction, rather than confirming this
      session — the one doing the wiring — could reach it too.
-   - **If yes to a shared source** (a team's, or any set for a kind of work): add `precedent.json` at the project root
-     (create it if this is the first source beyond universal) declaring it:
+   - **If yes to a shared source** (a team's, or any set for a kind of work): add it to
+     `precedent.json`'s `sources` at the project root. A §0 install
+     already has that file: add the entry, never replace the file (the
+     universal path below is §0's; §1 used `process/upstream`):
      ```json
      {
        "sources": [
-         {"level": "universal", "name": "precedent", "path": "process/upstream"},
+         {"level": "universal", "name": "precedent", "path": "precedent/universal"},
          {"level": "shared", "name": "<name>", "path": "../<name>"},
          {"level": "shared", "name": "<other>", "path": "../<other>", "repo": "<its repository, when not called <other>>"}
        ]
@@ -691,7 +693,7 @@ appended to the baseline `.gitignore` instantiated above from
 <generated-md-glob> binary   # stop git text-merging generated files
 ```
 
-## 0. Installing Directly Onto the Precedent Loader (New, 2026-09-03 — Read the Caveat Before Using)
+## 0. Installing Directly Onto the Precedent Loader
 
 **This is the default install since 2026-09-14, and it is one command.**
 It is the only install that turns the loader on — the resident block, the
@@ -702,7 +704,10 @@ of that, so a §1 project that wants Precedent later takes
 it ran §1 — flipped on the very deep check's recommendation; `strength:
 assented`).
 
-From a sibling clone of Precedent, on `staging`:
+From a sibling clone of Precedent, on `main` (every install takes its
+updates from `main`, `SOURCE_BRANCH` in
+[tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py), since
+2026-09-25):
 
 ```
 python3 tools/precedent_install.py <project path> --project-name "<name>" \
@@ -732,8 +737,8 @@ already-documented case —
 [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
 not this section.
 
-1. **Vendor the universal source.** Clone Precedent
-   (`staging` today; `main` once phase 7 merges it back) and
+1. **Vendor the universal source.** Clone Precedent (on `main`, as
+   above) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
    `precedent/universal/practices/`), and the loader engine itself.
@@ -775,6 +780,11 @@ not this section.
    `tools/precedent_resolve.py` refuses this by name, and for good
    reason: naming a person's individual set in a repo anyone else on the
    team can read leaks its existence and location to them.
+
+   The installer also writes `"base_branch"` (the repository's default
+   branch) and `"landing_branch": "pre-staging"`; write both by hand too,
+   or a hand install lands `Go update` on a different branch than a tool
+   install ([tier-branch](practices/tier-branch.md)).
 
    Two optional keys are worth setting in the same file, because both
    default to the safe-but-noisy answer and only this repo knows the real
@@ -826,7 +836,9 @@ not this section.
    `local/practices/project-voice.md`,
    `local/practices/project-visual-identity.md`, the README
    agent-entry block, the harness adapter(s),
-   `tools/bootstrap.sh`, the Actions check, the PR template. **Skip**
+   `tools/bootstrap.sh`, the two workflows under `templates/github-actions/`
+   (`leak-gate.yml`, `light-check.yml`, unless a source declares
+   `github_ci_workflows: disabled`), the PR template. **Skip**
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
    §1's own bookkeeping for a model this path doesn't use.
 
@@ -843,6 +855,12 @@ not this section.
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
    | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row). Same treatment: reword or drop the line. |
    | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Four `process/upstream/tools/…` entries in the permission allowlist. Harmless (they match nothing), but replace them with the `tools/…` forms so the allowlist covers the commands this repo actually runs. |
+
+   **Then, from this repo, run
+   `python3 tools/precedent_vendor_engine.py refresh <Precedent clone>`.**
+   It delivers every hook script the adapter's `settings.json` wires; the
+   list in §1 step 2 names only some of them, so never copy hooks by hand.
+   `precedent_check.py --only declared-hooks-exist` names any still missing.
 
    After instantiating, grep the new root for `process/upstream` — in a §0
    install every remaining hit is a path that does not exist. The table
@@ -1073,7 +1091,7 @@ same way.
    against that; a catalogue with no record yet has each file checked
    against every version upstream ever had at its path. The commands below
    are the same step by hand, without the record. From a
-   sibling Precedent clone, already on `staging` and pulled:
+   sibling Precedent clone, already on `main` and pulled:
    ```
    rm -rf <your universal source path>/practices
    cp -r ../BestPractice/practices <your universal source path>/practices
@@ -1274,11 +1292,10 @@ same way.
    nothing in the repo still calls it.
 
    `refresh` reads `kind` back out of `ENGINE_MANIFEST.json` itself — no
-   `--kind` flag needed here, only at first `seed`. It pulls
-   `staging` specifically (not this clone's configured default
-   branch — see
-   [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)),
-   and refuses to overwrite a hand-edited vendored file unless `--force` —
+   `--kind` flag needed here, only at first `seed`. It materializes
+   `main` specifically (`SOURCE_BRANCH` in
+   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py),
+   since 2026-09-25), whatever branch this clone has checked out, and refuses to overwrite a hand-edited vendored file unless `--force` —
    this engine carries zero local variance by design, so a local edit is a
    signal to move the change upstream into Precedent instead. After a
    refresh, run `python3 tools/precedent_sync_views.py --repo .` — **expect
