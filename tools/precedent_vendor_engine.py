@@ -421,6 +421,14 @@ ENGINE_FILES = [
     # design without precedent_resolve.py -- which a source set does not get
     # -- reading that repo's own practices/ and saying so.
     'precedent_vocabulary.py',
+    # Its second list, "Our language" (2026-09-29,
+    # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
+    # loader precedent_vocabulary.py imports to read it. They travel with it
+    # because a vendored Vocabulary without them prints only the commands --
+    # it says so rather than failing, but the words are the half a new
+    # person most needs.
+    'our_language.py',
+    'our_language.json',
     # The reply gate's BLOCKING half. Left out when it landed 2026-09-13,
     # which had two costs the same day: the stop-hook check never reached a
     # consuming repo at all (its hook guards on the file existing, so it

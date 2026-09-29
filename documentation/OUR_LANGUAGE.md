@@ -22,8 +22,10 @@ means a project's folder of files, kept on GitHub.
 | **source** | Where a set of practices comes from, usually a repository. |
 | **level** | Which kind of set a source is: universal, shared, individual, or repo-local. |
 | **primary branch** | The one shared branch regular work lands on. (A branch is a separate line of work in a repository.) |
+| **landing branch** | The branch your saved work lands on when you say "Go update": pre-staging if you use all three branch tiers, otherwise staging, or main. |
 | **feature branch** | The short-lived branch one session works on, on GitHub -- the kind named like `claude/<topic>-<random>`. GitHub's own word for it; some teams say "topic branch". It survives a lost session but is easy to forget, and it is deleted once its work is merged. |
 | **pre-staging, staging, main** | The three branches work climbs through, in that order. Pre-staging is where saved work waits, staging is where it is fully checked, and main is production -- what everyone gets. |
+| **tier branch** | One of the branches in the pre-staging, staging, main climb, or one of the two that travel with them: staging's old name `precedent-beta-v01` and Promote's lock branch `precedent-promote-lock`. A tier branch is never offered for deletion. |
 <!--/gen:words-->
 
 *This table is built from one list, so it cannot drift from what the AI
