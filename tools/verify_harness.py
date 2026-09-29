@@ -29939,7 +29939,8 @@ def check_doc_sync_ledger():
         (d / 'tools').mkdir()
         shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
         shutil.copy2(rk, d / 'tools' / 'reach_key.py')
-        for f in ('fact_ledger.py', 'content_record.py'):
+        # everything doc_sync imports beside it (generated_blocks since staging's shared marker reader)
+        for f in ('fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
             if (ROOT / 'tools' / f).is_file():
                 shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
         (d / 'data.txt').write_text('7\n')
@@ -30050,7 +30051,7 @@ def check_doc_sync_fails_fast():
         (d / '.git').mkdir()
         (d / 'tools').mkdir()
         shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
-        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py'):
+        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
             if (ROOT / 'tools' / f).is_file():
                 shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
         (d / 'slow.py').write_text('import time\ntime.sleep(60)\nprint("x")\n')
