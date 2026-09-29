@@ -659,6 +659,25 @@ def load_practice_files():
     return out
 
 
+def _without_session_id(fn):
+    """Run a check with no CLAUDE_CODE_REMOTE_SESSION_ID in the environment.
+    precedent_gate._unlanded_work reports only commits carrying this
+    session's trailer when that id is set, so a fixture whose commits carry
+    none must not inherit the id of the session running the harness
+    (practice: fixture-owns-its-state)."""
+    import functools
+
+    @functools.wraps(fn)
+    def run(*a, **k):
+        saved = os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        try:
+            return fn(*a, **k)
+        finally:
+            if saved is not None:
+                os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = saved
+    return run
+
+
 def check_source_coverage(files, original_practices_by_number):
     """The plan's actual slug-set requirement: "the same practices are in
     effect, by slug." precedent_check.py's practice-file-shape only proves each FILE is internally
@@ -6451,6 +6470,7 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+@_without_session_id
 def check_reply_gate_names_work_not_yet_landed():
     """Committed, pushed, and sitting on a branch nobody merges from is a
     state the stop hook cannot report and the person kept paying for.
@@ -15551,6 +15571,7 @@ def check_vocabulary_prefers_the_file_you_are_standing_on():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@_without_session_id
 def check_archive_guard_refuses_work_left_on_a_feature_branch():
     """`require_landed_if_says` refuses the archive sentence while a feature
     branch holds work its repo has not landed, and accepts it once each such
@@ -20607,6 +20628,7 @@ def check_merge_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+@_without_session_id
 def check_promote_pre_staging():
     """Promote moves pre-staging into staging (spec/BRANCH_TIERS_PLAN.md),
     and is the one route by which the batch gets its full check.
@@ -20896,6 +20918,18 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+        # Only the flow this session worked on (Morgan, 2026-09-29): with a
+        # session id set and no commit in the batch carrying it, the batch
+        # is another session's and gets no line.
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01FixtureNotInAnyCommit'
+        try:
+            pg, got = unlanded()
+        finally:
+            os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        cases.append(("a pre-staging batch this session made none of gets no "
+                      "Promote line",
+                      not any('a Promote can move them' in l for l in got)
+                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -37957,6 +37991,7 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+@_without_session_id
 def check_reply_gate_refreshes_the_landing_branch():
     """The reply gate's NOT YET LANDED line reads origin/<landing branch>
     fresh, not as last fetched.
@@ -42769,6 +42804,95 @@ def check_very_deep_check_records_its_components():
               f'and cost ({len(results)} stated cases)', not failed, detail)
 
 
+@_without_session_id
+def check_reply_gate_reports_only_this_sessions_flow():
+    """The reply gate's unlanded and Promote lines name only the branch or
+    flow this session worked on -- commits carrying its session trailer --
+    in this checkout and in a sibling clone alike (Morgan, 2026-09-29,
+    strength: decided: "only tell me about that promotions that I need to
+    do *ONLY* regarding the branch/flow that I edited/worked on in that
+    session window"). With no session id to match, this checkout keeps its
+    line and a sibling gets none."""
+    name = 'reply gate reports only this session\'s own flow'
+    import precedent_gate as pg
+    import tempfile
+
+    cases = []
+    sid_env = 'cse_01FixtureOwnSession'
+    trailer = 'Claude-Session: https://claude.ai/code/session_01FixtureOwnSession'
+    saved = {k: os.environ.get(k) for k in ('HOME', 'PRECEDENT_USER_CONFIG')}
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-own-flow-'))
+    try:
+        (tmp / 'home').mkdir()
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+
+        def make(dirname):
+            up = tmp / f'{dirname}.git'
+            subprocess.run(['git', 'init', '--bare', '-q', str(up)], check=True)
+            repo = tmp / 'root' / dirname
+            subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], check=True)
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True)
+            g('config', 'user.name', 'Harness Fixture')
+            g('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+            g('config', 'commit.gpgsign', 'false')
+            (repo / 'precedent.json').write_text(
+                json.dumps({'base_branch': 'trunk', 'sources': []}), encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', 'first')
+            g('remote', 'add', 'origin', str(up))
+            g('push', '-q', '-u', 'origin', 'trunk')
+            g('switch', '-q', '-c', 'feature')
+            return repo, g
+
+        work, gw = make('work')
+        sib, gs = make('precedent-sibling')
+        (work / 'w.txt').write_text('w\n', encoding='utf-8')
+        gw('add', '-A'); gw('commit', '-qm', 'another session\'s work')
+        (sib / 's.txt').write_text('s\n', encoding='utf-8')
+        gs('add', '-A'); gs('commit', '-qm', 'another session\'s work')
+
+        def scan():
+            return pg._unlanded_work(work, siblings=True)
+
+        got = scan()
+        cases.append(('no session id: this checkout keeps its line',
+                      any(l.startswith('this checkout:') for l in got), str(got)))
+        cases.append(('no session id: a sibling gets no line',
+                      not any('precedent-sibling' in l for l in got), str(got)))
+
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = sid_env
+        got = scan()
+        cases.append(('commits this session did not make get no line, in '
+                      'this checkout or a sibling', got == [], str(got)))
+
+        (work / 'w.txt').write_text('w, mine\n', encoding='utf-8')
+        gw('add', '-A'); gw('commit', '-qm', f'my work\n\n{trailer}')
+        (sib / 's.txt').write_text('s, mine\n', encoding='utf-8')
+        gs('add', '-A'); gs('commit', '-qm', f'my work\n\n{trailer}')
+        got = scan()
+        cases.append(('a commit carrying this session\'s trailer brings this '
+                      'checkout\'s line back',
+                      any(l.startswith('this checkout:') and "'feature'" in l
+                          for l in got), str(got)))
+        cases.append(('and a sibling\'s line, named by its directory',
+                      any(l.startswith('precedent-sibling:') for l in got), str(got)))
+    finally:
+        os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+@_without_session_id
 def check_shallow_clone_never_fabricates_unlanded_work():
     """A branch whose merge base is out of reach must never be reported as
     carrying a COUNT of unlanded commits (practice: very-deep-check,
@@ -44746,6 +44870,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_very_deep_check_records_its_components()
     check_shallow_clone_never_fabricates_unlanded_work()
+    check_reply_gate_reports_only_this_sessions_flow()
     check_a_renamed_engine_file_never_survives_a_reseed()
     check_leak_gate_refuses_a_fresh_container()
     check_structural_only_actually_drops_the_private_half()
