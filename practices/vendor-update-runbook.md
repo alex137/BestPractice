@@ -23,7 +23,10 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   2026-09-23, Morgan (assented) -- a classic install is migrated, not
   updated; amended 2026-09-24, Morgan (decided) -- every update retires
   the old install's leftovers (step 10); amended 2026-09-27, Morgan
-  (decided) -- the sequence is one command, tools/precedent_update.py"
+  (decided) -- the sequence is one command, tools/precedent_update.py;
+  amended 2026-09-29, from Morgan's report that day that most vendored
+  files edited in a consumer are local attempts at the fix upstream already
+  made (strength unknown) -- a committed edit is settled, not refused"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -65,9 +68,26 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
-**Every conflicted file is reviewed, never overwritten on sight.** An
-update meets this repo's own changes in many places: a refusal to overwrite
-a hand-edited file, a drift report, a merge conflict, a hand-written rule in
+**A vendored file edited here and committed is settled by the command, not
+refused** (since 2026-09-29; [tools/precedent_three_way.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_three_way.py)).
+It compares the version this repo last received, its own committed copy and
+upstream's version now, for the engine's `tools/` files and hooks, a section
+0 catalogue, and `process/upstream/`: **upstream did not change it** -- the
+local edit stays, reported as still local, with how to send it upstream;
+**upstream changed other lines** -- the two are merged, and the merge stands
+only if this repo's own check passes with it; **upstream changed the same
+lines, or already carries the change** -- upstream's version is taken, and
+the report names the commit that holds the local one and how to bring it
+back. A file the repo keeps as its own on purpose is declared in
+`precedent.json` under `kept_vendored_files`, one reason per path, and is
+never replaced. **An edit that is not committed is never touched**: the
+update stops, names it, and writes nothing. The closing report lists every
+settled file, grouped by which of these happened. A CI workflow is never
+settled this way ([ci-workflow-approved](ci-workflow-approved.md)).
+
+**Every other conflicted file is reviewed, never overwritten on sight.** An
+update meets this repo's own changes in many places: a hand-edited CI
+workflow or an uncommitted edit, a drift report, a merge conflict, a hand-written rule in
 `AGENTS.md` or `CLAUDE.md` that an updated practice now touches. Each one
 gets the same two questions before anything is resolved: **does the local
 version conflict with what upstream now ships, and is it still needed?**
@@ -739,9 +759,10 @@ comparison.
 
 **Never hand-edit a vendored file to resolve a merge.** The vendored tree
 is not this repo's to change: restore it to what the manifest records and
-re-run the refresh. A hand-edit is detected as drift and refused, and
-`--force` is the wrong answer to that refusal — it discards the guard
-rather than the edit.
+re-run the refresh. A hand-edit is detected as drift: a bare `refresh`
+refuses it, and Update Vendors settles it once it is committed (above).
+`--force` is the wrong answer to either -- it overwrites every local edit
+in one step, uncommitted ones included.
 
 ## Why
 An update is not one operation, it is a small pipeline where each stage

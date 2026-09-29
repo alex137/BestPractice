@@ -58,13 +58,19 @@ THE STEPS, with no question in between:
 
 THE REPORT, and the exit code a session acts on:
   0  DONE -- nothing is left. Commit, then run Go update's chain.
-  1  LEFT FOR YOU -- only the calls that belong to this repo: a hand-edited
-     file upstream also changed, a line a check-in would lose, a decline to
-     decide again. Each is named with the question. Work them under the
-     conflicted-file review at the top of vendor-update-runbook, then run
-     this again.
+  1  LEFT FOR YOU -- only the calls that belong to this repo: an uncommitted
+     edit to a vendored file, a hand-edited CI workflow, a line a check-in
+     would lose, a decline to decide again. Each is named with the question.
+     Work them under the conflicted-file review at the top of
+     vendor-update-runbook, then run this again.
   2  FAILED -- a step could not run, or the deep check is red. Named, with
      what was written before it stopped.
+
+A vendored file edited here and COMMITTED is not left for you: it is settled
+against upstream's version by precedent_three_way.py's rules -- kept, merged,
+upstream's with the local commit named, or never replaced when precedent.json
+declares it -- and listed in every outcome's report, grouped by rule. A merge
+stands only if the repo's own check (step 5) passes with it.
 
 It stages what it wrote and deleted, so the deep check judges the tree the
 commit will hold, and leaves anything already uncommitted alone -- save the
@@ -89,6 +95,7 @@ SOURCE = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
+import precedent_three_way as tw  # noqa: E402
 
 DONE, LEFT, FAILED = 0, 1, 2
 
@@ -601,52 +608,25 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
                  'no universal source with a practices/ tree inside this repo, '
                  'so there was nothing to update')
         return True
-    # Zero local variance by design (INSTALL.md section 2, step 0): a local
-    # edit belongs upstream, so the replace refuses rather than eat one.
     dirty, err = status_paths(repo, f'{rel}/practices')
     if dirty is None:
         return f'could not read git status of {rel}/practices: {err}'
     dirty = sorted(dirty)
-    # Except this command's own output. A run that failed after this step
-    # (the view sync, the check) leaves the replaced catalogue uncommitted,
-    # and "run this again" refused over it (2026-09-28). A path whose working
-    # state is exactly upstream's at `rev`, or at the commit the uncommitted
-    # record names, is what the replace writes -- not a change of anyone's.
-    if dirty:
-        try:
-            pending = _catalogue_record((repo / rel / CATALOGUE_SYNC_NAME)
-                                        .read_text(encoding='utf-8'))
-        except OSError:
-            pending = None
-        at = [_tree_blobs(SOURCE, c, 'practices') for c in dict.fromkeys(
-            c for c in (rev, pending) if c)]
-        prefix = f'{rel}/practices/'
-        foreign = []
-        for p in dirty:
-            f = repo / p
-            here = _blob_id(f.read_bytes()) if f.is_file() else None
-            if not any(here == blobs.get(p[len(prefix):]) for blobs in at):
-                foreign.append(p)
-        dirty = foreign
-    if dirty:
-        for p in dirty:
-            rep.leave(p, 'changed here and not committed; the catalogue is '
-                      'replaced wholesale, so export the change upstream or '
-                      'discard it first')
-        rep.step('catalogue', f'refused: {rel}/practices has uncommitted changes')
-        return None
-    # Committed local edits too: a committed file that matches neither the
+    # Committed local edits: a committed file that matches neither the
     # upstream text it was last synced from nor the incoming one was changed
-    # here, and the replace would lose it. One that matches the incoming
-    # version already (a catalogue copied over by hand) loses nothing.
+    # here. Until 2026-09-29 the replace refused over one; now each is
+    # settled against upstream's version by precedent_three_way.py's rules,
+    # BASE being the catalogue's own recorded sync. One that matches the
+    # incoming version already (a catalogue copied over by hand) needs
+    # nothing.
     shown = subprocess.run(['git', '-C', str(repo), 'show',
                             f'HEAD:{rel}/{CATALOGUE_SYNC_NAME}'],
                            capture_output=True, text=True)
     recorded = _catalogue_record(shown.stdout) if shown.returncode == 0 else None
-    edited, basis, unread = [], None, False
+    basis, unread, base_rev = None, False, None
     if recorded and _is_commit(recorded):
         base = _tree_blobs(SOURCE, recorded, 'practices')
-        basis = f'{recorded[:12]} (the catalogue\'s own last sync)'
+        basis, base_rev = f'{recorded[:12]} (the catalogue\'s own last sync)', recorded
         upstream = lambda name, oid: base.get(name) == oid          # noqa: E731
     elif recorded or last_synced:
         history = _upstream_history_blobs(rev)
@@ -656,18 +636,54 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         upstream = lambda name, oid: (name, oid) in history         # noqa: E731
     else:
         unread = True
-    if not unread:
-        incoming = _tree_blobs(SOURCE, rev, 'practices')
-        for name, oid in sorted(_tree_blobs(repo, 'HEAD', f'{rel}/practices').items()):
-            if incoming.get(name) != oid and not upstream(name, oid):
-                edited.append(f'{rel}/practices/{name}')
-    if edited:
-        for p in edited:
-            rep.leave(p, f'differs from upstream at {basis} and at {rev[:12]}: a '
-                      f'local edit the wholesale replace would lose -- export it '
-                      f'upstream, or restore upstream\'s text, then run this again')
-        rep.step('catalogue', f'refused: {len(edited)} file(s) in {rel}/practices '
-                 f'carry local edits')
+    kept, _bad = tw.read_kept(repo)
+    prefix = f'{rel}/practices/'
+    incoming = _tree_blobs(SOURCE, rev, 'practices')
+    candidates = []
+    for name, oid in sorted(_tree_blobs(repo, 'HEAD', f'{rel}/practices').items()):
+        p = prefix + name
+        if p in kept or (not unread and incoming.get(name) != oid
+                         and not upstream(name, oid)):
+            candidates.append((p, _source_blob(base_rev, f'practices/{name}'),
+                               tw.head_blob(repo, p),
+                               _source_blob(rev, f'practices/{name}')))
+    # The uncommitted check is below, where this command's own output is
+    # told apart from a person's edit, so nothing is refused inside settle.
+    settled, _refused = tw.settle(repo, candidates, kept, set())
+    # Zero uncommitted variance: an edit not committed is never touched
+    # (practice: repair-cannot-discard-work) -- except this command's own
+    # output. A run that failed after this step (the view sync, the check)
+    # leaves the replaced catalogue uncommitted, and "run this again"
+    # refused over it (2026-09-28). A path whose working state is exactly
+    # upstream's at `rev`, or at the commit the uncommitted record names, or
+    # what the settling above writes, is what the replace writes -- not a
+    # change of anyone's.
+    if dirty:
+        try:
+            pending = _catalogue_record((repo / rel / CATALOGUE_SYNC_NAME)
+                                        .read_text(encoding='utf-8'))
+        except OSError:
+            pending = None
+        at = [_tree_blobs(SOURCE, c, 'practices') for c in dict.fromkeys(
+            c for c in (rev, pending) if c)]
+        writes = {r.path: r.content for r in settled}
+        foreign = []
+        for p in dirty:
+            f = repo / p
+            data = f.read_bytes() if f.is_file() else None
+            here = _blob_id(data) if data is not None else None
+            if p in writes and data == writes[p]:
+                continue
+            if not any(here == blobs.get(p[len(prefix):]) for blobs in at):
+                foreign.append(p)
+        dirty = foreign
+    if dirty:
+        for p in dirty:
+            rep.leave(p, 'changed here and not committed; the update never '
+                      'touches uncommitted work -- commit it (the next run '
+                      'settles a committed edit against upstream\'s version) '
+                      'or discard it, then run this again')
+        rep.step('catalogue', f'refused: {rel}/practices has uncommitted changes')
         return None
     arc = subprocess.run(['git', '-C', str(SOURCE), 'archive', '--format=tar',
                           rev, 'practices'], capture_output=True)
@@ -682,6 +698,11 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
                 tf.extractall(td)
         shutil.rmtree(target)
         shutil.copytree(pathlib.Path(td) / 'practices', target)
+    for r in settled:
+        if r.rule != tw.REPLACED:
+            tw.write(repo, r.path, r.content)
+    tw.check_merges(repo, settled)
+    rep.settled += settled
     (repo / rel / CATALOGUE_SYNC_NAME).write_text(json.dumps({
         'source_commit': rev,
         'written_by': 'tools/precedent_update.py (Update Vendors)',
@@ -707,6 +728,241 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
     return True
 
 
+# SETTLING A VENDORED FILE EDITED HERE (Morgan, 2026-09-29). The engine
+# refresh refuses the whole update over one vendored file whose hash no
+# longer matches its manifest, and most such edits were local attempts at
+# the bug upstream had just fixed -- so the refusal kept a repo on its own
+# patch and without upstream's fix. This pass settles each one by the rules
+# in precedent_three_way.py BEFORE the refresh runs, from this copy, so it
+# reaches a consumer whose own engine copy predates it. CI workflows are not
+# in it: a workflow changes only with the person's own words (practice:
+# ci-workflow-approved), so a hand-edited one still stops the refresh.
+
+def _engine_file_map(manifest):
+    """-> {repo-relative path: (upstream path, manifest key, entry name)}
+    for every file the engine manifest records a hash for."""
+    out = {}
+    for name in manifest.get('sha256') or {}:
+        out[f'tools/{name}'] = (f'tools/{name}', 'sha256', name)
+    for name in manifest.get('hooks_sha256') or {}:
+        out[f'{pve.HOOK_DEST_DIR}/{name}'] = (f'{pve.HOOK_SOURCE_DIR}/{name}',
+                                              'hooks_sha256', name)
+    ups = manifest.get(pve.ENGINE_PATHS_KEY) or {}
+    for local in manifest.get('engine_paths_sha256') or {}:
+        if ups.get(local):
+            out[local] = (ups[local], 'engine_paths_sha256', local)
+    return out
+
+
+def _source_blob(rev, rel):
+    if not rev:
+        return None
+    r = subprocess.run(['git', '-C', str(SOURCE), 'show', f'{rev}:{rel}'],
+                       capture_output=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+class EngineSettlement:
+    """What settle_engine_edits() changed before the refresh, so it can be
+    finished after it -- or undone when the refresh fails."""
+
+    def __init__(self, repo, resolutions, files, originals, manifest_text, written):
+        self.repo, self.resolutions, self.files = repo, resolutions, files
+        self.originals = originals          # path -> bytes or None, before
+        self.manifest_text = manifest_text  # the manifest before the rehash
+        self.written = written              # the manifest after the rehash
+
+    def undo(self):
+        """Put every settled file back as it was, and the manifest too while
+        it is still the rehashed one this pass wrote."""
+        for rel, data in self.originals.items():
+            tw.write(self.repo, rel, data)
+        mf = self.repo / 'tools' / pve.MANIFEST_NAME
+        try:
+            if mf.read_text(encoding='utf-8') == self.written:
+                mf.write_text(self.manifest_text, encoding='utf-8')
+        except OSError:
+            pass
+
+    def finish(self):
+        """After the refresh: each file gets what its rule says, and the
+        manifest records upstream's text for it -- never this repo's, so a
+        bare refresh run later still sees the local edit and refuses rather
+        than overwrite it. -> the merges that fell back on a syntax check."""
+        mf = self.repo / 'tools' / pve.MANIFEST_NAME
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        for r in self.resolutions:
+            tw.write(self.repo, r.path, r.content)
+            _up, key, name = self.files[r.path]
+            if r.new is not None and name in (m.get(key) or {}):
+                m[key][name] = tw.sha256(r.new)
+        mf.write_text(json.dumps(m, indent=2, ensure_ascii=False) + '\n',
+                      encoding='utf-8')
+        return tw.check_merges(self.repo, self.resolutions)
+
+
+def settle_engine_edits(repo, rep, before, new_rev):
+    """-> (EngineSettlement, the paths in `before` that are an earlier run's
+    own output) -- or None when an edit is not committed, which is left for
+    the person and stops the update before anything is written.
+
+    Judged against the COMMITTED engine: BASE is upstream's file at the
+    commit HEAD's manifest names, LOCAL is HEAD's copy. So a run that
+    stopped after the refresh, leaving its merge in the working tree, is
+    recognised on the next run as its own output rather than refused as
+    someone's edit."""
+    mf = repo / 'tools' / pve.MANIFEST_NAME
+    text = mf.read_text(encoding='utf-8')
+    wm = json.loads(text)
+    # Nothing to read LOCAL or NEW from: every file would look deleted on
+    # one side. Settle nothing; the refresh's own refusal stands.
+    if not tw.has_head(repo) or not _is_commit(new_rev):
+        return EngineSettlement(repo, [], {}, {}, text, None), set()
+    try:
+        hm = json.loads(tw.head_blob(repo, f'tools/{pve.MANIFEST_NAME}') or b'')
+    except ValueError:
+        hm = wm
+    base_rev = hm.get('source_commit')
+    base_rev = base_rev if _is_commit(base_rev) else None
+    wmap, hmap = _engine_file_map(wm), _engine_file_map(hm)
+    files = {**wmap, **hmap}
+
+    def recorded(m, fmap, rel):
+        f = fmap.get(rel)
+        return (m.get(f[1]) or {}).get(f[2]) if f else None
+    kept, bad = tw.read_kept(repo)
+    for p in bad:
+        rep.leave(f'precedent.json {tw.KEEP_KEY}: {p}',
+                  'declared with no reason, so it is not honoured -- say why '
+                  'this repo keeps its own version, or drop the entry')
+    # What the refresh itself would not call a hand-edit is not settled here
+    # either: a hook a declared source's adapter now writes, an engine path
+    # no longer declared.
+    claimed = pve._adapter_claimed_paths(repo)
+    declared = set(pve.declared_engine_paths(repo).values())
+    candidates, edits = [], set()
+    for rel, (up, key, _name) in sorted(files.items()):
+        if rel in claimed or (key == 'engine_paths_sha256' and rel not in declared):
+            continue
+        local = tw.head_blob(repo, rel)
+        drifted = local is None or tw.sha256(local) != recorded(hm, hmap, rel)
+        if not (drifted or rel in before or rel in kept):
+            continue
+        # Uncommitted, but exactly what the working manifest records: a
+        # refresh wrote it (a source refresh run ahead of this one), not a
+        # person.
+        work = tw.working(repo, rel)
+        if rel in before and not (work is not None and tw.sha256(work)
+                                  == recorded(wm, wmap, rel)):
+            edits.add(rel)
+        candidates.append((rel, _source_blob(base_rev, up), local,
+                           _source_blob(new_rev, up)))
+    resolutions, refused = tw.settle(repo, candidates, kept, edits)
+    if refused:
+        for p in refused:
+            rep.leave(p, 'a vendored file edited here and not committed -- the '
+                      'update never touches uncommitted work. Commit it (the '
+                      'next run settles a committed edit against upstream\'s '
+                      'version) or discard it, then run this again')
+        rep.step('engine', 'refused: a vendored file has uncommitted edits; '
+                 'nothing was written')
+        return None
+    ours = {rel for rel, *_ in candidates if rel in before}
+    originals = {r.path: tw.working(repo, r.path) for r in resolutions}
+    # The rehash: each settled file is recorded as it stands, so the refresh
+    # -- this repo's own copy, whatever its age -- sees no hand-edit, writes
+    # upstream's version, and finish() then applies the rule.
+    for r in resolutions:
+        _up, key, name = files[r.path]
+        entry = wm.setdefault(key, {})
+        if originals[r.path] is None:
+            entry.pop(name, None)
+        else:
+            entry[name] = tw.sha256(originals[r.path])
+    written = json.dumps(wm, indent=2, ensure_ascii=False) + '\n'
+    if resolutions:
+        mf.write_text(written, encoding='utf-8')
+    return EngineSettlement(repo, resolutions, files, originals, text,
+                            written if resolutions else None), ours
+
+
+def checkin_settlement(repo):
+    """-> [Resolution] checkin.py update settled in process/upstream/, read
+    back from the manifest it recorded them in, with each merge's upstream
+    version so the check can still undo it."""
+    try:
+        up = json.loads((repo / 'process' / 'manifest.json')
+                        .read_text(encoding='utf-8')).get('upstream') or {}
+    except (OSError, ValueError):
+        return []
+    tree = str(up.get('vendored_at') or 'process/upstream').rstrip('/')
+    out = []
+    for p, e in sorted((up.get('local_edits') or {}).items()):
+        if not isinstance(e, dict) or e.get('rule') not in tw.RULES:
+            continue
+        rel = f'{tree}/{p}'
+        r = tw.Resolution(rel, e['rule'], tw.working(repo, rel),
+                          _source_blob(up.get('synced_from'), p), e.get('why') or '')
+        r.commit, r.fell_back = e.get('commit'), e.get('fell_back') or ''
+        out.append(r)
+    return out
+
+
+def _mark_checkin_fallback(repo, r):
+    """Record in process/manifest.json that a merge there fell back."""
+    mf = repo / 'process' / 'manifest.json'
+    try:
+        m = json.loads(mf.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    up = m.get('upstream') or {}
+    tree = str(up.get('vendored_at') or 'process/upstream').rstrip('/')
+    edits = up.get('local_edits') or {}
+    key = r.path[len(tree) + 1:]
+    if key in edits:
+        edits[key] = r.to_json()
+        mf.write_text(json.dumps(m, indent=2, ensure_ascii=False) + '\n',
+                      encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '--', str(mf.relative_to(repo))],
+                       capture_output=True)
+
+
+def check_with_merge_fallback(repo, rep, argv, label):
+    """-> (rc, output) of the repo's own check, run as committed. When it is
+    red and a merged file is in the update, every merge falls back to
+    upstream's version and the check runs once more: green, the merges were
+    the cause and upstream's text stands (rule 3); still red, they were not,
+    and the merges are put back so the failure is reported on the tree the
+    rules made."""
+    rc, out = judged_as_committed(repo, argv)
+    merged = [r for r in rep.settled if r.rule == tw.MERGED]
+    if rc == 0 or not merged:
+        return rc, out
+    kept = {r.path: r.content for r in merged}
+    for r in merged:
+        r.fall_back(f'this repo\'s {label} failed with the merged file in place')
+        tw.write(repo, r.path, r.content)
+        if r.path.startswith('process/'):
+            _mark_checkin_fallback(repo, r)
+    subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *kept],
+                   capture_output=True)
+    rc2, out2 = judged_as_committed(repo, argv)
+    if rc2 == 0:
+        rep.step('merges', f'{len(merged)} merged file(s) took upstream\'s version '
+                 f'instead: the {label} failed with them and passes without them')
+        return rc2, out2
+    for r in merged:
+        r.rule, r.content, r.fell_back = tw.MERGED, kept[r.path], ''
+        tw.write(repo, r.path, r.content)
+        if r.path.startswith('process/'):
+            _mark_checkin_fallback(repo, r)
+    subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *kept],
+                   capture_output=True)
+    rep.step('merges', f'kept: the {label} is red with or without the '
+             f'{len(merged)} merged file(s), so they are not the cause')
+    return rc, out
+
+
 class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
@@ -714,6 +970,7 @@ class Report:
         self.loud = []    # workflows left alone -- printed first and last
         self.details = {} # what -> lines printed under its Left-for-you item
         self.asks = []    # (what, question) -- for the person, not this repo
+        self.settled = [] # precedent_three_way.Resolution -- printed in every outcome
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -753,6 +1010,10 @@ class Report:
         print("\n== Update Vendors ==")
         for name, outcome in self.steps:
             print(f"  {name}: {outcome}")
+        lines = tw.report_lines(self.settled)
+        if lines:
+            print()
+            print('\n'.join(lines))
         self._questions()
         if failed:
             # What the update left for the person is printed on a failure
@@ -1153,7 +1414,17 @@ def update(repo, skip_check=False, ref=None):
     except (OSError, ValueError):
         last_synced = None
 
-    # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
+    # 2. First, each vendored engine file edited here is settled against
+    # upstream's version, from THIS copy (see settle_engine_edits); an
+    # uncommitted edit stops the update here, before anything is written.
+    settled = settle_engine_edits(repo, rep, before,
+                                  head.strip() if head_ok else None)
+    if settled is None:
+        return rep.close()
+    settlement, ours = settled
+    before -= ours
+
+    # The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
     argv = [sys.executable, str(engine_tool), 'refresh', str(SOURCE)]
@@ -1161,14 +1432,21 @@ def update(repo, skip_check=False, ref=None):
         argv += ['--from-ref', ref]
     rc, out = run(argv, repo)
     if rc != 0:
+        settlement.undo()
         if 'hand-edited since the last seed/refresh' in out:
             for line in out.splitlines():
                 if line.startswith('  ') and ': ' in line and not line.startswith('    '):
                     name, why = line.strip().split(': ', 1)
+                    # Only what the settling pass does not take reaches
+                    # here: a CI workflow, which changes only with the
+                    # person's own words (practice: ci-workflow-approved).
                     rep.leave(name, f"hand-edited here and shipped by upstream: {why}. "
-                              "Move the edit upstream, or refresh --force once "
-                              "you have decided it can go")
-            rep.step('engine', 'refused: a vendored file was edited here')
+                              "A CI workflow is never merged for you: declare it "
+                              f"in precedent.json's {pve.LOCAL_CI_WORKFLOWS_KEY} "
+                              "to keep it, move the edit upstream, or refresh "
+                              "--force once you have decided it can go")
+            rep.step('engine', 'refused: a vendored file was edited here; the '
+                     'settled files were put back as they were')
             return rep.close()
         return rep.close(f"the engine refresh failed:\n{tail(out)}")
     engine_out = out
@@ -1194,11 +1472,17 @@ def update(repo, skip_check=False, ref=None):
     tip = head.strip()
     if ref is None and head_ok and tip and not (
             landed and (tip.startswith(landed) or landed.startswith(tip))):
+        settlement.undo()
         return rep.close(f"the engine landed at {landed[:12] or 'an unrecorded commit'}"
                          f", not {pve.SOURCE_BRANCH} @ {tip[:12]}: this repo's "
                          f"own engine copy vendored from another ref. Run this "
                          f"again with --from-ref {tip[:12]} to take "
                          f"{pve.SOURCE_BRANCH}'s engine, then review the diff")
+    fell = settlement.finish()
+    rep.settled += settlement.resolutions
+    if fell:
+        rep.step('merges', f'{len(fell)} merged engine file(s) failed a syntax '
+                 f'check and took upstream\'s version instead')
     for tool, calls in unbudgeted_engine_tools(repo, tip):
         rep.leave(f'tools/github_api_budgets.json: {tool}',
                   f'upstream budgets the vendored tools/{tool} at {calls} API '
@@ -1252,14 +1536,18 @@ def update(repo, skip_check=False, ref=None):
             if changed:
                 for p in changed:
                     rep.leave(f'process/upstream/{p}',
-                              'changed here since the last sync, and a mirror '
-                              'would overwrite it -- export it, keep it as a '
-                              'manifest `diverged` entry, or let it go')
-                rep.step('catalogue', 'refused: the vendored tree has local changes')
+                              'edited here and not committed -- the update never '
+                              'touches uncommitted work. Commit it (the next run '
+                              'settles a committed edit against upstream\'s '
+                              'version) or discard it, then run this again')
+                rep.step('catalogue', 'refused: the vendored tree has uncommitted '
+                         'edits; the engine above was refreshed, the catalogue '
+                         'was not')
                 return rep.close()
             return rep.close(f"checkin.py update failed:\n{tail(out)}")
         rep.step('catalogue', next((l for l in out.splitlines()
                                     if l.startswith('checkin update')), 'updated'))
+        rep.settled += checkin_settlement(repo)
         rc, out = run(checkin + ['record', str(SOURCE), '--repo', str(repo),
                                  '--note', 'Update Vendors'], repo)
         if rc != 0:
@@ -1439,13 +1727,15 @@ def update(repo, skip_check=False, ref=None):
         argv += ['--push-command', f'origin HEAD:{landing}']
     label = f'check for {landing}' if landing else 'deep check'
     if skip_check:
-        rep.step(label, 'skipped (--skip-check) -- run it before pushing')
+        rep.step(label, 'skipped (--skip-check) -- run it before pushing'
+                 + ('; the merged file(s) below had only a syntax check'
+                    if any(r.rule == tw.MERGED for r in rep.settled) else ''))
     elif check.is_file():
         stamped = stamp_headers(repo)
         if stamped:
             rep.step('file headers', 'stamped before the check, as the commit '
                      'would: ' + ', '.join(stamped))
-        rc, out = judged_as_committed(repo, argv)
+        rc, out = check_with_merge_fallback(repo, rep, argv, label)
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out)}")
         rep.step(label, 'passed')

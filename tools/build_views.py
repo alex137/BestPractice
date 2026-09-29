@@ -2248,6 +2248,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
     'precedent_update.py': "Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)",
+    'precedent_three_way.py': "Settles a vendored file a consuming repo edited and committed against upstream's new version, by three-way comparison: kept, merged, upstream's with the local commit named, or never replaced when precedent.json declares it -- used by Update Vendors and checkin.py update",
     'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",
     'precedent_resolve.py': "Resolves the universal, shared and individual sources into one set, by precedence",
     'precedent_run_session_hooks.py': "Runs each repo's own SessionStart hooks for a session opened in the folder above them",

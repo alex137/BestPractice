@@ -1301,7 +1301,10 @@ same way.
    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py),
    since 2026-09-25), whatever branch this clone has checked out, and refuses to overwrite a hand-edited vendored file unless `--force` —
    this engine carries zero local variance by design, so a local edit is a
-   signal to move the change upstream into Precedent instead. After a
+   signal to move the change upstream into Precedent instead. Update Vendors
+   ([tools/precedent_update.py](tools/precedent_update.py)) does not stop there: it settles a committed
+   edit against upstream's version by three-way comparison and names it in
+   its report ([vendor-update-runbook](practices/vendor-update-runbook.md)). After a
    refresh, run `python3 tools/precedent_sync_views.py --repo .` — **expect
    `--check` to FAIL first**: a refresh changes what the loader renders
    (the generated block, `MANIFEST.json`), so a byte-identical check against

@@ -48,11 +48,19 @@ had already needed it.
                             safety-bypass pattern to at least one harness's
                             own permission classifier, which refuses it
                             before checkin.py ever runs).
-                            Also REFUSES if the vendored tree differs from
-                            the recorded upstream.commit — that difference
-                            is unexported local work the mirror would
-                            silently clobber; export it first (§3/§4) or
-                            pass --force to overwrite. (Origin: a session
+                            A vendored file that differs from the
+                            recorded upstream.commit is local work, settled
+                            by three-way comparison (tools/
+                            precedent_three_way.py, since 2026-09-29): kept
+                            where upstream did not change it, merged where
+                            the two touch different lines, upstream's where
+                            they collide (the report names the commit
+                            holding the local version), and never replaced
+                            where precedent.json's kept_vendored_files
+                            declares it. What was settled is recorded under
+                            upstream.local_edits for `record`. REFUSES,
+                            writing nothing, over an edit not committed;
+                            --force overwrites everything. (Origin: a session
                             hand-rolled this mirror with git archive | tar
                             — rsync is absent in hosted containers, as of
                             2026-08 — and a stale local default-branch ref
@@ -861,6 +869,118 @@ def _report_excluded_content():
           f"confirm nothing there is still needed, then  git rm -r {rm}  and commit.")
 
 
+LOCAL_EDITS_KEY = 'local_edits'
+
+
+def _committed_manifest():
+    """-> the manifest as committed at HEAD in the consuming repo, or the
+    working one when HEAD has none. update() judges local edits against the
+    committed record: a run that stopped after `record` wrote a new commit
+    here must not see its own mirror as someone's edit."""
+    r = subprocess.run(['git', '-C', str(ROOT), 'show',
+                        f'HEAD:{MANIFEST.relative_to(ROOT).as_posix()}'],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        try:
+            return json.loads(r.stdout)
+        except ValueError:
+            pass
+    return _manifest()
+
+
+def _settle_local_edits(clone, src):
+    """-> [precedent_three_way.Resolution] for each vendored file this repo
+    committed an edit to, or declared its own; exits, writing nothing, over
+    one edited and NOT committed.
+
+    Until 2026-09-29 any difference from the recorded upstream commit
+    refused the whole mirror, and most of those differences were local
+    attempts at the bug upstream had just fixed (Morgan, 2026-09-29). Now
+    each is settled by the three-way rules precedent_update.py applies to
+    the engine -- one copy of them, in precedent_three_way.py (practice:
+    repair-cannot-discard-work: a refusal is not a resolution, and nothing
+    uncommitted is ever touched)."""
+    import precedent_three_way as tw
+    recorded = _committed_manifest().get('upstream', {}).get('commit') \
+        or _manifest().get('upstream', {}).get('commit')
+    if not recorded:
+        sys.exit("checkin FAIL: no upstream.commit recorded in the manifest — "
+                 "cannot tell local work from upstream drift; pass --force to mirror anyway")
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+                         capture_output=True)
+    if tar.returncode != 0:
+        sys.exit(f"checkin FAIL: recorded commit {recorded[:12]} not found in the clone — "
+                 f"fetch it there, or pass --force")
+    tree = UPSTREAM.relative_to(ROOT).as_posix()
+    kept, _bad = tw.read_kept(ROOT)
+    st = subprocess.run(['git', '-C', str(ROOT), 'status', '--porcelain=v1', '-z',
+                         '--untracked-files=all', '--', tree],
+                        capture_output=True, text=True)
+    dirty = {e[3:] for e in st.stdout.split('\0') if len(e) > 3}
+    with tempfile.TemporaryDirectory() as td:
+        tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+        base = pathlib.Path(td)
+        ours, theirs, new = _files(UPSTREAM), _files(base), _files(src)
+        drift = (ours ^ theirs) | {p for p in ours & theirs
+                                   if not filecmp.cmp(UPSTREAM / p, base / p,
+                                                      shallow=False)}
+        differs = set(drift)
+        known = ours | theirs | new
+        drift |= {pathlib.Path(d[len(tree) + 1:]) for d in dirty
+                  if d.startswith(tree + '/')} & known
+        drift |= {pathlib.Path(k[len(tree) + 1:]) for k in kept
+                  if k.startswith(tree + '/')} & known
+
+        def blob(root, p):
+            f = root / p
+            return f.read_bytes() if f.is_file() else None
+        candidates = [(f'{tree}/{p.as_posix()}', blob(base, p),
+                       tw.head_blob(ROOT, f'{tree}/{p.as_posix()}'), blob(src, p))
+                      for p in sorted(drift)]
+        if tw.has_head(ROOT):
+            settled, refused = tw.settle(ROOT, candidates, kept, dirty)
+        else:
+            # No commit to read this repo's version from: nothing here is
+            # committed, so every difference is refused, as it always was.
+            settled = []
+            refused = [f'{tree}/{p.as_posix()}' for p in sorted(differs)]
+    if refused:
+        for p in refused:
+            print(f"  local change: {p[len(tree) + 1:]}")
+        sys.exit("checkin FAIL: the vendored tree has edits that are not "
+                 "committed, and the mirror never touches uncommitted work. "
+                 "Commit each file above -- the next update settles a committed "
+                 "edit against upstream's version -- or discard it, then run "
+                 "this again. (--force overwrites everything, uncommitted "
+                 "edits included.)")
+    return settled
+
+
+def _record_local_edits(settled):
+    """Write what update() settled into the manifest, keyed under the
+    vendored tree, for record() and precedent_update.py to read. Replaced
+    whole on every update: it describes the tree the update just left."""
+    m = _manifest()
+    up = m.setdefault('upstream', {})
+    tree = UPSTREAM.relative_to(ROOT).as_posix()
+    edits = {r.path[len(tree) + 1:]: r.to_json() for r in settled}
+    if not edits and LOCAL_EDITS_KEY not in up:
+        return
+    if edits:
+        up[LOCAL_EDITS_KEY] = edits
+    else:
+        up.pop(LOCAL_EDITS_KEY, None)
+    MANIFEST.write_text(json.dumps(m, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+
+
+def _kept_local_edits():
+    """-> {path under the vendored tree: rule} update() last settled."""
+    edits = _manifest().get('upstream', {}).get(LOCAL_EDITS_KEY) or {}
+    return {p: (e or {}).get('rule') for p, e in edits.items()} \
+        if isinstance(edits, dict) else {}
+
+
 def update(clone, force=False, allow_pinned=False):
     """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
     install tracks into the vendored tree, refusing to clobber unexported
@@ -883,39 +1003,18 @@ def update(clone, force=False, allow_pinned=False):
         sys.exit(f"checkin FAIL: {clone} has no {branch} or origin/{branch} to "
                  f"mirror from. This install records upstream.branch = "
                  f"{branch!r}; fetch that branch in the clone first.")
-    if not force:
-        recorded = _manifest().get('upstream', {}).get('commit')
-        if not recorded:
-            sys.exit("checkin FAIL: no upstream.commit recorded in the manifest — "
-                     "cannot tell local work from upstream drift; pass --force to mirror anyway")
-        tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
-                             capture_output=True)
-        if tar.returncode != 0:
-            sys.exit(f"checkin FAIL: recorded commit {recorded[:12]} not found in the clone — "
-                     f"fetch it there, or pass --force")
-        with tempfile.TemporaryDirectory() as td:
-            tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
-            base = pathlib.Path(td)
-            ours, theirs = _files(UPSTREAM), _files(base)
-            drift = sorted(ours ^ theirs) + sorted(
-                p for p in ours & theirs
-                if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
-        if drift:
-            for p in drift:
-                print(f"  local change: {p}")
-            sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
-                     "that is unexported work the mirror would clobber. Export it first "
-                     "(INSTALL.md §3/§4) or pass --force to overwrite -- but only after "
-                     "reviewing each file above: vendor-update-runbook's conflicted-file "
-                     "review decides whether the local change is kept, merged or dropped.")
-    # Mirrored from the SOURCE REF's tree, extracted to a scratch directory --
-    # not from the clone's working tree, which this tool no longer moves and
-    # which may sit on some entirely different branch.
+    settled = []
     with tempfile.TemporaryDirectory() as srcdir:
+        # Mirrored from the SOURCE REF's tree, extracted to a scratch
+        # directory -- not from the clone's working tree, which this tool no
+        # longer moves and which may sit on some entirely different branch.
         src = _tree_at(clone, src_ref, srcdir)
+        if not force:
+            settled = _settle_local_edits(clone, src)
         vendored_only, differing, src_only = _diff(src)
-        if not (vendored_only or differing or src_only):
+        if not (vendored_only or differing or src_only) and not settled:
             _stamp_synced_from(src_ref)
+            _record_local_edits(settled)
             print(f"checkin update: vendored tree already identical to "
                   f"{branch} @ {src_ref[:12]} — nothing to do.")
             _report_excluded_content()
@@ -925,10 +1024,20 @@ def update(clone, force=False, allow_pinned=False):
         for p in differing + src_only:
             (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src / p, UPSTREAM / p)
+    import precedent_three_way as tw
+    # Rules 1, 2 and 4 put this repo's version back over the mirror; rule 3
+    # is the mirror's own text already.
+    for r in settled:
+        if r.rule != tw.REPLACED:
+            tw.write(ROOT, r.path, r.content)
+    tw.check_merges(ROOT, settled)
     _stamp_synced_from(src_ref)
+    _record_local_edits(settled)
     print(f"checkin update OK: mirrored {len(differing) + len(src_only)} file(s), "
           f"deleted {len(vendored_only)} from the vendored tree ({branch} @ "
           f"{src_ref[:12]})")
+    for line in tw.report_lines(settled):
+        print(line)
     print("next: propagate template changes into instantiated files (INSTALL.md §2),")
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
     _report_excluded_content()
@@ -1194,8 +1303,17 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD'):
     landed_all = None
     lost = []
     upstream_deleted = 0
+    # A file update() settled is not a loss: kept, merged or declared, its
+    # lines are still in the vendored tree; replaced, its version is named
+    # by commit in update()'s report (precedent_three_way.py).
+    settled = _kept_local_edits()
+    if settled:
+        print(f"carry check: {len(settled)} file(s) the update settled against "
+              f"upstream are not counted: {', '.join(sorted(settled))}")
     for name in names:
         rel = name[len(prefix) + 1:]
+        if rel in settled:
+            continue
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
         # rc is now consulted, and it can only mean one thing: every base
         # is present (asserted above and in _committed_tree_bases), so a
@@ -1273,6 +1391,16 @@ def record(clone, note, accept_loss=False):
         landed = _tree_at(clone, head, landed_dir)
         _carry_check(clone, accept_loss, landed, head)
         added, modified, deleted = _diff(landed)
+    # A local edit update() kept, merged or was told to keep differs from
+    # upstream on purpose; everything else must still be identical.
+    kept = {p for p, rule in _kept_local_edits().items() if rule != 'replaced'}
+    local = sorted(p.as_posix() for p in added + modified + deleted
+                   if p.as_posix() in kept)
+    added, modified, deleted = ([p for p in ps if p.as_posix() not in kept]
+                                for ps in (added, modified, deleted))
+    if local:
+        print(f"checkin record: {len(local)} vendored file(s) keep this repo's "
+              f"own version, as the update settled them: {', '.join(local)}")
     if added or modified or deleted:
         for p in added + modified + deleted:
             print(f"  differs: {p}")

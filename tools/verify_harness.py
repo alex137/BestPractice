@@ -7729,9 +7729,21 @@ def check_update_vendors_updates_a_section_0_catalogue():
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'edited'], env=env, check=True)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, last)
-        cases.append(('a COMMITTED local edit is refused and named under Left for you',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)
-                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')))
+        # Since 2026-09-29 a committed edit is settled, not refused
+        # (precedent_three_way.py). The replace above recorded its sync at
+        # `rev` and that record was committed with the edit, so BASE is
+        # upstream at `rev`, which has not moved: the edit is kept (rule 1)
+        # and reported as still local.
+        edited_at = subprocess.run(['git', '-C', str(d), 'rev-parse', 'HEAD'],
+                                   capture_output=True, text=True, env=env).stdout.strip()
+        lines = '\n'.join(pu.tw.report_lines(rep.settled))
+        cases.append(('a COMMITTED local edit is settled, not refused: upstream '
+                      'has not changed it, so it is kept and reported as local',
+                      ok is True and not rep.left
+                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')
+                      and [(r.rule, r.commit) for r in rep.settled]
+                      == [('kept', edited_at)]
+                      and 'to send it upstream' in lines))
 
         d = repo_with([{'level': 'universal', 'name': 'precedent',
                         'path': '../precedent'}], stale=False)
@@ -8032,8 +8044,25 @@ def check_update_vendors_trusts_the_catalogues_own_sync_commit():
         d = _section0_repo(tmp, {'practices/go-update.md': at_older + b'\nMine.\n'}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
-        cases.append(('...and a real local edit is still refused',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)))
+        cases.append(('...and a real local edit is settled, never refused: with '
+                      'no record to merge against, upstream\'s version is taken',
+                      ok is True and not rep.left
+                      and [r.rule for r in rep.settled] == ['replaced']))
+
+        # Its own record at `rev` is the BASE, and upstream has not moved
+        # past it: a committed edit there is kept (rule 1).
+        at_rev = git('show', f'{rev}:practices/go-update.md').stdout
+        d = _section0_repo(tmp, {
+            'practices/go-update.md': at_rev + b'\nMine.\n',
+            'CATALOGUE_SYNC.json': json.dumps({'source_commit': rev}).encode()}, env)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
+        kept = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        cases.append(('with its own record, a local edit upstream has not changed '
+                      'since is kept, and reported as still local',
+                      ok is True and not rep.left
+                      and kept.read_bytes() == at_rev + b'\nMine.\n'
+                      and [r.rule for r in rep.settled] == ['kept']))
 
         d = _section0_repo(tmp, {
             'practices/go-update.md': at_older,
@@ -8723,6 +8752,276 @@ def check_ci_templates_install_pyyaml_before_the_checks():
         failed.append('no template under templates/github-actions/ runs '
                       'precedent_check.py, so this case checked nothing')
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_settles_local_edits():
+    """Update Vendors settles a vendored file edited here by three-way
+    comparison instead of refusing over it (precedent_three_way.py; Morgan,
+    2026-09-29: most such edits were local attempts at the bug upstream had
+    just fixed). One consumer per rule, each asserted by the file it leaves
+    and the words of the closing report (practice:
+    control-asserts-which-failure):
+
+      rule 1  upstream did not change it     -> kept, reported as local
+      rule 2  a clean merge                  -> merged
+      rule 3  upstream changed the same line -> upstream's, commit named
+      rule 4  declared in kept_vendored_files -> never replaced
+      and an uncommitted edit                -> nothing written
+
+    The same rules for process/upstream/ through checkin.py update, and
+    record accepting what update settled.
+
+    The source is a throwaway clone of this tree with two commits: A, what
+    the consumers received, and B, upstream's change since. The update runs
+    that clone's own precedent_update.py, as a consumer's does from its
+    BestPractice clone. Owns its state (practice: fixture-owns-its-state)."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-settle-'))
+    cases = []
+    ref = _ref_including_worktree(ROOT)
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd):
+        r = subprocess.run([str(a) for a in argv], cwd=str(cwd), env=env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def insert_after_first_line(text, line):
+        head, _, rest = text.partition('\n')
+        return f'{head}\n{line}\n{rest}'
+
+    KEEP, MERGE, SAME, CUSTOM = ('tools/precedent_vocabulary.py',
+                                 'tools/precedent_show.py',
+                                 'tools/precedent_paths.py',
+                                 'tools/precedent_time.py')
+    src = tmp / 'source'
+    try:
+        sh('git', 'clone', '-q', '--no-checkout', ROOT, src, cwd=tmp)
+        sh('git', 'checkout', '-q', '-B', 'main', ref, cwd=src)
+        sh('git', 'clone', '-q', '--bare', src, tmp / 'source.git', cwd=tmp)
+        sh('git', 'remote', 'set-url', 'origin', tmp / 'source.git', cwd=src)
+        sh('git', 'fetch', '-q', 'origin', cwd=src)
+        _rc, a = sh('git', 'rev-parse', 'HEAD', cwd=src)
+        a = a.strip()
+
+        def consumer(name, edits, kept=None, commit=True, catalogue=False):
+            repo = tmp / name
+            repo.mkdir()
+            sh('git', 'init', '-q', '-b', 'main', cwd=repo)
+            cfg = {'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+                   'sources': [{'level': 'universal', 'name': 'precedent',
+                                'path': str(src)}]}
+            if kept:
+                cfg['kept_vendored_files'] = kept
+            (repo / 'precedent.json').write_text(json.dumps(cfg) + '\n',
+                                                 encoding='utf-8')
+            (repo / 'AGENTS.md').write_text(
+                f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+            sh(sys.executable, src / 'tools' / 'precedent_vendor_engine.py',
+               'seed', repo, '--kind', 'consumer', cwd=repo)
+            if catalogue:
+                (repo / 'process').mkdir()
+                (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                    'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                                 'vendored_at': 'process/upstream',
+                                 'branch': 'main', 'commit': a},
+                    'entries': []}, indent=2) + '\n', encoding='utf-8')
+                sh(sys.executable, src / 'tools' / 'checkin.py', 'update', src,
+                   '--repo', repo, '--force', cwd=repo)
+            sh('git', 'add', '-A', cwd=repo)
+            sh('git', 'commit', '-qm', 'installed', cwd=repo)
+            for rel, edit in edits.items():
+                f = repo / rel
+                f.write_text(edit(f.read_text(encoding='utf-8')), encoding='utf-8')
+            if commit and edits:
+                sh('git', 'add', '-A', cwd=repo)
+                sh('git', 'commit', '-qm', 'a local fix', cwd=repo)
+            sh('git', 'clone', '-q', '--bare', repo, tmp / f'{name}.git', cwd=tmp)
+            sh('git', 'remote', 'add', 'origin', tmp / f'{name}.git', cwd=repo)
+            sh('git', 'fetch', '-q', 'origin', cwd=repo)
+            return repo
+
+        def append(line):
+            return lambda t: t + line + '\n'
+
+        keep = consumer('rule1', {KEEP: append('# LOCAL-KEEP')})
+        merge = consumer('rule2', {MERGE: append('# LOCAL-MERGE')})
+        same = consumer('rule3', {SAME: lambda t: insert_after_first_line(t, '# LOCAL-SAME')})
+        custom = consumer('rule4', {CUSTOM: append('# LOCAL-CUSTOM')},
+                          kept={CUSTOM: 'the fixture keeps its own clock'})
+        dirty = consumer('uncommitted', {MERGE: append('# LOCAL-DIRTY')}, commit=False)
+        mirrored = consumer('checkin', {
+            f'process/upstream/{KEEP}': append('# LOCAL-KEEP'),
+            f'process/upstream/{SAME}': lambda t: insert_after_first_line(t, '# LOCAL-SAME')},
+            catalogue=True)
+        local_commit = {r: sh('git', 'rev-parse', 'HEAD', cwd=r)[1].strip()
+                        for r in (same, mirrored)}
+
+        # B: upstream's change since. KEEP is left alone.
+        for rel, edit in ((MERGE, lambda t: insert_after_first_line(t, '# UPSTREAM-FIX')),
+                          (SAME, lambda t: insert_after_first_line(t, '# UPSTREAM-SAME')),
+                          (CUSTOM, append('# UPSTREAM-CUSTOM'))):
+            f = src / rel
+            f.write_text(edit(f.read_text(encoding='utf-8')), encoding='utf-8')
+        sh('git', 'commit', '-qam', 'upstream fixes', cwd=src)
+        sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=src)
+        _rc, b = sh('git', 'rev-parse', 'HEAD', cwd=src)
+        b = b.strip()
+
+        def update(repo):
+            return sh(sys.executable, src / 'tools' / 'precedent_update.py',
+                      '--repo', repo, '--from-ref', b, '--skip-check', cwd=repo)
+
+        def text(repo, rel):
+            return (repo / rel).read_text(encoding='utf-8')
+
+        rc, out = update(keep)
+        cases.append(('rule 1: a local edit upstream did not touch is kept, and '
+                      'reported as still local with the way upstream',
+                      '# LOCAL-KEEP' in text(keep, KEEP) and 'Kept your edit' in out
+                      and f'{KEEP}: upstream has not changed it' in out
+                      and 'to send it upstream' in out, out[-2000:]))
+
+        rc, out = update(merge)
+        t = text(merge, MERGE)
+        cases.append(('rule 2: a clean merge writes upstream\'s change and the '
+                      'local one, and says so',
+                      '# LOCAL-MERGE' in t and '# UPSTREAM-FIX' in t
+                      and 'Merged -- upstream\'s change and yours' in out
+                      and f'{MERGE}: upstream\'s change and yours touch' in out,
+                      out[-2000:]))
+        m = json.loads(text(merge, 'tools/ENGINE_MANIFEST.json'))
+        _rc, up_b = sh('git', 'show', f'{b}:{MERGE}', cwd=src)
+        cases.append(('...and the engine manifest records upstream\'s text, so a '
+                      'bare refresh still sees the local edit',
+                      m.get('source_commit') == b and m['sha256'].get(MERGE[6:])
+                      == hashlib.sha256(up_b.encode()).hexdigest(), str(m.get('sha256', {}).get(MERGE[6:]))))
+
+        rc, out = update(same)
+        t = text(same, SAME)
+        cases.append(('rule 3: upstream changed the same line, so its version is '
+                      'taken and the commit holding the local one is named',
+                      '# UPSTREAM-SAME' in t and '# LOCAL-SAME' not in t
+                      and "Took upstream's version" in out
+                      and f'git checkout {local_commit[same][:12]} -- {SAME}' in out,
+                      out[-2000:]))
+
+        rc, out = update(custom)
+        t = text(custom, CUSTOM)
+        cases.append(('rule 4: a file declared in kept_vendored_files is never '
+                      'replaced, and the report says upstream changed it',
+                      '# LOCAL-CUSTOM' in t and '# UPSTREAM-CUSTOM' not in t
+                      and 'Your own version' in out
+                      and 'upstream has changed it since' in out, out[-2000:]))
+
+        _rc, man_before = sh('git', 'show', 'HEAD:tools/ENGINE_MANIFEST.json', cwd=dirty)
+        rc, out = update(dirty)
+        _rc, status = sh('git', 'status', '--porcelain', cwd=dirty)
+        cases.append(('an uncommitted edit stops the update with nothing written: '
+                      'exit 1, the file named, only it changed',
+                      rc == 1 and 'edited here and not committed' in out
+                      and MERGE in out.split('LEFT FOR YOU', 1)[-1]
+                      and status.split() == ['M', MERGE]
+                      and '# LOCAL-DIRTY' in text(dirty, MERGE)
+                      and text(dirty, 'tools/ENGINE_MANIFEST.json') == man_before,
+                      (status + out)[-2000:]))
+
+        checkin = [sys.executable, src / 'tools' / 'checkin.py']
+        rc, out = sh(*checkin, 'update', src, '--repo', mirrored, cwd=mirrored)
+        up = mirrored / 'process' / 'upstream'
+        edits = json.loads(text(mirrored, 'process/manifest.json'))['upstream'].get(
+            'local_edits', {})
+        cases.append(('checkin.py update settles process/upstream/ by the same '
+                      'rules: rule 1 kept, rule 3 upstream\'s with the commit named',
+                      rc == 0 and '# LOCAL-KEEP' in (up / KEEP).read_text()
+                      and '# UPSTREAM-SAME' in (up / SAME).read_text()
+                      and '# LOCAL-SAME' not in (up / SAME).read_text()
+                      and '# UPSTREAM-FIX' in (up / MERGE).read_text()
+                      and edits.get(KEEP, {}).get('rule') == 'kept'
+                      and edits.get(SAME, {}).get('commit') == local_commit[mirrored]
+                      and 'checkin.py push' in out, out[-2000:]))
+        rc, out = sh(*checkin, 'record', src, '--repo', mirrored, cwd=mirrored)
+        cases.append(('...and record accepts the tree the update settled',
+                      rc == 0 and 'checkin record OK' in out
+                      and 'keep this repo\'s own version' in out, out[-2000:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_merge_falls_back_on_a_red_check():
+    """A merged file (rule 2) stands only if the repo's own check passes with
+    it; red, every merge takes upstream's version (rule 3) and the check runs
+    again. The check here is a stub that is red exactly while the merge is in
+    place, so the case fails if the fallback is missing. Its control: a check
+    red either way puts the merge back, since the merge was not the cause."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_three_way as tw
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-merge-fallback-'))
+    cases = []
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t',
+           'HOME': str(tmp)}
+    old_env = dict(os.environ)
+    try:
+        os.environ.update(env)
+        repo = tmp / 'repo'
+        repo.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=repo, check=True)
+        base = b'a = 1\n\nb = 2\n\nc = 3\n'
+        local = base + b'# LOCAL\n'
+        new = b'# UPSTREAM\n' + base
+        (repo / 'f.py').write_bytes(local)
+        subprocess.run(['git', 'add', '-A'], cwd=repo, check=True)
+        subprocess.run(['git', 'commit', '-qm', 'local'], cwd=repo, check=True)
+        r = tw.resolve('f.py', base, local, new)
+        cases.append(('the fixture is a clean merge (rule 2)',
+                      r is not None and r.rule == tw.MERGED, r and r.rule))
+
+        def stub(red_always):
+            return [sys.executable, '-c',
+                    'import sys; sys.exit(1 if ' + ('True' if red_always else
+                    "b'# LOCAL' in open('f.py', 'rb').read()") + ' else 0)']
+
+        def run_one(red_always):
+            r = tw.resolve('f.py', base, local, new)
+            r.commit = 'c0ffee'
+            tw.write(repo, 'f.py', r.content)
+            subprocess.run(['git', 'add', '-A'], cwd=repo, check=True)
+            rep = pu.Report()
+            rep.settled.append(r)
+            rc, _out = pu.check_with_merge_fallback(repo, rep, stub(red_always), 'check')
+            return rc, r, (repo / 'f.py').read_bytes(), rep
+
+        rc, r, data, rep = run_one(False)
+        cases.append(('rule 2 with a failing check: the merge falls back to '
+                      'upstream\'s version and the check passes',
+                      rc == 0 and data == new and r.rule == tw.REPLACED
+                      and 'failed with the merged file in place' in
+                      '\n'.join(tw.report_lines(rep.settled)), (rc, data, r.rule)))
+        rc, r, data, _rep = run_one(True)
+        cases.append(('...and a check red either way keeps the merge, reporting red',
+                      rc != 0 and r.rule == tw.MERGED and b'# LOCAL' in data
+                      and b'# UPSTREAM' in data, (rc, data, r.rule)))
+    finally:
+        os.environ.clear()
+        os.environ.update(old_env)
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_update_vendors_survives_an_upstream_deletion():
@@ -45291,6 +45590,12 @@ def main():
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
+    check('Update Vendors settles a vendored file edited here by three-way '
+          'comparison, never over an uncommitted edit',
+          *check_update_vendors_settles_local_edits())
+    check('a merged vendored file falls back to upstream\'s when the repo\'s '
+          'check fails with it',
+          *check_update_vendors_merge_falls_back_on_a_red_check())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
     check('every shipped CI template that runs the checks installs PyYAML first',

@@ -79,9 +79,10 @@ edit would otherwise happen.
 Local patches to upstream bugs are cheap for the session that makes them and
 expensive for everyone else. The repository in front of the session goes
 green, the owning repository stays broken, every other repository that carries
-the copy still has the bug, and the next Update Vendors either overwrites the
-patch or collides with it. Nobody sees the cost, because each session in
-isolation fixed its own problem.
+the copy still has the bug, and the next Update Vendors keeps the patch,
+merges it with upstream's fix, or replaces it with upstream's version -- and
+none of those tells the owning repository about the bug. Nobody sees the
+cost, because each session in isolation fixed its own problem.
 
 ## Story
 **Asked for by Morgan on 2026-09-28**, after two days in which sessions fixed
@@ -100,9 +101,10 @@ come from an upstream."* (strength: decided)
 
 **On the mechanical check, attempted and declined with a reason**
 ([checkable-gets-checked](checkable-gets-checked.md)). A diff can show that a
-vendored file changed, and the manifests already refuse most of those edits
-(the engine refresh names a hand-edited engine file; the catalogue update
-refuses local changes to the vendored tree). What no check can see is the
+vendored file changed, and the manifests already catch most of those edits:
+Update Vendors names every committed one in its report as it settles it
+against upstream's version (since 2026-09-29; before that it refused them),
+and stops on an uncommitted one. What no check can see is the
 moment this rule is about: the decision, before any edit, to patch a copy
 rather than stop. That is why the rule is tied to the vendored paths, so it is
 printed when an edit there begins, and why the Boildown carries the after-the-
