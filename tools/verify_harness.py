@@ -35006,6 +35006,55 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_universal_occasion_share_is_capped():
+    """The universal set's share of every consumer's occasion index has its
+    own allowance, enforced when build_views builds a universal source
+    (Morgan, 2026-09-29, strength: assented): a consumer carries that share
+    under one cap with every set it declares and cannot shrink it.
+    Discriminating cases: this repository's real share fits the registry's
+    allowance; the same build refuses with the allowance set below the
+    share; and a source whose precedent-source.json says `shared` is never
+    held to it."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    cases = []
+    share = bv.universal_occasion_share(bv.load_practices(announce=False))
+    allowed = bv.UNIVERSAL_OCCASION_SHARE_TOKENS
+    cases.append((f'the real share (~{share}) fits the allowance ({allowed})',
+                  allowed is not None and 0 < share <= allowed,
+                  f'share {share}, allowance {allowed}'))
+    real, argv = bv.UNIVERSAL_OCCASION_SHARE_TOKENS, sys.argv
+    bv.UNIVERSAL_OCCASION_SHARE_TOKENS = 10
+    sys.argv = ['build_views.py', '--check']
+    try:
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            bv.main()
+        refused, why = False, 'build_views --check returned'
+    except SystemExit as e:
+        refused = "universal set's share" in str(e.code)
+        why = str(e.code)[:300]
+    finally:
+        bv.UNIVERSAL_OCCASION_SHARE_TOKENS, sys.argv = real, argv
+    cases.append(('a share over its allowance refuses the build', refused, why))
+    d = pathlib.Path(tempfile.mkdtemp())
+    try:
+        (d / 'precedent-source.json').write_text(
+            '{"name": "x", "level": "shared"}', encoding='utf-8')
+        cases.append(('a shared source is not held to it',
+                      not bv.is_universal_source(d) and bv.is_universal_source(ROOT),
+                      'is_universal_source disagreed'))
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the universal set\'s occasion-index share is capped '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_headroom_notice_watches_the_resident_block():
     """headroom_notice() also speaks when the generated resident block is
     near its own allocation, not only when a whole file nears its ceiling
@@ -44410,6 +44459,7 @@ def main():
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_headroom_notice_watches_the_resident_block()
+    check_universal_occasion_share_is_capped()
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
     check_environment_gotchas_advises_migrating_an_inline_catalogue()

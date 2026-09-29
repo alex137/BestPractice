@@ -204,7 +204,7 @@ When a message says "Archive" or "Archive?", or asks whether the session can be 
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Booked", "Go update", "Approved", "Book it" or "Promote 3", or plainly authorizes a merge:
   go-update — "Booked" (stage 3; also "Go update", "Approved"): push; high-risk: PR and merge
-When a message says "Promote", "Promote N" or "Graduate", or asks to move pre-staging into staging or staging into main:
+When a message says "Promote", "Promote N" or "Graduate", or asks to move work up a tier:
   promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
   push-directly — no PR; with no branch named, the branch already in play
@@ -230,12 +230,14 @@ When a person says "My options", or asks to see a decision's options or hand the
   my-options — every option, plainer, your pick -- or a paste-ready handoff
 When a person says "Plan it", or Consider picks a middle-sized plan:
   plan-it — a written plan in the session, as one paste-ready prompt for a second opinion
-When a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs:
+When a person says "Primary branch", or asks which branch is trunk:
   primary-branch — trunk: the branch regular work pushes to and PRs target
 When a person says "Produce", "Make live" or "Promote 5":
   produce — stage 5: Promote staging into main (production); read strictly
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
+When a person says "Response Please", or pastes another session's message to be weighed:
+  response-please — "Response Please" -- key points, your call, then a Prompt Please write-up
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
@@ -244,13 +246,13 @@ When a person says "Tier branch", or asks which branches are the tiers:
   tier-branch — pre-staging, staging or main -- plus staging's old name and Promote's lock
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — write it with disposition ask and remind_on; never a trigger
-When a person says "Upstream fix", or asks whether a change fixes the root cause; or a session fixing a problem, adding a check for one, or adding an exemption:
+When a person says "Upstream fix" or asks if a fix reaches the cause, or a fix, check or exemption is being added:
   upstream-fix — fix the cause, not just add a check; a new exemption means look again
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
-When a person says "Write it up" or "Spec it out", or asks for a write-up of the issue being worked:
+When a person says "Write it up" or "Spec it out", or asks for a write-up:
   write-it-up — "Write it up": commit a full report of issue and fix, then link it
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
@@ -296,7 +298,7 @@ When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
 When finishing substantial work, before the merge capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
-When handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session:
+When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:
   shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
@@ -328,14 +330,12 @@ When setting up a project a session works in, or a session reporting that its ch
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
-When starting slow, costly or external work from a snapshot of trunk that another session could start too:
+When starting slow, costly or external work another session could also start:
   lease-in-flight-work — lease work in flight on a branch; the starting tool checks the board first
 When starting work another session may have done, or opening a PR:
   base-branch-is-the-record — read the base branch before starting and before the PR
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
-When the person is about to paste, or has just pasted, a message from another session and wants it read, evaluated, and turned into a decision:
-  response-please — "Response Please" -- key points, your call, then a Prompt Please write-up
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When work touches an open item's subject, or a branch merges:

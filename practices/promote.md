@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, like go-update's and push-directly's entries -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-25, when the practice landed."
-occasion:    "a message says \"Promote\", \"Promote N\" or \"Graduate\", or asks to move pre-staging into staging or staging into main"
+occasion:    "a message says \"Promote\", \"Promote N\" or \"Graduate\", or asks to move work up a tier"
 gates:       ["merge"]
 gates_why:   "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
 index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"

@@ -107,6 +107,14 @@ RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
 # nobody decided it (practice: constants-are-risk-inputs) -- registered in
 # session_load_budgets.json's _occasion_index_fallback_comment.
 OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
+# code-cites-practice: session-load-budget -- the universal set's SHARE of
+# every consumer's occasion index (Morgan, 2026-09-29, strength: assented).
+# A consumer's index carries universal plus every set it declares under one
+# cap, and universal alone was about 3,100 of a consumer's 4,000 when one
+# refused at about 4,165: the share nobody downstream can shrink had no
+# ceiling of its own. None when the registry has no row -- a consumer or a
+# practice set carries none, and is never capped by it.
+UNIVERSAL_OCCASION_SHARE_TOKENS = _budget('universal_occasion_share_tokens', None)
 
 
 def surface_budget(name, default):
@@ -150,6 +158,29 @@ class ResidentBudgetExceeded(Exception):
         self.tokens, self.budget = tokens, budget
         super().__init__(f'resident block is ~{tokens} tokens, over the '
                          f'{budget}-token hard cap')
+def universal_occasion_share(practices):
+    """-> tokens of the occasion index these practices render ALONE, measured
+    with the same renderer and the same estimate as the whole index. Given a
+    universal source's own catalogue, it is the universal share every
+    consumer carries."""
+    block, _t, _n = build_loader_block(practices, occasion_budget_tokens=None,
+                                       budget_tokens=10 ** 9)
+    if '## Occasion index' not in block:
+        return 0
+    idx = block.split('## Occasion index', 1)[1].split('```')[1]
+    return _approx_tokens(idx)
+
+
+def is_universal_source(root):
+    """True when root is a universal practice source (its own
+    precedent-source.json says level universal)."""
+    f = pathlib.Path(root) / 'precedent-source.json'
+    try:
+        return json.loads(f.read_text(encoding='utf-8')).get('level') == 'universal'
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 class OccasionIndexBudgetExceeded(Exception):
     """The generated occasion index is over its declared ceiling.
 
@@ -2309,6 +2340,20 @@ def main():
     new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
         block_practices, agents_md, source_levels=levels,
         defers_sources=defers_any_source(root))
+    if UNIVERSAL_OCCASION_SHARE_TOKENS is not None and is_universal_source(root):
+        share = universal_occasion_share(practices)
+        if share > UNIVERSAL_OCCASION_SHARE_TOKENS:
+            sys.exit(
+                f"build_views FAIL: the universal set's share of every "
+                f"consumer's occasion index is ~{share} tokens, over its "
+                f"{UNIVERSAL_OCCASION_SHARE_TOKENS}-token allowance "
+                f"(universal_occasion_share_tokens in "
+                f"tools/session_load_budgets.json). A consumer carries this "
+                f"share plus every set it declares under one cap, and cannot "
+                f"shrink it. Give a file-bound practice a real applies_to "
+                f"glob and drop its occasion:, or shorten the longest "
+                f"index_clause values; raising the allowance is the "
+                f"person's decision, with the reason recorded there.")
     targets = [(agents_md, new_agents)]
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()

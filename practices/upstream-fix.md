@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, about whatever change is in front of the session -- no file path reaches it, and its work (finding the cause, fixing the root, handing off the rest) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-24, when the practice landed."
-occasion:    "a person says \"Upstream fix\", or asks whether a change fixes the root cause; or a session fixing a problem, adding a check for one, or adding an exemption"
+occasion:    "a person says \"Upstream fix\" or asks if a fix reaches the cause, or a fix, check or exemption is being added"
 gates:       ["reply"]
 gates_why:   "Points 5 and 6 apply without being asked, to any fix a turn reports: the reply is where a check-only fix or a new exemption gets presented as done, so that is the moment to ask what caused it."
 index_clause: "fix the cause, not just add a check; a new exemption means look again"
