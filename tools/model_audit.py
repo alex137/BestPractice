@@ -97,7 +97,19 @@ INSTRUMENTED = [
 def load(path: Path):
     """Import a model. Some print at module level; swallow that so the audit's
     own output stays readable."""
-    spec = importlib.util.spec_from_file_location(f"_ma_{path.stem}", path)
+    # One copy of a model per process: when another audited model has
+    # already imported this file under its own name, audit that module;
+    # otherwise load it under its own name, so a model imported later by
+    # name gets this copy. Two copies of one model share every module they
+    # both import, and a cache in a shared module then carries state from
+    # one copy's rows into the other's (found when a model began importing
+    # a second model that imports the first: its self-check passed alone
+    # and failed under the audit).
+    prior = sys.modules.get(path.stem)
+    if prior is not None and pathlib.Path(getattr(prior, "__file__", "") or "").resolve() == path.resolve():
+        return prior, None
+    name = path.stem if prior is None else f"_ma_{path.stem}"
+    spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
     # Register before executing (the importlib recipe): a model that
     # fans its solve out over a multiprocessing pool pickles its worker
@@ -110,6 +122,7 @@ def load(path: Path):
         spec.loader.exec_module(mod)
         return mod, None
     except Exception:
+        sys.modules.pop(spec.name, None)
         return None, traceback.format_exc(limit=3)
     finally:
         sys.stdout = real_stdout
