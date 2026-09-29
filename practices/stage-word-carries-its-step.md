@@ -43,6 +43,12 @@ so a check that looked for them would fire on ordinary sentences and teach
 sessions to ignore it. Telling the stage apart from the word is judgment,
 and the reply gate is where that judgment is asked for.
 
+## Why
+The stage names are new, and a name alone does not say where it sits. A
+reader who sees "Booked" has to remember it is step 3 to know what came
+before it and what comes next; the number says so in the reply itself, at
+the cost of a few characters once.
+
 ## Story
 On 2026-09-29, a day after the five stage names landed, Morgan said they
 were still a little confusing because they were new, and asked for every
@@ -50,3 +56,8 @@ use to carry its place in the ladder. He picked the lighter version: once
 per reply, at the first use, not on every repeat. In the same message his
 own example put "book" at step two, which is the confusion this is for:
 Booked is step 3.
+
+## Install
+Nothing to install. It reaches a session through the `reply` gate, which is
+generated from this file's front matter, and nothing mechanical checks it,
+for the reason in Detail above.
