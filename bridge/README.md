@@ -138,7 +138,11 @@ person's handle only.
   the session's machine is reclaimed, and each new machine starts with empty
   state: new invite (unless `telegram_user_id` is configured), fresh
   conversation, and no earlier More answers. Changes are on GitHub and
-  survive. A hosted, always-on version is phase 2 of the spec.
+  survive. An always-on host is future work (the spec's route B proper, or
+  route D).
+- **Ready for one person, not yet for others.** What stands in the way is
+  listed in the spec, under
+  [what could go wrong](../spec/SPECULATIVE_TELEGRAM_ACCESS.md#what-could-go-wrong-before-others-use-it).
 - **The full answer lives on the bridge's machine**, behind the More button,
   not on GitHub. Links to changes point at GitHub, and on a private
   repository they only open for someone logged in with access.

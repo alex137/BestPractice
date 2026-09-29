@@ -53,11 +53,17 @@ def decide(call: dict, root: str, scope: Scope):
     if tool in INERT_TOOLS:
         return None
     if tool in READ_TOOLS:
+        pat = args.get("pattern") if tool == "Glob" else None
+        if pat and (os.path.isabs(pat) or pat.startswith("~") or ".." in pat.split("/")):
+            return "Searching outside this repository isn't available through the chat bridge."
         p = args.get(READ_TOOLS[tool])
         if not p:
             return None  # defaults to the working directory, the checkout
-        if _inside(root, p) is None:
+        rel = _inside(root, p)
+        if rel is None:
             return "Reading outside this repository isn't available through the chat bridge."
+        if rel == ".git" or rel.startswith(".git/"):
+            return "Git's own files aren't available through the chat bridge."
         return None
     if tool in WRITE_TOOLS:
         p = args.get(WRITE_TOOLS[tool])

@@ -27,10 +27,15 @@ import sys
 from dataclasses import dataclass
 
 FILE_TOOLS = "Read,Glob,Grep,Edit,Write,TodoWrite"
+READ_TOOLS = "Read,Glob,Grep,TodoWrite"
 DENIED_TOOLS = ("Bash,BashOutput,KillShell,WebFetch,WebSearch,NotebookEdit,Task,"
                 "Agent,Skill,SlashCommand,ExitPlanMode")
 
 _FLAG_CACHE = {}
+
+# The bridge's own credentials: the model's process has no use for them, so
+# it never gets them, whatever its tools could or couldn't read.
+_BRIDGE_SECRETS = {"OPENAI_API_KEY"}
 
 _PARENT_SESSION_VARS = {
     "CLAUDECODE", "CLAUDE_PID", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_REMOTE_SESSION_ID",
@@ -62,7 +67,8 @@ def supported_flags(command: str):
     return flags
 
 
-def build_command(cfg: dict, *, root, scope_file, system_prompt, session_id=None):
+def build_command(cfg: dict, *, root, scope_file, system_prompt, session_id=None,
+                  read_only=False):
     command = cfg.get("command", "claude")
     flags = supported_flags(command)
     guard = os.path.join(os.path.dirname(os.path.abspath(__file__)), "guard.py")
@@ -76,9 +82,9 @@ def build_command(cfg: dict, *, root, scope_file, system_prompt, session_id=None
             "--append-system-prompt", system_prompt,
             "--max-turns", str(cfg.get("max_turns", 40))]
     if "--tools" in flags:
-        argv += ["--tools", FILE_TOOLS]
+        argv += ["--tools", READ_TOOLS if read_only else FILE_TOOLS]
     else:
-        argv += ["--allowedTools", FILE_TOOLS]
+        argv += ["--allowedTools", READ_TOOLS if read_only else FILE_TOOLS]
     if "--disallowedTools" in flags:
         argv += ["--disallowedTools", DENIED_TOOLS]
     if "--restricted" in flags and cfg.get("restricted", True):
@@ -97,12 +103,14 @@ def build_command(cfg: dict, *, root, scope_file, system_prompt, session_id=None
 
 
 def run_turn(cfg: dict, *, root, scope_file, system_prompt, prompt,
-             session_id=None) -> TurnResult:
+             session_id=None, read_only=False) -> TurnResult:
     argv = build_command(cfg, root=root, scope_file=scope_file,
-                         system_prompt=system_prompt, session_id=session_id)
+                         system_prompt=system_prompt, session_id=session_id,
+                         read_only=read_only)
     # A bridge started from inside a Claude Code session must not run its
     # turns AS that session: drop the variables that carry its identity.
-    env = {k: v for k, v in os.environ.items() if k not in _PARENT_SESSION_VARS}
+    env = {k: v for k, v in os.environ.items() if k not in _PARENT_SESSION_VARS
+           and not k.startswith("CHATBRIDGE_") and k not in _BRIDGE_SECRETS}
     try:
         r = subprocess.run(argv, cwd=root, input=prompt, capture_output=True, text=True,
                            timeout=cfg.get("timeout_seconds", 900), env=env)
@@ -119,7 +127,8 @@ def run_turn(cfg: dict, *, root, scope_file, system_prompt, prompt,
         if session_id and "session" in err.lower():
             # A session that no longer exists: start fresh rather than fail.
             return run_turn(cfg, root=root, scope_file=scope_file,
-                            system_prompt=system_prompt, prompt=prompt, session_id=None)
+                            system_prompt=system_prompt, prompt=prompt, session_id=None,
+                            read_only=read_only)
         return TurnResult("", session_id, True, error=err)
     return TurnResult(text=data.get("result") or "",
                       session_id=data.get("session_id") or session_id,

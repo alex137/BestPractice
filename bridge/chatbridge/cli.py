@@ -115,8 +115,10 @@ def cmd_check(cfg, a):
     command = cfg.get("claude", {}).get("command", "claude")
     if shutil.which(command.split()[0]):
         flags = runner.supported_flags(command)
-        row("--restricted" in flags or "--tools" in flags, "Claude Code is installed",
-            "supports " + (", ".join(sorted(flags)) or "none of the lock-down flags -- update it"))
+        row("--restricted" in flags and "--tools" in flags, "Claude Code is installed",
+            "supports " + ", ".join(sorted(flags)) if "--restricted" in flags else
+            "this version has no --restricted mode, which the content-only lock relies "
+            "on -- update Claude Code")
     else:
         row(False, "Claude Code is installed", f"'{command}' is not on PATH")
     try:

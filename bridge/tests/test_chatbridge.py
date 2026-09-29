@@ -93,6 +93,22 @@ class ScopeTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("cannot read", why)
 
+    def test_read_only_person(self):
+        from chatbridge import runner
+        s = load_scope(self.root)
+        s.read_only = True
+        s2 = Scope.from_json(s.to_json())
+        ok, why = s2.verdict("notes/plan.md")
+        self.assertFalse(ok)
+        self.assertIn("read-only access", why)
+        self.assertTrue(load_scope(self.root).is_content("notes/plan.md"))  # the control
+        argv = runner.build_command({"command": sys.executable}, root=str(self.root),
+                                    scope_file="x", system_prompt="p", read_only=True)
+        tools = argv[argv.index("--tools") + 1] if "--tools" in argv else \
+            argv[argv.index("--allowedTools") + 1]
+        self.assertNotIn("Edit", tools.split(","))
+        self.assertNotIn("Write", tools.split(","))
+
     def test_roundtrip(self):
         s2 = Scope.from_json(self.s.to_json())
         self.assertFalse(s2.is_content("budget/q3.md"))
@@ -118,6 +134,34 @@ class GuardTest(unittest.TestCase):
         self.assertIsNone(self.d("Write", file_path=os.path.join(self.root, "n/a.md")))
         self.assertIsNotNone(self.d("Edit", file_path=os.path.join(self.root, "tools/a.py")))
         self.assertIsNotNone(self.d("Write", file_path="/tmp/escape.md"))
+
+    def test_glob_patterns_and_git_internals(self):
+        self.assertIn("outside", self.d("Glob", pattern="/etc/*"))
+        self.assertIn("outside", self.d("Glob", pattern="../*/secrets.md"))
+        self.assertIn("outside", self.d("Glob", pattern="~/.ssh/*"))
+        self.assertIsNone(self.d("Glob", pattern="notes/**/*.md"))
+        self.assertIn("Git's own files", self.d("Read", file_path=os.path.join(self.root, ".git/config")))
+
+    def test_secrets_never_reach_the_model(self):
+        from chatbridge import runner
+        seen = os.path.join(self.root, "env.json")
+        fake = os.path.join(self.root, "fake-claude")
+        with open(fake, "w") as f:
+            f.write("#!/usr/bin/env python3\nimport json,os,sys\n"
+                    "if '--help' in sys.argv: sys.exit(0)\n"
+                    f"json.dump(dict(os.environ), open({seen!r}, 'w'))\n"
+                    "print(json.dumps({'result': 'ok', 'session_id': 's'}))\n")
+        os.chmod(fake, 0o755)
+        os.environ["OPENAI_API_KEY"] = "sk-test"
+        try:
+            runner.run_turn({"command": fake}, root=self.root, scope_file="x",
+                            system_prompt="p", prompt="hi")
+        finally:
+            os.environ.pop("OPENAI_API_KEY", None)
+        env = json.load(open(seen))
+        self.assertNotIn("CHATBRIDGE_TELEGRAM_TOKEN", env)
+        self.assertNotIn("OPENAI_API_KEY", env)
+        self.assertIn("PATH", env)  # the control: the environment did arrive
 
     def test_symlink_out_is_outside(self):
         os.symlink("/etc", os.path.join(self.root, "link"))

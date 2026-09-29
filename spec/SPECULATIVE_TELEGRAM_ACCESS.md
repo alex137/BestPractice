@@ -543,6 +543,77 @@ repository.
   bridge document says the same and it is still the biggest running cost.
   No figure is estimated here, because any figure would be invented.
 
+## What could go wrong before others use it
+
+**A review of the test build and this plan, 2026-09-29**, done before the
+bridge is offered to anyone but Morgan. It was an adversarial pass by the
+session that built it plus an independent code review by a separate agent.
+Each item says whether it is **fixed**, **documented** (the setup guide now
+says it), or **open**.
+
+### Would stop the test from working
+
+- **The bot lives only as long as its cloud machine.** A cloud session's
+  machine is reclaimed after a while without activity, and nobody here knows
+  how long that is for a session whose only activity is a background
+  process. *Open, and the test measures it.* If it is short, the test
+  becomes restart-heavy, and an always-on host (route B proper, or route D)
+  moves up.
+- **The test repository must be attached with push access.** The default
+  attach is read-only, and the bridge's first push would fail. *Fixed* in
+  the start prompt.
+- **Two bridges on one bot token fight.** Telegram gives each update to one
+  poller, and a second copy gets a conflict error. That happens easily when
+  an old session is still alive and a new one starts. *Fixed*: the bridge
+  says so plainly and backs off, and the guide says to stop the old one.
+- **The model's download host is unknown.** `huggingface.co` redirects file
+  downloads to a second host this environment could not see. *Documented*:
+  `check` names every refused host, so it is one extra allowed domain, not
+  a guess.
+- **Whisper has not run on real audio here**, and its speed on a cloud
+  machine's processor is unmeasured. *Open*, and the first voice note answers
+  it.
+
+### Would weaken the content-only line
+
+- **The model's process inherited the bridge's secrets.** The bot token and
+  any transcription key were in its environment. It had no tool to read
+  them, but defence in depth says it should not hold them at all. *Fixed*:
+  stripped before each turn, with a test.
+- **An absolute Glob pattern could search outside the checkout**, and git's
+  own files (the remote address, hooks) were readable. Restricted mode
+  already confines file tools, so this was the second lock only. *Fixed* in
+  the guard, with tests.
+- **A path rule cannot see what a document means.** In a repository run on
+  Precedent, some markdown files steer every future session: a plan of
+  record, a decision log, an instructions file under another name. By path
+  they are content, so a chat message could edit them, and the next normal
+  session would read the edit as policy. *Open.* The remedy is the owner
+  listing those documents in `owned_paths`, which the bridge already reads;
+  the setup guide steers the first test to a plain repository for this
+  reason.
+- **Without restricted mode, the lock is weaker**, because project settings
+  would load (their hooks and allow rules). *Fixed*: `check` now refuses to
+  pass a Claude Code without `--restricted`.
+
+### Must be settled before anyone else uses it
+
+- **Other people's turns would run on Morgan's Claude login.** In a cloud
+  session the login is his, for his own use. For anyone else the bridge
+  should run on an Anthropic API key, billed per use. That is also the only
+  way the cost becomes visible. *Open.*
+- **Landing is a direct push, and branch protection refuses it.** The guide
+  told a second person's repository to require pull requests, which would
+  make "Go update" fail for them. *Documented*: other people get `can_land:
+  false` until landing opens a pull request instead. *Open* as a build item.
+- **The build skipped "read-only first"** (phase 2 above), going straight to
+  content writes, because Morgan's test needs the whole loop. *Fixed*: a
+  person can now be set `read_only`, which removes the edit tools from their
+  turns and makes every write fail all three locks. That's the sensible
+  first setting for anyone new.
+
+<!-- review-findings: independent -->
+
 ## Open questions
 
 1. **Whether Telegram is a destination for anyone but Morgan.** The local

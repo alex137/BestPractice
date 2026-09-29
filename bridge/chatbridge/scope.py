@@ -73,8 +73,9 @@ DEFAULT_CONTENT_EXTENSIONS = [".md", ".markdown", ".txt", ".csv", ".tsv"]
 class Scope:
     """A decided content/machinery line for one repository checkout."""
 
-    def __init__(self, owned, content_extensions, broken=None):
+    def __init__(self, owned, content_extensions, broken=None, read_only=False):
         # owned: list of (pattern, why)
+        self.read_only = bool(read_only)  # a person allowed to ask, not to change
         self.owned = list(owned)
         self.content_extensions = [e.lower() for e in content_extensions]
         self.broken = list(broken or [])  # untranslatable patterns
@@ -86,6 +87,8 @@ class Scope:
         rel = normalize(relpath)
         if rel is None:
             return False, "outside the repository"
+        if self.read_only:
+            return False, "this person has read-only access through the chat"
         if self.broken:
             return False, ("this repository's CODEOWNERS has a pattern the "
                            "bridge cannot read (" + ", ".join(self.broken) +
@@ -110,6 +113,9 @@ class Scope:
 
     def summary(self) -> str:
         """One line for the model's instructions."""
+        if self.read_only:
+            return ("READ-ONLY: this person may ask about the repository but not "
+                    "change any file, content included")
         pats = [p for p, _ in self.owned][:14]
         more = "" if len(self.owned) <= 14 else f", and {len(self.owned) - 14} more"
         return ("content files are " + ", ".join(self.content_extensions) +
@@ -120,13 +126,13 @@ class Scope:
     def to_json(self) -> str:
         return json.dumps({"owned": self.owned,
                            "content_extensions": self.content_extensions,
-                           "broken": self.broken}, indent=1)
+                           "broken": self.broken, "read_only": self.read_only}, indent=1)
 
     @classmethod
     def from_json(cls, text: str) -> "Scope":
         d = json.loads(text)
         return cls([tuple(x) for x in d["owned"]], d["content_extensions"],
-                   d.get("broken"))
+                   d.get("broken"), d.get("read_only", False))
 
 
 def normalize(relpath: str):

@@ -96,6 +96,7 @@ class Bridge:
         self.cfg, self.tg, self.store, self.transcriber = cfg, tg, store, transcriber
         self.reply_cfg = cfg.get("reply", {})
         self.workers = {}
+        self._told_strangers = set()
         self.state_dir = str(store.dir)
 
     # -- polling -----------------------------------------------------------
@@ -107,10 +108,15 @@ class Bridge:
         while not (stop and stop.is_set()):
             try:
                 offset, items = self.tg.poll(self.store.data["offset"],
-                                             wait=self.cfg.get("poll_seconds", 50))
+                                             wait=self.cfg.get("poll_seconds", 25))
             except TelegramError as e:
-                print(f"poll failed, retrying: {e}")
-                time.sleep(5)
+                if "conflict" in str(e).lower():
+                    print("poll refused: another copy of this bot is polling with the same "
+                          "token. Stop the other one; only one bridge per bot can run.")
+                    time.sleep(30)
+                else:
+                    print(f"poll failed, retrying: {e}")
+                    time.sleep(5)
                 continue
             self.store.set_offset(offset)
             for inc in items:
@@ -165,7 +171,9 @@ class Bridge:
                 return
             self.tg.send_plain(inc.chat_id, "That invite link has expired or was already used.")
             return
-        if inc.kind == "message":
+        if inc.kind == "message" and inc.user_id not in self._told_strangers:
+            # Once per stranger per run: a flood of messages gets one answer.
+            self._told_strangers.add(inc.user_id)
             self.tg.send_plain(inc.chat_id, "This is a private bot. Ask its owner for an "
                                f"invite link. (Your Telegram user id is {inc.user_id}.)")
 
@@ -193,9 +201,12 @@ class Bridge:
                         author_name=p.get("git_name"), author_email=p.get("git_email"),
                         web_url=r.get("web_url"))
 
-    def scope_for(self, repo, co):
+    def scope_for(self, repo, co, handle=None):
         r = self.cfg["repos"][repo]
-        return load_scope(co.path, r.get("extra_owned_paths"), r.get("content_extensions"))
+        s = load_scope(co.path, r.get("extra_owned_paths"), r.get("content_extensions"))
+        if handle and self.person(handle).get("read_only"):
+            s.read_only = True
+        return s
 
     def tag(self, handle, repo):
         return repo if len(self.person(handle).get("repos", [])) > 1 else None
@@ -247,7 +258,7 @@ class Bridge:
         except GitError as e:
             return self._reply(chat_id, last.message_id, handle, repo,
                                f"Couldn't open {repo}: {e}", heard=heard_text)
-        scope = self.scope_for(repo, co)
+        scope = self.scope_for(repo, co, handle)
         scope_file = os.path.join(self.state_dir, f"scope-{repo}-{handle}.json")
         with open(scope_file, "w", encoding="utf-8") as f:
             f.write(scope.to_json())
@@ -257,6 +268,7 @@ class Bridge:
         result = runner.run_turn(
             self.cfg.get("claude", {}), root=str(co.path), scope_file=scope_file,
             prompt=prompt, session_id=self.store.session(handle, repo),
+            read_only=scope.read_only,
             system_prompt=runner.system_prompt(
                 name=p.get("name", handle), repo=repo, web_url=co.web_url,
                 work_branch=co.work, landing=co.landing, scope_summary=scope.summary(),

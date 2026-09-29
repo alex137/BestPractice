@@ -33,6 +33,15 @@ On GitHub, create a **private** repository, for example `chat-test`, with a
 README file and nothing else. Write down its full name, `your-account/chat-test`.
 Its main branch (usually `main`) is where "Go update" lands your changes.
 
+**The test repository doesn't need BestPractice installed**, and for the
+first test it's better without it. Any git repository works: the bridge
+brings its own content-only line (a built-in list of machinery paths), and
+adds whatever the repository's own `CODEOWNERS` or Precedent configuration
+names. A repository that does have Precedent installed works too. Its
+instructions then shape Claude's content work, but its hooks don't run in a
+chat turn, and its commit checks may want things the bridge's commits don't
+carry. Test on a plain one first.
+
 ## 2. Create the Bot
 
 About 2 minutes, in Telegram on your phone:
@@ -67,7 +76,26 @@ If a start-up check later says another host was refused (the model's
 download host may be a second one), add that too. The check names it
 exactly.
 
-**Environment variables:**
+**Environment variables.** Paste this into the environment variables box,
+then replace the parts in capitals. The box takes one `NAME=value` per line.
+The table below says what each one is for.
+
+```text
+CHATBRIDGE_TELEGRAM_TOKEN=PASTE-THE-TOKEN-FROM-BOTFATHER
+CHATBRIDGE_REPO=YOUR-ACCOUNT/chat-test
+CHATBRIDGE_HANDLE=morgan
+CHATBRIDGE_NAME=Morgan
+CHATBRIDGE_LANDING=main
+CHATBRIDGE_LANGUAGE=en
+CHATBRIDGE_WHISPER_MODEL=small
+```
+
+Paste into: the environment variables box of the `chat bridge` environment's
+settings. Add `CHATBRIDGE_TELEGRAM_USER_ID=<your id>` as its own line after
+step 6.
+
+**Don't add `ANTHROPIC_API_KEY` to this environment** unless you mean to: if
+it's set, Claude's chat turns bill to that API key instead of your plan.
 
 | Variable | Set it to | Needed? |
 |---|---|---|
@@ -104,7 +132,8 @@ start the Telegram chat bridge for my test.
 1. In BestPractice, fetch and check out the branch
    claude/telegram-access-brainstorm-7f10il -- the bridge lives there.
 2. Make sure my test repository (the one CHATBRIDGE_REPO names) is attached
-   to this session; attach it if not.
+   to this session WITH PUSH ACCESS -- the bridge pushes its chat branch
+   and lands changes there; attach it if not.
 3. Run `bash bridge/cloud_start.sh` in the background and watch its output.
 4. If it prints FIX lines, tell me in plain words what to change in this
    environment's settings, and stop.
@@ -122,6 +151,11 @@ Paste into: a new session in the `chat bridge` cloud environment, rooted in
 
 The first start takes a few minutes: it installs Whisper (unless the setup
 script already did), downloads the model, and checks everything.
+
+**Only one bridge per bot at a time.** Telegram hands each message to one
+poller, so if an old session is still running the bridge when you start a
+new one, both complain of a conflict. Stop the old one first: open it and
+say *stop the bridge*.
 
 ## 5. If the Check Says FIX
 
@@ -166,17 +200,29 @@ bot kept running between uses. That's what this test is for.
 
 ## Adding Another Person Later
 
-1. **Before they use it on a real project, turn on branch protection** for
-   that repository (pull requests required, code-owner review on, no
-   bypass), so GitHub enforces the content-only line as well as the bridge.
-   See [documentation/GITHUB_SETTINGS.md](../documentation/GITHUB_SETTINGS.md).
-2. The cloud start script configures one person. For more, write a
-   configuration file from [config.example.json](config.example.json), with
-   each person's repositories and whether they may land, and run the bridge
-   with it (`python3 bridge/run.py run --config <file>`), then send each of
-   them an invite (`python3 bridge/run.py invite --handle <theirs>`).
-3. Suggest they turn on Telegram's two-step verification. Whoever holds
-   their Telegram account can talk to the bot as them.
+**This test build isn't ready for other people yet.** Three things stand in
+the way, and [the spec](../spec/SPECULATIVE_TELEGRAM_ACCESS.md#what-could-go-wrong-before-others-use-it)
+has the full list:
+
+- **Their turns would run on your Claude login.** A cloud session's login
+  is yours, for your own use. For anyone else, the bridge should run on an
+  Anthropic API key, billed per use, which also makes the cost visible.
+- **Landing is a direct push**, which a protected branch rightly refuses. For
+  now give other people `"can_land": false`: their changes wait on their chat
+  branch, and you land them from the compare link `/status` gives. Landing
+  through a pull request is the missing piece.
+- **Branch protection is the lock GitHub enforces**, and every real
+  repository needs it before anyone else uses the bridge on it: pull
+  requests required, code-owner review on, no bypass. See
+  [documentation/GITHUB_SETTINGS.md](../documentation/GITHUB_SETTINGS.md).
+
+When those are dealt with: write a configuration file from
+[config.example.json](config.example.json) with each person, their
+repositories and `can_land`, run the bridge with it
+(`python3 bridge/run.py run --config <file>`), and send each of them an
+invite (`python3 bridge/run.py invite --handle <theirs>`). Suggest they turn
+on Telegram's two-step verification, since whoever holds their Telegram
+account can talk to the bot as them.
 
 ## Running It on Your Own Computer Instead
 
