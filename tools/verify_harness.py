@@ -13565,8 +13565,13 @@ def check_branch_store_and_its_callers():
     an entry byte for byte into another clone, and two clones publishing in
     turn on a stale tip keep both entries."""
     bad, cases = [], []
+    # The store and its callers commit with git's ambient identity; a runner
+    # or a clean $HOME may have none (practice: fixture-owns-its-state).
+    env = dict(os.environ, PRECEDENT_TZ='UTC',
+               GIT_AUTHOR_NAME='x', GIT_AUTHOR_EMAIL='x@example.invalid',
+               GIT_COMMITTER_NAME='x', GIT_COMMITTER_EMAIL='x@example.invalid')
     r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'branch_store.py'), '--self-check'],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=env)
     if r.returncode != 0:
         bad.append('branch_store self-check: ' + (r.stdout + r.stderr).strip()[-300:])
     cases.append('store self-check')
@@ -13607,7 +13612,6 @@ out["pulled"] = rcB.ready(d, claim=False) and d.read_bytes() == bytes([2]) * 100
 print(json.dumps(out))
 """
     with tempfile.TemporaryDirectory() as t:
-        env = dict(os.environ, PRECEDENT_TZ='UTC')
         r = subprocess.run([sys.executable, '-c', script, str(ROOT / 'tools'), t],
                            capture_output=True, text=True, env=env)
         try:
