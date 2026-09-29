@@ -31,8 +31,10 @@ approved_by: "Morgan, 2026-09-27 (strength: decided): \"for pre-staging, we shou
 
 **Every tier checks one version: the one landing.** Its own files, plus
 the current copy of each practice set in force, read and never fixed. **No
-tier's check fetches, lints, checks or fixes any other branch**, and none
-reads a clone the session's sources do not declare. Reading every branch
+tier's check lints, checks or fixes any other branch**, and none reads a
+clone the session's sources do not declare. The one other branch a tier
+check reads is the push check's receipt branch, which holds records of
+earlier passes and no work. Reading every branch
 belongs to the [very deep check](very-deep-check.md) alone, run on request,
 and even there only to say whether a branch's work landed and whether the
 branch should go (Morgan, 2026-09-29, strength: decided: *"I don't want
