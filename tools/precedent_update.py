@@ -688,6 +688,16 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         'why': 'the upstream commit practices/ here was last replaced from; '
                'the next update judges local edits against it'}, indent=2) + '\n',
         encoding='utf-8')
+    # THE SOURCE'S OWN MANIFEST travels with its catalogue (2026-09-29). A
+    # consumer's occasion-index cap is the sum of what its sources declare
+    # in their precedent-source.json, and the vendored universal tree never
+    # carried that file, so universal's allowance was unreadable here.
+    shown = subprocess.run(['git', '-C', str(SOURCE), 'show',
+                            f'{rev}:precedent-source.json'],
+                           capture_output=True, text=True)
+    if shown.returncode == 0 and shown.stdout.strip():
+        (repo / rel / 'precedent-source.json').write_text(shown.stdout,
+                                                          encoding='utf-8')
     n = sum(1 for _ in target.glob('*.md'))
     note = (f'; local edits judged against {basis}' if not unread else
             '; no record of the last sync here, so only uncommitted edits '

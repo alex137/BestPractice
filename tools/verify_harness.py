@@ -35160,27 +35160,28 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
 
 
 def check_universal_occasion_share_is_capped():
-    """The universal set's share of every consumer's occasion index has its
-    own allowance, enforced when build_views builds a universal source
-    (Morgan, 2026-09-29, strength: assented): a consumer carries that share
-    under one cap with every set it declares and cannot shrink it.
-    Discriminating cases: this repository's real share fits the registry's
-    allowance; the same build refuses with the allowance set below the
-    share; and a source whose precedent-source.json says `shared` is never
-    held to it."""
+    """Every source declares its share of a consumer's occasion index, and a
+    consumer's cap is the sum of what its sources declare (Morgan,
+    2026-09-29: the universal share, strength: assented; a share per set and
+    the summed cap, strength: decided). Discriminating cases: this
+    repository's real share fits its own declared allowance; the same build
+    refuses with the allowance set below the share; a consumer whose sources
+    all declare one is capped at their sum plus the repo-local allowance;
+    and one whose source declares none falls back to the single literal."""
     import contextlib
     import io
+    import json as _json
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import build_views as bv
     cases = []
-    share = bv.universal_occasion_share(bv.load_practices(announce=False))
-    allowed = bv.UNIVERSAL_OCCASION_SHARE_TOKENS
-    cases.append((f'the real share (~{share}) fits the allowance ({allowed})',
+    share = bv.occasion_share(bv.load_practices(announce=False))
+    allowed = bv.own_occasion_allowance(ROOT)
+    cases.append((f'the real share (~{share}) fits the declared allowance ({allowed})',
                   allowed is not None and 0 < share <= allowed,
                   f'share {share}, allowance {allowed}'))
-    real, argv = bv.UNIVERSAL_OCCASION_SHARE_TOKENS, sys.argv
-    bv.UNIVERSAL_OCCASION_SHARE_TOKENS = 10
+    real, argv = bv.own_occasion_allowance, sys.argv
+    bv.own_occasion_allowance = lambda root: 10
     sys.argv = ['build_views.py', '--check']
     try:
         with contextlib.redirect_stdout(io.StringIO()), \
@@ -35188,23 +35189,45 @@ def check_universal_occasion_share_is_capped():
             bv.main()
         refused, why = False, 'build_views --check returned'
     except SystemExit as e:
-        refused = "universal set's share" in str(e.code)
+        refused = "source's share" in str(e.code)
         why = str(e.code)[:300]
     finally:
-        bv.UNIVERSAL_OCCASION_SHARE_TOKENS, sys.argv = real, argv
+        bv.own_occasion_allowance, sys.argv = real, argv
     cases.append(('a share over its allowance refuses the build', refused, why))
     d = pathlib.Path(tempfile.mkdtemp())
     try:
-        (d / 'precedent-source.json').write_text(
-            '{"name": "x", "level": "shared"}', encoding='utf-8')
-        cases.append(('a shared source is not held to it',
-                      not bv.is_universal_source(d) and bv.is_universal_source(ROOT),
-                      'is_universal_source disagreed'))
+        for name, level, share_ in (('uni', 'universal', 2000),
+                                    ('shr', 'shared', 300)):
+            (d / name).mkdir()
+            (d / name / 'practices').mkdir()
+            man = {'name': 'precedent' if level == 'universal' else name,
+                   'level': level}
+            if share_:
+                man['occasion_share_tokens'] = share_
+            (d / name / 'precedent-source.json').write_text(
+                _json.dumps(man), encoding='utf-8')
+        # The declared sources are passed in, not resolved: a resolve here
+        # would also pick up whatever individual source this machine's own
+        # user config declares, and the sum would depend on the machine.
+        srcs = [{'level': 'universal', 'name': 'precedent', 'path': str(d / 'uni')},
+                {'level': 'shared', 'name': 'shr', 'path': str(d / 'shr')},
+                {'level': 'repo-local', 'name': 'local', 'path': str(d / 'local')}]
+        cap, why = bv.derived_occasion_cap(d, srcs)
+        want = 2000 + 300 + bv.REPO_LOCAL_OCCASION_TOKENS
+        cases.append(('a consumer is capped at the sum of its sources\' '
+                      'allowances plus its repo-local allowance',
+                      cap == want, f'{cap} ({why}), wanted {want}'))
+        (d / 'shr' / 'precedent-source.json').write_text(
+            _json.dumps({'name': 'shr', 'level': 'shared'}), encoding='utf-8')
+        cap2, why2 = bv.derived_occasion_cap(d, srcs)
+        cases.append(('a source that declares no allowance leaves the single '
+                      'fallback in place, and says which source',
+                      cap2 is None and 'shr' in why2, f'{cap2} ({why2})'))
     finally:
         shutil.rmtree(d, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'the universal set\'s occasion-index share is capped '
-          f'({len(cases)} stated cases)',
+    check(f'each source\'s occasion-index share is capped, and a consumer\'s '
+          f'cap is their sum ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
