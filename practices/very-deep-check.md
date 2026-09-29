@@ -673,10 +673,21 @@ confidently.
    and retired-term list: test each term against a plausible compound.
    *(Found: retired term `pack_sync` matching `voice_pack_sync.py`, a live
    tool — nothing could satisfy the finding but renaming a real file.)*
-8. **Are there two of anything that should be one?** Two scripts doing the
-   same job, two implementations of one rule, a helper copied instead of
-   imported, a constant list maintained in two files, a check and a gate
-   testing the same property. Copies do not stay identical: one gets fixed
+8. **Are there two of anything that should be one -- any needless
+   redundancy?** Two scripts doing the same job, two implementations of one
+   rule, a helper copied instead of imported, a constant list maintained in
+   two files, a check and a gate testing the same property, two checks
+   scanning for the same thing, two practices saying one rule, a document
+   restating a spec it could link. **The tool's `SECOND LISTS OF PRACTICES`
+   section is this question's mechanical half:** it names every hand-kept
+   file that lists most of the catalogue by slug, and a reader decides
+   whether each is a generated view (fine) or a copy that can drift. *(Found
+   2026-09-29, both missed by earlier runs of this question: a hand-kept list
+   of every practice's routing reason, whose copy of the gates had drifted
+   on fourteen practices, and two checks scanning for retired words, one
+   with history-aware rules and one without. Morgan, that day: add a check
+   for needless redundancy -- this is it, widened, rather than a second
+   pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
    it is called ([search-by-purpose](search-by-purpose.md) is the same

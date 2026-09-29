@@ -659,24 +659,9 @@ def load_practice_files():
     return out
 
 
-def check_slug_set(files):
-    ok = True
-    for stem, (fm, sections, f) in files.items():
-        slug = fm.get('slug', '')
-        if slug != stem:
-            ok = False
-            print(f"  slug mismatch: {f.name} frontmatter slug={slug!r} != filename")
-    slugs = [fm['slug'] for fm, _, _ in files.values()]
-    dupes = [s for s, n in collections.Counter(slugs).items() if n > 1]
-    if dupes:
-        ok = False
-        print(f"  duplicate slugs: {dupes}")
-    check('slug-set equality (filename == frontmatter slug, all unique)', ok)
-
-
 def check_source_coverage(files, original_practices_by_number):
     """The plan's actual slug-set requirement: "the same practices are in
-    effect, by slug." check_slug_set only proves each FILE is internally
+    effect, by slug." precedent_check.py's practice-file-shape only proves each FILE is internally
     consistent -- filename == frontmatter slug, no duplicates. It says
     nothing about whether every practice in PRACTICES.md still has one.
 
@@ -736,25 +721,6 @@ def check_titles_match_source(files, original_practices_by_number):
                   f"      file:   {bv._json_str(fm.get('title',''))!r}\n"
                   f"      source: {orig['title']!r}")
     check('titles match the source catalogue exactly', ok)
-
-
-def check_checked_by_targets_exist(files):
-    """The plan: "a `checked_by` naming a script with no test for it fails
-    the audit." Testing that the check has a test is phase 4; testing that
-    the script EXISTS is free, and a checked_by pointing at a deleted or
-    renamed script is a practice that silently claims enforcement it does
-    not have."""
-    ok = True
-    for stem, (fm, sections, f) in sorted(files.items()):
-        raw = fm.get('checked_by', 'null').strip()
-        if raw in ('null', ''):
-            continue
-        target = raw.strip('"')
-        if not (ROOT / target).exists():
-            ok = False
-            print(f"  {f.name}: checked_by names {target!r}, which does not exist -- "
-                  f"the practice claims enforcement it does not have")
-    check('every checked_by names a script that exists', ok)
 
 
 def check_reachability(files):
@@ -1248,109 +1214,6 @@ def check_citation_integrity(files):
                 print(f"  {f.name}: cites 'practice {m.group(1)}', which does not "
                       f"exist as any source_practice_number")
     check('citation integrity (every "practice N" reference resolves)', ok)
-
-
-CROSS_PRACTICE_LINK_RE = re.compile(r'\]\(([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
-AGENTS_PRACTICE_LINK_RE = re.compile(r'\]\(practices/([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
-
-
-def check_no_bare_numeric_citations(files):
-    """The pre-phase-5 citation sweep (2026-09-01, CHANGES_TO_TELL_ALEX.md)
-    replaced every "practice N" cross-reference in practices/ body text with
-    a [slug](slug.md) link -- numbers stop meaning one fixed thing once
-    practices can be reordered, split, and retired, which this catalogue is
-    now built to do. check_citation_integrity above still checks that a
-    numeric citation, if one exists, resolves; this is the regression guard
-    that the numeric form does not come back in body prose at all. (The
-    `source_practice_number` frontmatter field is exempt by construction --
-    CITATION_RE requires "practice" immediately followed by whitespace,
-    which never matches the `source_practice_number:` key.)"""
-    ok = True
-    for stem, (fm, sections, f) in sorted(files.items()):
-        body = _whole_body(sections)
-        for m in CITATION_RE.finditer(body):
-            ok = False
-            print(f"  {f.name}: body text cites 'practice {m.group(1)}' by number; "
-                  f"convert to a [{{slug}}]({{slug}}.md) link instead")
-    # AGENTS.md is the one file every session reads at startup, and its own
-    # hand-written prose (below the generated loader block) used to cite
-    # practices the pre-sweep way -- "practice 12", "practice 34" -- outside
-    # this check's reach, because it only ever scanned practices/*.md. Found
-    # by a 2026-09-01 deep-check audit; the four citations happened to still
-    # resolve correctly, which is not something to rely on going forward.
-    if AGENTS_MD.exists():
-        agents_text = AGENTS_MD.read_text(encoding='utf-8', errors='ignore')
-        for m in CITATION_RE.finditer(agents_text):
-            ok = False
-            print(f"  AGENTS.md: cites 'practice {m.group(1)}' by number; "
-                  f"convert to a [{{slug}}](practices/{{slug}}.md) link instead")
-    check('no bare numeric citations in body text (slugs are the official reference form)', ok)
-
-
-GITHUB_REPO_URL_RE = re.compile(
-    r'https?://(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)')
-UPSTREAM_OWNER_REPO = 'alex137/BestPractice'
-
-
-def check_slug_link_integrity(files):
-    """The slug-link counterpart of check_citation_integrity: every
-    [slug](slug.md)-shaped cross-reference in a practice's body text must
-    resolve to a real slug in this catalogue."""
-    ok = True
-    valid_slugs = set(files.keys())
-    for stem, (fm, sections, f) in sorted(files.items()):
-        body = _whole_body(sections)
-        for m in CROSS_PRACTICE_LINK_RE.finditer(body):
-            if m.group(1) not in valid_slugs:
-                ok = False
-                print(f"  {f.name}: links to '{m.group(1)}.md', which is not a "
-                      f"known practice slug")
-    # AGENTS.md links to a practice as [slug](practices/slug.md) -- a
-    # different href shape than practices/*.md's own sibling-relative
-    # [slug](slug.md) -- so it needs its own regex, not a reuse of
-    # CROSS_PRACTICE_LINK_RE above.
-    if AGENTS_MD.exists():
-        agents_text = AGENTS_MD.read_text(encoding='utf-8', errors='ignore')
-        for m in AGENTS_PRACTICE_LINK_RE.finditer(agents_text):
-            if m.group(1) not in valid_slugs:
-                ok = False
-                print(f"  AGENTS.md: links to 'practices/{m.group(1)}.md', "
-                      f"which is not a known practice slug")
-    check('slug-link citation integrity (every [slug](slug.md) cross-reference resolves)', ok)
-
-
-def check_practices_link_only_reachable_repos(files):
-    """No practice file links a GitHub repository other than this one.
-
-    practices/ is what ships. Every consuming repo materializes these files
-    verbatim, and the people who read them are strangers to this project's
-    other repositories -- so a link to one of them is a 404 for the reader
-    and, worse, an advertisement of a private repository's existence and
-    path from a public document.
-
-    Found 2026-09-06: practices/very-deep-check.md linked
-    `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance`
-    -- both private -- as illustrative examples, in a universal practice
-    every adopter gets. Naming the practice instead of linking the page
-    says the same thing and costs the reader nothing.
-
-    Deliberately narrow to `practices/`. spec/ and decisions/ are this
-    project's own internal record, read by people who do have access, and
-    a link there is correct."""
-    ok = True
-    for _stem, (_fm, _sections, f) in sorted(files.items()):
-        text = f.read_text(encoding='utf-8', errors='ignore')
-        for m in GITHUB_REPO_URL_RE.finditer(text):
-            owner_repo = f'{m.group(1)}/{m.group(2)}'
-            if owner_repo.lower() == UPSTREAM_OWNER_REPO.lower():
-                continue
-            ok = False
-            print(f"  {f.name}: links {owner_repo}, a repository the reader "
-                  f"of a shipped practice has no reason to be able to open "
-                  f"-- name it instead of linking it")
-    check('practice files link no repository but this one (they ship verbatim '
-          'into every consuming repo, and are read by strangers to this '
-          "project's other repositories)", ok)
 
 
 def _seed_consumer_engine(dest_tools, extra=(), only=None):
@@ -4085,76 +3948,6 @@ def check_example_set():
         shutil.rmtree(tmp, ignore_errors=True)
     check(f'example practice set ({len(files)} practices parse, match the '
           f'format, and resolve as an individual source)', ok)
-
-
-def check_rule_is_self_contained(files):
-    """A `## Rule` may not end on a lead-in whose payload is somewhere else.
-
-    The plan's binding constraint on the Rule/Detail split is that `## Rule`
-    stays loadable ON ITS OWN: a session reading only the Rule must know what
-    to DO, not merely that something applies. That is a judgment about
-    meaning, and most of it cannot be checked -- a review pass over the split
-    practices caught three defects that every check here passed, and only one
-    of the three had a mechanical signature.
-
-    This is that one. A Rule ending on "Three rules:" or "Two things fix it:"
-    has had its payload moved to Detail and now announces a list it does not
-    contain. It is the cheapest and least ambiguous form of the failure, so
-    it is the form that gets a check; the other two -- a Rule whose scope gate
-    moved to Detail, and a Rule using a term Detail defines -- are recorded in
-    spec/PRACTICE_FORMAT.md as needing a reader, because they do.
-    """
-    ok = True
-    for stem, (fm, sections, f) in sorted(files.items()):
-        rule = (sections.get('rule') or '').strip()
-        if not rule:
-            ok = False
-            print(f"  {f.name}: empty ## Rule -- a practice with nothing to do "
-                  f"is not loadable on its own")
-            continue
-        if rule.endswith(':'):
-            ok = False
-            print(f"  {f.name}: ## Rule ends on a colon -- {rule.splitlines()[-1][:60]!r} "
-                  f"-- the list or clause it introduces is not in the Rule, so a "
-                  f"session that loads only the Rule is told something applies "
-                  f"and not what to do about it")
-    check('every ## Rule is self-contained (non-empty, and never ends on a '
-          'lead-in whose payload moved to ## Detail)', ok)
-
-
-def check_index_clauses(files):
-    """The occasion index is the ONLY route to 34 of the 46 on-demand
-    practices, and a session decides whether to open a practice on the
-    strength of one line. So that line is authored, and required.
-
-    It used to be derived -- the Rule's first sentence, cut at 90 characters
-    -- and 86% of the entries came out truncated mid-thought, one of them
-    ending on a dangling colon. A routing table whose rows do not finish
-    their sentence is a routing table nobody can route from, and nothing
-    was checking it."""
-    ok = True
-    for stem, (fm, sections, f) in sorted(files.items()):
-        if fm.get('tier') != 'on-demand':
-            continue
-        clause = bv._json_str(fm.get('index_clause', ''))
-        if not clause:
-            ok = False
-            print(f"  {f.name}: no index_clause -- an on-demand practice is reached "
-                  f"through the occasion index, so it needs the line that gets it opened")
-            continue
-        if len(clause) > bv.INDEX_CLAUSE_MAX:
-            ok = False
-            print(f"  {f.name}: index_clause is {len(clause)} chars, over "
-                  f"{bv.INDEX_CLAUSE_MAX} -- it renders on one line of a table")
-        if clause.rstrip().endswith(('...', '…', ':')):
-            ok = False
-            print(f"  {f.name}: index_clause does not finish its thought: {clause!r}")
-        if clause[:1].isupper() and not clause.startswith(('A ', 'I ')):
-            ok = False
-            print(f"  {f.name}: index_clause reads as a sentence, not a table cell: "
-                  f"{clause!r}")
-    check(f'occasion-index clauses are written, complete and under '
-          f'{bv.INDEX_CLAUSE_MAX} chars', ok)
 
 
 def check_build_views_refuses_a_long_index_clause():
@@ -10394,7 +10187,7 @@ def check_precedent_check_fires():
     repositories -- one planted violation per enforced practice.
 
     WHY THIS EXISTS. Until phase 4 the only thing verifying a `checked_by:`
-    was check_checked_by_targets_exist() above, which asserts the named FILE
+    was check_checked_by_targets_exist() (now precedent_check.py's practice-file-shape), which asserts the named FILE
     is present. Tested one by one, the eight inherited claims came apart:
     `readers-vocabulary` named a linter with no vocabulary check in it,
     `acronyms-glossary` named a check that only ever warns, and four named
@@ -11171,6 +10964,14 @@ def check_precedent_check_fires():
         case('filename-separator',
              lambda repo: (repo / 'decisions' / 'PLANTED_MIXED_NAME.md')
              .write_text('# planted\n', encoding='utf-8'))
+
+        # practice-file-shape -- a practice whose Rule ends on a lead-in.
+        def _plant_bad_shape(repo):
+            f = repo / 'practices' / 'go-update.md'
+            text = f.read_text(encoding='utf-8')
+            f.write_text(text.replace('## Detail', 'Three steps:\n\n## Detail', 1),
+                         encoding='utf-8')
+        case('practice-file-shape', _plant_bad_shape)
 
         # routing-reason -- an on-demand practice loses its applies_to_why,
         # the state a second hand-kept routing list used to let through.
@@ -12475,10 +12276,33 @@ def check_precedent_check_fires():
             (repo / 'CURRENT.md').write_text(
                 'See tools/voice_OldPackName_helper.py and '
                 'my_OldPackName-thing, both current.\n', encoding='utf-8')
-        case('migration-scrubs-vocabulary',
-             lambda repo: (repo / 'STALE.md').write_text(
-                 'Still mentions OldPackName here.\n', encoding='utf-8'),
-             setup=_setup_retired_vocab)
+        # A repository's own retired terms are retired-words' to scan since
+        # 2026-09-29 (migration-scrubs-vocabulary kept only the leftover-pack
+        # half), so this pair runs that check: planted and clean.
+        voc_repo = fresh('retired-words-repo-terms')
+        _setup_retired_vocab(voc_repo)
+        rc_voc_clean, out_voc_clean = run(voc_repo, 'retired-words')
+        (voc_repo / 'STALE.md').write_text('Still mentions OldPackName here.\n',
+                                           encoding='utf-8')
+        rc_voc, out_voc = run(voc_repo, 'retired-words')
+        cases.append(("retired-words: a repository's own retired term in a "
+                      "live file is refused; the exempt file and a current "
+                      "name that merely contains the term are not",
+                      rc_voc == 1 and 'STALE.md' in out_voc
+                      and 'MIGRATION.md' not in out_voc
+                      and 'CURRENT.md' not in out_voc
+                      and rc_voc_clean == 0, out_voc + out_voc_clean))
+
+        # migration-scrubs-vocabulary -- what it still does: a leftover
+        # pre-migration pack in a repo that has already migrated.
+        def _plant_old_pack(repo):
+            (repo / 'process' / 'oldpack').mkdir(parents=True, exist_ok=True)
+            (repo / 'process' / 'oldpack' / 'RULES.md').write_text(
+                '# old rules\n', encoding='utf-8')
+            (repo / 'process' / 'manifest_oldpack.json').write_text(
+                json.dumps({'upstream': {'path': 'process/oldpack'}}),
+                encoding='utf-8')
+        case('migration-scrubs-vocabulary', _plant_old_pack)
 
         # migration-scrubs-vocabulary -- a malformed config (valid JSON,
         # wrong shape: a bare array where `{"terms": [...]}` belongs) used
@@ -12492,8 +12316,8 @@ def check_precedent_check_fires():
         (malformed_repo / 'process').mkdir(parents=True, exist_ok=True)
         (malformed_repo / 'process' / 'retired_vocabulary.json').write_text(
             json.dumps(['OldPackName']), encoding='utf-8')
-        rc_malf, out_malf = run(malformed_repo, 'migration-scrubs-vocabulary')
-        cases.append(('migration-scrubs-vocabulary: a malformed config (a '
+        rc_malf, out_malf = run(malformed_repo, 'retired-words')
+        cases.append(('retired-words: a malformed config (a '
                       'JSON array where an object belongs) is a clean '
                       'VIOLATION naming the problem, not an uncaught crash',
                       rc_malf == 1 and 'VIOLATION' in out_malf
@@ -12523,8 +12347,8 @@ def check_precedent_check_fires():
             encoding='utf-8')
         (dir_exempt_repo / 'STALE.md').write_text(
             'Still mentions OldPackName here.\n', encoding='utf-8')
-        rc_dir, out_dir = run(dir_exempt_repo, 'migration-scrubs-vocabulary')
-        cases.append(("migration-scrubs-vocabulary: a `/`-suffixed "
+        rc_dir, out_dir = run(dir_exempt_repo, 'retired-words')
+        cases.append(("retired-words: a `/`-suffixed "
                       "exempt_files entry exempts everything under that "
                       "directory, but not files outside it",
                       rc_dir == 1 and 'VIOLATION' in out_dir
@@ -12570,10 +12394,10 @@ def check_precedent_check_fires():
         r_vend = subprocess.run(
             [sys.executable,
              str(vendored_repo / 'process' / 'upstream' / 'tools' / 'precedent_check.py'),
-             '--only', 'migration-scrubs-vocabulary'],
+             '--only', 'retired-words'],
             capture_output=True, text=True, cwd=str(vendored_repo))
         out_vend = r_vend.stdout + r_vend.stderr
-        cases.append(('migration-scrubs-vocabulary: ROOT resolves to the '
+        cases.append(('retired-words: ROOT resolves to the '
                       'DEPENDENT repo when precedent_check.py runs vendored '
                       'at process/upstream/tools/, not to process/upstream/ '
                       'itself',
@@ -13846,6 +13670,156 @@ def check_retired_words_are_found_and_history_is_left():
     bad = [(n, det) for n, ok, det in cases if not ok]
     check('retired words are found in live text and left alone in history',
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_practice_file_shape_judges_one_file_at_a_time():
+    """precedent_check.py's practice-file-shape, which took over seven
+    verify_harness.py checks on 2026-09-29 so pre-staging runs them on the
+    files a change touches. Each rule planted once in a throwaway catalogue,
+    asserted by its own words, with a clean practice beside it that must
+    stay quiet (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def practice(slug, rule='Do the thing.', clause='do the thing, always',
+                 checked_by='null', tier='on-demand', extra=''):
+        return (f'---\nslug:        {slug}\ntier:        {tier}\n'
+                f'applies_to:  ["**"]\napplies_to_why: "planted"\n'
+                f'index_clause: "{clause}"\nchecked_by:  {checked_by}\n'
+                f'status:      active\n---\n## Rule\n{rule}\n{extra}')
+
+    def judge(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shape-'))
+        for rel, text in {'tools/verify_harness.py': '# origin\n', **files}.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in pc._practice_file_shape(pc.Ctx(paths=['x'])))
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    clean = {'practices/ok.md': practice('ok')}
+    cases = [('a well-formed practice is quiet', judge(clean) == '', judge(clean))]
+    planted = [
+        ('slug not the filename', {'practices/a.md': practice('b')}, "is not the filename 'a'"),
+        ('checked_by names a missing script',
+         {'practices/a.md': practice('a', checked_by='tools/gone.py')}, "'tools/gone.py', which does not exist"),
+        ('a practice cited by number',
+         {'practices/a.md': practice('a', rule='As practice 12 says, do it.')}, 'cites "practice 12" by number'),
+        ('a slug link to no practice',
+         {'practices/a.md': practice('a', rule='See [nope](nope.md).')}, 'links nope.md, which is not a practice'),
+        ('a link to another repository',
+         {'practices/a.md': practice('a', rule='See https://github.com/someone/private-set.')}, 'links someone/private-set'),
+        ('a Rule ending on a lead-in',
+         {'practices/a.md': practice('a', rule='Three rules:')}, '## Rule ends on a colon'),
+        ('an index line that is a sentence',
+         {'practices/a.md': practice('a', clause='Do the thing always')}, 'reads as a sentence'),
+        ('an index line over the limit',
+         {'practices/a.md': practice('a', clause='x' * 90)}, 'over 80'),
+    ]
+    for name, files, words in planted:
+        out = judge({**clean, **files})
+        cases.append((f'{name} is refused, naming the file',
+                      words in out and 'practices/a.md' in out
+                      and 'practices/ok.md' not in out, out))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('practice-file-shape refuses each malformed file by name and stays '
+          'quiet on a good one', not bad,
+          '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_a_changed_glob_needs_its_reason_looked_at():
+    """routing-reason's second rule: a practice whose applies_to changed
+    since the base branch, while its applies_to_why stayed word for word the
+    same, is refused, by file; changing the reason with it passes, and so
+    does a practice new since the base. The fixture owns its base branch.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def practice(globs, why):
+        return ('---\nslug:        x\ntier:        on-demand\n'
+                f'applies_to:  {globs}\napplies_to_why: "{why}"\n'
+                'index_clause: "do x"\nstatus:      active\n---\n## Rule\nDo x.\n')
+
+    def judge(now_text, new_file=False):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-glob-why-'))
+        g = lambda *a: subprocess.run(['git', '-C', str(d), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q')
+        g('config', 'user.email', 'fixture@example.invalid')
+        g('config', 'user.name', 'fixture')
+        (d / 'tools').mkdir()
+        (d / 'tools' / 'verify_harness.py').write_text('# origin\n', encoding='utf-8')
+        (d / 'practices').mkdir()
+        if not new_file:
+            (d / 'practices' / 'x.md').write_text(
+                practice('["**"]', 'A moment, not a place.'), encoding='utf-8')
+        (d / 'precedent.json').write_text('{"base_branch": "staging"}\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/staging', 'HEAD')
+        (d / 'practices' / 'x.md').write_text(now_text, encoding='utf-8')
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in pc._routing_reason(pc.Ctx(paths=['x'])))
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+    out = judge(practice('["docs/**"]', 'A moment, not a place.'))
+    cases.append(('the glob changed and the reason did not: refused, by file',
+                  'practices/x.md' in out and 'applies_to_why did not' in out, out))
+    out = judge(practice('["docs/**"]', 'Only documents carry the occasion.'))
+    cases.append(('the glob and the reason changed together: quiet', out == '', out))
+    out = judge(practice('["**"]', 'A moment, not a place.'))
+    cases.append(('nothing changed: quiet', out == '', out))
+    out = judge(practice('["docs/**"]', 'A moment, not a place.'), new_file=True)
+    cases.append(('a practice new since the base: quiet', out == '', out))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('a changed applies_to needs its applies_to_why looked at again',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_very_deep_check_finds_a_second_list_of_practices():
+    """very_deep_check.py's SECOND LISTS OF PRACTICES helper, planted both
+    ways: a hand-kept JSON naming every practice is a candidate; the same
+    list in MAP.md (a generated view) and a file naming only a few are not.
+    Checked against the real case too: tools/routing_scope.json as it stood
+    before 2026-09-29 is the file this exists to catch.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-second-list-'))
+    try:
+        slugs = [f'rule-{i}' for i in range(10)]
+        (d / 'practices').mkdir()
+        for s in slugs:
+            (d / 'practices' / f'{s}.md').write_text(
+                f'---\nslug:        {s}\nstatus:      active\n---\n## Rule\nDo.\n',
+                encoding='utf-8')
+        listing = json.dumps({s: {'why': 'kept by hand'} for s in slugs})
+        (d / 'routing.json').write_text(listing, encoding='utf-8')
+        (d / 'MAP.md').write_text('\n'.join(slugs), encoding='utf-8')
+        (d / 'NOTES.md').write_text(' '.join(slugs[:3]), encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        found = [rel for rel, _n, _t in vdc._second_practice_lists(d)]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    check('the very deep check names a hand-kept list of every practice, and '
+          'not a generated view or a file naming a few',
+          found == ['routing.json'], repr(found))
 
 
 def check_routing_audit_coverage():
@@ -44105,12 +44079,10 @@ def main():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
                  "tools/split_practices.py split first")
     files = load_practice_files()
-    check_slug_set(files)
     original_text = CATALOGUE.read_text(encoding='utf-8')
     original_practices = {p['number']: p for p in sp.parse_catalogue(original_text)}
     check_source_coverage(files, original_practices)
     check_titles_match_source(files, original_practices)
-    check_checked_by_targets_exist(files)
     check_reachability(files)
     check_no_invented_content(files, original_practices)
     check_no_lost_content(files, original_practices)
@@ -44120,9 +44092,6 @@ def main():
     check_corruption_drop_is_a_duplicate(original_practices)
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
-    check_no_bare_numeric_citations(files)
-    check_slug_link_integrity(files)
-    check_practices_link_only_reachable_repos(files)
     check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()
@@ -44179,9 +44148,7 @@ def main():
     check_catalogue_anchors()
     check_all_workflows_disclosed()
     check_example_set()
-    check_index_clauses(files)
     check_build_views_refuses_a_long_index_clause()
-    check_rule_is_self_contained(files)
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
@@ -44283,6 +44250,9 @@ def main():
     check_filename_separator_knows_names_it_did_not_choose()
     check_new_exemption_needs_a_root_fix()
     check_retired_words_are_found_and_history_is_left()
+    check_practice_file_shape_judges_one_file_at_a_time()
+    check_a_changed_glob_needs_its_reason_looked_at()
+    check_very_deep_check_finds_a_second_list_of_practices()
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()

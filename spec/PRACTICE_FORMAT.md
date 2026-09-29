@@ -432,7 +432,7 @@ called "retired" too, and one of them meant the opposite fate for the file:
 | Sense | Where | The file |
 |---|---|---|
 | a **practice** is retired | this table | **kept** |
-| **vocabulary** is retired | [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md), `process/retired_vocabulary.json` | a banned word, no file of its own |
+| **vocabulary** is retired | [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md), `process/retired_vocabulary.json` (scanned by `retired-words`, with the engine's own `tools/our_language.json` list) | a banned word, no file of its own |
 | a **mechanism** is *decommissioned* | [decommission-deletes-files](../practices/decommission-deletes-files.md), `process/decommissioned_paths.json` | **deleted** |
 
 The third was called "retired" until 2026-09-07, when Morgan read a

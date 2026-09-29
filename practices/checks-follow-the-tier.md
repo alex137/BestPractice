@@ -82,7 +82,21 @@ regenerates; it never rewrites anything itself. Everything else waits for
 
 **What moves a check to `pre-staging`:** it is fast (seconds, not minutes)
 and its finding can be pinned to a file. A check that cannot name a file,
-or needs the test suite, belongs at `staging`.
+or needs the test suite, belongs at `staging`. On 2026-09-29 seven test-suite
+checks that each judge one practice file moved on that rule into
+`precedent_check.py`'s `practice-file-shape`, and the routing reason's check
+moved with the reason into the practice file (`routing-reason`) -- so a
+broken practice file is refused at `pre-staging`, not twenty minutes into
+`staging` (Morgan, 2026-09-29: "make those per-file checks thorough at
+pre-staging, much moreso than rolling it out to test unrelated files").
+
+**`pre-staging` never reads the full history.** The author and date checks
+read only commits not yet on any remote, and a practice check given the
+push's range reads only that range: the harness-adapter ledger check walked
+four folders' whole history there until 2026-09-29, and pinned its finding
+to a file the push had not changed, so it read everything and could never
+refuse. The whole history is the very deep check's to read (Morgan,
+2026-09-29: "pre-staging should never do any check of a full history").
 
 **Where it is built.** `tools/precedent_push_check.py` decides the tier from
 the branch a push writes (`precedent_branches.tier_for_push`) and adds the

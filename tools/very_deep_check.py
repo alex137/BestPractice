@@ -653,6 +653,68 @@ def _declared_base_branch(repo_dir):
     except Exception:
         return None
 
+def _second_practice_lists(repo_dir, threshold=0.8):
+    """-> [(rel, named, total)] for every tracked, hand-kept file that names
+    at least THRESHOLD of the active practices by slug -- a second list of
+    the whole catalogue, the shape question 8 of the checklist ("are there
+    two of anything that should be one?") asks about and a reader rarely
+    spots by eye.
+
+    WHY (2026-09-29). tools/routing_scope.json listed every practice by
+    hand for four weeks, a harness test failing whenever it and the practice
+    files disagreed, and its own copy of each practice's gates had drifted
+    on fourteen of them before anyone noticed. Question 8 already named "a
+    constant list maintained in two files"; it is answered by reading, and
+    nobody read for this one. Morgan, 2026-09-29: add a check for needless
+    redundancy to the very deep check. This is its mechanical half: it
+    finds the candidates, and a reader decides which are views (generated,
+    fine) and which are copies (a second source of truth to remove).
+
+    Generated files are skipped: build_views.py's views, and every document
+    doc_sync.py fills -- a generated list IS the fix, not the problem."""
+    root = pathlib.Path(repo_dir)
+    pdir = root / 'practices'
+    if not pdir.is_dir():
+        return []
+    slugs = []
+    for f in sorted(pdir.glob('*.md')):
+        try:
+            fm, _ = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        if (fm.get('status', 'active') or 'active').strip().strip('"') == 'active':
+            slugs.append(fm.get('slug', f.stem).strip())
+    if len(slugs) < 5:
+        return []
+    generated = {'AGENTS.md', 'MAP.md', 'GLOSSARY.md', 'CLAUDE.md'}
+    try:
+        sys.path.insert(0, str(root / 'tools'))
+        import doc_sync as _ds
+        generated |= {doc for doc, _block, _script in getattr(_ds, 'PAIRS', ())}
+    except Exception:
+        pass
+    finally:
+        if sys.path and sys.path[0] == str(root / 'tools'):
+            sys.path.pop(0)
+    r = subprocess.run(['git', '-C', str(root), 'ls-files'],
+                       capture_output=True, text=True)
+    out = []
+    pats = {s: re.compile(r'(?<![\w-])' + re.escape(s) + r'(?![\w-])') for s in slugs}
+    for rel in r.stdout.split():
+        if rel.startswith('practices/') or rel in generated:
+            continue
+        if not rel.endswith(('.json', '.md', '.py', '.txt', '.yml', '.yaml')):
+            continue
+        try:
+            text = (root / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        named = sum(1 for s in slugs if pats[s].search(text))
+        if named >= threshold * len(slugs):
+            out.append((rel, named, len(slugs)))
+    return out
+
+
 def _vendored_exclusion_findings(repo_dir):
     """-> [str] findings, or None if `repo_dir` is not a vendored consumer.
 
@@ -7618,6 +7680,22 @@ def _main(box):
         print()
     if led:
         led.end(findings=len(_vendor_findings or []))
+    if led:
+        led.start('SECOND LISTS OF PRACTICES')
+    _second_lists = _second_practice_lists(_root)
+    if not as_json:
+        print("SECOND LISTS OF PRACTICES -- hand-kept files naming most of the "
+              "catalogue by slug\n(question 8: is each a generated view, or a "
+              "second copy that can drift?)\n")
+        if not _second_lists:
+            print("  OK: no hand-kept file names 80% or more of the active practices.")
+        for _rel, _n, _tot in _second_lists:
+            print(f"  CANDIDATE: {_rel} names {_n} of {_tot} active practices -- "
+                  f"read it: a view built from the practice files is fine; a "
+                  f"list kept by hand is a second source of truth")
+        print()
+    if led:
+        led.end(findings=len(_second_lists))
 
     data = enumerate_scope(repo, user_config)
 

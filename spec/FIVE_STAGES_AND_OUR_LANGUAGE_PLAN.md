@@ -487,10 +487,11 @@ Each numbered item is its own landing, through the ladder itself.
    `tools/our_language.json` gained a `retired` list, and
    `precedent_check.py`'s `retired-words` check reads it with history left
    alone by section, quotation and document status rather than by whole
-   file, so retiring the next word is one registry entry. The per-repo
-   `process/retired_vocabulary.json` check stays as it is, for a
-   repository's own old-system names; folding the two into one scanner is
-   a possible later change.
+   file, so retiring the next word is one registry entry. A repository's own
+   `process/retired_vocabulary.json` terms moved into the same check later
+   that day, retiring the older scan (Morgan: "if you now do the whole job
+   and that's redundant, then let's deprecate that");
+   migration-scrubs-vocabulary keeps only the leftover-pack half.
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
    Booked, Debut and Produce, each with its synonym; Promote's practice
    gains "Promote N", the read-back, the bare-Promote rule and "Graduate";

@@ -97,8 +97,8 @@ fix, and the directory-exemption support in Detail above); this Story
 entry is the record that they were real, not hypothetical.
 
 ## Install
-`tools/precedent_check.py`'s `migration-scrubs-vocabulary` check reads
-`process/retired_vocabulary.json` (absent = `NotApplicable`, the correct
+`tools/precedent_check.py`'s `retired-words` check reads
+`process/retired_vocabulary.json` (absent = nothing to scan, the correct
 state for a repo that has never migrated off anything) and scans every
 tracked file outside its `exempt_files` list (files and, since 2026-09-03,
 `/`-suffixed directories — see Detail) for any declared term, outside
@@ -110,3 +110,14 @@ first time, before the migration is considered done. `ROOT` resolves via
 `practice_audit.py`), which is what makes the check see the *consuming*
 repo's own tree correctly whether this file is running self-hosted or
 vendored at `process/upstream/tools/`.
+
+**Two checks since 2026-09-29, one job each.** The term scan moved from
+`migration-scrubs-vocabulary` into `retired-words`, which already scanned
+the engine's own retired words from `tools/our_language.json`: one scanner,
+and in Markdown the same history rules for both lists (a `## Story`, a
+quotation, a document marked as a record or finished, a line about the
+retirement itself). Two checks scanning for retired words was the kind of
+redundancy the very deep check's question 8 asks about (Morgan,
+2026-09-29: "if you now do the whole job and that's redundant, then let's
+deprecate that"). `migration-scrubs-vocabulary` keeps the half nothing else
+does: a leftover pre-migration pack.

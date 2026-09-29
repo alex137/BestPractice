@@ -599,7 +599,7 @@ widening what sessions may run
    `process/PRECEDENT_MIGRATION.md` is **yours to write** — a short record
    of what this migration moved where, which pack section became which
    practice — and it is the one file where the old names may stay in full.
-   — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
+   — then run `python3 process/upstream/tools/precedent_check.py --only retired-words` (the terms) and `... --only migration-scrubs-vocabulary` (a leftover pack), and don't call this step done until both pass. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
    just one file — reach for this only for a *materialized*, regenerated
@@ -837,7 +837,7 @@ widening what sessions may run
    circled back, leaves the check permanently silent (`NotApplicable`
    forever looks identical to "correctly scrubbed," from outside) with no
    later step catching the gap. Run `python3 process/upstream/tools/precedent_check.py
-   --only migration-scrubs-vocabulary` here, as part of *this* validation
+   --only retired-words` and `--only migration-scrubs-vocabulary` here, as part of *this* validation
    pass, and do not consider the migration finished until it passes —
    the same requirement step 5 already states, restated at the one point
    in this pattern that claims the migration is actually validated.
@@ -922,7 +922,7 @@ each a real thing step 5/6 found on real repos rather than a hypothetical:
   predated [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)
   itself. Add the pack's name and any retired secret name to `terms` if
   they aren't there yet, then run
-  `python3 tools/precedent_check.py --only migration-scrubs-vocabulary`
+  `python3 tools/precedent_check.py --only retired-words`
   and don't call the upgrade done until it passes.
 
 None of this is a second migration — the three-source model is already in
