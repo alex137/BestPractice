@@ -456,45 +456,12 @@ place — nothing is ever deleted, and nothing moves.
   touched (`pip install cmarkgfm` — the session-start hook does this);
   after touching the deck engine, rebuild the sample both ways:
   `python3 deck/build_deck.py deck/sample` and `--send`.
-- **Two check levels** (practice `two-check-levels`): **light check** is
-  `python3 tools/doc_lint.py` on the markdown you touched — the fast,
-  constant pass above, run before every commit without thinking about it.
-  **deep check** is the full gate suite run before push or merge:
-  `python3 tools/verify_harness.py --as-ci`, `python3 tools/doc_lint.py`,
-  `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
-  `python3 tools/doc_sync.py` -- **all five in one command:
-  `python3 tools/precedent_push_check.py`**, which is also what
-  `push-check-gate.sh` runs before any `git push` a session makes. A pass
-  is recorded against the tree, so running it first makes the push
-  instant; skipping it makes the push wait for it. **Which of the two a push
-  gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md)):
-  a push to `staging` or `main` runs the deep check; a
-  push to any other branch runs the basic tier -- the lint, the leak gate
-  and the commit author, date and trailer checks, seconds -- unless the person's
-  `branch_push_checks` says `full`. A push or pull request into
-  `pre-staging` also checks the files it changes, and nothing more, in
-  seconds ([checks-follow-the-tier](practices/checks-follow-the-tier.md)). A pull request merged through GitHub
-  gets the same check at its base branch's tier, from `merge-check-gate.sh`.
-  `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
-  `0 violated`, never a passed/skipped count** — those grow as checks are
-  added, so a figure written down here goes stale by design; see
-  [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,
-  which says the same thing and records the audit that found a hardcoded
-  one already wrong. Light check gates a commit; deep check gates a push.
-  **A failing test the deep check ran is not "pre-existing" when a source
-  shipped it**: `tools/checks/tests/run_all.sh` names each failing test's
-  source, and that source is where it gets fixed and reported
-  ([two-check-levels](practices/two-check-levels.md)). A practice source's
-  own push check also runs its tests shaped like a consumer
-  ([tools/precedent_consumer_shape.py](tools/precedent_consumer_shape.py)).
-  **`--as-ci` is not decoration**: CI shards the harness across two jobs
-  using variables a plain local run never sets, so the bare command
-  certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned
-  both CI jobs red on a locally green tree. The two shards partition the
-  suite, so the pair costs about what one run costs (measured 4m01s against
-  ~4m20s, 2026-09-22). It reproduces CI's command SHAPE, never CI's
-  environment: a local session resolves private sources CI cannot, so green
-  here means the sharding is not what breaks, not that CI will be green.
+- **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
+  **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
+  before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
+  before push or merge. What matters is `0 failed` and `0 violated`. Which
+  one a push gets, `--as-ci`, and failing tests a source shipped:
+  [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 
 ## Conventions (every session, every reply)
 
