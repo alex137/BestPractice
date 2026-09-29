@@ -35,7 +35,7 @@ applies_to:  ["**"]             # path globs
 applies_to_why: "why these globs, or why **"   # required on an on-demand practice; see below
 occasion:    "prose trigger"
 gates:       []                  # named moments -- see below
-gates_why:   null             # OPTIONAL -- why this moment
+gates_why:   null             # OPTIONAL -- why this moment, or why no gate at all
 index_clause: "the one line the occasion index shows"   # 80 characters at most; see below
 index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
