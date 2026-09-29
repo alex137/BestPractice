@@ -2140,6 +2140,30 @@ def _generated_files_registered(ctx):
     return out
 
 
+def _received_from_manifest():
+    """-> (received, withheld): the practice and check files MANIFEST.json
+    says another source wrote into this repo, and the withheld practice
+    files -- (set(), None) where there is no readable MANIFEST.json. A file
+    another source wrote is that source's to fix: an edit here lasts until
+    the next sync. Read from the committed record, never by live
+    resolution (see rename-updates-links for why)."""
+    received = set()
+    try:
+        m = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return received, None
+    withheld = {f"practices/{slug}.md" for slug in (m.get('withheld') or [])}
+    local = {s.get('name') for s in (m.get('sources') or [])
+             if isinstance(s, dict) and s.get('level') == 'repo-local'}
+    for e in (m.get('practices') or []):
+        if isinstance(e, dict) and e.get('slug') and e.get('source') not in local:
+            received.add(f"practices/{e['slug']}.md")
+    for e in (m.get('checks') or []):
+        if isinstance(e, dict) and e.get('path') and e.get('source') not in local:
+            received.add(e['path'])
+    return received, withheld
+
+
 # ---- checks-use-generated-blocks --------------------------------------------
 # A check that skips generated text matches the markers through
 # tools/generated_blocks.py, never by hand (Morgan, 2026-09-29: "we should
@@ -2165,12 +2189,19 @@ _MARKER_SPELLING = re.compile(r'BEGIN GENERATED|END GENERATED|<!--(?:/\??)?gen\b
        'which write the markers and so must spell them -- the engine\'s '
        'skipping scans were moved onto the helper and verify_harness.py '
        'pins them. Test files under tests/ plant markers on purpose and are '
-       'not read.',
+       'not read, and neither is a check MANIFEST.json says another source '
+       'wrote here: that source\'s own run judges it.',
        practice_backed=False,
        selects_on=('tools/checks/**/*.py', 'local/tools/checks/**/*.py'))
 def _checks_use_generated_blocks(ctx):
+    # A check another source wrote here is judged in that source, where it
+    # can be fixed; a consuming repo only holds the copy, which the next
+    # sync overwrites.
+    received, _w = _received_from_manifest()
     out = []
     for rel in _ls_files_on_disk(*_CHECK_DIRS):
+        if rel in received:
+            continue
         parts = pathlib.PurePosixPath(rel).parts
         if not rel.endswith('.py') or 'tests' in parts[:-1] \
                 or parts[-1].startswith('test_'):
@@ -7040,22 +7071,9 @@ def _rename_updates_links(ctx):
     # old directory name as the canonical EXAMPLE of a convention, none of
     # which points at anything in the consuming repo, and not one of which
     # that repo could fix.
-    received = set()
-    try:
-        _m = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
-        withheld = {f"practices/{slug}.md" for slug in (_m.get('withheld') or [])}
-        _local = {s.get('name') for s in (_m.get('sources') or [])
-                  if isinstance(s, dict) and s.get('level') == 'repo-local'}
-        for _e in (_m.get('practices') or []):
-            if isinstance(_e, dict) and _e.get('slug') \
-                    and _e.get('source') not in _local:
-                received.add(f"practices/{_e['slug']}.md")
-        for _e in (_m.get('checks') or []):
-            if isinstance(_e, dict) and _e.get('path') \
-                    and _e.get('source') not in _local:
-                received.add(_e['path'])
-    except (ValueError, OSError):
-        pass
+    received, _withheld = _received_from_manifest()
+    if _withheld is not None:
+        withheld = _withheld
 
     _retired_exempt = _decommissioning_record_exemptions()
 
