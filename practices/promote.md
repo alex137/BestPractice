@@ -33,7 +33,11 @@ approved_by: "Morgan, 2026-09-27 (decided) -- never recommend a Promote
   steps with work waiting -- moves pre-staging into staging (Morgan,
   2026-09-26: \"if my 'promote' is ambiguous and you don't know which of
   the two types of promotion it should refer to - then choose to do
-  pre-staging to staging\", strength: decided)."
+  pre-staging to staging\", strength: decided). \"Graduate\" as a second
+  word for the same command is his too (Morgan, 2026-09-26: \"Let's add a
+  new vocab word 'graduate' to be used as a synonym for 'promote'\",
+  strength: decided); \"Promote N\" and the five stages, 2026-09-27/28
+  (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, strength: decided)."
 strength:    assented
 ---
 ## Rule

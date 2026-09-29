@@ -4,7 +4,7 @@ title:       "\"Write it up\" commits a self-contained report on the current iss
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person asks for a write-up of the issue being worked"
+occasion:    "a person says \"Write it up\" or \"Spec it out\", or asks for a write-up of the issue being worked"
 gates:       []
 index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
 checked_by:  null
@@ -24,7 +24,9 @@ approved_by: "Morgan, 2026-09-18. Extended 2026-09-20, on instruction to
   session, say the seed root and the repos to attach in plain prose in the
   reply, not only inside a report or block meant for someone else to read.
   Extended 2026-09-26: analyze and attack the idea before proposing it, and
-  a declared write-up directory, `writeup_dir`, defaulting to spec/."
+  a declared write-up directory, `writeup_dir`, defaulting to spec/. \"Spec it out\" added as a second word for the same command, 2026-09-26
+  (Morgan: \"'spec it out' should be a synonym of 'write it up'\",
+  strength: decided)."
 strength:    decided
 ---
 ## Rule

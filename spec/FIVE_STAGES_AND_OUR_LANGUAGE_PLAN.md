@@ -503,6 +503,12 @@ Each numbered item is its own landing, through the ladder itself.
 8. **Close `claude/graduate-synonym`** (BestPractice) once item 5 carries its
    two words, with the reason recorded -- the branch itself is never
    deleted by a session (practice: never-delete-a-remote-branch).
+   **Done 2026-09-29:** item 5 carries both words, and the branch's
+   approval quotes for them (Morgan, 2026-09-26) were folded into
+   [practices/promote.md](../practices/promote.md) and
+   [practices/write-it-up.md](../practices/write-it-up.md) with them.
+   Nothing on the branch is left unlanded, so it is safe to delete:
+   [that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Fgraduate-synonym).
 
 **What reaches other repositories:** items 1–5 and 7 change files this
 repository ships (practices, the vocabulary tool, the reply gate, a

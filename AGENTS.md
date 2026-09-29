@@ -212,8 +212,6 @@ When a message says "Update Vendors", or an upstream update is taken into a vend
   vendor-update-runbook — source clone first, both layers move separately, then merge
 When a model or comparison rests on an operating constant nobody decided:
   constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
-When a person asks for a write-up of the issue being worked:
-  write-it-up — "Write it up": commit a full report of issue and fix, then link it
 When a person explicitly asks for a "very deep check":
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person explicitly asks for a full practice audit (or "practice check"):
@@ -252,6 +250,8 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
+When a person says "Write it up" or "Spec it out", or asks for a write-up of the issue being worked:
+  write-it-up — "Write it up": commit a full report of issue and fix, then link it
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, or use a GitHub tool for what the clone holds:
