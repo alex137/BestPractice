@@ -50,6 +50,20 @@ nothing can resolve on its own is your timezone in that set's
 `identity.json`; `PRECEDENT_COMMIT_TZ` above covers the same ground without
 it.
 
+**No individual set?** Set nothing from the first block. With no token, base
+URL or repo name in the environment and no clone on disk, nothing could have
+fetched a set, so a hosted session reads a missing one as "you have none"
+and says nothing. If you reach your set some other way, such as attaching
+it by hand, set `PRECEDENT_INDIVIDUAL_REPO` so a failed fetch is still
+reported.
+
+**A private shared set with no token?** Vendor its practices into the
+consumer instead of resolving them from a sibling clone: set
+`upstream.vendor_practices: true` in the consumer's
+`process/manifest_<set>.json`, run `checkin.py update <clone> --source <set>`,
+and point the source's `path` in `precedent.json` at `process/<set>`. Only in
+a private consumer.
+
 ## Optional but Recommended: Run Each Repo's Startup Hooks
 
 **Skip this and a session that opens across several repositories quietly
