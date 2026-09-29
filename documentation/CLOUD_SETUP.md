@@ -36,14 +36,14 @@ PRECEDENT_COMMIT_NAME=Your Name
 PRECEDENT_COMMIT_EMAIL=you@example.com
 PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires   # an IANA zone name, never an offset
 
-# Only if a team practice source resolves as a sibling clone beside this
+# Only if a shared practice source resolves as a sibling clone beside this
 # project — skip it otherwise. A hosted session clones everything under
 # /home/user/, never ~ (which is /root there), so write the full path:
 PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-team-set>=main
 ```
 
 Once `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` are set, the
-SessionStart hook clones your individual and team practice sets **before
+SessionStart hook clones your individual and shared practice sets **before
 the first turn** and writes your `~/.config/precedent/config.json` itself —
 there is nothing else to fill in by hand for a hosted session. The one field
 nothing can resolve on its own is your timezone in that set's

@@ -1,6 +1,6 @@
 ---
 slug:        vocabulary
-title:       "\"Vocabulary\" lists every standing command, read off the practices"
+title:       "\"Vocabulary\" lists every standing command, read off the practices, then the words worth knowing"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
@@ -9,13 +9,13 @@ gates:       ["reply"]
 index_clause: "list every command in force; read it, never recall it"
 checked_by:  null
 defines:     ["Vocabulary"]
-command:     {"Vocabulary": "List every standing phrase this project recognizes, and what each one does."}
+command:     {"Vocabulary": "List every standing phrase this project recognizes and what each one does, then the words worth knowing to follow a conversation about it."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-13"
-approved_by: "Morgan, 2026-09-13 -- coined and placed at universal in the same message"
+approved_by: "Morgan, 2026-09-13 -- coined and placed at universal in the same message; the second list added 2026-09-27, Morgan -- \"the vocabulary should be two lists, the ... list of commands and then the list of useful words to know or our language\" (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)"
 strength:    decided
 source_practice_number: null
 ---
@@ -24,21 +24,34 @@ When the person says **"Vocabulary"**, begin the answer with one line making
 clear that these are not exact-keyword triggers: a session recognizes the
 phrase, but it also reads plain language for the same intent and triggers on
 that, the way [go-update](go-update.md) itself is read (*"sold, ship it"* counts
-as much as the phrase does). Then list the standing commands in force here --
-each phrase, and one plain sentence saying what it does -- and nothing else
-beyond that opening line. No further preamble, no closing offer, and no
-advice about which to use.
+as much as the phrase does). Then give **two lists, and nothing else**
+beyond that opening line:
+
+1. **Commands** -- the standing commands in force here, each phrase and one
+   plain sentence saying what it does.
+2. **Our language** -- the words a person needs to follow a conversation
+   about Precedent (practice, individual set, shared set, full set, in
+   force, feature branch, the branch tiers), each with its one-line meaning,
+   from [tools/our_language.json](../tools/our_language.json).
+
+No further preamble, no closing offer, and no advice about which to use.
+
+**A phrase that names a thing rather than an action is a word, not a
+command.** "Primary branch" and "Tier branch" answer "what is that?", not
+"do this", so they belong in the second list even though their practices
+keep a trigger. The tool does the sorting: a `command:` phrase that is also
+in the word list is printed under Our language instead.
 
 **Read the list, never recall it.** Run
 `python3 tools/precedent_vocabulary.py`, which collects every practice
-declaring a `command:` field across every source this session resolved, and
-answer from its output. A list assembled from what a session happens to
+declaring a `command:` field across every source this session resolved,
+then prints the word list, and answer from its output. A list assembled from what a session happens to
 remember is the failure this exists to prevent: the commands change, and
 the one most likely to be missing is the one added most recently.
 
 **Say which sources did not resolve.** The tool prints a note for every
 source it could not read. That note goes into the answer -- *"I could not
-read your team set, so any command it defines is not below"* -- because a
+read your shared set, so any command it defines is not below"* -- because a
 short list and an incomplete list look identical.
 
 **A command a session cannot honour is not listed.** If a phrase's practice
@@ -80,6 +93,11 @@ and `Approved` are one rule with two triggers.
 **Alphabetical, always.** Every other order -- by date coined, by how often
 it is used, by how important someone thinks it is -- is a judgment that goes
 stale and that the person asking cannot predict. A lookup is sorted.
+
+**Adding a word is one edit too**: add it to
+[tools/our_language.json](../tools/our_language.json), and it appears in
+this answer and on [documentation/OUR_LANGUAGE.md](https://github.com/alex137/BestPractice/blob/staging/documentation/OUR_LANGUAGE.md)
+without anyone updating either by hand.
 
 **Adding a command is one edit.** Write the practice, give it a `command:`
 field, and it appears in this answer, in the reader-facing table, and in

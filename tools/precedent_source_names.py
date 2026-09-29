@@ -4,7 +4,7 @@ is every practice-source repository this repo declares still CALLED what this
 repo calls it?
 
 WHY THIS EXISTS, AND THE INCIDENT THAT PRODUCED IT (practice:
-cite-the-incident). A team source was renamed on GitHub. A consuming repo
+cite-the-incident). A shared source was renamed on GitHub. A consuming repo
 went on declaring it, cloning it, attaching it and materializing from it
 under the OLD name, with every check green, for an unknown number of
 sessions. Nothing failed, and nothing could have: GitHub redirects a renamed

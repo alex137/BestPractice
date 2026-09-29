@@ -12,7 +12,7 @@ four repositories" into "the practices in force here".
 WHO DECLARES WHICH SOURCE, AND WHY THAT SPLIT IS A PRIVACY BOUNDARY RATHER
 THAN A CONVENIENCE.
 
-  The CONSUMER REPO declares universal, its team set, and its own repo-local
+  The CONSUMER REPO declares universal, its shared set, and its own repo-local
   set, in a tracked config file (precedent.json). Everyone working there
   gets those, and everyone working there can already read them.
 
@@ -141,7 +141,7 @@ def _self_heal_individual_source(repo_root):
 def _self_heal_universal_source(repo_root):
     """practice: session-bootstrap -- the mirror-image gap to
     _self_heal_individual_source above, for a SOURCE-kind repo (an
-    individual or team practice set) that declares the universal source
+    individual or shared practice set) that declares the universal source
     (BestPractice) in its own precedent.json.
 
     NO TIMING RACE HERE, unlike the individual case: BestPractice is
@@ -441,7 +441,7 @@ def warn_name_matches_path(level, name, path, where):
 
     Warning on every mismatch is wrong too, and that is the narrower point.
     The first version did, and it fired on perfectly correct fixtures and
-    checkouts whose directory is simply named something else ('team-set',
+    checkouts whose directory is simply named something else ('shared-set',
     'ind', a temporary directory) -- noise on legitimate work, which is the
     fastest way to teach a reader to ignore a warning. So it fires only when
     the directory basename already carries the `precedent-` prefix: that is a
@@ -637,9 +637,9 @@ def load_config(repo, user_config=None):
             # the universal source cannot write a relative path that is
             # correct everywhere: an individual set is cloned to
             # $HOME/precedent-individual, and $HOME is /root on some
-            # containers and /home/user on others, while the team sets and
+            # containers and /home/user on others, while the shared sets and
             # the consuming repo sit side by side. So "../BestPractice"
-            # resolves from a team set and names nothing from an individual
+            # resolves from a shared set and names nothing from an individual
             # one. Same reasoning, and the same remedy, as
             # PRECEDENT_FRESHNESS_ALSO's "write the path as ~/name, never
             # spelled out". An already-relative path is unaffected: expansion
@@ -1043,7 +1043,7 @@ def resolve(sources):
                 # whichever the config happens to list second. The plan
                 # says this fails loudly ("the resolver fails loudly if two
                 # same-level practices claim one slug"), and until
-                # 2026-09-06 it did not: two team sources with a shared
+                # 2026-09-06 it did not: two shared sources with a shared
                 # slug resolved silently to the later one, reported only as
                 # an `overridden:` notice on stderr that reads exactly like
                 # a legitimate higher-level override. load_source() already
@@ -1204,7 +1204,7 @@ def resident_stats(res):
     source existed to combine with. `spec/PRIVATE_SETS_BRIEF.md` flagged the
     gap explicitly and asked the session populating the private sets to
     report back a combined figure "so a Precedent session can build the
-    cross-source cap" -- nothing ever did. A team set marking six practices
+    cross-source cap" -- nothing ever did. A shared set marking six practices
     resident and an individual set marking three, on top of this repo's own
     six, pushes a real resolved session's context well past the 2,000-token
     budget with nothing objecting, because no single source's build ever
@@ -1303,7 +1303,7 @@ def main():
             sys.exit(
                 f"precedent resolve FAIL: no practice sources are declared for "
                 f"{repo}. A repository using Precedent declares its universal and "
-                f"team sources in a tracked {REPO_CONFIG}; a person declares their "
+                f"shared sources in a tracked {REPO_CONFIG}; a person declares their "
                 f"own individual set in their user-level config "
                 f"({DEFAULT_USER_CONFIG}, or {USER_CONFIG_ENV}). Nothing was "
                 f"resolved because nothing was asked for -- that is not an empty "

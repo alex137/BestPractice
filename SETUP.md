@@ -59,7 +59,7 @@ nothing to choose here — this page installs §0, always.
      local shell) it is the only place any check can run at all, so say
      so. Say the default out loud and let them override it. If they want
      it off, it takes `"github_ci_workflows": "disabled"` in an individual
-     or team source's `identity.json`
+     or shared source's `identity.json`
      ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md));
      if they answered "no" to the third question there is nowhere this
      install can record that yet, so say plainly that it stays on until a
@@ -112,7 +112,7 @@ nothing to choose here — this page installs §0, always.
    the leak gate stands down, so say the list only matters for what goes
    back upstream, or if the repository is ever made public.
    If they answered yes to the third question, follow INSTALL.md §1 step 9
-   for what to actually do with a team or individual repo (a team source
+   for what to actually do with a team or individual repo (a shared source
    goes in a new `precedent.json`; an individual source is never touched
    by this session at all — it's declared in that person's own user-level
    config, not this project). If they'd like one set up now instead,
@@ -338,6 +338,10 @@ the project is wrong without them.
   A wrong timezone is a one-sentence fix whenever they notice; the question
   that would have prevented it costs them a decision on the day they know
   least.
+- **Use Precedent's own words the way [Our
+  Language](documentation/OUR_LANGUAGE.md) defines them** -- "individual
+  set", "shared set", "in force", "pre-staging" -- and point the person at
+  that page once, the first time one of them comes up.
 - One step at a time; never assume git or GitHub vocabulary. "Branch",
   "merge", "pull request", "workflow", "personal access token",
   "repository secret", "default branch" and "environment variable" each

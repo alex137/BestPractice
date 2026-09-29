@@ -1,6 +1,6 @@
 # Private-term blocklist — the leak gate's VOCABULARY layer.
 #
-# This file is already in the right place: {{NAME}}'s own team practice
+# This file is already in the right place: {{NAME}}'s own shared practice
 # set. Fill it in here, then point the environment variable at it and turn
 # vocabulary checking on, in every shared project this team works in:
 #
@@ -21,7 +21,7 @@
 # names where the association is the sensitive part, internal hostnames
 # and ticket prefixes. The structural layer (built into every consuming
 # project's leak gate) already covers shapes — email addresses, home
-# directories, individual- and team-level paths — so there is no need to
+# directories, individual- and shared-level paths — so there is no need to
 # restate those here.
 #
 # WRITING THE PATTERNS. Prefer `\b…\b` so a term does not match inside an

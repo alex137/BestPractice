@@ -354,7 +354,7 @@ def cmd_create(args):
             print(text)
         # practice: disclose-landing
         print(
-            f"\nDISCLOSE TO THE HUMAN: this is a proposal for the TEAM set "
+            f"\nDISCLOSE TO THE HUMAN: this is a proposal for the SHARED set "
             f"at {path}, not yet a practice and not yet in force for "
             f"anyone. This tool does NOT open a GitHub Issue -- file this at "
             f"https://github.com/{owner}/{repo_name}/issues/new"
@@ -392,7 +392,7 @@ def cmd_create(args):
               f"it until you do.")
     elif fields['raised_by'] in _approver_names(path):
         print(f"DISCLOSE TO THE HUMAN: this is a proposal only, filed in "
-              f"the TEAM set at {path} -- not yet a practice, and not yet "
+              f"the SHARED set at {path} -- not yet a practice, and not yet "
               f"in force for anyone. It needs a listed approver's yes "
               f"(precedent_land.py --approved-by NAME) before it lands; "
               f"raised_by ({fields['raised_by']!r}) is already an approver "
@@ -400,7 +400,7 @@ def cmd_create(args):
               f"that is what's wanted instead of leaving it queued.")
     else:
         print(f"DISCLOSE TO THE HUMAN, PLAINLY: {fields['raised_by']!r} is "
-              f"NOT a listed approver for the TEAM set at {path}, and "
+              f"NOT a listed approver for the SHARED set at {path}, and "
               f"nothing is watching this candidates/ directory for a new "
               f"file -- this proposal will very likely sit unseen. Say so, "
               f"and suggest --as-issue true instead so an approver actually "

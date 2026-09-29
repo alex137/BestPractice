@@ -86,7 +86,7 @@ fi
 # against each other line by line. Each step reports and never gates,
 # exactly like every other block here.
 
-# Clone the declared TEAM sources, where the environment carries a
+# Clone the declared SHARED sources, where the environment carries a
 # credential (PRECEDENT_GIT_TOKEN / PRECEDENT_SOURCE_BASE_URL --
 # documentation/PER_MACHINE_SETUP.md). No token, no network call: the tool
 # says which sources are missing and why, and startup continues. The

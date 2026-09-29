@@ -25,7 +25,7 @@ and it is worth asking of every format a repo commits, not just these two.
 JSON and YAML are what this repo actually has.
 
 affordance-is-shared: consuming repos get equivalent coverage on changed
-files from the team set's own light check, so this is not vendored. If a
+files from the shared set's own light check, so this is not vendored. If a
 consumer ever wants the whole-tree sweep, this is the module to vendor.
 """
 import json

@@ -27,7 +27,7 @@
     },
     {
       "term": "level repo",
-      "definition": "Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just \"the source\", or \"the individual set\" / \"a team set\" when the level matters. Naming conventions for those repositories are in source-naming.",
+      "definition": "Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just \"the source\", or \"the individual set\" / \"a shared set\" when the level matters. Naming conventions for those repositories are in source-naming.",
       "see": "practices/source-naming.md"
     },
     {
