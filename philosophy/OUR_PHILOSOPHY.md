@@ -151,22 +151,12 @@ private session, or files the team can edit and hand to another model
 <a id="on-purpose-looks-different"></a>
 
 **10. A choice made on purpose should look different from one nobody
-made.** On the page, a default someone weighed and kept looks exactly like
-a default nobody noticed, and a "yes" given with conviction looks exactly
-like "fine, go ahead." Both differences matter, and both are lost unless
-they are written down when they exist. So the record carries them: an
-approval says whether it was **decided** or **assented**
-([`decision-strength`](../practices/decision-strength.md)); a practice
-left to apply everywhere says why
-([`applies_to_why`](../spec/ROUTING_REASONS.md)); an exemption from a check
-carries its reason, and why the cause could not be fixed instead
-([`checks-carry-a-declared-decline`](../practices/checks-carry-a-declared-decline.md),
-[`upstream-fix`](../practices/upstream-fix.md)); and an open question
-stays quiet unless someone marked it to be asked
-([`open-item-disposition`](../practices/open-item-disposition.md)). It
-costs a few words at the time. Without them, a later reader, person or
-model, has to guess which choices were meant, and guesses wrong just often
-enough to undo the ones that were.
+made.** A default someone weighed reads exactly like one nobody noticed,
+and a firm "yes" like a shrug, unless the difference is written down
+when it exists. So the record keeps it: an approval is marked
+**decided** or **assented**
+([`decision-strength`](../practices/decision-strength.md)), and every
+exception carries its reason.
 
 ## Humans Should Do What Humans Do Best
 
