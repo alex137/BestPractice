@@ -19476,6 +19476,59 @@ def check_changed_files_asks_a_new_check_for_its_test():
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
 
 
+def check_changed_files_asks_a_new_check_for_its_planted_case():
+    """In BestPractice, a change to the check registry or the harness is
+    refused when a registered check has no planted case in
+    check_precedent_check_fires -- named, in seconds, with the line to add.
+
+    The harness asserts the same thing ("every registered check has a
+    planted case here"), but only on a full run, which pre-staging never
+    does: on 2026-09-29 a new check reached pre-staging without one and the
+    Debut to staging failed 20 minutes in. Both halves of the registry are
+    held: an @check in precedent_check.py, and a check script, named by the
+    practice whose checked_by claims it. The control is the same tree with
+    both cases added.
+    """
+    import tempfile
+    name = 'the changed-files check asks a new check for its planted case'
+    engine = ('from x import check\n'
+              "@check('zzz-planted', 'tree', 'w', 'b')\ndef a(ctx): return []\n"
+              "@check(\n    'zzz-unplanted', 'tree', 'w', 'b')\n"
+              'def b(ctx): return []\n')
+    harness = "def f():\n    case('zzz-planted', None)\n"
+    script = {'local/practices/zzz-claim.md':
+                  '---\nslug: zzz-claim\n'
+                  'checked_by: local/tools/checks/check_zzclaim.py\n---\n',
+              'local/tools/checks/check_zzclaim.py': _FIXTURE_CHECK_HEAD,
+              'local/tools/checks/tests/test_zzclaim.sh':
+                  '# check_zzclaim.py\nexit 0\n'}
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'missing')
+        commit({'tools/precedent_check.py': engine,
+                'tools/verify_harness.py': harness, **script})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'planted')
+        commit2({'tools/precedent_check.py': engine,
+                 'tools/verify_harness.py': harness +
+                     "    case('zzz-unplanted', None)\n"
+                     "    case(\n        'zzz-claim', None)\n",
+                 **script})
+        rc2, out2 = run2()
+    cases = [
+        ('an @check with no case is refused, by name',
+         rc == 1 and 'zzz-unplanted: a registered check with no planted case'
+         in out),
+        ('a check script is named by the practice that claims it',
+         'zzz-claim: a registered check with no planted case' in out),
+        ('a check that has its case is not named',
+         'zzz-planted: a registered' not in out),
+        ('control: with every case planted, it passes', rc2 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
 def check_changed_files_runs_one_copy_of_a_repo_local_test():
     """A repo-local test and its materialized copy change together, and only
     the materialized copy runs -- the one run_all.sh runs. Running both put
@@ -34159,6 +34212,137 @@ def check_generated_blocks_both_styles():
           not bad, '; '.join(bad))
 
 
+def check_runner_drops_findings_on_received_files():
+    """precedent_check.py's runner drops a finding on a file the repository
+    RECEIVED -- another source's materialized practice or check, the
+    vendored engine, a mirrored tree -- once, for every check, and names the
+    source that owns it (precedent_practice_refs.received_owners()).
+
+    WHY. Until 2026-09-29 each check had to remember that skip on its own.
+    checks-use-generated-blocks went live without it, and a consuming repo's
+    full check judged check files a practice set had written there, which
+    the next sync overwrites. So this plants violations in received files
+    for several unrelated checks, in a consumer-shaped fixture, and requires
+    that none is named -- while the SAME violation in a file the repo wrote
+    still is, since a drop that silenced the check would pass the first
+    half alone. It also holds the two registrations that must keep their
+    findings on received files: a source-supplied check script (its one
+    finding carries the script's own path) and
+    vendored-engine-file-refs-resolve (its subject is the received copy)."""
+    import shutil, tempfile
+    bad = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_practice_refs as ppr
+
+    # The one definition, in-process: a MANIFEST.json entry of a repo-local
+    # source is the repo's own, a mirrored tree matches by prefix.
+    with tempfile.TemporaryDirectory() as td:
+        r = pathlib.Path(td)
+        (r / 'tools').mkdir()
+        (r / 'MANIFEST.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                        {'level': 'shared', 'name': 'zzz-shared', 'path': '/x'}],
+            'practices': [{'slug': 'mine', 'source': 'local'},
+                          {'slug': 'theirs', 'source': 'zzz-shared'}],
+            'checks': [{'path': 'tools/checks/check_theirs.py',
+                        'source': 'zzz-shared'}]}), encoding='utf-8')
+        (r / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['zzz_engine.py']}), encoding='utf-8')
+        owners = ppr.received_owners(r)
+        owners['vendor/upstream/'] = 'the mirrored tree vendor/upstream/'
+        want = {'practices/theirs.md': 'zzz-shared',
+                'tools/checks/check_theirs.py': 'zzz-shared',
+                'tools/zzz_engine.py': 'the vendored engine',
+                'vendor/upstream/practices/x.md':
+                    'the mirrored tree vendor/upstream/',
+                'practices/mine.md': None, 'docs/x.md': None,
+                'vendor/upstreamish.md': None}
+        got = {k: ppr.received_owner(k, owners) for k in want}
+        if got != want:
+            bad.append(f'received_owner: want {want}, got {got}')
+
+    # A consumer-shaped copy of this tree, one run of the whole check.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-received-'))
+    try:
+        repo = tmp / 'consumer'
+        shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
+            '.git', '__pycache__', '*.pyc', 'prompts'))
+        retired = 'team' + ' sets'          # a retired word, built not spelled
+        marker = '<!-- BEGIN ' + 'GENERATED: precedent-loader -->'
+        (repo / 'MANIFEST.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                        {'level': 'shared', 'name': 'zzz-shared', 'path': '/x'}],
+            'practices': [{'slug': 'zzz-received', 'source': 'zzz-shared'}],
+            'checks': [{'path': 'tools/checks/check_zzz_received.py',
+                        'source': 'zzz-shared'}],
+            'withheld': []}, indent=1) + '\n', encoding='utf-8')
+        # Received: a practice using a retired word, and a check that spells
+        # a generated-block marker itself -- and, run as a check, reports.
+        (repo / 'practices' / 'zzz-received.md').write_text(
+            f'Written by another source. It still says {retired}.\n',
+            encoding='utf-8')
+        chk = repo / 'tools' / 'checks'
+        chk.mkdir(parents=True, exist_ok=True)
+        (chk / 'check_zzz_received.py').write_text(
+            f'import sys\nSKIP = {marker!r}\n'
+            f'print("zzz-received-script-finding")\nsys.exit(1)\n',
+            encoding='utf-8')
+        # The repo's own copies of the same two violations.
+        (repo / 'zzz-own.md').write_text(
+            f'Written here. It still says {retired}.\n', encoding='utf-8')
+        (chk / 'check_zzz_own.py').write_text(
+            f'import sys\nSKIP = {marker!r}\nsys.exit(0)\n', encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A'],
+                     ['-c', 'user.email=harness@example.com', '-c',
+                      'user.name=harness', 'commit', '-qm', 'consumer']):
+            subprocess.run(['git', *args], cwd=repo, capture_output=True)
+        env = dict(os.environ,
+                   PRECEDENT_USER_CONFIG=str(repo / '.no-user-config.json'))
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+
+        def run(*slugs):
+            out = ''
+            for slug in slugs:
+                r = subprocess.run(
+                    [sys.executable, 'tools/precedent_check.py', '--only', slug],
+                    cwd=repo, capture_output=True, text=True, env=env)
+                out += r.stdout + r.stderr
+            return out
+
+        out = run('retired-words', 'checks-use-generated-blocks')
+        for name in ('practices/zzz-received.md', 'check_zzz_received.py'):
+            if name in out:
+                bad.append(f'{name} is received, and was named: {out[-400:]}')
+        for name in ('zzz-own.md', 'check_zzz_own.py'):
+            if name not in out:
+                bad.append(f'{name} is the repo\'s own, and was NOT named: '
+                           f'{out[-400:]}')
+        if 'for zzz-shared' not in out:
+            bad.append(f'no note naming zzz-shared as the owner: {out[-400:]}')
+
+        out = run('check_zzz_received')
+        if 'zzz-received-script-finding' not in out:
+            bad.append(f'a source-supplied check script lost its finding: '
+                       f'{out[-400:]}')
+
+        # vendored-engine-file-refs-resolve judges the received copy itself.
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['zzz_engine.py']}), encoding='utf-8')
+        # Built, never spelled: the check scans this very file.
+        (repo / 'tools' / 'zzz_engine.py').write_text(
+            'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+        out = run('vendored-engine-file-refs-resolve')
+        if 'tools/zzz_engine.py' not in out:
+            bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
+                       f'received engine file: {out[-400:]}')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('findings on files a repo received are dropped once by the runner '
+          'and named by owner; the repo\'s own copies, a source-supplied '
+          'check script and vendored-engine-file-refs-resolve still report',
+          not bad, '; '.join(bad))
+
+
 def check_frontmatter_field_order_fixer():
     """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
     FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
@@ -45113,6 +45297,7 @@ def main():
     check_frontmatter_is_real_yaml()
     check_frontmatter_field_order_fixer()
     check_generated_blocks_both_styles()
+    check_runner_drops_findings_on_received_files()
     check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
@@ -45212,6 +45397,7 @@ def main():
     check_leak_gate_notes_an_uncovered_private_repo()
     check_rename_links_spares_a_commit_pinned_permalink()
     check_changed_files_asks_a_new_check_for_its_test()
+    check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()

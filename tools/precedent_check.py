@@ -171,6 +171,34 @@ import generated_blocks  # noqa: E402
 # It never raises, so the only thing guarded is the import: precedent_check.py
 # ships into source sets, which vendor it without precedent_resolve.py.
 _MIRRORED_CACHE = {}
+_RECEIVED_CACHE = {}
+
+
+def _received_owners(repo=None):
+    """-> {path or prefix: owner} for the files this repo received rather
+    than wrote -- precedent_practice_refs.received_owners(), the one answer,
+    cached. {} when it cannot be imported, so nothing is dropped and every
+    finding still reports."""
+    key = str(repo or ROOT)
+    if key not in _RECEIVED_CACHE:
+        try:
+            import precedent_practice_refs as ppr
+            _RECEIVED_CACHE[key] = ppr.received_owners(repo or ROOT)
+        except Exception:                           # practice: fail-gracefully
+            _RECEIVED_CACHE[key] = {}
+    return _RECEIVED_CACHE[key]
+
+
+def _received_owner(rel, repo=None):
+    """Who wrote `rel`, when this repo received it; None when it is this
+    repo's own."""
+    if not rel:
+        return None
+    try:
+        import precedent_practice_refs as ppr
+    except Exception:                               # practice: fail-gracefully
+        return None
+    return ppr.received_owner(rel, _received_owners(repo))
 
 
 def _mirrored(repo):
@@ -243,8 +271,19 @@ class NotApplicable(Exception):
 
 
 class Finding:
-    def __init__(self, where, detail):
+    """`where` is what prints; the file a finding is about is `path` when a
+    check passes one, else `where` up to its first colon (the "file:line"
+    most checks write). The runner reads it to drop findings on files this
+    repo received, and --changed-files-only to keep findings on the change."""
+
+    def __init__(self, where, detail, path=None):
         self.where, self.detail = where, detail
+        self.path = path
+
+    def file(self):
+        if self.path is not None:
+            return self.path
+        return str(self.where or '').split(':', 1)[0].strip()
 
     def __str__(self):
         return f'{self.where}: {self.detail}' if self.where else self.detail
@@ -277,7 +316,8 @@ CHECKS = {}
 
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
-          binds_publishers=False, binds_when=(), selects_on=()):
+          binds_publishers=False, binds_when=(), selects_on=(),
+          judges_received=False):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -367,14 +407,28 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     flag or a general mechanism: a check is advisory only when a specific,
     dated incident justifies it (see parallel-artifact-ledger's own
     comment, 2026-09-05), the same bar checkable-gets-checked sets for
-    leaving a practice advisory-only in the first place."""
+    leaving a practice advisory-only in the first place.
+
+    `judges_received=True` keeps this check's findings on files the repo
+    RECEIVED -- another source's materialized practice or check, the
+    vendored engine, a mirrored tree (precedent_practice_refs.py's
+    received_owners()). Every other check has those findings dropped by
+    run(), once, and counted in a note naming the source that owns them:
+    that source's own run judges the file, and an edit here lasts until the
+    next sync. Before 2026-09-29 each check had to remember that skip on its
+    own, and checks-use-generated-blocks went live without it and judged a
+    consumer's received check files. Set it only on a check whose subject
+    IS the received copy -- a hand edit that diverged from what was shipped,
+    or a received file that fails to resolve here -- because that finding
+    is the consumer's to act on (revert the edit, refresh the copy)."""
     def deco(fn):
         CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
                             blind_to=blind_to, advisory=advisory,
                             practice_backed=practice_backed,
                             binds_publishers=binds_publishers,
                             binds_when=tuple(binds_when),
-                            selects_on=tuple(selects_on))
+                            selects_on=tuple(selects_on),
+                            judges_received=judges_received)
         return fn
     return deco
 
@@ -533,7 +587,13 @@ def register_materialized_checks():
             # script directly -- but its own comment assumed
             # precedent_check.py "runs both, but on a rotation slice",
             # which was false; this makes it true.
-            binds_when=(rel,))
+            binds_when=(rel,),
+            # Its one finding is labelled with the SCRIPT's path, which is
+            # itself a received file in every consumer, not with the file
+            # the script judged. Dropping findings on received files by
+            # path would silence every source-supplied check in every
+            # consuming repo, so this keeps them all.
+            judges_received=True)
 
 
 def _practice_file(slug):
@@ -912,12 +972,12 @@ def _manifest_entry(rel):
 
 
 def _foreign_practice(rel):
-    """True if a COMMITTED MANIFEST.json says another source owns it. A
-    `repo-local` entry is this repository's own, so it is not foreign --
-    see _manifest_entry for why the manifest, and not live resolution, is
-    what decides."""
-    entry = _manifest_entry(rel)
-    return entry is not None and entry.get('level') != 'repo-local'
+    """True if this repo received `rel` rather than wrote it -- asked of
+    _received_owners(), the one answer, which reads the COMMITTED
+    MANIFEST.json (a `repo-local` entry is this repository's own, so it is
+    not foreign; see _manifest_entry for why the manifest, and not live
+    resolution, is what decides)."""
+    return _received_owner(rel) is not None
 
 
 @check('catalogue-carries-stories', 'tree',
@@ -2140,28 +2200,18 @@ def _generated_files_registered(ctx):
     return out
 
 
-def _received_from_manifest():
-    """-> (received, withheld): the practice and check files MANIFEST.json
-    says another source wrote into this repo, and the withheld practice
-    files -- (set(), None) where there is no readable MANIFEST.json. A file
-    another source wrote is that source's to fix: an edit here lasts until
-    the next sync. Read from the committed record, never by live
-    resolution (see rename-updates-links for why)."""
-    received = set()
+def _withheld_from_manifest():
+    """-> the practice files MANIFEST.json says are withheld from this public
+    tree (published in a private source and deliberately kept out), or None
+    where there is no readable MANIFEST.json. Read from the committed
+    record, never by live resolution (see rename-updates-links for why).
+    Which files this repo RECEIVED is a different question, answered once
+    by _received_owners()."""
     try:
         m = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
     except (ValueError, OSError):
-        return received, None
-    withheld = {f"practices/{slug}.md" for slug in (m.get('withheld') or [])}
-    local = {s.get('name') for s in (m.get('sources') or [])
-             if isinstance(s, dict) and s.get('level') == 'repo-local'}
-    for e in (m.get('practices') or []):
-        if isinstance(e, dict) and e.get('slug') and e.get('source') not in local:
-            received.add(f"practices/{e['slug']}.md")
-    for e in (m.get('checks') or []):
-        if isinstance(e, dict) and e.get('path') and e.get('source') not in local:
-            received.add(e['path'])
-    return received, withheld
+        return None
+    return {f"practices/{slug}.md" for slug in (m.get('withheld') or [])}
 
 
 # ---- checks-use-generated-blocks --------------------------------------------
@@ -2194,14 +2244,10 @@ _MARKER_SPELLING = re.compile(r'BEGIN GENERATED|END GENERATED|<!--(?:/\??)?gen\b
        practice_backed=False,
        selects_on=('tools/checks/**/*.py', 'local/tools/checks/**/*.py'))
 def _checks_use_generated_blocks(ctx):
-    # A check another source wrote here is judged in that source, where it
-    # can be fixed; a consuming repo only holds the copy, which the next
-    # sync overwrites.
-    received, _w = _received_from_manifest()
+    # A check another source wrote here is that source's to fix; run()
+    # drops findings on received files for every check, this one included.
     out = []
     for rel in _ls_files_on_disk(*_CHECK_DIRS):
-        if rel in received:
-            continue
         parts = pathlib.PurePosixPath(rel).parts
         if not rel.endswith('.py') or 'tests' in parts[:-1] \
                 or parts[-1].startswith('test_'):
@@ -5381,7 +5427,12 @@ def _speculation_is_marked(ctx):
        "there. It scans the `_ENGINE_DIR / '<name>'` and "
        "`ROOT / 'tools' / '<name>'` spellings only, not an equivalent path "
        "built any other way (an f-string, a joined variable).",
-       practice_backed=False)
+       practice_backed=False,
+       # Its subject IS a received file: a consumer's vendored engine file
+       # naming a companion that never arrived there. BestPractice holds
+       # every companion, so only the consumer's run can see it, and the
+       # remedy (refresh the engine) is the consumer's.
+       judges_received=True)
 def _vendored_engine_file_refs_resolve(ctx):
     tools_dir = ROOT / 'tools'
     findings = []
@@ -7045,15 +7096,6 @@ def _rename_updates_links(ctx):
     # them inside a vendored tree nobody can edit there, and every one of
     # them unactionable. MANIFEST.json's `withheld` list records exactly
     # this, written by precedent_materialize.py.
-    # Files this repo received rather than wrote (see the skip below).
-    _vendored_engine = set()
-    try:
-        _em = json.loads(
-            (ROOT / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
-        _vendored_engine = {f"tools/{f}" for f in (_em.get('files') or [])}
-    except (ValueError, OSError):
-        pass
-
     withheld = set()
     # Materialized output is the same third state one level further out.
     # precedent_materialize.py DELETES AND REWRITES practices/ and
@@ -7071,7 +7113,9 @@ def _rename_updates_links(ctx):
     # old directory name as the canonical EXAMPLE of a convention, none of
     # which points at anything in the consuming repo, and not one of which
     # that repo could fix.
-    received, _withheld = _received_from_manifest()
+    # Those files are dropped by run(), which drops a finding on any file
+    # this repo received, for every check (see _received_owners()).
+    _withheld = _withheld_from_manifest()
     if _withheld is not None:
         withheld = _withheld
 
@@ -7104,20 +7148,13 @@ def _rename_updates_links(ctx):
             if old in withheld:
                 continue      # withheld, not deleted -- see the note above
             # A file the consuming repo RECEIVED cannot be repointed there:
-            # a mirrored tree and the vendored engine are copied wholesale
-            # from a published commit, and an edit is overwritten by the next
-            # refresh. The reference is upstream's, and so is the fix.
-            #
-            # THE VENDORED CATALOGUE IS THE THIRD SUCH TREE and this check did
-            # not know it. The engine and the materialized tree were already
-            # attributed from the committed manifest; the catalogue was
-            # excluded by the literal 'process/upstream/', which is
-            # INSTALL.md §1's layout only. A §0 consumer deleting one of its
-            # OWN files got two findings inside Precedent's practice prose,
-            # where the path named is correct upstream and where the consumer
-            # can repoint nothing. Ask the engine (practice: durable-fix).
-            if rel.startswith(_mirrored(ROOT)) or rel in _vendored_engine \
-                    or rel in received or rel == DECOMMISSIONED_PATHS_REGISTRY \
+            # a mirrored tree, the vendored engine and another source's
+            # materialized files are copied wholesale, and an edit is
+            # overwritten by the next refresh. run() drops those findings
+            # for every check; asking the same one answer here as well only
+            # saves reading the files (practice: durable-fix).
+            if _received_owner(rel) is not None \
+                    or rel == DECOMMISSIONED_PATHS_REGISTRY \
                     or any(_exempt_matches(rel, e) for e in _retired_exempt):
                 # The decommissioning registry names every path this repo has
                 # deleted, on purpose (practice: decommission-deletes-files) --
@@ -9771,6 +9808,7 @@ def _run_with_coverage_retry(tree_slugs, other_slugs, ctx, scopes, exempt):
 def run(slugs, ctx, scopes, exempt=None):
     exempt = exempt or {}
     results = []
+    ctx.received_dropped = {}       # per owner; main() prints it as a note
     for slug in slugs:
         c = CHECKS[slug]
         if c['scope'] not in scopes:
@@ -9822,6 +9860,24 @@ def run(slugs, ctx, scopes, exempt=None):
             # make the check red.
             unverified = [f for f in returned if isinstance(f, Unverified)]
             findings = [f for f in returned if not isinstance(f, Unverified)]
+            # A finding on a file this repo RECEIVED belongs to the source
+            # that wrote it, and that source's own run judges it; an edit
+            # here lasts until the next sync. Dropped here, once, for every
+            # check, so no check has to remember -- the one that forgot
+            # (checks-use-generated-blocks, 2026-09-29) judged a consumer's
+            # received check files. A check whose subject IS the received
+            # copy opts out with judges_received (see check()).
+            if findings and not c.get('judges_received'):
+                kept = []
+                for f in findings:
+                    owner = _received_owner(f.file()
+                                            if hasattr(f, 'file') else None)
+                    if owner is None:
+                        kept.append(f)
+                    else:
+                        ctx.received_dropped[owner] = \
+                            ctx.received_dropped.get(owner, 0) + 1
+                findings = kept
             results.append((slug, 'VIOLATION' if findings else 'PASS',
                             findings, None, unverified))
         except NotApplicable as e:
@@ -9938,12 +9994,12 @@ def main():
         in_change = {c.rstrip('/') for c in ctx.changed}
         # A practice file sync wrote -- any the committed MANIFEST.json names
         # -- is not this change's own writing, even when this change is the
-        # update that wrote it: its text is the publishing source's, fixed
-        # there and judged there, and anything done to it here is
-        # overwritten by the next sync. practice-links-travel skips it for
-        # the same reason. Found 2026-09-28: a consuming repo's Update
+        # update that wrote it. Found 2026-09-28: a consuming repo's Update
         # Vendors failed its pre-staging check on an acronym inside
-        # vendor-update-runbook, a file it cannot change.
+        # vendor-update-runbook, a file it cannot change. run() now drops
+        # findings on another source's files for every check; what is left
+        # for this to catch is a materialized copy of the repo's OWN
+        # repo-local practice, which is judged where it is authored.
         for c in list(in_change):
             if c.startswith('practices/') and c.endswith('.md') \
                     and _manifest_entry(c) is not None:
@@ -9953,7 +10009,8 @@ def main():
         for slug, status, findings, why, uv in results:
             if status == 'VIOLATION':
                 kept = [f for f in findings
-                        if str(getattr(f, 'where', '') or '').split(':', 1)[0]
+                        if (f.file() if hasattr(f, 'file') else
+                            str(getattr(f, 'where', '') or '').split(':', 1)[0])
                         in in_change]
                 outside_change += len(findings) - len(kept)
                 status = 'VIOLATION' if kept else 'PASS'
@@ -10028,6 +10085,14 @@ def main():
         print(f'note: {tree_scope_note}')
     if coverage_note:
         print(f'note: {coverage_note}')
+    received_dropped = getattr(ctx, 'received_dropped', None) or {}
+    if received_dropped:
+        owners = ', '.join(f'{n} for {o}' for o, n in sorted(
+            received_dropped.items()))
+        print(f'note: {sum(received_dropped.values())} finding(s) were on files '
+              f'this repository received rather than wrote, and were not judged '
+              f'here -- {owners}. Each is that source\'s to fix, where its own '
+              f'run judges it; an edit here lasts until the next sync.')
 
     n_uv = sum(len(r[4]) for r in unverified)
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
