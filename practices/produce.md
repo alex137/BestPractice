@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Produce\", \"Make live\" or \"Promote 5\""
-gates:       []
+gates:       ["merge"]
 index_clause: "stage 5: Promote staging into main (production); read strictly"
 checked_by:  null
 defines:     ["Produce", "Make live", "production"]

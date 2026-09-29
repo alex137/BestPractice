@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Debut\", \"Test Readiness\" or \"Promote 4\""
-gates:       []
+gates:       ["merge"]
 index_clause: "stage 4: Promote pre-staging into staging, full checks"
 checked_by:  null
 defines:     ["Debut", "Test Readiness"]
