@@ -20,6 +20,9 @@ approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precede
 ## Rule
 A `Session: <url>` trailer on every commit -- for Claude Code, `https://claude.ai/code/session_<ID>`. `Claude-Session: <url>` is also accepted -- the key Claude Code Remote's own harness actually emits as of 2026-09, functionally the same trailer under a different name. For unattended automation with no chat session behind it, the workflow run's own URL stands in. If a tool has no shareable link at all, the trailer says so explicitly (`Session: none available (<tool>)`) rather than being silently omitted.
 
+## Detail
+A commit GitHub makes with its own buttons -- a merge, squash or revert button, an edit made on the website -- needs no trailer: no session wrote it, and there is nowhere to put one. A practice set may exempt more (reverts, for example); what it exempts applies only where that set is declared.
+
 ## Why
 So a reviewer can tell "considered and skipped" from "forgotten" at a glance, and can trace a change back to the conversation that reasoned it through.
 
@@ -42,16 +45,14 @@ sets. The rule text is unchanged. Its mechanical check did not move with
 it -- see Install for why.
 
 ## Install
-**No mechanical check at this level, and the reason is specific.** The
-shared set this rule moved from carries one: a tree-scope script that walks
-every non-merge commit reachable from HEAD and requires a trailer line in
-one of the valid shapes, reading the raw commit object for merge detection
-(a shallow clone's boundary commit loses its real parents under
-`git log --format=%P`), with the commits that predate it exempted by hash
-rather than rewritten. Shipped from universal it would run in every
-consuming repository at once, against histories that predate the rule, and
-fail on every old commit in each of them. A repository that wants the
-mechanical check adopts it deliberately: exempt its existing history first,
-then turn it on. It checks presence only, never that the URL resolves to a
-real session -- which is exactly the "considered and skipped" versus
-"forgotten" distinction the Why names.
+**The mechanical check lives with a shared set, not here.** The shared set
+for repository maintenance carries a tree-scope script that requires a
+trailer line in one of the valid shapes, reading the raw commit object for
+merge detection (a shallow clone's boundary commit loses its real parents
+under `git log --format=%P`). Since 2026-09-29 it judges only the commits a
+push carries -- those origin does not have yet -- so a repository adopting it
+no longer has to exempt its existing history first: old commits are never
+judged, and every new one is judged at the first push that carries it. It
+checks presence only, never that the URL resolves to a real session --
+which is exactly the "considered and skipped" versus "forgotten" distinction
+the Why names.

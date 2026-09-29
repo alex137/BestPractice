@@ -1708,7 +1708,7 @@ def _main(argv):
     print(f'always checked fully: {", ".join(sorted(full_branches(root)))}')
     print(f'every other branch: {tier} ({why})')
     landing, lwhy = landing_branch(root)
-    print(f'Go update lands on: {landing} ({lwhy})')
+    print(f'Booked (Go update) lands on: {landing} ({lwhy})')
     return 0
 
 

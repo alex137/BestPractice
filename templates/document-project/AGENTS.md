@@ -88,7 +88,7 @@ instructions for this repo, not gotchas.
   A repo declaring several subject-scoped sets is the ordinary case now, not
   an exception.
 
-  **Attach the individual set, and keep one clone of it** (practice
+  **Attach the individual source, and keep one clone of it** (practice
   `attach-never-clone-individual`). The attach tool's reply says to clone
   it to `/home/user/<name>`. If the session-start hook got there first,
   that path is already a link to its clone and the clone command stops
@@ -118,7 +118,7 @@ something to decide which a person is, and nothing can
 
 **GitHub role — Write.** The contributor is a **Write** collaborator here.
 They push branches, open pull requests and merge their own document work,
-through Claude, with `Go update`; they never need to see git vocabulary to do
+through Claude, with **Booked** (`Go update`); they never need to see git vocabulary to do
 it. This binds anything only if they authenticate to GitHub as themselves
 rather than through a shared organisation-wide connection — confirmed once,
 per project, before relying on it.

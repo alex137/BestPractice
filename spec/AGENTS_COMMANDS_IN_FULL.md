@@ -43,8 +43,9 @@ used to read on turn one.
   in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the
   authorization travels with the work. One rule, two triggers, and
-  `Go update` is the one to lead with — it names what actually happens
-  whether or not a merge is literally in the picture.
+  `Booked` is the one to lead with (Morgan, 2026-09-29), and `Go update`,
+  its older name, still works whether or not a merge is literally in the
+  picture.
   `Approved` is also an ordinary adjective, so *"the approved plan of
   record"* is not the command.
   **Neither is required for the authorization to exist** —
@@ -56,7 +57,7 @@ used to read on turn one.
   regardless, and hold only the shared-branch steps on the answer.
 - **"Push directly to [branch]"** ([push-directly](../practices/push-directly.md))
   — the classification's own override, named: skip it outright and push
-  straight to that branch, no PR, whatever `Go update` would otherwise call
+  straight to that branch, no PR, whatever Booked (`Go update`) would otherwise call
   for on this one change. Name the branch ("push directly to main") to
   target it explicitly; say it bare and it defaults to the primary branch
   the work is already on — the person's landing branch
@@ -131,7 +132,7 @@ used to read on turn one.
   ([vendor-update-runbook](../practices/vendor-update-runbook.md)) — the fixed
   sequence for taking an upstream update, starting with making the SOURCE
   clone current against the pinned branch. **It carries the merge too**, since
-  2026-09-14 — its last step runs `Go update`'s chain on what the update
+  2026-09-14 — its last step runs Booked's (`Go update`'s) chain on what the update
   produced, so nobody is asked a second time for work that is already done and
   already checked. It reverses the sentence that used to sit here; the full
   check at step 6 still gates the push, as it does for any merge. **Since

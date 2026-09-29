@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Its two occasions (an existing recommendation, or work this session cannot reach) are both facts about the conversation and the session's own repository access, not about any file being edited. Reached through the occasion index and the reply gate. Decided: 2026-09-20, when the practice landed."
-occasion:    "handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session"
+occasion:    "handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
 index_clause: "\"Prompt Please\" -- recommendation or unreachable work, one paste-ready prompt"
@@ -174,7 +174,7 @@ absorbed it. Absent that, the default text says so directly:
 > **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go update" in
 > this session before merging.**
 
-When the person says `Prompt Please` together with `Go update` (or
+When the person says `Prompt Please` together with Booked (`Go update`) (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
 authorization travels with the prompt, bounded exactly as
 [go-update](go-update.md) already bound it (and `session-text` bound it

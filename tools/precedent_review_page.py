@@ -11,6 +11,19 @@ for the check:
      recommends deleting for another reason come from --recommend.
   2. Every active practice, by source: universal first, then this repo's
      own local practices, then the individual set, then each shared set.
+  3. Practices that may overlap: pairs whose wording reads alike, across
+     every source and within each one, each marked "same slug", "different
+     sources" or "same source", with the session's verdict beside it --
+     merge them (and where), or keep both and why.
+
+WHY PART 3 (Morgan, 2026-09-29, strength: decided): two sources can each
+carry the same rule without either one's own check noticing, because the
+two copies never sit in the same file to compare -- and inside one source,
+two rules can say nearly the same thing in different words. Wording alone
+also matches rules that do different jobs (two rules about links), so the
+script only proposes pairs; the session judges each one and passes its
+verdicts through --verdicts, and a pair judged different stays on the page
+with its reason so nobody has to judge it twice.
 
 WHY A SESSION PAGE AND NEVER A COMMITTED FILE (Morgan, 2026-09-28, strength:
 decided). The practice list used to be written into spec/VERY_DEEP_CHECK.md
@@ -22,14 +35,19 @@ linked from a repository. It is written under .precedent/, which every
 Precedent repo ignores.
 
     python3 tools/precedent_review_page.py [--repo PATH] [--out PATH]
-        [--recommend FILE.json] [--fetch]
+        [--recommend FILE.json] [--verdicts FILE.json] [--fetch]
+    python3 tools/precedent_review_page.py --similar   # the pairs, as JSON
 
 --recommend takes a JSON list of {"repo": "owner/name", "branch": "...",
 "why": "..."} rows: branches that still carry commits but should go anyway
 (superseded, wrong, landed another way). --fetch refreshes every remote
 branch ref first; without it the page reads the refs the clones already
 hold, which a very deep check's own branch scan has just fetched.
+--verdicts takes a JSON list of {"a": "SOURCE:SLUG", "b": "SOURCE:SLUG",
+"verdict": "..."} rows for the pairs --similar printed.
 """
+import collections
+import math
 import argparse
 import html
 import json
@@ -134,7 +152,87 @@ def collect(repo_root, fetch=False):
         seen.add(top)
         groups.append({'slug': github_slug(top) or pathlib.Path(top).name,
                        'branches': landed_branches(top, fetch=fetch)})
-    return by_source, groups
+    return by_source, groups, similar_pairs(sources)
+
+
+# ---- part 3: practices that may overlap ------------------------------------
+SIMILAR_THRESHOLD = 0.33   # tuned 2026-09-29 on the five real catalogues:
+SIMILAR_LIMIT = 30         # every pair above it was worth a look; few below
+_STOP = set("""the a an and or of to in on for is it its be by as at this that
+with from not no any every each one two when what which who are was were has
+have had do does did can may must should will would never only also than then
+so if but into out about their there them they you your our we us me my his
+her all more most other such same own just very too how why where while been
+being these those itself here""".split())
+
+
+def _words(text):
+    out = []
+    for w in re.findall(r"[a-z][a-z\-]{2,}", text.lower()):
+        if w in _STOP:
+            continue
+        out.append(re.sub(r"(ing|ed|es|s)$", "", w) if len(w) > 5 else w)
+    return out
+
+
+def _practice_texts(sources):
+    """-> [(source name, level, slug, text)] for every in-force practice:
+    its slug, title, occasion, one-line summary and Rule -- the parts that
+    say what a practice asks for, not its history."""
+    import build_views as bv
+    out = []
+    for s in sources:
+        pdir = pathlib.Path(s['path']) / 'practices'
+        if not pdir.is_dir():
+            continue
+        for fm, sections, f in bv.load_practices(pdir, announce=False):
+            slug = bv._json_str(fm.get('slug', '')) or f.stem
+            rule = sections.get('Rule', '') if isinstance(sections, dict) else ''
+            text = ' '.join([slug.replace('-', ' '),
+                             bv._json_str(fm.get('title', '')),
+                             bv._json_str(fm.get('occasion', '')),
+                             bv._index_clause(fm, sections) or '', rule])
+            out.append((s['name'], s['level'], slug, text))
+    return out
+
+
+def similar_pairs(sources, threshold=SIMILAR_THRESHOLD, limit=SIMILAR_LIMIT):
+    """-> [{score, kind, a: {source, level, slug}, b: {...}}], most alike
+    first. TF-IDF cosine over each practice's words: a word every practice
+    uses weighs nothing, one only two practices share weighs a lot. A slug
+    that appears in two sources is always listed, whatever its score: that
+    is the same rule twice by construction."""
+    docs = _practice_texts(sources)
+    bags = [collections.Counter(_words(t)) for *_x, t in docs]
+    df = collections.Counter(w for b in bags for w in b)
+    n = len(docs) or 1
+    vecs = []
+    for b in bags:
+        v = {w: (1 + math.log(c)) * math.log(n / df[w]) for w, c in b.items()}
+        norm = math.sqrt(sum(x * x for x in v.values())) or 1.0
+        vecs.append({w: x / norm for w, x in v.items()})
+    pairs = []
+    for i in range(len(docs)):
+        for j in range(i + 1, len(docs)):
+            a, b = vecs[i], vecs[j]
+            if len(a) > len(b):
+                a, b = b, a
+            score = sum(x * b.get(w, 0.0) for w, x in a.items())
+            same_slug = docs[i][2] == docs[j][2]
+            if score < threshold and not same_slug:
+                continue
+            kind = ('same slug' if same_slug else 'same source'
+                    if docs[i][0] == docs[j][0] else 'different sources')
+            pairs.append({'score': round(score, 2), 'kind': kind,
+                          'a': dict(zip(('source', 'level', 'slug'), docs[i][:3])),
+                          'b': dict(zip(('source', 'level', 'slug'), docs[j][:3]))})
+    pairs.sort(key=lambda p: (p['kind'] != 'same slug', -p['score']))
+    return pairs[:limit]
+
+
+def _pair_key(p):
+    return frozenset((f"{p['a']['source']}:{p['a']['slug']}",
+                      f"{p['b']['source']}:{p['b']['slug']}"))
 
 
 CSS = """
@@ -190,6 +288,10 @@ ul.practices a:hover{text-decoration:underline;}
 .filter input{font:inherit;padding:7px 10px;border:1px solid var(--line);
 border-radius:6px;background:var(--surface);color:var(--ink);width:min(100%,22rem);}
 .callout{background:var(--accent-soft);border-radius:8px;padding:12px 16px;}
+.score{color:var(--muted);font-variant-numeric:tabular-nums;font-size:.85rem;
+white-space:nowrap;}
+.verdict{grid-column:1/-1;font-size:.9rem;}
+.verdict.open{color:var(--muted);font-style:italic;}
 @media (max-width:560px){ul.practices li{grid-template-columns:minmax(0,1fr);}}
 """
 
@@ -211,7 +313,7 @@ SCRIPT = """
 """
 
 
-def render(by_source, groups, recommend=(), day=None):
+def render(by_source, groups, recommend=(), day=None, pairs=(), verdicts=()):
     e = html.escape
     # A recommended branch that has since landed is listed once, as landed.
     landed = {(g['slug'], b) for g in groups for b, _d in g['branches']}
@@ -230,7 +332,8 @@ def render(by_source, groups, recommend=(), day=None):
            f'{n_prac} active practices across {len(by_source)} sources. '
            'This page is for this session only; it is never committed.</p>',
            '<nav class="jump"><a href="#branches">Branches to delete</a>'
-           '<a href="#practices">Active practices</a></nav>',
+           '<a href="#practices">Active practices</a>'
+           '<a href="#overlap">May overlap</a></nav>',
            '<section class="part" id="branches"><div><h2>Branches you can '
            'delete</h2><p class="lede">Each link opens GitHub\'s branch list '
            'filtered to that one branch; delete it with the trash icon on its '
@@ -286,11 +389,60 @@ def render(by_source, groups, recommend=(), day=None):
                 name = f'<a class="mono" href="{e(url)}">{e(slug)}</a>'
             out.append(f'<li>{name}<span>{e(clause)}</span></li>')
         out.append('</ul></div>')
-    out.append(f'</section></div><script>{SCRIPT}</script>')
+    out.append('</section>')
+    out.extend(_render_pairs(by_source, pairs, verdicts))
+    out.append(f'</div><script>{SCRIPT}</script>')
     return '\n'.join(out) + '\n'
 
 
-def write(repo_root, out=None, recommend=(), fetch=False, day=None):
+def _practice_link(by_source, side):
+    e = html.escape
+    src = next((s for s in by_source if s['name'] == side['source']), None)
+    label = f"{side['slug']} ({side['source']})"
+    if src and src['slug']:
+        url = (f"https://github.com/{src['slug']}/blob/main/{src['prefix']}"
+               f"practices/{urllib.parse.quote(side['slug'])}.md")
+        return f'<a class="mono" href="{e(url)}">{e(label)}</a>'
+    return f'<span class="mono">{e(label)}</span>'
+
+
+def _render_pairs(by_source, pairs, verdicts):
+    e = html.escape
+    judged = {frozenset((v['a'], v['b'])): v['verdict'] for v in verdicts}
+    out = ['<section class="part" id="overlap"><div><h2>Practices that may '
+           'overlap</h2><p class="lede">Pairs whose wording reads alike, in '
+           'different sources and within one. A script finds them; the verdict '
+           'beside each is the session\'s: merge them, and where, or keep both '
+           'and why. Wording alone also matches rules that do different jobs, '
+           'so a pair here is a question, not a finding.</p></div>']
+    groups = (('same slug', 'The same practice in two sources'),
+              ('different sources', 'Alike, in different sources'),
+              ('same source', 'Alike, within one source'))
+    for kind, title in groups:
+        rows = [p for p in pairs if p['kind'] == kind]
+        if not rows:
+            continue
+        out.append(f'<div class="group"><header><span class="tag">{e(kind)}'
+                   f'</span><h3>{e(title)}<span class="count">{len(rows)}'
+                   '</span></h3></header><ul class="rows">')
+        for p in rows:
+            v = judged.get(_pair_key(p))
+            verdict = (f'<span class="verdict">{e(v)}</span>' if v else
+                       '<span class="verdict open">Not judged yet.</span>')
+            out.append(f'<li><span class="name">{_practice_link(by_source, p["a"])}'
+                       f' and {_practice_link(by_source, p["b"])}</span>'
+                       f'<span class="score">{p["score"]:.2f} alike</span>'
+                       f'{verdict}</li>')
+        out.append('</ul></div>')
+    if not pairs:
+        out.append('<p class="empty">No two practices read alike enough to '
+                   'list.</p>')
+    out.append('</section>')
+    return out
+
+
+def write(repo_root, out=None, recommend=(), fetch=False, day=None,
+          verdicts=()):
     """Write the page; -> its path. Refuses a path git would track."""
     repo_root = pathlib.Path(repo_root).resolve()
     out = pathlib.Path(out) if out else repo_root / DEFAULT_OUT
@@ -302,9 +454,10 @@ def write(repo_root, out=None, recommend=(), fetch=False, day=None):
         raise SystemExit(f'precedent_review_page: refusing {out} -- git would '
                          f'track it, and this page carries private practice '
                          f'text. Write it under .precedent/ or outside the repo.')
-    by_source, groups = collect(repo_root, fetch=fetch)
+    by_source, groups, pairs = collect(repo_root, fetch=fetch)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(by_source, groups, recommend, day), encoding='utf-8')
+    out.write_text(render(by_source, groups, recommend, day, pairs, verdicts),
+                   encoding='utf-8')
     return out
 
 
@@ -315,10 +468,21 @@ def main(argv=None):
     ap.add_argument('--recommend')
     ap.add_argument('--fetch', action='store_true')
     ap.add_argument('--day')
+    ap.add_argument('--verdicts')
+    ap.add_argument('--similar', action='store_true',
+                    help='print the practice pairs that may overlap, as JSON, '
+                         'for the session to judge; writes nothing')
     a = ap.parse_args(argv)
+    if a.similar:
+        import very_deep_check as vdc
+        data = vdc.enumerate_scope(pathlib.Path(a.repo).resolve())
+        print(json.dumps(similar_pairs(data['sources']), indent=1))
+        return 0
     rec = json.loads(pathlib.Path(a.recommend).read_text(encoding='utf-8')) \
         if a.recommend else []
-    path = write(a.repo, a.out, rec, a.fetch, a.day)
+    ver = json.loads(pathlib.Path(a.verdicts).read_text(encoding='utf-8')) \
+        if a.verdicts else []
+    path = write(a.repo, a.out, rec, a.fetch, a.day, ver)
     print(f'precedent_review_page: wrote {path} -- show it in the session '
           f'only (an Artifact in Claude Code on the web); never commit, push '
           f'or link it.')

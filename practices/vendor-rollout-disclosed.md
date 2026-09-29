@@ -8,7 +8,7 @@ applies_to_why: "A real locus for most of what it governs -- a practice file, a 
 occasion:    "committing a shipped practice, hook, template or engine file, before push or merge"
 gates:       ["merge", "push"]
 gates_why:   "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it."
-index_clause: "say whether shipped content must reach consumers, and whether it will"
+index_clause: "say whether shipped content must reach consumers, if it will, how it migrates"
 index_required: true
 checked_by:  null
 defines:     []
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18"
+approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided)"
 strength:    assented
 ---
 ## Rule
@@ -25,7 +25,7 @@ Before a commit that touches shipped content -- a file under `practices/`,
 `templates/`, `.claude/hooks/`, or one of the exact filenames in
 [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
 `ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- reaches the push or merge
-side of the chain, say two things out loud, not one:
+side of the chain, say three things out loud, not one:
 
 1. **Does this need to reach the repos that vendor this one?** Most edits
    here do not -- a wording fix, a Story section filled in, a spec document,
@@ -43,6 +43,17 @@ side of the chain, say two things out loud, not one:
    a rename the vendored copy still points at? Name the gap here rather
    than leaving it to be found later, as a bug with no visible cause, in a
    different repository.
+3. **Does it still work where the update has not arrived, or has arrived
+   only in part?** Any change to how the mechanics work -- a new field, a
+   new file, a new check, a changed format -- lands in repositories at
+   different times, and a repository mid-update carries some of it and not
+   the rest. So the change carries its own migration: **a field or file an
+   older repository lacks means the old behaviour, never a refusal**; an
+   older engine reading the new shape keeps working; Update Vendors or the
+   installer brings the new piece forward on its own; and a test plants the
+   not-yet-updated shape and shows it still builds. A change that cannot be
+   made safe that way says so here, with what a repository has to do
+   first.
 
 **Neither answer is a promise.** This repo cannot make a consumer actually
 run `Update Vendors` -- what it can do, and must, is say plainly whether a
@@ -65,6 +76,17 @@ Named 2026-09-18, from a recurring pattern Morgan described: changes made
 to this repo were not reaching the repos vendoring it in when they needed
 to, because nothing at the point of change asked whether they should.
 
+
+**2026-09-29: the third question, migration.** Building a per-set allowance
+for the occasion index, the first design read each source's allowance from
+its `precedent-source.json` and, where one was missing, fell back to the
+old single cap -- which is every repository mid-update, since the vendored
+universal tree had never carried that file. Morgan: *"Please account for
+updates/upgrades/migrations (ie, some won't have that) ... ANY change to the
+mechanics of how it works must take into account updates/upgrades/
+migrations."* A source with no allowance yet now counts at its measured
+size, Update Vendors copies the file across, and the harness plants both
+half-updated shapes.
 ## Install
 No mechanical check, and this is a considered gap, not the first
 plausible-sounding reason. Two designs were considered and both fail for
