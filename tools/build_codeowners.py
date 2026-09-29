@@ -79,15 +79,38 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
+def _file_hash(source: pathlib.Path) -> str:
+    """The stamp this tool wrote until 2026-09-28: a sha256 of the whole
+    registry FILE. Still accepted by --check (see main) so that every
+    CODEOWNERS already committed under it reads current until it is next
+    regenerated, rather than every set and project going red at once on an
+    engine refresh that changed nothing they declared."""
+    return hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+
+
 def _source_hash(source: pathlib.Path) -> str:
-    """A sha256 of the registry file's own bytes, not the repo's HEAD.
+    """A sha256 of the REGISTRY this file is generated from, not the repo's
+    HEAD and not the whole file around it.
 
     The point of a derived-file stamp is to answer "was this built from the
     current source?" -- a question only the SOURCE can answer. Stamping the
-    commit made every regeneration a diff, so the stamp reported "different"
-    on every commit that touched anything at all, which is indistinguishable
-    from never reporting anything."""
-    return hashlib.sha256(source.read_bytes()).hexdigest()[:12]
+    commit made every regeneration a diff (fixed 2026-09-06). Stamping the
+    whole file had the same flaw one level down: precedent.json carries far
+    more than `maintainers` and `owned_paths`, and every Update Vendors
+    writes an unrelated key into it (`landing_branch`), after which a
+    CODEOWNERS nobody touched read "hand-edited or stale". Found 2026-09-28.
+    So the hash covers exactly what the file is rendered from: the approver
+    list for a practice set, `maintainers` and `owned_paths` for a project,
+    serialized with sorted keys so key order and formatting never count."""
+    data = json.loads(source.read_text(encoding="utf-8"))
+    if source.name == "approvers.json":
+        registry = data.get("approvers", [])
+    else:
+        registry = {"maintainers": data.get("maintainers"),
+                    "owned_paths": data.get("owned_paths")}
+    blob = json.dumps(registry, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
 
 
 def load_approvers(approvers_file: pathlib.Path) -> list[dict]:
@@ -138,13 +161,22 @@ def load_project(config_file: pathlib.Path):
     return maintainers, owned
 
 
-def render(approvers: list[dict], sha: str) -> str:
-    """A practice set's file. Byte-for-byte what it rendered before project
-    mode existed: every set's committed CODEOWNERS must still --check OK."""
+def _stamp(source_name: str, sha: str, what: str, legacy: bool) -> list[str]:
+    """The header's first two lines. `legacy` is the wording written until
+    2026-09-28, when the hash covered the whole file; --check still accepts
+    a file carrying it (see main)."""
+    if legacy:
+        return [f"# DERIVED from {source_name} (sha256 {sha}) -- a hash of that",
+                f"# file's own content, NOT a commit: an unchanged {what}"]
+    return [f"# DERIVED from {source_name} (sha256 {sha}) -- a hash of the {what}",
+            f"# it declares, NOT a commit or the whole file: an unchanged {what}"]
+
+
+def render(approvers: list[dict], sha: str, legacy: bool = False) -> str:
+    """A practice set's file."""
     owners = " ".join(f"@{a['github']}" for a in approvers)
     lines = [
-        f"# DERIVED from approvers.json (sha256 {sha}) -- a hash of that",
-        "# file's own content, NOT a commit: an unchanged approver list",
+        *_stamp("approvers.json", sha, "approver list", legacy),
         "# regenerates byte-identically, so --check has a stable answer.",
         "# Recipe: tools/build_codeowners.py",
         "# Regenerate with: python3 tools/build_codeowners.py",
@@ -160,12 +192,12 @@ def render(approvers: list[dict], sha: str) -> str:
     return "\n".join(lines)
 
 
-def render_project(maintainers: list[dict], owned: list[dict], sha: str) -> str:
+def render_project(maintainers: list[dict], owned: list[dict], sha: str,
+                   legacy: bool = False) -> str:
     owners = " ".join(f"@{m['github']}" for m in maintainers)
     width = max(len(o["path"]) for o in owned)
     lines = [
-        f"# DERIVED from precedent.json (sha256 {sha}) -- a hash of that",
-        "# file's own content, NOT a commit: an unchanged registry",
+        *_stamp("precedent.json", sha, "registry", legacy),
         "# regenerates byte-identically, so --check has a stable answer.",
         "# Recipe: tools/build_codeowners.py",
         "# Regenerate with: python3 tools/build_codeowners.py",
@@ -195,6 +227,7 @@ def main(check_only: bool = False, root: pathlib.Path = ROOT):
         source, kind = approvers_file, "approver"
         approvers = load_approvers(approvers_file)
         wanted = render(approvers, _source_hash(approvers_file))
+        legacy = render(approvers, _file_hash(approvers_file), legacy=True)
         target = root / "CODEOWNERS"
         count = len(approvers)
         names = ", ".join("@" + a["github"] for a in approvers)
@@ -215,6 +248,8 @@ def main(check_only: bool = False, root: pathlib.Path = ROOT):
         maintainers, owned = project
         source, kind = config_file, "owned path"
         wanted = render_project(maintainers, owned, _source_hash(config_file))
+        legacy = render_project(maintainers, owned, _file_hash(config_file),
+                                legacy=True)
         target = root / ".github" / "CODEOWNERS"
         count = len(owned)
         names = ", ".join("@" + m["github"] for m in maintainers)
@@ -230,7 +265,13 @@ def main(check_only: bool = False, root: pathlib.Path = ROOT):
                   f"generate it.")
             return 1
         current = target.read_text(encoding="utf-8")
-        if current == wanted:
+        # `legacy` is the same file stamped the pre-2026-09-28 way (a hash
+        # of the whole registry file). Accepted for one release, so a
+        # CODEOWNERS generated before the stamp changed is not reported
+        # stale for a change in how it is stamped; the next plain run
+        # rewrites it with the registry hash. Drop the second comparison
+        # once the sets and projects have regenerated.
+        if current in (wanted, legacy):
             print(f"build_codeowners --check OK: {target.relative_to(root)} is "
                   f"current with {source.name} ({count} {kind}(s)).")
             return 0

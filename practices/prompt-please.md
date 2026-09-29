@@ -160,7 +160,7 @@ is what tells the person to go paste it, and where.
 **Never call a session-creating or session-messaging tool for this, and
 never wake a live session either.** Produce the prompt and tell the person
 to open a new window and paste it in themselves -- the same standing
-instruction `session-text` held before this absorbed it, for the same two reasons:
+instruction `session-text` (now absorbed here) held before this absorbed it, for the same two reasons:
 reliability (sessions this session created, or woke, have come back rejected
 often enough that the mechanism is retired outright) and portability (a
 paste block needs nothing from any one provider's tool surface).

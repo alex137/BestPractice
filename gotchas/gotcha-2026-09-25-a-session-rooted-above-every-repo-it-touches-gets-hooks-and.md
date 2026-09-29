@@ -116,3 +116,13 @@ tooling by this session's own evidence. Until a cause is confirmed:
 - Verify `git config user.email` immediately before authoring a commit
   rather than trusting an earlier fix to have held -- this session's own
   fix did not hold.
+
+**2026-09-28: a way to run the hooks anyway.** A user-level SessionStart
+hook runs wherever a session opens, and
+[tools/precedent_run_session_hooks.py](../tools/precedent_run_session_hooks.py)
+runs each repository's own SessionStart hooks from it. The one setup-script
+step that installs it is in
+[documentation/CLOUD_SETUP.md](../documentation/CLOUD_SETUP.md) ("When a
+Session Opens Above Your Repos"). It covers SessionStart only: the
+repositories' PreToolUse gates still do not fire in this topology, so the
+advice above about re-checking identity before a commit stands.

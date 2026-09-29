@@ -60,7 +60,7 @@ being checked by it.
 |---|---|---|
 | Practices with `checked_by` are enforced | [tools/precedent_check.py](../tools/precedent_check.py) — one registry entry per enforced practice | Built. `--list`, `--only SLUG`, `--paths`, `--range`, `--turn-end`, `--all`, `--strict`. |
 | The check's failure message **is** the rule | `rule_of()` reads the practice's own `## Rule` through `split_practices._read_practice_file` | Built. The same reader [tools/precedent_show.py](../tools/precedent_show.py) uses, per "one code path" — a paraphrase in the check would be a second copy of the rule with nothing holding the two together. |
-| Each converted practice has a test proving its check fires | `check_precedent_check_fires` in [tools/verify_harness.py](../tools/verify_harness.py) | Built. 53 stated cases against throwaway repositories. |
+| Each converted practice has a test proving its check fires | `check_precedent_check_fires` in [tools/verify_harness.py](../tools/verify_harness.py) | Built. At least one stated case per registered check, against throwaway repositories. |
 | A check that cannot run says so | `NotApplicable`, reported as SKIPPED | Built. See below — this is the part that had been getting silently wrong. |
 | Coverage materially above 8 of 52 | The registry | Built, and the eight it started from were re-established rather than assumed. |
 
@@ -83,7 +83,7 @@ being checked by it.
 | `docs-track-models` | tree | a figure a script declares it owns is not hand-typed into the prose around its generated block |
 | `document-status-header` | tree | every document under spec/ and record/ that CARRIES a lifecycle frontmatter header declares a legal kind/status pair, a title matching its own first heading, a `closed:` date exactly when it is closed, a `superseded_by:` that resolves exactly when it is superseded, and no competing hand-maintained `Last updated:` comment |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
-| `environment-gotchas` | tree | the session instructions point at a gotcha catalogue and every live entry in it carries what failed, not only the fix — reading gotchas/*.md directly where a repo has migrated to that shape, or following the link into the record on the pre-migration shape |
+| `environment-gotchas` | tree | the session instructions point at a gotcha catalogue and every live entry in it carries what failed, not only the fix — reading gotchas/*.md directly where a repo has migrated to that shape (and then refusing an index of it -- two or more list or table lines each linking one trap -- in AGENTS.md or CLAUDE.md), or following the link into the record on the pre-migration shape |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
 | `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path an unqualified `Source:` names exists here. A `Source (in <place>):` names somewhere this repo is not, so its paths are reported COULD NOT VERIFY rather than resolved |
@@ -97,8 +97,8 @@ being checked by it.
 | `migration-scrubs-vocabulary` | tree | a migrated repo carries no leftover pre-migration practice pack (process/manifest_*.json and its tree), and -- where the repo has declared process/retired_vocabulary.json -- none of its listed terms outside the declared exempt files/directories |
 | `new-hook-joins-the-registry` | tree | every hook script this repo ships (templates/harness/claude-code/hooks/*.sh) is on a repo kind's list in precedent_vendor_engine.py's HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; nothing is listed that is not shipped; and each kind's template -- the consumer settings.json and the set payload precedent_bootstrap_source.py writes -- wires exactly its list |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
-| `no-version-suffix` | change | a file added by this change must not carry a version, date or state suffix in its name |
-| `open-item-disposition` | tree | every `**Disposition:` line in a TODO file names one of the three dispositions, and a `parked` or `ask` line records the date it was set and who set it |
+| `no-version-suffix` | change | a file added by this change must not end its name in a version or date token (unless it sits beside the unsuffixed predecessor it must coexist with), nor in a state word -- final, draft, copy, new, old, latest, backup -- beside the unsuffixed original it forks |
+| `open-item-disposition` | tree | every `**Disposition:` line in a TODO file names one of the three dispositions, and a `parked` or `ask` line records the date it was set and who set it; and every OPEN todo/todo-*.md item's frontmatter `disposition:` is one of the three, or null |
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
 | `parallel-artifact-ledger` | tree | `templates/harness/LEDGER.md` exists, and every commit that touched a harness-adapter member (claude-code/, codex/, or gemini-cli/) is named in exactly one row's `Originating change` cell, or added its own row in the same commit (a commit cannot name its own ID) -- a mention in another row's prose is a citation, not that commit's own row |
 | `practice-carries-its-files` | tree | every file a practice this repository PUBLISHES depends on is where a consumer will find it: each `ships:` entry is a legal path that exists here; each concrete (non-glob) `applies_to` path under tools/ and the `checked_by` script exist here; and every tools/ file outside tools/checks/ that the practice's shipped test reads through its root is either a vendored engine file or declared in `ships:` by a practice here |
@@ -118,11 +118,11 @@ being checked by it.
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
 | `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the ENGINE's fallback zone is the SAME string in all three engine files that hold it: the time engine and both copies of the commit hook |
 | `todo-migrate-available-but-unused` | tree | a repo that has tools/todo_migrate.py vendored in (source or consumer engine alike) but has never run it -- TODO.md still carries real old-format item bullets, no todo/ directory exists, and the file does not open on the "# TODO has moved" stub heading |
-| `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
+| `two-check-levels` | tree | the session instructions name both of the repo's two check levels -- the pair GLOSSARY.md defines against this practice, or "light check" / "deep check" where the glossary defines none -- and the glossary, when it names any, names two distinct levels |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-54 of 163 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+54 of 165 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
@@ -174,10 +174,11 @@ All three were fixed at the source rather than worked around, so the
 underlying tools now report NOT APPLICABLE with the reason, and
 `precedent_check` passes that through as a skip.
 
-Three checks skip in this repository as a permanent and correct condition:
-`scrub-gate`, `practice-export-loop` and `engine-plus-host-shims` all describe
-the boundary between a vendored upstream and its host, and this repo **is**
-the upstream. Their firing tests build the vendored tree in a fixture, so the
+Checks that describe the boundary between a vendored upstream and its host
+can skip here as a permanent and correct condition, because this repo **is**
+the upstream: as of 2026-09-28 that is `engine-plus-host-shims`
+(`scrub-gate` and `practice-export-loop` skipped here when this was
+written, and run now). Their firing tests build the vendored tree in a fixture, so the
 checks are verified even though this tree cannot exercise them.
 
 ## A check can bind the repo that PUBLISHES a practice
@@ -330,8 +331,8 @@ its rule. Where it nearly is — `quick-index` asks for a table in the
 instructions file, and the check asserts one is there with rows in it, though
 not that they are the right rows — dropping the prose costs little. Where it is not, dropping the prose
 trades a preventive channel for a detective one that cannot detect the case in
-question. Four of the six resident practices now carry a check and all six stay
-resident.
+question. Four of the six resident practices carried a check when this was
+written, and all six stayed resident (2026-09-28: four of ten).
 
 ## What the routing eval says, and what it cannot
 
@@ -464,11 +465,10 @@ it. Every gate was green, because no gate can see a number in a sentence.
 - **The creation pipeline should ask for a check, not a `checked_by`.** The
   thing phase 4 found is that the field is easy to fill in and the check is
   not; a promotion step that accepts a string has re-created the problem.
-- **This channel exists only for the universal catalogue.** Both private
-  sets' practices carry `checked_by: null` with no infrastructure to change
-  that — [tools/precedent_check.py](../tools/precedent_check.py) is written
-  against this repo's own tree and cannot run against a private set from
-  here. [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md)
-  hands off what a session opened directly against one of those repos needs
-  to close the gap; phase 5's creation pipeline should not have to
-  rediscover it.
+- **This channel existed only for the universal catalogue when phase 4
+  closed**; it no longer does. Every practice set now runs
+  `precedent_check.py --full-sweep` against its own tree, and a private
+  set's check can run upstream too (the individual set's
+  `check_commit_author` and `check_buenos_aires_dates` do) — see
+  [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md) for how
+  that gap was closed.

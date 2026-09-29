@@ -1,0 +1,42 @@
+{
+  "description": "Codex adapter: install to .codex/hooks.json (project) or ~/.codex/hooks.json (user). Wires the same harness-neutral scripts templates/harness/claude-code/settings.json wires for Claude Code: SessionStart runs tools/bootstrap.sh, PreToolUse on Bash runs the Markdown gate before a git commit and the push check before a git push, and Stop refuses to end a turn with uncommitted, untracked or unpushed work. The scripts are the claude-code adapter's own .claude/hooks/*.sh, so that directory must be installed too. Codex sets no project-directory variable for a hooks.json hook (it runs it in the session's working directory), so each command finds the repository root itself and passes it on as CLAUDE_PROJECT_DIR, the variable the scripts read. Codex runs a project hook only once it is trusted, so trust these after installing them. Written 2026-09-28 against the openai/codex source (codex-rs/hooks, codex-rs/config/src/hook_config.rs at main 46fdd5e); not yet seen to fire in a real Codex session -- templates/harness/codex/README.md says what was checked and what was not. This file allows only two top-level keys, description and hooks: Codex parses it with deny_unknown_fields, so a _comment key would make it reject the whole file.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && bash tools/bootstrap.sh",
+            "statusMessage": "Precedent: session bootstrap"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "r=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; CLAUDE_PROJECT_DIR=\"$r\" bash \"$r/.claude/hooks/doc-lint-gate.sh\""
+          },
+          {
+            "type": "command",
+            "command": "r=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; CLAUDE_PROJECT_DIR=\"$r\" bash \"$r/.claude/hooks/push-check-gate.sh\"",
+            "timeout": 900
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && bash .claude/hooks/stop-git-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

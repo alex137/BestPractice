@@ -103,6 +103,14 @@ Three things the report must not get wrong, each of which fails silently:
    and the one-click promise is gone.
 3. **Say what success looks like.** After the deletion the filtered page reads
    *"no branches matched"*, which looks like an error and is not.
+4. <a id="never-a-tier-branch"></a>**Never a tier branch.** `main`, `staging`, `pre-staging`, staging's old
+   name `precedent-beta-v01` and Promote's lock branch
+   `precedent-promote-lock` are never offered for deletion, by any route,
+   whatever a merge test says: a Promote fast-forwards the lower tiers, so
+   they read as merged right after one. A filter that would also show one of
+   them on the page says so on the row. Morgan, 2026-09-28 (strength:
+   decided): *"it needs to never never offer to delete pre-staging nor
+   staging."*
 
 ## Detail
 ### Deciding which branches qualify
@@ -116,8 +124,8 @@ it runs in.
 Over the GitHub API, with no clone, the test is four steps and step 2 is the
 one that gets skipped:
 
-1. List all branches; drop the repository's default branch and any protected
-   integration branch.
+1. List all branches; drop the repository's default branch, any protected
+   integration branch, and every tier branch in [rule 4 above](#never-a-tier-branch).
 2. List **closed** pull requests and keep only those whose `merged_at` is
    non-null. **A closed-unmerged pull request is not a merge.** Closing a pull
    request and deleting its branch destroys the work on it.

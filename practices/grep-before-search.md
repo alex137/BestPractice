@@ -29,10 +29,10 @@ CI's verdict, what someone said in a review.
 
 **When you do ask GitHub, ask the narrow question.** A repo-scoped
 `list_*` before a `search_*`; one call that names the thing before a query
-that goes hunting for it. **`search` is 30 requests a MINUTE, account-wide,
-shared by every session open at that moment** — the tightest allowance on
-the account by a wide margin, and roughly five hundred times tighter than
-the ordinary hourly pool it is easy to mistake it for.
+that goes hunting for it. **`search` is 30 requests a MINUTE (as of 2026-09),
+account-wide, shared by every session open at that moment** — the tightest
+allowance on the account by a wide margin, and about eight times tighter
+than the 15,000-an-hour pool (250 a minute) it is easy to mistake it for.
 
 **The other lever is how many windows are working at once.** Allowances are
 shared across sessions, so the fifth simultaneous session is not five times

@@ -498,8 +498,8 @@ anybody who spawns a session has to be able to find it again. **What the
 reply's closing list is CALLED stays with whoever owns that convention**;
 this clause says only that the sessions belong in it.
 
-**Prior art, and deliberately not copied:** the individual set
-`themorgan/precedent-individual` closed the same gap in its own catalogue
+**Prior art, and deliberately not copied:** a person's individual set
+closed the same gap in its own catalogue
 first, amending its handoff and no-racing rules. Its wording is first-person
 and describes one person's way of working, so lifting it would bind every
 adopter to that workflow ([rule-level-by-reach](rule-level-by-reach.md) cuts

@@ -9,29 +9,27 @@ whether routine commands can be pre-approved. Each subdirectory here is that
 wiring for one harness; a repo can install **more than one adapter side by
 side**, so different agents can work the same repo under the same contract.
 
-| Adapter | Instructions file | Bootstrap | Teardown check | Pre-approved commands |
-|---|---|---|---|---|
-| [claude-code/](claude-code/) | `CLAUDE.md` → one-line import of `AGENTS.md` | SessionStart hook (automatic) | Stop hook: blocks ending a turn with uncommitted, untracked, or unpushed work, and fires the `reply` gate | `settings.json` allowlist |
-| [codex/](codex/) | `AGENTS.md` read natively | environment setup script | n/a | n/a |
-| [gemini-cli/](gemini-cli/) | `GEMINI.md` → pointer to `AGENTS.md` | instructions-file directive | n/a | n/a |
-| [grok-build/](grok-build/) | `AGENTS.md` read natively | `.grok/hooks.json` lifecycle hook (exact syntax unverified as of 2026-09-17 — see the adapter's own README before relying on it) | n/a | n/a |
+| Adapter | Instructions file | Bootstrap | Pre-tool gates | Teardown check | Pre-approved commands |
+|---|---|---|---|---|---|
+| [claude-code/](claude-code/) | `CLAUDE.md` → one-line import of `AGENTS.md` | SessionStart hook (automatic) | `PreToolUse` hooks: the Markdown gate, the push and merge checks, and the rest in [PARALLELS.md](PARALLELS.md) | Stop hook: blocks ending a turn with uncommitted, untracked, or unpushed work, and fires the `reply` gate | `settings.json` allowlist |
+| [codex/](codex/) | `AGENTS.md` read natively | environment setup script in a cloud environment; `SessionStart` hook in [codex/hooks.json](codex/hooks.json) (since 2026-09-28) | [codex/hooks.json](codex/hooks.json) runs the Markdown gate and the push check on `PreToolUse` for `Bash` (since 2026-09-28) | [codex/hooks.json](codex/hooks.json) runs the git-hygiene check on `Stop` (since 2026-09-28); the reply check does not transfer | exec-policy prefix rules exist; unverified, no template |
+| [gemini-cli/](gemini-cli/) | `GEMINI.md` → pointer to `AGENTS.md` | `SessionStart` hook in [gemini-cli/settings.json](gemini-cli/settings.json) (since 2026-09-28), with the instructions-file directive as the fallback | none wired: `BeforeTool` exists, but the gates' deny needs a shim first | [gemini-cli/settings.json](gemini-cli/settings.json) runs the git-hygiene check on `AfterAgent` (since 2026-09-28); the reply check does not transfer | `tools.allowed` exists; not shipped |
+| [grok-build/](grok-build/) | `AGENTS.md` read natively | a `SessionStart` hook is documented but unverified, and an open bug says project hooks are not dispatched (see the adapter's own README) | none wired | none wired | unresearched |
+
+The hook columns above said `n/a` for codex and gemini-cli until
+2026-09-28, on the belief that neither harness had hooks. Both do. The
+sources, and what each harness can and cannot carry today, are in
+[PARALLELS.md](PARALLELS.md).
 
 **THE MARKDOWN LINT IS NO LONGER A GITHUB CHECK.** Since 2026-09-21 it
 runs as `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit`
-whose staged Markdown fails it. **Only Claude Code runs that hook**, and
-the workflow it replaced is retired — so on every other adapter in this
-table, nothing is checking Markdown before it reaches a shared branch.
+whose staged Markdown fails `doc_lint.py`, and the workflow it replaced is
+retired. Claude Code runs that hook, and since 2026-09-28 so does codex,
+from [codex/hooks.json](codex/hooks.json), once that file is installed and
+trusted. **On gemini-cli and grok-build nothing runs it yet**, and on codex
+nothing runs it until the file is in place.
 
-**IF YOUR HARNESS HAS NO HOOKS, YOU NEED THE GITHUB CHECK — READ THIS
-BEFORE SKIPPING IT.** The Markdown lint left GitHub Actions on 2026-09-21
-and was replaced by `.claude/hooks/doc-lint-gate.sh`, which refuses a
-`git commit` whose staged Markdown fails `doc_lint.py`. **That is
-a Claude Code mechanism.** Read the Bootstrap and Teardown columns above:
-every other adapter in this table says `n/a` or carries an unverified
-lifecycle hook, which means **nothing checks your Markdown at all** unless
-you put a check back in CI yourself.
-
-So, on any harness other than Claude Code:
+So, on any harness where the gate is not wired:
 
 1. **Run the light check by hand before every commit** —
    `python3 tools/doc_lint.py <the markdown you touched>` — and
@@ -96,6 +94,16 @@ instructions file — a *soft* guarantee. The audits partially compensate: a
 skipped convention still fails loudly when the audit runs at commit/merge
 time. This is why practice `convention-to-audit` (conventions become scripts) is the load-bearing
 practice in a multi-agent repo.
+
+**A hook system is not enough to reuse a Claude Code script as-is.** Check
+three things first: that the harness hands the hook the same payload
+fields (`tool_input.command`, snake_case), that it honours the same deny
+(`hookSpecificOutput.permissionDecision: "deny"`, or exit 2 with the reason
+on stderr), and what it does with the hook's stdout. Codex matches on all
+three, which is why [codex/hooks.json](codex/hooks.json) runs the scripts
+unchanged. Gemini CLI reads a different deny and wants JSON-only stdout;
+Grok Build sends camelCase fields. A script wired into either as-is fails
+open, which reads exactly like a gate that is working.
 
 Using a harness not listed here? The recipe is six questions: (1) what
 filename does it auto-load — add a pointer file to `AGENTS.md`; (2) does it

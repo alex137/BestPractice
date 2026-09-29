@@ -3,16 +3,16 @@ slug:              todo-2026-09-10-review-skill-level-permissions
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       ask
-remind_on:         "2026-09-10"
+remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Answered by Morgan 2026-09-11 (the line between making practices and other technical changes); nothing left open."
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-10
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -106,3 +106,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+**Closed 2026-09-28 (done).** Answered by Morgan 2026-09-11 (the line between making practices and other technical changes); nothing left open. Morgan approved the very deep check's pass-4 recommendation to close it, 2026-09-28 ("Make the changes you recommend"); strength: assented.

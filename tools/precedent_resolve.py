@@ -1090,11 +1090,46 @@ def resolve(sources):
             practice['fm'], practice.get('sections'),
             slug_in_force=lambda s: follow_in_force_at(s, resolved, retired) is not None)
         if msg:
-            dangling.append({'slug': practice['slug'], 'source': practice['source'],
-                             'level': practice['level'], 'file': practice['file'],
-                             'why': msg})
+            entry = {'slug': practice['slug'], 'source': practice['source'],
+                     'level': practice['level'], 'file': practice['file'],
+                     'why': msg}
+            # A universal copy withdrawn ON PURPOSE to a set this repo does
+            # not declare is not "the deduplication that silently loses a
+            # rule": precedent_move.py wrote down where it went and that the
+            # reach loss was accepted. Said as that, so a reader can act on
+            # it (declare the set) instead of hunting a bug. Still reported
+            # -- the rule does not bind here, and whether that is fine is
+            # this repo's call.
+            gone = withdrawn_from_universal(practice.get('sections'))
+            if gone:
+                entry.update(withdrawn_on=gone[0], withdrawn_to=gone[1],
+                             why=(f"withdrawn from universal on {gone[0]}; in "
+                                  f"force in `{gone[1]}` -- declare that set "
+                                  f"to keep it"))
+            dangling.append(entry)
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired, 'dangling': dangling}
+
+
+# The Story line tools/precedent_move.py appends when it withdraws a
+# universal practice with --accept-reach-loss: "Withdrawn from universal on
+# <date>, deliberately, with --accept-reach-loss[ (approved by X)]:
+# deduplicated here; the rule is in force only from the <level> set `<set>`
+# now." Read back rather than stored as a new frontmatter field: a field
+# would change the practice-file format every set and consumer vendors, and
+# this sentence is already on every such stub.
+_WITHDRAWN_RE = re.compile(
+    r'Withdrawn from universal on (\d{4}-\d\d-\d\d)\b.*?'
+    r'in force only from the \w+ set `([^`]+)`', re.S)
+
+
+def withdrawn_from_universal(sections):
+    """-> (date, set name) when a deduplicated stub's ## Story records a
+    deliberate withdrawal from universal, else None. The LAST such line
+    wins, the way the latest Story line is the current record."""
+    story = (sections or {}).get('story') or ''
+    found = _WITHDRAWN_RE.findall(story)
+    return tuple(found[-1]) if found else None
 
 
 def follow_in_force_at(slug, resolved, retired):
@@ -1321,7 +1356,10 @@ def main():
                          'refused': b['refused']['level']} for b in res['blocked']],
             'missing': res['missing'],
             'dangling': [{'slug': d['slug'], 'source': d['source'],
-                          'why': d['why']} for d in res.get('dangling', ())],
+                          'why': d['why'],
+                          **({'withdrawn_to': d['withdrawn_to']}
+                             if d.get('withdrawn_to') else {})}
+                         for d in res.get('dangling', ())],
             # None when an individual source was declared (its fate is then
             # in 'missing' like any other source's). Otherwise says whether
             # "no individual practices" is a finding or merely a silence.

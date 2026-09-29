@@ -51,7 +51,7 @@ inherits" section first — this brief does not restate them.
    — the audit table (closed by this brief), `for_team:`/`in_repos:`'s
    blocked-on status, and the `additionalContext` delivery question.
 5. **A genuinely clean install directly onto the Precedent loader** —
-   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
    and [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template).
    Also corrects a stale claim this brief's own first draft made (that the
    "step-5 bridge" was unbuilt) — `tools/precedent_sync_views.py` already
@@ -130,7 +130,7 @@ writing this brief has had access to yet.
 
 1. ~~**Extend `SETUP.md`/`INSTALL.md` for a genuinely clean install
    directly onto the Precedent loader.**~~ **Done (2026-09-03).**
-   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
    and [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
    — vendor `practices/` + the whole `tools/` engine, write
    `precedent.json`, instantiate the loader-variant `AGENTS.md`, run

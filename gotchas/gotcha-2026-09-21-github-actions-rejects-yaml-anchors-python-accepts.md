@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts
-status:          live
+status:          retired
 noted:           2026-09-21
 severity:        major
-retired:         null
+retired:         "2026-09-28"
 retires_when:    "GitHub Actions adds support for YAML anchors and aliases in workflow files, which it has not as of 2026-09-21"
 ---
 
@@ -117,3 +117,19 @@ against a file *known to contain* an anchor as well as one known not to.
 quiet, which is also what a broken detector does.** Check both directions,
 every time, before writing a recipe down — a recipe that false-positives on
 its first real run is one nobody runs twice.
+
+## Retired, 2026-09-28
+
+**This trap was already gone when it was written.** GitHub announced
+support for YAML anchors and aliases in workflow files on 2025-09-18
+([GitHub changelog](https://github.blog/changelog/2025-09-18-actions-yaml-anchors-and-non-public-workflow-templates/)),
+a year before this entry, and turned it on for every repository. The
+2026-09-21 session caught the anchor before pushing and expanded it, so
+GitHub's parser never actually saw the file; the rejection above was
+assumed, not observed. A very deep check found this on 2026-09-28.
+
+**What is still refused is the merge key**, `<<: *name`, which extends a
+mapping rather than repeating one. PyYAML accepts it and GitHub does not, so
+the Symptom above still describes a merge key exactly. Plain `&name` /
+`*name` reuse, like the `paths:` list in the Story, is fine.
+

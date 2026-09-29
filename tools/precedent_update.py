@@ -26,20 +26,28 @@ THE STEPS, with no question in between:
   1. the source clone fetches the branch every install follows
   2. the engine refresh (the consumer's own copy, which replaces itself and
      runs a second pass), then the catalogue-pin repoint and the renamed
-     precedent-team-* -> precedent-shared-* sources from THIS copy
+     precedent-team-* -> precedent-shared-* sources from THIS copy; it
+     stops if, with no --from-ref, the engine landed anywhere but the tip
+     step 1 fetched, and leaves for you a run budget upstream gives a
+     vendored tool that this repo's github_api_budgets.json lacks
   3. the catalogue: checkin.py update, then record, where the repo vendors
      one under process/ (process/manifest.json); for a section 0 install,
      its universal source's practices/ replaced wholesale (INSTALL.md
      section 2, step 0) and the commit recorded in CATALOGUE_SYNC.json
      beside it; and where there is neither, a line saying so
+     then a root VOICE.md or STYLEGUIDE.md left for you to convert, and
+     any line templates/gitignore.template gained appended to .gitignore,
+     and each line of an install-once file (the PR template, TODO.md, MAP.md
+     ...) that is still, verbatim, wording its template has since dropped,
+     left for you -- reported, never rewritten
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too -- then manifest baselines moved for files
      now identical to upstream, a missing headroom_floor_pct defaulted,
      each file still naming one the refresh deleted left for you, and this
      repo's own citations of any practice the update withdrew or reworded
-     (a withdrawn one's is a call left for you; a reworded one's is listed
-     to read)
+     (a withdrawn one's pointer is a call left for you; a bare mention of
+     one, and a reworded one's citation, are listed to read)
   4a. any missing branch tier made on origin: staging from pre-staging,
      pre-staging from staging, both from main when neither exists
   5. the repo's own check at its landing branch's tier -- into pre-staging,
@@ -244,6 +252,11 @@ def retired_mentions(repo, engine_out):
     except (OSError, ValueError, AttributeError):
         tree = 'process/upstream'
     received = (tree.rstrip('/') + '/', 'practices/', 'tools/checks/')
+    # A section 0 install's vendored catalogue is received too: a mention
+    # there is upstream's to fix, never this repo's (2026-09-28).
+    rel = universal_catalogue_path(repo)
+    if rel:
+        received += (rel.rstrip('/') + '/',)
     out = []
     for line in engine_out.splitlines():
         m = _MENTION.match(line.strip())
@@ -260,6 +273,225 @@ def retired_mentions(repo, engine_out):
         if hit is not None and (f'{path}:{hit}', gone) not in out:
             out.append((f'{path}:{hit}', gone))
     return out
+
+
+def source_is_its_own_clone():
+    """-> None when SOURCE, the tree this file sits in, is the top of its own
+    git repository -- a BestPractice clone -- else what it is instead.
+
+    A consumer's vendored tree carries a copy of this file at
+    process/upstream/tools/. Run from there, SOURCE is process/upstream and
+    `git fetch` reaches the CONSUMER's origin, so the update failed late, on
+    a fetch of a branch the consumer does not have (2026-09-28)."""
+    r = subprocess.run(['git', '-C', str(SOURCE), 'rev-parse', '--show-toplevel'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return 'not inside a git repository at all'
+    top = pathlib.Path(r.stdout.strip()).resolve()
+    return None if top == SOURCE else f'a directory inside {top}'
+
+
+# The two plain documents that became repo-local practices, and the
+# migration step that converts each (spec/MIGRATING_EXISTING_INSTALLS.md).
+# INSTALL.md: an update that lands on a repo still carrying the old file is
+# a migration, and "do not leave the old file sitting beside the new
+# practice file". Until 2026-09-28 the update said DONE on such a repo.
+LEGACY_ROOT_DOCS = (
+    ('VOICE.md', 'local/practices/project-voice.md', '3a'),
+    ('STYLEGUIDE.md', 'local/practices/project-visual-identity.md', '3b'),
+)
+
+
+def legacy_root_docs(repo):
+    """-> [(old, why)] for each root document LEGACY_ROOT_DOCS names that is
+    still here: to convert when its practice file is missing, to delete when
+    both are present."""
+    out = []
+    for old, new, step in LEGACY_ROOT_DOCS:
+        if not (repo / old).is_file():
+            continue
+        where = f'spec/MIGRATING_EXISTING_INSTALLS.md step {step}'
+        if (repo / new).is_file():
+            out.append((old, f'{new} exists too, and a repo carrying both has no '
+                             f'way to say which binds -- carry anything still '
+                             f'only in {old} into {new}, then delete {old} '
+                             f'({where})'))
+        else:
+            out.append((old, f'is now the repo-local practice {new}, which this '
+                             f'repo lacks -- convert it and delete {old} in the '
+                             f'same commit ({where}; INSTALL.md calls this a '
+                             f'migration step)'))
+    return out
+
+
+def _source_text(rev, rel):
+    """-> `rel`'s text at commit `rev` of the source clone, or None."""
+    r = subprocess.run(['git', '-C', str(SOURCE), 'show', f'{rev}:{rel}'],
+                       capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+def gitignore_step(repo, rep, rev):
+    """Append to .gitignore each line templates/gitignore.template (at `rev`)
+    carries and it lacks -- additive, never an edit or a removal -- and
+    report it. .gitignore is installed once, so a line the template gained
+    later reached no installed repo: 2026-09-28, `.claude/worktrees/`, whose
+    absence makes the stop hook refuse over a background agent's worktree."""
+    tmpl = _source_text(rev, 'templates/gitignore.template') if rev else None
+    if tmpl is None:
+        return
+    import precedent_install
+    added = precedent_install.merge_gitignore(repo / '.gitignore', tmpl,
+                                              'Added by Update Vendors')
+    if added is None:
+        rep.step('.gitignore', 'written from templates/gitignore.template '
+                 '(there was none)')
+    elif added:
+        rep.step('.gitignore', f'{len(added)} line(s) the template now carries '
+                 f'appended: ' + ', '.join(added))
+
+
+# The files an install writes ONCE from a template and never looks at again,
+# each with the template it came from. .gitignore is gitignore_step's;
+# AGENTS.md and tools/bootstrap.sh are the engine refresh's, which already
+# compares them to their templates' history (precedent_vendor_engine's
+# AGENTS_MD_TEMPLATES and TEMPLATE_INSTANCES), so they are not here twice.
+INSTALL_ONCE_TEMPLATES = (
+    ('.github/pull_request_template.md', 'templates/pull_request_template.md.template'),
+    ('TODO.md', 'templates/TODO.md.template'),
+    ('MAP.md', 'templates/MAP.md.template'),
+    ('GLOSSARY.md', 'templates/GLOSSARY.md.template'),
+    ('GETTING_STARTED.md', 'templates/GETTING_STARTED.md'),
+    ('README.md', 'templates/README_AGENT_ENTRY.md.template'),
+    ('local/practices/project-voice.md',
+     'templates/local-practices/project-voice.md.template'),
+    ('local/practices/project-visual-identity.md',
+     'templates/local-practices/project-visual-identity.md.template'),
+)
+# Per file, so a TODO.md still in the old checkbox format does not bury the
+# rest of the report; the count of the rest is said.
+DROPPED_LINES_SHOWN = 10
+
+
+def _substantive(line):
+    """A line worth matching: three words or more. A heading, a rule, a
+    fence or a table divider is too generic to say where it came from."""
+    return len(re.findall(r'[A-Za-z]{2,}', line)) >= 3
+
+
+def _template_lines_ever(rev, rel):
+    """-> {stripped line} every version of `rel` reachable from `rev` in the
+    source clone ever carried: the lines its commits added, `--follow`ed
+    through renames. A shallow clone sees less, which only flags less."""
+    # `-m`: lines a merge commit added are template wording too.
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--follow', '-p', '-m',
+                        '-U0', '--format=', '--no-color', '--no-ext-diff',
+                        rev, '--', rel], capture_output=True, text=True,
+                       errors='replace')
+    out, in_hunk = set(), False
+    for line in r.stdout.splitlines() if r.returncode == 0 else []:
+        if line.startswith('diff --git '):
+            in_hunk = False
+        elif line.startswith('@@'):
+            in_hunk = True
+        elif in_hunk and line.startswith('+'):
+            out.add(line[1:].strip())
+    return out
+
+
+def dropped_template_lines(repo, rev):
+    """-> [(consumer_rel, template_rel, template_sha256, [(line_no, text)])]
+    for each install-once file still carrying, verbatim, a line an OLDER
+    version of its template had and the current one (at `rev`) does not.
+
+    A REPORT, never a write. These files are the repo's own from the moment
+    they are written, so a line the repo wrote itself is never flagged: only
+    an exact match of a line upstream's own history carried and has since
+    dropped or reworded. 2026-09-28: a real consumer's pull request template
+    still asked for "TODO.md updated", and links in its install-once files
+    still pointed at a branch that had been retired, with nothing saying so.
+
+    Not agents-md-history: that record is keyed by AGENTS.md section and
+    built inside the refresh's scratch directory; this needs every line a
+    template ever carried, which one `git log -p` per template gives."""
+    import hashlib
+    found = []
+    for rel, tmpl in INSTALL_ONCE_TEMPLATES:
+        target = repo / rel
+        if not rev or not target.is_file():
+            continue
+        current = _source_text(rev, tmpl)
+        if current is None:
+            continue
+        now = {l.strip() for l in current.splitlines()}
+        gone = {l for l in _template_lines_ever(rev, tmpl) - now if _substantive(l)}
+        if not gone:
+            continue
+        try:
+            text = target.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        hits = [(n, l.strip()) for n, l in enumerate(text.splitlines(), 1)
+                if l.strip() in gone]
+        if hits:
+            found.append((rel, tmpl, hashlib.sha256(current.encode('utf-8')).hexdigest(),
+                          hits))
+    return found
+
+
+def dropped_template_lines_step(repo, rep, rev):
+    """Put each line dropped_template_lines finds on the Left-for-you list.
+    A file precedent.json's kept_template_divergences records as kept on
+    purpose, against the current template's text, is said once and not
+    listed -- the same declaration the engine honours for tools/bootstrap.sh,
+    so a repo that keeps an old line deliberately can still finish."""
+    for rel, tmpl, sha, hits in dropped_template_lines(repo, rev):
+        verdict, reason = pve._kept_divergence(repo, rel, sha)
+        if verdict == 'kept':
+            rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
+                     f'as precedent.json records -- "{reason}"')
+            continue
+        for n, line in hits[:DROPPED_LINES_SHOWN]:
+            shown = line if len(line) <= 160 else line[:157] + '...'
+            rep.leave(f'{rel}:{n}', f'is template wording the current template '
+                      f'dropped: {shown}')
+        first = f'{rel}:{hits[0][0]}'
+        more = len(hits) - DROPPED_LINES_SHOWN
+        if more > 0:
+            rep.leave(f'{rel} (more)', f'{more} more line(s) the current {tmpl} '
+                      f'dropped -- compare the file with it')
+        note = [f'bring it in line with {tmpl}, or drop the line; kept on '
+                f'purpose? record "{rel}" in precedent.json\'s '
+                f'{pve.KEPT_DIVERGENCES_KEY} with a reason and template_sha256 '
+                f'{sha}']
+        if verdict == 'stale':
+            note.insert(0, f'recorded as kept ("{reason}"), but {tmpl} has '
+                        f'changed since -- read it again')
+        elif verdict == 'unreasoned':
+            note.insert(0, 'recorded as kept with no reason, so not honoured')
+        rep.details.setdefault(first, []).extend(note)
+
+
+def unbudgeted_engine_tools(repo, rev):
+    """-> [(tool, calls)] for each vendored engine file upstream's
+    tools/github_api_budgets.json (at `rev`) gives a run budget that this
+    repo's own registry lacks. Only where this repo keeps a registry: one
+    that has none declares nothing, and the github-api-budget check leaves a
+    vendored caller to the repo that wrote it. A report, never a write -- a
+    budget is the repo's own declaration."""
+    try:
+        own = json.loads((repo / 'tools' / 'github_api_budgets.json')
+                         .read_text(encoding='utf-8'))
+        vendored = set(json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                                  .read_text(encoding='utf-8')).get('files') or ())
+        up = json.loads(_source_text(rev, 'tools/github_api_budgets.json') or '')
+    except (OSError, ValueError, TypeError):
+        return []
+    if not isinstance(own, dict) or not isinstance(up, dict):
+        return []
+    have = own.get('run_budgets') or {}
+    return [(t, n) for t, n in sorted((up.get('run_budgets') or {}).items())
+            if not t.startswith('_') and t in vendored and t not in have]
 
 
 def universal_catalogue_path(repo):
@@ -316,7 +548,8 @@ def _upstream_history_blobs(rev):
     carried. The same allowance the carry check makes for upstream's own
     history: a file equal to one of these is upstream's text, not a local
     edit, whichever commit it was vendored from."""
-    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw',
+    # `-m`: a version a merge commit introduced is upstream's text too.
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw', '-m',
                         '--no-abbrev', '--no-renames', rev, '--all', '--',
                         'practices/'], capture_output=True, text=True)
     out = set()
@@ -730,17 +963,27 @@ def citations(repo):
     except ValueError:
         return None
     fix, read = [], []
+    slugs, successors = data.get('slugs', {}), data.get('successors', {})
     for h in data.get('hits', []):
         if h.get('source') != 'this repository' or h.get('kind') != 'live':
             continue
         where = f"{h['file']}:{h['line']}"
+        succ = successors.get(h['slug'])
         if h.get('must_fix'):
-            succ = data.get('successors', {}).get(h['slug'])
             fix.append((where, f"cites `{h['slug']}`, which is no longer in force"
                         + (f" -- cite `{succ}`" if succ else
                            " anywhere -- say in prose what it covered")))
-        elif data.get('slugs', {}).get(h['slug']) == 'Rule reworded':
+        elif slugs.get(h['slug']) == 'Rule reworded':
             read.append(where)
+        elif h['slug'] in slugs:
+            # A bare mention of a renamed or withdrawn slug. The check
+            # does not refuse it (it may be lineage), but it is a citation
+            # all the same. Until 2026-09-28 it was dropped here, and the
+            # update said "no live citation of a withdrawn practice" while
+            # precedent_practice_refs.py --withdrawn listed one (`go-merge`,
+            # renamed `go-update`, in a consumer's own docs).
+            read.append(f"{where} (`{h['slug']}`, {slugs[h['slug']]}"
+                        + (f", now `{succ}`)" if succ else ")"))
     return fix, read
 
 
@@ -858,6 +1101,14 @@ def tiers_step(repo, rep):
 
 def update(repo, skip_check=False, ref=None):
     rep = Report()
+    elsewhere = source_is_its_own_clone()
+    if elsewhere:
+        return rep.close(f"this copy of precedent_update.py sits in {SOURCE}, "
+                         f"which is {elsewhere} -- a vendored copy, not a "
+                         f"BestPractice clone, so it would fetch the wrong "
+                         f"repository. Run the clone's own copy from the "
+                         f"consuming repo: python3 ../BestPractice/tools/"
+                         f"precedent_update.py --repo .")
     before = dirty_paths(repo)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
@@ -880,7 +1131,8 @@ def update(repo, skip_check=False, ref=None):
                              f"{SOURCE}:\n{tail(out)}")
     rc, head = run(['git', '-C', str(SOURCE), 'rev-parse',
                     ref or f'origin/{pve.SOURCE_BRANCH}'], SOURCE)
-    rep.step('source', f"{pve.SOURCE_BRANCH} @ {head.strip()[:12]}" if rc == 0
+    head_ok = rc == 0
+    rep.step('source', f"{pve.SOURCE_BRANCH} @ {head.strip()[:12]}" if head_ok
              else f"could not read {ref or 'origin/' + pve.SOURCE_BRANCH}")
 
     # The commit the vendored engine -- and so a section 0 catalogue, which
@@ -919,6 +1171,30 @@ def update(repo, skip_check=False, ref=None):
             rep.details[what] = details[what]
         rep.leave(what, why)
     rep.step('engine', engine_summary(out, last_synced))
+    # Where the engine actually landed. With no --from-ref the whole update
+    # is main's, and a consumer's own older engine copy can resolve some
+    # other ref for itself -- then the catalogue would be taken from main
+    # and the engine from somewhere else, the half-and-half state this
+    # command exists to end (2026-09-28).
+    try:
+        landed = json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                            .read_text(encoding='utf-8')).get('source_commit') or ''
+    except (OSError, ValueError):
+        landed = ''
+    tip = head.strip()
+    if ref is None and head_ok and tip and not (
+            landed and (tip.startswith(landed) or landed.startswith(tip))):
+        return rep.close(f"the engine landed at {landed[:12] or 'an unrecorded commit'}"
+                         f", not {pve.SOURCE_BRANCH} @ {tip[:12]}: this repo's "
+                         f"own engine copy vendored from another ref. Run this "
+                         f"again with --from-ref {tip[:12]} to take "
+                         f"{pve.SOURCE_BRANCH}'s engine, then review the diff")
+    for tool, calls in unbudgeted_engine_tools(repo, tip):
+        rep.leave(f'tools/github_api_budgets.json: {tool}',
+                  f'upstream budgets the vendored tools/{tool} at {calls} API '
+                  f'call(s) a run and this repo\'s registry has no budget for '
+                  f'it, so its runs here are judged against nothing -- add a '
+                  f'run budget for it (upstream\'s figure, or this repo\'s own)')
     # A difference precedent.json records as kept on purpose, and a legacy
     # bootstrap wrapper the refresh replaced, are said once each as a note
     # -- never a call to make (precedent_vendor_engine.KEPT_DIVERGENCES_KEY).
@@ -1007,6 +1283,15 @@ def update(repo, skip_check=False, ref=None):
         if rel:
             before = {p for p in before if not (p.startswith(f'{rel}/practices/')
                                                 or p == f'{rel}/{CATALOGUE_SYNC_NAME}')}
+
+    # After the templates have moved: what they replaced that an update
+    # cannot convert for the repo, the install-once file an update can
+    # bring forward on its own, and the install-once files it can only
+    # report on, since each is the repo's own once written.
+    for old, why in legacy_root_docs(repo):
+        rep.leave(old, why)
+    gitignore_step(repo, rep, head.strip() if head_ok else None)
+    dropped_template_lines_step(repo, rep, head.strip() if head_ok else None)
 
     # 3b. Where Go update lands, for a repository that has never said.
     # Morgan, 2026-09-27 (strength: decided): every repository lands on
@@ -1120,9 +1405,10 @@ def update(repo, skip_check=False, ref=None):
         rep.step('citations',
                  (f'{len(fix)} live citation(s) of a withdrawn practice to fix '
                   f'(listed below)' if fix else
-                  'no live citation of a withdrawn practice')
-                 + (f'; {len(read)} citation(s) of a practice this update '
-                    f'reworded -- read each, it may describe the old rule: '
+                  'no live citation of a withdrawn practice to fix')
+                 + (f'; {len(read)} citation(s) of a practice reworded or '
+                    f'withdrawn -- read each, it may describe the old rule '
+                    f'or name the old slug: '
                     + ', '.join(read) if read else ''))
 
     # 5. The repo's own check, at the tier of the branch the update lands

@@ -3,16 +3,16 @@ slug:              todo-2026-09-13-reply-check-rollout
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Overtaken: the individual half landed 2026-09-14, and the reply gate serves every declared source; a source that wants a blocking reply check declares its own reply_check.json."
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-13
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -112,3 +112,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+**Closed 2026-09-28 (done).** Overtaken: the individual half landed 2026-09-14, and the reply gate serves every declared source; a source that wants a blocking reply check declares its own reply_check.json. Morgan approved the very deep check's pass-4 recommendation to close it, 2026-09-28 ("Make the changes you recommend"); strength: assented.

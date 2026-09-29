@@ -1,9 +1,9 @@
 ---
 title:         Very deep check — run record
 kind:          record
-status:        closed
+status:        live
 opened:        2026-09-19
-closed:        2026-09-19
+closed:        null
 superseded_by: null
 supersedes:    []
 audience:      session
@@ -20,17 +20,17 @@ deliberately not run is recorded here as not run, with the reason.
 **How to use this file.** A session starting or resuming a run fills in the
 table, then records what each pass turned up under it: what was found, what
 was fixed in the same pass, and what was deferred with the
-[TODO.md](../TODO.md) line it went to. When the last pass is done, collapse
+[todo/](../todo/TODO.md) line it went to. When the last pass is done, collapse
 the run to one row under "Runs so far" and clear the table for the next one —
 this document holds the run in progress, not an archive of every finding
 ([docs-are-current-state](../practices/docs-are-current-state.md); the
 findings themselves live in the commits that fixed them and in
-[TODO.md](../TODO.md)).
+[todo/](../todo/TODO.md)).
 
 ## Branches safe to delete right now
 
 **Mechanically proven safe** — every commit on each of these is already an
-ancestor of `precedent-beta-v01` — and stale enough (>= 30 days untouched)
+ancestor of this repo's declared `base_branch` (`staging`) — and stale enough (>= 30 days untouched)
 that nobody is likely to still have it checked out. Written directly by
 `tools/very_deep_check.py` whenever this checkout's own branch scan runs
 (never `doc_sync.py` — this reads the real GitHub origin live, which
@@ -51,289 +51,66 @@ tools/very_deep_check.py's checkout branch scan, not doc_sync.py -->
 
 ## Practice catalogue
 
-**Every in-force practice's slug and a one-sentence description of what it
-does, one section per source in force** (this checkout, the individual
-source, and every shared source) — added 2026-09-23 at Morgan's request, so
-a very deep check gives him a list to review the catalogue against rather
-than only a pass/fail read of the writing. The sentence is each practice's
-own `index_clause` (the same one the occasion index and MAP.md already
-render), falling back to the first sentence of its Rule where no
-`index_clause` is written — never composed for this list, so nothing here
-can describe a practice differently than a session reading the catalogue
-elsewhere would. **Regenerated in full on every run that reaches this
-section**, from whatever `practices/*.md` this session's own clones hold at
-the time — no fetch, no judgment, no per-run prose — so an unchanged
-catalogue reads identically run to run and a changed one shows exactly what
-moved. Regenerate on its own with
-`python3 tools/very_deep_check.py --emit practice-catalogue`.
-
-<!--vdc-embed:practice-catalogue: never hand-edit -- written by
-tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
-### local (repo-local)
-
-> - `install-declares-its-scope` — the install path says what it defers and what it never defers
-> - `merge-target-is-beta-branch` — Alex approves only major main merges; precedent-beta-v01 is unrestricted
-> - `philosophy-declares-its-source` — an essay carries its origin on line one -- a record, not a sync pointer
-> - `philosophy-is-not-repo-policy` — philosophy/ is argument; a rule that earned its way out gets written as a practice file
-> - `vendor-neutral-by-default` — this repo ships out whole -- default new code and rules to provider-neutral
-
-### precedent (universal)
-
-> - `acronyms-glossary` — expand acronyms on first use; keep one central glossary
-> - `affordance-is-shared` — name who else the mechanism you just built now serves
-> - `archive-status-check` — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
-> - `attach-the-original` — attach the file itself -- recreating an original from a description is invention
-> - `base-branch-is-the-record` — read the base branch before starting and before the PR -- a summary lags
-> - `bold-key-phrases` — bold the key phrases by default, without being asked
-> - `brainstorm-holds-commits` — in a brainstorm, write nothing to the repo and commit nothing until he says so
-> - `branch-delete-links` — every branch named deletable is a filtered-page link naming what
-> - `build-buy-decompose` — decompose first; one verdict per part, on ownership grounds
-> - `capture-gate` — capture the follow-on work in the thread that created the need
-> - `catalogue-carries-stories` — no active practice sits with an empty ## Story
-> - `change-updates-its-docs` — update the document that describes it, in the same commit -- never later
-> - `check-source-architecture` — check both options exist in the source before costing them
-> - `checkable-gets-checked` — attempt a mechanical check before leaving a new practice advisory-only
-> - `checks-carry-a-declared-decline` — a check reporting a state a repo chose needs a declared decline, with a reason
-> - `checks-plant-their-state` — plant every state a check asserts -- a verdict that moves on its own is not one
-> - `chief-of-staff` — "Chief of Staff" -- on request only; name the window read, link every session
-> - `ci-commits-carry-identity` — a committing workflow reads a declared identity, or refuses -- never the bot
-> - `cite-the-incident` — record the failure a rule prevents, inline with the rule
-> - `code-cites-practice` — cite the practice's slug in a comment, right where the code is
-> - `computed-numbers-in-scripts` — computed content lives in a sync-gated generated block
-> - `constants-are-risk-inputs` — a constant nobody decided is a swept, registered input -- never doctrine
-> - `control-asserts-which-failure` — a non-zero exit is not evidence; assert the message that guard prints
-> - `convention-to-audit` — promote a costly broken convention to a script that exits non-zero
-> - `cross-source-rollout` — roll it out to attached sources now; else a blocked-on TODO
-> - `dated-list-runs-forward` — a dated list runs oldest first; new entries append and carry a real date
-> - `decision-strength` — record `decided` or `assented`; unmarked means unknown, never "you decided this"
-> - `declared-default-is-applied` — apply the declared default and name it in passing; never ask
-> - `declared-pronouns` — use the pronouns a person declares; none declared means they/them, never guess
-> - `decommission-deletes-files` — delete what the decommissioned mechanism owned; audit first, never on a hunch
-> - `deliverables-look-like-output` — the deliverable holds only what its audience needs
-> - `diagnosis-is-measured` — a tool's named causes are hypotheses; measure one before you relay it
-> - `disclose-landing` — state plainly what happened and where — individual, named team, or universal
-> - `doc-references-are-links` — reference repo files as relative links; use ≈, never ~
-> - `docs-are-current-state` — state what is true now; version control holds the history
-> - `docs-track-models` — every script-derived figure sits inside a generated block
-> - `document-status-header` — kind and status in frontmatter; a reader must not have to infer either
-> - `durable-fix` — prefer the fix that survives a fresh container; name a band-aid as one
-> - `engine-plus-host-shims` — one vendored engine, thin host shims, never a fork
-> - `environment-gotchas` — Every expensive environment discovery (a package that must be installed, a tool that si...
-> - `fail-gracefully` — keep going, never look complete — match the telling to stake and reader
-> - `fence-block-for-paste` — every fence block says where it goes -- Paste into: X, or not for pasting
-> - `filename-separator` — one word separator per directory and file kind -- never both - and _
-> - `findings-return-through-repo` — commit it, an adopted plan included; never leave it for the person to carry
-> - `fix-the-original` — fix the origin first, then every copy -- name them all in the reply
-> - `fixture-owns-its-state` — a fixture that inherits real state is testing the environment too
-> - `frame-from-audience-question` — build it around the audience's question, not your material
-> - `full-practice-audit` — sweep every source's full catalogue, one practice at a time, on request only
-> - `generated-artifact-provenance` — stamp a build code and a manifest; never hand-edit output
-> - `generated-edit-goes-upstream` — change the input the file is built from, never the file -- and say which input
-> - `github-api-budget` — measure API spend from response headers; budget each tool; never /rate_limit
-> - `github-setup-disclosed` — disclose GitHub setup where its people read; offer owner settings at install
-> - `go-update` — "Go update"/"Approved": default push; high-risk -> sync, branch, PR, merge
-> - `grep-before-search` — grep the clone; a repo-scoped list before a search; fewer windows at once
-> - `heading-outline` — never jump a heading level; a heading one below its parent, or deeper by one
-> - `headline-capitalization` — outward-facing headings are New York Times headline case, applied by tool
-> - `index-remembers-past` — put the lineage in the index, not in either document
-> - `item-closes-on-its-condition` — record what you established into the item; close only on its stated condition
-> - `label-describes-content` — "one line" must be one line; else name it for its content
-> - `layered-practice-packs` — generic, domain, repo-local — each rule to its own layer
-> - `lead-with-what-it-is` — say what the project is before how it is maintained
-> - `leak-gate-is-background` — never relay a blocklist note or ask for a term; the deep review is its place
-> - `merge-runbook` — write conflict resolution per file class, once, then follow it
-> - `migration-scrubs-vocabulary` — scrub the old system's vocabulary the same session, not on request
-> - `mistakes-become-rules` — root-cause the miss, then encode the prevention
-> - `my-options` — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
-> - `name-both-sides-of-ledger` — name both sides; check what is charged against what is received
-> - `never-delete-a-remote-branch` — never attempt a remote branch delete; hand over the one-click link
-> - `no-invented-specifics` — never manufacture a number, date, name or citation -- write around the gap
-> - `no-rewrite-for-warnings` — fix the setting forward; never rewrite published history
-> - `no-version-suffix` — name a file for what it is; the repository is the version
-> - `one-formatter-per-quantity` — one formatter per quantity kind, declared in one module
-> - `open-item-disposition` — an item is raised in chat only if it says `ask`; absent means stay quiet
-> - `orientation-map` — A top-level `MAP.md` indexes the repo: what the key deliverables are, where everything...
-> - `outward-summary-discipline` — claims-to-source table, honest sums, a recorded adversarial pass
-> - `parallel-artifact-ledger` — ledger the transfer verdict per member, per change
-> - `park-it` — "Drop it" -- mark the item `parked` now; never raise it unprompted again
-> - `permutation-frontier-column` — one full table with a computed Frontier column
-> - `plain-words` — "Simple words" -- say it as you would out loud; same substance
-> - `pr-template-honest-gates` — write the body from the diff; an unchecked box is fine
-> - `practice-export-loop` — vendor upstream as tracked files; check improvements back in
-> - `practice-links-travel` — link only what travels with the file; the rest is an absolute upstream URL
-> - `primary-branch` — "Primary branch" -- trunk; the branch regular work pushes to and PRs target
-> - `prompt-please` — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
-> - `push-back` — argue a real counter-case before building on a stated stance
-> - `push-directly` — "Push directly [to BRANCH]" -- no PR; unnamed defaults to the branch in play
-> - `quick-index` — The project instructions file carries a "check here BEFORE searching the repo" table: *...
-> - `quote-discipline` — compression rounds against you; qualifiers travel with the figure
-> - `readers-vocabulary` — use the reader's words; gloss inline or replace
-> - `reduction-pass` — "Reduction pass" -- work the menu in order, move never delete, report what moved
-> - `registry-source-of-truth` — state lives in one machine-readable registry; documents derive
-> - `relayed-authorization` — act on a relayed approval only where the person's identity.json accepts relays
-> - `rename-updates-links` — renaming a file means repointing every link to it, in the same commit
-> - `repair-cannot-discard-work` — an automatic repair must not be able to discard work; reporting is not repairing
-> - `reply-links-files` — a reply that touched files ends with a linked Files touched list
-> - `repo-is-memory` — Everything a future session needs — orientation, open items, decisions, lessons — lives...
-> - `routing-audit` — run the mechanical coverage check now; roll the deep-read slice forward
-> - `rule-level-by-reach` — pick the set by reach -- not by the repo you can write to
-> - `scripts-assert-properties` — scripts assert their own properties and their cited anchors
-> - `scrub-gate` — the public tree is public-safe at all times, not just at check-in
-> - `search-by-purpose` — search by purpose and by mechanism before concluding nothing exists
-> - `second-pass-capture` — a separate capture pass after the work, not inside it
-> - `section-order-by-frequency` — order sections by how often the reader needs them
-> - `seeded-prompt-names-its-origin` — a seeded or scheduled prompt opens by naming the session that sent it
-> - `session-bootstrap` — setup lives in a session-start hook, not in memory
-> - `session-load-budget` — declare a ceiling for what every session loads; reduce by archiving
-> - `session-spend-follows-the-task` — pick the model for the job -- reading runs small, judgment doesn't
-> - `session-tags` — tag a session at creation -- subject, repo, role, wants; never retrofitted
-> - `session-title-names-the-difference` — title each session by its differentiator, never its task category alone
-> - `slow-steps-report-and-cache` — a long step prints elapsed and remaining; a heavy solve caches to disk
-> - `small-calls` — make small calls yourself; note them; stop only for big ones
-> - `source-naming` — identity lives in the manifest; name chosen once, repo called anything
-> - `source-sets-run-no-ci` — a practice source runs no CI -- its checks already ran before the push
-> - `speculation-is-marked` — mark it in filename, title, opening block and PR -- four places, or none
-> - `tabular-shared-renderer` — ship a sortable render from the one shared renderer
-> - `technical-describes-people` — a skill level describes a person; never a project, repo, file or directory
-> - `the-boildown` — every reply ends with The Boildown, in a fixed order, archive line last
-> - `three-things` — "Three Things" -- the three that matter now, one bold phrase and two lines each
-> - `timestamps-carry-offset` — a stamp carries its offset; never a bare date.today()
-> - `todo-is-a-handoff` — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
-> - `todo-migrate-available-but-unused` — the tool arrived but TODO.md never got migrated -- run it now
-> - `todo-reminder` — "Todo reminder" -- write it, set disposition ask and remind_on, never a trigger
-> - `two-check-levels` — name a fast check and a full check; say which gates what
-> - `variant-re-derives` — re-derive what a variant inherits; limits bind, choices do not
-> - `vendor-rollout-disclosed` — shipped content changing -- say if it needs to reach consumers, and if it will
-> - `vendor-update-runbook` — "Update Vendors" -- source clone first, both layers move separately, then merge
-> - `verify-decomposition` — check the parts, not the total; never assert an impossibility
-> - `verify-postcondition` — After any state-changing operation, check **the state you wanted**, not that the comman...
-> - `very-deep-check` — read every repo in force against itself, pass by pass; never a routine gate
-> - `vocabulary` — "Vocabulary" -- list every command in force, read it, never recall it
-> - `volatile-rules-carry-dates` — a rule about the outside world carries its date, inline
-> - `weak-yes` — "Weak yes" -- do it, and record the approval as `assented`
-> - `workflow-file-outside-vendoring` — an untracked workflow file -- verify by content, never by name
-> - `write-it-up` — "Write it up" -- commit a full report of the issue and fix, then link it
-> - `write-like-a-human` — say the thing in your own words; unrewritten model output is output nobody thought about
-
-**59 practice(s) across 4 source(s) held back from this file: precedent-individual (individual), precedent-shared-repo-maintenance (shared), precedent-shared-writing (shared), precedent-shared-working-style (shared).** This repo's own `precedent.json` declares `visibility: public` (or never declared one, which this engine treats the same way, fail safe) -- this file is tracked, so writing another source's own practice text into it would publish that source, permanently, for the identical reason `build_views.py` already holds a team or individual source out of the generated AGENTS.md loader block. **The full list, held-back sources included, still prints to the session's own console/chat on every run** -- nothing here is lost, only kept out of this committed file. Advise the person of that before doing anything else with it, and ask which they actually want: committed here too (re-run with `--catalogue-include-private`, an explicit, informed choice, never a default), left as chat-only (nothing further to do), or not generated at all (`--skip-practice-catalogue`). Never decide this silently in either direction -- and never assume it once for every repo: a repo that declares `visibility: private` skips this note entirely, because there is nothing there to hold back.
-<!--/vdc-embed:practice-catalogue-->
+**Not kept here since 2026-09-28.** Every run hands the person a review
+page in the session instead: the branches they can delete, with a link
+each, and every active practice by source, private sets included. It is
+never committed or linked from a repository, so this public file carries
+none of it. How it works: [very-deep-check](../practices/very-deep-check.md)
+and `tools/precedent_review_page.py`.
 
 ## Current run
 
-**2026-09-21, on the phrase, and committed to the full four passes before
-anything ran.** Scope said out loud up front, as the practice requires: this
-checkout, the three shared sets, the individual set and `local/` — not the
-mechanical half.
+**The full account of this run, pass by pass: [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md).**
 
-**Two other sessions were pushing to `precedent-beta-v01` throughout**
-(`Deep check improvements`, which owns `tools/very_deep_check.py` and
-`practices/very-deep-check.md` right now, and `Branch deletion practices`).
-The checkout went stale under this run three times and was fast-forwarded
-each time; step 1's own warning about a stale `AGENTS.md` in context fired
-for real, and two of the four pass agents reported it independently.
-**Nothing this run found in those two files was edited** — filed instead,
-with the one-line fix stated.
+**2026-09-28, on the phrase, committed to the full four passes before
+anything ran**, across all five repos in force (this checkout, the individual
+set, the three shared sets) plus one real consumer the person attached for
+pass 1. Ten sub-agents did the reading and rehearsing. No other session was
+running against these repos.
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | partial | 2026-09-21 | Five real fixtures built in scratch. One silently destructive defect, one roadblock, nine more. PARTIAL on its own terms: no consumer repository attached, so the pass's highest-yield item was not done. [todo-2026-09-21-pass-1-install-and-update-findings](../todo/todo-2026-09-21-pass-1-install-and-update-findings.md) |
-| 2 — mechanisms | partial | 2026-09-21 | Mechanical layer complete and green. Read-only verb sweep across all 69 tools; five mechanism defects, four registry/instruction errors fixed in the pass. PARTIAL: 8 of the practice's 20 questions not attempted, 8 covered only mechanically, and question 11 sampled at 3 of ~55 enforced checks. [todo-2026-09-21-pass-2-mechanism-findings](../todo/todo-2026-09-21-pass-2-mechanism-findings.md), plus [todo-2026-09-21-template-freshness-reports-five-phantom-gaps](../todo/todo-2026-09-21-template-freshness-reports-five-phantom-gaps.md) and [todo-2026-09-21-deep-check-definition-omits-the-ci-shards](../todo/todo-2026-09-21-deep-check-definition-omits-the-ci-shards.md) |
-| 3 — coherence read | done | 2026-09-21 | All five catalogues in force plus the 33 shipped template files. Small findings fixed in the pass; the rest in [todo-2026-09-21-pass-3-coherence-read-findings](../todo/todo-2026-09-21-pass-3-coherence-read-findings.md) |
-| 4 — catalogue, backlog, branches | done | 2026-09-21 | Real verdicts on all 11 unlanded branches, every count re-derived from the diff. Backlog and catalogue read. [todo-2026-09-21-pass-4-branch-verdicts-and-catalogue](../todo/todo-2026-09-21-pass-4-branch-verdicts-and-catalogue.md) |
+| 1 — adopter installs | done | 2026-09-28 | All five paths rehearsed from scratch (guided, loader, migration, update with a deletion, every move direction), **plus the first real consumer in this ledger's history**, updated in a copy and its own gates run. Adapters read against their harnesses' current docs. Unfixed: [todo-2026-09-28-very-deep-check-pass-1-findings](../todo/todo-2026-09-28-very-deep-check-pass-1-findings.md) |
+| 2 — mechanisms | done, gaps named | 2026-09-28 | All 22 questions attempted; question 11 read 17 enforced checks against their own Rule, none sampled before. Not done: 65 of 69 gotchas re-tested (question 12), a prevention verdict for each of 26 incidents (question 20). Unfixed: [todo-2026-09-28-very-deep-check-pass-2-findings](../todo/todo-2026-09-28-very-deep-check-pass-2-findings.md) |
+| 3 — coherence read | done, gaps named | 2026-09-28 | Every private-set practice read; the universal catalogue swept for stale names, triggers and claims and the likeliest thirty read closely, not all 154 line by line. `spec/ENFORCEMENT.md` read whole. Unfixed: [todo-2026-09-28-very-deep-check-pass-3-findings](../todo/todo-2026-09-28-very-deep-check-pass-3-findings.md) |
+| 4 — catalogue, backlog, branches | done | 2026-09-28 | Every unlanded branch re-derived in full clones, every overdue reminder and blocked item judged, eight `retires_when` conditions checked, scope read on all 154 universal practices. **The full sequential catalogue judgment was completed for the first time in this ledger's history**, the same day, after Morgan approved the pass-4 recommendations: all 216 active practices across six sources, 81 of them judgment-only, each judged against the repos it binds (19 session-behaviour rules could not be judged from the repos, and say so). Unfixed: [todo-2026-09-28-very-deep-check-pass-4-findings](../todo/todo-2026-09-28-very-deep-check-pass-4-findings.md) |
 
-**The starting line had to be earned.** Step 2 wants `0 failed` and
-`0 violated` before a line is read, and the tree gave neither: one root
-cause — a `command:` field on a private practice that the vocabulary
-emitter correctly rendered into a public tracked document — took out
-`doc_sync.py`, `precedent_check.py`, and through it the baseline case of
-`verify_harness.py --all`. The fix had already landed on the individual
-source's `origin/main` (commit `09190a7`) and the local clone was one
-commit behind it. Merging that in cleared all three.
+**What changed how the check itself reads.** Its branch scan fetched with
+`--depth` against full clones, which turns a full clone shallow: every
+"unlanded" count in the two runs before this one was inflated (116 for a
+branch carrying 2), and the session-start watermark check did the same. Its
+CARRY-THROUGH section read the working tree, which the session-start hook
+refreshes without committing, so it said CURRENT where origin was behind.
+An aborted run counted as "the last run". All fixed in this run; the
+counts in earlier rows should be read with that in mind.
 
-**Then both CI shards, which the deep check's own definition does not ask
-for.** `INCIDENT COVERAGE`'s standing question — what prevents a
-recurrence, and is there a planted case? — answered "nothing" for
-`gotcha-2026-09-21-a-green-local-verify-harness-run-does-not-mean-green-ci`.
-That gotcha records a session running the full deep check, seeing
-`244 passed, 0 failed`, and watching both sharded CI jobs die before
-printing a verdict. This run ran them: `243 passed, 0 failed` and
-`3 passed, 0 failed`, both green. The gap between what AGENTS.md calls a
-deep check and what CI actually runs is filed.
+**Then the findings themselves, the same day.** Morgan asked for as much
+fixed as possible rather than filed, while he was offline. Six fix agents,
+each in its own worktree on files no other touched, and this session
+worked the list; each mechanism change carries a planted harness case
+checked to fail without it. The four findings files now hold only what
+remains, most of it a decision for Morgan.
 
-**What this run fixed in place**
+**A second and third round, after Morgan's review.** He approved the
+findings files' fixes and the pass-4 recommendations, asked for two
+workflow items to be explained rather than changed, and asked for the
+setup-script step to become an optional, recommended part of setup. The
+catalogue judgment then found about twenty violations and nine stale or
+contradicting rules; the text ones were fixed in all five repos, and the
+code ones went to fix agents under the same rules as before.
 
-- **`AGENTS.md` advertised a retired command that contradicted the rule in
-  force.** The `Session Text` bullet outlived `session-text`
-  (`status: deduplicated`, superseded by `prompt-please`, absent from the
-  18-command vocabulary) and pointed the opposite way on two things:
-  *"wake a live session"* against prompt-please's *"never wake a live
-  session either"*, and *"the text you hand him carries the merge
-  authorization"* against prompt-please's *"only when the person gave one
-  for this handoff"*. Every session here read both, on turn one.
-- Two surviving `Go merge` trigger references (`AGENTS.md`,
-  `three-things.md`) the 2026-09-20 sweep missed while fixing nine.
-- A gotcha count in `AGENTS.md` wrong by any reading (said 52; 93 files,
-  35 retired, 58 live) — dropped rather than corrected, per
-  `no-stale-counts`.
-- The quick-index row every session is told to check **first** pointed at
-  root `TODO.md`, a redirect stub since 2026-09-16, on a page that also
-  says a PR touching that file is refused by CI. Both copies repointed.
-- `templates/document-project/AGENTS.md` told adopters to attach every
-  `precedent-team-*` source — a glob the 2026-09-18 rename left matching
-  nothing, three lines above the rule saying never to hard-code set names.
-- 25 bare in-repo references linked; a whole-file read of `AGENTS.md`
-  registered against `ACCRETION`'s standing ask.
-
-**What this run filed rather than fixed, and why**
-
-Seven items. Three because the fix lives in a repository this session
-cannot reach (`themorgan/precedent-individual`, `themorgan/precedent-shared-*`
-— the git proxy refuses across owners, confirmed by a real
-`push --dry-run`). Two because the file is owned by a session editing it
-right now. Two because they are governance calls rather than a pass's own
-tidy-up.
-
-The three worth naming here:
-
-- **`push-back` and `small-calls` are `status: active` at two levels each**,
-  with byte-identical bodies, each carrying an `approved_by` saying it was
-  moved up from a shared set. Only half of each move happened. Shared beats
-  universal, so **the copy that resolves is the old one** and the universal
-  copy the occasion index advertises never wins anywhere.
-- ~~**`very-deep-check` and `full-practice-audit` carry `scope: null`**,
-  which is not one of the two legal values, so both fall through to
-  `any-adopter` and ship into every consuming repo.~~ **Wrong, and
-  corrected 2026-09-22.** Both were untagged deliberately on 2026-09-21:
-  each declares a standing `command:`, and `engine-dev` withholds the
-  practice from a consuming repo, so the word does nothing there. The
-  stale thing was [PRACTICE_FORMAT.md](PRACTICE_FORMAT.md)'s list, which named four when
-  the tree carried three and not the same three. The
-  `checkable-gets-checked` gap was real, and
-  `check_scope_field_is_legal_and_matches_this_spec` now closes it — it
-  compares that list against the tree. Full account in that section of
-  [PRACTICE_FORMAT.md](PRACTICE_FORMAT.md).
-- **A consumer's own `AGENTS.md` carries a regenerate command that destroys
-  that consumer's `MAP.md` and `GLOSSARY.md`**, replacing them with
-  Precedent's own. `orientation-map` is resident, so the map every session
-  reads becomes the wrong repository's.
-
-**Expiring practices.** `merge-target-is-beta-branch` is **still binding**.
-Its condition is Morgan or Alex saying work moves to `main`, explicitly
-*not* a merge into `main` — and `main` took a regular fold-in today
-(PR #532). Nobody has said it.
-
-**Container state, both rows red on every session here.** Three shared sets
-are cloned twice on this disk, and the session check's stated remedy
-(repoint the user config) does not reach them because no config names the
-stray path. The beta-branch watermark commits into the individual source
-and pushes; from a session rooted here that push cannot land, so every
-session leaves another commit — four when this run started, five by the
-time it was written up. Both filed.
+**What needs the person, not a session.** A public practice set still
+exposes, through two old branches and 68 pull-request refs, files naming
+private repositories; the branches are a click each, the refs need GitHub
+Support. Recorded in the individual set's own open item, not here.
 
 ## Runs so far
 
 | Run | Passes completed | What it changed |
 |---|---|---|
+| 2026-09-28 | 1, 2, 3; 4 partial | Described under "Current run" above until the next run replaces it. |
+| 2026-09-22 | mechanical only | A tool run with no passes recorded in the ledger and no row here until 2026-09-28; nothing in this file says what, if anything, it read. |
+| 2026-09-21 | 1 (partial), 2 (partial), 3, 4 | The full four passes, scope said up front, while two other sessions pushed to the integration branch. Pass 1: five fixtures, one silently destructive defect and a roadblock (no consumer attached). Pass 2: all 69 tools' read-only verbs; 8 of 20 questions not attempted. Pass 3: all five catalogues and 33 shipped templates. Pass 4: verdicts on 11 branches (their counts were inflated by the shallow-fetch defect found 2026-09-28). Fixed in place: a retired `Session Text` command AGENTS.md still advertised against the rule in force, stale `Go merge` triggers, a wrong gotcha count, a quick-index row to a redirect stub. Findings: `todo-2026-09-21-pass-{1,2,3,4}-*`. |
 | 2026-09-20 (afternoon) | 1, 2, 3 (targeted); 4 not repeated | On Morgan's direct request, a follow-up to the same-day morning run — flagged before starting, because the actual delta (103 commits, ~7 hours) was far larger than the morning run's own 5-commit precedent for "narrow": README rewrite work, but also real engine changes (`verify_harness.py`, `doc_lint.py`'s new frontmatter-YAML check, `precedent_vendor_engine.py`'s CI-workflow retirement) and a go-update.md rewrite retiring "Go merge" as a trigger. Morgan chose "Targeted": mechanical suite re-run, a real (not full five-path) Pass 1 rehearsal scoped to the changed engine/install files, and a Pass-3 diff read of the 103 commits rather than the full catalogue. Pass 1 (sub-agent): built a scratch consumer pinned at the morning run's commit, refreshed it forward via `precedent_vendor_engine.py refresh`, hand-verified the refresh-replaces-itself self-heal path, ran `verify_harness.py`/`doc_lint.py` directly — clean, no findings. Pass 3 (sub-agent): 5 findings, all fixed same session — go-update's retirement never reached 9 places still teaching "Go merge" as live (the brand-new `prompt-please.md`'s own paste-ready template, 5 `documentation/` surfaces, and `templates/document-project/AGENTS.md`, which vendors the stale phrase into every adopting project), and `spec/README_REWRITE_PROPOSAL.md` still said "Nothing here touches README.md" / `status: drafted` after the rewrite had already landed as README.md and kept moving under 20+ further edits — marked `status: executed`, reworded. Mechanical five-gate suite (`verify_harness`/`doc_lint`/`leak_gate`/`precedent_check`/`doc_sync`) re-run clean after the fixes. Pass 4 not repeated — this morning's per-branch verdicts stand, nothing suggested branches moved. A single further commit (PR #493, a name-boundary fix in `precedent_decommission.py`) landed from elsewhere while this run was in progress; out of scope for this run, left for the next one. Private sets: still `HANDOFF`, unchanged. |
 | 2026-09-20 | 1 not run; 2, 3, 4 (partial) | On Morgan's direct request, one day after the 2026-09-19 full run. Scoped narrow up front and said so before running: only 5 commits had landed since 09-19 (2 doc-recipe fixes, 3 `HUMANS_AT_OUR_BEST`/philosophy edits), so this run skipped pass 1's rehearsals and pass 3's full catalogue re-read rather than repeat them a day later. Sources refreshed to current locally (`precedent_refresh_sources.py --apply`); the four private sets still `HANDOFF` (git-proxy access denied, confirmed by `--dry-run` probe) — none of their bootstrap/convergent/template-freshness drift is fixable from here. Mechanical five-gate suite: 1 real finding, `verify_harness.py`'s real-YAML-parser check — 17 `todo/*.md` files (16 found on the first pass, 1 more on a full-tree sweep after the first fix left the check still red) had a `decision:` frontmatter field opening `""` with an unescaped internal quote, which this repo's own permissive reader tolerated and PyYAML rejected; fixed by escaping the embedded quotes, verified clean on both the check and a direct parse. Narrow pass-3 read of the 5 landed commits: a link-text rename (`Our Working Loop` → `The Working Loop`) checked for stale references elsewhere (none) and for broken links via `doc_lint.py` against the 12 changed files explicitly (clean, only pre-existing warning-level unlinked-reference notices unrelated to this change). Unlanded-work inventory and live-session sweep read (not judged): 11 branches across this checkout and 3 private sources carry unlanded work, 14 more unmeasurable from a shallow clone; live-session sweep cross-checked against `list_sessions`/`get_session` found the two other sessions active on this repo since 09-19 (`Humans at our best content edits`, `CI/CD minutes cost escalation`) both completed and pushed, nothing orphaned. Base-branch drift: none. Endgame merge rehearsal: 0 conflicts, 0 silent disappearances (both under the same shallow-clone caveat the tool prints). GitHub API budget: 99.6-99.7% of the core allowance left. Pass 4's real per-branch merge-or-close judgment not repeated (09-19's verdicts stand); pass 1 not run at all. |
 | 2026-09-19 | 1, 2, 3, 4 — all four | On direct request; started mechanical-only, corrected mid-run to the full four passes after "the whole point of 'very deep check' is to do a very deep check" — now its own practice correction in `very-deep-check.md`. Pass 1: real install rehearsal, reproduces todo-114. Pass 2: mechanical suite clean. Pass 3: full 130-file catalogue coherence read (sub-agent), 25 findings, 3 categories fixed, rest queued in a new todo item. Pass 4: real per-branch judgment on this checkout's 8 unlanded branches (sub-agent, unshallowed clone, GitHub history checked) found the tool itself was fabricating 210-485 "unlanded commits" on branches already deleted upstream — 2 real bugs fixed (missing `--prune`, an `ahead` count computed before its merge-base precondition), the branch report shrank 617 → 341 lines. `record/stale_branches.md`'s own first commit tripped `filename-separator` (renamed to match `GOTCHAS_ARCHIVE.md`'s underscore) and the individual blocklist's vocabulary layer (accepted by the repo owner, not CI-visible). Base-branch drift none; endgame merge clean; the four private sets' bootstrap/convergent/template-freshness drift unchanged and still `HANDOFF`. Full catalogue's ~53-practice sequential judgment still not done — no run in this ledger ever has. |

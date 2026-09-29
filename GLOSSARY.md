@@ -14,6 +14,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Archive? | [archive-status-check](practices/archive-status-check.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
+| Boildown | [the-boildown](practices/the-boildown.md) |
+| Book | [go-update](practices/go-update.md) |
+| Book it | [go-update](practices/go-update.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
@@ -35,6 +38,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-update](practices/go-update.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
+| Landing branch | [tier-branch](practices/tier-branch.md) |
 | lease board | [lease-in-flight-work](practices/lease-in-flight-work.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | live citation | [practice-change-propagates](practices/practice-change-propagates.md) |
@@ -55,6 +59,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
+| Response Please | [response-please](practices/response-please.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
@@ -70,6 +75,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
+| Tier branch | [tier-branch](practices/tier-branch.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | Upstream fix | [upstream-fix](practices/upstream-fix.md) |

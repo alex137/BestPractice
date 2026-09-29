@@ -100,6 +100,48 @@ DOC_GLOB = "**/*.md"          # a pattern, or a list of patterns (e.g. slides ge
 SKIP_DIRS = ("process/upstream/",)
 
 
+def _committable_files():
+    """-> the repo-relative paths git would commit here (tracked, plus
+    untracked and not ignored), or None when git cannot say.
+
+    The orphan-sentinel scan used to take ROOT.glob(DOC_GLOB) whole, so it
+    walked ignored trees too -- and an ignored tree can hold a full copy of
+    this repo. Found 2026-09-28: `.claude/worktrees/` (gitignored, where
+    parallel agent sessions keep their own checkouts) put every worktree's
+    spec/LOADER.md in front of the scan, and each registered block there
+    read as an unregistered orphan in the main checkout. What is not going
+    to be committed is not this repo's document."""
+    try:
+        r = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z",
+                            "--cached", "--others", "--exclude-standard"],
+                           capture_output=True, text=True)
+    except OSError:
+        return None
+    if r.returncode != 0:
+        return None
+    return {f for f in r.stdout.split("\0") if f}
+
+
+def sentinel_blocks():
+    """-> {(document, block name)} for every column-0 `<!--gen:NAME-->`
+    sentinel in a DOC_GLOB document this repo would commit, minus SKIP_DIRS.
+    Without git (a bare copy of the tree) the glob stands alone, as before."""
+    committable = _committable_files()
+    found = set()
+    globs = [DOC_GLOB] if isinstance(DOC_GLOB, str) else list(DOC_GLOB)   # one pattern or several
+    for path in sorted({p for g in globs for p in ROOT.glob(g)}):
+        rel = path.relative_to(ROOT).as_posix()
+        if any(rel.startswith(d) for d in SKIP_DIRS):
+            continue
+        if committable is not None and rel not in committable:
+            continue
+        for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
+                              strip_fenced_code(path.read_text(errors="ignore")),
+                              re.M):
+            found.add((rel, mm.group(1)))
+    return found
+
+
 def strip_fenced_code(text):
     """Blank out fenced code blocks, keeping line numbering.
 
@@ -474,16 +516,7 @@ def main():
     # in a live document.) DOC_GLOB is the set of documents to scan for
     # sentinels; set it to wherever this repo keeps prose.
     registered = {(d, n) for d, n, _ in PAIRS}
-    found = set()
-    globs = [DOC_GLOB] if isinstance(DOC_GLOB, str) else list(DOC_GLOB)   # one pattern or several
-    for path in sorted({p for g in globs for p in ROOT.glob(g)}):
-        rel = str(path.relative_to(ROOT))
-        if any(rel.startswith(d) for d in SKIP_DIRS):
-            continue
-        for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
-                              strip_fenced_code(path.read_text(errors="ignore")),
-                              re.M):
-            found.add((rel, mm.group(1)))
+    found = sentinel_blocks()
     for doc, name in sorted(found - registered):
         print(f"[doc_sync] FAIL  {doc}: <!--gen:{name}--> is not in PAIRS — "
               "an unregistered block is never checked and its numbers rot "

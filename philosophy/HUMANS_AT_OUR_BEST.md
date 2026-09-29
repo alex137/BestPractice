@@ -126,7 +126,7 @@ and link back here — this page doesn't replace them.*
   are hard to say out loud at all — and so the part of
   [`transcribe-everything`](COMPANY_BUILDING_RULES.md#transcribe-everything) that never arrives.
 
-## See Also
+## See also
 
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

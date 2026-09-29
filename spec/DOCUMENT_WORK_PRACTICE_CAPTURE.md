@@ -92,7 +92,7 @@ she ever opens GitHub at all.
    bootstrapping problem to solve first.
 2. **A reusable document-project template.** Every future document
    project repo should be instantiated from one place, not re-derived —
-   folding together [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
+   folding together [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)'s
    vendoring steps, a `precedent.json` declaring the new team source
    (resolved live from a sibling clone, **never vendored** — SOURCES.md's
    rule), and [spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)'s
