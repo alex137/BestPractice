@@ -375,6 +375,20 @@ def _credential_args(repo_dir):
         return []
 
 
+def _depth(repo_dir, n):
+    """-> ['--depth=N'] for a clone that is ALREADY shallow, else [].
+
+    Passing --depth to a FULL clone does not limit the fetch: it truncates
+    the repository into a shallow one. merge-base then still resolves, to
+    the wrong commit, and every unlanded-work count downstream is fiction --
+    116 "unlanded" commits on a branch carrying 2, measured 2026-09-28. The
+    comments here used to say a depth-limited fetch "works on a shallow and
+    a full clone alike"; it does not. Same rule as freshness-guard.sh's
+    _fetch_base."""
+    rc, out, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    return [f'--depth={n}'] if rc == 0 and out.strip() == 'true' else []
+
+
 def _run_git(repo_dir, *args):
     pre = _credential_args(repo_dir) if args and args[0] in _NETWORK_GIT else []
     try:
@@ -441,9 +455,10 @@ def freshness(repo_dir, fetch=True):
         return out
     out['branch'] = branch
     if fetch:
-        # Bounded: --unshallow is blocked by some git policy hooks, and a
-        # depth-limited fetch works on a shallow and a full clone alike.
-        rc, _, err = _run_git(repo_dir, 'fetch', '--depth=500', 'origin', branch)
+        # Bounded, on a shallow clone only (--unshallow is blocked by some
+        # git policy hooks); see _depth for why never on a full one.
+        rc, _, err = _run_git(repo_dir, 'fetch', *_depth(repo_dir, 500),
+                              'origin', branch)
         if rc != 0:
             rc, _, err = _run_git(repo_dir, 'fetch', 'origin', branch)
         if rc != 0:
@@ -464,6 +479,13 @@ def freshness(repo_dir, fetch=True):
                         f"git -C {repo_dir} fetch --depth=50 origin {branch}   "
                         f"# origin has {branch}; this clone's refspec does not "
                         f"fetch it")
+                elif _contains_origin_base(repo_dir, out):
+                    # A local-only branch that already carries everything on
+                    # origin's base branch is current in every sense this
+                    # check needs. Refusing it cost a push, and on a repo
+                    # whose workflow runs on every push, an Actions job, to
+                    # prove nothing (2026-09-28).
+                    return out
                 else:
                     out['status'] = 'branch-not-on-origin'
                     out['remedy'] = (
@@ -556,6 +578,21 @@ def freshen(repo_dir, verdict):
     # verify-postcondition: re-read the state we wanted, rather than
     # trusting that the command reported success.
     return freshness(repo_dir, fetch=False)
+
+
+def _contains_origin_base(repo_dir, out):
+    """For a branch origin does not have: True, with `out` set to 'ahead',
+    when HEAD contains origin's declared base branch (else `main`)."""
+    base = _declared_base_branch(repo_dir) or 'main'
+    _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin', base)
+    ref = f'origin/{base}'
+    if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] != 0:
+        return False
+    rc, n, _ = _run_git(repo_dir, 'rev-list', '--count', f'{ref}..HEAD')
+    out['status'] = 'ahead'
+    out['behind'] = 0
+    out['ahead'] = int(n.strip()) if rc == 0 and n.strip().isdigit() else 0
+    return True
 
 
 def report_freshness(label, verdict, out=None):
@@ -774,7 +811,14 @@ def _github_slug(repo_dir):
 # one -- and staging itself was deleted from a merge page on 2026-09-26.
 NEVER_DELETE_BRANCHES = frozenset({
     'main', 'master', 'staging', 'pre-staging', 'precedent-beta-v01',
-    'precedent-promote-lock'})
+    'precedent-promote-lock', 'precedent-check-receipts'})
+
+# Branches that hold machinery, never work: Promote's lock (claims and
+# releases) and the push check's receipts (precedent_push_check.RECEIPT_BRANCH,
+# an orphan history). No branch's work can land on either, and neither has a
+# merge base to measure -- so "deepen and re-check", which this check used to
+# print for the receipts branch in every repo, could never resolve it.
+INFRA_BRANCHES = ('precedent-promote-lock', 'precedent-check-receipts')
 
 
 _NEVER_DELETABLE_CACHE = {}
@@ -950,7 +994,18 @@ def _orphan_scan(repo_dir):
     if checks_dir.is_dir() and practices_dir.is_dir():
         for f in sorted(checks_dir.glob('check_*.py')):
             slug = f.stem[len('check_'):].replace('_', '-')
-            if not (practices_dir / f'{slug}.md').is_file():
+            if (practices_dir / f'{slug}.md').is_file():
+                continue
+            # A script something here still RUNS has a job, whichever
+            # source owns its practice: BestPractice's ported identity
+            # checks run from the push gate, their practices live in the
+            # individual set (a false orphan on every run until 2026-09-28).
+            runners = [r for r in (list((repo_dir / '.claude' / 'hooks')
+                                        .glob('*.sh'))
+                                   + list(tools_dir.glob('*.py')))
+                       if f.name in r.read_text(encoding='utf-8',
+                                                errors='replace')]
+            if not runners:
                 out.append(f'tools/checks/{f.name} -- no '
                            f'practices/{slug}.md in this source for it to '
                            f'check (renamed or retired practice?)')
@@ -1256,7 +1311,11 @@ def _last_run_date(repo_dir):
     it is also the only honest start date for "what has happened since"."""
     try:
         data = json.loads(ledger_path_for(repo_dir).read_text(encoding='utf-8'))
-        runs = data.get('runs') or []
+        # COMPLETED runs only (2026-09-28): a run refused at FRESHNESS in
+        # two seconds used to become "the last run", and shrank every
+        # "since the last run" section to the last few minutes.
+        runs = [r for r in (data.get('runs') or [])
+                if r.get('completed', True)]
         return str(runs[-1].get('date')) if runs else None
     except (OSError, ValueError, AttributeError, IndexError):
         return None
@@ -1485,7 +1544,7 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
                 body = (proc.stdout or '') + (proc.stderr or '')
                 why = ''
                 for line in body.splitlines():
-                    if line.startswith(('SKIPPED', 'VIOLATION')):
+                    if line.startswith(('SKIPPED', 'VIOLATION', 'ADVISORY')):
                         for sep in ('\u2014', '--'):
                             if sep in line:
                                 why = line.split(sep, 1)[1].strip()
@@ -1498,6 +1557,12 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
                     verdicts.append((slug, 'UNREADABLE', 'no summary line'))
                 elif int(m.group(2)):
                     verdicts.append((slug, 'VIOLATION', why))
+                elif int(m.group(3)):
+                    # An advisory check reports here, not in "passed";
+                    # reading only passed/skipped called it "did not run".
+                    verdicts.append((slug, 'ADVISORY', why))
+                elif int(m.group(4)):
+                    verdicts.append((slug, 'ERRORED', why))
                 elif int(m.group(1)):
                     verdicts.append((slug, 'clean', ''))
                 elif int(m.group(5)):
@@ -1575,6 +1640,55 @@ def _pending_deletions(repo_dir):
     return [(r, deps.get(r, [])) for r in rels], f'kind {kind!r}'
 
 
+def _bot_email():
+    """The container's bot address, read from the hook that replaces it
+    (.claude/hooks/commit-identity.sh's BOT_EMAIL), so the two cannot
+    disagree; the literal is only the fallback for a tree without it."""
+    try:
+        m = re.search(r'^BOT_EMAIL="([^"]+)"', (
+            ROOT / '.claude' / 'hooks' / 'commit-identity.sh').read_text(
+                encoding='utf-8'), re.M)
+        if m:
+            return m.group(1).strip().lower()
+    except OSError:
+        pass
+    return 'noreply@anthropic.com'
+
+
+BOT_EMAIL = _bot_email()
+
+
+def _grandfathered_shas(repo_dir):
+    """-> set of full SHAs the repo exempts in `grandfathered_commit_shas`
+    of its root identity.json or precedent.json. A malformed entry is not
+    exempt (check_commit_author.py reports those)."""
+    shas = set()
+    for name in ('identity.json', 'precedent.json'):
+        try:
+            data = json.loads((pathlib.Path(repo_dir) / name).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for entry in (data or {}).get('grandfathered_commit_shas') or []:
+            sha = entry.get('sha') if isinstance(entry, dict) else None
+            if isinstance(sha, str) and re.fullmatch(r'[0-9a-f]{40}', sha):
+                shas.add(sha)
+    return shas
+
+
+def _shallow_start(repo_dir):
+    """-> 'YYYY-MM-DD' of the oldest commit a SHALLOW clone holds, or None
+    for a full clone (or one git cannot read)."""
+    rc, out, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    if rc != 0 or out.strip() != 'true':
+        return None
+    rc, out, _ = _run_git(repo_dir, 'log', '--all', '--format=%cs',
+                          '--max-parents=0')
+    dates = sorted(d for d in out.split()
+                   if re.fullmatch(r'\d{4}-\d\d-\d\d', d))
+    return dates[0] if rc == 0 and dates else None
+
+
 def _identity_reality(repo_dir, days=30, cap=300):
     """-> (rows, notes) for one repo: who the commits that LANDED say wrote
     them, read against the identity this repo declares.
@@ -1631,15 +1745,43 @@ def _identity_reality(repo_dir, days=30, cap=300):
         notes.append('git log could not be read here')
         return rows, notes
     commits = [l.split('\t') for l in out.split('\n') if l.count('\t') == 3]
+    # A shallow clone's window is only as long as its history (2026-09-28):
+    # "no commits in the last 30 days" from a clone fetched at depth 50 is
+    # a statement about the fetch, not about the repo.
+    _shallow = _shallow_start(repo_dir)
+    if _shallow:
+        _since = (datetime.date.fromisoformat(precedent_time.today(repo_dir))
+                  - datetime.timedelta(days=days)).isoformat()
+        if _shallow > _since:
+            notes.append(f'(shallow: history starts {_shallow}; window '
+                         f'truncated)')
+    # The repo's own exemptions, read the way check_commit_author.py and
+    # check_buenos_aires_dates.py read them (identity.json and
+    # precedent.json at the root): a commit a person already exempted, with
+    # a note saying why, is not a finding a second time.
+    _exempt = _grandfathered_shas(repo_dir)
+    if _exempt:
+        _kept = [c for c in commits if c[0] not in _exempt]
+        if len(_kept) != len(commits):
+            notes.append(f'{len(commits) - len(_kept)} grandfathered '
+                         f'commit(s) in the window, not read (the repo\'s '
+                         f'own grandfathered_commit_shas)')
+        commits = _kept
     if not commits:
         notes.append(f'no commits in the last {days} days to read')
         return rows, notes
 
     # 1 -- who wrote them
-    others, anonymous = {}, []
+    others, anonymous, bot = {}, [], []
     for sha, name, mail, _when in commits:
         low = (mail or '').strip().lower()
         if email and low == email:
+            continue
+        # The container's own bot identity is not "another author": it is
+        # what a commit carries when commit-identity.sh never ran, which is
+        # the failure that hook exists to prevent. Same test as its _is_bot.
+        if low == BOT_EMAIL or (name or '').strip() == 'Claude':
+            bot.append((sha[:9], name, mail))
             continue
         # The shapes a container invents when nothing configured an
         # identity. Matched on the ADDRESS, never the name: a person may
@@ -1656,6 +1798,13 @@ def _identity_reality(repo_dir, days=30, cap=300):
                                 f'container invents when nothing set one: '
                                 + ', '.join(f'{s} <{m}>'
                                             for s, _n, m in anonymous[:3])))
+    if bot:
+        rows.append(('FINDING', f'{len(bot)} commit(s) authored by the '
+                                f'container\'s bot identity <{BOT_EMAIL}> -- '
+                                f'what a commit carries when '
+                                f'commit-identity.sh did not set one: '
+                                + ', '.join(f'{s} <{m}>'
+                                            for s, _n, m in bot[:3])))
     if others:
         notes.append('other authors in the window (not a finding): '
                      + ', '.join(f'{k} x{v}' for k, v in
@@ -1763,8 +1912,16 @@ def _config_key_reads(repo_dir, others=()):
     what this removes is assembling the list.
 
     Keys beginning with `_` are skipped: this tree uses them for comments,
-    by convention, and they are not read by design."""
+    by convention, and they are not read by design.
+
+    Each row is (file, key, scripts here, repos in force whose scripts
+    mention it, practices that name it). The last is the READER THAT IS A
+    SESSION (2026-09-28): `writeup_dir` is read by whoever follows
+    practices/write-it-up.md, not by any script, and was reported as read
+    by nothing on every run until practice files joined the search."""
     repo_dir = pathlib.Path(repo_dir)
+    practice_texts = _practice_texts(
+        [('', repo_dir)] + [(l, pathlib.Path(o)) for l, o in others])
     # THE CORPUS IS NOT JUST tools/*.py, AND THAT WAS THIS CHECK'S OWN FIRST
     # FALSE POSITIVE. Run against tools/ alone, it reported
     # `stale_checkout_hours` as read by nothing -- and it is read, by
@@ -1800,7 +1957,7 @@ def _config_key_reads(repo_dir, others=()):
         try:
             doc = json.loads(f.read_text(encoding='utf-8'))
         except (OSError, ValueError):
-            rows.append((name, '(unreadable)', [], []))
+            rows.append((name, '(unreadable)', [], [], []))
             continue
         if not isinstance(doc, dict):
             continue
@@ -1840,8 +1997,36 @@ def _config_key_reads(repo_dir, others=()):
                             break
                     if hit:
                         elsewhere.append(label)
-            rows.append((name, key, where, elsewhere))
+            via = []
+            if not where:
+                quoted = (f'`{key}`', f'"{key}"', f"'{key}'")
+                via = sorted({slug for slug, text in practice_texts
+                              if any(q in text for q in quoted)})
+            rows.append((name, key, where, elsewhere, via))
     return rows, ''
+
+
+def _practice_texts(repos):
+    """-> [(slug, text)] for every practice file (practices/*.md and
+    local/practices/*.md) in each (label, path) repo, deduplicated by path.
+    The corpus a key's session-side reader lives in."""
+    out, seen = [], set()
+    for _label, repo in repos:
+        repo = pathlib.Path(repo)
+        for sub in ('practices', 'local/practices'):
+            d = repo / sub
+            if not d.is_dir():
+                continue
+            for f in sorted(d.glob('*.md')):
+                key = str(f.resolve())
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    out.append((f.stem, f.read_text(encoding='utf-8')))
+                except (OSError, UnicodeDecodeError):
+                    continue
+    return out
 
 
 _MOVED_CLAIM = re.compile(
@@ -1859,6 +2044,12 @@ _MOVED_CLAIM = re.compile(
     r'(?P<target>(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+'
     r'\.(?:md|py|sh|yml|yaml|json|template))',
     re.IGNORECASE)
+
+
+# The words that say a move's destination is itself gone, on the claim's
+# own line or the three after it.
+_MOVED_GONE = re.compile(r'\b(?:deleted|retired|removed|went with it)\b',
+                         re.IGNORECASE)
 
 
 def _moved_claims(repo_dir, cap=40):
@@ -1908,6 +2099,12 @@ def _moved_claims(repo_dir, cap=40):
         return None
     basenames = {pathlib.PurePosixPath(x).name
                  for x in out_ls.splitlines()}
+    # A file the engine SHIPS as a template exists in the only form this
+    # repo carries it: `templates/**/<name>.template` is what a consumer
+    # gets as <name> (2026-09-28, a false row on every run).
+    templated = {pathlib.PurePosixPath(x).name[:-len('.template')]
+                 for x in out_ls.splitlines()
+                 if x.startswith('templates/') and x.endswith('.template')}
     # THIS REPO WROTE IT vs THIS REPO RECEIVED IT, which is pass 2's own
     # first question applied here. A vendored engine file's comments are
     # UPSTREAM's prose, citing upstream's paths, and a repo that received
@@ -1925,7 +2122,8 @@ def _moved_claims(repo_dir, cap=40):
     for rel, text in files:
         if rel in vendored:
             continue
-        for i, line in enumerate(text.splitlines(), 1):
+        lines = text.splitlines()
+        for i, line in enumerate(lines, 1):
             # A markdown link carries its own target and doc_lint checks
             # that target; matching the link TEXT would report the label.
             bare = re.sub(r'\[[^\]]*\]\([^)]*\)', ' ', line)
@@ -1935,8 +2133,16 @@ def _moved_claims(repo_dir, cap=40):
                 beside = (repo_dir / rel).parent / target
                 if here.exists() or beside.exists():
                     continue
-                if pathlib.PurePosixPath(target).name in basenames:
+                name = pathlib.PurePosixPath(target).name
+                if name in basenames:
                     continue              # exists, just named without its path
+                if name in templated:
+                    continue              # shipped as templates/**/<name>.template
+                # A sentence NARRATING the deletion is history, not a live
+                # claim: "folded into precedent-check.yml, and it went with
+                # it when that was deleted" is true and stays true.
+                if _MOVED_GONE.search(' '.join(lines[i - 1:i + 3])):
+                    continue
                 out.append((rel, i, m.group('claim').strip(), target))
                 if len(out) >= cap:
                     return out
@@ -2015,6 +2221,100 @@ def _check_coverage(repo_dir, timeout=300):
         causes[key] = causes.get(key, 0) + 1
     return {'counts': counts, 'violated': violated, 'skipped': len(skipped),
             'causes': causes}, ''
+
+
+def _source_check_scripts(repo_root, sources, timeout=180):
+    """-> (rows, note). Every declared source's own check script whose
+    practice is IN FORCE here and that this repo's precedent_check.py never
+    runs, run against this checkout. rows are (verdict, slug, script,
+    detail), verdict one of PASS, VIOLATION, SKIPPED, ERROR, EXEMPT, and
+    NOTE for a `not_binding` list that could not be read.
+    (practice: very-deep-check, pass 2 question 15)
+
+    `not_binding` IS HONOURED THE WAY precedent_check.py HONOURS IT
+    (2026-09-28). This read no exemption at all, so a practice a repo had
+    declared not binding in its precedent.json still ran here and still
+    reported its violations as findings. Now a declared slug is not run and
+    comes back EXEMPT with the recorded reason -- reported, never dropped --
+    unless the practice is `severity: blocking`, which no exemption can
+    switch off (precedent_check.load_exemptions()'s rule). A malformed list
+    exempts nothing and says so in the note.
+
+    THE GAP (2026-09-28). precedent_check.py discovers check scripts only
+    in the repo's own tools/checks/ and local/tools/checks/ -- what
+    materialize wrote in, or a repo-local source's own. A repo that
+    materializes nothing (Precedent itself, whose universal source is `.`)
+    therefore has shared-set practices in force whose checks never run in
+    it: `private-repo-scrub` binds here, and its script had never been run
+    against this tree. The scripts already take PRECEDENT_CHECK_ROOT for
+    exactly this, so the check runs them from the source, pointed here.
+
+    A REPORT, NEVER A GATE: nothing here changes an exit code, and a
+    script's own "could not run" (exit 2) is SKIPPED, never a pass."""
+    repo_root = pathlib.Path(repo_root).resolve()
+    try:
+        res = pr.resolve([dict(s) for s in sources])
+    except Exception as exc:                                  # noqa: BLE001
+        return [], f'could not resolve the practices in force ({type(exc).__name__}: {exc})'
+    exempt_note = ''
+    try:
+        not_binding = pr.load_not_binding(repo_root)
+    except Exception as exc:                                  # noqa: BLE001
+        not_binding = {}
+        exempt_note = (f'`not_binding` could not be read ({exc}), so no '
+                       f'check is exempted')
+    own = set()
+    for d in (repo_root / 'tools' / 'checks',
+              repo_root / 'local' / 'tools' / 'checks'):
+        if d.is_dir():
+            own |= {f.name for f in d.glob('check_*.py')}
+    by_name = {s['name']: pathlib.Path(s['path']).resolve()
+               for s in sources if s.get('path')}
+    rows = []
+    for slug, practice in sorted(res.get('practices', {}).items()):
+        src = by_name.get(practice.get('source'))
+        if src is None or src == repo_root or repo_root in src.parents:
+            continue                  # this repo's own: precedent_check runs it
+        cb = bv._json_str((practice.get('fm') or {}).get('checked_by', ''))
+        cb = cb.strip().strip('"').strip("'")
+        if not (cb.endswith('.py') and '/checks/' in cb):
+            continue
+        script = src / cb
+        if pathlib.PurePath(cb).name in own:
+            continue                  # a copy here is already run
+        severity = str((practice.get('fm') or {}).get('severity')
+                       or 'default').strip('" \'')
+        if slug in not_binding and severity != 'blocking':
+            rows.append(('EXEMPT', slug, f'{practice.get("source")}:{cb}',
+                         f'declared not binding in precedent.json: '
+                         f'{not_binding[slug]}'[:200]))
+            continue
+        if not script.is_file():
+            rows.append(('ERROR', slug, cb, f'checked_by names {cb}, which '
+                                             f'{practice.get("source")} does '
+                                             f'not carry'))
+            continue
+        try:
+            r = subprocess.run([sys.executable, str(script)],
+                               cwd=str(repo_root), capture_output=True,
+                               text=True, timeout=timeout,
+                               env=dict(os.environ,
+                                        PRECEDENT_CHECK_ROOT=str(repo_root)))
+        except (OSError, subprocess.SubprocessError) as exc:
+            rows.append(('ERROR', slug, cb, type(exc).__name__))
+            continue
+        text = (r.stdout + r.stderr).strip()
+        first = next((l.strip() for l in text.splitlines()
+                      if l.strip() and not l.strip().startswith('VIOLATION:')),
+                     '')
+        verdict = {0: 'PASS', 1: 'VIOLATION', 2: 'SKIPPED'}.get(r.returncode,
+                                                                'ERROR')
+        rows.append((verdict, slug, f'{practice.get("source")}:{cb}',
+                     '' if verdict == 'PASS' else
+                     (first or f'exit {r.returncode}, no output')[:200]))
+    if exempt_note:
+        rows.append(('NOTE', 'not_binding', 'precedent.json', exempt_note))
+    return rows, ''
 
 
 def _job_count(path):
@@ -2133,6 +2433,25 @@ def _carry_through(repo_dir):
     manifest, why = pef.read_manifest(repo_dir)
     if manifest is None:
         return 'n/a', [why]
+    # WHAT IS COMMITTED, not what this container holds (2026-09-28). The
+    # session-start hook refreshes a source's engine in its working tree and
+    # never commits, so read from disk this said CURRENT in every session
+    # while origin never took the update -- the gap the section exists for.
+    rc, head_text, _ = _run_git(repo_dir, 'show',
+                                'HEAD:tools/ENGINE_MANIFEST.json')
+    worktree_note = None
+    if rc == 0:
+        try:
+            committed = json.loads(head_text)
+        except ValueError:
+            committed = None
+        if committed and committed.get('source_commit') \
+                and committed.get('source_commit') != manifest.get('source_commit'):
+            worktree_note = (f"working tree refreshed to "
+                             f"{str(manifest.get('source_commit'))[:12]}, NOT "
+                             f"COMMITTED -- HEAD still vendors "
+                             f"{committed['source_commit'][:12]}")
+            manifest = committed
     url = manifest.get('source_repo')
     branch = manifest.get('source_branch')
     recorded = manifest.get('source_commit')
@@ -2149,6 +2468,8 @@ def _carry_through(repo_dir):
         return 'current', [f'vendored engine matches {branch} at '
                            f'{recorded[:12]}']
     lines = [f'vendored {recorded[:12]}; upstream {branch} is at {tip[:12]}']
+    if worktree_note:
+        lines.append(worktree_note)
     result = pef.changed_files(repo_dir, url, recorded, tip,
                               manifest.get('files') or [])
     if result is None:
@@ -2166,6 +2487,25 @@ def _carry_through(repo_dir):
                      + (f' (+{len(removed) - 6} more)' if len(removed) > 6
                         else ''))
     return 'behind', lines
+
+
+def _manual_only(repo_dir, rel):
+    """True when every trigger of workflow `rel` is one a person or another
+    workflow fires by hand -- nothing a push or a clock can start. Unparseable
+    means False, so the caller keeps its FINDING."""
+    try:
+        import yaml
+        doc = yaml.safe_load((pathlib.Path(repo_dir) / rel)
+                             .read_text(encoding='utf-8'))
+    except Exception:                                            # noqa: BLE001
+        return False
+    if not isinstance(doc, dict):
+        return False
+    on = doc.get('on', doc.get(True))      # YAML 1.1 reads a bare `on` as True
+    names = ({on} if isinstance(on, str) else set(on or ())
+             if isinstance(on, (list, dict)) else set())
+    return bool(names) and names <= {'workflow_dispatch', 'workflow_call',
+                                     'repository_dispatch'}
 
 
 def _workflow_reality(repo_dir, max_workflows=25):
@@ -2287,6 +2627,10 @@ def _workflow_reality(repo_dir, max_workflows=25):
                                 f'never run. Either nothing has matched its '
                                 f'triggers yet or it is newer than the last '
                                 f'event -- read it, do not assume'))
+        elif edited_day and newest < edited_day and _manual_only(repo_dir, rel):
+            out.append(('NOTE', f'{rel}: manual triggers only, not '
+                                f'dispatched since it was last edited '
+                                f'({edited_day}) -- expected'))
         elif edited_day and newest < edited_day:
             out.append(('FINDING', f'{rel}: last run {newest}, last edited '
                                    f'{edited_day}. Every event since the '
@@ -3040,6 +3384,42 @@ _REMINDER_WELL_PAST_DAYS = 7
 _OPEN_ITEM_OLDEST_N = 5
 
 
+# A path an open item names in `blocked_on` can be one that only ever exists
+# in a CONSUMER -- the engine writes it there, or the classic §1 layout puts
+# it there -- and never in this repository. Resolving it here always misses,
+# and reporting that as "gone" says the item is blocked on something that no
+# longer exists when it was never ours to find (2026-09-28 very deep check:
+# `process/upstream` and `tools/ENGINE_MANIFEST.json` read as gone on two
+# live items). These are the consumer-only paths the engine itself defines;
+# the prose test below catches the ones an item names by its own framing.
+_CONSUMER_ONLY_PREFIXES = ('process/upstream/', 'process/manifest')
+_CONSUMER_FRAMING = re.compile(
+    r"\b(consumers?|consumer's|consuming (repo|project)|dependent repo|"
+    r"vendored|vendoring repo)\b", re.I)
+
+
+def _consumer_side_path(path, text):
+    """True when `path`, missing from this tree, is one that lives only in a
+    consumer: a file precedent_vendor_engine writes into a consumer's tools/
+    and never keeps here (its manifest), the classic process/upstream/
+    layout, or a path the item's own sentence frames as a consumer's. A path
+    that is simply gone from this repository answers False."""
+    p = re.sub(r'^(\.\.?/)+', '', path)
+    if p == 'process/upstream' or p.startswith(_CONSUMER_ONLY_PREFIXES):
+        return True
+    try:
+        import precedent_vendor_engine as pve
+        written = {f'tools/{pve.MANIFEST_NAME}'}
+    except ImportError:
+        written = {'tools/ENGINE_MANIFEST.json'}
+    if p in written:
+        return True
+    for sentence in re.split(r'(?<=[.;!?])\s+', text or ''):
+        if path in sentence and _CONSUMER_FRAMING.search(sentence):
+            return True
+    return False
+
+
 def _open_item_sweep(repo_dir):
     """-> findings (list[str]) for the OPEN ITEMS section. Three mechanical
     signals, each a question rather than a verdict -- matching
@@ -3072,18 +3452,28 @@ def _open_item_sweep(repo_dir):
             out.append(f'    {it.slug} -- {it.title[:80]}')
 
     named_gone = []
+    repo_root = pathlib.Path(repo_dir)
     for it in items:
         blocked = it.get('blocked_on') or ''
-        named = set(_GOTCHA_MD_LINK.findall(blocked))
-        named |= set(_GOTCHA_PATH_IN_TICKS.findall(blocked))
-        gone = sorted(p for p in named
-                     if not p.startswith(('http', 'mailto:', '#'))
-                     and not p.endswith('/')
-                     # resolved against todo/, not the repo root -- these
-                     # are links as written INSIDE a todo/*.md file, so a
-                     # bare sibling name or a "../" prefix both mean what
-                     # they say from there, same as a browser would read it
-                     and not (todo_dir / p.split('#')[0]).resolve().exists())
+        links = set(_GOTCHA_MD_LINK.findall(blocked))
+        ticks = set(_GOTCHA_PATH_IN_TICKS.findall(blocked)) - links
+        gone = []
+        for p in sorted(links | ticks):
+            if p.startswith(('http', 'mailto:', '#')) or p.endswith('/'):
+                continue
+            bare = p.split('#')[0]
+            # A markdown link is resolved against todo/ -- it is written
+            # INSIDE a todo/*.md file, so a bare sibling name or a "../"
+            # prefix means what it says from there, as a browser reads it.
+            # A backticked `tools/...` path is a repo path, not a link, and
+            # is resolved against the root: until 2026-09-28 both were read
+            # from todo/, so every backticked path read as gone.
+            base = todo_dir if p in links else repo_root
+            if (base / bare).resolve().exists():
+                continue
+            if _consumer_side_path(bare, blocked):
+                continue
+            gone.append(p)
         if gone:
             named_gone.append((it, gone))
     if named_gone:
@@ -3436,7 +3826,13 @@ def _template_freshness(sources):
     # reporting them as gaps would be a false positive in every set at once.
     # Read from the module rather than retyped: a hook added to SESSION_HOOKS
     # upstream would otherwise start reading as a template gap here.
-    NOT_SKELETON |= set(bss.SESSION_HOOKS) | {'settings.json'}
+    # Every file the GENERATOR writes, not only the three session hooks:
+    # these five were reported as template gaps on every run although
+    # bootstrap writes each one (todo-2026-09-21-template-freshness-reports-
+    # five-phantom-gaps).
+    NOT_SKELETON |= (set(bss.ALL_SESSION_HOOKS)
+                     | {'settings.json', 'CLAUDE.md', 'precedent.json',
+                        'precedent-source.json'})
     # WHICH DIRECTORIES COUNT. Root files plus the two directories bootstrap
     # itself writes into -- those are the set's SHAPE. `practices/` and
     # anything else is the set's own content, where a name every set happens
@@ -3872,8 +4268,14 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         try:
             # bootstrap() prints its own stale-clone warning; that belongs to
             # a person bootstrapping a set, not to this section's output.
-            with contextlib.redirect_stdout(io.StringIO()):
-                bootstrap_source.bootstrap(level, name, gen_root, approvers=approvers)
+            _err = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), \
+                        contextlib.redirect_stderr(_err):
+                    bootstrap_source.bootstrap(level, name, gen_root,
+                                               approvers=approvers)
+            finally:
+                _pass_generator_stderr_once(_err.getvalue())
         except Exception as exc:                                  # noqa: BLE001
             return [f'FINDING {level}: the generator could not be run for '
                     f'{name!r}, so NOTHING here was compared -- '
@@ -4034,6 +4436,27 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# What the generator printed to stderr, by shape, across this process.
+# bootstrap() runs once per source, and its engine prints the same "N hook
+# script(s) ... are not wired" NOTE every time -- the same words, a different
+# scratch set -- so a run with five sources printed it five times.
+_GENERATOR_STDERR_SEEN = set()
+
+
+def _pass_generator_stderr_once(text):
+    """Print each line the generator wrote to stderr, once per shape: a
+    line that differs from one already printed only in its counts or its
+    parenthesized list is the same message again."""
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        key = re.sub(r'\([^)]*\)', '()', re.sub(r'\d+', 'N', line))
+        if key in _GENERATOR_STDERR_SEEN:
+            continue
+        _GENERATOR_STDERR_SEEN.add(key)
+        print(line, file=sys.stderr)
+
+
 def _bootstrap_drift(sources, collect=None):
     """-> [str] _bootstrap_drift_one across every resolved team/individual
     source, or one line saying why nothing was compared. A section that
@@ -4175,10 +4598,10 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     # `git merge-base` is the honest witness: on the same fixture it exits
     # 1 where cherry exits 0 (AGENTS.md records that exit-1 separately, as
     # something NOT to read as a rewritten branch -- here it is the signal).
-    # Deepen once before giving up: the answer is usually reachable, and a
-    # bounded fetch works on a shallow and a full clone alike.
+    # Deepen once before giving up: the answer is usually reachable. A full
+    # clone is fetched plainly -- see _depth.
     if not _merge_base_resolves(repo_dir, target_ref, ref):
-        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin')
     resolves = _merge_base_resolves(repo_dir, target_ref, ref)
     # `rev-list --count target..ref` moved here, gated on the SAME
     # precondition as `cherry` (practice: very-deep-check). On a shallow
@@ -4198,6 +4621,14 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
         if rc == 0:
             row['unique'] = sum(1 for ln in out.splitlines()
                                 if ln.startswith('+'))
+        # `git cherry` counts commits, not change: a branch that adds a
+        # line and then reverts it carries two `+` commits and nothing at
+        # all to land. The three-dot diff (merge base to branch tip) is the
+        # net change; exit 0 means there is none (filed 2026-09-21, pass 4).
+        if row['unique']:
+            rc, _, _ = _run_git(repo_dir, 'diff', '--quiet',
+                                f'{target_ref}...{ref}')
+            row['net_empty'] = rc == 0
     if row['unique'] is None:
         # Never guess here. A fabricated verdict is worse than none: this is
         # the branch someone might delete on it.
@@ -4211,6 +4642,9 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
                           f'equivalent on {target} (rebased or squash-merged '
                           f'in), so there is nothing to merge. Deletion '
                           f'candidate that the ancestor test cannot see')
+    elif row.get('net_empty'):
+        row['verdict'] = ('net-empty: its commits cancel out; nothing to '
+                          'land')
     else:
         _age = ''
         if row.get('stale'):
@@ -4261,7 +4695,8 @@ def _fetch_all_heads(repo_dir):
     # `have - server` never having been computed here is why nothing caught
     # it. `--prune` deletes only local tracking refs; it touches nothing on
     # the remote.
-    rc, _, _ = _run_git(repo_dir, 'fetch', '--prune', '--depth=50', 'origin')
+    rc, _, _ = _run_git(repo_dir, 'fetch', '--prune', *_depth(repo_dir, 50),
+                        'origin')
     if rc != 0:
         _run_git(repo_dir, 'fetch', '--prune', 'origin')
     # ls-remote asks the SERVER and ignores local refs entirely, so it is the
@@ -4359,7 +4794,7 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # The lock branch holds claims, never work, so it is nowhere a branch's
     # work can have landed.
     others = [b for b in sorted(protected)
-              if b != target and b != 'precedent-promote-lock'
+              if b != target and b not in INFRA_BRANCHES
               and _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
                            f'origin/{b}')[0] == 0]
     merged, elsewhere, unmerged = [], [], []
@@ -4466,7 +4901,8 @@ def recent_activity(repo_dir, days):
     # its commits are claims and releases, never work, so neither they nor
     # the branch are listed here.
     rc, log, _ = _run_git(repo_dir, 'log',
-                          '--exclude=refs/remotes/origin/precedent-promote-lock',
+                          *(f'--exclude=refs/remotes/origin/{b}'
+                            for b in INFRA_BRANCHES),
                           '--remotes=origin',
                           f'--since={since}', '--date-order',
                           '--format=%h%x00%cs%x00%an%x00%s')
@@ -4495,7 +4931,7 @@ def recent_activity(repo_dir, days):
             if '/' not in parts[0]:
                 continue
             name = parts[0].split('/', 1)[1]
-            if name in ('HEAD', 'precedent-promote-lock'):
+            if name == 'HEAD' or name in INFRA_BRANCHES:
                 continue
             out['branches'].append({'name': name, 'last': parts[1],
                                     'author': parts[2]})
@@ -4734,7 +5170,7 @@ def tier_pairs(repo_dir, target=None):
         if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
                     f'origin/{b}')[0] == 0:
             return True
-        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin', b)
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin', b)
         return _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
                         f'origin/{b}')[0] == 0
 
@@ -4799,7 +5235,7 @@ def base_branch_drift(repo_dir, target=None, base=None, limit=25):
     for ref in (base_ref, target_ref):
         rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
         if rc != 0:
-            _run_git(repo_dir, 'fetch', '--depth=5000', 'origin',
+            _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin',
                      ref.split('/', 1)[1])
         rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
         if rc != 0:
@@ -4814,7 +5250,7 @@ def base_branch_drift(repo_dir, target=None, base=None, limit=25):
     # commit `+`, which here would invent a base branch's whole history as
     # undelivered drift. Deepen once, then refuse rather than guess.
     if not _merge_base_resolves(repo_dir, target_ref, base_ref):
-        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 5000), 'origin')
     if not _merge_base_resolves(repo_dir, target_ref, base_ref):
         out['note'] = (f'no merge base between {target_ref} and {base_ref} '
                        f'resolves in this clone, so the patch comparison '
@@ -5730,9 +6166,10 @@ def _repo_refs_in_instruction_files(rows):
     instructions file NAMES, across every repo in force.
 
     WHY THIS IS NOT A CLOSE READ (Morgan, 2026-09-21, strength: decided).
-    An Update Vendors pass found a consuming repo's AGENTS.md naming
-    `VoiceDefinitionMorgan` twice -- in the session-start step and again in
-    a tool's description -- where the real repository is `VoiceDefMorgan`.
+    An Update Vendors pass found a consuming repo's AGENTS.md naming a
+    private voice-definition repository under its old name, twice -- in the
+    session-start step and again in a tool's description -- after the real
+    repository had been renamed.
     That file's own step 1 warns about a source name going stale silently.
 
     Two checks came close and neither asks this. `repo-reference-allowlist`
@@ -5833,6 +6270,69 @@ def instruction_file_repo_refs_audit(repo_root, sources=(), missing=(),
           f'{checked} of {len(todo)} answered'
           + (f' -- {len(findings)} finding(s)' if findings else ''), file=out)
     return findings, notes
+
+
+def _live_vs_landing(repo_dir, live='main'):
+    """-> [(verdict, message)]: what this run reads in `repo_dir`, against
+    the live version, and what the landing branch carries that is not live
+    yet.
+
+    READ MAIN, WRITE THROUGH THE LANDING BRANCH (Morgan, 2026-09-28,
+    strength: decided): a very deep check judges the version people are
+    actually running, which is `main`, and changes it only by the ordinary
+    route -- a working branch landed on the person's landing branch by
+    `Go update`, then a Promote. Until then a run read whatever the harness
+    had checked out: `main` in one repo and `pre-staging` in four others,
+    the same afternoon, with nothing saying so.
+
+    The landing branch half exists because reading `main` alone would
+    re-find what is already fixed and waiting to be promoted, and a second
+    fix for it is a merge conflict, not a contribution."""
+    out = []
+    if _run_git(repo_dir, 'rev-parse', '--git-dir')[0] != 0:
+        return out
+    ref = f'origin/{live}'
+    if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)[0] != 0:
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin', live)
+    rc, live_tree, _ = _run_git(repo_dir, 'rev-parse', f'{ref}^{{tree}}')
+    if rc != 0:
+        return [('UNVERIFIED', f'no {ref} in this clone, so what is live '
+                               f'cannot be compared')]
+    _, head_tree, _ = _run_git(repo_dir, 'rev-parse', 'HEAD^{tree}')
+    _, branch, _ = _run_git(repo_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
+    _, live_sha, _ = _run_git(repo_dir, 'rev-parse', '--short', ref)
+    if head_tree.strip() == live_tree.strip():
+        out.append(('OK', f'reads the live version: {branch.strip()} has '
+                          f'exactly {ref}\'s tree ({live_sha.strip()})'))
+    else:
+        _, diff, _ = _run_git(repo_dir, 'diff', '--name-only', ref, 'HEAD')
+        files = [f for f in diff.splitlines() if f.strip()]
+        out.append(('NOTE', f'reads {branch.strip()}, which differs from '
+                            f'the live {ref} in {len(files)} file(s) -- a '
+                            f'finding there may describe work that is not '
+                            f'live, or already be fixed here'))
+    try:
+        import precedent_branches as _pb
+        landing = _pb.landing_branch(pathlib.Path(repo_dir))[0]
+    except Exception:                                            # noqa: BLE001
+        landing = None
+    if landing and landing != live:
+        lref = f'origin/{landing}'
+        if _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', lref)[0] == 0:
+            _, ahead, _ = _run_git(repo_dir, 'diff', '--name-only', ref, lref)
+            files = [f for f in ahead.splitlines() if f.strip()]
+            if files:
+                shown = ', '.join(files[:8]) + (f' (+{len(files) - 8} more)'
+                                                if len(files) > 8 else '')
+                out.append(('NOTE', f'{lref} (the landing branch) is not yet '
+                                    f'live in {len(files)} file(s): {shown}. '
+                                    f'Before fixing a finding in one of '
+                                    f'these, check whether {landing} already '
+                                    f'did'))
+            else:
+                out.append(('OK', f'{lref} (the landing branch) carries '
+                                  f'nothing that is not live'))
+    return out
 
 
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
@@ -6330,10 +6830,27 @@ def _record_pass(value, path=None, repo=None):
         print(f"very deep check FAIL: {path} records no run yet.",
               file=sys.stderr)
         return 1
-    runs[-1].setdefault('passes', []).append(entry)
+    # The last COMPLETED run (2026-09-28), same rule as _last_run_date: a
+    # pass worked by hand belongs to the run whose enumeration it worked
+    # from, and a run refused at FRESHNESS, or killed partway, enumerated
+    # nothing to work from.
+    done = [r for r in runs if r.get('completed', True)]
+    if not done:
+        print(f"very deep check FAIL: {path} records no completed run yet "
+              f"-- run the check to the end before recording a pass "
+              f"against it.", file=sys.stderr)
+        return 1
+    target = done[-1]
+    if target is not runs[-1]:
+        later = runs[runs.index(target) + 1:]
+        print(f"  note: the newest {len(later)} run(s) in the ledger did not "
+              f"complete (newest {runs[-1].get('run_id')}); this pass is "
+              f"recorded against the last completed run instead.",
+              file=sys.stderr)
+    target.setdefault('passes', []).append(entry)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     print(f"recorded: pass {name} = {status or '(no status)'} against the run "
-          f"of {runs[-1].get('run_id')} in {path}.")
+          f"of {target.get('run_id')} in {path}.")
     return 0
 
 
@@ -6353,13 +6870,64 @@ def branch_report_path_for(repo_root=None):
     return pathlib.Path(repo_root or ROOT) / BRANCH_REPORT_RELPATH
 
 
-def _delete_row_lines(r, path, show_into=False):
+def _leak_matched_branch_names(repo_root, names):
+    """-> the subset of `names` that this repo's leak blocklist matches, or
+    frozenset() when the repo is private (a private repo's tracked files are
+    not a publication, so there is nothing to redact).
+
+    WHY THIS EXISTS (found 2026-09-28, the first very deep check run with
+    the individual source's blocklist resolved). Branch names are chosen by
+    whoever opened the branch, and some name a private project. The branch
+    report and the safe-to-delete embed are TRACKED files, so the run wrote
+    such a name into this public repo and its own push gate refused the
+    result: the leak gate, run over the check's own output. Reading the SAME
+    blocklist the push gate reads, through leak_gate's own loader, keeps the
+    two from disagreeing about what counts as private."""
+    if not bv.repo_is_public(repo_root):
+        return frozenset()
+    try:
+        patterns, _desc, _private = leak_gate.load_blocklist()
+    except SystemExit:
+        # A misconfigured blocklist is the push gate's to report; this
+        # writer redacts nothing it cannot read, and the push gate will
+        # still refuse whatever gets through.
+        return frozenset()
+    return frozenset(n for n in names if any(p.search(n) for p in patterns))
+
+
+def _branch_report_privacy(repo_root, sources, branch_scans):
+    """-> (held_back, redact): what a repo's TRACKED branch report may not
+    carry. `held_back` is the set of `branch_scans` keys for sources
+    `build_views.sources_for_tracked_block()` defers -- the one rule that
+    already keeps their practice text out of the catalogue embed -- and is
+    empty in a private repo. `redact` is every scanned branch name the leak
+    blocklist matches (`_leak_matched_branch_names`)."""
+    held_back = set()
+    if bv.repo_is_public(repo_root):
+        _, deferred, _ = bv.sources_for_tracked_block(repo_root, sources)
+        held_back = {f"{s['level']} source {s['name']}" for s in deferred}
+    names = {r['name'] for sc in branch_scans.values() if sc
+             for key in ('merged', 'merged_elsewhere', 'unmerged')
+             for r in (sc.get(key) or [])}
+    return held_back, _leak_matched_branch_names(repo_root, names)
+
+
+def _redacted_row_line():
+    return ('- *(one branch whose name matches this repo\'s leak blocklist '
+            '-- named in the console output only, never in a tracked file)*')
+
+
+def _delete_row_lines(r, path, show_into=False, redact=frozenset()):
     """-> the bullet + delete-link lines for one merged branch row.
 
     Shared by `_write_branch_report` (every section, every repo) and
     `emit_merged_stale_checkout` (just the checkout's safe-to-delete list,
     for the `--emit` block spec/VERY_DEEP_CHECK.md embeds) so the two
-    never drift into two different renderings of the same row."""
+    never drift into two different renderings of the same row. A name in
+    `redact` (see `_leak_matched_branch_names`) is replaced by a placeholder
+    with no link, since the link would carry the name too."""
+    if r['name'] in redact:
+        return [_redacted_row_line()]
     age = (f"last commit {r['last']}, {r['age_days']} day(s) old"
            if r['last'] else "last commit date unreadable in this clone")
     who = f", last touched by {r['author']}" if r.get('author') else ''
@@ -6381,7 +6949,7 @@ def _delete_row_lines(r, path, show_into=False):
     return lines
 
 
-def _merged_stale_checkout_markdown(scan):
+def _merged_stale_checkout_markdown(scan, redact=frozenset()):
     """-> the merged-and-stale (safe-to-delete) branch list from an
     already-computed `scan_branches()` result, as markdown. Shared by
     `emit_merged_stale_checkout` (its own fresh scan, for `--emit`) and the
@@ -6398,7 +6966,7 @@ def _merged_stale_checkout_markdown(scan):
         return f'(none -- no merged branch is >= {sd} days stale right now)'
     lines = []
     for r in stale:
-        lines.extend(_delete_row_lines(r, path))
+        lines.extend(_delete_row_lines(r, path, redact=redact))
     # What SUCCESS looks like, said once (practice: branch-delete-links). A
     # deleted branch's filtered page reads "no branches matched", which reads
     # as an error to anyone who has not been told otherwise.
@@ -6431,7 +6999,10 @@ def _practice_catalogue_rows(sources):
         pdir = pathlib.Path(s['path']) / 'practices'
         if not pdir.is_dir():
             continue
-        for fm, sections, f in bv.load_practices(pdir):
+        # Quiet: this loads every catalogue up to three times a run, and
+        # the not-in-force roster it would print each time is ~120 lines
+        # of stderr saying nothing this section does not already say.
+        for fm, sections, f in bv.load_practices(pdir, announce=False):
             slug = bv._json_str(fm.get('slug', '')) or f.stem
             clause = bv._index_clause(fm, sections) or '(no description on file)'
             rows.append((s['level'], s['name'], slug, clause))
@@ -6480,84 +7051,16 @@ def _practice_catalogue_markdown(sources):
     return '\n'.join(lines)
 
 
-def _practice_catalogue_for_tracked_doc(repo_root, sources):
-    """-> (markdown, held_back) for what `_update_spec_doc_block` may
-    actually WRITE into this repo's own tracked spec/VERY_DEEP_CHECK.md --
-    as opposed to `_practice_catalogue_markdown(sources)`, which is fine to
-    print to a session's own console/chat every time, since that output is
-    never committed.
-
-    THE MISTAKE THIS FIXES (found 2026-09-24, by Morgan, the morning after
-    the section first shipped): the first version embedded every source's
-    clauses into this file unconditionally, including `individual` and
-    `shared` sources -- so running the very deep check in a repo that
-    declares `visibility: public` (this one) committed
-    `precedent-individual`'s and every shared source's own practice text
-    into a world-readable file, permanently, the same disclosure
-    `build_views.py`'s `repo_is_public()` / `sources_for_tracked_block()`
-    already exist to prevent for the AGENTS.md loader block -- see that
-    function's own docstring, "THE ONE PLACE that decides what a repo's
-    COMMITTED loader block may carry." This reuses that exact function
-    rather than a second, drifting copy of the same level filter (pass 2's
-    own "is there a duplicate implementation" question).
-
-    Reuses it CORRECTLY, not just calls it: `sources_for_tracked_block`
-    also holds back a practice SET's own declared sources for a different
-    reason (case 2 in its docstring -- a set committing a second copy of
-    universal's text) -- irrelevant here, since this repo is the engine's
-    own origin and `repo_is_practice_source()` is False for it, but a
-    caller in a set's own tooling would get that split too, for free,
-    which is the point of calling the one function rather than
-    re-deriving `PRIVATE_LEVELS` locally.
-
-    `held_back` is `[]` exactly when nothing was excluded (a private repo,
-    or a public one with no non-universal, non-repo-local source
-    declared) -- the caller uses that to decide whether an advisory note is
-    owed at all."""
-    tracked, deferred, _notes = bv.sources_for_tracked_block(repo_root, sources)
-    md = _practice_catalogue_markdown(tracked)
-    if not deferred:
-        return md, []
-    held_back_names = [f"{s['name']} ({s['level']})" for s in deferred]
-    held_back_n = sum(1 for row in _practice_catalogue_rows(deferred))
-    advisory = (
-        f"\n\n**{held_back_n} practice(s) across {len(deferred)} source(s) "
-        f"held back from this file: {', '.join(held_back_names)}.** This "
-        f"repo's own `precedent.json` declares `visibility: public` (or "
-        f"never declared one, which this engine treats the same way, fail "
-        f"safe) -- this file is tracked, so writing another source's own "
-        f"practice text into it would publish that source, permanently, "
-        f"for the identical reason `build_views.py` already holds a team or "
-        f"individual source out of the generated AGENTS.md loader block. "
-        f"**The full list, held-back sources included, still prints to the "
-        f"session's own console/chat on every run** -- nothing here is lost, "
-        f"only kept out of this committed file. Advise the person of that "
-        f"before doing anything else with it, and ask which they actually "
-        f"want: committed here too (re-run with "
-        f"`--catalogue-include-private`, an explicit, informed choice, "
-        f"never a default), left as chat-only (nothing further to do), or "
-        f"not generated at all (`--skip-practice-catalogue`). Never decide "
-        f"this silently in either direction -- and never assume it once "
-        f"for every repo: a repo that declares `visibility: private` skips "
-        f"this note entirely, because there is nothing there to hold back.")
-    return md + advisory, deferred
-
-
 def emit_practice_catalogue(repo=None, user_config=None, include_private=False):
     """-> the slug + one-sentence practice catalogue across this checkout
     and every resolved source, as markdown, for `--emit` (practice:
     very-deep-check).
 
-    MATCHES WHAT `_update_spec_doc_block` ACTUALLY WRITES, by default --
-    `include_private=False` (the default, and what a bare `--emit
-    practice-catalogue` gives you) runs the same
-    `_practice_catalogue_for_tracked_doc()` visibility gate the real run
-    uses before committing anything, so this command reproduces the tracked
-    block rather than a fuller one nothing ever commits. Pass
-    `include_private=True` (`--catalogue-include-private` on the CLI) only
-    once a person has actually said they want a public repo's tracked file
-    to carry another source's practice text -- see that function's
-    docstring for why this defaults closed rather than open.
+    Every source, private ones included, to stdout only. Nothing writes
+    this list into a committed file since 2026-09-28; the person gets it on
+    the session-only review page (precedent_review_page.py).
+    `include_private` and `--catalogue-include-private` are accepted and
+    have no effect, so an older invocation still runs.
 
     WHY THIS EXISTS (2026-09-23). Morgan asked, in the same turn, for a
     session-readable list -- every practice's slug and a one-sentence
@@ -6580,10 +7083,9 @@ def emit_practice_catalogue(repo=None, user_config=None, include_private=False):
     block does not repeat that check."""
     repo_root = pathlib.Path(repo or ROOT).resolve()
     data = enumerate_scope(repo_root, user_config)
-    if include_private:
-        return _practice_catalogue_markdown(data['sources'])
-    md, _held_back = _practice_catalogue_for_tracked_doc(repo_root, data['sources'])
-    return md
+    # Every source, private ones included: this goes to stdout only, and
+    # nothing commits it since 2026-09-28 (precedent_review_page.py).
+    return _practice_catalogue_markdown(data['sources'])
 
 
 def emit_merged_stale_checkout(repo_root=None):
@@ -6609,7 +7111,10 @@ def emit_merged_stale_checkout(repo_root=None):
     cannot be a doc_sync-gated invariant. `_update_spec_doc_block()` below
     is what actually keeps spec/VERY_DEEP_CHECK.md current, writing this
     same markdown whenever the checkout's own branch scan runs for real."""
-    return _merged_stale_checkout_markdown(scan_branches(repo_root or ROOT))
+    scan = scan_branches(repo_root or ROOT)
+    names = {r['name'] for r in (scan or {}).get('merged', [])}
+    return _merged_stale_checkout_markdown(
+        scan, redact=_leak_matched_branch_names(repo_root or ROOT, names))
 
 
 SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
@@ -6649,7 +7154,8 @@ def _update_spec_doc_block(repo_root, name, markdown):
     return False
 
 
-def _write_branch_report(branch_scans, out_path, repo_root):
+def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
+                         redact=frozenset()):
     """Write `branch_scans` (the same dict the console BRANCHES section
     prints, and --json's 'branches' key) to `out_path` as committable
     Markdown, with a real clickable link on every row.
@@ -6669,7 +7175,16 @@ def _write_branch_report(branch_scans, out_path, repo_root):
     whoever last touched it, not filtered to the person running the check
     (practice: very-deep-check's `_branch_meta` docstring: "you do not
     delete somebody else's branch" is why the author is named, never why a
-    row is dropped)."""
+    row is dropped).
+
+    TWO THINGS ARE KEPT OUT OF THE FILE IN A PUBLIC REPO, and both still
+    print to the console in full. A section in `held_back` -- a source
+    `build_views.sources_for_tracked_block()` defers, the same rule that
+    keeps its practice text out of the catalogue embed -- is replaced by a
+    one-line note: until 2026-09-28 this file carried the PRIVATE individual
+    set's branch names, authors and dates in a world-readable tree. And a
+    branch name in `redact` loses its row text and link (see
+    `_leak_matched_branch_names`)."""
     out_path = pathlib.Path(out_path)
     today = precedent_time.today(repo_root)
     lines = []
@@ -6719,7 +7234,8 @@ def _write_branch_report(branch_scans, out_path, repo_root):
     lines.append('')
 
     def _row(r, path, show_into):
-        lines.extend(_delete_row_lines(r, path, show_into=show_into))
+        lines.extend(_delete_row_lines(r, path, show_into=show_into,
+                                       redact=redact))
 
     def _section(title, rows, empty_note, path, show_into=False):
         lines.append(f'### {title}')
@@ -6738,6 +7254,14 @@ def _write_branch_report(branch_scans, out_path, repo_root):
         if scan is None:
             lines.append('Not its own git checkout, or its integration '
                          'branch could not be resolved -- skipped.')
+            lines.append('')
+            continue
+        if name in held_back:
+            lines.append('Held back from this file: this repo is public, '
+                         'and this source is one its tracked files never '
+                         'describe (the rule `build_views.py` applies to '
+                         'the loader block). The console output of the run '
+                         'lists every branch here in full.')
             lines.append('')
             continue
         path = scan.get('path')
@@ -6772,6 +7296,9 @@ def _write_branch_report(branch_scans, out_path, repo_root):
         lines.append('')
         if scan['unmerged']:
             for r in scan['unmerged']:
+                if r['name'] in redact:
+                    lines.append(_redacted_row_line())
+                    continue
                 ahead = f", {r['ahead']} commit(s) ahead" if r.get('ahead') is not None else ''
                 who = f", last touched by {r['author']}" if r.get('author') else ''
                 age = f", last commit {r['last']}" if r['last'] else ''
@@ -6833,8 +7360,48 @@ def main():
             led.finish(completed=box['completed'])
 
 
+# Every flag _main reads. A flag outside these two sets used to fall
+# through to a full run: `--check`, `--explain`, `--list` and `--dry-run`
+# (each a real flag in a sibling tool) each started the whole audit and
+# appended an incomplete row to the ledger -- which then became "the last
+# run" every since-the-last-run section reads from (filed 2026-09-21, still
+# true 2026-09-28). An unknown flag is refused before anything is read or
+# recorded.
+VALUED_FLAGS = ('--repo', '--user-config', '--target', '--stale-days',
+                '--session-days', '--record-pass', '--record-read',
+                '--ledger', '--branch-report', '--emit')
+BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
+                 '--skip-practice-catalogue', '--catalogue-include-private',
+                 '--checklist', '--with-harness', '--skip-visibility',
+                 '--skip-liveness', '--landable-only', '--skip-endgame-merge',
+                 '--skip-base-drift', '--skip-session-sweep', '--allow-stale',
+                 '--freshen', '--help', '-h')
+
+
+def _unknown_args(argv):
+    """-> the arguments in `argv` that are no flag _main reads (a valued
+    flag's value is skipped with it)."""
+    unknown, i = [], 0
+    while i < len(argv):
+        a = argv[i]
+        if a in VALUED_FLAGS:
+            i += 2
+            continue
+        if a not in BOOLEAN_FLAGS:
+            unknown.append(a)
+        i += 1
+    return unknown
+
+
 def _main(box):
     args = sys.argv[1:]
+    _bad = _unknown_args(args)
+    if _bad:
+        print(f"very deep check FAIL: unknown argument(s) "
+              f"{', '.join(repr(a) for a in _bad)} -- refused before "
+              f"anything ran, so the ledger is untouched.\n\n"
+              f"{(__doc__ or '').strip()}", file=sys.stderr)
+        return 2
     repo, user_config, checkout_target, stale_days = None, None, None, None
     session_days = None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
@@ -7164,6 +7731,30 @@ def _main(box):
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
 
+    # LIVE VERSUS LANDING: what this run reads, against what is live, and
+    # what the landing branch already carries -- see _live_vs_landing.
+    if not as_json:
+        if led:
+            led.start('LIVE VERSUS LANDING -- read main, write through the landing branch')
+        print("LIVE VERSUS LANDING -- read main, write through the landing branch\n")
+        _seen_lv, _lv_notes = set(), 0
+        for _lbl, _pth in [('this checkout', repo_root)] + [
+                (f"{s['level']} source {s['name']}", s['path'])
+                for s in data['sources']]:
+            try:
+                _key = pathlib.Path(_pth).resolve()
+            except OSError:
+                continue
+            if _key in _seen_lv or not (_key / '.git').exists():
+                continue
+            _seen_lv.add(_key)
+            for _v, _m in _live_vs_landing(_key):
+                _lv_notes += _v != 'OK'
+                print(f'  {_v:<10} {_lbl}: {_m}')
+        print()
+        if led:
+            led.end(findings=_lv_notes)
+
     # CONTRIBUTOR BOUNDARY (practice: very-deep-check, pass 2). Right after
     # ACCESS, because it answers the next question about the same repos: not
     # whether THIS session can land work there, but whether the repository's
@@ -7238,15 +7829,18 @@ def _main(box):
         # Written every time the scan runs, --json included, so the
         # committable list is never behind whatever the console happened to
         # print (practice: very-deep-check, pass 4; repo-is-memory).
+        _held_back, _redact = _branch_report_privacy(
+            repo_root, data['sources'], branch_scans)
         _branch_report_path = _write_branch_report(
             branch_scans, branch_report_path or branch_report_path_for(repo_root),
-            repo_root)
+            repo_root, held_back=_held_back, redact=_redact)
         # This repo's own spec/VERY_DEEP_CHECK.md only, never a checked
         # repo's -- see _update_spec_doc_block's docstring.
         if pathlib.Path(repo_root).resolve() == ROOT.resolve():
             _update_spec_doc_block(
                 repo_root, 'merged-stale-checkout',
-                _merged_stale_checkout_markdown(branch_scans.get('checkout')))
+                _merged_stale_checkout_markdown(branch_scans.get('checkout'),
+                                                redact=_redact))
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring
@@ -7344,17 +7938,6 @@ def _main(box):
     # so nothing here re-adds "this checkout" as a separate row the way
     # the scope print above does.
     #
-    # THE COMMITTED HALF IS GATED BY VISIBILITY, THE CONSOLE HALF NEVER IS.
-    # A session's own reply is never published anywhere by this tool, so
-    # the console print below always shows every source, held-back ones
-    # included -- that IS the "chat" option Morgan asked for, already
-    # satisfied on every run with nothing further to do. What is gated is
-    # only what `_update_spec_doc_block` COMMITS: see
-    # `_practice_catalogue_for_tracked_doc()`'s docstring for the incident
-    # this fixed (2026-09-24) -- the first version of this section wrote
-    # every source, private ones included, into this file unconditionally,
-    # which is exactly the disclosure `build_views.py`'s `repo_is_public()`
-    # already exists to prevent for the AGENTS.md loader block.
     if led:
         led.start('PRACTICE CATALOGUE', kind='read')
     if skip_practice_catalogue:
@@ -7363,34 +7946,34 @@ def _main(box):
         _cat_rows = []
     else:
         _cat_rows = _practice_catalogue_rows(data['sources'])
-        _cat_md_console = _practice_catalogue_markdown(data['sources'])
         if not as_json:
-            print("PRACTICE CATALOGUE -- every in-force practice's slug and "
-                  "one-sentence description,\none section per source in "
-                  "force (nothing here is committed by itself)\n")
-            print(_cat_md_console)
-            print()
-        # This repo's own spec/VERY_DEEP_CHECK.md only, same restriction as
-        # the branch-list embed below -- see _update_spec_doc_block's
-        # docstring.
-        if pathlib.Path(repo_root).resolve() == ROOT.resolve():
-            if catalogue_include_private:
-                _cat_md_doc, _held_back = _cat_md_console, []
-            else:
-                _cat_md_doc, _held_back = _practice_catalogue_for_tracked_doc(
-                    repo_root, data['sources'])
-            if _held_back and not as_json:
-                print(f"PRACTICE CATALOGUE: {len(_held_back)} source(s) "
-                      f"held back from spec/VERY_DEEP_CHECK.md because this "
-                      f"repo is public -- {', '.join(s['name'] for s in _held_back)}. "
-                      f"Full list is in the console output above. Ask the "
-                      f"person which they actually want before doing "
-                      f"anything else with it: committed here too "
-                      f"(--catalogue-include-private, an explicit choice), "
-                      f"chat-only (nothing further to do), or not generated "
-                      f"at all (--skip-practice-catalogue) -- never decide "
-                      f"this one silently.\n")
-            _update_spec_doc_block(repo_root, 'practice-catalogue', _cat_md_doc)
+            print(f"PRACTICE CATALOGUE -- {len(_cat_rows)} active practices "
+                  f"across {len(data['sources'])} sources; the full list is "
+                  f"on the review page below, never in a committed file.\n")
+        # NEVER COMMITTED (Morgan, 2026-09-28, strength: decided). This list
+        # used to be written into spec/VERY_DEEP_CHECK.md, a public file, so
+        # the individual and shared sets were held back from it and the
+        # person never got the whole list. It now goes, whole, into the
+        # session-only review page precedent_review_page.py writes under
+        # .precedent/ (ignored by git), together with the branches the
+        # person can delete. The session publishes that page in the
+        # session only (an Artifact in Claude Code on the web) and never
+        # commits, pushes or links it.
+        if not as_json:
+            try:
+                import precedent_review_page as _rp
+                _page = _rp.write(repo_root)
+                print(f"REVIEW PAGE: wrote {_page} -- branches the person can "
+                      f"delete, with a link each, and every active practice "
+                      f"by source (universal, this repo's own, individual, "
+                      f"shared). Show it in the session only; never commit, "
+                      f"push or link it. Add rows for unlanded branches you "
+                      f"recommend deleting with --recommend FILE.json "
+                      f"(python3 tools/precedent_review_page.py --help).\n")
+            except (Exception, SystemExit) as exc:          # noqa: BLE001
+                print(f"REVIEW PAGE: NOT written ({type(exc).__name__}: "
+                      f"{exc}) -- run python3 tools/precedent_review_page.py "
+                      f"by hand before the run's write-up.\n")
     if led:
         led.end(items=len(_cat_rows))
         led.start('WITHIN-SOURCE CONFLICTS')
@@ -7640,16 +8223,23 @@ def _main(box):
             continue
         _unread = [r for r in _rows if not r[2]]
         _ck_rows += len(_rows)
-        _ck_unread += len(_unread)
+        # A key a practice names is read -- by the session following it --
+        # so it is listed, never counted as a key nothing reads.
+        _ck_unread += len([r for r in _unread if not r[4]])
         if not _unread:
             print(f"  {_name}: {len(_rows)} declared key(s), every one "
                   f"mentioned by a script here")
             continue
         print(f"  {_name}: {len(_rows)} declared key(s), {len(_unread)} "
-              f"read by nothing here:")
-        for _file, _key, _where, _elsewhere in _unread:
-            _tail = (f" -- mentioned in {', '.join(_elsewhere)}"
-                     if _elsewhere else
+              f"read by no script here:")
+        for _file, _key, _where, _elsewhere, _via in _unread:
+            _parts = []
+            if _elsewhere:
+                _parts.append(f"mentioned in {', '.join(_elsewhere)}")
+            if _via:
+                _parts.append(f"read by a session through practice "
+                              f"{', '.join(_via)}")
+            _tail = (' -- ' + '; '.join(_parts) if _parts else
                      " -- mentioned in no repo in force")
             print(f"      {_file}: {_key}{_tail}")
     if _ck_rows:
@@ -7691,6 +8281,25 @@ def _main(box):
             _flag = 'ONE CAUSE' if _n >= 5 else 'cause    '
             print(f"      {_flag} {_n:>3} skip(s): {_cause[:96]}")
             if _n >= 5:
+                _cc_findings += 1
+    # The other sources' own checks, against THIS checkout: in force here,
+    # run by nothing here (see _source_check_scripts).
+    _sc_rows, _sc_note = _source_check_scripts(repo_root, data['sources'])
+    if _sc_note:
+        print(f"\n  other sources' checks here: not measured -- {_sc_note}")
+    elif _sc_rows:
+        _sc_exempt = [r for r in _sc_rows if r[0] in ('EXEMPT', 'NOTE')]
+        _sc_bad = [r for r in _sc_rows
+                   if r[0] not in ('PASS', 'EXEMPT', 'NOTE')]
+        _sc_ran = len(_sc_rows) - len(_sc_exempt)
+        _sc_n_exempt = sum(1 for r in _sc_exempt if r[0] == 'EXEMPT')
+        print(f"\n  other sources' checks, in force here and run by nothing "
+              f"here -- {_sc_ran} run\n  against this checkout, "
+              f"{_sc_ran - len(_sc_bad)} passed, {_sc_n_exempt} exempted "
+              f"(a report, never a gate):")
+        for _v, _slug, _script, _detail in _sc_exempt + _sc_bad:
+            print(f"      {_v:<9} {_slug} ({_script}): {_detail}")
+            if _v == 'VIOLATION':
                 _cc_findings += 1
     if not _cc_measured:
         print("  nothing measured -- no repo in force carries a check "
@@ -8330,9 +8939,14 @@ def _main(box):
             led.start('UNLANDED WORK')
         _unlanded = []
         _unknown = []
+        _net_empty = []
         for _name, _scan in branch_scans.items():
             for _r in (_scan or {}).get('unmerged', []):
-                if _r.get('unique'):
+                if _r.get('unique') and _r.get('net_empty'):
+                    # Commits with no patch-equivalent whose sum is no
+                    # change: nothing to read, nothing to land.
+                    _net_empty.append((_name, _scan['target'], _r))
+                elif _r.get('unique'):
                     _unlanded.append((_name, _scan['target'], _r))
                 elif _r.get('unique') is None:
                     # NOT falsy-equivalent to zero, and the distinction is the
@@ -8363,6 +8977,11 @@ def _main(box):
             print("  No branch carries unlanded work. (A branch reported unmerged\n"
                   "  but carrying nothing was rebased or squash-merged in -- pass 4\n"
                   "  still gives it a deletion verdict.)\n")
+        for _name, _target, _r in _net_empty:
+            print(f"  {_name}: {_r['name']}")
+            print(f"      {_r['verdict']}")
+        if _net_empty:
+            print()
         if _unknown:
             print("  COULD NOT DETERMINE, which is not the same as clean -- these\n"
                   "  branches may carry unlanded work and this run cannot say:\n")
@@ -8464,7 +9083,13 @@ def _main(box):
             led.start('REPOSITORY VISIBILITY')
         print()
         print("REPOSITORY VISIBILITY -- private names in a public tree\n")
-        _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
+        # The push gate's own resolution (env, else the individual source's
+        # list), never a second, weaker copy of it: reading only the env
+        # variable reported a name the individual list allows on purpose.
+        try:
+            _bl = str(leak_gate.resolve_blocklist_path()[0] or '') or None
+        except Exception:                                        # noqa: BLE001
+            _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
         _vf, _vn = repo_visibility_audit(repo_root, _bl)
         for f in _vf:
             print(f'  FINDING: {f}')

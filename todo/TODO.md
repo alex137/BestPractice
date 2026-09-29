@@ -6,25 +6,20 @@
 
 | Item | What | Age | Disposition | Blocked on |
 |---|---|---|---|---|
-| [`todo-2026-09-06-actions-as-enforcement-layer`](todo-2026-09-06-actions-as-enforcement-layer.md) | Lean further into GitHub Actions as the enforcement layer. | 22d | wait |  |
-| [`todo-2026-09-06-attach-private-sources`](todo-2026-09-06-attach-private-sources.md) | Run one session rooted at each private set — this unblocks four other items at once. | 22d | wait |  |
 | [`todo-2026-09-06-background-freshness-fetch`](todo-2026-09-06-background-freshness-fetch.md) | Consider making the freshness check's fetch asynchronous. | 22d | wait | nothing external, but it was not worth the complexity at the measured numbers —… |
 | [`todo-2026-09-06-companion-mobile-app`](todo-2026-09-06-companion-mobile-app.md) | Companion mobile app, if the Shortcut proves insufficient. | 22d | wait |  |
 | [`todo-2026-09-06-document-project-pilot`](todo-2026-09-06-document-project-pilot.md) | Run the document-project pilot once Morgan has a real first project. | 22d | wait | a real subject and a real person, neither of which exists yet. |
-| [`todo-2026-09-06-github-issues-for-open-items`](todo-2026-09-06-github-issues-for-open-items.md) | Evaluate GitHub Issues for open items. | 22d | wait |  |
 | [`todo-2026-09-06-individual-practice-scoping`](todo-2026-09-06-individual-practice-scoping.md) | `for_team:`/`in_repos:` individual-practice scoping. | 22d | wait |  |
 | [`todo-2026-09-06-multiple-team-sources-disagree`](todo-2026-09-06-multiple-team-sources-disagree.md) | Define what happens when a consumer repo imports multiple `team` sources that disagree. | 22d | wait | nothing but a decision about what shape the answer takes. Parked deliberately at… |
 | [`todo-2026-09-06-nine-practices-carry-an-empty-why`](todo-2026-09-06-nine-practices-carry-an-empty-why.md) | Nine practices carry an empty `## Why`. | 22d | wait | nothing but the work. |
 | [`todo-2026-09-06-out-of-chat-notifications`](todo-2026-09-06-out-of-chat-notifications.md) | Out-of-chat change notifications for members. | 22d | wait |  |
 | [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 22d | wait |  |
-| [`todo-2026-09-06-source-repo-consumes-no-catalogue`](todo-2026-09-06-source-repo-consumes-no-catalogue.md) | A source repo consumes no catalogue, so it cannot check itself. | 22d | wait |  |
 | [`todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-`](todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-.md) | Sweep for other places BestPractice does not follow its own install instructions. | 22d | wait | nothing but its size and the per-step judgment call about which steps apply to t… |
 | [`todo-2026-09-06-unreachable-practices`](todo-2026-09-06-unreachable-practices.md) | Populate `not_binding` for the practices in force here that do not bind this repo. | 22d | wait | a session that can resolve the private sources — see `attach-private-sources` fo… |
 | [`todo-2026-09-06-upstream-only-registries-ride-along-in-vendored-engine-files`](todo-2026-09-06-upstream-only-registries-ride-along-in-vendored-engine-files.md) | Upstream-only registries ride along in vendored engine files. | 22d | wait | nothing but a deliberate pass — this touches the vendoring contract (does `prece… |
 | [`todo-2026-09-07-audience-register-sharpening`](todo-2026-09-07-audience-register-sharpening.md) | Sharpen `audience-register` so the plainer register actually holds — three changes, all in the individual practice set, | 21d | wait | his approval of the new wording. It is his rule about how he is spoken to, and a… |
 | [`todo-2026-09-07-bold-rule-for-heading-dense-pages`](todo-2026-09-07-bold-rule-for-heading-dense-pages.md) | `bold-key-phrases` needs a weak counter-clause for heading-dense pages. | 21d | wait | a session rooted in precedent-team-repo-maintenance (the practice's own set) to… |
 | [`todo-2026-09-07-consumers-need-refresh-after-promotion`](todo-2026-09-07-consumers-need-refresh-after-promotion.md) | A consumer that vendors an OLD universal catalogue loses a promoted practice at its next sync, silently. | 21d | wait | the refresh itself belongs in each consumer, run under that repo's own gates — t… |
-| [`todo-2026-09-07-gates-absent-from-main`](todo-2026-09-07-gates-absent-from-main.md) | Put the leak gate on `main`; the deep check cannot go there until the merge-back. | 21d | wait |  |
 | [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 21d | wait |  |
 | [`todo-2026-09-07-the-branch-sweep-and-the-source-refresh-tool-disagree-about-`](todo-2026-09-07-the-branch-sweep-and-the-source-refresh-tool-disagree-about-.md) | The branch sweep and the source-refresh tool disagree about what is in scope, and the sweep is the narrower one. | 21d | wait | nothing but the work. |
 | [`todo-2026-09-07-two-declared-sources-are-missing-a-file-their-level-s-skelet`](todo-2026-09-07-two-declared-sources-are-missing-a-file-their-level-s-skelet.md) | Two declared sources are missing a file their level's skeleton ships. | 21d | wait | nothing but the work — both repos are reachable and pushable from a session that… |
@@ -42,12 +37,9 @@
 | [`todo-2026-09-11-repo-name-regex-shape`](todo-2026-09-11-repo-name-regex-shape.md) | Think about the shape of the leak gate's repository-name rule: it refuses `owner/name` and ignores `name`. | 17d | wait |  |
 | [`todo-2026-09-11-source-clause-check-reads-only-html-comments`](todo-2026-09-11-source-clause-check-reads-only-html-comments.md) | The `Source:` clause check reads only HTML comments, so a generated file whose header is a `#` comment is never asked fo | 17d | wait |  |
 | [`todo-2026-09-11-source-load-ceilings`](todo-2026-09-11-source-load-ceilings.md) | Declare session-load ceilings in the attached practice-set sources, and measure the real total a session pays. | 17d | wait |  |
-| [`todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher`](todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher.md) | All four practice-set sources vendor the pre-fix `Source:` clause matcher. | 17d | wait |  |
 | [`todo-2026-09-12-provenance-stamp-for-instantiated-copies`](todo-2026-09-12-provenance-stamp-for-instantiated-copies.md) | A file instantiated from a template carries no record that it was, so nothing can check whether it drifted. | 16d | wait | nothing but the work. It was deliberately out of scope of the approved change, w… |
-| [`todo-2026-09-13-reply-check-rollout`](todo-2026-09-13-reply-check-rollout.md) | Roll the blocking reply check out to the sources that want one, and land the individual set's half. | 15d | wait |  |
 | [`todo-2026-09-13-source-set-runs-no-universal-checks`](todo-2026-09-13-source-set-runs-no-universal-checks.md) | A practice set now READS the universal rules and still RUNS none of universal's mechanical checks. | 15d | wait |  |
 | [`todo-2026-09-13-universal-prose-does-not-reach-a-source-set`](todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md) | A check can now bind a repo that publishes practices; universal PROSE still cannot reach one. | 15d | wait |  |
-| [`todo-2026-09-13-vendor-very-deep-check-into-sets`](todo-2026-09-13-vendor-very-deep-check-into-sets.md) | Vendor `very_deep_check.py` into the practice sets, so a set can audit its own always-loaded files instead of only gatin | 15d | ask | four repositories under a different owner, each with its own merge rules. Establ… |
 | [`todo-2026-09-14-applies-to-sprawl`](todo-2026-09-14-applies-to-sprawl.md) | The path-trigger channel prints a wall of rules for markdown and almost nothing for code, and a consuming repo declined | 14d | wait |  |
 | [`todo-2026-09-14-boundary-is-checkable`](todo-2026-09-14-boundary-is-checkable.md) | Nothing checks that a document project's boundary is actually on. | 14d | wait | the throwaway repository, a token with administration read, and the assumptions. |
 | [`todo-2026-09-14-build-audience-dirs-still-vendor`](todo-2026-09-14-build-audience-dirs-still-vendor.md) | Three more directories whose audience is "someone building Precedent" still vendor, and only `philosophy/` was cut. | 14d | wait | a judgment about the links, which is why this was left out of the change that pr… |
@@ -78,8 +70,11 @@
 | [`todo-2026-09-20-bare-pattern-precision-and-severity`](todo-2026-09-20-bare-pattern-precision-and-severity.md) | `require_no_bare_pattern` (tools/precedent_reply_check.py) landed 2026-09-20 declared `advisory` for rule-links and bran | 8d | wait |  |
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 8d | wait |  |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 8d | wait |  |
-| [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 6d | ask |  |
-| [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 6d | raise |  |
+| [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 6d | ask |  |
+| [`todo-2026-09-28-very-deep-check-pass-1-findings`](todo-2026-09-28-very-deep-check-pass-1-findings.md) | What the 2026-09-28 very deep check's pass 1 found and did not fix. Both | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 0d | wait |  |
+| [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 0d | wait |  |
 
 ## Verify Before External Use
 
@@ -91,7 +86,6 @@
 | [`todo-2026-09-09-cross-owner-add-repo-push`](todo-2026-09-09-cross-owner-add-repo-push.md) | Measure whether `add_repo` refuses a cross-owner attachment in the REVERSE direction, with `access: "push"`. | 19d | wait | a session rooted under the other owner (a private practice-set repository), whic… |
 | [`todo-2026-09-09-whatsapp-bridge-research`](todo-2026-09-09-whatsapp-bridge-research.md) | Verify the chat bridge's platform claims against the platforms, or drop it. | 19d | wait | for the WhatsApp half, a Meta Business account, a business entity that clears ve… |
 | [`todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update`](todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update.md) | Confirm the consuming repo's `Source:` clause actually clears, rather than assuming it. | 17d | wait |  |
-| [`todo-2026-09-15-check-default-cc-environment-staleness`](todo-2026-09-15-check-default-cc-environment-staleness.md) | Check whether the "Default CC" environment is still cloning fresh in a few days. | 13d | ask |  |
 
 ## Manual (Needs a Person to Act)
 
@@ -106,7 +100,6 @@
 | [`todo-2026-09-07-undeclared-deprecated-files`](todo-2026-09-07-undeclared-deprecated-files.md) | Nothing finds a deprecated file nobody declared. | 21d | wait | nothing any more: the one objection to the mechanical workflow check (a delibera… |
 | [`todo-2026-09-08-vdc-pass1-partial-again`](todo-2026-09-08-vdc-pass1-partial-again.md) | Pass 1 of the very deep check has been PARTIAL two runs running, on the same item. | 20d | wait |  |
 | [`todo-2026-09-10-private-owner-allowlist-inert`](todo-2026-09-10-private-owner-allowlist-inert.md) | The repo-reference allowlist is inert here, and this public tree names the account that owns the private practice sets. | 18d | wait |  |
-| [`todo-2026-09-10-review-skill-level-permissions`](todo-2026-09-10-review-skill-level-permissions.md) | Review the whole technical/non-technical permission split, now that the pieces are in three separate places. | 18d | ask |  |
 | [`todo-2026-09-11-consumer-views-drift-uncheckable-in-ci`](todo-2026-09-11-consumer-views-drift-uncheckable-in-ci.md) | A consuming repo's generated loader block cannot be drift-checked in CI, and today nothing checks it anywhere. | 17d | wait |  |
 | [`todo-2026-09-11-contributor-access`](todo-2026-09-11-contributor-access.md) | Run the contributor-access plan for real. | 17d | wait | a real person and repo for the rest of it, and Morgan adding the GitHub collabor… |
 | [`todo-2026-09-11-session-practices-reports-unresolved-sources`](todo-2026-09-11-session-practices-reports-unresolved-sources.md) | `.precedent/SESSION_PRACTICES.md` can report a source as unresolved that resolved fine minutes later — and a session rea | 17d | wait | a fresh session to reproduce the ordering, since the failure only exists at sess… |
@@ -115,14 +108,12 @@
 | [`todo-2026-09-12-source-sets-declare-adapters`](todo-2026-09-12-source-sets-declare-adapters.md) | Have the private source sets declare their harness adapters. | 16d | wait | two things, in order. Each set's vendored engine has to carry the new tools/prec… |
 | [`todo-2026-09-13-wire-individual-hook-in-existing-sets`](todo-2026-09-13-wire-individual-hook-in-existing-sets.md) | Wire `precedent-individual-bootstrap.sh` into the four practice sets that already exist. | 15d | wait | four repositories this session was not scoped to, under a different owner, each… |
 | [`todo-2026-09-14-branch-merge-or-close-verdicts`](todo-2026-09-14-branch-merge-or-close-verdicts.md) | The unmerged-branch verdicts are acted on; three branch deletions are the only part left, and no session can do them. | 14d | wait | Morgan, for three branch deletions, and nothing else. A session cannot make them… |
-| [`todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name`](todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name.md) | The leak gate refuses a private repo named as `owner/name`, and lets the same repo through under its BARE name when no l | 14d | ask |  |
 | [`todo-2026-09-14-restate-fires-on-machine-turns`](todo-2026-09-14-restate-fires-on-machine-turns.md) | The closing-list restate rule fires on turns no human asked for, so a background event makes the person read the same Ne | 14d | wait |  |
 | [`todo-2026-09-14-set-ci-skips-vendored-tests`](todo-2026-09-14-set-ci-skips-vendored-tests.md) | No practice set's CI runs the vendored checks' own test suite, so a red suite sits under a green pull request. | 14d | wait | two calls: whether the suite belongs in the `precedent-check` workflow or its ow… |
 | [`todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow`](todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow.md) | The weekly engine-refresh cron is dead in all four practice sets. What survives it is the finding underneath: a set's ve | 14d | wait |  |
 | [`todo-2026-09-14-workflow-run-is-not-gated`](todo-2026-09-14-workflow-run-is-not-gated.md) | `CODEOWNERS` gates the merge of an edited workflow, not its first run. | 14d | wait | verifying the run behaviour itself against GitHub's own documentation, which a h… |
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 12d | ask |  |
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 12d | ask |  |
-| [`todo-2026-09-17-weekly-very-deep-check-trigger-decision`](todo-2026-09-17-weekly-very-deep-check-trigger-decision.md) | Decide on, and if approved create, the weekly `very-deep-check` Routine | 11d | ask |  |
 | [`todo-2026-09-19-dedupe-push-back-in-team-writing`](todo-2026-09-19-dedupe-push-back-in-team-writing.md) | Run the second half of the `push-back` move. | 9d | wait | this PR merging into precedent-beta-v01, and every repository consuming preceden… |
 | [`todo-2026-09-19-dedupe-small-calls-in-team-working-style`](todo-2026-09-19-dedupe-small-calls-in-team-working-style.md) | Run the second half of the `small-calls` move. | 9d | wait | this PR merging into precedent-beta-v01, and every repository consuming preceden… |
 | [`todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos`](todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos.md) | The one-job CI templates land in BestPractice but reach nobody until each repo takes an "Update Vendors". | 8d | ask | a session whose GitHub access reaches themorgan/* — this one is scoped to alex13… |
@@ -140,9 +131,8 @@
 | [`todo-2026-09-21-refresh-output-blocks-the-next-pull`](todo-2026-09-21-refresh-output-blocks-the-next-pull.md) | The session-start refresh leaves its own output uncommitted in every source clone, and that uncommitted output is exactl | 7d | ask |  |
 | [`todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape`](todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md) | `resident_block_tokens: 2000` blocks a real adopter's vendor update, and the cap is the thing that is wrong. | 7d | ask |  |
 | [`todo-2026-09-21-structural-only-route-3-not-exercised`](todo-2026-09-21-structural-only-route-3-not-exercised.md) | `check_structural_only_actually_drops_the_private_half` covers two of the three routes it names, and the third is guarde | 7d | ask |  |
-| [`todo-2026-09-21-template-freshness-reports-five-phantom-gaps`](todo-2026-09-21-template-freshness-reports-five-phantom-gaps.md) | Every one of `TEMPLATE FRESHNESS`'s five findings is a file the bootstrap generator writes | 7d | ask |  |
 | [`todo-2026-09-21-vocabulary-emit-would-publish-a-private-command`](todo-2026-09-21-vocabulary-emit-would-publish-a-private-command.md) | `python3 tools/doc_sync.py --write` would publish a private practice's command into a public, tracked file | 7d | ask |  |
-| [`todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue`](todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue.md) | `code-cites-practice` decides whether a cited slug is real by listing the local `practices/` directory | 6d | raise |  |
+| [`todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue`](todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue.md) | `code-cites-practice` decides whether a cited slug is real by listing the local `practices/` directory | 6d | ask |  |
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 6d | ask |  |
 | [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 3d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 3d | ask |  |
@@ -166,15 +156,10 @@
 
 | Item | What | Age |
 |---|---|---|
-| [`todo-2026-09-06-actions-as-enforcement-layer`](todo-2026-09-06-actions-as-enforcement-layer.md) | Lean further into GitHub Actions as the enforcement layer. | 22d |
-| [`todo-2026-09-06-attach-private-sources`](todo-2026-09-06-attach-private-sources.md) | Run one session rooted at each private set — this unblocks four other items at once. | 22d |
 | [`todo-2026-09-06-companion-mobile-app`](todo-2026-09-06-companion-mobile-app.md) | Companion mobile app, if the Shortcut proves insufficient. | 22d |
-| [`todo-2026-09-06-github-issues-for-open-items`](todo-2026-09-06-github-issues-for-open-items.md) | Evaluate GitHub Issues for open items. | 22d |
 | [`todo-2026-09-06-individual-practice-scoping`](todo-2026-09-06-individual-practice-scoping.md) | `for_team:`/`in_repos:` individual-practice scoping. | 22d |
 | [`todo-2026-09-06-out-of-chat-notifications`](todo-2026-09-06-out-of-chat-notifications.md) | Out-of-chat change notifications for members. | 22d |
 | [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 22d |
-| [`todo-2026-09-06-source-repo-consumes-no-catalogue`](todo-2026-09-06-source-repo-consumes-no-catalogue.md) | A source repo consumes no catalogue, so it cannot check itself. | 22d |
-| [`todo-2026-09-07-gates-absent-from-main`](todo-2026-09-07-gates-absent-from-main.md) | Put the leak gate on `main`; the deep check cannot go there until the merge-back. | 21d |
 | [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 21d |
 | [`todo-2026-09-08-branch-move-cause-unknown`](todo-2026-09-08-branch-move-cause-unknown.md) | Something moved this checkout off its working branch mid-session on 2026-09-08, and the cause was not found. | 20d |
 | [`todo-2026-09-08-level-repo-naming`](todo-2026-09-08-level-repo-naming.md) | Evaluate renaming the practice-set repositories so the level is visible in the name. | 20d |
@@ -184,8 +169,6 @@
 | [`todo-2026-09-11-repo-name-regex-shape`](todo-2026-09-11-repo-name-regex-shape.md) | Think about the shape of the leak gate's repository-name rule: it refuses `owner/name` and ignores `name`. | 17d |
 | [`todo-2026-09-11-source-clause-check-reads-only-html-comments`](todo-2026-09-11-source-clause-check-reads-only-html-comments.md) | The `Source:` clause check reads only HTML comments, so a generated file whose header is a `#` comment is never asked fo | 17d |
 | [`todo-2026-09-11-source-load-ceilings`](todo-2026-09-11-source-load-ceilings.md) | Declare session-load ceilings in the attached practice-set sources, and measure the real total a session pays. | 17d |
-| [`todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher`](todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher.md) | All four practice-set sources vendor the pre-fix `Source:` clause matcher. | 17d |
-| [`todo-2026-09-13-reply-check-rollout`](todo-2026-09-13-reply-check-rollout.md) | Roll the blocking reply check out to the sources that want one, and land the individual set's half. | 15d |
 | [`todo-2026-09-13-source-set-runs-no-universal-checks`](todo-2026-09-13-source-set-runs-no-universal-checks.md) | A practice set now READS the universal rules and still RUNS none of universal's mechanical checks. | 15d |
 | [`todo-2026-09-13-universal-prose-does-not-reach-a-source-set`](todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md) | A check can now bind a repo that publishes practices; universal PROSE still cannot reach one. | 15d |
 | [`todo-2026-09-14-applies-to-sprawl`](todo-2026-09-14-applies-to-sprawl.md) | The path-trigger channel prints a wall of rules for markdown and almost nothing for code, and a consuming repo declined | 14d |
@@ -201,8 +184,11 @@
 | [`todo-2026-09-20-bare-pattern-precision-and-severity`](todo-2026-09-20-bare-pattern-precision-and-severity.md) | `require_no_bare_pattern` (tools/precedent_reply_check.py) landed 2026-09-20 declared `advisory` for rule-links and bran | 8d |
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 8d |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 8d |
-| [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 6d |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 6d |
+| [`todo-2026-09-28-very-deep-check-pass-1-findings`](todo-2026-09-28-very-deep-check-pass-1-findings.md) | What the 2026-09-28 very deep check's pass 1 found and did not fix. Both | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 0d |
+| [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 0d |
 
 ## Open Decisions
 
@@ -217,12 +203,7 @@
 
 | Item | What | Due since |
 |---|---|---|
-| [`todo-2026-09-10-review-skill-level-permissions`](todo-2026-09-10-review-skill-level-permissions.md) | Review the whole technical/non-technical permission split, now that the pieces are in three separate places. | 2026-09-10 |
-| [`todo-2026-09-13-vendor-very-deep-check-into-sets`](todo-2026-09-13-vendor-very-deep-check-into-sets.md) | Vendor `very_deep_check.py` into the practice sets, so a set can audit its own always-loaded files instead of only gatin | 2026-09-13 |
-| [`todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name`](todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name.md) | The leak gate refuses a private repo named as `owner/name`, and lets the same repo through under its BARE name when no l | 2026-09-14 |
-| [`todo-2026-09-15-check-default-cc-environment-staleness`](todo-2026-09-15-check-default-cc-environment-staleness.md) | Check whether the "Default CC" environment is still cloning fresh in a few days. | 2026-09-15 |
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-09-19 |
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
-| [`todo-2026-09-17-weekly-very-deep-check-trigger-decision`](todo-2026-09-17-weekly-very-deep-check-trigger-decision.md) | Decide on, and if approved create, the weekly `very-deep-check` Routine | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
 | [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 2026-09-28 |

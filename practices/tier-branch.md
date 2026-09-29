@@ -8,7 +8,7 @@ occasion:    "a person says \"Tier branch\", or asks which branches are the tier
 gates:       []
 index_clause: "pre-staging, staging or main -- plus staging's old name and Promote's lock"
 checked_by:  null
-defines:     ["Tier branch"]
+defines:     ["Tier branch", "Landing branch"]
 command:     {"Tier branch": "One of the three branches work climbs through -- pre-staging, then staging, then main -- or one of the two that travel with them: staging's old name precedent-beta-v01 and Promote's lock branch precedent-promote-lock. Never offered for deletion."}
 status:      active
 in_force_at: null
@@ -33,7 +33,7 @@ are the list.
 **Saying it does not itself trigger an action.** It is a word to look up,
 like [primary-branch](primary-branch.md). What it carries is one standing
 consequence stated elsewhere: a tier branch is never offered for deletion,
-by any route ([branch-delete-links](branch-delete-links.md) rule 4, and
+by any route ([branch-delete-links](branch-delete-links.md#never-a-tier-branch) rule 4, and
 [very-deep-check](very-deep-check.md)'s branch sweep).
 
 ## Why

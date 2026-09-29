@@ -1,0 +1,31 @@
+---
+slug:            gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error
+status:          live
+noted:           2026-09-01
+severity:        null
+retired:         null
+retires_when:    null
+---
+## Symptom
+
+A session reads the tree and concludes that files or work "do not exist",
+while `git status` says the branch is up to date with origin.
+
+## Story
+
+This entry came with Precedent at install; it was paid for upstream. `git
+status` compares against whatever the remote-tracking ref held at the last
+fetch, so a container that came up on an old clone reports clean and
+current while being dozens of commits behind. It bit the upstream project
+twice. Once, a local branch shared no commits at all with origin, and a
+whole phase of merged work was invisible. Once, a five-day-old shallow
+clone led a session to conclude that files landed a week earlier did not
+exist. Nothing errored either time.
+
+## Fix
+
+Before concluding anything is missing or unfinished, fetch first:
+`git fetch origin <branch>`, then `git rev-list --count HEAD..origin/<branch>`.
+`tools/bootstrap.sh` warns about this at session start, including when the
+fetch itself fails, so silence there means "checked and current", never
+"not checked".

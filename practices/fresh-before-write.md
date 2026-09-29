@@ -14,7 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "pending PR review -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, in the session that designed it, revised 2026-09-10, 2026-09-11 and 2026-09-12, amended 2026-09-23 (that amendment strength: assented) to let a diverged, clean branch be merged, keeping both sides"
+approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, in the session that designed it, revised 2026-09-10, 2026-09-11 and 2026-09-12, amended 2026-09-23 (that amendment strength: assented) to let a diverged, clean branch be merged, keeping both sides"
 strength: decided
 ---
 ## Rule

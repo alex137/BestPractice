@@ -227,8 +227,8 @@ as the literal first line, not buried after other text. The literal wording
 -- his own name, and the plain sentence built around it -- is exactly the
 kind of content an individual practice source exists for: true for him, not
 for whoever else runs this catalogue. This session cannot land it there
-directly -- `precedent-individual` resolves to `themorgan/precedent-individual`,
-a different owner than this session's `alex137/BestPractice`, and `add_repo`
+directly -- the individual set lives under a different owner than this
+session's `alex137/BestPractice`, and `add_repo`
 refuses exactly that cross-owner attach, the same wall
 [prompt-please](prompt-please.md) documents. Per that same practice, the
 wording is handed back as a `Prompt Please` for a session rooted there

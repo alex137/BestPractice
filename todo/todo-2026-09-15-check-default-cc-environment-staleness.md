@@ -3,16 +3,16 @@ slug:              todo-2026-09-15-check-default-cc-environment-staleness
 kind:              verify
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       ask
-remind_on:         "2026-09-15"
+remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Checked well past the few days asked for: sessions on the recreated environment kept cloning fresh through 2026-09-28, this one included; the freshness guard and the session-start report watch for a regression."
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-15
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -42,3 +42,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+**Closed 2026-09-28 (done).** Checked well past the few days asked for: sessions on the recreated environment kept cloning fresh through 2026-09-28, this one included; the freshness guard and the session-start report watch for a regression. Morgan approved the very deep check's pass-4 recommendation to close it, 2026-09-28 ("Make the changes you recommend"); strength: assented.

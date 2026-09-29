@@ -3,16 +3,16 @@ slug:              todo-2026-09-06-source-repo-consumes-no-catalogue
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Overtaken: every practice set now declares its sources in precedent.json and reads the others through .precedent/SESSION_PRACTICES.md, so a universal practice reaches the set that deduplicated its own copy."
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -35,3 +35,5 @@ closed:            null
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+**Closed 2026-09-28 (done).** Overtaken: every practice set now declares its sources in precedent.json and reads the others through .precedent/SESSION_PRACTICES.md, so a universal practice reaches the set that deduplicated its own copy. Morgan approved the very deep check's pass-4 recommendation to close it, 2026-09-28 ("Make the changes you recommend"); strength: assented.

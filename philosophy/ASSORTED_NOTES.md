@@ -422,7 +422,7 @@ Can a fresh session, given only the memory store, reconstruct the state of
 any live decision? It is a manual audit idea today. The open question is
 whether it earns a place as a recurring check or stays ad hoc.
 
-## See Also
+## See also
 
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

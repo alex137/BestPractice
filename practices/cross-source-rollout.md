@@ -28,8 +28,9 @@ session, roll the change out to it in this session, before the thread
 ends — the same "do it now, not later" reasoning
 [todo-is-a-handoff](todo-is-a-handoff.md) already applies to any
 agent-doable item. If it is not attached, the rollout is genuinely blocked
-on a session that has it: queue it in `TODO.md` with `blocked-on: <source
-name> not attached this session`, naming the specific change and what the
+on a session that has it: file it under `todo/`
+(`todo/todo-<date>-<slug>.md`, with `blocked_on: <source name> not attached
+this session`), naming the specific change and what the
 other source needs to do about it — never a bare "check the other repos"
 reminder.
 
@@ -94,6 +95,6 @@ of a diff, the same class `checkable-gets-checked` already lets
 `todo-is-a-handoff` leave unchecked for the identical reason. One
 narrower thing could plausibly be checked later — that every `blocked-on:
 <source> not attached` item this practice creates actually gets picked up
-once that source is attached, rather than sitting in `TODO.md`
+once that source is attached, rather than sitting in `todo/`
 indefinitely — left `checked_by: null` here rather than wired in without
 running it, per `checkable-gets-checked`.

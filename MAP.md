@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 154 practice files (10 resident, 144 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 155 practice files (10 resident, 145 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -114,10 +114,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
-| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to |
+| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to, or renaming or retiring a name |
 | [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing anything that automatically repairs a state it found wrong |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
+| [response-please](practices/response-please.md) | on-demand | the person is about to paste, or has just pasted, a message from another session and wants it read, evaluated, and turned into a decision |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
 | [rule-level-by-reach](practices/rule-level-by-reach.md) | on-demand | deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal |
 | [scripts-assert-properties](practices/scripts-assert-properties.md) | on-demand | writing a script whose numbers a document will cite |
@@ -156,7 +157,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [verdict-not-mechanism](practices/verdict-not-mechanism.md) | on-demand | a tool, hook, check or gate flags something the person would otherwise have to judge |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | reporting a computed total or a negative feasibility result |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
-| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check", or after work that invites drift |
+| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" |
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |
@@ -240,6 +241,8 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) | The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic removal report; proposes, never acts |
+| [tools/precedent_review_page.py](tools/precedent_review_page.py) | The very deep check's session-only page: branches to delete, with a link each, and every active practice by source |
+| [tools/precedent_run_session_hooks.py](tools/precedent_run_session_hooks.py) | Runs each repo's own SessionStart hooks for a session opened in the folder above them |
 | [tools/precedent_session_check.py](tools/precedent_session_check.py) | Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did |
 | [tools/precedent_session_practices.py](tools/precedent_session_practices.py) | Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed |
 | [tools/precedent_show.py](tools/precedent_show.py) | Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
