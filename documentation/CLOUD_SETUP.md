@@ -39,7 +39,7 @@ PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires   # an IANA zone name, never 
 # Only if a shared practice source resolves as a sibling clone beside this
 # project — skip it otherwise. A hosted session clones everything under
 # /home/user/, never ~ (which is /root there), so write the full path:
-PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-team-set>=main
+PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-shared-set>=main
 ```
 
 Once `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` are set, the

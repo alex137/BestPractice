@@ -4,6 +4,7 @@ title:       "Two named check levels: a fast one for every commit, a full one be
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires once, when a repo names its check levels. Nothing recurring to trigger on. Decided: phase 4 routing pass."
 occasion:    "naming what \"run the checks\" means in a repo"
 gates:       []
 index_clause: "name a fast check and a full check; say which gates what"

@@ -244,8 +244,8 @@ When a person says "Tier branch", or asks which branches are the tiers:
   tier-branch — pre-staging, staging or main -- plus staging's old name and Promote's lock
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — write it with disposition ask and remind_on; never a trigger
-When a person says "Upstream fix", or asks whether a change fixes the root cause:
-  upstream-fix — does it fix the cause? if not, fix the root or hand off
+When a person says "Upstream fix", or asks whether a change fixes the root cause; or a session fixing a problem, adding a check for one, or adding an exemption:
+  upstream-fix — fix the cause, not just add a check; a new exemption means look again
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:

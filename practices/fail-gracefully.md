@@ -4,6 +4,7 @@ title:       Always fail gracefully
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index, review and the PUSH GATE carry it rather than the path channel. The gate was added 2026-09-08: the one moment this rule has to fire on a schedule rather than on a hunch is when a check has just told you it could not run and you are about to publish anyway. Decided: promoted to universal 2026-09-07."
 occasion:    "writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one"
 gates:       ["push"]
 index_clause: "keep going, never look complete — match the telling to stake and reader"

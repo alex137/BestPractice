@@ -4,6 +4,7 @@ title:       "\"Primary branch\" names trunk -- the one shared branch regular wo
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same reasoning as go-update and push-directly's own entries. Reached through the occasion index; it declares no gate because it defines a word rather than governing a workflow moment. Decided: 2026-09-22, when the practice landed."
 occasion:    "a person says \"Primary branch\", or asks which branch is trunk or takes routine pushes and PRs"
 gates:       []
 index_clause: "trunk: the branch regular work pushes to and PRs target"

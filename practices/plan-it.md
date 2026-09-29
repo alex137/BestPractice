@@ -4,6 +4,7 @@ title:       "\"Plan it\" writes a plan in the session and hands it back as one 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A phrase in a MESSAGE, or the size stage 1 (Consider) picks -- no file path reaches it, and it writes nothing to the repository. Reached through the occasion index; no gate. Decided: 2026-09-29, when the practice landed."
 occasion:    "a person says \"Plan it\", or Consider picks a middle-sized plan"
 gates:       []
 index_clause: "a written plan in the session, as one paste-ready prompt for a second opinion"

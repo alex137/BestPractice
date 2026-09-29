@@ -10,7 +10,7 @@
 # HERE and not THERE reaches one harness out of four. That is not
 # hypothetical: until 2026-09-21 this hook ran seven things and the script
 # ran three, and the difference included .precedent/SESSION_PRACTICES.md --
-# every team and individual practice in force, which AGENTS.md's Standing
+# every shared and individual practice in force, which AGENTS.md's Standing
 # instruction tells every session to read and which no non-Claude session
 # had ever been given. Adding a step here? Add it there, or write the
 # reason it cannot travel into templates/harness/PARALLELS.md, which is

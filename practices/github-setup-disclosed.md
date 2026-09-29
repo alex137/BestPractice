@@ -4,6 +4,7 @@ title:       GitHub-specific setup is disclosed where the reader will actually s
 tier:        on-demand
 severity:    default
 applies_to:  [".github/**", "templates/github-actions/**"]
+applies_to_why: "The distinguishing condition is that the install step is GitHub-SPECIFIC, and the workflow files are exactly that. INSTALL.md and SETUP.md were in a first draft of this glob; they are where the fact must be DISCLOSED, not what makes the practice fire, and including them surfaced it on half the eval cases. Decided: phase 4 routing pass."
 occasion:    "an install step adds something GitHub-specific, or a first install finishes"
 gates:       []
 index_clause: "disclose GitHub setup where its people read; offer owner settings at install"

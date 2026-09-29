@@ -4,6 +4,7 @@ title:       Decide small calls yourself; only stop for big ones
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. What licenses this is a judgment call coming up mid-work, a property of the moment rather than of a file or directory -- the same reason session-text and go-update have none. Reached through the occasion index. Decided: 2026-09-19, when the practice landed at universal."
 occasion:    "a judgment call is needed to keep work moving"
 gates:       []
 index_clause: "make small calls yourself; note them; stop only for big ones"

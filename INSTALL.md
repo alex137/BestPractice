@@ -74,7 +74,7 @@ and migration alike. **The rule is not about those two files.** It is about ever
 refinement is deferred whether or not it appears on a list here.
 
 **What is never deferred as "polish":** the private-word blocklist, the
-commit identity, the team and individual source question, the audit passing,
+commit identity, the shared and individual source question, the audit passing,
 and anything a mechanical check fails without. Those are not refinements —
 the project is wrong without them, and an install that skips one has not
 installed. **[spec/INSTALL_QUESTIONS.md](spec/INSTALL_QUESTIONS.md) is the
@@ -168,7 +168,7 @@ not this section.
    [source-naming](practices/source-naming.md), never chosen; step 5
    instantiates `local/practices/project-voice.md` into it, and nothing
    resolves that file without this declaration), and, if the administrator
-   answered yes to the team/individual question (step 3 below, same
+   answered yes to the shared/individual question (step 3 below, same
    question §1 step 9 asks), a `team` source too — resolved live from a
    sibling clone, per
    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
@@ -186,7 +186,7 @@ not this section.
    default to the safe-but-noisy answer and only this repo knows the real
    one. **`visibility`** (`"public"` or `"private"`) says whether this
    repo's tracked files are a publication; omitting it counts as public,
-   so a private repo that omits it silently loses its team and individual
+   so a private repo that omits it silently loses its shared and individual
    practices from the materialized tree. **`internal_paths`** is a list of
    repo-relative path prefixes — a directory (`"notes"`), a nested one
    (`"docs/drafts"`), or a single file (`"ROADMAP.md"`) — that are this
@@ -215,7 +215,7 @@ not this section.
    vendored or mirrored subtree sitting *inside* an output directory —
    headings "fixed" there would be correct until the next sync and then
    silently revert.
-3. **Ask the team/individual-source question** exactly as §1 step 9
+3. **Ask the shared/individual-source question** exactly as §1 step 9
    describes, and wire the individual source's own bootstrap pattern the
    same way if the person has one — this step doesn't change between the
    two install models.
@@ -409,7 +409,7 @@ cover, by design and not oversight:
 - **The creation pipeline isn't wired into a fresh install yet.**
   Candidates, promotion, and approval routing
   (`tools/precedent_candidate.py` and friends) exist in Precedent's own
-  `tools/` and in the private team/individual repos, not in what this
+  `tools/` and in the private shared/individual repos, not in what this
   section vendors. `templates/AGENTS.md.loader.template`'s own
   merge-runbook export-gate step says so explicitly and names the real
   mechanism until it is wired in: an ordinary pull request against the
@@ -753,7 +753,7 @@ cover, by design and not oversight:
    it recorded only in this file. This install's own Actions check and PR
    template both need a line there; anything a future update adds does
    too.
-9. **Ask about team and individual practice sources** (PRACTICE_ENGINE_PLAN.md's
+9. **Ask about shared and individual practice sources** (PRACTICE_ENGINE_PLAN.md's
    "Source — Who a Practice Belongs To"). This universal layer is one of
    three a project can run. Ask the administrator directly: *"Does your
    team already have its own practices repo — shared conventions beyond
@@ -881,16 +881,16 @@ cover, by design and not oversight:
      mentioning here since it comes up the moment anyone actually uses
      one:** whether it lands immediately or needs someone else's say-so
      depends on whether whoever's proposing it is a listed approver in the
-     team repo's own `approvers.json`, not on how much git access their
+     shared-set repo's own `approvers.json`, not on how much git access their
      session happens to have. A listed approver's own agreement already
      is the approval `precedent_land.py` looks for — land it directly,
      right in that conversation (`precedent_promote.py` then
      `precedent_land.py --approved-by NAME`). Someone who isn't a listed
      approver can't grant that regardless of what else they can write to,
-     so `precedent_candidate.py create --level team --as-issue true`
-     drafts a GitHub Issue on the team repo instead, for an actual
+     so `precedent_candidate.py create --level shared --as-issue true`
+     drafts a GitHub Issue on the shared-set repo instead, for an actual
      approver to act on later — see
-     [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)
+     [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)
      for the full "file vs. Issue" reasoning (it also covers individual,
      which never needs this: you're always the one who gets to say yes to
      your own set).
@@ -1196,7 +1196,7 @@ same way.
    PR template
    ([templates/pull_request_template.md.template](templates/pull_request_template.md.template)).
    The same applies to a question, not just a file: if this repo installed
-   before §1 step 9 existed, **ask about team and individual practice
+   before §1 step 9 existed, **ask about shared and individual practice
    sources now** — a project doesn't get only one chance at install to say
    yes, and a "no" the first time (or before the option existed at all)
    isn't permanent. Instantiate them exactly as §1 describes and add
@@ -1261,7 +1261,7 @@ same way.
    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
    step 7 documents) — the same mechanism
    [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
-   vendored engine" section already documents for an individual/team
+   vendored engine" section already documents for an individual/shared
    *source* set, extended to a four-source *consumer*'s larger file list.
    From a sibling BestPractice clone — **but check for
    `tools/ENGINE_MANIFEST.json` first: with no manifest, neither verb

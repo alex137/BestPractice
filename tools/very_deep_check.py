@@ -33,7 +33,7 @@ READ practices/very-deep-check.md's Why section before trusting this
 mechanism's own reliability -- it has not been evaluated the way
 full-practice-audit and routing-audit have.
 
-Runs the BOOTSTRAP GENERATOR against every resolved team/individual
+Runs the BOOTSTRAP GENERATOR against every resolved shared/individual
 source and diffs the result file by file -- the one direction neither
 `bootstrap_source.verify()` (does a real set still have every skeleton file?)
 nor `_template_freshness()` (does the skeleton still ship what real sets
@@ -55,7 +55,7 @@ the files and quotes the shared lines; it does not claim which side is wrong,
 since the sets sharing an older build and the template missing a change look
 identical from here.
 
-A missing declared team or individual source FAILS this tool by default
+A missing declared shared or individual source FAILS this tool by default
 (practice: very-deep-check) -- the ordinary loader degrades gracefully when
 one is absent, which is right for routine loading but wrong here: a very
 deep check that silently runs without a source it was told to check is not
@@ -150,7 +150,7 @@ Run:
       (e.g. "precedent-beta-v01" in this repo, while the sweep still
       defaults to "main" for every other source).
   python3 tools/very_deep_check.py --allow-missing-sources
-      -- proceed even if a declared team/individual source isn't present.
+      -- proceed even if a declared shared/individual source isn't present.
   python3 tools/very_deep_check.py --skip-branch-scan
       -- enumerate and check sources only; skip the git merge scan.
   python3 tools/very_deep_check.py --skip-base-drift
@@ -211,7 +211,7 @@ Run:
       record/stale_branches.md. Written on every run that does not pass
       --skip-branch-scan; this only relocates it.
 Exit: 1 if any repo in force is not provably current (unless --allow-stale),
-or if a declared team/individual source is missing (unless
+or if a declared shared/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
 import collections, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
@@ -262,6 +262,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import parse_check as pcheck  # noqa: E402
 import precedent_bootstrap_source as bootstrap_source  # noqa: E402
 import split_practices as sp  # noqa: E402
+
+# The decisions ledger's file name, fixed by this tool in every set. Declared
+# as a *_NAME constant so precedent_check.py's filename-separator check reads
+# it as a name the engine fixes rather than one the set chose.
+DECISIONS_NAME = 'very-deep-check-decisions.json'
 import build_views as bv  # noqa: E402
 import leak_gate  # noqa: E402
 
@@ -648,6 +653,68 @@ def _declared_base_branch(repo_dir):
     except Exception:
         return None
 
+def _second_practice_lists(repo_dir, threshold=0.8):
+    """-> [(rel, named, total)] for every tracked, hand-kept file that names
+    at least THRESHOLD of the active practices by slug -- a second list of
+    the whole catalogue, the shape question 8 of the checklist ("are there
+    two of anything that should be one?") asks about and a reader rarely
+    spots by eye.
+
+    WHY (2026-09-29). tools/routing_scope.json listed every practice by
+    hand for four weeks, a harness test failing whenever it and the practice
+    files disagreed, and its own copy of each practice's gates had drifted
+    on fourteen of them before anyone noticed. Question 8 already named "a
+    constant list maintained in two files"; it is answered by reading, and
+    nobody read for this one. Morgan, 2026-09-29: add a check for needless
+    redundancy to the very deep check. This is its mechanical half: it
+    finds the candidates, and a reader decides which are views (generated,
+    fine) and which are copies (a second source of truth to remove).
+
+    Generated files are skipped: build_views.py's views, and every document
+    doc_sync.py fills -- a generated list IS the fix, not the problem."""
+    root = pathlib.Path(repo_dir)
+    pdir = root / 'practices'
+    if not pdir.is_dir():
+        return []
+    slugs = []
+    for f in sorted(pdir.glob('*.md')):
+        try:
+            fm, _ = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        if (fm.get('status', 'active') or 'active').strip().strip('"') == 'active':
+            slugs.append(fm.get('slug', f.stem).strip())
+    if len(slugs) < 5:
+        return []
+    generated = {'AGENTS.md', 'MAP.md', 'GLOSSARY.md', 'CLAUDE.md'}
+    try:
+        sys.path.insert(0, str(root / 'tools'))
+        import doc_sync as _ds
+        generated |= {doc for doc, _block, _script in getattr(_ds, 'PAIRS', ())}
+    except Exception:
+        pass
+    finally:
+        if sys.path and sys.path[0] == str(root / 'tools'):
+            sys.path.pop(0)
+    r = subprocess.run(['git', '-C', str(root), 'ls-files'],
+                       capture_output=True, text=True)
+    out = []
+    pats = {s: re.compile(r'(?<![\w-])' + re.escape(s) + r'(?![\w-])') for s in slugs}
+    for rel in r.stdout.split():
+        if rel.startswith('practices/') or rel in generated:
+            continue
+        if not rel.endswith(('.json', '.md', '.py', '.txt', '.yml', '.yaml')):
+            continue
+        try:
+            text = (root / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        named = sum(1 for s in slugs if pats[s].search(text))
+        if named >= threshold * len(slugs):
+            out.append((rel, named, len(slugs)))
+    return out
+
+
 def _vendored_exclusion_findings(repo_dir):
     """-> [str] findings, or None if `repo_dir` is not a vendored consumer.
 
@@ -751,7 +818,7 @@ def _default_remote_branch(repo_dir):
     """-> the short branch name origin/HEAD points at ('main', typically),
     or None if it can't be determined. `refs/remotes/origin/HEAD` is not set
     on every clone this tool will see -- reproduced directly on this repo's
-    own sibling checkouts of precedent-team-repo-maintenance and
+    own sibling checkouts of precedent-shared-repo-maintenance and
     precedent-individual, both attached (not `git clone`d normally) without
     it, where `git symbolic-ref --short refs/remotes/origin/HEAD` just fails
     rather than degrading -- so fall back to checking for a same-named
@@ -1894,7 +1961,7 @@ def _config_key_reads(repo_dir, others=()):
     THE INCIDENT (spec/CI_MINUTES_PLAN.md item 15, corrected 2026-09-21).
     The plan told a session to set `ci_workflows: disabled` in a consuming
     repo's precedent.json and then delete a workflow. `ci_preference()`
-    resolves that key from an individual or team SOURCE's identity.json and
+    resolves that key from an individual or shared source's identity.json and
     never from a consumer's precedent.json, so the key would have been read
     by nothing, and the deletion would have carried a commit message
     claiming a toggle permitted it. A session read the engine and refused.
@@ -4012,7 +4079,7 @@ def _load_decisions_ledger(root_path):
     than as some fifth verdict nothing here knows how to handle."""
     try:
         data = json.loads(
-            (pathlib.Path(root_path) / 'very-deep-check-decisions.json')
+            (pathlib.Path(root_path) / DECISIONS_NAME)
             .read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return {}
@@ -4370,7 +4437,17 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # would report a deliberate decision as drift every run
             # (practice: control-asserts-which-failure -- a check that fires
             # on the wrong thing teaches people to skim it).
-            if rel in owned or rel.endswith('settings.json'):
+            # tools/session_load_budgets.json is seeded by MEASURING the set's
+            # rendered .precedent/SESSION_PRACTICES.md -- skipped above
+            # because it differs between any two generations by construction
+            # -- so the budgets inherit that difference; and once written
+            # they are the set's own, with ceilings reviewed by hand
+            # (practice: session-load-budget). A difference is a note. Found
+            # 2026-09-29: a Promote's full check reported a set generated
+            # seconds earlier as drifted here, after the sibling sources the
+            # render reads had been refreshed mid-run.
+            if (rel in owned or rel.endswith('settings.json')
+                    or rel == os.path.join('tools', 'session_load_budgets.json')):
                 notes.append(rel)
                 continue
             eng_name = pathlib.Path(rel).name
@@ -4458,7 +4535,7 @@ def _pass_generator_stderr_once(text):
 
 
 def _bootstrap_drift(sources, collect=None):
-    """-> [str] _bootstrap_drift_one across every resolved team/individual
+    """-> [str] _bootstrap_drift_one across every resolved shared/individual
     source, or one line saying why nothing was compared. A section that
     prints nothing when no source resolved reads exactly like a section
     that compared everything and found it clean
@@ -4474,7 +4551,7 @@ def _bootstrap_drift(sources, collect=None):
         out.extend(_bootstrap_drift_one(level, s.get('name'), path,
                                         collect=collect))
     if not seen:
-        return ['no team or individual source resolved here, so the generator '
+        return ['no shared or individual source resolved here, so the generator '
                 'was NOT compared against anything -- this is a skip, not a '
                 'clean result. Attach the sets and re-run.']
     return out
@@ -7613,6 +7690,22 @@ def _main(box):
         print()
     if led:
         led.end(findings=len(_vendor_findings or []))
+    if led:
+        led.start('SECOND LISTS OF PRACTICES')
+    _second_lists = _second_practice_lists(_root)
+    if not as_json:
+        print("SECOND LISTS OF PRACTICES -- hand-kept files naming most of the "
+              "catalogue by slug\n(question 8: is each a generated view, or a "
+              "second copy that can drift?)\n")
+        if not _second_lists:
+            print("  OK: no hand-kept file names 80% or more of the active practices.")
+        for _rel, _n, _tot in _second_lists:
+            print(f"  CANDIDATE: {_rel} names {_n} of {_tot} active practices -- "
+                  f"read it: a view built from the practice files is fine; a "
+                  f"list kept by hand is a second source of truth")
+        print()
+    if led:
+        led.end(findings=len(_second_lists))
 
     data = enumerate_scope(repo, user_config)
 

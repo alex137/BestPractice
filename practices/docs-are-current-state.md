@@ -4,6 +4,7 @@ title:       Documents are current state; the VCS is the revision history
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "writing or editing a document"
 gates:       []
 index_clause: "state what is true now; version control holds the history"

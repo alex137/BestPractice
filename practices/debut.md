@@ -4,8 +4,10 @@ title:       "\"Debut\" is stage 4: move pre-staging into staging, with the full
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A phrase in a MESSAGE (\"Debut\", \"Promote 4\") -- stage 4, a Promote with the step named, like promote's entry. Routed by the `merge` gate. Decided: 2026-09-29, when the practice landed."
 occasion:    "a person says \"Debut\", \"Test Readiness\" or \"Promote 4\""
 gates:       ["merge"]
+gates_why:   "Debut and Produce are merges between branch tiers -- the moment that gate exists for, as for promote."
 index_clause: "stage 4: Promote pre-staging into staging, full checks"
 checked_by:  null
 defines:     ["Debut", "Test Readiness"]

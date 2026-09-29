@@ -82,7 +82,7 @@
       "ceiling": 4000,
       "measured": 2863,
       "reviewed": "2026-09-11",
-      "why": "Generated at session start from the team and individual sources, so it varies with what resolved; the ceiling is the whole of what those sources may add to every session here."
+      "why": "Generated at session start from the shared and individual sources, so it varies with what resolved; the ceiling is the whole of what those sources may add to every session here."
     }
   }
 }

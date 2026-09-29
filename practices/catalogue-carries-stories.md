@@ -4,6 +4,7 @@ title:       Every active practice in a catalogue carries a non-empty Story
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md"]
+applies_to_why: "Set from the Install text, which names practices/*.md unambiguously: the check reads every practice file's frontmatter status and its ## Story. Deliberately not '**' -- nothing outside practices/ can violate it. Decided: 2026-09-07."
 occasion:    "landing practices in bulk -- a migration, an import, or a move between sources"
 gates:       ["merge"]
 index_clause: "no active practice sits with an empty ## Story"

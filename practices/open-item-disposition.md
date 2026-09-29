@@ -4,8 +4,10 @@ title:       An open item carries a disposition, and silence is the default
 tier:        on-demand
 severity:    default
 applies_to:  ["**/TODO.md", "templates/TODO.md.template", "**/todo/todo-*.md"]
+applies_to_why: "The item's disposition is written in the TODO file itself, and the template teaches the convention to every dependent repo. Nowhere else can carry one. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it -- same rule, a frontmatter field there instead of a prose line. Decided: 2026-09-08, when the practice landed."
 occasion:    "writing or triaging an open item, or deciding whether to raise one in a reply"
 gates:       ["reply"]
+gates_why:   "Half the rule fires at a moment no path reaches -- a session writing its reply, deciding whether to raise an item at all."
 index_clause: "an item is raised in chat only if it says `ask`; absent means stay quiet"
 index_required: false
 checked_by:  "tools/precedent_check.py"

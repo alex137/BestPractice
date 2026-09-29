@@ -64,7 +64,7 @@ inherits" section first — this brief does not restate them.
 **Two open decisions, explained in full and left for Morgan's judgment**,
 tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](PRACTICE_ENGINE_PLAN.md#open-decisions):
 whether the leak gate's vocabulary blocklist is miscalibrated or has simply
-never run clean, and whether `precedent-team-repo-maintenance`'
+never run clean, and whether `precedent-shared-repo-maintenance`'
 `session-trailer` check should accept `Claude-Session:` or every session
 should start writing a literal `Session:` line too. Neither has a right
 answer this session can pick on its own — both are explained at length in
@@ -149,7 +149,7 @@ writing this brief has had access to yet.
    carries (deliberately honest about not being wired in yet, not an
    oversight).
 3. **Upgrade `SETUP.md`/`GETTING_STARTED.md`'s disclosure** once §0 is
-   rehearsed and item 2 lands — name the individual/team/universal levels
+   rehearsed and item 2 lands — name the individual/shared/universal levels
    explicitly, rather than the capture-gate-only description
    [decisions/2026-09-03-setup-getting-started-disclosure-gap.md](../decisions/2026-09-03-setup-getting-started-disclosure-gap.md)
    deliberately limited itself to.

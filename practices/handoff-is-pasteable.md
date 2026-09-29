@@ -4,8 +4,10 @@ title:       A handoff to another session is a repo name, a paste block, and a w
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. What makes a handoff need this shape is that the NEXT step happens in a different session -- a fact about where the work goes, not about any file this session touched. The reply that hands it over may follow work in any file, or none. Reached through the occasion index and the reply gate. Decided: 2026-09-10, when the practice landed."
 occasion:    "asking the person to do something in another session, or pointing them at one"
 gates:       ["reply"]
+gates_why:   "The reply IS the handoff: the moment a session writes 'go do this over there' is the moment it either gives the repo name, the paste block and the way back, or does not."
 index_clause: "any reply that sends them elsewhere ships the words: repo, copy block, way back"
 checked_by:  null
 defines:     []

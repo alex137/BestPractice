@@ -4,6 +4,7 @@ title:       A session proves its checkout is current before it changes anything
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is setting up a project or a session finding its checkout behind; the guard it describes fires on the first write of any file, so no path distinguishes it. Reached through the occasion index. Decided: 2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance."
 occasion:    "setting up a project a session works in, or a session reporting that its checkout is behind"
 gates:       []
 index_clause: "verify and fast-forward the checkout before the first write, never after"

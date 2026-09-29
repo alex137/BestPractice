@@ -4,6 +4,7 @@ title:       "\"Act\" is stage 2: build the change on the session's feature bran
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A phrase in a MESSAGE (\"Act\", \"Promote 2\") -- stage 2 of the five-stage ladder; no file path reaches it. Reached through the occasion index; no gate, since building is every moment rather than one. Decided: 2026-09-29, when the practice landed."
 occasion:    "a person says \"Act\" or \"Promote 2\", or asks to start building after a plan"
 gates:       []
 index_clause: "stage 2: build it on the session's feature branch, pushed so it survives"

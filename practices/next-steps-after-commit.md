@@ -4,8 +4,10 @@ title:       "A reply that commits closes with an explicit Next Steps heading"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, not a place — routed by the `reply` gate instead. Decided: Morgan, 2026-09-14."
 occasion:    ""
 gates:       ["reply"]
+gates_why:   "Its occasion is the end of a reply; tools/precedent_reply_check.py measures it from the transcript at the stop hook. It carries NO occasion: -- deliberately, and it is the one case where dropping it costs nothing: the requirement is REFUSED at the stop hook whether or not a session recognised the occasion, so the index line bought the least of any line in it. Dropped 2026-09-14, as step 1 of build_views' own reduction menu, when landing this practice put the occasion index 33 tokens over its ceiling."
 index_clause: "close every reply on a real `## Next Steps` HEADING, never a bold line"
 checked_by:  null
 defines:     []

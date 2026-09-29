@@ -4,6 +4,7 @@ title:       Unattended automation reports its own blockers as a tracked issue
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is an unattended job hitting a blocker at run time, which is a property of an automation's run history, not of a file a session edits. Reached through the occasion index. Decided: 2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance."
 occasion:    "an unattended job hits something blocking its normal work, or something optional it cannot reach"
 gates:       []
 index_clause: "a blocked job files or updates an issue; skip an optional input, never silently"

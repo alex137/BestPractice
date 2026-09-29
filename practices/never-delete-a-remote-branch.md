@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["**"]
+applies_to_why: "No locus, and deliberately so. The occasion is a moment in a conversation -- a branch has just done its job -- and the failure being prevented is a tool call, not an edit: a session about to run `git push origin --delete` is touching no file the path channel could match on. It carries its occasion-index line instead, which is the one channel loaded before a session acts. Decided: Morgan, 2026-09-21, when the practice was added."
 occasion:    "a branch has done its job, or a person says to delete branches"
 gates:       []
 index_clause: "never delete a remote branch; hand over the one-click link"

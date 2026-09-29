@@ -4,6 +4,7 @@ title:       "\"Write it up\" commits a self-contained report on the current iss
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, and unlike a gate-tied command its work (writing the report, committing it, pushing it) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-18, when the practice landed."
 occasion:    "a person says \"Write it up\" or \"Spec it out\", or asks for a write-up of the issue being worked"
 gates:       []
 index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"

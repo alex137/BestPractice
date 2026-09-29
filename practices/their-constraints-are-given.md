@@ -4,6 +4,7 @@ title:       "A person's account of their own constraints is given, not a claim 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is something a PERSON says about their own situation, which is not a file path and not a repository -- the same shape as push-back beside it, and reached the same way, through the occasion index. Left at `**` deliberately: there is no tree state that predicts when somebody will state a constraint a session is tempted to soften. Decided: 2026-09-21, when the practice landed at universal after the same argument recurred across sessions."
 occasion:    "a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict"
 gates:       []
 index_clause: "their own situation is given -- say it once, then work from theirs"

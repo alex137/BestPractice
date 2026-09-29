@@ -480,6 +480,18 @@ Each numbered item is its own landing, through the ladder itself.
    about a hundred dated records. Exempting those files would switch the
    check off where it is needed, so it waits on a section-aware exemption
    -- its own change to the check code.
+   **Built 2026-09-29, after Morgan asked for every leftover cleaned up:**
+   the first pass had retired only the phrase "team set", so "team
+   source", "team repo", `--level team` and a code path that read only
+   level "team" (a missing shared set was never reported) all survived.
+   `tools/our_language.json` gained a `retired` list, and
+   `precedent_check.py`'s `retired-words` check reads it with history left
+   alone by section, quotation and document status rather than by whole
+   file, so retiring the next word is one registry entry. A repository's own
+   `process/retired_vocabulary.json` terms moved into the same check later
+   that day, retiring the older scan (Morgan: "if you now do the whole job
+   and that's redundant, then let's deprecate that");
+   migration-scrubs-vocabulary keeps only the leftover-pack half.
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
    Booked, Debut and Produce, each with its synonym; Promote's practice
    gains "Promote N", the read-back, the bare-Promote rule and "Graduate";

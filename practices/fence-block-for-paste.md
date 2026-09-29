@@ -4,8 +4,10 @@ title:       Text meant to be copied elsewhere goes in its own fence block
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Left at `**` on purpose, same as reply-links-files: a reply is not a file, so no glob names the moment text meant to be pasted is handed over. Decided: 2026-09-21, when it was demoted from the resident block to the `reply` gate."
 occasion:    "a reply hands over text meant to be pasted somewhere else -- a prompt, a commit message, a PR description, a config snippet, a comment for another tool"
 gates:       ["reply"]
+gates_why:   "Its occasion is the reply itself -- the moment text meant to be pasted is handed over."
 index_clause: "every fence block says where it goes -- Paste into: X, or not for pasting"
 index_required: false
 checked_by:  null

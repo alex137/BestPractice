@@ -61,6 +61,8 @@ PAIRS = [
     ("documentation/DAILY_HABITS.md", "vocabulary",
      "tools/precedent_vocabulary.py"),
     ("documentation/OUR_LANGUAGE.md", "words", "tools/our_language.py"),
+    ("documentation/OUR_LANGUAGE.md", "retired", "tools/our_language.py"),
+    ("spec/ROUTING_REASONS.md", "table", "tools/routing_reasons.py"),
 ]
 
 # spec/CHANGES_TO_TELL_ALEX.md's merge-back block left this list on

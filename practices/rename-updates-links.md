@@ -4,6 +4,7 @@ title:       "A rename is not done until every link to the old path, and every u
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A rename can strand a reference in any file of any type -- a markdown link, a path inside a script, a workflow, a config -- so no narrower glob is honest. `**` is right here for the same reason it is right for no-version-suffix: the occasion is an action taken ON a file, not a property of the file being edited. Its check is scoped instead: it compares against the published default branch, so it only ever asks about renames this branch itself made. Decided: 2026-09-06, when the practice was added."
 occasion:    "renaming, moving or deleting a file others may link to, or renaming or retiring a name"
 gates:       []
 index_clause: "repoint every link, and every use of a retired name, in the same commit"

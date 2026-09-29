@@ -4,6 +4,7 @@ title:       Session bootstrap is code, not memory
 tier:        on-demand
 severity:    default
 applies_to:  [".claude/**", "**/hooks/**", "**/bootstrap*", "templates/harness/**"]
+applies_to_why: "Session setup lives in hooks and bootstrap scripts. The tightest locus in this pass. Decided: phase 4 routing pass."
 occasion:    "setting up a new repo's session start"
 gates:       []
 index_clause: "setup lives in a session-start hook, not in memory"

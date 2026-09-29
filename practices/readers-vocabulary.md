@@ -4,6 +4,7 @@ title:       Outward-facing documents use the reader's vocabulary, not the sourc
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "writing an outward-facing document"
 gates:       []
 index_clause: "use the reader's words; gloss inline or replace"

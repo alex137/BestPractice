@@ -4,6 +4,7 @@ title:       Frame the deliverable from the audience's question, not from the ma
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No path tells you who the audience is. Decided: phase 4 routing pass."
 occasion:    "starting an outward-facing deliverable"
 gates:       []
 index_clause: "build it around the audience's question, not your material"

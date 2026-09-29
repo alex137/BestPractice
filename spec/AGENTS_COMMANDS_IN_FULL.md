@@ -157,7 +157,7 @@ cloned by the SessionStart hook when the environment carries
 ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
 sources on disk before the first turn. **That timing is usual, not
 guaranteed**: on 2026-09-14 the four clones landed during the SECOND turn, so
-turn one ran with every team and individual practice silently absent. Check
+turn one ran with every shared and individual practice silently absent. Check
 rather than assume: the
 session-start source line names which sources resolved, and
 `env | grep -c PRECEDENT` says whether the environment carries the
@@ -170,7 +170,7 @@ account's `precedent-individual`, and for any shared set
 anything else. Silently — no confirmation first.** It grants access per
 session, and it **refuses across owners**, so from a session rooted under a
 different owner than the sets it simply fails — say so plainly and carry on.
-Until one of the two routes works, every personal and team practice in force
+Until one of the two routes works, every personal and shared-set practice in force
 here is **silently absent**, and this repository's rules are the only ones a
 session sees.
 
@@ -196,7 +196,7 @@ hooks, silently, including the one that writes
 [gotcha-2026-09-13](../gotchas/gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md). **This is not a
 primary-repo-only problem**: when the session root sits above *every*
 attached repo and none of them is `$CLAUDE_PROJECT_DIR` — the ordinary shape
-of a multi-source session, since a team source resolves as a sibling clone —
+of a multi-source session, since a shared source resolves as a sibling clone —
 no repo's hooks fire, primary or attached; 2026-09-25 also caught the global
 git identity and the checked-out branch drifting mid-session with no repo
 tool in the loop, in that same topology

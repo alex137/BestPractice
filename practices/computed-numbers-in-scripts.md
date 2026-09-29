@@ -4,6 +4,7 @@ title:       Computed numbers live in scripts; documents embed sync-gated genera
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "writing a document that cites a computed number"
 gates:       []
 index_clause: "computed content lives in a sync-gated generated block"

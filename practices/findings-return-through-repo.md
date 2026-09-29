@@ -4,8 +4,10 @@ title:       A finding goes into the repo, not into a message the person relays
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. What makes a discovery worth committing is that ANOTHER session will need it -- a fact about the finding's audience, not about the file it was found in. The findings that prompted the rule came from a hook script, an environment dump, a git remote and a settings.json, sharing no path. Reached through the occasion index and the reply gate. Decided: 2026-09-10, when the practice landed."
 occasion:    "discovering something a session in another window will need, or the person adopts a recommendation you gave in chat"
 gates:       ["reply"]
+gates_why:   "The reply is the moment a session decides between committing a finding and merely saying it, and saying it is the failure -- so the obligation lands exactly where the temptation does."
 index_clause: "commit it, an adopted plan included; never leave it for the person to carry"
 index_required: false
 checked_by:  null

@@ -4,8 +4,10 @@ title:       "\"Prompt Please\" hands back a recommendation, or work this sessio
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Its two occasions (an existing recommendation, or work this session cannot reach) are both facts about the conversation and the session's own repository access, not about any file being edited. Reached through the occasion index and the reply gate. Decided: 2026-09-20, when the practice landed."
 occasion:    "handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session"
 gates:       ["reply"]
+gates_why:   "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
 index_clause: "\"Prompt Please\" -- recommendation or unreachable work, one paste-ready prompt"
 checked_by:  null
 defines:     ["Prompt Please"]

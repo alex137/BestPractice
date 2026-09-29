@@ -94,7 +94,7 @@ being checked by it.
 | `index-remembers-past` | change | a changed document does not carry inline lineage language naming what it replaced or what replaced it, since provenance belongs in the repository index, not annotated into the documents themselves |
 | `label-describes-content` | change | a heading or bold lead-in that claims "one line" / "one-liner" / "TL;DR" / "one paragraph" / "one-pager" must match the length of what actually follows it |
 | `layered-practice-packs` | tree | every practice in force in this repo is reachable by at least one loading channel here -- resident, occasion index, a path trigger, a gate, or a running check |
-| `migration-scrubs-vocabulary` | tree | a migrated repo carries no leftover pre-migration practice pack (process/manifest_*.json and its tree), and -- where the repo has declared process/retired_vocabulary.json -- none of its listed terms outside the declared exempt files/directories |
+| `migration-scrubs-vocabulary` | tree | a migrated repo carries no leftover pre-migration practice pack (process/manifest_*.json and its tree) |
 | `new-hook-joins-the-registry` | tree | every hook script this repo ships (templates/harness/claude-code/hooks/*.sh) is on a repo kind's list in precedent_vendor_engine.py's HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; nothing is listed that is not shipped; and each kind's template -- the consumer settings.json and the set payload precedent_bootstrap_source.py writes -- wires exactly its list |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not end its name in a version or date token (unless it sits beside the unsuffixed predecessor it must coexist with), nor in a state word -- final, draft, copy, new, old, latest, backup -- beside the unsuffixed original it forks |
@@ -119,10 +119,11 @@ being checked by it.
 | `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the ENGINE's fallback zone is the SAME string in all three engine files that hold it: the time engine and both copies of the commit hook |
 | `todo-migrate-available-but-unused` | tree | a repo that has tools/todo_migrate.py vendored in (source or consumer engine alike) but has never run it -- TODO.md still carries real old-format item bullets, no todo/ directory exists, and the file does not open on the "# TODO has moved" stub heading |
 | `two-check-levels` | tree | the session instructions name both of the repo's two check levels -- the pair GLOSSARY.md defines against this practice, or "light check" / "deep check" where the glossary defines none -- and the glossary, when it names any, names two distinct levels |
+| `upstream-fix` | tree | every exemption-list entry in precedent.json that is new against the base branch carries a root_fix: what was fixed instead, or why the check cannot learn the case |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-54 of 170 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+55 of 170 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
@@ -192,7 +193,7 @@ repo-local branch rule.
 **A practice SOURCE set is the case that gate gets wrong.** Its `practices/`
 holds its own practices only; it resolves no sources and materializes nothing
 into itself, so every other level's check skipped there — permanently, not
-pending configuration. Measured 2026-09-12 in a team source: **12 passed, 42
+pending configuration. Measured 2026-09-12 in a shared source: **12 passed, 42
 skipped, and all 42 skips that one cause.** The repositories that publish the
 catalogue were the least-checked repositories in the system.
 
@@ -254,7 +255,7 @@ rather than shrugged at: **a session verifying that a local re-declaration is
 no longer load-bearing cannot do it by deduplicating the file and watching the
 check still pass.** File presence alone produces that result, so the weak test
 "confirms" the removal while proving nothing. **The decisive test is removing
-the file entirely.** That is how a team set's re-declared
+the file entirely.** That is how a shared set's re-declared
 `catalogue-carries-stories` copy was verified on 2026-09-13, and the weaker
 test would have passed just as readily on a copy that was still the only thing
 switching the check on.
@@ -400,7 +401,7 @@ file is in the right place and the check works. **A check that keeps
 repo-specific data as a constant in the script can never be extended by the
 repo it runs in.** The consumer cannot edit the materialized copy — it is
 overwritten. Editing the source instead means putting one consumer's data
-into a team or individual set that several repos share, which is worse. The
+into a shared or individual set that several repos share, which is worse. The
 data has nowhere correct to live.
 
 The case that surfaced it: `check_commit_author.py` and

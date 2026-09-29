@@ -4,6 +4,7 @@ title:       "Build/buy: decompose before deciding, and keep the verdict supplie
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A decision, made before any file exists. Decided: phase 4 routing pass."
 occasion:    "deciding whether to build or buy a component"
 gates:       []
 index_clause: "decompose first; one verdict per part, on ownership grounds"

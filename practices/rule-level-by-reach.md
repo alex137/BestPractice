@@ -4,8 +4,10 @@ title:       "Which set holds a rule is decided by its reach, not by write acces
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "AGENTS.md", "CLAUDE.md", "precedent.json"]
+applies_to_why: "Where a rule is written is where its level is chosen. practices/ and precedent.json are the obvious loci -- a practice file declares a level by which source holds it, and precedent.json declares which sources exist. AGENTS.md and CLAUDE.md are included deliberately, and are the point: the 2026-09-12 incident wrote eight rules as prose into an instructions file, which is where a rule that never becomes a practice file actually lands, so a trigger confined to practices/ would miss the exact case the practice exists for. Decided: 2026-09-12, when the practice landed."
 occasion:    "deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal"
 gates:       ["review"]
+gates_why:   "The review moment is when a rule just written can still be re-homed cheaply. No path reaches the earlier moment -- the choice is made before a file is opened -- and the reply gate is the wrong one: the artifact is a practice file in a repository, not a line in a chat reply."
 index_clause: "pick the set by reach -- not by the repo you can write to"
 index_required: false
 checked_by:  null

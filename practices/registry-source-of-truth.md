@@ -4,6 +4,7 @@ title:       State lives in one machine-readable registry; documents derive
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike. Decided: phase 4 routing pass."
 occasion:    "tracking state several documents must agree on"
 gates:       []
 index_clause: "state lives in one machine-readable registry; documents derive"

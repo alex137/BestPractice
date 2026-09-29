@@ -4,6 +4,7 @@ title:       Tabular documents ship a sortable render from one shared renderer
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires on publishing a table, which no path in this repo identifies. Decided: phase 4 routing pass."
 occasion:    "publishing a sortable multi-column table"
 gates:       []
 index_clause: "ship a sortable render from the one shared renderer"

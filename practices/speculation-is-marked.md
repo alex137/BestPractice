@@ -4,6 +4,7 @@ title:       A speculative document says so four times
 tier:        on-demand
 severity:    default
 applies_to:  ["spec/SPECULATIVE_*.md", "record/SPECULATIVE_*.md"]
+applies_to_why: "The SPECULATIVE_ prefix IS the distinguishing condition once the practice exists: a file carrying it is, by the rule's own definition, a speculative document, so editing one hands the session the rule that governs it. The prefix cannot reach the case that matters more -- WRITING a brainstorm up for the first time, when no such file exists yet -- which is why the occasion index and the merge gate carry that half. A broader glob over spec/**/*.md was rejected: most documents there are not speculative, so the path would be necessary and not distinguishing. Decided: 2026-09-09."
 occasion:    "recording exploratory thinking -- an idea nobody has committed to -- as a document"
 gates:       ["merge"]
 index_clause: "mark it in filename, title, opening block and PR -- four places, or none"

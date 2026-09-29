@@ -4,6 +4,7 @@ title:       "Decommissioning a mechanism deletes its files, once an audit says 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus, and `**` for the same reason rename-updates-links and no-version-suffix take it: the occasion is an action taken ON a path -- retiring the mechanism that owned it -- not a property of the file being edited. A retirement can land in any file type, and the file most in need of deleting is usually one nobody is editing at all, so a narrower glob would fire least where it matters most. Its check is scoped instead, to the paths this repo has declared retired. Decided: 2026-09-07, when the practice was added."
 occasion:    "decommissioning a mechanism that leaves files with no remaining job"
 gates:       []
 index_clause: "delete what it owned; audit first, never on a hunch"

@@ -4,6 +4,7 @@ title:       "\"Consider\" is stage 1: decide how much plan the work needs, then
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A phrase in a MESSAGE (\"Consider\", \"Promote 1\") -- stage 1 of the five-stage ladder, like promote's entry; no file path reaches it. Reached through the occasion index; no gate, since the plan it asks for comes before any file moment. Decided: 2026-09-29, when the practice landed."
 occasion:    "a person says \"Consider\" or \"Promote 1\", or asks to plan before building"
 gates:       []
 index_clause: "stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up"
