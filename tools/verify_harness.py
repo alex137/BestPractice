@@ -7449,7 +7449,7 @@ def check_update_vendors_resolves_a_catalogue_edit():
     if not head:
         not_applicable('Update Vendors resolves a local edit in process/upstream/',
                        f'this clone has no origin/{branch} for the catalogue to mirror')
-        return None
+        return
     fx = _LocalEditsFixture('precedent-local-edits-cat-')
     cases = []
     try:
@@ -7493,9 +7493,11 @@ def check_update_vendors_resolves_a_catalogue_edit():
                       and rec['upstream']['commit'] == head, out[-1500:]))
     finally:
         fx.close()
-    bad = [(n, d) for n, ok, d in cases if not ok]
-    return (not bad, f'{len(cases)} stated cases',
-            '; '.join(f'{n}: {d}' for n, d in bad))
+    # Records its own verdict, so the not-applicable path above is said as
+    # such and never counted as a pass.
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors resolves a committed local edit in process/upstream/ '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_send_carries_a_local_edit_upstream():
@@ -46255,10 +46257,7 @@ def main():
           *check_update_vendors_resolves_local_edits())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
-    _catalogue_edit = check_update_vendors_resolves_a_catalogue_edit()
-    if _catalogue_edit is not None:    # None: not applicable, said as such
-        check('Update Vendors resolves a committed local edit in process/upstream/',
-              *_catalogue_edit)
+    check_update_vendors_resolves_a_catalogue_edit()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
     check('the leak gate sees the main clone\'s private siblings from a worktree',
