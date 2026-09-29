@@ -207,6 +207,15 @@ HISTORY_CHECKS = {'commit_author', 'commit_dates', 'session_trailer'}
 # question 3). An engine that runs one at every push must not run a copy
 # older than the push-time behaviour: {name: text only the new copy has}.
 PUSH_TIME_SINCE = {'session_trailer': '--all-history'}
+# precedent_update.py judges an update "as committed" by making a stand-in
+# commit, running this, and undoing it. That commit's message, author and
+# date are the tool's, not the ones the session's real commit will carry, so
+# the checks that judge commits rather than files have nothing true to judge
+# there: a set's session-trailer check refused every update over the
+# stand-in's missing `Session:` line (2026-09-29). With this variable set,
+# they stand aside and the push gate judges the real commit. An engine too
+# old to know the variable ignores it and behaves as before.
+STANDIN_COMMIT_ENV = 'PRECEDENT_STANDIN_COMMIT'
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/checks/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
@@ -983,6 +992,13 @@ def run(root, checks, landed=None, reported=None):
             print(f'[{i}/{len(checks)}] {name}: EXEMPT -- this repo declares '
                   f'{slug} not binding in precedent.json: '
                   f'{not_binding()[slug]}', flush=True)
+            continue
+        if os.environ.get(STANDIN_COMMIT_ENV) and \
+                name in {c[0] for c in IDENTITY_CHECKS}:
+            print(f'[{i}/{len(checks)}] {name}: not judged here -- the newest '
+                  f'commit is a stand-in the update made to judge its tree; the '
+                  f'push gate judges the real commit\'s author, date and '
+                  f'trailer', flush=True)
             continue
         if (name in PUSH_TIME_SINCE and script.is_file() and
                 PUSH_TIME_SINCE[name] not in script.read_text(encoding='utf-8',

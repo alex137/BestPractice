@@ -799,9 +799,20 @@ def run(argv, cwd):
     return r.returncode, r.stdout + r.stderr
 
 
+# A red check's verdict lines: a check's FAILED, a VIOLATION and the
+# findings under it, and the one-line summary per failing check.
+_VERDICT_LINE = re.compile(r'FAIL|VIOLATION|^\s+\S+ \|\s|^\s*\|\s{2,}\S')
+
+
 def tail(out, n=25):
+    """The last `n` lines of `out`, verdict lines first. A plain tail showed
+    only routine notices when a build printed them after the verdict: an
+    update reported "the check is red" and nothing about why (2026-09-29)."""
     lines = [l for l in out.rstrip().splitlines()]
-    return '\n'.join('    | ' + l for l in lines[-n:])
+    verdict = [l for l in lines if _VERDICT_LINE.search(l)
+               and 'build_views:' not in l]
+    shown = (verdict[:n - 3] + ['...'] + lines[-2:]) if verdict else lines[-n:]
+    return '\n'.join('    | ' + l for l in shown)
 
 
 def left_block(out):
@@ -1075,7 +1086,14 @@ def judged_as_committed(repo, argv):
                               'the real commit would be refused the same way:\n'
                               + c.stdout + c.stderr)
     try:
-        return run(argv, repo)
+        # The stand-in's message, author and date are this tool's, so the
+        # commit-judging checks stand aside (precedent_push_check.py,
+        # STANDIN_COMMIT_ENV) and the push gate judges the real commit.
+        os.environ['PRECEDENT_STANDIN_COMMIT'] = '1'
+        try:
+            return run(argv, repo)
+        finally:
+            os.environ.pop('PRECEDENT_STANDIN_COMMIT', None)
     finally:
         _rc, parent = run(['git', '-C', str(repo), 'rev-parse', 'HEAD~1'], repo)
         if parent.strip() == before:
