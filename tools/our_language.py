@@ -176,13 +176,17 @@ def retired_uses_in(rel, text, retired):
 
 def retired_uses(root=ROOT, paths=None, registry=REGISTRY):
     """-> [(rel, line_number, word, replacement, line)] over the Markdown
-    files git tracks under ROOT (or just PATHS, when given)."""
+    files under ROOT git tracks or would add (or just PATHS, when given)."""
     retired = load_retired(registry)
     if not retired:
         return []
     root = Path(root)
     if paths is None:
-        r = subprocess.run(['git', '-C', str(root), 'ls-files', '*.md'],
+        # Untracked-but-not-ignored files too: a document just written is
+        # exactly when a retired word is cheapest to catch, and the planted
+        # case in verify_harness.py found the tracked-only read missed it.
+        r = subprocess.run(['git', '-C', str(root), 'ls-files', '--cached',
+                            '--others', '--exclude-standard', '*.md'],
                            capture_output=True, text=True)
         paths = r.stdout.split()
     out = []

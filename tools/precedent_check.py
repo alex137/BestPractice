@@ -7098,7 +7098,8 @@ def _two_check_levels(ctx):
        'only that a reason was written down where the practice is. A source '
        'set or consumer is not held to it: the field is optional there, '
        'since the second file that made it necessary only ever existed here.',
-       practice_backed=False)
+       practice_backed=False,
+       selects_on=('practices/*.md', 'tools/routing_scope.json'))
 def _routing_reason(ctx):
     # WHY THE REASON LIVES IN THE PRACTICE (2026-09-29). It used to live in
     # tools/routing_scope.json, one entry per practice, and a harness test
@@ -7153,7 +7154,9 @@ def _routing_reason(ctx):
        'only -- code comments and messages were cleaned by hand when the '
        'word was retired, and are not held to it. A consumer repository is '
        'not held to it either: the words are this engine\'s own.',
-       practice_backed=False)
+       practice_backed=False,
+       selects_on=('*.md', '**/*.md', 'tools/our_language.json',
+                   'tools/our_language.py'))
 def _retired_words(ctx):
     # practice: rename-updates-links ("a term ... renamed or retired, every
     # place that still uses the old name ... is updated"). WHY THIS IS A

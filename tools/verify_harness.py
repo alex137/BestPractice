@@ -11172,6 +11172,37 @@ def check_precedent_check_fires():
              lambda repo: (repo / 'decisions' / 'PLANTED_MIXED_NAME.md')
              .write_text('# planted\n', encoding='utf-8'))
 
+        # routing-reason -- an on-demand practice loses its applies_to_why,
+        # the state a second hand-kept routing list used to let through.
+        def _plant_no_routing_reason(repo):
+            f = repo / 'practices' / 'go-update.md'
+            f.write_text('\n'.join(l for l in f.read_text(encoding='utf-8')
+                                   .split('\n')
+                                   if not l.startswith('applies_to_why:')),
+                         encoding='utf-8')
+        case('routing-reason', _plant_no_routing_reason)
+
+        # retired-words -- live prose using a word our_language.json retired.
+        case('retired-words',
+             lambda repo: (repo / 'documentation' / 'PLANTED_RETIRED.md')
+             .write_text('# Planted\n\nDeclare the team source here.\n',
+                         encoding='utf-8'))
+
+        # upstream-fix -- a NEW exemption entry with no root_fix. The base
+        # branch the check compares against is the fixture's own baseline
+        # commit, so the old entries read as old and only the planted one
+        # as new (practice: fixture-owns-its-state).
+        def _setup_base(repo):
+            git(repo, 'update-ref', 'refs/remotes/origin/staging', 'HEAD')
+
+        def _plant_new_exemption(repo):
+            f = repo / 'precedent.json'
+            cfg = json.loads(f.read_text(encoding='utf-8'))
+            cfg.setdefault('filename_separator_exempt', []).append(
+                {'path': 'planted', 'ext': '.md', 'reason': 'planted'})
+            f.write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')
+        case('upstream-fix', _plant_new_exemption, setup=_setup_base)
+
         # expires-is-honoured -- a DATE expiry that has passed while the
         # practice is still `active`. The date is far in the past on purpose:
         # a fixture dated near today passes for a while and then starts
