@@ -15295,6 +15295,88 @@ def check_vocabulary_prefers_the_file_you_are_standing_on():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_vocabulary_moves_a_word_to_our_language():
+    """A `command:` phrase that is also a word in tools/our_language.json
+    prints under "Our language", not among the commands, and the word list
+    is read from that one registry (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md
+    step 2).
+
+    "Primary branch" and "Tier branch" name things, not actions -- Morgan,
+    2026-09-27 and 2026-09-28, asked for both to sit with the words. The
+    negative control is the load-bearing case: an ordinary command in the
+    same fixture must still be listed, or the filter is just dropping rows.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vocabulary as pv
+    import our_language as ol
+
+    def practice(slug, phrase):
+        return (f'---\nslug:        {slug}\n'
+                f'title:       A fixture for {slug}\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  []\n'
+                f'occasion:    "a fixture practice for {slug}"\n'
+                'gates:       []\n'
+                f'command:     {{"{phrase}": "a fixture gloss"}}\n'
+                f'index_clause: "{phrase} -- a fixture"\n'
+                'checked_by:  null\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       null\n'
+                'approved_by: null\n---\n\n## Rule\nA fixture rule.\n')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vocab-words-'))
+    try:
+        (tmp / 'practices').mkdir(parents=True)
+        (tmp / 'practices' / 'fixture-word.md').write_text(
+            practice('fixture-word', 'Primary branch'), encoding='utf-8')
+        (tmp / 'practices' / 'fixture-command.md').write_text(
+            practice('fixture-command', 'Fixture Command'), encoding='utf-8')
+        (tmp / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-such-config.json')
+        try:
+            entries, _notes = pv.collect(tmp)
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        phrases = {e[0] for e in entries}
+        word_list, word_note = pv.words()
+        names = {w.lower() for w, _ in word_list}
+
+        dup = tmp / 'dup.json'
+        dup.write_text(json.dumps({'words': [
+            {'word': 'x', 'meaning': 'one'}, {'word': 'X', 'meaning': 'two'}]}),
+            encoding='utf-8')
+        try:
+            ol.load(dup)
+            dup_refused = False
+        except SystemExit:
+            dup_refused = True
+
+        cases = [
+            ('a command phrase that is a word leaves the command list',
+             'Primary branch' not in phrases, f'{sorted(phrases)}'),
+            ('negative control: an ordinary command in the same fixture is '
+             'still listed', 'Fixture Command' in phrases, f'{sorted(phrases)}'),
+            ('the word list reads from the registry, with no error note',
+             'primary branch' in names and word_note is None,
+             f'{sorted(names)} {word_note}'),
+            ('a word listed twice is refused rather than rendered twice',
+             dup_refused, ''),
+        ]
+        ok = all(passed for _, passed, _ in cases)
+        for name, passed, detail in cases:
+            if not passed:
+                print(f"  vocabulary word list did NOT behave as stated: "
+                      f"{name} [{detail}]")
+        check(f'precedent_vocabulary prints words under Our language, not as '
+              f'commands ({len(cases)} stated cases)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_beta_watermark_commits_only_when_it_actually_reports_something():
     """The watermark advances -- and writes a commit -- ONLY on a run that
     tells its person about a commit that is not theirs. A run with nothing
@@ -43890,6 +43972,7 @@ def main():
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
     check_vocabulary_prefers_the_file_you_are_standing_on()
+    check_vocabulary_moves_a_word_to_our_language()
     check_beta_watermark_commits_only_when_it_actually_reports_something()
     check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
     check_trivial_checkin_exempts_the_boildown_gate()
