@@ -35159,6 +35159,45 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_push_check_skips_a_set_check_older_than_push_time_judging():
+    """A check a practice SET ships reaches a repository on the set's own
+    schedule, not the engine's (practice: vendor-rollout-disclosed, question
+    3; Morgan, 2026-09-29). The push check runs the session-trailer check at
+    every push since that day; an older copy of it reads the whole history,
+    so run at every push it would refuse over any old commit on main -- the
+    very failure the new copy removed. Discriminating cases: an old copy is
+    not run at push time and does not fail the push; a new copy that finds
+    something still refuses."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='push-time-'))
+    cases = []
+    try:
+        (tmp / 'tools' / 'checks').mkdir(parents=True)
+        script = tmp / 'tools' / 'checks' / 'check_session_trailer.py'
+        body = ('import sys\nprint("VIOLATION: session-trailer")\n'
+                'print("  commit 0123456789ab: no trailer")\nsys.exit(1)\n')
+        checks = [('session_trailer',
+                   [sys.executable, 'tools/checks/check_session_trailer.py'], 'x')]
+        script.write_text(body, encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()):
+            failed, _m, _t, _f = ppc.run(tmp, checks)
+        cases.append(('an old copy is not run at push time', not failed,
+                      repr(failed)))
+        script.write_text('# --all-history\n' + body, encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()):
+            failed, _m, _t, _f = ppc.run(tmp, checks)
+        cases.append(('a new copy that finds something still refuses',
+                      failed == ['session_trailer'], repr(failed)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the push check skips a set check older than push-time judging '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+
 def check_universal_occasion_share_is_capped():
     """Every source declares its share of a consumer's occasion index, and a
     consumer's cap is the sum of what its sources declare (Morgan,
@@ -44648,6 +44687,7 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
+    check_push_check_skips_a_set_check_older_than_push_time_judging()
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
     check_environment_gotchas_advises_migrating_an_inline_catalogue()
