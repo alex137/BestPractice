@@ -377,6 +377,32 @@ def _strip_markdown_links(s):
 _TRIVIAL_CHECKIN_RE = re.compile(r'^[\s*_]*unchanged since the last update:', re.I)
 
 
+def _strip_markdown_emphasis(s):
+    """`**The work**` reads as `The work` -- bold and code marks are
+    formatting, not wording, so a pattern should never have to allow for
+    them."""
+    return re.sub(r'[*_`]', '', s)
+
+
+def first_item_under_heading(text, pattern):
+    """-> the text of the first non-blank line under the first markdown
+    heading matching `pattern`, with its bullet marker removed, or '' when
+    that line is not a bullet. None when no such heading exists, so the
+    caller can leave that case to the heading check."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(r'^#{1,6}\s+(.*\S)', line)
+        if not (m and re.search(pattern, m.group(1), re.I)):
+            continue
+        for nxt in lines[i + 1:]:
+            if not nxt.strip():
+                continue
+            b = re.match(r'^\s*(?:[-*+]|\d+[.)])\s+(.*)', nxt)
+            return b.group(1) if b else ''
+        return ''
+    return None
+
+
 def is_trivial_checkin(text):
     """True when `text` opens with the fixed one-line check-in template
     practices/the-boildown.md names for a turn with nothing visible or
@@ -392,6 +418,7 @@ def is_trivial_checkin(text):
 KNOWN_REQUIREMENT_KEYS = frozenset({
     # predicates
     'require_heading_matching',
+    'require_first_item_under_heading',
     'require_one_of',
     'require_no_contradiction',
     'require_no_bare_pattern',
@@ -442,8 +469,8 @@ def _unknown_predicates(req):
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
-        {'kind': 'heading' | 'sentence' | 'contradiction' | 'bare_pattern'
-                 | 'paired' | 'unknown_predicate',
+        {'kind': 'heading' | 'first_item' | 'sentence' | 'contradiction'
+                 | 'bare_pattern' | 'paired' | 'unknown_predicate',
          'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
@@ -516,6 +543,24 @@ def violations(text, reqs, timeline=None):
                 f"list has to be a real `## ` heading, or it is exactly as "
                 f"skimmable as the rest of the reply."
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+        # require_first_item_under_heading: the first bullet under a named
+        # heading must match a pattern -- the-boildown's opening "The work of
+        # this session is now on:" line (Morgan, 2026-09-29). A missing
+        # heading is the heading check's to report, so this only looks when
+        # the heading is there.
+        first = r.get('require_first_item_under_heading')
+        if first and first.get('heading') and first.get('matching'):
+            item = first_item_under_heading(text, first['heading'])
+            if item is not None and not re.search(
+                    first['matching'], _strip_markdown_emphasis(item), re.I):
+                out.append({'kind': 'first_item', 'advisory': advisory,
+                            'message': (
+                    f"[{r.get('_source', '?')}] the first bullet under the "
+                    f"heading matching /{first['heading']}/i does not match "
+                    f"/{first['matching']}/i"
+                    + (f" -- {first['why']}" if first.get('why') else '')
+                    + (f" (practice: {r['practice']})"
+                       if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
         if one_of and not any(_norm(o) in _norm(text) for o in one_of):
             out.append({'kind': 'sentence', 'advisory': advisory, 'message': (
@@ -873,6 +918,10 @@ def main():
             bits = []
             if r.get('require_heading_matching'):
                 bits.append(f"heading /{r['require_heading_matching']}/i")
+            _first = r.get('require_first_item_under_heading') or {}
+            if _first.get('heading') and _first.get('matching'):
+                bits.append(f"first bullet under /{_first['heading']}/i "
+                            f"matches /{_first['matching']}/i")
             if r.get('require_one_of'):
                 bits.append(f"one of {r['require_one_of']}")
             if r.get('require_no_contradiction'):
@@ -969,6 +1018,12 @@ def main():
               'missing closing section(s) named below, as a short addition to '
               'what you already said. Nothing else -- no summary, no '
               'restatement, no apology.', file=sys.stderr)
+    elif any(b['kind'] == 'first_item' for b in bad):
+        print('The reply gate blocked this turn. The person has ALREADY SEEN '
+              'the reply above, and it already carries the closing heading -- '
+              'what is missing is its FIRST line, named below. Output that one '
+              'bullet and nothing else: no new heading, no second copy of the '
+              'section, no summary, no apology.', file=sys.stderr)
     elif any(b['kind'] == 'contradiction' for b in bad):
         print('The reply gate blocked this turn: it asserts two things named '
               'below that cannot both be true. The person has ALREADY SEEN '

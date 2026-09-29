@@ -7,6 +7,16 @@
  },
  {
   "practice": "the-boildown",
+  "require_first_item_under_heading": {
+   "heading": "boildown",
+   "matching": "^\\s*the work of this session is now on\\s*:",
+   "why": "The Boildown opens with where the work is and which of the five stages it finished -- \"The work of this session is now on: <branch> (you have finished step N of 5, <Stage>)\" -- in every reply, a plan-only one included (no branch yet, step 1 of 5, Consider)."
+  },
+  "why": "Morgan, 2026-09-29 (strength: decided): the first bullet after the Boildown heading names the branch this session's work is on and the stage it has finished, with no exception. Blocking, like the heading beside it, because it is structural: the line is either first under the heading or it is not, and a line meant for every reply is the kind a session drops when the rest of the reply feels finished.",
+  "checks_practice_at": "practices/the-boildown.md"
+ },
+ {
+  "practice": "the-boildown",
   "require_one_of": [
    "Now is a good time to compact the session",
    "This is a cheap point to compact"

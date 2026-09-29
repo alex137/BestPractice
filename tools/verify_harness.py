@@ -15755,6 +15755,81 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_reply_check_requires_the_boildown_first_line():
+    """`require_first_item_under_heading` refuses a Boildown whose first
+    bullet does not say where the work is.
+
+    Morgan, 2026-09-29: the first bullet under The Boildown names the branch
+    the session's work is on and the stage it finished, in every reply
+    (practice: the-boildown).
+
+    practice: control-asserts-which-failure -- the positive cases assert the
+    guard's own message; the negatives prove the right line passes with or
+    without bold, and that a reply with no heading is left to the heading
+    check rather than reported twice.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-firstitem-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        fx.mkdir()
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-first-item',
+            'require_first_item_under_heading': {
+                'heading': 'boildown',
+                'matching': r'^\s*the work of this session is now on\s*:'},
+        }]), encoding='utf-8')
+
+        def replycheck(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        r1 = replycheck('bad.md', 'Done.\n\n## The Boildown\n\n'
+                                  '- **Your next steps.** Nothing.\n')
+        cases.append(('a Boildown opening on another bullet is refused, naming '
+                      'the requirement',
+                      r1.returncode == 2 and 'first bullet' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:200]}'))
+
+        r2 = replycheck('prose.md', '## The Boildown\n\nSome prose first.\n\n'
+                                    '- The work of this session is now on: x\n')
+        cases.append(('a Boildown opening on prose, not a bullet, is refused',
+                      r2.returncode == 2, f'exit {r2.returncode}'))
+
+        r3 = replycheck('good.md', '## The Boildown\n\n- **The work of this '
+                                   'session is now on:** `pre-staging` (you have '
+                                   'finished step 3 of 5, Booked)\n- Next.\n')
+        cases.append(('negative control: the bold first line passes',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:160]}'))
+
+        r4 = replycheck('plain.md', '## The Boildown\n\n- The work of this '
+                                    'session is now on: no branch yet (you have '
+                                    'finished step 1 of 5, Consider)\n')
+        cases.append(('negative control: the plain first line passes',
+                      r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:160]}'))
+
+        r5 = replycheck('none.md', 'No heading at all.\n')
+        cases.append(('negative control: no heading is the heading check\'s '
+                      'case, not this one',
+                      r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:160]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def _beta_watermark_fixture(tmp, git, branch='staging'):
     """A bare origin, a seed clone to land commits through, and the WORK
     clone the tool runs in -- which is now the same repository the watermark
@@ -45793,6 +45868,8 @@ def main():
           *check_every_verdict_returning_check_is_recorded())
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
+    check('the reply check requires the Boildown to open with where the work is',
+          *check_reply_check_requires_the_boildown_first_line())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())
