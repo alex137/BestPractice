@@ -487,6 +487,16 @@ Each numbered item is its own landing, through the ladder itself.
    practice; Go update is deduplicated into Booked and its callers
    repointed. *Changes an authorization practice (Go
    update, Promote): high-risk.*
+   **As built (2026-09-29), two departures, both smaller:** Booked lives in
+   [practices/go-update.md](../practices/go-update.md) itself -- the file
+   gains the names Booked, Shared Save and Promote 3 and the stage
+   read-back -- rather than in a new file with go-update.md deduplicated
+   into it. The behaviour is the same and none of the roughly 30 practices
+   that link to it had to move. For the same reason the high-risk test
+   stays in that file, where [Push directly](../practices/push-directly.md)
+   already reads it. Booked's readiness question lives in Morgan's own
+   individual set (step 6), since it applies only where the ladder is
+   required.
 6. **Morgan's individual practice** requiring the ladder, in
    `precedent-individual`.
 7. **The archive guard** in the reply gate. *Enforcement code: high-risk.*

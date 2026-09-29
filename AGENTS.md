@@ -35,6 +35,10 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 - **"Go update"** / **"Approved"** / **"Book it"** ([go-update](practices/go-update.md)) —
   land it on the landing branch: a direct push by default, the full pull
   request chain for a high-risk change, and confirm `origin` carries it.
+- **"Promote N"** and the stage words ([promote](practices/promote.md)) —
+  the five stages: Consider, Act, Booked (= Go update), Debut, Produce.
+  Read each back before it runs; optional, unless a person's own set
+  requires it.
 - **"Push directly to [branch]"** ([push-directly](practices/push-directly.md))
   — skip the classification; push that change to the named branch, else the
   landing branch, no PR.
@@ -106,7 +110,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 160 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 165 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -198,9 +202,9 @@ When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
-When a message says "Go update", "Approved" or "Book it", or plainly authorizes a merge:
-  go-update — "Go update"/"Approved"/"Book it": push; high-risk: PR and merge
-When a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main:
+When a message says "Go update", "Approved", "Book it", "Booked" or "Promote 3", or plainly authorizes a merge:
+  go-update — "Go update"/"Approved"/"Book it" (stage 3): push; high-risk: PR and merge
+When a message says "Promote", "Promote N" or "Graduate", or asks to move pre-staging into staging or staging into main:
   promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
   push-directly — no PR; with no branch named, the branch already in play
@@ -214,14 +218,24 @@ When a person explicitly asks for a "very deep check":
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person explicitly asks for a full practice audit (or "practice check"):
   full-practice-audit — every source's catalogue, one practice at a time; on request only
+When a person says "Act" or "Promote 2", or asks to start building after a plan:
+  act — stage 2: build it on the session's feature branch, pushed so it survives
 When a person says "Chief of Staff":
   chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last
+When a person says "Consider" or "Promote 1", or asks to plan before building:
+  consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
+When a person says "Debut", "Test Readiness" or "Promote 4":
+  debut — stage 4: Promote pre-staging into staging, full checks
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options or hand them off:
   my-options — every option, plainer, your pick -- or a paste-ready handoff
+When a person says "Plan it", or Consider picks a middle-sized plan:
+  plan-it — a written plan in the session, as one paste-ready prompt for a second opinion
 When a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs:
   primary-branch — trunk: the branch regular work pushes to and PRs target
+When a person says "Produce", "Make live" or "Promote 5":
+  produce — stage 5: Promote staging into main (production); read strictly
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Simple please", or asks to be talked to that way:

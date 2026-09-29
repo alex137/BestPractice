@@ -8,8 +8,8 @@ occasion:    "a person asks for a write-up of the issue being worked"
 gates:       []
 index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
 checked_by:  null
-defines:     ["Write it up"]
-command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link."}
+defines:     ["Write it up", "Spec it out"]
+command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link.", "Spec it out": "The same as **Write it up** -- the largest plan size stage 1, Consider, can choose."}
 status:      active
 in_force_at: null
 supersedes:  []
