@@ -252,7 +252,12 @@ RANGE_JUDGED = {'commit_author', 'commit_dates', 'ci_workflows'}
 COMMIT_IN_FINDING = re.compile(r'\bcommit ([0-9a-f]{7,40})\b')
 PUSH_CHECKS = {
     'upstream': (
-        ('verify_harness', ['{engine}/verify_harness.py', '--as-ci'],
+        # --isolated (2026-09-29): the shards run in a clone with no
+        # siblings, an empty $HOME and no source credentials -- what the
+        # runner has -- and a check that could not run there runs here. It
+        # cost 12.8 min against 18.3 for the plain run, in one container.
+        ('verify_harness', ['{engine}/verify_harness.py', '--as-ci',
+                            '--isolated'],
          'deep-check.yml, both verify_harness jobs'),
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
          'deep-check.yml, precedent_check + doc_sync job'),

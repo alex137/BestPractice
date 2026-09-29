@@ -484,9 +484,11 @@ place — nothing is ever deleted, and nothing moves.
   certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned
   both CI jobs red on a locally green tree. The two shards partition the
   suite, so the pair costs about what one run costs (measured 4m01s against
-  ~4m20s, 2026-09-22). It reproduces CI's command SHAPE, never CI's
-  environment: a local session resolves private sources CI cannot, so green
-  here means the sharding is not what breaks, not that CI will be green.
+  ~4m20s, 2026-09-22). The bare `--as-ci` reproduces CI's command shape,
+  not its environment: a local session resolves private sources CI cannot.
+  **`--as-ci --isolated`**, which the deep check runs since 2026-09-29, runs
+  the shards in a clone with no siblings, an empty `$HOME` and no source
+  credentials, then runs here only what could not run there.
 
 ## Conventions (every session, every reply)
 
