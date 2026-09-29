@@ -34245,8 +34245,9 @@ def check_runner_drops_findings_on_received_files():
         # vendored-engine-file-refs-resolve judges the received copy itself.
         (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
             {'files': ['zzz_engine.py']}), encoding='utf-8')
+        # Built, never spelled: the check scans this very file.
         (repo / 'tools' / 'zzz_engine.py').write_text(
-            "X = ROOT / 'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+            'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
         out = run('vendored-engine-file-refs-resolve')
         if 'tools/zzz_engine.py' not in out:
             bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
