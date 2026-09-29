@@ -462,7 +462,7 @@ place — nothing is ever deleted, and nothing moves.
   gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md)):
   a push to `staging` or `main` runs the deep check; a
   push to any other branch runs the basic tier -- the lint, the leak gate
-  and the commit-author checks, seconds -- unless the person's
+  and the commit author, date and trailer checks, seconds -- unless the person's
   `branch_push_checks` says `full`. A push or pull request into
   `pre-staging` also checks the files it changes, and nothing more, in
   seconds ([checks-follow-the-tier](practices/checks-follow-the-tier.md)). A pull request merged through GitHub

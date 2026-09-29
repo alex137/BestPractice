@@ -202,7 +202,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Resident block size | ≈1045 tokens of a 2000-token hard cap |
 | `## Rule` share of the catalogue | 26% of the catalogue |
 | Rules still over 150 words | 80 |
-| Carrying a `## Detail` | 115 |
+| Carrying a `## Detail` | 116 |
 | Carrying a `## Story` | 170 |
 | Enforced by a check | 55 of 170 practices carry a `checked_by` |
 <!--/gen:catalogue-->
