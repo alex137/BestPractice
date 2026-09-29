@@ -47,15 +47,22 @@ class Qty:
                magnitude -- fixed decimal places would give a large
                value four significant digits and a small one two.
                Decimal count then varies with magnitude by design;
-               integers keep thousands separators.
+               a value with more whole digits than `sig` is rounded
+               too (225,390 at three prints 225,000), and integers
+               keep thousands separators.
+    max_decimals  with `sig`, the most places ever printed: a column of
+               whole quantities keeps small values whole (97.8 would
+               otherwise print beside 9,080 with a decimal the large
+               values lack)
     approx     prepend '≈' (most model outputs are estimates)
     prefix     between the '≈' and the number (e.g. '$')
     suffix     after the number (e.g. ' t', ' mph')
     """
 
     def __init__(self, decimals=0, int_at=None, sig=None, approx=True,
-                 prefix="", suffix=""):
+                 prefix="", suffix="", max_decimals=None):
         self.decimals = decimals
+        self.max_decimals = max_decimals
         self.int_at = int_at
         self.sig = sig
         self.approx = approx
@@ -63,8 +70,13 @@ class Qty:
         self.suffix = suffix
 
     def __call__(self, v):
-        if self.sig is not None and v != 0:
-            d = max(0, self.sig - 1 - math.floor(math.log10(abs(v))))
+        if self.sig is not None and v != 0 and math.isfinite(v):
+            d = self.sig - 1 - math.floor(math.log10(abs(v)))
+            if d < 0:                     # more whole digits than figures:
+                v = round(v, d)           # 225,390 at three prints 225,000
+            d = max(0, d)
+            if self.max_decimals is not None:
+                d = min(d, self.max_decimals)
         else:
             d = 0 if (self.int_at is not None
                       and abs(v) >= self.int_at) else self.decimals

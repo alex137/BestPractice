@@ -58,6 +58,26 @@ it stops at once if the lease disappears without a result, and ignores a
 lease old enough to be abandoned. An environment switch skips the shared
 cache entirely.
 
+**A memo filled one entry at a time, on demand and without the lock,
+is re-solved by every process that misses at once.** When the processes
+that read such a table need all of it -- a gate that emits many blocks
+from one model does -- solve the whole table once under the lock and let
+the others wait. Measured in the originating repository: an engine sweep
+filled per class, re-keyed by one edit, was sized by every batch emit
+process at the same moment, and a three-minute solve took nine.
+
+**The git mechanics are one shared engine.** The cache keeps its policy
+— families, the per-family and total budgets, the index — and hands
+[tools/branch_store.py](https://github.com/alex137/BestPractice/blob/staging/tools/branch_store.py)
+each publish as a whole snapshot: a new root commit pushed with a lease
+on the tip it read, so the branch never grows past what it holds.
+
+**A solve killed by a signal keeps its claim.** Release at exit runs
+only when the process exits normally; a process-group kill skips it,
+and the claim stays on the board. Peers stop waiting on it once it is
+older than the stale limit, but it is still wrong: after killing a
+solve, release its claims by hand with the reason.
+
 ## Why
 A memo on a container's disk dies with the container, so every fresh session
 pays every cold solve again — and the gates that need those results get
@@ -75,11 +95,12 @@ of a branch under a lease, which set the storage design.
 
 ## Install
 Vendor [tools/result_cache.py](https://github.com/alex137/BestPractice/blob/staging/tools/result_cache.py) with
-[tools/lease_board.py](https://github.com/alex137/BestPractice/blob/staging/tools/lease_board.py). Each memo site gets **two
+[tools/lease_board.py](https://github.com/alex137/BestPractice/blob/staging/tools/lease_board.py) and
+[tools/branch_store.py](https://github.com/alex137/BestPractice/blob/staging/tools/branch_store.py). Each memo site gets **two
 calls**: `ready(path)` in place of its existence check — a False answer
 means this session solves, and the solve lease is already taken — and
 `publish(path)` after writing the memo. A memo that accumulates across calls
 passes `claim=False`. The file name must carry the key. A host shim sets
 `REMOTE` and `BRANCH`, and configures the lease board the cache imports; a
-claim left by a solve that dies, or by a smoke run that writes no memo, is
-released at exit.
+claim left by a solve that fails, or by a smoke run that writes no memo, is
+released at exit; one killed by a signal is not (Detail).

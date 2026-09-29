@@ -11,6 +11,10 @@ NOT YET APPLICABLE rather than skipped silently, so their absence stays
 visible instead of reading as a pass.
 
 Run:  python3 tools/verify_harness.py
+      python3 tools/verify_harness.py --as-ci             # CI's two shards
+      python3 tools/verify_harness.py --as-ci --isolated  # and CI's machine:
+            a copy with no siblings, no personal config or source token,
+            then the tests that went not-applicable there, run here
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
@@ -367,8 +371,19 @@ def check(name, ok, detail='', failure=''):
     print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {shown}" if shown and not ok else ""))
 
 
+# The check_* function running now, innermost last -- pushed and popped by
+# _install_fixture_error_guard's wrapper. not_applicable() reads it, so a
+# run can name the FUNCTIONS that went not-applicable and a second run can
+# select exactly those (PRECEDENT_CHECK_ONLY takes function names, and a
+# verdict's own name is prose). run_as_ci_isolated() is the caller.
+_CURRENT_CHECK = []
+NA_FUNCTIONS = set()
+
+
 def not_applicable(name, reason):
     NA.append((name, reason))
+    if _CURRENT_CHECK:
+        NA_FUNCTIONS.add(_CURRENT_CHECK[-1])
     print(f"N/A:  {name} -- {reason}")
 
 
@@ -575,6 +590,7 @@ def _install_fixture_error_guard():
 
     def _wrap(name, fn):
         def wrapper(*args, **kwargs):
+            _CURRENT_CHECK.append(name)
             try:
                 return fn(*args, **kwargs)
             except FixtureSetupError as exc:
@@ -582,6 +598,8 @@ def _install_fixture_error_guard():
                 # Reported already; the triple keeps the `check('<name>',
                 # *check_foo())` call sites from recording it a second time.
                 return (_CHECK_ALREADY_REPORTED, '', '')
+            finally:
+                _CURRENT_CHECK.pop()
         return wrapper
 
     for name in names:
@@ -657,6 +675,25 @@ def load_practice_files():
     else:
         check('every practices/*.md file parses', True)
     return out
+
+
+def _without_session_id(fn):
+    """Run a check with no CLAUDE_CODE_REMOTE_SESSION_ID in the environment.
+    precedent_gate._unlanded_work reports only commits carrying this
+    session's trailer when that id is set, so a fixture whose commits carry
+    none must not inherit the id of the session running the harness
+    (practice: fixture-owns-its-state)."""
+    import functools
+
+    @functools.wraps(fn)
+    def run(*a, **k):
+        saved = os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        try:
+            return fn(*a, **k)
+        finally:
+            if saved is not None:
+                os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = saved
+    return run
 
 
 def check_source_coverage(files, original_practices_by_number):
@@ -6306,6 +6343,165 @@ def run_as_ci():
     return 0
 
 
+# What GitHub's runner does not have, and a session's machine does. Unset in
+# the isolated run; see run_as_ci_isolated().
+ISOLATION_UNSET = ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+                   'PRECEDENT_INDIVIDUAL_REPO', 'CLAUDE_PROJECT_DIR')
+
+
+def _isolated_env(base, home):
+    """-> the environment the isolated run gives the harness: `base` with
+    every PRECEDENT_* and GIT_* variable and ISOLATION_UNSET removed, $HOME
+    an empty directory, no user-level config, the runner's UTC clock, and
+    git refusing every transport but a local file. The last one is not
+    GitHub's -- its runner has a network -- but a self-heal that clones a
+    source from the network would put the missing sibling right back, and
+    the run would quietly stop matching the runner it stands in for."""
+    env = {k: v for k, v in base.items()
+           if not k.startswith(('PRECEDENT_', 'GIT_')) and k not in ISOLATION_UNSET}
+    env.update(HOME=str(home), TZ='UTC',
+               PRECEDENT_USER_CONFIG=str(pathlib.Path(home) / '.no-user-config.json'),
+               GIT_ALLOW_PROTOCOL='file', GIT_TERMINAL_PROMPT='0',
+               GIT_CONFIG_NOSYSTEM='1')
+    return env
+
+
+def _new_entries(parent, before):
+    """-> sorted names in `parent` that were not in `before`."""
+    return sorted(set(p.name for p in pathlib.Path(parent).iterdir()) - set(before))
+
+
+def run_as_ci_isolated():
+    """-> exit status. --as-ci, from a copy of this commit laid out the way
+    GitHub's runner lays it out, then the not-applicable slice again here.
+
+    WHY. On 2026-09-29 the full local check passed and GitHub's deep-check
+    failed: build_views sized a set's occasion cap from the universal source
+    cloned BESIDE it, and the runner has no sibling clones, so universal
+    measured 0. --as-ci reproduces CI's command shape and never its
+    environment (run_as_ci's docstring); this is the environment half.
+
+    THE COPY. A clone of HEAD in a temporary directory whose parent holds
+    nothing else, with this checkout's remote-tracking refs and origin URL
+    (actions/checkout's fetch-depth: 0 gives the runner every branch), run
+    under _isolated_env(): an empty $HOME, no user config, no source token,
+    UTC. Committed work only -- the runner checks out a commit too.
+
+    THE SECOND RUN. A test that needs what only this machine has -- a
+    private source, a sibling clone -- goes not-applicable in the copy.
+    Those functions (not_applicable() records them) run once more here, in
+    the ordinary environment, so the pair covers everything the plain
+    --as-ci covered, plus what the runner would see.
+
+    AFTERWARDS the copy's parent must still hold only the copy: anything
+    new there is a sibling some step fetched, and the run is reported as
+    no longer isolated rather than passed."""
+    import shutil, tempfile
+    work = pathlib.Path(tempfile.mkdtemp(prefix='precedent-isolated-'))
+    t0 = time.monotonic()
+    try:
+        parent, home = work / 'work', work / 'home'
+        parent.mkdir()
+        home.mkdir()
+        repo = parent / ROOT.name
+        r = subprocess.run(['git', 'clone', '--quiet', '--no-checkout', str(ROOT),
+                            str(repo)], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f'--as-ci --isolated: could not copy this checkout: '
+                  f'{r.stderr.strip()}')
+            return 1
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        url = subprocess.run(['git', '-C', str(ROOT), 'remote', 'get-url',
+                              'origin'], capture_output=True, text=True).stdout.strip()
+        for args in (['fetch', '--quiet', str(ROOT),
+                      '+refs/remotes/origin/*:refs/remotes/origin/*'],
+                     ['checkout', '--quiet', '--detach', head]):
+            subprocess.run(['git', '-C', str(repo), *args], capture_output=True)
+        if url:
+            subprocess.run(['git', '-C', str(repo), 'remote', 'set-url',
+                            'origin', url], capture_output=True)
+        before = [p.name for p in parent.iterdir()]
+        na_file = work / 'not-applicable.txt'
+        env = _isolated_env(os.environ, home)
+        env['PRECEDENT_NA_FUNCTIONS_FILE'] = str(na_file)
+        print(f'=== isolated: {repo} at {head[:12]} (no siblings, empty '
+              f'$HOME, no source token, UTC) ===', flush=True)
+        rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
+                             '--as-ci'], cwd=repo, env=env).returncode
+        grown = _new_entries(parent, before)
+        t1 = time.monotonic()
+        slice_ = sorted(set(na_file.read_text(encoding='utf-8').split())
+                        if na_file.is_file() else set())
+        print(f'\n--as-ci --isolated: {"green" if rc == 0 else "FAILED"} in '
+              f'{(t1 - t0) / 60:.1f} min; {len(slice_)} function(s) were not '
+              f'applicable there' + (f': {", ".join(slice_)}' if slice_ else ''),
+              flush=True)
+        if grown:
+            print(f'--as-ci --isolated: NOT ISOLATED -- the run added '
+                  f'{", ".join(grown)} beside the copy, so it no longer '
+                  f'matches a runner with no sibling clones. Find the step '
+                  f'that fetched it and stop it fetching there.')
+            return 1
+        rc2 = 0
+        if slice_:
+            env2 = dict(os.environ)
+            for k in ('PRECEDENT_CHECK_SKIP', 'PRECEDENT_NA_FUNCTIONS_FILE'):
+                env2.pop(k, None)
+            env2.update(PRECEDENT_CHECK_ONLY=','.join(slice_),
+                        PRECEDENT_HARNESS_ALL='1')
+            print('\n=== here, the not-applicable slice ===', flush=True)
+            rc2 = subprocess.run([sys.executable, str(pathlib.Path(__file__))],
+                                 env=env2).returncode
+            print(f'--as-ci --isolated: the slice was '
+                  f'{"green" if rc2 == 0 else "FAILED"} in '
+                  f'{(time.monotonic() - t1) / 60:.1f} min', flush=True)
+        return 1 if rc or rc2 else 0
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def check_isolated_run_matches_the_runner():
+    """_isolated_env() and _new_entries(), which decide whether the isolated
+    run looks like GitHub's runner and whether it stayed that way. Pure
+    functions, so this is cheap: the run itself is minutes, and is what the
+    full check at staging executes."""
+    import tempfile
+    base = {'PATH': '/bin', 'HOME': '/root', 'TZ': 'America/Argentina/Buenos_Aires',
+            'PRECEDENT_GIT_TOKEN': 't', 'PRECEDENT_SOURCE_BASE_URL': 'u',
+            'PRECEDENT_INDIVIDUAL_REPO': 'r', 'PRECEDENT_COMMIT_NAME': 'n',
+            'PRECEDENT_CHECK_ONLY': 'x', 'GIT_AUTHOR_NAME': 'a',
+            'CLAUDE_PROJECT_DIR': '/p'}
+    env = _isolated_env(base, '/tmp/empty-home')
+    cases = [
+        ('no source token, base URL or individual repo',
+         not {'PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+              'PRECEDENT_INDIVIDUAL_REPO'} & set(env)),
+        ('no PRECEDENT_* or GIT_* variable leaks through except the ones set',
+         {k for k in env if k.startswith(('PRECEDENT_', 'GIT_'))} ==
+         {'PRECEDENT_USER_CONFIG', 'GIT_ALLOW_PROTOCOL', 'GIT_TERMINAL_PROMPT',
+          'GIT_CONFIG_NOSYSTEM'}),
+        ('an empty $HOME and a user config that does not exist',
+         env['HOME'] == '/tmp/empty-home' and
+         env['PRECEDENT_USER_CONFIG'].startswith('/tmp/empty-home/')),
+        ('the runner\'s clock, UTC', env['TZ'] == 'UTC'),
+        ('git may not fetch over a network', env['GIT_ALLOW_PROTOCOL'] == 'file'),
+        ('PATH is kept', env['PATH'] == '/bin'),
+        ('the base environment is not changed', base['TZ'] != 'UTC'),
+    ]
+    with tempfile.TemporaryDirectory() as td:
+        (pathlib.Path(td) / 'BestPractice').mkdir()
+        before = ['BestPractice']
+        quiet = _new_entries(td, before)
+        (pathlib.Path(td) / 'BestPractice-clone').mkdir()
+        cases += [('nothing new beside the copy reads as isolated', quiet == []),
+                  ('a sibling that appeared is named',
+                   _new_entries(td, before) == ['BestPractice-clone'])]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the isolated --as-ci run looks like GitHub\'s runner '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_as_ci_shards_match_the_workflow():
     """CI_SHARDS above must be what .github/workflows/deep-check.yml sets.
 
@@ -6451,6 +6647,7 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+@_without_session_id
 def check_reply_gate_names_work_not_yet_landed():
     """Committed, pushed, and sitting on a branch nobody merges from is a
     state the stop hook cannot report and the person kept paying for.
@@ -7255,7 +7452,11 @@ def check_changed_files_only_judges_the_change():
                                                                     encoding='utf-8')
         (wt / 'tools' / 'checks' / 'tests' / 'test_zzfixture.sh').write_text(
             'echo "the fixture test failed"; exit 1\n', encoding='utf-8')
-        git('add', 'tools/checks')
+        # A new check also brings its planted case, or the changed-files
+        # check refuses it for that instead (2026-09-29).
+        with open(wt / 'tools' / 'verify_harness.py', 'a', encoding='utf-8') as f:
+            f.write("\n# case('check_zzfixture', ...) -- the fixture's planted case\n")
+        git('add', 'tools/checks', 'tools/verify_harness.py')
         git('commit', '-qm', 'a check whose own test fails')
         rc, out = files_check(start)
         failed_ok = rc == 1 and 'test_zzfixture.sh: failed' in out
@@ -13305,6 +13506,163 @@ def check_precedent_check_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+_CONFLICT_MARKER = re.compile(r'^(?:' + '<' * 7 + '|' + '>' * 7 + r')(?: |$)', re.M)
+
+
+def _conflict_marker_hits(named_texts):
+    return [(name, text.count('\n', 0, m.start()) + 1)
+            for name, text in named_texts for m in _CONFLICT_MARKER.finditer(text)]
+
+
+def check_update_with_source_stamps_that_sources_manifest():
+    """`checkin.py update --source NAME` records which commit it mirrored in
+    process/manifest_NAME.json, and leaves the universal manifest alone.
+    Origin: the stamp was written to process/manifest.json whatever the
+    source, so vendoring a shared set moved the universal set's
+    synced_from to a commit of a different repository. Control: with no
+    source selected the stamp lands in the universal manifest."""
+    import importlib.util, tempfile
+    bad, cases = [], []
+    spec = importlib.util.spec_from_file_location('_vh_checkin', ROOT / 'tools' / 'checkin.py')
+    ck = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ck)
+    with tempfile.TemporaryDirectory() as t:
+        root = pathlib.Path(t)
+        (root / 'process').mkdir()
+        uni = root / 'process' / 'manifest.json'
+        shared = root / 'process' / 'manifest_team-x.json'
+        for f in (uni, shared):
+            f.write_text(json.dumps({'upstream': {'commit': 'old', 'synced_from': 'old'}}), encoding='utf-8')
+        saved = (ck.ROOT, ck.MANIFEST, ck.UPSTREAM, ck.SOURCE)
+        try:
+            ck.ROOT = root
+            ck.MANIFEST = uni
+            ck._select_source('team-x')
+            ck._stamp_synced_from('new')
+            got_shared = json.loads(shared.read_text())['upstream']['synced_from']
+            got_uni = json.loads(uni.read_text())['upstream']['synced_from']
+            cases.append('a shared source stamps its own manifest')
+            if got_shared != 'new' or got_uni != 'old':
+                bad.append(f'with --source: shared={got_shared!r}, universal={got_uni!r}')
+            ck.MANIFEST = uni
+            ck._stamp_synced_from('newer')
+            cases.append('control: no source stamps the universal manifest')
+            if json.loads(uni.read_text())['upstream']['synced_from'] != 'newer':
+                bad.append('with no source the universal manifest was not stamped')
+        finally:
+            ck.ROOT, ck.MANIFEST, ck.UPSTREAM, ck.SOURCE = saved
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_branch_store_and_its_callers():
+    """The shared branch store (tools/branch_store.py, spec/SHARED_ENGINES_PLAN.md)
+    and the two tools built on it, on a scratch remote. The store's own
+    self-check covers both modes; this adds the callers' behaviour that the
+    move onto the store had to keep: the lease board refuses an overlapping
+    take from another holder, a replacing take drops the holder's older lease
+    in the same commit, and every change is a commit (history); the result
+    cache keeps KEEP entries per family, publishes as one root commit, pulls
+    an entry byte for byte into another clone, and two clones publishing in
+    turn on a stale tip keep both entries."""
+    bad, cases = [], []
+    # The store and its callers commit with git's ambient identity; a runner
+    # or a clean $HOME may have none (practice: fixture-owns-its-state).
+    env = dict(os.environ, PRECEDENT_TZ='UTC',
+               GIT_AUTHOR_NAME='x', GIT_AUTHOR_EMAIL='x@example.invalid',
+               GIT_COMMITTER_NAME='x', GIT_COMMITTER_EMAIL='x@example.invalid')
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'branch_store.py'), '--self-check'],
+                       capture_output=True, text=True, env=env)
+    if r.returncode != 0:
+        bad.append('branch_store self-check: ' + (r.stdout + r.stderr).strip()[-300:])
+    cases.append('store self-check')
+    import tempfile
+    script = r"""
+import importlib, json, os, pathlib, subprocess, sys
+sys.path.insert(0, sys.argv[1]); t = pathlib.Path(sys.argv[2])
+def git(*a): return subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.strip()
+git("init", "-q", "--bare", str(t / "r.git"))
+for c in "ab":
+    git("clone", "-q", str(t / "r.git"), str(t / c))
+    git("-C", str(t / c), "-c", "user.email=x@example.invalid", "-c", "user.name=x",
+        "commit", "-q", "--allow-empty", "-m", "i")
+    git("-C", str(t / c), "checkout", "-q", "-b", "w" + c)
+def load(c):
+    for m in ("lease_board", "result_cache"): sys.modules.pop(m, None)
+    lb = importlib.import_module("lease_board"); rc = importlib.import_module("result_cache")
+    lb.REPO = rc.REPO = str(t / c); rc.KEEP = 2; rc.WAIT_S = 2; rc.POLL_S = 1
+    return lb, rc
+out = {}
+lb, rc = load("a"); lb.take(["X"], "k", lease_id="L1")
+lbB, _ = load("b")
+try: lbB.take(["X"], "k", lease_id="L2"); out["refused"] = False
+except lbB.LeaseConflict: out["refused"] = True
+lb, _ = load("a"); lb.take(["Y"], "k", lease_id="L3", replace_kind=True)
+out["board"] = sorted(lb.board())
+out["coord_commits"] = int(git("-C", str(t / "r.git"), "rev-list", "--count", "coord"))
+_, rc = load("a"); m = t / "a" / "m"; m.mkdir()
+for i, k in enumerate(["aaaaaaaa1", "bbbbbbbb2", "cccccccc3"]):
+    f = m / f"s_{k}.pkl"; f.write_bytes(bytes([i]) * 100); rc.publish(f)
+_, rcB = load("b"); rcB._fetch()
+_, rcA = load("a"); f = m / "o_dddddddd4.pkl"; f.write_bytes(b"A"); rcA.publish(f)
+g = t / "b" / "m" / "p_eeeeeeee5.pkl"; g.parent.mkdir(); g.write_bytes(b"B"); rcB.publish(g)
+out["index"] = sorted(json.loads(git("-C", str(t / "r.git"), "show", "result-cache:index.json")))
+out["cache_commits"] = int(git("-C", str(t / "r.git"), "rev-list", "--count", "result-cache"))
+_, rcB = load("b"); d = t / "b" / "m" / "s_cccccccc3.pkl"
+out["pulled"] = rcB.ready(d, claim=False) and d.read_bytes() == bytes([2]) * 100
+print(json.dumps(out))
+"""
+    with tempfile.TemporaryDirectory() as t:
+        r = subprocess.run([sys.executable, '-c', script, str(ROOT / 'tools'), t],
+                           capture_output=True, text=True, env=env)
+        try:
+            out = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            return (False, '', 'callers script failed: ' + r.stderr.strip()[-400:])
+    want = {'refused': True, 'board': ['L3'], 'coord_commits': 2,
+            'index': ['o_dddddddd4.pkl', 'p_eeeeeeee5.pkl', 's_bbbbbbbb2.pkl', 's_cccccccc3.pkl'],
+            'cache_commits': 1, 'pulled': True}
+    for k, v in want.items():
+        cases.append(k)
+        if out.get(k) != v:
+            bad.append(f'{k}: got {out.get(k)!r}, want {v!r}')
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_no_conflict_markers_in_shipped_tools():
+    """No file that runs ships with a merge conflict marker in it (practice
+    vendor-update-runbook: a port between a vendored copy and its upstream is
+    a three-way merge, and the result is read for leftover markers before it
+    is used). The origin: a port that went through a merge with the wrong
+    base produced a tool holding conflict markers, and only a later read
+    caught it. Scans the tracked scripts and configuration under tools/,
+    templates/ and .claude/; documents are left alone, since a document may
+    show a marker on purpose."""
+    bad, cases = [], []
+    lt, gt = '<' * 7, '>' * 7
+    planted = [('x.py', f'a = 1\n{lt} HEAD\nb = 2\n=======\nb = 3\n{gt} other\n')]
+    if len(_conflict_marker_hits(planted)) != 2:
+        bad.append('a planted two-sided conflict was not found on both lines')
+    cases.append('a planted conflict is found')
+    quiet = [('y.md', 'Title\n=======\n'), ('z.py', "s = '" + lt + "'\n" + '<' * 6 + ' x\n')]
+    if _conflict_marker_hits(quiet):
+        bad.append('a heading underline or a marker inside a string counted as a conflict')
+    cases.append('a heading underline and an in-string marker are quiet')
+    r = subprocess.run(['git', '-C', str(ROOT), 'ls-files', 'tools', 'templates', '.claude'],
+                       capture_output=True, text=True)
+    files = [f for f in r.stdout.splitlines()
+             if f.endswith(('.py', '.sh', '.json', '.yml', '.yaml', '.toml'))]
+    texts = []
+    for f in files:
+        try:
+            texts.append((f, (ROOT / f).read_text(encoding='utf-8')))
+        except (OSError, UnicodeDecodeError):
+            continue
+    hits = _conflict_marker_hits(texts)
+    if hits:
+        bad.append('conflict marker in ' + ', '.join(f'{n}:{ln}' for n, ln in hits[:5]))
+    return (not bad, f'{len(cases)} stated cases, {len(texts)} files scanned', '; '.join(bad))
+
+
 def check_checks_read_what_their_rules_name():
     """Seven checks, each read against its own practice's Rule by the
     2026-09-28 very deep check, and each found judging something narrower
@@ -15559,6 +15917,7 @@ def check_vocabulary_prefers_the_file_you_are_standing_on():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@_without_session_id
 def check_archive_guard_refuses_work_left_on_a_feature_branch():
     """`require_landed_if_says` refuses the archive sentence while a feature
     branch holds work its repo has not landed, and accepts it once each such
@@ -19463,6 +19822,59 @@ def check_changed_files_asks_a_new_check_for_its_test():
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
 
 
+def check_changed_files_asks_a_new_check_for_its_planted_case():
+    """In BestPractice, a change to the check registry or the harness is
+    refused when a registered check has no planted case in
+    check_precedent_check_fires -- named, in seconds, with the line to add.
+
+    The harness asserts the same thing ("every registered check has a
+    planted case here"), but only on a full run, which pre-staging never
+    does: on 2026-09-29 a new check reached pre-staging without one and the
+    Debut to staging failed 20 minutes in. Both halves of the registry are
+    held: an @check in precedent_check.py, and a check script, named by the
+    practice whose checked_by claims it. The control is the same tree with
+    both cases added.
+    """
+    import tempfile
+    name = 'the changed-files check asks a new check for its planted case'
+    engine = ('from x import check\n'
+              "@check('zzz-planted', 'tree', 'w', 'b')\ndef a(ctx): return []\n"
+              "@check(\n    'zzz-unplanted', 'tree', 'w', 'b')\n"
+              'def b(ctx): return []\n')
+    harness = "def f():\n    case('zzz-planted', None)\n"
+    script = {'local/practices/zzz-claim.md':
+                  '---\nslug: zzz-claim\n'
+                  'checked_by: local/tools/checks/check_zzclaim.py\n---\n',
+              'local/tools/checks/check_zzclaim.py': _FIXTURE_CHECK_HEAD,
+              'local/tools/checks/tests/test_zzclaim.sh':
+                  '# check_zzclaim.py\nexit 0\n'}
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'missing')
+        commit({'tools/precedent_check.py': engine,
+                'tools/verify_harness.py': harness, **script})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'planted')
+        commit2({'tools/precedent_check.py': engine,
+                 'tools/verify_harness.py': harness +
+                     "    case('zzz-unplanted', None)\n"
+                     "    case(\n        'zzz-claim', None)\n",
+                 **script})
+        rc2, out2 = run2()
+    cases = [
+        ('an @check with no case is refused, by name',
+         rc == 1 and 'zzz-unplanted: a registered check with no planted case'
+         in out),
+        ('a check script is named by the practice that claims it',
+         'zzz-claim: a registered check with no planted case' in out),
+        ('a check that has its case is not named',
+         'zzz-planted: a registered' not in out),
+        ('control: with every case planted, it passes', rc2 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
 def check_changed_files_runs_one_copy_of_a_repo_local_test():
     """A repo-local test and its materialized copy change together, and only
     the materialized copy runs -- the one run_all.sh runs. Running both put
@@ -20615,6 +21027,7 @@ def check_merge_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+@_without_session_id
 def check_promote_pre_staging():
     """Promote moves pre-staging into staging (spec/BRANCH_TIERS_PLAN.md),
     and is the one route by which the batch gets its full check.
@@ -20904,6 +21317,18 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+        # Only the flow this session worked on (Morgan, 2026-09-29): with a
+        # session id set and no commit in the batch carrying it, the batch
+        # is another session's and gets no line.
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01FixtureNotInAnyCommit'
+        try:
+            pg, got = unlanded()
+        finally:
+            os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        cases.append(("a pre-staging batch this session made none of gets no "
+                      "Promote line",
+                      not any('a Promote can move them' in l for l in got)
+                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -29745,6 +30170,358 @@ def check_refresh_sources_path_names_the_whole_target():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_lists_a_linked_tree_once():
+    """candidate_dirs() returns one entry per working tree. The source
+    bootstrap leaves a symlink at the attach path pointing to the declared
+    clone; the refresh used to list both, fetch the one tree twice under two
+    labels, and on 2026-09-29 print one as failed and the other as current,
+    which read as a duplicate clone that did not exist.
+
+    Planted: a checkout, a declared clone outside its parent, and a sibling
+    symlink to that clone. CONTROL: a second, separate tree at a sibling path
+    is still listed, so the dedupe is by tree and not by name (practice:
+    control-asserts-which-failure). Hermetic: ROOT and declared_paths are
+    stubbed, nothing is fetched."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-linked-tree-'))
+    saved = (prs.ROOT, prs.declared_paths)
+    try:
+        work, home = tmp / 'work', tmp / 'home'
+        checkout = work / 'consumer'
+        declared = home / 'precedent-individual'
+        for d in (checkout, declared):
+            d.mkdir(parents=True)
+        (work / 'precedent-individual').symlink_to(declared,
+                                                   target_is_directory=True)
+        prs.ROOT = checkout
+        prs.declared_paths = lambda: [declared.resolve()]
+        got = [p.resolve() for p in prs.candidate_dirs()]
+        cases.append(('a sibling symlink to the declared clone is one entry',
+                      got.count(declared.resolve()) == 1, str(got)))
+        cases.append(('...and the checkout itself is not listed',
+                      checkout.resolve() not in got, str(got)))
+        other = work / 'precedent-shared-writing'
+        other.mkdir()
+        got = [p.resolve() for p in prs.candidate_dirs()]
+        cases.append(('CONTROL: a separate sibling tree is still listed',
+                      other.resolve() in got
+                      and got.count(declared.resolve()) == 1, str(got)))
+    finally:
+        prs.ROOT, prs.declared_paths = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'refresh lists a symlinked source tree once '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
+def check_reach_key_self_check():
+    """reach_key.py's own property checks: a change the solve can run moves
+    the key, one it cannot does not -- functions, constants, import-time
+    patches, and class methods one at a time (a method moves the key only
+    when reached code names it), plus early cutoff through `stop`."""
+    name = 'reach_key keys a solve on the code it can reach, a method at a time'
+    tool = ROOT / 'tools' / 'reach_key.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/reach_key.py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), '--self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'PASS' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
+
+
+def check_content_record_self_check():
+    """content_record.py's own property checks: a fresh record holds; a
+    changed file, listing, existence or environment variable is each
+    reported as moved; ignored names never count; the two text schemes
+    are frozen to their literal digests."""
+    name = 'content_record reports exactly what moved, under frozen schemes'
+    tool = ROOT / 'tools' / 'content_record.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/content_record.py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), '--self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'OK' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
+
+
+def check_doc_sync_ledger():
+    """doc_sync's ledger skips a block whose code fingerprint, recorded reads
+    and output all still hold, and re-emits it when any of the three moves.
+    Built in a scratch repository with one script and one document; the
+    script counts its own emits in a file the hook does not track (a write,
+    not a read)."""
+    name = ('doc_sync skips an unchanged block (and one whose self-check alone changed) and '
+            're-emits one whose code, data or text moved')
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    rk = ROOT / 'tools' / 'reach_key.py'
+    if not engine.is_file() or not rk.is_file():
+        not_applicable(name, 'tools/doc_sync.py or tools/reach_key.py is absent')
+        return
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        shutil.copy2(rk, d / 'tools' / 'reach_key.py')
+        # everything doc_sync imports beside it (generated_blocks since staging's shared marker reader)
+        for f in ('fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'data.txt').write_text('7\n')
+        model = (
+            'import os, sys\n'
+            'def value():\n'
+            '    here = __file__.rsplit("/", 1)[0]\n'
+            '    extra = (1 if os.path.exists(here + "/FLAG") else 0) + int(os.environ.get("TOY_FLAG", "0"))\n'
+            '    return int(open(here + "/data.txt").read()) * 2 + extra\n'
+            'def unrelated():\n'
+            '    return 1\n'
+            'def emit_table():\n'
+            '    open(__file__.rsplit("/", 1)[0] + "/emits.log", "a").write("x")\n'
+            '    return f"| v |\\n|---|\\n| {value()} |"\n'
+            'def self_check():\n'
+            '    return value() == 14\n'
+            'EMITTERS = {"table": emit_table}\n'
+            'if __name__ == "__main__":\n'
+            '    if len(sys.argv) == 3 and sys.argv[1] == "--emit":\n'
+            '        print(EMITTERS[sys.argv[2]]())\n'
+            '        sys.exit(0)\n'
+            '    if len(sys.argv) == 2 and sys.argv[1] == "--self-check":\n'
+            '        sys.exit(0 if self_check() else 1)\n'
+        )
+        (d / 'model.py').write_text(model)
+        (d / 'doc.md').write_text('# Doc\n\n<!--gen:table-->\n<!--/gen:table-->\n\nNumbers by: model.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util, sys\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "table", "model.py")]\n'
+            'e.LEDGER = "ledger.jsonl"\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+
+        toy_env = {}
+
+        def gate(*extra):
+            env = {k: v for k, v in os.environ.items() if k not in ('PYTHONNOUSERSITE', 'TOY_FLAG')}
+            env.update(toy_env)
+            p = subprocess.run([sys.executable, 'shim.py', *extra], cwd=d, capture_output=True,
+                               text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def emits():
+            f = d / 'emits.log'
+            return len(f.read_text()) if f.is_file() else 0
+        rc, out = gate('--write')
+        if rc != 0 or '| 14 |' not in (d / 'doc.md').read_text():
+            bad.append(f'the first --write did not fill the block: {out[-300:]}')
+        if not (d / 'ledger.jsonl').is_file():
+            bad.append('no ledger fact was recorded')
+        n = emits()
+        steps = [
+            ('an unchanged tree', lambda: None, False, 0),
+            ('a function the emit never calls', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('return 1', 'return 2')), False, 0),
+            # the dispatch branch an --emit run cannot take (a self-check, a
+            # smoke mode) is left out of the block's fingerprint
+            ('the self-check the emit never runs', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('value() == 14', 'value() >= 14')), False, 0),
+            ('a function the emit calls (same output)', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('* 2 + extra', '* 2 + 0 + extra')), True, 0),
+            ('a data file the emit read', lambda: (d / 'data.txt').write_text('8\n'), True, 1),
+            ('a hand edit inside the block', lambda: (d / 'doc.md').write_text(
+                (d / 'doc.md').read_text().replace('| 16 |', '| 99 |')), True, 1),
+            # what no open() shows: a file the emit only tests for, and an
+            # environment variable it reads
+            ('a file the emit tests for appearing', lambda: (d / 'FLAG').write_text(''), True, 1),
+            ('an environment variable the emit reads', lambda: toy_env.update(TOY_FLAG='3'), True, 1),
+            # the emitter table rebound outside its literal: the block's key
+            # must cover the new entry
+            ('the emitter table rebound by |=', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace(
+                    'EMITTERS = {"table": emit_table}\n',
+                    'EMITTERS = {"table": emit_table}\ndef emit_other():\n    return emit_table() + " "\n'
+                    'EMITTERS |= {"table": emit_other}\n')), True, 1),
+        ]
+        for what, edit, should_emit, should_fail in steps:
+            edit()
+            rc, out = gate()
+            ran = emits() > n
+            n = emits()
+            if ran != should_emit:
+                bad.append(f'{what}: the block {"was" if ran else "was not"} emitted')
+            if bool(rc) != bool(should_fail):
+                bad.append(f'{what}: the gate exited {rc}')
+            if should_fail:
+                gate('--write')
+                n = emits()
+    check(name, not bad, '; '.join(bad))
+
+
+def check_doc_sync_fails_fast():
+    """doc_sync runs emits concurrently; the first one that fails stops the
+    rest and the gate exits at once, instead of waiting for the slowest
+    emit beside it (origin 2026-09-28: a script that crashed in its first
+    second was reported fourteen minutes later, twice). A scratch repository
+    with one emit that sleeps a minute and one that fails."""
+    name = 'doc_sync stops every other emit when one fails'
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    if not engine.is_file():
+        not_applicable(name, 'tools/doc_sync.py is absent')
+        return
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'slow.py').write_text('import time\ntime.sleep(60)\nprint("x")\n')
+        (d / 'bad.py').write_text('import time\ntime.sleep(1)\nraise SystemExit("broken")\n')
+        (d / 'doc.md').write_text('<!--gen:a-->\n<!--/gen:a-->\n<!--gen:b-->\n<!--/gen:b-->\n'
+                                  'Numbers by: slow.py bad.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "a", "slow.py"), ("doc.md", "b", "bad.py")]\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+        t0 = time.time()
+        p = subprocess.run([sys.executable, 'shim.py'], cwd=d, capture_output=True, text=True,
+                           env={**os.environ, 'DOC_SYNC_JOBS': '2'}, timeout=120)
+        took = time.time() - t0
+    check(name, p.returncode != 0 and took < 20 and 'bad.py' in p.stderr,
+          f'exit {p.returncode} after {took:.0f}s: {(p.stdout + p.stderr).strip()[-300:]}')
+
+
+def check_model_audit_ledger():
+    """model_audit with a ledger audits each model in its own process and
+    records a fact for a clean audit; a model whose fact holds is not run
+    again, a change to its self-check or to a file it read runs it, and a
+    failing audit is never recorded. A scratch repository with one model
+    that counts its own runs."""
+    name = 'model_audit skips a model whose clean audit still holds, and re-runs a changed one'
+    engine = ROOT / 'tools' / 'model_audit.py'
+    needs = [engine, ROOT / 'tools' / 'fact_ledger.py', ROOT / 'tools' / 'reach_key.py',
+             ROOT / 'tools' / 'content_record.py']
+    if not all(p.is_file() for p in needs):
+        not_applicable(name, 'model_audit.py, fact_ledger.py, content_record.py or reach_key.py is absent')
+        return
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        for p in needs:
+            shutil.copy2(p, d / 'tools' / p.name)
+        (d / 'limit.txt').write_text('10\n')
+        (d / 'model.py').write_text(
+            'import os\n'
+            'def value():\n'
+            '    return 3\n'
+            'def self_check():\n'
+            '    open(os.path.join(os.path.dirname(__file__), "runs.log"), "a").write("x")\n'
+            '    lim = int(open(os.path.join(os.path.dirname(__file__), "limit.txt")).read())\n'
+            '    return [] if value() < lim else ["value over the limit"]\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util, sys\n'
+            'spec = importlib.util.spec_from_file_location("ma_engine", "tools/model_audit.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.INSTRUMENTED = ["model.py"]\n'
+            'e.LEDGER = "audit.jsonl"\n'
+            'sys.exit(e.main())\n')
+
+        def audit():
+            p = subprocess.run([sys.executable, 'shim.py'], cwd=d, capture_output=True, text=True)
+            return p.returncode
+
+        def runs():
+            f = d / 'runs.log'
+            return len(f.read_text()) if f.is_file() else 0
+        steps = [
+            ('the first audit', lambda: None, True, 0),
+            ('an unchanged tree', lambda: None, False, 0),
+            ('a comment in the model', lambda: (d / 'model.py').write_text(
+                '# a note\n' + (d / 'model.py').read_text()), False, 0),
+            ('a function the self-check calls', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('return 3', 'return 4')), True, 0),
+            ('a file the self-check read (now failing)', lambda: (d / 'limit.txt').write_text('2\n'), True, 1),
+            ('the same failing tree again', lambda: None, True, 1),
+        ]
+        n = 0
+        for what, edit, should_run, should_fail in steps:
+            edit()
+            rc = audit()
+            ran = runs() > n
+            n = runs()
+            if ran != should_run:
+                bad.append(f'{what}: the model {"was" if ran else "was not"} audited')
+            if bool(rc) != bool(should_fail):
+                bad.append(f'{what}: the audit exited {rc}')
+    check(name, not bad, '; '.join(bad))
+
+
+def check_push_check_runs_cheap_checks_first():
+    """precedent_push_check.run() moves the slow checks (the harness suite,
+    the deep-check suites) behind every fast one, and skips them once a fast
+    one has failed -- the push is refused either way. Origin 2026-09-28: a
+    merge gate spent ten minutes on the harness suite before reporting stale
+    generated views, a one-second finding, then ten more on the fixed push.
+    Asserted on the function itself, with stand-in checks that record the
+    order they ran in."""
+    name = 'the push check runs its slow checks last, and not after a fast failure'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not tool.is_file():
+        not_applicable(name, 'precedent_push_check.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('ppc_cheap_first', tool)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        log = d / 'order.txt'
+        def stand_in(label, code):
+            f = d / f'{label}.py'
+            f.write_text(f'open({str(log)!r}, "a").write({label!r} + "\\n")\n'
+                         f'raise SystemExit({code})\n')
+            return (label, [sys.executable, str(f)], 'stand-in')
+        checks = [stand_in('verify_harness', 0), stand_in('fast_ok', 0), stand_in('fast_bad', 1),
+                  stand_in('deep_check', 0)]
+        env_all = os.environ.pop('PRECEDENT_PUSH_CHECK_ALL', None)
+        try:
+            import contextlib as _cl, io as _io
+            with _cl.redirect_stdout(_io.StringIO()):
+                failed, _m, _t, _f = mod.run(d, checks)
+            ran = log.read_text().split()
+            if ran != ['fast_ok', 'fast_bad']:
+                bad.append(f'with a fast failure, ran {ran}, expected the fast checks only')
+            if failed != ['fast_bad']:
+                bad.append(f'reported {failed} as failed')
+            log.unlink()
+            os.environ['PRECEDENT_PUSH_CHECK_ALL'] = '1'
+            with _cl.redirect_stdout(_io.StringIO()):
+                mod.run(d, checks)
+            ran = log.read_text().split()
+            if ran != ['fast_ok', 'fast_bad', 'verify_harness', 'deep_check']:
+                bad.append(f'under PRECEDENT_PUSH_CHECK_ALL=1, ran {ran}')
+        finally:
+            os.environ.pop('PRECEDENT_PUSH_CHECK_ALL', None)
+            if env_all is not None:
+                os.environ['PRECEDENT_PUSH_CHECK_ALL'] = env_all
+    check(name, not bad, '; '.join(bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -34084,6 +34861,137 @@ def check_generated_blocks_both_styles():
           not bad, '; '.join(bad))
 
 
+def check_runner_drops_findings_on_received_files():
+    """precedent_check.py's runner drops a finding on a file the repository
+    RECEIVED -- another source's materialized practice or check, the
+    vendored engine, a mirrored tree -- once, for every check, and names the
+    source that owns it (precedent_practice_refs.received_owners()).
+
+    WHY. Until 2026-09-29 each check had to remember that skip on its own.
+    checks-use-generated-blocks went live without it, and a consuming repo's
+    full check judged check files a practice set had written there, which
+    the next sync overwrites. So this plants violations in received files
+    for several unrelated checks, in a consumer-shaped fixture, and requires
+    that none is named -- while the SAME violation in a file the repo wrote
+    still is, since a drop that silenced the check would pass the first
+    half alone. It also holds the two registrations that must keep their
+    findings on received files: a source-supplied check script (its one
+    finding carries the script's own path) and
+    vendored-engine-file-refs-resolve (its subject is the received copy)."""
+    import shutil, tempfile
+    bad = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_practice_refs as ppr
+
+    # The one definition, in-process: a MANIFEST.json entry of a repo-local
+    # source is the repo's own, a mirrored tree matches by prefix.
+    with tempfile.TemporaryDirectory() as td:
+        r = pathlib.Path(td)
+        (r / 'tools').mkdir()
+        (r / 'MANIFEST.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                        {'level': 'shared', 'name': 'zzz-shared', 'path': '/x'}],
+            'practices': [{'slug': 'mine', 'source': 'local'},
+                          {'slug': 'theirs', 'source': 'zzz-shared'}],
+            'checks': [{'path': 'tools/checks/check_theirs.py',
+                        'source': 'zzz-shared'}]}), encoding='utf-8')
+        (r / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['zzz_engine.py']}), encoding='utf-8')
+        owners = ppr.received_owners(r)
+        owners['vendor/upstream/'] = 'the mirrored tree vendor/upstream/'
+        want = {'practices/theirs.md': 'zzz-shared',
+                'tools/checks/check_theirs.py': 'zzz-shared',
+                'tools/zzz_engine.py': 'the vendored engine',
+                'vendor/upstream/practices/x.md':
+                    'the mirrored tree vendor/upstream/',
+                'practices/mine.md': None, 'docs/x.md': None,
+                'vendor/upstreamish.md': None}
+        got = {k: ppr.received_owner(k, owners) for k in want}
+        if got != want:
+            bad.append(f'received_owner: want {want}, got {got}')
+
+    # A consumer-shaped copy of this tree, one run of the whole check.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-received-'))
+    try:
+        repo = tmp / 'consumer'
+        shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
+            '.git', '__pycache__', '*.pyc', 'prompts'))
+        retired = 'team' + ' sets'          # a retired word, built not spelled
+        marker = '<!-- BEGIN ' + 'GENERATED: precedent-loader -->'
+        (repo / 'MANIFEST.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                        {'level': 'shared', 'name': 'zzz-shared', 'path': '/x'}],
+            'practices': [{'slug': 'zzz-received', 'source': 'zzz-shared'}],
+            'checks': [{'path': 'tools/checks/check_zzz_received.py',
+                        'source': 'zzz-shared'}],
+            'withheld': []}, indent=1) + '\n', encoding='utf-8')
+        # Received: a practice using a retired word, and a check that spells
+        # a generated-block marker itself -- and, run as a check, reports.
+        (repo / 'practices' / 'zzz-received.md').write_text(
+            f'Written by another source. It still says {retired}.\n',
+            encoding='utf-8')
+        chk = repo / 'tools' / 'checks'
+        chk.mkdir(parents=True, exist_ok=True)
+        (chk / 'check_zzz_received.py').write_text(
+            f'import sys\nSKIP = {marker!r}\n'
+            f'print("zzz-received-script-finding")\nsys.exit(1)\n',
+            encoding='utf-8')
+        # The repo's own copies of the same two violations.
+        (repo / 'zzz-own.md').write_text(
+            f'Written here. It still says {retired}.\n', encoding='utf-8')
+        (chk / 'check_zzz_own.py').write_text(
+            f'import sys\nSKIP = {marker!r}\nsys.exit(0)\n', encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A'],
+                     ['-c', 'user.email=harness@example.com', '-c',
+                      'user.name=harness', 'commit', '-qm', 'consumer']):
+            subprocess.run(['git', *args], cwd=repo, capture_output=True)
+        env = dict(os.environ,
+                   PRECEDENT_USER_CONFIG=str(repo / '.no-user-config.json'))
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+
+        def run(*slugs):
+            out = ''
+            for slug in slugs:
+                r = subprocess.run(
+                    [sys.executable, 'tools/precedent_check.py', '--only', slug],
+                    cwd=repo, capture_output=True, text=True, env=env)
+                out += r.stdout + r.stderr
+            return out
+
+        out = run('retired-words', 'checks-use-generated-blocks')
+        for name in ('practices/zzz-received.md', 'check_zzz_received.py'):
+            if name in out:
+                bad.append(f'{name} is received, and was named: {out[-400:]}')
+        for name in ('zzz-own.md', 'check_zzz_own.py'):
+            if name not in out:
+                bad.append(f'{name} is the repo\'s own, and was NOT named: '
+                           f'{out[-400:]}')
+        if 'for zzz-shared' not in out:
+            bad.append(f'no note naming zzz-shared as the owner: {out[-400:]}')
+
+        out = run('check_zzz_received')
+        if 'zzz-received-script-finding' not in out:
+            bad.append(f'a source-supplied check script lost its finding: '
+                       f'{out[-400:]}')
+
+        # vendored-engine-file-refs-resolve judges the received copy itself.
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['zzz_engine.py']}), encoding='utf-8')
+        # Built, never spelled: the check scans this very file.
+        (repo / 'tools' / 'zzz_engine.py').write_text(
+            'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+        out = run('vendored-engine-file-refs-resolve')
+        if 'tools/zzz_engine.py' not in out:
+            bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
+                       f'received engine file: {out[-400:]}')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('findings on files a repo received are dropped once by the runner '
+          'and named by owner; the repo\'s own copies, a source-supplied '
+          'check script and vendored-engine-file-refs-resolve still report',
+          not bad, '; '.join(bad))
+
+
 def check_frontmatter_field_order_fixer():
     """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
     FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
@@ -37935,6 +38843,7 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+@_without_session_id
 def check_reply_gate_refreshes_the_landing_branch():
     """The reply gate's NOT YET LANDED line reads origin/<landing branch>
     fresh, not as last fetched.
@@ -42747,6 +43656,95 @@ def check_very_deep_check_records_its_components():
               f'and cost ({len(results)} stated cases)', not failed, detail)
 
 
+@_without_session_id
+def check_reply_gate_reports_only_this_sessions_flow():
+    """The reply gate's unlanded and Promote lines name only the branch or
+    flow this session worked on -- commits carrying its session trailer --
+    in this checkout and in a sibling clone alike (Morgan, 2026-09-29,
+    strength: decided: "only tell me about that promotions that I need to
+    do *ONLY* regarding the branch/flow that I edited/worked on in that
+    session window"). With no session id to match, this checkout keeps its
+    line and a sibling gets none."""
+    name = 'reply gate reports only this session\'s own flow'
+    import precedent_gate as pg
+    import tempfile
+
+    cases = []
+    sid_env = 'cse_01FixtureOwnSession'
+    trailer = 'Claude-Session: https://claude.ai/code/session_01FixtureOwnSession'
+    saved = {k: os.environ.get(k) for k in ('HOME', 'PRECEDENT_USER_CONFIG')}
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-own-flow-'))
+    try:
+        (tmp / 'home').mkdir()
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+
+        def make(dirname):
+            up = tmp / f'{dirname}.git'
+            subprocess.run(['git', 'init', '--bare', '-q', str(up)], check=True)
+            repo = tmp / 'root' / dirname
+            subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], check=True)
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True)
+            g('config', 'user.name', 'Harness Fixture')
+            g('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+            g('config', 'commit.gpgsign', 'false')
+            (repo / 'precedent.json').write_text(
+                json.dumps({'base_branch': 'trunk', 'sources': []}), encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', 'first')
+            g('remote', 'add', 'origin', str(up))
+            g('push', '-q', '-u', 'origin', 'trunk')
+            g('switch', '-q', '-c', 'feature')
+            return repo, g
+
+        work, gw = make('work')
+        sib, gs = make('precedent-sibling')
+        (work / 'w.txt').write_text('w\n', encoding='utf-8')
+        gw('add', '-A'); gw('commit', '-qm', 'another session\'s work')
+        (sib / 's.txt').write_text('s\n', encoding='utf-8')
+        gs('add', '-A'); gs('commit', '-qm', 'another session\'s work')
+
+        def scan():
+            return pg._unlanded_work(work, siblings=True)
+
+        got = scan()
+        cases.append(('no session id: this checkout keeps its line',
+                      any(l.startswith('this checkout:') for l in got), str(got)))
+        cases.append(('no session id: a sibling gets no line',
+                      not any('precedent-sibling' in l for l in got), str(got)))
+
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = sid_env
+        got = scan()
+        cases.append(('commits this session did not make get no line, in '
+                      'this checkout or a sibling', got == [], str(got)))
+
+        (work / 'w.txt').write_text('w, mine\n', encoding='utf-8')
+        gw('add', '-A'); gw('commit', '-qm', f'my work\n\n{trailer}')
+        (sib / 's.txt').write_text('s, mine\n', encoding='utf-8')
+        gs('add', '-A'); gs('commit', '-qm', f'my work\n\n{trailer}')
+        got = scan()
+        cases.append(('a commit carrying this session\'s trailer brings this '
+                      'checkout\'s line back',
+                      any(l.startswith('this checkout:') and "'feature'" in l
+                          for l in got), str(got)))
+        cases.append(('and a sibling\'s line, named by its directory',
+                      any(l.startswith('precedent-sibling:') for l in got), str(got)))
+    finally:
+        os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+@_without_session_id
 def check_shallow_clone_never_fabricates_unlanded_work():
     """A branch whose merge base is out of reach must never be reported as
     carrying a COUNT of unlanded commits (practice: very-deep-check,
@@ -44724,6 +45722,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_very_deep_check_records_its_components()
     check_shallow_clone_never_fabricates_unlanded_work()
+    check_reply_gate_reports_only_this_sessions_flow()
     check_a_renamed_engine_file_never_survives_a_reseed()
     check_leak_gate_refuses_a_fresh_container()
     check_structural_only_actually_drops_the_private_half()
@@ -44832,6 +45831,7 @@ def main():
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
+    check_isolated_run_matches_the_runner()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
@@ -44842,6 +45842,12 @@ def main():
           *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
     check('checks read what their rules name', *check_checks_read_what_their_rules_name())
+    check('checkin update --source stamps that source\'s manifest, not the universal one',
+          *check_update_with_source_stamps_that_sources_manifest())
+    check('the branch store and the lease board and result cache on it',
+          *check_branch_store_and_its_callers())
+    check('no file that runs ships with a merge conflict marker',
+          *check_no_conflict_markers_in_shipped_tools())
     check_routing_reason_lives_in_the_practice()
     check_filename_separator_knows_names_it_did_not_choose()
     check_new_exemption_needs_a_root_fix()
@@ -44899,6 +45905,7 @@ def main():
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()
+    check_refresh_sources_lists_a_linked_tree_once()
     check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
@@ -44950,6 +45957,12 @@ def main():
     check_refresh_sources_path_names_the_whole_target()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
+    check_push_check_runs_cheap_checks_first()
+    check_reach_key_self_check()
+    check_content_record_self_check()
+    check_doc_sync_ledger()
+    check_doc_sync_fails_fast()
+    check_model_audit_ledger()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
@@ -44965,6 +45978,7 @@ def main():
     check_frontmatter_is_real_yaml()
     check_frontmatter_field_order_fixer()
     check_generated_blocks_both_styles()
+    check_runner_drops_findings_on_received_files()
     check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
@@ -45064,6 +46078,7 @@ def main():
     check_leak_gate_notes_an_uncovered_private_repo()
     check_rename_links_spares_a_commit_pinned_permalink()
     check_changed_files_asks_a_new_check_for_its_test()
+    check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
@@ -45107,6 +46122,11 @@ def main():
         # by now is hundreds of lines above.
         _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
+    na_file = os.environ.get('PRECEDENT_NA_FUNCTIONS_FILE')
+    if na_file and NA_FUNCTIONS:
+        # Appended, not written: --as-ci runs one process per shard.
+        with open(na_file, 'a', encoding='utf-8') as fh:
+            fh.write(''.join(f'{n}\n' for n in sorted(NA_FUNCTIONS)))
     _report_check_durations()
     return 1 if FAILED else 0
 
@@ -45123,6 +46143,8 @@ if __name__ == '__main__':
         sys.exit(0)
     # BEFORE main(), because this does not run the suite -- it runs the
     # suite twice, the two ways CI does, each in its own process.
+    if '--as-ci' in sys.argv[1:] and '--isolated' in sys.argv[1:]:
+        sys.exit(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
         sys.exit(run_as_ci())
     sys.exit(main())

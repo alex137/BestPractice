@@ -45,6 +45,13 @@ planted case by accident, or does not run at all and the fixture fails
 elsewhere. Make "I could not evaluate this" a distinct, loud outcome
 ([fail-gracefully](fail-gracefully.md)), and assert *that* string too.
 
+**A test written with a fix fails on the code before the fix, or it
+counts for nothing.** The old code is the negative control you already
+have: check the new test out against it and watch it go red. A test that
+passes on both sides of the change is testing something the change did
+not touch, and it will keep passing while the feature it was meant to
+guard is quietly cancelled by the next edit.
+
 ## Why
 A test's whole value is the set of futures it rules out. "Something went
 wrong" rules out almost nothing, because in a fixture that builds
