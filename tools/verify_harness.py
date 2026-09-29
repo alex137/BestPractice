@@ -7452,7 +7452,11 @@ def check_changed_files_only_judges_the_change():
                                                                     encoding='utf-8')
         (wt / 'tools' / 'checks' / 'tests' / 'test_zzfixture.sh').write_text(
             'echo "the fixture test failed"; exit 1\n', encoding='utf-8')
-        git('add', 'tools/checks')
+        # A new check also brings its planted case, or the changed-files
+        # check refuses it for that instead (2026-09-29).
+        with open(wt / 'tools' / 'verify_harness.py', 'a', encoding='utf-8') as f:
+            f.write("\n# case('check_zzfixture', ...) -- the fixture's planted case\n")
+        git('add', 'tools/checks', 'tools/verify_harness.py')
         git('commit', '-qm', 'a check whose own test fails')
         rc, out = files_check(start)
         failed_ok = rc == 1 and 'test_zzfixture.sh: failed' in out
