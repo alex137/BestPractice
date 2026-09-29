@@ -89,7 +89,7 @@ made this upstream's own extraction clean.
 
 ## Install
 **On Precedent's loader:** write the domain practice as an ordinary Universal
-or Team practice file, with `applies_to` / `occasion` / `gates` scoping it to
+or Shared practice file, with `applies_to` / `occasion` / `gates` scoping it to
 the domain's work. Nothing else to install — it is routed the same way as
 every other on-demand practice.
 

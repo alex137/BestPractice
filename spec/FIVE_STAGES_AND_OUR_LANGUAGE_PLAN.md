@@ -473,6 +473,13 @@ Each numbered item is its own landing, through the ladder itself.
    message is inside enforcement code, so *high-risk*.
 4. **The "team" cleanup** across live text here and in the four sets, and
    the check that keeps it out. *The check is enforcement code: high-risk.*
+   **The check is split out** (2026-09-29): the existing retired-words
+   check (`process/retired_vocabulary.json`, practice
+   migration-scrubs-vocabulary) exempts whole files only, and "team set"
+   still lives, correctly, in the `## Story` sections of 16 practices and in
+   about a hundred dated records. Exempting those files would switch the
+   check off where it is needed, so it waits on a section-aware exemption
+   -- its own change to the check code.
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
    Booked, Debut and Produce, each with its synonym; Promote's practice
    gains "Promote N", the read-back, the bare-Promote rule and "Graduate";
@@ -480,12 +487,28 @@ Each numbered item is its own landing, through the ladder itself.
    practice; Go update is deduplicated into Booked and its callers
    repointed. *Changes an authorization practice (Go
    update, Promote): high-risk.*
+   **As built (2026-09-29), two departures, both smaller:** Booked lives in
+   [practices/go-update.md](../practices/go-update.md) itself -- the file
+   gains the names Booked, Shared Save and Promote 3 and the stage
+   read-back -- rather than in a new file with go-update.md deduplicated
+   into it. The behaviour is the same and none of the roughly 30 practices
+   that link to it had to move. For the same reason the high-risk test
+   stays in that file, where [Push directly](../practices/push-directly.md)
+   already reads it. Booked's readiness question lives in Morgan's own
+   individual set (step 6), since it applies only where the ladder is
+   required.
 6. **Morgan's individual practice** requiring the ladder, in
    `precedent-individual`.
 7. **The archive guard** in the reply gate. *Enforcement code: high-risk.*
 8. **Close `claude/graduate-synonym`** (BestPractice) once item 5 carries its
    two words, with the reason recorded -- the branch itself is never
    deleted by a session (practice: never-delete-a-remote-branch).
+   **Done 2026-09-29:** item 5 carries both words, and the branch's
+   approval quotes for them (Morgan, 2026-09-26) were folded into
+   [practices/promote.md](../practices/promote.md) and
+   [practices/write-it-up.md](../practices/write-it-up.md) with them.
+   Nothing on the branch is left unlanded, so it is safe to delete:
+   [that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Fgraduate-synonym).
 
 **What reaches other repositories:** items 1–5 and 7 change files this
 repository ships (practices, the vocabulary tool, the reply gate, a

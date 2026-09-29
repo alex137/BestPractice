@@ -72,5 +72,5 @@ never remembered in three places.
 
 None needed. This is your set: "yes, do it" in whatever session proposed
 the practice is the whole approval, recorded as `approved_by` with a date.
-There is no `approvers.json` here — that mechanism exists for team sets,
+There is no `approvers.json` here — that mechanism exists for shared sets,
 where more than one person's agreement matters.

@@ -49,10 +49,10 @@ A refused run is one red check and a five-minute fix.
 **Where the declaration lives depends on the repository, and copying the
 wrong one refuses every run.** An `identity.json` at a repo's root *means*
 "this repository is somebody's individual practice source" — so an
-individual set reads its own, and a **shared team set must not have one to
+individual set reads its own, and a **shared set must not have one to
 read**. There the declaration is `PRECEDENT_COMMIT_NAME` / `_EMAIL` / `_TZ`,
 set as repository variables and read the same way. Porting an individual
-set's workflow verbatim into a team set produces a workflow that refuses on
+set's workflow verbatim into a shared set produces a workflow that refuses on
 every run with the only fix forbidden — the same trap `check_commit_author.py`
 fell into, rebuilt inside a workflow. Found 2026-09-10, porting exactly that
 fix between two real sets.

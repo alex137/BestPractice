@@ -20,7 +20,7 @@ approved_by: "pending review"
 ## Rule
 Whenever a session lands a practice or raises a candidate — at any of the
 three levels — its reply states plainly, in its own words, that this
-happened and exactly where: the individual's own set, a **named** team set,
+happened and exactly where: the individual's own set, a **named** shared set,
 or the universal library. It also states plainly whether the practice is
 already in force or is still waiting on someone else's yes, and if the
 latter, who that is. This is never left to be inferred from a file path in a
@@ -45,7 +45,7 @@ should make a guess (based on the type of content, and the user's permission
 levels), and TELL THE SESSION USER, and then do it."*
 
 **Permissions are part of the guess, not an obstacle to it.** A practice
-that belongs in a team set the session cannot reach still gets named as
+that belongs in a shared set the session cannot reach still gets named as
 belonging there, with the reason it landed somewhere else instead — that is
 a disclosure, not a failure. Recording it at the wrong level silently is the
 failure.

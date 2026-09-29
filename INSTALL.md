@@ -359,7 +359,7 @@ scratch repository twice — 2026-09-06 (the
 [very deep check](practices/very-deep-check.md)'s pass 1) — vendoring,
 declaring sources, instantiating, syncing, and running the deep check on
 the result, which comes back clean. **No count is quoted here on purpose**
-(the maintainers' team set names this `no-stale-counts`; that repo is
+(the maintainers' shared set names this `no-stale-counts`; that repo is
 private, so this names the practice rather than linking a page most
 readers cannot open): the first rehearsal
 recorded "15 checks passed", the check suite has grown since, and the
@@ -708,7 +708,7 @@ cover, by design and not oversight:
    `local/practices/project-visual-identity.md` (repo-local practices, not
    root files, but still install artifacts — nothing else may land under
    `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` (only
-   when the individual or team source resolved declares `"github_ci_workflows":
+   when the individual or shared source resolved declares `"github_ci_workflows":
    "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
    `.github/pull_request_template.md`. Everything else that ships
    with Precedent (INSTALL.md, PRACTICES.md, SETUP.md,
@@ -809,12 +809,12 @@ cover, by design and not oversight:
      **A repo declares as many shared sets as its work needs, and this is
      the ordinary case, not an exception.** Shared sets are named for a
      **subject**, so one team declares several and one set serves several
-     teams. Two team sets defining the same slug is refused outright —
+     teams. Two shared sets defining the same slug is refused outright —
      that guard is what keeps one rule to one home, and it is why a set
      you need is added by declaring it rather than by copying its rules
      in.
 
-     **Which team sets does this repo declare?** Start from the kind of
+     **Which shared sets does this repo declare?** Start from the kind of
      work the repo is for:
 
      | The repo is… | Declare |
@@ -859,7 +859,7 @@ cover, by design and not oversight:
      [`tools/precedent_resolve.py`](tools/precedent_resolve.py) refuses a
      source declared under any other shape. See
      [`practices/source-naming.md`](practices/source-naming.md).
-     A team source is **resolved live from a sibling checkout, never
+     A shared source is **resolved live from a sibling checkout, never
      vendored** — it already has its own repo and its own maintainers, so
      copying it in would just be a second, driftable copy. `path` is
      relative to the project root; whoever works from the project needs
@@ -876,7 +876,7 @@ cover, by design and not oversight:
      step 4 for the worked pattern and the incident that made "write your
      own version" the wrong call once already (it covers both this and the
      individual source below together, since they hit the identical gap).
-   - **Proposing a *new* practice into that team source later is a
+   - **Proposing a *new* practice into that shared source later is a
      separate question from installing the source itself, worth
      mentioning here since it comes up the moment anyone actually uses
      one:** whether it lands immediately or needs someone else's say-so
@@ -980,7 +980,7 @@ cover, by design and not oversight:
    - See [documentation/examples/practice-set/](documentation/examples/practice-set) for what an
      individual set's files actually look like, and
      [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
-     for **universal source**, **team source**, and **individual source**
+     for **universal source**, **shared source**, and **individual source**
      as terms.
    - This step isn't only for a fresh install — see §2 step 3 for asking it
      again on an update, since a project's answer can change after this

@@ -76,7 +76,7 @@ rather than shrugged at: **a session verifying that a local re-declaration is
 no longer load-bearing cannot do it by deduplicating the file and seeing the
 check still pass.** File presence alone produces that result, so the weak
 test "confirms" the removal while proving nothing. The decisive test is
-removing the file entirely. That is how a team set's re-declared
+removing the file entirely. That is how a shared set's re-declared
 catalogue-carries-stories copy was actually verified on 2026-09-13; the
 weaker test would have passed just as readily on a copy that was still the
 only thing switching the check on.
@@ -295,7 +295,7 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     exactly wrong for a practice SOURCE set: a source set's practices/
     holds its own practices only, so every other level's check skips
     there -- permanently, since it resolves no sources and materializes
-    nothing into itself. Measured 2026-09-12 in a team source: 12 checks
+    nothing into itself. Measured 2026-09-12 in a shared source: 12 checks
     passed and 42 SKIPPED, all 42 for that one reason. The cost was
     already paid once -- a practice file there shipped a relative link to
     a file materialization does not copy, live in the publishing set and
@@ -927,7 +927,7 @@ def _foreign_practice(rel):
        'It tests that the section says something, not that it says something '
        'dramatic.',
        # Binds a publisher: a catalogue is the thing a source set publishes,
-       # so this rule is about its output. One team set proved it wanted to
+       # so this rule is about its output. One shared set proved it wanted to
        # run there the hard way -- it re-declared this practice locally
        # purely to defeat the gate, and that second copy never agreed with
        # universal's for the whole week it existed. Retired 2026-09-13 once
@@ -2552,7 +2552,7 @@ def _practice_is_reachable(ctx):
     reads as authoritative.
 
     Measured here on 2026-09-06: 30 of 114 practices in force in Precedent's
-    own repo were reachable by nothing at all -- 27 from the team source and
+    own repo were reachable by nothing at all -- 27 from the shared source and
     3 from the individual one. Both are genuinely declared in
     `precedent.json` and in the user-level config; neither reaches
     `AGENTS.md`'s generated block, because `build_views.py` deliberately
@@ -2572,7 +2572,7 @@ def _practice_is_reachable(ctx):
     runs, which is this repo's own documented lesson.
 
     A source that does not RESOLVE in this environment is skipped, never
-    reported -- a team source is a sibling clone and an individual source
+    reported -- a shared source is a sibling clone and an individual source
     resolves through a private user-level config, so neither exists in a
     bare CI checkout, and their absence there is not evidence of anything.
     """
@@ -4632,10 +4632,10 @@ _ENGINE_REF_ABSENT_OK = {
 # catalogue did every part of the job except the job. `git commit -a` does
 # not stage an untracked file, so `practices/fail-gracefully.md` and
 # `practices/bold-key-phrases.md` were written, regenerated into every view,
-# given routing entries, deleted from both team sets -- and never added.
+# given routing entries, deleted from both shared sets -- and never added.
 #
 # For one pushed commit the two rules were in force NOWHERE: gone from both
-# team sets, absent from the repository they had been promoted into. EVERY
+# shared sets, absent from the repository they had been promoted into. EVERY
 # GATE PASSED, in both directions, and neither is a bug: locally the files
 # were on disk, so the loader and every check read them and were right; in
 # the pushed tree they did not exist, and a practice that does not exist
@@ -7629,7 +7629,7 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "five citations of `fail-gracefully` sit in this repo's own tools/ in "
        "exactly that form, naming a slug that resolves nowhere here, and the "
        "anchored form would make this check FAIL rather than fix them, "
-       "because the practice lives in a private team set. See TODO.md's "
+       "because the practice lives in a private shared set. See TODO.md's "
        "`universal-code-cites-team-slug`.")
 def _code_cites_practice(ctx):
     known = {}
@@ -7962,7 +7962,7 @@ def _migration_scrubs_vocabulary(ctx):
     # directory's file list changes on every sync, so hand-listing it
     # file-by-file in exempt_files would go stale the next time a slug is
     # added or dropped. Found for real, migrating a dependent repo
-    # (2026-09-03): 'RepoPersonalPreferences' collided with a team-source
+    # (2026-09-03): 'RepoPersonalPreferences' collided with a shared-source
     # practice's own approved_by provenance, and 'PERSONAL_PACK_TOKEN'
     # collided with this file's own migration-scrubs-vocabulary.md Story
     # section, which uses that string as ITS illustrative example -- both

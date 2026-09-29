@@ -346,7 +346,7 @@ def _git_toplevel(start):
 # read as hand-dropped.
 #
 # Deliberately NOT carrying a `practice:` citation, though this code exists to
-# satisfy one: the deep-check rule that requires the driver is a TEAM-level
+# satisfy one: the deep-check rule that requires the driver is a SHARED-level
 # practice, and this repo's catalogue is the universal one, so the slug does
 # not resolve here and code-cites-practice correctly reads the citation as a
 # dangling reference. The citation form has no way to say "a practice from a

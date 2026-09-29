@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """leak_gate.py — the hard-failing leak gate
 (PRACTICE_ENGINE_PLAN.md, "The Verification Harness": "Leak gate — no
-individual- or team-level term appears anywhere in Precedent.
+individual- or shared-level term appears anywhere in Precedent.
 RPP's private-repo-scrub machinery generalized from words to sources,
 hard-failing rather than warning.")
 
@@ -18,7 +18,7 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   STRUCTURAL (this file, always on, runs in CI). Precedent holds universal
   practices and nothing else. Anything shaped like private-source content
   fails: a practice file outside practices/, a path belonging to an
-  individual or team set, a practice whose frontmatter claims a non-
+  individual or shared set, a practice whose frontmatter claims a non-
   universal source, a personal email address, an absolute home directory.
   These patterns are safe to publish because they describe SHAPES, not
   anyone's actual vocabulary.
@@ -1309,7 +1309,7 @@ def _require_vocabulary_configured():
 
 def _private_sources_declared(root=None):
     """-> True when precedent.json declares a source whose practice text is
-    private -- an individual or team set.
+    private -- an individual or shared set.
 
     THE HOLE THIS CLOSES, and it is in the docstring above. That one says the
     setting lives in git config because "whether a person HAS an individual

@@ -127,7 +127,7 @@ _git() { git -C "$ROOT" "$@"; }
 
 # WHY AN ENV VAR, AND NOT MORE HOOK WIRING. A hook fires for the project dir
 # and nothing else, so a repository ATTACHED to a session rooted somewhere
-# else -- `add_repo`, a SessionStart clone, a sibling clone a team practice
+# else -- `add_repo`, a SessionStart clone, a sibling clone a shared practice
 # source resolves to -- is never checked by its own guard, because its own
 # settings.json is never read. That is not theoretical: a branch was cut from
 # a stale main on 2026-09-11 while that repository's own guard sat installed

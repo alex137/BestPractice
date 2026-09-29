@@ -397,6 +397,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_no_bare_pattern',
     'require_paired_with',
     'require_container_safe_if_says',
+    'require_landed_if_says',
     'unless_reply_declares_loss',
     # conditions and metadata
     'require_when_context_grew_tokens',
@@ -687,7 +688,67 @@ def violations(text, reqs, timeline=None):
                     f"Push or merge it -- or say in the reply that it is "
                     f"meant to be lost -- before saying that sentence."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_landed_if_says: the archive guard of the five-stage ladder
+        # (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, step 7). Where
+        # require_container_safe_if_says asks "would anything be LOST", this
+        # asks "is anything still sitting on a feature branch" -- committed
+        # and pushed, so safe, but not on the branch the repo lands work on,
+        # which is where it gets forgotten. The reply gate has printed a NOT
+        # YET LANDED line for that since 2026-09-21, and a finished branch
+        # (claude/graduate-synonym, BestPractice) was stranded for days
+        # anyway: a warning alone did not stop it. Declared per person --
+        # only a source that names it enforces it (Morgan's individual set,
+        # 2026-09-29: the ladder is optional for everyone, required for him).
+        #
+        # The escape is a named line per branch, same shape as the
+        # checkout-disposition marker: `**Branch disposition:** BRANCH --
+        # drop (reason)`. A session that never looked at the branch cannot
+        # name it, so the escape is not a password.
+        for phrase in (r.get('require_landed_if_says') or []):
+            if _norm(phrase) not in _norm(quoted_stripped):
+                continue
+            stranded = _stranded_branches()
+            left = [(where, branch) for where, branch in stranded
+                    if not re.search(r'\*\*branch disposition:\*\*\s*`?'
+                                     + re.escape(branch)
+                                     + r'`?\s*[—-]+\s*drop', text, re.I)]
+            if left:
+                listing = '\n'.join(f'  {w}: {b}' for w, b in left)
+                out.append({'kind': 'landed', 'advisory': False, 'message': (
+                    f"[{r.get('_source', '?')}] this reply says "
+                    f"\"{phrase}\" while work sits on a feature branch, not "
+                    f"on the branch its repo lands work on:\n{listing}\n"
+                    f"Land it (Booked / Go update), or give each branch up "
+                    f"by name: **Branch disposition:** BRANCH -- drop "
+                    f"(why it is safe to drop)."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
+
+
+def _stranded_branches(root=None, siblings=True):
+    """-> [(repo, branch)] for each repo in this session whose current
+    branch carries committed work that is not on the branch it lands work
+    on -- the NOT YET LANDED lines of precedent_gate._unlanded_work, parsed.
+
+    [] when the gate cannot be imported or run: an engine too old to carry
+    it blocks nothing, the same posture as _container_verdict. Only the
+    not-landed lines count -- a pre-staging batch waiting on a Promote has
+    landed, and is never a reason to keep a session open."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        lines = _pg._unlanded_work(root, siblings=siblings)
+    except Exception:                                         # noqa: BLE001
+        return []
+    found = []
+    for line in lines:
+        m = re.match(r"(?P<repo>.+?): \d+ commit\(s\) on '(?P<branch>[^']+)' "
+                     r"that are NOT on", line)
+        if m:
+            found.append((m.group('repo'), m.group('branch')))
+    return found
 
 
 def _declares_loss(rule, text):
@@ -830,6 +891,11 @@ def main():
                     bits.append(f'"{ph}" requires a container with nothing '
                                 f'uncommitted and nothing off a remote '
                                 f'(tools/precedent_container_safe.py)')
+            if r.get('require_landed_if_says'):
+                for ph in r['require_landed_if_says']:
+                    bits.append(f'"{ph}" requires no work left on a feature '
+                                f'branch (or a **Branch disposition:** line '
+                                f'per branch)')
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "

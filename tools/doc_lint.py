@@ -258,7 +258,7 @@ CODE_SPAN_RE = re.compile(r'`[^`]*`')
 #
 #   templates/  -- a skeleton instantiated INTO another repo. Its links name
 #                  files that will exist there (`tools/build_views.py` in a
-#                  bootstrapped practice set, `approvers.json` in a team set),
+#                  bootstrapped practice set, `approvers.json` in a shared set),
 #                  never files beside the template.
 #   deck/*/slides/ -- deck/build_deck.py resolves a slide's asset paths from
 #                  the DECK root, not the slide's own directory, so

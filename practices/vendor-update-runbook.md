@@ -461,7 +461,7 @@ says so, both from the vendored tree under `process/upstream/`.
    they are.** Until 2026-09-14 they were not, on the commonest consuming
    layout of all: an engine vendored at `process/upstream/tools/` defaulted
    its root to the vendored tree, which carries a `precedent.json` of its
-   own, so step 7 named three declared team sources as missing at paths
+   own, so step 7 named three declared shared sources as missing at paths
    nothing had ever written to, and step 8 left the same three
    `UNVERIFIED`. Both readings were specific enough to be believed and both
    were about the wrong repository. Fixed at the root rather than in the
@@ -492,7 +492,7 @@ says so, both from the vendored tree under `process/upstream/`.
    sources its config named; one had never declared `visibility`, and an
    absent field counts as public, which silently excluded every
    private-level source from its generated views; and three named their
-   sources in hand-written prose that went stale the day a team set was
+   sources in hand-written prose that went stale the day a shared set was
    split by subject. **Not one produced a failing check.**
 
    **Once the answer changes what this repo declares, grep before moving

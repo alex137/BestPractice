@@ -53,7 +53,7 @@
     "in between, in your own words.",
     "",
     "WHAT READS IT: a session, when it writes to you. Leave it unfilled and",
-    "a team-level default may apply -- one team here falls back to writing",
+    "a shared-level default may apply -- one team here falls back to writing",
     "for a reader who is not technical -- which is safe and may not be what",
     "you wanted. Added to the skeleton 2026-09-14; a set built before then",
     "has no key at all, and `--verify` names the absent key."

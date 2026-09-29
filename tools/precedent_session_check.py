@@ -5,7 +5,7 @@ practice: session-bootstrap, fail-gracefully
 
 THE INCIDENT, 2026-09-08. A session opened with four Precedent repositories
 side by side under a parent directory -- this project's own required layout,
-since a team source resolves as a SIBLING CLONE -- and the harness rooted the
+since a shared source resolves as a SIBLING CLONE -- and the harness rooted the
 session at that PARENT. `$CLAUDE_PROJECT_DIR` was therefore `/home/user`,
 which has no `.claude/` of its own, so every hook in every one of the four
 repositories' `settings.json` pointed at a path that does not exist. None of

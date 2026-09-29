@@ -6,11 +6,12 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 155 practice files (10 resident, 145 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 160 practice files (10 resident, 150 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
+| [act](practices/act.md) | on-demand | a person says "Act" or "Promote 2", or asks to start building after a plan |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive" or "Archive?", or asks whether the session can be archived |
 | [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source with the repo-attach tool, or its reply says to clone |
@@ -35,12 +36,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
 | [code-cites-practice](practices/code-cites-practice.md) | on-demand | writing code because a specific practice requires it |
 | [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) | on-demand | writing a document that cites a computed number |
+| [consider](practices/consider.md) | on-demand | a person says "Consider" or "Promote 1", or asks to plan before building |
 | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on an operating constant nobody decided |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
 | [current-rule-governs](practices/current-rule-governs.md) | resident | a person gives a standing command, or asks for something a practice already governs |
 | [dated-list-runs-forward](practices/dated-list-runs-forward.md) | on-demand | a document carries a list of dated entries that will be added to over time |
+| [debut](practices/debut.md) | on-demand | a person says "Debut", "Test Readiness" or "Promote 4" |
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
 | [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
@@ -69,7 +72,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-api-budget](practices/github-api-budget.md) | on-demand | writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
-| [go-update](practices/go-update.md) | on-demand | a message says "Go update" or "Approved", or plainly authorizes a merge |
+| [go-update](practices/go-update.md) | on-demand | a message says "Go update", "Approved", "Book it", "Booked" or "Promote 3", or plainly authorizes a merge |
 | [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repo, or use a GitHub tool for what the clone holds |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
@@ -98,13 +101,15 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [park-it](practices/park-it.md) | on-demand | a person says "Drop it" about an open item or a question |
 | [permutation-frontier-column](practices/permutation-frontier-column.md) | on-demand | building a permutation or configuration-sweep table |
 | [plain-words](practices/plain-words.md) | on-demand | a person says "Simple please", or asks to be talked to that way |
+| [plan-it](practices/plan-it.md) | on-demand | a person says "Plan it", or Consider picks a middle-sized plan |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-carries-its-files](practices/practice-carries-its-files.md) | on-demand | writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set |
 | [practice-change-propagates](practices/practice-change-propagates.md) | on-demand | renaming, retiring, deduplicating, deleting or rewording a practice -- or taking an update that did |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs |
-| [promote](practices/promote.md) | on-demand | a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main |
+| [produce](practices/produce.md) | on-demand | a person says "Produce", "Make live" or "Promote 5" |
+| [promote](practices/promote.md) | on-demand | a message says "Promote", "Promote N" or "Graduate", or asks to move pre-staging into staging or staging into main |
 | [prompt-please](practices/prompt-please.md) | on-demand | handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [push-directly](practices/push-directly.md) | on-demand | a message says "Push directly" [to a branch], or says to skip the PR for one change |
@@ -163,7 +168,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |
 | [wide-search-needs-asking](practices/wide-search-needs-asking.md) | on-demand | about to search or scan every clone, every repo or every file for something |
 | [workflow-file-outside-vendoring](practices/workflow-file-outside-vendoring.md) | on-demand | a .github/workflows/*.yml file is added or changed |
-| [write-it-up](practices/write-it-up.md) | on-demand | a person asks for a write-up of the issue being worked |
+| [write-it-up](practices/write-it-up.md) | on-demand | a person says "Write it up" or "Spec it out", or asks for a write-up of the issue being worked |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
 ## Withdrawn practices
@@ -206,13 +211,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/lease_board.py](tools/lease_board.py) | The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/move_paths.py](tools/move_paths.py) | Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten |
+| [tools/our_language.py](tools/our_language.py) | Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md) |
 | [tools/parse_check.py](tools/parse_check.py) | Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check |
 | [tools/philosophy_backlinks.py](tools/philosophy_backlinks.py) | EXPERIMENTAL — reports item-to-item citations in philosophy/ that run one way only; the return sentence is written by hand, never generated |
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
 | [tools/practice_simulation.py](tools/practice_simulation.py) | Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark |
 | [tools/precedent_access_check.py](tools/precedent_access_check.py) | Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after |
 | [tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) | Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert |
-| [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet |
+| [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet |
 | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py) | Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass |
 | [tools/precedent_branches.py](tools/precedent_branches.py) | The three branch tiers -- which branch is pre-staging, staging and main here, and whether a push to one gets the basic or the full push check (spec/BRANCH_TIERS_PLAN.md) |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
@@ -247,13 +253,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_session_practices.py](tools/precedent_session_practices.py) | Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed |
 | [tools/precedent_show.py](tools/precedent_show.py) | Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
 | [tools/precedent_simulate.py](tools/precedent_simulate.py) | One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log |
-| [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) | Clone-or-pull for a privately-scoped individual or team source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal |
+| [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) | Clone-or-pull for a privately-scoped individual or shared source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal |
 | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py) | Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo |
 | [tools/precedent_source_names.py](tools/precedent_source_names.py) | Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it |
 | [tools/precedent_sync_views.py](tools/precedent_sync_views.py) | One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together |
 | [tools/precedent_time.py](tools/precedent_time.py) | The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered |
 | [tools/precedent_update.py](tools/precedent_update.py) | Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md) |
-| [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) | Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or team set, and keeps it refreshable |
+| [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) | Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable |
 | [tools/precedent_vocabulary.py](tools/precedent_vocabulary.py) | Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the "Vocabulary" command and emits the reader-facing table |
 | [tools/reach_key.py](tools/reach_key.py) | A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing |
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |

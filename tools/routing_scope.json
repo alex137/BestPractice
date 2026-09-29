@@ -1454,6 +1454,49 @@
       ],
       "why": "No locus, and deliberately `**`. The mistake is a session running `git clone` into the wrong directory right after the repo-attach tool answers, outside every repo's tree; no file in this one is edited when it happens, so a narrower glob would never fire. The occasion index is the channel.",
       "decided": "2026-09-25, when the practice was written"
+    },
+    "consider": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE (\"Consider\", \"Promote 1\") -- stage 1 of the five-stage ladder, like promote's entry; no file path reaches it. Reached through the occasion index; no gate, since the plan it asks for comes before any file moment.",
+      "decided": "2026-09-29, when the practice landed"
+    },
+    "plan-it": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE, or the size stage 1 (Consider) picks -- no file path reaches it, and it writes nothing to the repository. Reached through the occasion index; no gate.",
+      "decided": "2026-09-29, when the practice landed"
+    },
+    "act": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE (\"Act\", \"Promote 2\") -- stage 2 of the five-stage ladder; no file path reaches it. Reached through the occasion index; no gate, since building is every moment rather than one.",
+      "decided": "2026-09-29, when the practice landed"
+    },
+    "debut": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE (\"Debut\", \"Promote 4\") -- stage 4, a Promote with the step named, like promote's entry. Routed by the `merge` gate.",
+      "decided": "2026-09-29, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Debut and Produce are merges between branch tiers -- the moment that gate exists for, as for promote."
+    },
+    "produce": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE (\"Produce\", \"Promote 5\") -- stage 5, a Promote with the step named, like promote's entry. Routed by the `merge` gate.",
+      "decided": "2026-09-29, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Debut and Produce are merges between branch tiers -- the moment that gate exists for, as for promote."
     }
   },
   "gates": {

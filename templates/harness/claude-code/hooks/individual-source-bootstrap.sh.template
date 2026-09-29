@@ -124,12 +124,12 @@ fi
 # The set's NAME is fixed by level -- `precedent-individual` for every
 # person, never chosen (practice: source-naming) -- so the only unknown is
 # the ACCOUNT, and $PRECEDENT_SOURCE_BASE_URL already carries it for the
-# team sets. Deriving the individual set the same way means a tracked hook
+# shared sets. Deriving the individual set the same way means a tracked hook
 # in a public tree names nobody.
 #
 # THE INCIDENT (2026-09-10). INSTALL.md section 8 states plainly that no
 # tracked file names the account owning the private sets -- that is why the
-# base URL is an environment variable. It was true of the team sets and
+# base URL is an environment variable. It was true of the shared sets and
 # false of this one: the upstream repo's own instantiated copy of this hook
 # carried a full `https://github.com/<account>/precedent-individual` in a
 # tracked file, on a public branch, five lines from the comment above
@@ -152,7 +152,7 @@ unset _pbase
 REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-${CFG_URL:-$DEFAULT_REPO_URL}}"
 
 if [ -z "$REPO_URL" ]; then
-  echo "individual-source bootstrap: no repository URL. Set PRECEDENT_SOURCE_BASE_URL in the environment (preferred -- it locates the team sets too, and keeps the account out of every tracked file), or individual.repo_url in $CFG, or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
+  echo "individual-source bootstrap: no repository URL. Set PRECEDENT_SOURCE_BASE_URL in the environment (preferred -- it locates the shared sets too, and keeps the account out of every tracked file), or individual.repo_url in $CFG, or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
   exit 0
 fi
 
