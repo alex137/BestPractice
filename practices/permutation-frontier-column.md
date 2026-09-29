@@ -4,6 +4,7 @@ title:       A permutation table carries a frontier column
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires on the shape of a table being built, not its location. Decided: phase 4 routing pass."
 occasion:    "building a permutation or configuration-sweep table"
 gates:       []
 index_clause: "one full table with a computed Frontier column"
@@ -44,7 +45,7 @@ rules:
    render ([tabular-shared-renderer](tabular-shared-renderer.md)) opens showing frontier rows only and carries a
    control to show all rows — the reader gets the compressed view first
    and the full matrix one click later, from the same table. That
-   control is the axis pull-down of [tabular-shared-renderer](tabular-shared-renderer.md) item 8: the reader
+   control is the axis pull-down of [tabular-shared-renderer](tabular-shared-renderer.md#frontier-axis-pulldown)'s item 8: the reader
    picks which output columns form the frontier and the render
    recomputes the marks, because rule 1's real point is that the axes
    are the reader's choice — the stated defaults answer the document's

@@ -4,8 +4,10 @@ title:       "Check whether the work belongs in another session before starting 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus, for the same reason handoff-is-pasteable has none, one step earlier: what triggers it is a fact about WHERE the work has to happen -- which repositories it touches versus which ones this session holds -- and that is settled before any file is opened. There is no path whose editing means 'you should have checked this'; by the time a file is edited the check has already been skipped. Reached through the occasion index and the reply gate. Decided: 2026-09-11, when the practice landed."
 occasion:    "handing the person work to do, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
+gates_why:   "The reply is where the link either appears or does not. The check itself belongs earlier -- before the work -- but the only artifact it leaves is the handover in the reply, which is the moment a gate can still catch."
 index_clause: "cross-repo check; never create, never wake -- always hand over paste text"
 checked_by:  null
 defines:     ["Session Text"]
@@ -498,8 +500,8 @@ anybody who spawns a session has to be able to find it again. **What the
 reply's closing list is CALLED stays with whoever owns that convention**;
 this clause says only that the sessions belong in it.
 
-**Prior art, and deliberately not copied:** the individual set
-`themorgan/precedent-individual` closed the same gap in its own catalogue
+**Prior art, and deliberately not copied:** a person's individual set
+closed the same gap in its own catalogue
 first, amending its handoff and no-racing rules. Its wording is first-person
 and describes one person's way of working, so lifting it would bind every
 adopter to that workflow ([rule-level-by-reach](rule-level-by-reach.md) cuts

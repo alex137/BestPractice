@@ -46,8 +46,12 @@ deliverables and indexes which documents back each part of each one.
 
 ### Session start
 
-- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
-  with a hook mechanism run it automatically — see `templates/harness/`).
+- At session start, run `bash tools/bootstrap.sh` before other work. Claude
+  Code runs it for you from its SessionStart hook, on the web and
+  locally (locally it skips the package install and the machine-wide git
+  setup); in other harnesses, run it yourself unless your adapter wires it — Precedent's
+  [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
+  says which can.
 - **Keep `AGENTS.md`'s generated block current.** Before relying on it,
   run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
   if any declared source (`precedent.json`) has moved since the block was
@@ -72,33 +76,16 @@ deliverables and indexes which documents back each part of each one.
 
 ### Build-environment gotchas — do NOT rediscover these
 
-<!-- Every expensive environment discovery, WITH its story (practice
-     `environment-gotchas`) — what failed and what it cost, not just the fix,
-     because a fix on its own is a fact the next session cannot judge and
-     re-derives the moment it looks wrong. Mirror the fixes into the
-     bootstrap script (practice `session-bootstrap`) so they apply
-     themselves. Add yours below the inherited entry; replace nothing.
-
-     Placeholders to fill in as you hit them, kept in this comment rather
-     than as live bullets so an install that has not hit one yet is not
-     carrying an empty gotcha:
-       - <package/tool that must be installed, what failed without it, how
-         long it cost>
-       - <tool that does not work here; what to use instead> -->
-
-- **A session's checkout can be stale enough to look complete while missing
-  real, merged work — with no error.** `git status` reports "up to date with
-  origin" by comparing against whatever the remote-tracking ref happened to
-  be at the last fetch, so a container that came up on an old clone reports
-  clean and current while being dozens of commits behind. This has bitten
-  the upstream project twice for real: once with a local branch that shared
-  *zero* commits with origin (a whole phase of work invisible), and once
-  with a 5-day-old shallow clone where a session concluded that files
-  landing a week earlier "did not exist". Before concluding anything is
-  missing or unfinished: `git fetch origin <branch>` and
-  `git rev-list --count HEAD..origin/<branch>`. `tools/bootstrap.sh` warns
-  about this at session start, including when the fetch itself fails —
-  silence there has to mean "checked and current", never "not checked".
+Environment and tooling traps are written down one per file under
+[gotchas/](gotchas/), each with what failed, what it cost, and the fix
+(practice `environment-gotchas`). **None of that catalogue is copied into
+this file**: hit a confusing, hard-to-explain failure, and before
+concluding it is new, grep for it —
+`grep -ril '<a keyword from what you are seeing>' gotchas/`. Add one as
+`gotchas/gotcha-<date>-<slug>.md` with `## Symptom`, `## Story` and
+`## Fix`, and mirror its fix into the bootstrap script (practice
+`session-bootstrap`) so it applies itself. The bullets below are standing
+instructions for this repo, not gotchas.
 
 <!-- INSTALL.md §0 step 3 / §1 step 9: if the administrator answered yes to a
      team and/or individual practice source, add the bullet below (drop
@@ -114,14 +101,14 @@ deliverables and indexes which documents back each part of each one.
      exists to prevent. -->
 
 - **A brand-new session on this repo alone has no git read access to
-  <team-repo-name> or <individual-repo-name>** — session repo access is
+  <shared-set-repo-name> or <individual-repo-name>** — session repo access is
   scoped per session, never inherited just because `precedent.json` or a
   bootstrap hook names a repo. No token or secret is involved: the tool
   that grants a session this access rides the same GitHub identity already
   behind the session, so it only ever succeeds because that person is
   already a collaborator on the target repo. **At the very start of every
   session, before running `tools/bootstrap.sh`, call that tool for
-  <team-repo-name> (and <individual-repo-name>, for the person it belongs
+  <shared-set-repo-name> (and <individual-repo-name>, for the person it belongs
   to) — silently, with no confirmation needed first.** This is a read-only
   scope extension, not a credential or production change. Never write this
   as "if the clone fails, ask to add the repo" — that only works when a
@@ -136,7 +123,7 @@ deliverables and indexes which documents back each part of each one.
   the next bootstrap run points `~/.config/precedent/config.json` at that
   clone and links `~/precedent-individual` to it. Either path is the same
   tree. Never clone it anywhere else: a second copy is one nothing loads,
-  and it drifts from the first within the hour. <team-repo-name> is
+  and it drifts from the first within the hour. <shared-set-repo-name> is
   the other way round: its clone lives at the path `precedent.json`
   resolves, beside this repo, so clone it there if nothing has.
 

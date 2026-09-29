@@ -4,6 +4,7 @@ title:       A recorded approval says how firmly it was given
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md", "local/practices/*.md", "decisions/*.md"]
+applies_to_why: "The mark is written into the frontmatter of a practice file or a decision record, so those paths ARE the distinguishing condition: a file that records someone's approval. The reply gate carries the other half -- citing a past approval back to them -- which no glob reaches. Decided: 2026-09-09."
 occasion:    "recording that someone approved a practice or a decision, or citing their past approval back to them"
 gates:       ["reply"]
 index_clause: "record `decided` or `assented`; unmarked means unknown, never \"you decided this\""
@@ -110,6 +111,8 @@ downward, and why absence cannot default to the strong value.
 to move a conversation along is normal and costs nothing at the time; being
 quoted six weeks later as the author of a rule you shrugged at is a different
 thing entirely.
+
+The same idea runs through the rest of the project -- a routing reason, an exemption's reason, an open item marked `ask` -- and is written down once as [a choice made on purpose should look different from one nobody made](https://github.com/alex137/BestPractice/blob/staging/philosophy/OUR_PHILOSOPHY.md#on-purpose-looks-different) (Morgan, 2026-09-29: "this is an important part of precedent, our difference between 'Decided' and 'Assented'").
 
 ## Story
 **Morgan, 2026-09-09**, on how this repository was recording his approvals:

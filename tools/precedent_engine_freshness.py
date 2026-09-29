@@ -42,17 +42,24 @@ when I'm there."
 
   python3 tools/precedent_engine_freshness.py           # every source, one row each
   python3 tools/precedent_engine_freshness.py --files   # + which engine files changed
-  python3 tools/precedent_engine_freshness.py --quiet   # only rows that are behind
+  python3 tools/precedent_engine_freshness.py --quiet   # behind rows + a not-verified count
 
 EXIT STATUS IS 0 IN EVERY CASE, including no network, no manifest and a
 malformed one. A session start that a network hiccup can block is worse than
 the staleness it was guarding against (practice: fail-gracefully). What that
 practice requires instead is that the outcomes never render alike: a row is
 `current`, `BEHIND`, or `NOT VERIFIED`, and unknown is never printed as
-current. `--quiet` prints only BEHIND rows, so a repo whose every source is
-current -- or unreachable -- says nothing; the full run is where unreachable
-is spelled out. `--files` needs to fetch upstream objects and is therefore
-NOT what the hook runs.
+current. `--quiet` prints the BEHIND rows and, when any source could not be
+verified, ONE line saying how many and that the full run names them -- so a
+repo whose every source is current says nothing, and one whose sources are
+unreachable says so rather than reading as current. That line was missing
+until 2026-09-28: --quiet printed nothing for an unreachable source, which
+is exactly what current looks like to a session start -- the failure the
+maintainers' fresh-check-escalation rule names. The full run is where each
+unverified row is spelled out. A repo with no engine manifest at all -- the
+engine's own origin, or one that never vendored it -- has no engine row to
+verify, so that one row is not counted there. `--files` needs to fetch
+upstream objects and is therefore NOT what the hook runs.
 """
 import argparse
 import json
@@ -201,8 +208,12 @@ def collect_targets(root='.'):
 
     manifest, why = read_manifest(root)
     if manifest is None:
+        # No manifest file at all is not an unverified source: nothing was
+        # vendored, so nothing can be stale. A malformed one is unverified.
         rows.append({'label': 'vendored engine (tools/)', 'kind': 'engine',
-                     'problem': why})
+                     'problem': why,
+                     'nothing_vendored': not (pathlib.Path(root)
+                                              / MANIFEST).is_file()})
     else:
         url, branch, recorded = (manifest.get('source_repo'),
                                  manifest.get('source_branch'),
@@ -379,9 +390,12 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     rows = collect_targets(root)
     tips = {}
     behind = unverified = current = 0
-    for row in rows:
+    unverified_sources = 0        # what --quiet reports: no engine row there
+    for row in rows:              # to verify is not a source left unverified
         if row.get('problem'):
             unverified += 1
+            if not row.get('nothing_vendored'):
+                unverified_sources += 1
             if not quiet:
                 print(f"freshness: not checked -- {row['label']}: "
                       f"{row['problem']}", file=out)
@@ -392,6 +406,7 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
         tip = tips[key]
         if tip is None:
             unverified += 1
+            unverified_sources += 1
             if not quiet:
                 print(f"freshness: NOT VERIFIED -- {row['label']}: could not "
                       f"reach {row['url']} ({row['branch']}). Whether it is "
@@ -417,6 +432,11 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     if behind:
         print('  Nothing has been changed -- this is a notice. To take it: '
               '"Update Vendors" (practices/vendor-update-runbook.md).', file=out)
+    if quiet and unverified_sources:
+        print(f'freshness: NOT VERIFIED -- {unverified_sources} source(s) '
+              f'could not be checked this session; run python3 '
+              f'tools/precedent_engine_freshness.py for which (not verified '
+              f'is not current)', file=out)
     if not quiet:
         print(f'freshness: {len(rows)} row(s) -- {current} current, '
               f'{behind} behind, {unverified} not verified (not verified is '
@@ -430,7 +450,8 @@ def main(argv=None):
     ap.add_argument('--files', action='store_true',
                     help='also name which tracked engine files moved (needs a fetch)')
     ap.add_argument('--quiet', action='store_true',
-                    help='print only the rows that are actually behind')
+                    help='print only the rows that are behind, plus one line '
+                         'when any source could not be verified')
     a = ap.parse_args(argv)
     return report(a.root, with_files=a.files, quiet=a.quiet)
 

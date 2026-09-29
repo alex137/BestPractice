@@ -4,8 +4,10 @@ title:       Never manufacture a number, date, name or citation to make a senten
 tier:        resident
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Every document is prose somebody could be tempted to make land with a figure that is not there. Same glob as write-like-a-human, for the same reason and the same scope. Decided: 2026-09-08, when the practice landed."
 occasion:    "writing a sentence that would land better with a specific figure, date, name or source"
 gates:       ["reply"]
+gates_why:   "The reply is where a number gets rounded up to sound better, and it is the one artifact no path glob reaches."
 index_clause: "never manufacture a number, date, name or citation -- write around the gap"
 index_required: false
 checked_by:  null

@@ -37,7 +37,7 @@ A session that writes files and then asks whether to commit has already made
 the decision, because a working tree it left dirty is one a Stop hook or a
 later turn will push to finish. Say what you would write and where; wait to
 be told. A brainstorm ends only when the person authorizes the work --
-`Go merge`, "do it", "write it up", or anything else unambiguous.
+`Go update`, "do it", "write it up", or anything else unambiguous.
 
 **The cost of getting it wrong is asymmetric and not close**, which is why
 the Rule's default is what it is: holding costs one question at the end of a
@@ -73,7 +73,7 @@ person's own set -- *"we want brainstorming to happen privately thinking
 with Claude, and the results shared."* Nobody wants their half-formed
 options in the record, and everybody wants what they settled on to be there.
 
-That also settles the edges without further rules. It says why `Go merge`
+That also settles the edges without further rules. It says why `Go update`
 is the exit -- it is the moment something became a result. It says why
 enthusiasm mid-thread is not: agreeing that an idea is interesting is not
 concluding anything. And it says why the rule survives a session boundary,

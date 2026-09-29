@@ -4,8 +4,10 @@ title:       A setting with a declared default is applied, not asked
 tier:        on-demand
 severity:    default
 applies_to:  ["SETUP.md", "INSTALL.md", "documentation/*.md", "templates/GETTING_STARTED.md"]
+applies_to_why: "Routed at the documents that actually tempt a session into asking: the install runbook, the guided-setup script, the per-machine settings page, the reader-facing guides, and the member onboarding template. The occasion itself -- a setting the person has not chosen -- arises in conversation more often than in a file, which is what the reply gate covers; these globs catch the other half, a session writing one of those documents and putting a question into it. Decided: 2026-09-14, when the practice landed."
 occasion:    "a setting has no value from the person -- at install, at setup, or in the middle of work"
 gates:       ["reply"]
+gates_why:   "Asking happens in a reply. The reply gate is the only moment that reaches the question before it is put to the person."
 index_clause: "apply the declared default and name it in passing; never ask"
 index_required: false
 checked_by:  null

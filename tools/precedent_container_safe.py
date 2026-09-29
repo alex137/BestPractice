@@ -35,13 +35,29 @@ every clone permanently unsafe and teach a session to ignore the answer --
 the exact failure mode `classify_dirt`'s own docstring records from the
 other direction.
 
-EXIT CODES. 0 when nothing would be lost, 1 when something would. `--json`
+AND ONE MORE THING, OUTSIDE ANY CHECKOUT: commands still running. A
+background command this session started and never stopped is not saved
+work, but it is not nothing either: archiving the container kills it, and
+one that waits forever keeps running until then. On 2026-09-28 two wait
+loops ran for five hours after the script they waited on had finished,
+because `pgrep -f <name>` matched the loop's own command line
+(gotchas/gotcha-2026-09-28-a-wait-loop-on-pgrep-f-finds-itself-and-never-ends.md),
+while this tool said the container was clean. So a scan that discovers its
+checkouts also lists every shell the agent running this session started
+that is still running and is not part of this check. It finds that agent
+by name among this process's ancestors (AGENT_NAMES, or
+PRECEDENT_AGENT_PROCESS); run from a person's own terminal, where there is
+no agent above it, it lists nothing rather than guess.
+
+EXIT CODES. 0 when nothing would be lost and nothing is still running, 1
+otherwise. `--json`
 prints the finding machine-readably; the default prints one line per
 unsafe checkout, naming the path, the branch, and which of the three it is.
 Provider-neutral by construction: it shells out to git and to nothing else.
 """
 import argparse
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -170,6 +186,66 @@ def scan_one(repo):
     return {'repo': str(repo), 'branch': branch, 'unsafe': unsafe, 'detail': detail}
 
 
+# The processes a coding agent runs as. A shell one of them started is a
+# command the session ran; anything else under it (a language server, an MCP
+# server) is the agent's own machinery and is never listed.
+AGENT_NAMES = ('claude', 'codex', 'gemini', 'grok')
+SHELLS = ('bash', 'sh', 'zsh', 'dash', 'fish')
+
+
+def _ps_rows():
+    """-> [(pid, ppid, elapsed, args)] for every process, or [] if `ps`
+    cannot answer. `ps -eo` works on Linux and macOS alike."""
+    try:
+        p = subprocess.run(['ps', '-eo', 'pid=,ppid=,etime=,args='],
+                           capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    rows = []
+    for line in p.stdout.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) == 4 and parts[0].isdigit() and parts[1].isdigit():
+            rows.append((int(parts[0]), int(parts[1]), parts[2], parts[3]))
+    return rows
+
+
+def _base(args):
+    first = args.split(None, 1)[0] if args.strip() else ''
+    return first.rsplit('/', 1)[-1].lstrip('-')
+
+
+def _shown(args):
+    """The command a person would recognise: the text a tool shell `eval`s,
+    without the wrapper every such shell carries around it."""
+    if "eval '" in args:
+        args = args.rsplit("eval '", 1)[1].split("' < /dev/null", 1)[0]
+    return ' '.join(args.split())[:200]
+
+
+def still_running(rows=None, me=None, agent_names=None):
+    """-> [{'pid', 'elapsed', 'command'}] for every shell the agent above
+    `me` started that is still running and is not one of `me`'s own
+    ancestors. [] when no agent is found above `me`."""
+    rows = _ps_rows() if rows is None else rows
+    me = os.getpid() if me is None else me
+    names = agent_names or tuple(
+        n for n in (os.environ.get('PRECEDENT_AGENT_PROCESS', '').split(',')
+                    + list(AGENT_NAMES)) if n)
+    parent = {pid: ppid for pid, ppid, _e, _a in rows}
+    args_of = {pid: a for pid, _pp, _e, a in rows}
+    ancestors, cur = [], me
+    while cur in parent and cur not in ancestors and cur > 1:
+        ancestors.append(cur)
+        cur = parent[cur]
+    agent = next((a for a in ancestors[1:]
+                  if any(n in _base(args_of.get(a, '')) for n in names)), None)
+    if agent is None:
+        return []
+    return [{'pid': pid, 'elapsed': e, 'command': _shown(a)}
+            for pid, ppid, e, a in rows
+            if ppid == agent and pid not in ancestors and _base(a) in SHELLS]
+
+
 def label(repo):
     try:
         return '~/' + str(pathlib.Path(repo).relative_to(pathlib.Path.home()))
@@ -185,6 +261,8 @@ def main(argv=None):
                          'and what a person uses to ask about one directory')
     ap.add_argument('--json', action='store_true',
                     help='machine-readable finding on stdout')
+    ap.add_argument('--no-processes', action='store_true',
+                    help='check the checkouts only, not commands still running')
     ap.add_argument('--quiet', action='store_true',
                     help='print nothing; say it in the exit code alone')
     args = ap.parse_args(argv)
@@ -201,14 +279,26 @@ def main(argv=None):
         targets = checkouts()
     found = [scan_one(r) for r in targets]
     bad = [f for f in found if f['unsafe']]
+    # Only when discovering: --only is a question about named checkouts,
+    # and a planted test container must not depend on what else is running.
+    running = [] if (args.only or args.no_processes) else still_running()
 
     if args.json:
-        print(json.dumps({'safe': not bad, 'scanned': len(found),
-                          'unsafe': bad}, indent=1))
+        print(json.dumps({'safe': not bad and not running,
+                          'scanned': len(found), 'unsafe': bad,
+                          'still_running': running}, indent=1))
     elif not args.quiet:
+        if running:
+            print(f'STILL RUNNING -- {len(running)} command(s) this session '
+                  f'started have not finished; archiving the container kills '
+                  f'them. Stop each one that has nothing left to do, or wait:')
+            for r in running:
+                print(f"  pid {r['pid']}, running {r['elapsed']}: {r['command']}")
+            print()
         if not bad:
             print(f'container safe: {len(found)} checkout(s), '
-                  f'nothing uncommitted and nothing off a remote')
+                  f'nothing uncommitted and nothing off a remote'
+                  + ('' if not running else ' (but see STILL RUNNING above)'))
         else:
             print(f'CONTAINER NOT SAFE TO LOSE -- {len(bad)} of {len(found)} '
                   f'checkout(s) hold work that is only here:')
@@ -223,7 +313,7 @@ def main(argv=None):
                     print(f'      {line}')
             print('\nPush or merge it, or say plainly that it is meant to be '
                   'lost, before telling anyone the session can be archived.')
-    return 1 if bad else 0
+    return 1 if (bad or running) else 0
 
 
 if __name__ == '__main__':

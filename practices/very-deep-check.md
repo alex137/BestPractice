@@ -5,7 +5,8 @@ tier:        on-demand
 severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
-occasion:    "a person explicitly asks for a \"very deep check\", or after work that invites drift"
+applies_to_why: "Not a place -- a whole-repo coherence review is invoked explicitly by a person, or after drift-inviting work, not triggered by touching any one file. Reachability comes from its occasion clause, the same as its full-practice-audit and routing-audit siblings. Decided: 2026-09-05, in the session that enumerated and wired the RepoPersonalPreferences 'very deep check'."
+occasion:    "a person explicitly asks for a \"very deep check\""
 gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never routine"
 checked_by:  null
@@ -19,10 +20,7 @@ added:       null
 approved_by: "Morgan F -- he revised, restructured, extended and bounded this practice repeatedly between 2026-09-05 and 2026-09-23. The practice itself first landed pending review, and one 2026-09-12 extension is still PENDING REVIEW, approved by nobody. Every change, its date, its strength and the words that authorized it: ## Story, 'Approval history'."
 ---
 ## Rule
-When a person explicitly asks for a "very deep check", or after work that
-invites drift (a batch of practices added or reordered, a practice that
-changed shape, an install into a new repo, a merge that resolved conflicts
-across several shared files), run
+When a person explicitly asks for a "very deep check", run
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) and work the four
 passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
@@ -37,7 +35,7 @@ and often; this covers what can only be judged, and is deliberately rare
 because the judging is expensive.
 
 **Scope is every Precedent repo in the session, not this checkout alone** —
-this repo, each attached team and individual source, and any consuming repo
+this repo, each attached shared and individual source, and any consuming repo
 the engine is vendored into. A finding is as likely to be in the seam
 between two of them as inside any one, which is the reason they are read
 together rather than one at a time.
@@ -93,87 +91,46 @@ one pull request is two whole minutes for however little work. Added
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 7.
 
-**It also builds him a catalogue to review, not only a verdict on the
-writing.** The `PRACTICE CATALOGUE` section lists every in-force practice's
-slug and a one-sentence description of what it does — its own
-`index_clause`, the same sentence the occasion index and
-[MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md)
-already render, so this list cannot describe a practice differently than a
-session reading the catalogue elsewhere would — grouped one section per
-source in force: this checkout, the individual source, and every shared
-source. **It is written into
-[spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
-directly on every run that reaches this section**, the same embed-block
-mechanism the merged-stale-checkout list already uses, so the list is a
-page to open rather than something a session has to remember to paste. It
-is local and offline — no fetch, no judgment, nothing dated — so the same
-catalogue produces the same list byte for byte between two runs, and only
-a change to a `practices/*.md` file changes what it prints. Regenerate it
-alone with `python3 tools/very_deep_check.py --emit practice-catalogue`.
+**It ends with a review page for the person, shown in the session only.**
+Every run writes one page with two lists: **every branch the person can
+delete**, in this checkout and every source, each with a link that opens
+GitHub's branch list filtered to it; and **every active practice, by
+source**: universal first, then this repo's own, then the individual set,
+then each shared set, each with its own one-line `index_clause`.
+[tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
+writes it under `.precedent/`, which git ignores, and the run's PRACTICE
+CATALOGUE section calls it. Add the unlanded branches you judged safe to
+delete, each with its reason, through `--recommend`. **Publish the page in
+the session only** (an Artifact, where the harness has one) **and never
+commit it, push it, or link it from a repository**: it carries the private
+sets' practice text in full, which is the point of it. Nothing about the
+practice catalogue is written into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
+any more; the run's write-up links the page in the reply, not in a file.
 
-**What gets COMMITTED is narrower than what a session sees, and the gap is
-deliberate.** The console/chat output always carries every source, held-back
-ones included — that costs nothing, since a reply is never itself a
-publication. What `_update_spec_doc_block` writes into this tracked file is
-gated by
-[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)'s
-own `repo_is_public()` / `sources_for_tracked_block()` — the identical rule
-that already keeps a team or individual source's practice text out of the
-generated AGENTS.md loader block, reused rather than re-derived. A repo
-that declares (or, fail-safe, never declares) `visibility: public` gets
-only its own universal and repo-local practices committed here; every
-individual or shared source is held back, named but not quoted, with a
-note in the file itself saying how many practices and which sources, and
-telling the session to **advise the person and ask which they actually
-want** before doing anything further: committed here too
-(`--catalogue-include-private`, an explicit, informed choice, never a
-default), chat-only (already true, nothing further to do), or not
-generated at all (`--skip-practice-catalogue`). A repo that declares
-`visibility: private` holds nothing back — his own words: *"if I run this
-in a private repo, it's all private for me so I don't care if it's all
-there."*
+Morgan, 2026-09-28 (strength: decided, "Go update"): *"do NOT put the list
+of practices in the very deep check, and you can remove it now; BUT make an
+artifact (NOT linked to from the github page), that [1] lists all those
+branches I can delete, including a link I can click on for each and then
+[2] lists ALL active practices, by repo, starting with universal, then the
+individual, then the shared ones I have access to."* It replaced the
+committed catalogue (added 2026-09-23), which a public repo had to hold the
+private sets back from, so he never got the list he asked for.
 
-**Found the hard way, the day after the section first shipped.** The first
-version wrote every source's clauses into this file unconditionally,
-including `precedent-individual`'s and every shared source's — and this
-repo declares `visibility: public`, so that first commit published private
-practice text into a world-readable file, permanently. Morgan caught it
-before it reached `precedent-beta-v01`: *"it posts your precedent-individual
-and the precedet-\* ones to the list in the main repo so (if it's a public
-repo) it will become public. I don't think that's a problem, but it should
-advise the user first and ask him if he'd rather get the list of practices
-in the deep review doc, in the chat, or he doesn't want it."* Fixed
-2026-09-24 (Morgan, strength: decided, "Go update") by gating what this file
-commits on the same visibility check `build_views.py` already runs for the
-loader block, rather than inventing a second one — pass 2's own "is there a
-duplicate implementation" question, answered before it could drift. The
-disclosure did happen once, in this branch's own prior commit, before the
-base branch ever saw it — fixing it forward, never rewriting that commit's
-history, is [no-rewrite-for-warnings](no-rewrite-for-warnings.md)'s call,
-not this practice's to make on its own.
-
-**Its negative control is
-[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
-`check_practice_catalogue_holds_back_private_sources_on_public_repo`**,
-planted the same day (Morgan: *"do what you think is best to fix this now
-and going forward so the issue doesn't reappear"*) rather than trusting the
-fix to hold on its own — the same discipline
-`check_loader_block_covers_every_declared_source` already applies to the
-AGENTS.md loader block, asked of this newer mechanism. It builds a fixture
-repo declaring `visibility: public` with one individual and one shared
-source, asserts the marker clause reaches the console output but never the
-tracked-doc rendering, and — the discriminating case — asserts a `private`
-repo holds nothing back at all. Verified against the bug it guards, not
-only against the fix: reverting `_practice_catalogue_for_tracked_doc` to
-its original unconditional behaviour turns this check red immediately.
-Part of the ordinary deep-check gate every push already runs — no separate
-occasion needed for it to fire.
-
-Added
-2026-09-23 (Morgan, strength: decided) — asked for directly: a list of
-every practice by slug with one sentence each, across this repo, the
-individual source and the shared sources, generated the same way every time
-a very deep check runs, so he can review a source's practices against it.
+**Read `main`, write through the landing branch.** The check judges the
+version people are actually running, which is `main`: in every repo in
+force, the run reads a working branch cut from `origin/main` (cut one if
+the harness checked out something else). It changes nothing there
+directly. Every fix is committed on that working branch and lands the
+ordinary way, `Go update` onto the person's landing branch and a Promote
+from there, never pushed to `main`. **Reading `main` alone would re-find
+what is already fixed and waiting to be promoted**, so the tool's
+`LIVE VERSUS LANDING` section names, per repo, the files the landing
+branch carries that are not live yet; before fixing a finding in one of
+them, check whether the landing branch already did. Morgan, 2026-09-28
+(strength: decided): *"it's better to do a deep check on the live version
+(main), but we don't want to edit it, to edit it we should use the normal
+process."* Until then a run read whatever the harness checked out --
+`main` in one repo and `pre-staging` in four others, the same afternoon.
 
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
@@ -226,7 +183,7 @@ decided) from
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 3.
 
-**Every declared team and individual source must actually be present before
+**Every declared shared and individual source must actually be present before
 the check runs.** The ordinary loader tolerates a missing personal source and
 says so on stderr — the right call for routine loading, where one operator's
 absent individual set is expected. It is the wrong call here: a very deep
@@ -238,7 +195,7 @@ failure, attach or clone the missing source (this harness's own
 repo-attachment mechanism, or a plain `git clone`) and re-run — never re-run
 with `--allow-missing-sources` to make the failure go away; that flag is for
 the rare case where proceeding without the source is the actual intent (a
-repo that deliberately has no team set yet).
+repo that deliberately has no shared set yet).
 
 **The passes are ordered by what a miss costs, and that order governs fixing
 too.** A from-scratch install or a migration that strands an adopter is a
@@ -331,8 +288,16 @@ run, so the decision belongs in the run record rather than in the tool.
 
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
-Anything deliberately left alone gets a line in [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md) saying
-so, rather than being silently dropped.
+Anything deliberately left alone gets its own item under
+[todo/](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md))
+saying so, rather than being silently dropped.
+
+**After work that invites drift** (a batch of practices added or
+reordered, a practice that changed shape, an install into a new repo, a
+merge that resolved conflicts across several shared files), **propose one;
+never start it unasked.** It is expensive, and AGENTS.md keeps it to the
+literal ask.
 
 ## Detail
 **This is not `full-practice-audit` under another name — the two ask
@@ -464,8 +429,8 @@ method"). Build the fixtures.
   below, and **a practice moved between levels**
   ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)):
   two bootstrapped sets and a consumer in scratch, every direction the
-  page offers (individual → team, team → individual, team → universal,
-  and universal → team/individual, both halves — the initial duplicate
+  page offers (individual → shared, shared → individual, shared → universal,
+  and universal → shared/individual, both halves — the initial duplicate
   landing and the deliberate `--dedupe-only --accept-reach-loss`
   withdrawal), with `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
@@ -476,7 +441,7 @@ method"). Build the fixtures.
   not fix; a rehearsal checks that a planted mention came out right and a
   dated one did not move. Added 2026-09-14, the day Morgan
   asked whether the run had tested it and it had not: the rehearsal
-  returned thirteen findings and the move tool. The universal → team/
+  returned thirteen findings and the move tool. The universal → shared/
   individual direction was added 2026-09-23, the same day a hand-done
   version of exactly that move (before the tool supported it) shipped a
   deduplication this repo's own consumer-fixture check later found
@@ -493,8 +458,8 @@ method"). Build the fixtures.
   2026-09-14 run found 65 defects this way where the previous run's
   session-built fixtures found five.
 - **A real from-scratch install.** A scratch repository with nothing in it,
-  installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §0 against `precedent-beta-v01`
-  alone — no team set, no individual set, none of the sibling clones this
+  installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §0 against `main`
+  alone — no shared set, no individual set, none of the sibling clones this
   session happens to have — following the documents exactly as written,
   without leaning on what this session already knows. Then run the deep
   check on the result. Anything the session had to work out that the
@@ -567,14 +532,14 @@ method"). Build the fixtures.
   let it pass on the fixtures alone — that is precisely the state that held
   while these seven defects were live.
 - **The empty neighbourhood.** A brand-new person with no individual set; a
-  team with no team set yet; a consumer whose sources are declared but
+  team with no shared set yet; a consumer whose sources are declared but
   unreachable, as they are in every continuous integration (CI) checkout.
   Each degradation path should degrade with a named reason — never pass
   silently on a scan that never ran, and never fail on something the adopter
   cannot fix.
 - **The generator, against the sets that already exist.** Run
   [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
-  for each resolved team and individual source and diff its output against
+  for each resolved shared and individual source and diff its output against
   the real set, file by file — the tool's `BOOTSTRAP DRIFT` section does
   this, and it needs those sets attached to do anything at all. A set is
   created once and then lived in for months while the generator keeps
@@ -708,10 +673,21 @@ confidently.
    and retired-term list: test each term against a plausible compound.
    *(Found: retired term `pack_sync` matching `voice_pack_sync.py`, a live
    tool — nothing could satisfy the finding but renaming a real file.)*
-8. **Are there two of anything that should be one?** Two scripts doing the
-   same job, two implementations of one rule, a helper copied instead of
-   imported, a constant list maintained in two files, a check and a gate
-   testing the same property. Copies do not stay identical: one gets fixed
+8. **Are there two of anything that should be one -- any needless
+   redundancy?** Two scripts doing the same job, two implementations of one
+   rule, a helper copied instead of imported, a constant list maintained in
+   two files, a check and a gate testing the same property, two checks
+   scanning for the same thing, two practices saying one rule, a document
+   restating a spec it could link. **The tool's `SECOND LISTS OF PRACTICES`
+   section is this question's mechanical half:** it names every hand-kept
+   file that lists most of the catalogue by slug, and a reader decides
+   whether each is a generated view (fine) or a copy that can drift. *(Found
+   2026-09-29, both missed by earlier runs of this question: a hand-kept list
+   of every practice's routing reason, whose copy of the gates had drifted
+   on fourteen practices, and two checks scanning for retired words, one
+   with history-aware rules and one without. Morgan, that day: add a check
+   for needless redundancy -- this is it, widened, rather than a second
+   pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
    it is called ([search-by-purpose](search-by-purpose.md) is the same
@@ -768,7 +744,7 @@ confidently.
     forever, tracked by nothing. That was found on 2026-09-21 by asking,
     and fixed the same day.
 
-    **The answers as of 2026-09-21** — a rule about a mechanism carries its
+    **The answers as of 2026-09-21, updated 2026-09-28** — a rule about a mechanism carries its
     date ([volatile-rules-carry-dates](volatile-rules-carry-dates.md)), and
     each cell is a claim to re-verify in the code rather than to inherit:
 
@@ -776,8 +752,8 @@ confidently.
     |---|---|---|---|
     | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
     | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
-    | Hooks (`.claude/hooks/`) | **no** — a hook reaches only a repo whose `settings.json` already wires the name, which a new hook cannot be | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships rather than on what this repo wires |
-    | `settings.json` itself | no — a refresh never writes it | no | no |
+    | Hooks (`.claude/hooks/`) | **yes**, since 2026-09-25 — `HOOK_WIRING` adds the `settings.json` entry for a hook the repo's kind gets (add-only; a repo may decline it in `precedent.json`) | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships; it read the already-rewritten manifest and removed nothing until 2026-09-28, when it began reading the record from before the update |
+    | `settings.json` itself | yes, add-only hook entries, since 2026-09-25 | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
     | Vocabulary | yes — derived at render time | yes | yes |
@@ -902,7 +878,7 @@ confidently.
     everywhere, has never fired **and** forbids something no longer
     structurally possible — the only retirement candidate of the three; and a
     check firing repeatedly on one root cause, which asks for a fix to the
-    tooling rather than more enforcement of the rule. *(Found: a team source
+    tooling rather than more enforcement of the rule. *(Found: a shared source
     at 12 passed and 42 skipped, every skip the same cause — each check is
     keyed to a `practices/<slug>.md` the set does not carry, because a source
     set's `practices/` holds its own level only and it resolves no source that
@@ -975,17 +951,12 @@ confidently.
     the ledger row's own prose, reachable by nobody who starts from the
     adapter they actually use. Every family member with an adapter
     directory gets read this way, present tense: today that is
-    `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. The last of
-    these deliberately carries no ledger rows to check yet --
+    `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. All four
+    carry ledger rows since 2026-09-21. grok-build's hooks syntax is still
+    unverified against xAI's docs, so its rows record verdicts, not wiring:
+    read them like the others, and confirm the unverified-hooks caveat in
     [templates/harness/grok-build/README.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/grok-build/README.md)
-    says outright that it is not wired into `LEDGER.md`'s enforced
-    tracking, because the hooks syntax it would need to confirm is
-    unverified against xAI's docs, and extending enforcement on a guess
-    would be worse than leaving the gap named -- so its read is narrower
-    than the other three: confirm that disclaimer is still true (the
-    directory still isn't in `LEDGER.md`'s family line, the unverified
-    claims are still unverified) rather than comparing rows that don't
-    exist. A fifth member joins the full read the day it gets a directory
+    still holds. A fifth member joins the full read the day it gets a directory
     of its own -- there is nothing to check for one that does not exist
     yet, which is a finding this pass should say plainly rather than
     passing over in silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
@@ -1044,8 +1015,10 @@ confidently.
     **The offline half is now an enforced check and is not this pass's
     work**: `workflow-yaml-github-can-parse`
     ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py))
-    refuses a YAML anchor or alias in any workflow file or shipped workflow
-    template, through PyYAML's own event stream where PyYAML is installed
+    refuses a YAML merge key (`<<:`) in any workflow file or shipped
+    workflow template (it refused every anchor and alias until 2026-09-28,
+    when a very deep check found GitHub had accepted plain ones since
+    2025-09-18), through PyYAML's own event stream where PyYAML is installed
     and a structural line match where it is not — **CI has no PyYAML, so
     the first version of that check skipped in the one environment that
     gates every pull request**, which is not a check
@@ -1175,9 +1148,9 @@ first so this pass spends its attention on what they cannot see.
 
   Added 2026-09-21 (Morgan, strength: decided) after an Update Vendors
   pass found a consuming repo's `AGENTS.md` naming a repository that does
-  not exist — `VoiceDefinitionMorgan`, twice, where the real one is
-  `VoiceDefMorgan`, in the session-start step and again in a tool's
-  description. **The file's own step 1 warns about exactly that failure**:
+  not exist — a private voice-definition repository under its old name,
+  twice, after the real one had been renamed, in the session-start step and
+  again in a tool's description. **The file's own step 1 warns about exactly that failure**:
   a source name going stale silently. A document that describes its own
   failure mode and then exhibits it twice is what an unread instruction
   file looks like from the inside.
@@ -1361,15 +1334,13 @@ first so this pass spends its attention on what they cannot see.
   trigger word reachable only by already knowing it is not a keyword, it is
   folklore. The usual home is a practice's `defines:` field, which lands it
   in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/staging/GLOSSARY.md) — **but a glossary entry is not the
-  property; being findable is.** "Go merge" and "Drop it" are deliberately
-  NOT in the glossary (Morgan, 2026-09-08: *"Don't put it in the
-  glossary."*); both are defined in [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md), which is
-  where a session actually reads them, and `check_park_it.py` fails if that
-  paragraph goes missing. This bullet named "Go merge" as its own example
-  until 2026-09-08, when a run followed it, found the phrase missing from
-  the glossary, and was one edit away from reversing a decision made that
-  morning — so check where a keyword IS defined before calling it
-  undefined.
+  property; being findable is.** Every standing command is listed by
+  `python3 tools/precedent_vocabulary.py` and in AGENTS.md's command list,
+  and `check_park_it.py` fails if the "Drop it" paragraph goes missing — so
+  check where a keyword IS defined before calling it undefined. (An early
+  "don't put it in the glossary", Morgan 2026-09-08, was later read
+  narrowly; park-it's Story records why, and "Drop it" and "Go update" are
+  in the glossary now.)
 - **What every session loads, and what it costs.** The rule is
   [session-load-budget](session-load-budget.md) — every always-loaded surface
   carries a declared ceiling in
@@ -1382,7 +1353,7 @@ first so this pass spends its attention on what they cannot see.
   aggregate, months later.
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)'s "SESSION LOAD"
   section counts the instructions file section by section for this checkout
-  **and for each attached team and individual source**, plus the untracked
+  **and for each attached shared and individual source**, plus the untracked
   practice file when private sources resolved, and flags any section large
   enough to be worth splitting and any entry whose own text says its trap is
   settled. **Read those flags, do not obey them:** an entry's claim that it
@@ -1465,9 +1436,9 @@ first so this pass spends its attention on what they cannot see.
 - **Whether each practice's SOURCE is still right.** A different axis from
   the bullet above — not resident-versus-on-demand within one catalogue, but
   *which* catalogue a practice's slug lives in at all, across every source in
-  scope: universal, each team set, and the individual set. Read every
+  scope: universal, each shared set, and the individual set. Read every
   practice's occasion and title against the charter each source states for
-  itself (a team set's own subject line — "how a session works alongside the
+  itself (a shared set's own subject line — "how a session works alongside the
   person," "the craft of writing for a human reader," the maintaining team's
   own repo mechanics — and universal's implicit one, *everyone, always*), and
   ask: does this rule's actual subject match the source it is filed under, or
@@ -1477,17 +1448,17 @@ first so this pass spends its attention on what they cannot see.
   (an individual practice written in the first person for something any team
   would want — `"another window of mine"` for a collision any multi-session
   user hits); two sources independently authoring the same rule because
-  neither one resolves the other (a team set that declares no sources of its
+  neither one resolves the other (a shared set that declares no sources of its
   own re-deriving something universal already says, invisible to
   `no-duplication` because the two copies never sit in the same file to
   compare); and a rule that is topically a subject-team's own material,
-  landed in universal or in a different team set anyway, discoverable only
+  landed in universal or in a different shared set anyway, discoverable only
   by reading its prose against the destination's stated charter rather than
   its slug. **No script does this yet** — a source's charter is a sentence
   of prose, not a property `applies_to` or `scope` can encode, so this stays
   a judgment read, the same honest limit TIER PLACEMENT states for itself.
   *(2026-09-23: a session asked to do exactly this read, once, by hand,
-  across precedent-individual and the three team sets against universal,
+  across precedent-individual and the three shared sets against universal,
   found instances of all three shapes on the first pass — five practices
   filed in precedent-individual that were general mechanisms in personal
   wording, two universal practices squarely inside working-style's own
@@ -1495,7 +1466,7 @@ first so this pass spends its attention on what they cannot see.
   both universal's `local/practices/` and repo-maintenance, because
   repo-maintenance resolves no sources of its own and never saw the
   universal copy to compare against. The same session's reading also found
-  `small-calls` and `push-back` sitting active in both a team set and
+  `small-calls` and `push-back` sitting active in both a shared set and
   universal for three days after a 2026-09-19 move landed only its first
   half — a duplication this bullet would have caught on the next run rather
   than waiting for someone to notice by hand.)* Added 2026-09-23 (Morgan,
@@ -1582,7 +1553,7 @@ first so this pass spends its attention on what they cannot see.
 - **Self-application** — a rule this repo asks of every project it's
   installed into that this repo doesn't yet follow itself.
 - **Cross-source staleness** — a check, tool, or convention this repo changed
-  that an attached team or individual source's own tooling, vendored engine
+  that an attached shared or individual source's own tooling, vendored engine
   copy, or written practice still assumes the old form of. Update the source
   in the same pass (per [cross-source-rollout](cross-source-rollout.md)) if
   it's attached; if a `blocked-on` TODO for it already exists, confirm it's
@@ -1597,7 +1568,7 @@ first so this pass spends its attention on what they cannot see.
   half, which nothing detects at all — two practices in one catalogue whose
   Rules pull opposite ways. The occasion for adding it was real: on
   2026-09-07 two sessions landed `fail-gracefully` and `bold-key-phrases`
-  into both team sets on the same day, each doing the obviously right
+  into both shared sets on the same day, each doing the obviously right
   thing, and the collision surfaced only because this check happened to
   resolve all four sources by hand.
 - **Anything else the read turns up** — if something is wrong and none of the
@@ -1699,7 +1670,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   to one somebody forgot to finish decommissioning, and only a person who
   remembers the reason can tell the two apart. Write the full inventory —
   live and retired alike, with its verdict and the reason — to a committed
-  `record/automated-actions.md`, for the same reason the branch sweep
+  `record/automated_actions.md`, for the same reason the branch sweep
   stopped living in the chat transcript: a list nobody can reopen gets
   rediscovered from scratch next run rather than read.
 - **Deprecated files nothing has decommissioned.**
@@ -1718,7 +1689,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   clean, or the file's status is genuinely unclear, name it and ask the
   session's user** rather than deleting on a hunch or leaving it for the
   next run to rediscover unchanged. Record every path this pass looked at,
-  and its verdict, in the same `record/automated-actions.md` the bullet
+  and its verdict, in the same `record/automated_actions.md` the bullet
   above writes, so a path already cleared as deliberate is not re-examined
   from nothing next time.
 - **Branches, both directions, one verdict each.** **Every branch on the
@@ -2393,7 +2364,7 @@ is that somebody asked the right question before it cost anything.
 **Its first real run, the same day, found drift in all four live sets and
 also found the check too long to read.** Every set's vendored engine was an
 older upstream vendoring, and `commit-identity.sh` differed from canonical
-in every one — the drift [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)'s `source-hook-drift` item
+in every one — the drift [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)'s `source-hook-drift` item
 already tracks, confirmed here by a mechanism that knew nothing about it.
 **The defect was the output.** A set vendored at an older commit differs in
 *every* engine file at once, so one fact printed as a dozen findings: 60
@@ -2578,6 +2549,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
 - **Extended again 2026-09-23, Morgan (strength: decided)**, with the PRACTICE CATALOGUE section -- asked directly for a list of every practice by slug with one sentence each, across this repo, the individual source and the shared sources, generated the same way every time a very deep check runs so it can be reviewed against; built to reuse each practice's own `index_clause` rather than compose a second description, and to write into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md) directly rather than leave a session to remember to paste it, the same lesson the embedded stale-branch list already carries
 - **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
+- **Replaced 2026-09-28, Morgan (strength: decided, "Go update")**: the practice catalogue is no longer committed anywhere. Every run writes a session-only review page instead (`tools/precedent_review_page.py`): the branches the person can delete, with a link each, and every active practice by source, private sets included, published in the session and never linked from a repository.
 - **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
@@ -2602,12 +2574,12 @@ compared against its origin before the tool reads a line, and anything but
 provably-current exits non-zero (`--allow-stale` for a deliberately offline
 run) — with `--freshen` fast-forwarding a clean tree that is strictly
 behind, and declining a diverged or dirty one, where a fast-forward
-discards commits; a missing declared team or individual source is a hard,
+discards commits; a missing declared shared or individual source is a hard,
 non-zero-exit failure by default (pass `--allow-missing-sources` only when
 proceeding without it is actually intended); every tracked JSON and YAML file is parsed with a real parser
 (pass 2's format-claims question), and a file that does not parse stops the
 run, since the tool
-reads `precedent.json` to enumerate its own scope; each team and individual
+reads `precedent.json` to enumerate its own scope; each shared and individual
 source is checked against the shape its bootstrap skeleton ships, catching a
 source migrated into place that never passed through bootstrap; and both
 halves of the branch sweep are real git checks — `merge-base --is-ancestor`
@@ -2641,8 +2613,9 @@ would pass on an implementation that listed both, and a list that is mostly
 work already here is one a reader waves through whole. Eighth, the practice
 catalogue: every in-force practice's slug and its own `index_clause`, read
 straight off `practices/*.md` frontmatter with no judgment applied, so two
-runs against an unchanged catalogue print byte-identical rows —
-`--emit practice-catalogue` for the block alone.
+runs against an unchanged catalogue print byte-identical rows, onto the
+session-only review page (`tools/precedent_review_page.py`), never into a
+committed file.
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing

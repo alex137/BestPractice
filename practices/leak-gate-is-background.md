@@ -4,8 +4,10 @@ title:       The leak gate is background machinery — never bring it to the per
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus at all: what triggers it is a gate having printed something, which happens on a push and belongs to no file in the tree. The blocklist the note is ABOUT lives outside the repository -- in a private practice set -- so there is no path here to point at even in principle. Reached through the occasion index and the push gate. Decided: 2026-09-13, when the practice moved to universal."
 occasion:    "a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person"
 gates:       ["push"]
+gates_why:   "The push is when the gate runs and prints, so it is the exact moment a session decides whether to relay what it printed. Carried over unchanged from the individual-level copy this moved from."
 index_clause: "never relay a blocklist note or ask for a term; the deep review is its place"
 index_required: false
 checked_by:  null

@@ -5,8 +5,10 @@ tier:        on-demand
 severity:    default
 scope:       engine-dev
 applies_to:  ["**"]
+applies_to_why: "A moment, not a place -- what makes a change cross-source-relevant is its meaning, not which file it touched, so no glob identifies it. Routed by the `merge` gate instead. Decided: 2026-09-05, same session that added very-deep-check's source-presence and stale-branch additions."
 occasion:    "a change here has implications for how an attached team, individual, or repo-local source should work"
 gates:       ["merge"]
+gates_why:   "The rollout (or the blocked-on TODO standing in for it) has to happen before the thread ends, the same timing capture-gate and todo-is-a-handoff already use."
 index_clause: "roll it out to attached sources now; else a blocked-on TODO"
 index_required: false
 checked_by:  null
@@ -28,8 +30,9 @@ session, roll the change out to it in this session, before the thread
 ends — the same "do it now, not later" reasoning
 [todo-is-a-handoff](todo-is-a-handoff.md) already applies to any
 agent-doable item. If it is not attached, the rollout is genuinely blocked
-on a session that has it: queue it in `TODO.md` with `blocked-on: <source
-name> not attached this session`, naming the specific change and what the
+on a session that has it: file it under `todo/`
+(`todo/todo-<date>-<slug>.md`, with `blocked_on: <source name> not attached
+this session`), naming the specific change and what the
 other source needs to do about it — never a bare "check the other repos"
 reminder.
 
@@ -63,7 +66,7 @@ sets kept citing the old name for a day, and nothing at merge time asked.
 
 [very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md) is this same gap seen from the other side, on-demand rather
 than at every merge: run against the checkout plus every attached
-team/individual source, it should read whether a check, tool, or
+shared/individual source, it should read whether a check, tool, or
 convention this repo changed has left an attached source assuming the old
 behavior, and fix or flag it in the same pass. This practice is what
 should have made that drift impossible to accumulate in the first place;
@@ -94,6 +97,6 @@ of a diff, the same class `checkable-gets-checked` already lets
 `todo-is-a-handoff` leave unchecked for the identical reason. One
 narrower thing could plausibly be checked later — that every `blocked-on:
 <source> not attached` item this practice creates actually gets picked up
-once that source is attached, rather than sitting in `TODO.md`
+once that source is attached, rather than sitting in `todo/`
 indefinitely — left `checked_by: null` here rather than wired in without
 running it, per `checkable-gets-checked`.

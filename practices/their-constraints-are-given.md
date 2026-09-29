@@ -4,6 +4,7 @@ title:       "A person's account of their own constraints is given, not a claim 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is something a PERSON says about their own situation, which is not a file path and not a repository -- the same shape as push-back beside it, and reached the same way, through the occasion index. Left at `**` deliberately: there is no tree state that predicts when somebody will state a constraint a session is tempted to soften. Decided: 2026-09-21, when the practice landed at universal after the same argument recurred across sessions."
 occasion:    "a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict"
 gates:       []
 index_clause: "their own situation is given -- say it once, then work from theirs"
@@ -141,6 +142,10 @@ tool that runs every other kind of move refuses exactly this direction
 (`--from universal`) for exactly this reason, which this incident confirms
 rather than merely asserts. Reverted the same day, Morgan F: stays universal.
 
+Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
+
+Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.
+
 ## Install
 
 Nothing to install. It binds a session's replies, and the occasion index
@@ -150,7 +155,3 @@ routes it — `python3 tools/precedent_show.py their-constraints-are-given`.
 the next session reads it rather than re-deriving it: a line in the
 project's instructions file, or an open item recording the decision and
 its strength ([decision-strength](decision-strength.md)).
-
-Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
-
-Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.

@@ -4,6 +4,7 @@ title:       A default PR template captures the living-doc gates — honestly, n
 tier:        on-demand
 severity:    default
 applies_to:  [".github/pull_request_template.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "writing or filling out a pull-request description"
 gates:       []
 index_clause: "write the body from the diff; an unchecked box is fine"

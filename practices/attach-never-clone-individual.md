@@ -4,6 +4,7 @@ title:       Attach the individual set, never make a second clone of it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus, and deliberately `**`. The mistake is a session running `git clone` into the wrong directory right after the repo-attach tool answers, outside every repo's tree; no file in this one is edited when it happens, so a narrower glob would never fire. The occasion index is the channel. Decided: 2026-09-25, when the practice was written."
 occasion:    "attaching a practice source with the repo-attach tool, or its reply says to clone"
 gates:       []
 index_clause: "attach the individual set; keep one clone, both paths; shared sets clone beside"
@@ -23,7 +24,7 @@ approved_by: "Morgan, 2026-09-25, in a handoff relayed from a consumer repo's
 **Attach the individual set; never make a second clone of it.** Call the
 repo-attach tool (`add_repo` in Claude Code on the web) for
 `precedent-individual` as the session-start step says: it is what grants
-this session access, push included. Its reply says to clone the repo to
+this session access, push included. Its reply (as of 2026-09) says to clone the repo to
 `/home/user/<name>`, the directory the project lives in, while the source
 bootstrap clones it to `~/precedent-individual`. **The bootstrap keeps one
 working tree and makes both paths lead to it.** If it cloned first, it has

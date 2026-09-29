@@ -4,8 +4,10 @@ title:       "A prompt one session seeds into another says which session sent it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus, and for a sharper reason than most: what triggers it is a harness call, not a file. The obligation lands entirely inside an argument to create_session or create_trigger, and nothing about it is ever written to the tree -- so there is no path whose editing means 'you should have declared where this prompt came from'. Reached through the occasion index alone. Decided: 2026-09-12, when the practice landed."
 occasion:    "seeding or scheduling a prompt into another session"
 gates:       []
+gates_why:   "No gate. The moment is the harness call, which is not one of merge, review, push or reply -- a session can seed a prompt in the middle of any of them, and pinning it to the reply gate would miss every spawn that happens mid-turn."
 index_clause: "it opens by naming the session that sent it"
 checked_by:  null
 defines:     []
@@ -227,8 +229,8 @@ as the literal first line, not buried after other text. The literal wording
 -- his own name, and the plain sentence built around it -- is exactly the
 kind of content an individual practice source exists for: true for him, not
 for whoever else runs this catalogue. This session cannot land it there
-directly -- `precedent-individual` resolves to `themorgan/precedent-individual`,
-a different owner than this session's `alex137/BestPractice`, and `add_repo`
+directly -- the individual set lives under a different owner than this
+session's `alex137/BestPractice`, and `add_repo`
 refuses exactly that cross-owner attach, the same wall
 [prompt-please](prompt-please.md) documents. Per that same practice, the
 wording is handed back as a `Prompt Please` for a session rooted there

@@ -20,10 +20,28 @@ set -euo pipefail
 #     echo "WARN: <package> install failed - <what degrades without it>" >&2
 # fi
 
+# A LOCAL SESSION: PRECEDENT_LOCAL_SESSION=1, exported by the Claude Code
+# adapter's session-start.sh when CLAUDE_CODE_REMOTE is not "true" (any
+# other harness can set it the same way). Everything in this script runs
+# on a person's own machine too, except the steps gated on this variable:
+#   - the package install below: a local machine manages its own Python
+#     environment, and a pip install into it is not a hook's call;
+#   - commit-identity.sh, further down: it sets the GLOBAL git identity,
+#     installs a global core.hooksPath under $HOME, and repoints the system
+#     timezone -- a container's own state, and the person's own settings on
+#     their machine.
+# Everything else only reads, or writes inside this checkout (its git config
+# and a clean fast-forward), or clones a declared practice set beside it.
+local_session="${PRECEDENT_LOCAL_SESSION:-}"
+
 # Python deps the repo's scripts import (cmarkgfm is doc_lint's exact
 # GitHub-renderer check; keep it even if you add nothing else):
-pip install --quiet cmarkgfm 2>/dev/null || \
-  echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
+if [ "$local_session" = "1" ]; then
+  echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
+else
+  pip install --quiet cmarkgfm markdown 2>/dev/null || \
+    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
+fi
 
 # Set the commit author to whoever is actually running this session, not
 # a container's own bot identity -- practice `session-bootstrap`. Claude
@@ -34,7 +52,12 @@ pip install --quiet cmarkgfm 2>/dev/null || \
 # other harness has no such hook, so this is the only place it runs.
 # Depends on nothing Claude-Code-specific beyond how it's invoked: it reads
 # $CLAUDE_PROJECT_DIR, falling back to $PWD, and otherwise just needs git.
-if [ -f .claude/hooks/commit-identity.sh ]; then
+#
+# Not in a local session (see the top of this script): its global and
+# system-wide writes are for a container. Claude Code's settings.json wires
+# commit-identity.sh as a SessionStart hook of its own, so a local Claude
+# Code session is not relying on this call either way.
+if [ "$local_session" != "1" ] && [ -f .claude/hooks/commit-identity.sh ]; then
   bash .claude/hooks/commit-identity.sh || \
     echo "WARN: commit-identity.sh failed - commits may be authored as whatever git is already configured with" >&2
 fi
@@ -56,14 +79,14 @@ fi
 # carries the practices in force from every other source this repo
 # declares. Nothing outside Claude Code has ever written that file, so a
 # codex or gemini-cli session read the instruction, found no file, and
-# worked without a single team or individual practice -- silently, which
+# worked without a single shared or individual practice -- silently, which
 # is the same failure mode the file itself exists to prevent.
 #
 # Order matches session-start.sh's deliberately, so the two can be read
 # against each other line by line. Each step reports and never gates,
 # exactly like every other block here.
 
-# Clone the declared TEAM sources, where the environment carries a
+# Clone the declared SHARED sources, where the environment carries a
 # credential (PRECEDENT_GIT_TOKEN / PRECEDENT_SOURCE_BASE_URL --
 # documentation/PER_MACHINE_SETUP.md). No token, no network call: the tool
 # says which sources are missing and why, and startup continues. The
@@ -345,6 +368,22 @@ fi
 if [ -f process/upstream/tools/checkin.py ]; then
   python3 process/upstream/tools/checkin.py fresh || \
     echo "WARN: upstream freshness check failed - not verified" >&2
+fi
+
+# The last two notices .claude/hooks/session-start.sh gives, in its order.
+# Missing here until 2026-09-28: templates/harness/PARALLELS.md named this
+# script as that hook's parallel while the hook ran both and this ran
+# neither, so a codex or gemini-cli session in this repo was never told its
+# vendored engine had fallen behind, or that someone else had pushed to the
+# beta branch. Both exit 0 on no network and never gate; guarded on the
+# file like every step above, so an older tree without them still starts.
+if [ -f tools/precedent_engine_freshness.py ]; then
+  python3 tools/precedent_engine_freshness.py --quiet || \
+    echo "WARN: engine freshness did not run -- whether this repo's vendored engine is current is unknown this session" >&2
+fi
+if [ -f tools/precedent_beta_watermark_check.py ]; then
+  python3 tools/precedent_beta_watermark_check.py || \
+    echo "WARN: beta-branch watermark check did not run -- whether anyone else pushed to precedent-beta-v01 is unknown this session" >&2
 fi
 
 # A bootstrap that blocks startup is worse than anything it protects against,

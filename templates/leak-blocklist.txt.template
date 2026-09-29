@@ -31,7 +31,7 @@
 # code words, internal system and service names, unreleased product names,
 # people's names where the association is the sensitive part, internal
 # hostnames and ticket prefixes. The structural layer already covers shapes —
-# email addresses, home directories, individual- and team-level paths — so
+# email addresses, home directories, individual- and shared-level paths — so
 # there is no need to restate those here.
 #
 # WRITING THE PATTERNS. Prefer `\b…\b` so a term does not match inside an
@@ -103,7 +103,7 @@
 # With that line, every `YOUR-ACCOUNT/<name>` mention in a scanned tree is
 # refused unless an allow line permits it, with a reason:
 #
-#   # visibility-audit: allow YOUR-ACCOUNT/precedent-team-NAME -- declared as a team source in precedent.json
+#   # visibility-audit: allow YOUR-ACCOUNT/precedent-team-NAME -- declared as a shared source in precedent.json
 #
 # (Doubly commented so the parser skips it: a `# visibility-audit:` line
 # that does not parse is now a hard failure, and the `<name>` placeholder

@@ -21,7 +21,7 @@ Usage:
   precedent_promote.py --file CANDIDATE.md --level individual|team|universal
       [--against PATH[,PATH...]]   # repo roots whose practices/ to check for
                                     # duplication; defaults to the candidate's
-                                    # own repo (individual/team) plus this repo
+                                    # own repo (individual/shared) plus this repo
                                     # (universal) -- see default_against()
 """
 import collections

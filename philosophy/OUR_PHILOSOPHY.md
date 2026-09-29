@@ -102,7 +102,7 @@ the AI carrying the translation keeps thinking real, not thinned
 **6. Protocols, rules, and preferences get generated automatically.**
 The AI Assistant surfaces the pattern behind a request every time,
 unprompted ([`explain-the-why`](#explain-the-why)); turning it into a
-standing rule is still a human call. This repo's team and individual
+standing rule is still a human call. This repo's shared and individual
 practice sources run that mechanism continuously
 ([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction)),
 making [`decisions-carry-their-situation`](#decisions-carry-their-situation)
@@ -148,11 +148,21 @@ private session, or files the team can edit and hand to another model
 ([`rules-generated-automatically`](#rules-generated-automatically);
 [`owned-rules-outlast-the-chat`](REASONS_WHY.md#owned-rules-outlast-the-chat)).
 
+<a id="on-purpose-looks-different"></a>
+
+**10. A choice made on purpose should look different from one nobody
+made.** A default someone weighed reads exactly like one nobody noticed,
+and a firm "yes" like a shrug, unless the difference is written down
+when it exists. So the record keeps it: an approval is marked
+**decided** or **assented**
+([`decision-strength`](../practices/decision-strength.md)), and every
+exception carries its reason.
+
 ## Humans Should Do What Humans Do Best
 
 <a id="humans-do-what-humans-do-best"></a>
 
-**10. Humans should do what humans do best.** Machines produce; people
+**11. Humans should do what humans do best.** Machines produce; people
 bring judgment, relationships, instinct: reading a room, sensing what a
 client meant but didn't say, pushing someone harder when the moment
 calls for it. Optimizing a person to act like a fast, tireless model
@@ -163,7 +173,7 @@ hold them to that standard, not a machine's. (Full list:
 its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 [`instinct`](HUMANS_AT_OUR_BEST.md#instinct) entries.)
 
-## See Also
+## See also
 
 - [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle these
   ideas run through, end to end.

@@ -71,6 +71,10 @@ def _today():
 # The surfaces the ceiling check itself measures, kept in that order so the two
 # tools cannot disagree about what "always loaded" means.
 SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
+# build_views.py's heading for the generated resident block, e.g.
+# "## Resident block (~539 of 550 token budget, 4 of 17 practices)".
+RESIDENT_HEADING = re.compile(
+    r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
 
 
 def approx_tokens(text):
@@ -277,6 +281,24 @@ def headroom_notice(root=None, floor_pct=None):
         pct = 100.0 * (ceiling - n) / ceiling
         if pct <= floor_pct:
             tight.append((rel, n, ceiling, ceiling - n, pct))
+    # The resident block has its own allocation (`resident_block_tokens`),
+    # far smaller than the file's ceiling, and build_views.py refuses to
+    # build past it -- so a set can sit at 98% of it with the FILE nowhere
+    # near its own ceiling, and learn only when a practice edit fails to
+    # build. Very deep check, 2026-09-28: an individual set's block was at
+    # ~539 of 550 and nothing said so. build_views writes both numbers into
+    # the block's own heading, which is what is read here.
+    agents = base / 'AGENTS.md'
+    if agents.is_file():
+        m = RESIDENT_HEADING.search(
+            agents.read_text(encoding='utf-8', errors='replace'))
+        if m:
+            n, budget = (int(g.replace(',', '')) for g in m.groups())
+            if budget > 0:
+                pct = 100.0 * (budget - n) / budget
+                if pct <= floor_pct:
+                    tight.append(('AGENTS.md resident block', n, budget,
+                                  budget - n, pct))
     if not tight:
         return None
     out = ["NOTE: an always-loaded surface is close to its declared ceiling."]

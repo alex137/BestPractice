@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """precedent_bootstrap_source.py — give a brand-new adopter with NO
-individual or team practice repo yet a real, working one in one command.
+individual or shared practice repo yet a real, working one in one command.
 
 THE GAP THIS CLOSES. Every source in PRACTICE_ENGINE_PLAN.md's three-source
-model (universal/team/individual) has always assumed the team or individual
+model (universal/shared/individual) has always assumed the shared or individual
 repo already exists somewhere -- INSTALL.md step 9 and SETUP.md step 2 both
 ask "do you already have one?" and simply stop if the answer is no. Nothing
 in this repo has ever handed a new adopter a place to start. This tool does:
@@ -18,7 +18,7 @@ any hosting API.
 
 It also vendors a real, tracked, refreshable engine into the new set's own
 tools/ -- see tools/precedent_vendor_engine.py's docstring. This closed a
-gap discovered only after precedent-individual, precedent-team-repo-maintenance
+gap discovered only after precedent-individual, precedent-shared-repo-maintenance
 and precedent-team-tms already existed: nothing here had ever put an
 engine file in place before, so every one of them got its copy from an
 undocumented, one-off hand-copy instead (precedent-team-tms's turned out
@@ -50,6 +50,8 @@ Usage:
 
   precedent_bootstrap_source.py --level shared --name NAME --dest PATH \\
       --approver "Full Name:github-handle"[,"Second Name:handle2"...]
+      [--visibility private|public]  # what precedent-source.json records;
+                                      # private unless the repository is public
       [--write-repo-config PATH]     # merge the shared source into
                                       # PATH/precedent.json (default: cwd)
                                       # `--level team` is the pre-2026-09-18
@@ -78,6 +80,7 @@ import os
 import re
 import subprocess
 import pathlib
+import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -418,7 +421,7 @@ def ensure_universal_source(dest):
     A SIBLING PATH, not a `~` one, and that is the measured answer rather
     than the tidy-looking one. `$HOME` is /root on some containers and
     /home/user on others, and an individual set is cloned under $HOME while
-    the team sets and the consuming repo sit side by side -- so `~/BestPractice`
+    the shared sets and the consuming repo sit side by side -- so `~/BestPractice`
     names nothing on the very container where the sets actually live. The
     relative sibling is correct everywhere because the clone step creates it
     there: precedent_source_bootstrap.sources_from_repo() clones a declared
@@ -675,7 +678,7 @@ def verify(level, path):
     A source that was migrated into place instead -- assembled by hand from
     an older system -- never passed through here, and nothing afterwards
     ever asked whether it came out the right shape. 2026-09-06:
-    `precedent-team-repo-maintenance`, migrated rather than bootstrapped, had no
+    `precedent-shared-repo-maintenance`, migrated rather than bootstrapped, had no
     `leak-blocklist.txt` at all, while the team skeleton ships one and the
     set bootstrapped by this tool has it. Nobody had noticed, because
     nothing was looking.
@@ -949,7 +952,25 @@ def verify(level, path):
                        "the set's AGENTS.md loads only via the harness's "
                        "AGENTS.md fallback -- add a file whose body is "
                        "`@AGENTS.md`)")
-    return missing + _malformed(level, path)
+
+    # A shared set's CODEOWNERS, current with its approvers.json -- the one
+    # place the declared approvers become an enforced review (bootstrap
+    # writes it since 2026-09-28; every set before then got none). Checked
+    # only where the set carries the generator (tools/build_codeowners.py,
+    # vendored by bootstrap): a set without it cannot regenerate the file,
+    # and the engine-freshness rows above already cover a missing engine.
+    # A malformed approvers.json is _malformed's to report, not this row's.
+    malformed = _malformed(level, path)
+    if (level == 'shared' and (path / 'tools' / 'build_codeowners.py').is_file()
+            and not any('approvers.json' in m for m in malformed)):
+        rc, out = _codeowners(path, check_only=True)
+        if rc != 0:
+            missing.append(f"CODEOWNERS is missing or not current with "
+                           f"approvers.json, so the approvers it declares "
+                           f"enforce nothing -- run `python3 "
+                           f"tools/build_codeowners.py` in the set "
+                           f"({out.splitlines()[-1] if out else 'no output'})")
+    return missing + malformed
 
 
 def _template_guard_modes():
@@ -1150,7 +1171,7 @@ def _malformed(level, path):
                                'the person whose set this is how technical '
                                'their replies should be and write their '
                                'answer in, in their own words; until then a '
-                               'team-level default may decide it for them')
+                               'shared-level default may decide it for them')
 
         f = path / 'config.json.sample'
         if f.is_file():
@@ -1228,10 +1249,14 @@ def _git(*args):
     return r.returncode == 0, (r.stdout or '').strip()
 
 
-def bootstrap(level, name, dest, approvers=None, force=False):
+def bootstrap(level, name, dest, approvers=None, force=False,
+              visibility='private'):
     level = LEVEL_ALIASES.get(level, level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
+    if visibility not in ('private', 'public'):
+        raise BootstrapRefused(f"--visibility must be private or public, got "
+                               f"{visibility!r}")
     dest = pathlib.Path(dest).expanduser().resolve()
     if dest.exists() and any(dest.iterdir()) and not force:
         raise BootstrapRefused(
@@ -1253,7 +1278,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
 
     _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
-    written.append(_write_source_manifest(dest, level, name))
+    written.append(_write_source_manifest(dest, level, name, visibility))
     if level == 'shared':
         _seed_approvers_json(dest, approvers)
     written += _install_session_hooks(dest)
@@ -1276,8 +1301,41 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
     written.append(_write_session_load_budget(dest))
+    if level == 'shared':
+        written.append(_write_codeowners(dest))
 
     return {'dest': dest, 'written': written}
+
+
+def _codeowners(root, check_only):
+    """-> (exit status, what build_codeowners printed) for `root`, run from
+    THIS clone's copy of the generator -- the one bootstrap vendors into the
+    set, and code verify() may run (it never runs code the set carries)."""
+    import contextlib, io
+    import build_codeowners
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        try:
+            rc = build_codeowners.main(check_only=check_only,
+                                       root=pathlib.Path(root))
+        except SystemExit as e:           # a malformed approvers.json
+            rc = 1
+            if e.code and not isinstance(e.code, int):
+                print(e.code)
+    return rc, buf.getvalue().strip()
+
+
+def _write_codeowners(dest):
+    """A shared set's CODEOWNERS, generated from the approvers.json this
+    bootstrap just wrote. Until 2026-09-28 a new set got the approver list
+    and no CODEOWNERS: approvers declared, approvals enforced by nothing,
+    until somebody remembered build_codeowners.py (found rehearsing a move
+    into a freshly bootstrapped set)."""
+    rc, out = _codeowners(dest, check_only=False)
+    if rc != 0:
+        raise BootstrapRefused(f"generating CODEOWNERS from approvers.json "
+                               f"failed: {out}")
+    return pathlib.Path(dest) / 'CODEOWNERS'
 
 
 def _write_session_load_budget(dest):
@@ -1311,7 +1369,10 @@ def _write_session_load_budget(dest):
     dest = pathlib.Path(dest)
     today = precedent_time.today(dest)
     surfaces = {}
-    for rel in ('AGENTS.md', 'CLAUDE.md'):
+    # .precedent/SESSION_PRACTICES.md too: bootstrap has already rendered
+    # it and wired its hook, and --verify refuses a registry without it, so
+    # leaving it out made every new set fail its own check (2026-09-28).
+    for rel in ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md'):
         f = dest / rel
         if not f.is_file():
             continue
@@ -1330,9 +1391,10 @@ def _write_session_load_budget(dest):
             'early-warning notice starts ON. headroom_floor_pct matches '
             "BestPractice's own value; each surface's ceiling is measured "
             'plus ~20% headroom, the convention every hand-written entry '
-            'in that repo already uses. Add .precedent/SESSION_PRACTICES'
-            '.md once the universal-catalogue hook is wired -- verify() '
-            'flags that gap directly once it is. A ceiling is a '
+            'in that repo already uses. .precedent/SESSION_PRACTICES.md '
+            'is regenerated at every session start and grows with the '
+            'universal catalogue, so re-measure it when it trips rather '
+            'than reading the trip as this set growing. A ceiling is a '
             'watermark, not an endorsement: review and reduce, never '
             'just raise, when it is crossed for real.',
         ],
@@ -1342,16 +1404,50 @@ def _write_session_load_budget(dest):
     return path
 
 
-def _write_source_manifest(dest, level, name):
+def _working_in_this_repo(level):
+    """-> the hand-written "Working in this repo" section a new set's
+    AGENTS.md starts with: the mechanism every real set ended up writing for
+    itself, identically, by hand (very deep check, 2026-09-28, CONVERGENT
+    DRIFT). It describes the MECHANISM, never the inventory, so it cannot
+    go stale as practices come and go."""
+    lines = [
+        '## Working in this repo',
+        '',
+        '- **Practices are in [practices/](practices/)**, one file per practice,',
+        '  in Precedent\'s practice-file format -- frontmatter plus `## Rule` /',
+        '  `## Detail` / `## Why` / `## Story` / `## Install`.',
+        '- **The loader block above is generated, and so are MAP.md and',
+        '  GLOSSARY.md** -- regenerate all three with the full',
+        '  `python3 tools/build_views.py` after any practice change, never',
+        '  `--agents-only`, and commit what it rewrites.',
+        '- **Before committing:** `python3 tools/precedent_check.py --full-sweep`',
+        '  -- `0 violated` is what matters. The bare command runs only a',
+        '  rotation slice, and a practice source runs no CI',
+        '  (universal `source-sets-run-no-ci`), so nothing else catches what',
+        '  it misses.',
+        '- **This file describes the MECHANISM, never the INVENTORY.** A rule',
+        '  goes in a practice file, where the loader dedupes it and precedence',
+        '  ranks it; restated here as prose it is invisible to both.',
+    ]
+    if level == 'shared':
+        lines += ['- **Approval** is a listed approver\'s own yes, in',
+                  '  [approvers.json](approvers.json).']
+    return '\n'.join(lines) + '\n'
+
+
+def _write_source_manifest(dest, level, name, visibility='private'):
     """The set's own identity file (precedent_resolve.SOURCE_MANIFEST): the
-    name its author chose, its level, and that it is private. A consumer
+    name its author chose, its level, and whether its repository is public.
+    Private by default; all three real shared sets turned out public and
+    had to correct this by hand (2026-09-19), so --visibility public says
+    it at creation. A consumer
     declares the name; the resolver checks the clone answers to it. The
     repository may be called anything (practice: source-naming)."""
     path = pathlib.Path(dest) / precedent_resolve.SOURCE_MANIFEST
     path.write_text(json.dumps({
         'name': name,
         'level': level,
-        'visibility': 'private',
+        'visibility': visibility,
         'subject': '',
         'code': [],
         '_comment': [
@@ -1394,7 +1490,8 @@ def _write_instructions_and_views(dest, level, name):
             f'[Precedent](https://github.com/alex137/BestPractice). '
             f'[README.md](README.md) says what is here and how a practice lands.\n\n'
             f'<!-- BEGIN GENERATED: precedent-loader -->\n'
-            f'<!-- END GENERATED -->\n',
+            f'<!-- END GENERATED -->\n\n'
+            + _working_in_this_repo(level),
             encoding='utf-8')
         written.append(agents)
 
@@ -1414,7 +1511,14 @@ def _write_instructions_and_views(dest, level, name):
     # hook had not run yet and a duplicate where it had
     # (spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
     claude_md = dest / 'CLAUDE.md'
-    if not claude_md.exists():
+    shipped = ROOT / 'templates' / 'harness' / 'claude-code' / 'CLAUDE.md'
+    if not claude_md.exists() and shipped.is_file():
+        # The adapter every consumer gets, byte for byte. This function used
+        # to write its own, shorter stub, and all three real shared sets
+        # replaced it with this file by hand (very deep check, 2026-09-28).
+        shutil.copyfile(shipped, claude_md)
+        written.append(claude_md)
+    elif not claude_md.exists():
         claude_md.write_text(
             '<!-- Claude Code adapter: CLAUDE.md is the file Claude Code\n'
             '     auto-loads; the canonical instructions live in AGENTS.md\n'
@@ -1544,8 +1648,8 @@ def write_session_hook(consuming_project, name, repo_url, force=False):
 
 
 def write_repo_config(repo_config_dir, name, dest, force=False):
-    """Merge the team source into PATH/precedent.json -- a shared,
-    tracked file, per INSTALL.md step 9's 'if yes to a team source' shape.
+    """Merge the shared source into PATH/precedent.json -- a shared,
+    tracked file, per INSTALL.md step 9's 'if yes to a shared source' shape.
     `path` is written relative to the config file's own directory, since
     that's how every existing team/repo-local entry in this repo's own
     precedent.json is written."""
@@ -1594,7 +1698,7 @@ def _infer_level(path):
     """-> 'shared' | 'individual' | None, read off the set itself.
 
     Asking the operator for --level on a set that already exists is asking
-    them to restate something the directory already says: a team set carries
+    them to restate something the directory already says: a shared set carries
     approvers.json (build_codeowners.py refuses one without it), an
     individual set carries an identity or a config naming its owner. Guessing
     wrong is cheap to notice and never destructive -- verify() only reads.
@@ -1721,7 +1825,8 @@ def main():
     approvers = _parse_approvers(args['--approver']) if args.get('--approver') else []
 
     try:
-        result = bootstrap(level, name, dest, approvers=approvers, force=force)
+        result = bootstrap(level, name, dest, approvers=approvers, force=force,
+                           visibility=args.get('--visibility', 'private'))
     except BootstrapRefused as e:
         print(f"REFUSED: {e}")
         return 1

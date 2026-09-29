@@ -4,9 +4,11 @@ title:       Landing or proposing a practice is disclosed plainly, every time
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment — routed by the `reply` gate instead. Decided: follow-up session, 2026-09-03."
 occasion:    "a practice lands or a candidate is raised, at any level"
 gates:       ["reply"]
-index_clause: "state plainly what happened and where — individual, named team, or universal"
+gates_why:   "Its occasion is the reply that follows a landing or a candidate being raised."
+index_clause: "say plainly what happened and where — individual, named shared set, universal"
 index_required: false
 checked_by:  null
 defines:     []
@@ -20,7 +22,7 @@ approved_by: "pending review"
 ## Rule
 Whenever a session lands a practice or raises a candidate — at any of the
 three levels — its reply states plainly, in its own words, that this
-happened and exactly where: the individual's own set, a **named** team set,
+happened and exactly where: the individual's own set, a **named** shared set,
 or the universal library. It also states plainly whether the practice is
 already in force or is still waiting on someone else's yes, and if the
 latter, who that is. This is never left to be inferred from a file path in a
@@ -30,7 +32,7 @@ location named.
 **Say WHY that level, in one clause, and decide it rather than asking.**
 [layered-practice-packs](layered-practice-packs.md) already gives the test —
 *would this hold in an unrelated repo?* → universal; *only in another repo
-running the same kind of program?* → team; *only for one person?* →
+running the same kind of program?* → shared; *only for one person?* →
 individual; *only here?* → repo-local — and the session applies it and
 proceeds. **Do not stop to ask which level.** The person reviews the choice
 before the merge, which is the right moment for it: they can see the actual
@@ -45,7 +47,7 @@ should make a guess (based on the type of content, and the user's permission
 levels), and TELL THE SESSION USER, and then do it."*
 
 **Permissions are part of the guess, not an obstacle to it.** A practice
-that belongs in a team set the session cannot reach still gets named as
+that belongs in a shared set the session cannot reach still gets named as
 belonging there, with the reason it landed somewhere else instead — that is
 a disclosure, not a failure. Recording it at the wrong level silently is the
 failure.
@@ -64,13 +66,14 @@ The three shapes this actually takes:
 - **Individual** — always already in force the moment it's agreed; say so,
   and name whose set it's in (it's never ambiguous — it's the person you're
   talking to).
-- **Team** — in force immediately if the person is a listed approver (say
-  which team, and that their own agreement was the approval); otherwise it
-  is a proposal sitting where an approver will see it, and the reply names
-  both the team and, if known, who has to say yes.
+- **Shared** — in force immediately if the person is a listed approver (say
+  which shared set, and that their own agreement was the approval);
+  otherwise it is a proposal sitting where an approver will see it, and the
+  reply names both the set and, if known, who has to say yes.
 - **Universal** — never in force yet on landing; it is a draft that needs a
-  pull request (PR) merged into `precedent-beta-v01`, gated by that
-  branch's own deep check rather than a second reviewer
+  pull request (PR) merged into this repository's landing branch
+  (`pre-staging` or `staging`), gated by that branch's own check tier
+  rather than a second reviewer
   ([merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)).
   Say so explicitly rather than letting "landed" read as "done."
 

@@ -4,8 +4,10 @@ title:       The proprietary scrub gate
 tier:        on-demand
 severity:    default
 applies_to:  ["process/upstream/**"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "committing anything that touches the vendored/public tree"
 gates:       ["merge", "push"]
+gates_why:   "The public tree must be clean at merge and at push, which are the two moments it can be checked."
 index_clause: "the public tree stays public-safe always, not just at check-in"
 index_required: true
 checked_by:  "tools/precedent_check.py"

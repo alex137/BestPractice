@@ -36,7 +36,7 @@ than either alone.)
 
 **Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
-against the real `precedent-team-repo-maintenance` and `precedent-individual`
+against the real `precedent-shared-repo-maintenance` and `precedent-individual`
 repos rather than fixtures. Its own record —
 `process/PRECEDENT_MIGRATION.md`
 (dependent repo, private; not fetchable from a BestPractice-only session) —
@@ -67,7 +67,7 @@ for domain/team/personal rules that did not come from BestPractice itself (a
 [layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
 old pack mechanism). A repo with no such tree skips those three and does the
 rest. A pack whose *source* repo has no plans to split into
-Precedent-shaped team/individual sets can stay a pack — the mechanism,
+Precedent-shaped shared/individual sets can stay a pack — the mechanism,
 described in that practice's own Install section, is still supported — and
 the repo still migrates the rest of the way onto the loader.
 
@@ -108,14 +108,18 @@ standing bundle the person uses elsewhere can inform the question. It does
 not answer it.
 
 **A migration lands whole, or not at all.** Steps 3 through 8 go in one
-change. A `precedent.json` committed alone is not progress: nothing reads it
+change, and **one change means one pull request**, not one commit. Commit
+as you go on the migration branch — step 5's decommission audit refuses a
+path with uncommitted changes, so it needs commits to run against — and let
+none of it reach the shared branch until step 8 passes. A `precedent.json`
+merged alone is not progress: nothing reads it
 until step 7 vendors the engine and step 8 materializes, and in the
 meantime it has two effects, both bad. A repo that still carries its old
 pack manifest starts failing `migration-scrubs-vocabulary`, which is
 built to catch exactly that half-migrated state (step 5). And any
 instructions-file line telling sessions to fetch the declared sources sends
 every later session after sources that nothing uses. **If a step is blocked,
-stop before committing the declaration** and say what blocked it. None of
+stop before opening the pull request** and say what blocked it. None of
 these steps needs a permission rule the person adds by hand. A harness that
 refuses one is answered by the person asking for the work directly, never by
 widening what sessions may run
@@ -139,6 +143,18 @@ widening what sessions may run
    `upstream.branch` before running anything here**: without it `update`
    mirrors whatever the clone's default branch is, silently.
 
+   **Then run the update once more, with the copy it just mirrored.** A
+   classic install's vendored [checkin.py](../tools/checkin.py) is old enough not to know what
+   later versions exclude from vendoring, so the first `update` can bring in
+   hundreds of files the current tree never ships (about 950 in one real
+   rehearsal, 2026-09-28). Run
+   `python3 process/upstream/tools/checkin.py update ../BestPractice` a
+   second time: the freshly mirrored copy names the excluded content an
+   older copy brought in. Remove it with
+   `rm -rf <the paths it names> && git add -A process/upstream` — the
+   `git rm -r` it prints fails on paths that were never committed, which is
+   what a first update leaves.
+
 2. **Confirm the second tree's source has actually split**, and where each
    half landed, before touching anything local. Read that source's own
    README(s) for the allocation: which practices are genuinely
@@ -154,7 +170,7 @@ widening what sessions may run
      read from the repo rather than assumed. Omitting `visibility` counts as
      public, and a private repo that omits it silently loses its team and
      individual practices from the materialized tree
-     ([INSTALL.md §0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+     ([INSTALL.md §0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
      has both keys).
    - `level: "universal"` pointing at `process/upstream` — **stays a real
      vendored copy**, not a live path reference, even though Precedent's
@@ -164,28 +180,39 @@ widening what sessions may run
      `process/manifest.json`'s own per-file drift tracking — none of which
      a live reference provides. Vendoring stays; only the *second* source
      moves off it.
-   - `level: "team"` pointing at a relative path to a sibling clone of the
-     team repo (`../<team-repo-name>`) — **not** vendored. A team set that
+   - `level: "shared"` pointing at a relative path to a sibling clone of the
+     shared-set repo (`../<shared-set-repo-name>`) — **not** vendored. A shared set that
      already has its own maintained repo (unlike a domain pack with no repo
      yet) is resolved live, the same way Precedent's own `precedent.json`
-     resolves `precedent-team-repo-maintenance` for itself. On a hosted agent
+     resolves `precedent-shared-repo-maintenance` for itself. On a hosted agent
      platform, resolving it live needs the session to actually have git
      read access to that sibling repo — step 4 below covers this gap and
      its fix together with the individual source's identical one; don't
      stop at declaring the path here and assume access follows.
 
-     **If no team repo exists yet, create one here rather than defaulting
+     **If no shared-set repo exists yet, create one here rather than defaulting
      everything to repo-local.** `tools/precedent_bootstrap_source.py
-     --level team` builds it from the skeleton
-     ([BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), and
-     [source-naming](../practices/source-naming.md) fixes the name by
-     level before anybody picks one — say the convention out loud first,
-     because a source repository that has to be renamed later redirects
-     silently and git never notices. **A repo may declare as many team
+     --level shared` builds it from the skeleton
+     ([BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)). Before anybody
+     picks a name, say out loud that the set's name is chosen once and
+     written into every consumer's manifest
+     ([source-naming](../practices/source-naming.md)), because a source
+     repository that has to be renamed later redirects silently and git
+     never notices. **A repo may declare as many team
      sets as it needs** (one individual set per person, however many teams
      they are on — [spec/SOURCES.md](SOURCES.md)), so a rule shared with
      one group and a rule shared with another do not have to be flattened
      into a single set.
+   - **The shared sets for the repo's kind of work, not only its team's.**
+     Declare what
+     [INSTALL.md's "Which shared sets does this repo declare?" table](../INSTALL.md#1-install-into-a-dependent-repo)
+     gives for this kind of repo — ordinarily that team's set plus
+     `precedent-shared-writing` and `precedent-shared-working-style`, each
+     a `level: "shared"` entry pointing at its sibling clone. Then **read
+     the sync's output in step 8, not just its exit code**: every
+     `IN FORCE NOWHERE` line is a rule this migration just lost. A
+     by-the-book migration that declared only the team's set lost six that
+     way, with every check green (2026-09-28).
    - **Never** a `level: "individual"` entry — `tools/precedent_resolve.py`
      refuses this by name, with the privacy reason in the message, and for
      good reason: naming a person's individual set in a repo anyone else on
@@ -229,6 +256,13 @@ widening what sessions may run
       `local/practices/project-visual-identity.md` "Tone in Visuals"
       pointer) to point at `local/practices/project-voice.md` instead
       ([rename-updates-links](../practices/rename-updates-links.md)).
+   5. Repoint the voice entry in `process/manifest.json`: `local_path`
+      to the new practice file above, `upstream_path` to
+      [templates/local-practices/project-voice.md.template](../templates/local-practices/project-voice.md.template). Then re-record
+      its hash with
+      `python3 process/upstream/tools/practice_audit.py --update-baseline`.
+      Left alone, the entry names a file that no longer exists and the
+      audit fails (`INTEGRITY: [upstream:voice] local_path missing`).
 
 3b. **Convert a root `STYLEGUIDE.md` into
    `local/practices/project-visual-identity.md`, if this repo has one —
@@ -254,6 +288,11 @@ widening what sessions may run
       instructions-file bullet, a deck-engine pointer) to point at
       `local/practices/project-visual-identity.md` instead
       ([rename-updates-links](../practices/rename-updates-links.md)).
+   5. Repoint the visual-identity entry in `process/manifest.json` the
+      same way: `local_path` to the new practice file above,
+      `upstream_path` to
+      [templates/local-practices/project-visual-identity.md.template](../templates/local-practices/project-visual-identity.md.template), then
+      `python3 process/upstream/tools/practice_audit.py --update-baseline`.
 
 4. **Wire the person, not only the repo — an individual source, a
    declared identity, and a commit author that is a human being.** A
@@ -285,12 +324,14 @@ widening what sessions may run
    Internet Assigned Numbers Authority (IANA) zone name
    (`America/New_York`), never a bare offset.
 
-   **4c. Wire `commit-identity.sh` into the migrating repo**, per
-   [INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)'s hook
-   table, which says **always** and explains why the install that declined
-   it was wrong to. It names no person: it resolves whoever is running the
-   session and then refuses commits authored by the assistant's bot
-   account. Verify by effect rather than by reading the config you just
+   **4c. Let `commit-identity.sh` be wired, and don't decline it.** Step
+   7's `precedent_vendor_engine.py refresh` wires it along with every other
+   hook a consumer gets; nothing here needs a hand edit. [INSTALL.md
+   §1](../INSTALL.md#1-install-into-a-dependent-repo)'s hook table says
+   **always** and explains why the install that declined it was wrong to.
+   It names no person: it resolves whoever is running the session and then
+   refuses commits authored by the assistant's bot account. After step 7,
+   verify by effect rather than by reading the config the refresh
    wrote —
    `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
    must name a person and the declared offset.
@@ -302,8 +343,9 @@ widening what sessions may run
    listed.** For commits already published, rewriting history costs more
    than the wrong value does
    ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md)),
-   so exempt them: each one an entry in `identity.json`'s
-   `grandfathered_commit_shas`, with a `sha` and a **note saying why**. Do
+   so exempt them: each one an entry in the migrating repo's
+   `precedent.json` `grandfathered_commit_shas` (an individual or shared
+   source uses its own `identity.json`; a consumer must not carry one), with a `sha` and a **note saying why**. Do
    this deliberately at migration time and the list stays short and
    explicable; leave it and every later session meets a check that has
    never once been green, which is the state people learn to ignore.
@@ -314,9 +356,11 @@ widening what sessions may run
    the harness needs it.** For a Claude Code Web session specifically, this
    is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) —
    instantiate it with
-   `python3 tools/precedent_bootstrap_source.py --level individual
-   --name <the set's name> --dest <local clone path>
-   --write-session-hook <target repo path> --repo-url <the set's git URL>`
+   `python3 ../BestPractice/tools/precedent_bootstrap_source.py --level
+   individual --name <the set's name> --write-session-hook <target repo
+   path> [--repo-url <the set's git URL>; omit in a public repo]` -- the
+   hook-only form, which creates and touches no set (with `--dest` it is
+   create mode, and refuses a set that already exists)
    (see [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), which writes
    the target repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh`
    for you. Then wire it yourself — the tool writes the hook and nothing
@@ -343,7 +387,7 @@ widening what sessions may run
    project's config or a hook references another repo by name. A
    brand-new session opened on only the consuming project has no git
    credentials for either sibling repo at all, so the individual
-   bootstrap hook above, and the team source's live resolution in step 3,
+   bootstrap hook above, and the shared source's live resolution in step 3,
    both fail on a fresh session with nothing wrong in the code — until
    this gate is closed.
 
@@ -354,7 +398,7 @@ widening what sessions may run
    repo — the same fact that let them declare the source at all. There is
    nothing to generate, store, or rotate. The consuming repo's own
    `AGENTS.md` still needs the plain instruction this always required:
-   **call `add_repo` (read access) for both the team and individual
+   **call `add_repo` (read access) for both the shared and individual
    sibling repos at the very start of every session, before running any
    bootstrap script, without asking first** — reaching for both is the
    session's own job every time, since repo access is a per-session grant
@@ -420,7 +464,7 @@ widening what sessions may run
    hook itself, before the agent's first turn, which is the one thing
    `add_repo` can never be. Then
    `python3 tools/precedent_source_bootstrap.py --teams-from .` clones every
-   team set the repo declares, and the individual set's own hook succeeds on
+   shared set the repo declares, and the individual set's own hook succeeds on
    its first attempt. **Verify rather than assume it took:**
    `python3 tools/precedent_source_credentials.py` prints `MISSING` for
    exactly the state this closes, and the same line appears in the session
@@ -429,7 +473,7 @@ widening what sessions may run
    was no error, only silence and the universal catalogue.
 
 5. **Retire the old vendored pack tree — always, not if convenient.** The
-   pack's rules live in a team or individual source now; the tree left
+   pack's rules live in a shared or individual source now; the tree left
    behind is a second, unsynced copy of rules nobody reads and nothing
    updates. Two rules follow, and the second is the one repos actually miss:
 
@@ -439,7 +483,7 @@ widening what sessions may run
    - **A repo that ALREADY migrated and still has one deletes it now.**
      Confirmed with Morgan 2026-09-07, for `RepoPersonalPreferences`
      specifically: its 46 rules were migrated into the private
-     individual and team sets on 2026-09-01
+     individual and shared sets on 2026-09-01
      ([PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)), and 44 of the
      landed practices across those three sets still cite it as their
      origin — so the content is safely elsewhere and the vendored copy is
@@ -456,15 +500,15 @@ widening what sessions may run
    order, and the first item is not optional:
 
    1. **Declare the sources first**, in the same change. A pack's rules
-      move into *team and individual* sources far more often than into the
+      move into *shared and individual* sources far more often than into the
       universal catalogue — measured on the one real case, sixteen of
       twenty-two — so a repo that deletes the tree before declaring its
-      team sources in `precedent.json` and wiring the individual one (step
+      shared sources in `precedent.json` and wiring the individual one (step
       4; never a `precedent.json` entry) has nowhere left to get them. It does not
       fail loudly; it just stops carrying the rules.
    2. **Repoint every `§N` citation** at the practice that replaced it.
       Keep a **pack-retirement map** — one table, pack section to practice
-      slug and source — in the *individual or team source that owns the
+      slug and source — in the *individual or shared source that owns the
       pack's successor rules*, not here: which rules a given pack became is
       a fact about one person's or one team's sources, and this document
       cannot know it. Write the map once and every later repo's migration
@@ -522,9 +566,10 @@ widening what sessions may run
 
    **Delete through the audit, not by hand**
    ([decommission-deletes-files](../practices/decommission-deletes-files.md)):
-   `python3 tools/precedent_decommission.py process/<old-pack-tree> process/manifest_<pack>.json`
+   `python3 process/upstream/tools/precedent_decommission.py process/<old-pack-tree> process/manifest_<pack>.json`
    (both — the pack's manifest references the tree, so the audit refuses
-   until it goes too) reports
+   until it goes too; the vendored copy, since `tools/` is not seeded until
+   step 7) reports
    every tracked file that still references the tree — including the ones
    this step's own list does not name — and refuses while any remain, which
    is the same property `rename-updates-links` will otherwise fail on after
@@ -554,11 +599,7 @@ widening what sessions may run
    `process/PRECEDENT_MIGRATION.md` is **yours to write** — a short record
    of what this migration moved where, which pack section became which
    practice — and it is the one file where the old names may stay in full.
-   ```json
-   {
-   }
-   ```
-   — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
+   — then run `python3 process/upstream/tools/precedent_check.py --only retired-words` (the terms) and `... --only migration-scrubs-vocabulary` (a leftover pack), and don't call this step done until both pass. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
    just one file — reach for this only for a *materialized*, regenerated
@@ -574,9 +615,9 @@ widening what sessions may run
    not disabled** (the workflow that vendored the second tree; the
    consuming repo's own `bestpractice-upstream-sync.yml` is a different
    file, retired too — see below. There is nothing left to vendor-and-sync for the
-   team/individual sources — they resolve live). Keeping the sibling
+   shared/individual sources — they resolve live). Keeping the sibling
    clones themselves fresh becomes a session-start concern (a best-effort
-   `git pull --ff-only` for the team clone; the individual clone's own
+   `git pull --ff-only` for the shared-set clone; the individual clone's own
    bootstrap script does the same for itself), not a scheduled GitHub
    Actions job.
 
@@ -640,8 +681,8 @@ widening what sessions may run
    |---|---|
    | `bestpractice-upstream-sync.yml` | **Retired** (2026-09-24, above). The refresh deletes a copy with the old shape automatically; anything else it lists for the session. |
    | `bestpractice-docs.yml` | **Retired** (2026-09-21 — [tools/doc_lint.py](../tools/doc_lint.py) already gates every commit). The refresh deletes a copy that only runs that linter, hand-paused or not, tracked or not. |
-   | `views-drift.yml` | **Retired** (2026-09-19, folded into `precedent-check.yml`). Deleted by the refresh when paused and stock-shaped; a live copy is listed, to be paused first. |
-   | `practice-links-travel.yml` | Superseded once `precedent-check.yml` is installed and green — its check now runs as one case inside that whole-suite job (`practice-links-travel` in `tools/precedent_check.py`'s registry). Confirm the suite run covers it, then delete the standalone file. The refresh lists it; it never deletes it. |
+   | `views-drift.yml` | **Retired** (2026-09-19). Its check runs in the local push check as `generated-artifact-provenance` in `tools/precedent_check.py`. Deleted by the refresh when paused and stock-shaped; a live copy is listed, to be paused first. |
+   | `practice-links-travel.yml` | **Retired.** Its check runs in the local push check as `practice-links-travel`; since 2026-09-27 a consumer's CI converges to upstream, so the refresh removes this copy. |
    | `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. The refresh lists each one it finds. |
    | `light-check.yml` | **Not a leftover.** It is a current template ([templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template), added 2026-09-21) and a live check in most installs, sometimes running the repo's own `tools/light_check.py`. Nothing deletes it. Until 2026-09-24 this table listed it with the "never a Precedent template" row, which stopped being true the day the template landed. |
 
@@ -672,13 +713,23 @@ widening what sessions may run
    vendored, a sha256 per file) so a later Precedent update can be picked
    up with `status`/`refresh` instead of repeating this step from scratch —
    see [INSTALL.md](../INSTALL.md)'s "Keep the vendored engine current
-   (consumer repos)" step under §2. Then run
+   (consumer repos)" step under §2.
+
+   **Then refresh it once, straight away:**
+   `python3 tools/precedent_vendor_engine.py refresh ../BestPractice`, from
+   the consuming repo. `seed` only copies the engine; the refresh is what
+   wires the hooks into `.claude/settings.json` (step 4c's
+   `commit-identity.sh` among them) and retires the old workflows step 6
+   names. It cannot guess the base branch for `freshness-guard.sh`'s three
+   entries, so it reports them rather than wiring them: add those by hand,
+   with this repo's real base branch as the argument, per [INSTALL.md
+   §1](../INSTALL.md#1-install-into-a-dependent-repo). Then run
    `python3 tools/precedent_sync_views.py --repo .` to fill the markers in from the
    *real* resolved set — universal, team, individual and repo-local, all
    four. **Don't hand-curate a subset and call it a stopgap**: that was only
    ever necessary because nothing connected the resolver's output to a
    generated view; now something does, so there's nothing to approximate by
-   hand. The temptation to inline the team/individual catalogues the way the
+   hand. The temptation to inline the shared/individual catalogues the way the
    old pack was inlined in full still applies just as much as it always did
    — resist it; the generated block *is* the non-duplicated form.
 
@@ -745,7 +796,7 @@ widening what sessions may run
    fresh container and the loader block reads as drifted
    ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); create `process/scrub_blocklist.txt`
    if the manifest names one (`scrub-gate`); and, since 2026-09-19, run
-   `python3 tools/todo_migrate.py --apply` then `python3
+   `python3 tools/todo_migrate.py --source todo.md --apply` then `python3
    tools/build_todo_index.py` if `TODO.md` is still the old single-file
    format — no `todo/` directory, no `# TODO has moved` stub heading — now
    that the migration is vendored into every migrated repo, not only
@@ -786,7 +837,7 @@ widening what sessions may run
    circled back, leaves the check permanently silent (`NotApplicable`
    forever looks identical to "correctly scrubbed," from outside) with no
    later step catching the gap. Run `python3 process/upstream/tools/precedent_check.py
-   --only migration-scrubs-vocabulary` here, as part of *this* validation
+   --only retired-words` and `--only migration-scrubs-vocabulary` here, as part of *this* validation
    pass, and do not consider the migration finished until it passes —
    the same requirement step 5 already states, restated at the one point
    in this pattern that claims the migration is actually validated.
@@ -871,7 +922,7 @@ each a real thing step 5/6 found on real repos rather than a hypothetical:
   predated [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)
   itself. Add the pack's name and any retired secret name to `terms` if
   they aren't there yet, then run
-  `python3 tools/precedent_check.py --only migration-scrubs-vocabulary`
+  `python3 tools/precedent_check.py --only retired-words`
   and don't call the upgrade done until it passes.
 
 None of this is a second migration — the three-source model is already in
@@ -928,7 +979,7 @@ here.** `checkin.py update` refuses outright while `upstream.branch` names a
 branch other than the clone's default, printing the manual procedure below.
 The refusal condition *is* the hold's own condition, so it retires itself:
 when the pinned branch merges into the default and a repo's
-[process/manifest.json](../templates/) is repointed, the guard stops firing
+`process/manifest.json` is repointed, the guard stops firing
 with nothing to remember to delete. Override for one run with
 `checkin.py update ... --allow-pinned` — or the equivalent
 `PRECEDENT_ALLOW_PINNED_UPDATE=1`, kept for scripts and harnesses that don't
@@ -1019,7 +1070,7 @@ side-effect of a migration writeup.
 ## Known gap this migration ran into — closed 2026-09-03, read this for what changed
 
 **This section used to say the cross-source consumer-repo view was
-unbuilt, and that step 7 below hand-curates a stopgap because of it.**
+unbuilt, and that step 7 above hand-curates a stopgap because of it.**
 That's no longer true, and the fix corrects a framing this document itself
 had slightly wrong, not just a missing feature.
 
@@ -1104,7 +1155,7 @@ rediscover them:
    own hand-authored documents, but a *materialized* directory (this
    repo's own `practices/`, filled in by `tools/precedent_materialize.py`
    on every `precedent_sync_views.py` run) holds *other* repos' own
-   content — including, in the migrating repo's case, a team-source
+   content — including, in the migrating repo's case, a shared-source
    practice file's own `approved_by` frontmatter citing **its own**
    provenance ("migrated from RepoPersonalPreferences...", true of that
    *source's* history, unrelated to the migrating repo's). The migration

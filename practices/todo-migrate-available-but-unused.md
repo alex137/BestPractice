@@ -4,6 +4,7 @@ title:       A vendored migration tool a repo has never run is a finding, not a 
 tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md"]
+applies_to_why: "The distinguishing condition is a repo's own TODO.md -- whether it is still the old single-file format is the whole question this practice asks, and the mechanical check (checked_by) is the real enforcement; the glob covers a session already editing the file by hand, which is when a person is most likely to notice its shape. Decided: 2026-09-19."
 occasion:    "editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time"
 gates:       []
 index_clause: "the tool arrived but TODO.md never got migrated -- run it now"
@@ -21,8 +22,8 @@ When `tools/todo_migrate.py` is vendored into a repo and that repo's
 `TODO.md` still carries real old-format item bullets — no `todo/`
 directory, the file does not open on the `# TODO has moved` stub heading,
 and it has actual content to convert, not just a fresh install's unused
-pointer template — the migration tool is present and has never been run.
-Run it: `python3 tools/todo_migrate.py --apply`, then `python3
+pointer template — **the migration tool is present and has never been
+run. Run it:** `python3 tools/todo_migrate.py --source todo.md --apply`, then `python3
 tools/build_todo_index.py`, per
 [vendor-update-runbook](vendor-update-runbook.md)'s step for a
 newly-vendored migration tool. A vendor refresh can ship a mechanism;

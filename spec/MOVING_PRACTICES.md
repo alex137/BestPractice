@@ -15,9 +15,9 @@ summary:       Moving an existing, still-wanted practice from one level to anoth
 how a **new** practice is created at a chosen level, and Stage 6 describes
 **removing** one that's stopped earning its place. Neither describes what to
 do with a practice that already exists, is still worth keeping, but belongs
-somewhere else — a team practice that turns out to be one person's own
+somewhere else — a shared-set practice that turns out to be one person's own
 preference, or an individual habit a whole team has since adopted. This gap
-was real, not hypothetical: `precedent-team-repo-maintenance`' bulk migration
+was real, not hypothetical: `precedent-shared-repo-maintenance`' bulk migration
 from RepoPersonalPreferences defaulted everything ambiguous to team
 ("narrowest first" among the two private levels), and at least one of those
 defaults was wrong on reflection — see "Worked example" below.
@@ -32,12 +32,12 @@ audience). This is distinct from:
   exists to move.
 - **Retiring** a practice outright (Stage 6) — nobody wants it anywhere
   anymore.
-- **Promoting a team practice to universal**, which
+- **Promoting a shared-set practice to universal**, which
   [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) and
   [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md) already name as "a
   designed path" — the pattern below is the general form of that same move,
-  spelled out for the directions those documents don't cover (team ↔
-  individual, team ↔ a different team).
+  spelled out for the directions those documents don't cover (shared ↔
+  individual, shared ↔ a different shared set).
 
 ## The pattern
 
@@ -70,21 +70,29 @@ private) -- then
 deduplicates the source copy (`status: deduplicated`, `in_force_at:` the
 slug, one dated `## Story` line), and regenerates both sets' views. It
 refuses an empty Story (`--story` fills it), a slug the destination already
-carries, an approver not listed in a team set's `approvers.json`, a
+carries, an approver not listed in a shared set's `approvers.json`, a
 `checked_by` naming a check the destination cannot run, a `ships:` file the
 destination does not carry yet, and `--dedupe-only`
 on a practice moving *out of* universal without `--accept-reach-loss` also
-given (below). **With `--to universal` it drafts only** — the file goes
+given (below). **Taking a practice out of a shared set needs one of that
+set's own approvers**, on every run that withdraws the shared-set copy,
+`--dedupe-only` included: `--approved-by` is checked against the source
+set's `approvers.json` too, and the name goes into the Story line (added
+2026-09-28, when a rehearsal found only the destination was ever checked).
+**With `--to universal` it drafts only** — the file goes
 into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
 `doc_sync.py --write` run so its deep check is green on the draft, and the
-source stays active. Commit that on a branch and open the pull request.
+source stays active. A source file with no `## Install` gets an empty one
+in the draft, and the tool says so: every universal practice carries the
+section, and the harness fails a draft without it while every fast check
+passes it. Commit that on a branch and open the pull request.
 **Run it again with `--dedupe-only` only once the pull request has merged
 AND every repository consuming the source set has taken the new universal
 catalogue** ([INSTALL.md](../INSTALL.md) §2 step 0, or `Update Vendors`):
 a consumer still vendoring the old catalogue sees the rule in neither
-source, and its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) refuses to write until it is
-refreshed. That refusal is correct and is what you will see if you
-deduplicate early.
+source: its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) prints `IN FORCE NOWHERE` and
+**removes the rule, exit 0**, so deduplicating early silently drops it
+there until that consumer takes the new catalogue.
 
 **With `--from universal` the tool now runs, added 2026-09-23** — this
 was the one direction it refused outright until this incident showed why
@@ -95,10 +103,10 @@ destination. This is not caution for its own sake — it is the only
 correct behavior, given what a deduplicated pointer means to
 [`precedent_sync_views.py`](../tools/precedent_sync_views.py). A team or
 individual destination is not resolvable by a plain, universal-only
-consumer, which is most of them; that tool treats an `in_force_at` that
-does not resolve as a hard failure (`IN FORCE NOWHERE`), not an advisory,
-so deduplicating the universal copy at this point would break that
-consumer's own sync, not just mislead a reader.
+consumer, which is most of them; that tool reports an `in_force_at` that
+does not resolve as `IN FORCE NOWHERE` and drops the rule -- a warning, not
+a refusal -- so deduplicating the universal copy at this point would lose
+the rule in that consumer, not just mislead a reader.
 Both copies are genuinely in force at once, on purpose, until a human
 decides otherwise.
 
@@ -110,6 +118,14 @@ audience that still needs it has moved to the destination set. That is a
 human call, the same shape [`go-update`](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md)
 already asks for on anything hard to reverse — say the read out loud and
 confirm it, rather than letting a flag default to "yes."
+That run also clears what the universal clone's own checks would hold
+against the withdrawn practice: it drops the practice's entry from
+`tools/routing_audit_state.json`, and it refuses while any file in the
+clone's `tools/` still cites it as `practice: <slug>` — reword those first.
+The stub it leaves says, in its Story, when and to which set the rule was
+withdrawn, and a consumer's `IN FORCE NOWHERE` warning for it reads that
+back: *withdrawn from universal on the date; in force in the set — declare
+that set to keep it*.
 
 Found the hard way, 2026-09-23: two practices were moved out of universal
 by hand, following this page's own two-step pattern before this tool
@@ -142,10 +158,11 @@ previous version of this page, found why: the candidate tool takes one
 a moved practice has a recurrence of one, so the promotion refused it
 until a `--cost-if-once` was invented; an honest `--against` naming the
 source set refused the landing as a duplicate; and no tool wrote the
-deduplication, so it was done from memory or not at all. Its fixture in
-[tools/verify_harness.py](../tools/verify_harness.py) moves a practice
-through every direction on every harness run, and rehearses the
-copy-and-delete below.
+deduplication, so it was done from memory or not at all. Two fixtures in
+[tools/verify_harness.py](../tools/verify_harness.py) move a practice
+through every direction on every harness run — individual to shared,
+shared to individual, individual and shared to universal, universal to
+shared and to individual — and rehearse the copy-and-delete below.
 
 **What the tool does, step by step** — the two operations below, which
 are still the definition of a correct move and what a session checks a
@@ -164,10 +181,10 @@ hand-done one against:
    in the landed file's `approved_by:`:
    - **To an individual set**: the person's own *"yes"* — `--approved-by`
      their name, direct.
-   - **To a team set**: a listed approver of *that* team's own say-so —
+   - **To a shared set**: a listed approver of *that* set's own say-so —
      `--approved-by` a name in that set's `approvers.json`, which the tool
      checks. Someone who is not one raises it first, as an Issue on the
-     team set ([spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue));
+     shared set ([spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue));
      the approver then runs the tool. **The creation pipeline
      ([`precedent_candidate.py`](../tools/precedent_candidate.py), [`precedent_land.py`](../tools/precedent_land.py)) is not the way to
      move an existing practice**: it carries a rule and an observation,
@@ -178,19 +195,24 @@ hand-done one against:
      ([merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md))
      and same as any new universal practice. The tool drafts the file; the
      merge is the approval.
+
+   **Re-point any link to a sibling practice that does not move with it:
+   the universal URL for a universal practice, otherwise the slug in
+   backticks — never a URL into another set**, which may be private. A
+   relative link to a sibling left behind is dead at the destination.
 2. **Deduplicate it at the source, through that level's own removal
    approval** (Stage 6's table) — **never** a plain delete, and never done as
    a side effect of step 1. Set `status: deduplicated` and
    `in_force_at: <the slug you just landed>`, and add one line to `## Story`
    naming where it went and why:
    - **Individual**: the owner's own *"yes, drop the copy"*.
-   - **Team**: an approver's review, as for any other change to that set —
+   - **Shared**: an approver's review, as for any other change to that set —
      even when the destination is the *same person's own* individual set,
-     because removing something from a team's binding set is still a
-     change to what the whole team is bound by, not just a personal
-     preference about where the rule lives. Nothing mechanical records who
-     approved a removal: the tool writes the approver's name into the
-     `## Story` line it appends, and a hand-done one writes the same line.
+     because removing something from a shared set is still a change to
+     what everyone who declares it is bound by, not just a personal
+     preference about where the rule lives. The tool checks `--approved-by`
+     against that set's `approvers.json` and writes the name into the
+     `## Story` line it appends; a hand-done one writes the same line.
    - **Universal**: a PR, same as any universal change.
 
    Done by hand, step 2 is a three-line edit of the source file — the two
@@ -232,7 +254,12 @@ views, records and vendored files are never touched, and in code only
 links and paths are fixed, never the prose of a comment.
 A fixed link inside a sentence that says the practice is *here* is
 named, `reword by hand`, because no link rewrite can fix the sentence
-around it. The repositories changed are named at the end: commit each.
+around it. History is judged a paragraph at a time, and a list item is its
+own paragraph: one dated item does not make its siblings history. A
+current line that still mentions the practice beside the old set's name,
+or beside a level named as a place, and that no rewrite recognized is
+named `could not fix`, never passed over in silence.
+The repositories changed are named at the end: commit each.
 For a move made before this existed, `--mentions-only` runs this step
 alone and refuses unless the source copy is already deduplicated.
 Added 2026-09-28 (Morgan, strength: decided): *"I don't need a detailed
@@ -240,7 +267,7 @@ report but for those problems to be solved."*
 
 **Who checks what, since 2026-09-14** — before that day only Precedent's
 own harness asked whether a forwarding address resolved, so for the
-team ↔ individual directions this page exists for, the property was
+shared ↔ individual directions this page exists for, the property was
 asserted here and verified nowhere a set or a consumer could run:
 
 - [`precedent_resolve.py`](../tools/precedent_resolve.py) reports `IN FORCE NOWHERE: <slug> (<source>)` for
@@ -269,7 +296,7 @@ asserted here and verified nowhere a set or a consumer could run:
 ## The asymmetry that already exists, and the one that doesn't
 
 [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md) and
-`precedent-team-repo-maintenance`' own README already name one real asymmetry:
+`precedent-shared-repo-maintenance`' own README already name one real asymmetry:
 **promoting team to universal is comparatively easy and a designed path;
 demoting a universal practice is not**, because undoing something already
 published to every Precedent user is a far bigger, more visible change than
@@ -282,14 +309,14 @@ irreversible-for-most-adopters step, actually withdrawing the universal
 copy, still needs an explicit human `--accept-reach-loss`, not a flag a
 script can default to yes.
 
-**A team ↔ individual move, or a move between two teams, carries none of
+**A shared ↔ individual move, or a move between two shared sets, carries none of
 that weight.** It affects exactly the sets on both ends, whose own
 approvers already have to sign off under the pattern above — there is no
 larger, already-depending audience to disturb the way a universal change
 has. Treat it as an ordinary two-step move, not as something needing
 universal's extra caution just because it crosses a level boundary.
 
-## Worked example: `bestpractice-sync`, team → individual
+## Worked example: `bestpractice-sync`, shared → individual
 
 **The practice itself was retired on 2026-09-11** — Morgan, on an
 unattended self-merging sync being the wrong bet against a layer this
@@ -300,19 +327,19 @@ the 2026-09-09 subject split.
 
 `bestpractice-sync` — the practice describing an unattended, scheduled
 workflow that takes upstream BestPractice updates into a vendored copy —
-was migrated to `precedent-team-repo-maintenance` in the original RepoPersonalPreferences
+was migrated to `precedent-shared-repo-maintenance` in the original RepoPersonalPreferences
 split, by the same "default everything ambiguous to team" rule that
 migration used throughout. On reflection it was the wrong default: it is a
 personal automation preference about how *one person's own* projects handle
 unattended merges, not a convention the whole team is bound to want —
-`precedent-team-repo-maintenance`' own two-approver membership means adopting it
+`precedent-shared-repo-maintenance`' own two-approver membership means adopting it
 as team policy would apply it to a second person's repos without their own
 separate agreement to that specific behavior, which is exactly the kind of
 default the same README already flags as "not a final judgment."
 
 Landed in `precedent-individual` (step 1, the owner's own yes), then the
 team's copy deduplicated
-in `precedent-team-repo-maintenance` (step 2, an approver's own yes — the same
+in `precedent-shared-repo-maintenance` (step 2, an approver's own yes — the same
 person, since a small team's approver landing directly collapses both
 into one "yes," same as Stage 4 already allows for ordinary creation) with a
 `## Story` line pointing to its new location. Nothing about the pattern

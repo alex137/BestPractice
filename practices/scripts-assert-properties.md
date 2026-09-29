@@ -4,6 +4,7 @@ title:       Scripts assert their own properties, and the figures their source d
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No path locus, and a glob would contradict the practice's own scope gate: 'Scripts that own their own numbers end to end need nothing. Keep the instrumented list explicit.' That explicit list IS the routing mechanism, and it exists -- model_audit's INSTRUMENTED. A glob over tools/** would surface the Rule on every script and is exactly the over-instrumentation the gate forbids. Decided: phase 4 routing pass."
 occasion:    "writing a script whose numbers a document will cite"
 gates:       []
 index_clause: "scripts assert their own properties and their cited anchors"

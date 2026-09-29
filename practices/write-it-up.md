@@ -4,12 +4,13 @@ title:       "\"Write it up\" commits a self-contained report on the current iss
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person asks for a write-up of the issue being worked"
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, and unlike a gate-tied command its work (writing the report, committing it, pushing it) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-18, when the practice landed."
+occasion:    "a person says \"Write it up\" or \"Spec it out\", or asks for a write-up of the issue being worked"
 gates:       []
 index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
 checked_by:  null
-defines:     ["Write it up"]
-command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link."}
+defines:     ["Write it up", "Spec it out"]
+command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link.", "Spec it out": "The same as **Write it up** -- the largest plan size stage 1, Consider, can choose."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -24,7 +25,9 @@ approved_by: "Morgan, 2026-09-18. Extended 2026-09-20, on instruction to
   session, say the seed root and the repos to attach in plain prose in the
   reply, not only inside a report or block meant for someone else to read.
   Extended 2026-09-26: analyze and attack the idea before proposing it, and
-  a declared write-up directory, `writeup_dir`, defaulting to spec/."
+  a declared write-up directory, `writeup_dir`, defaulting to spec/. \"Spec it out\" added as a second word for the same command, 2026-09-26
+  (Morgan: \"'spec it out' should be a synonym of 'write it up'\",
+  strength: decided)."
 strength:    decided
 ---
 ## Rule

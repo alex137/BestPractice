@@ -10,8 +10,7 @@ is the default, not something a disciplined person manufactures by hand.
 running a company this way; this document is one level down, about the
 systems. See also [Our Philosophy](OUR_PHILOSOPHY.md) (the theory),
 [Reasons Why](REASONS_WHY.md) (the payoffs), and
-[Humans at Our Best](HUMANS_AT_OUR_BEST.md) (what stays human).
-Promoted out of [Assorted Notes](ASSORTED_NOTES.md).*
+[Humans at Our Best](HUMANS_AT_OUR_BEST.md) (what stays human).*
 
 ## Memory & Context
 
@@ -31,8 +30,8 @@ is built on.
 **2. Automatic rule extraction should be a standing capability, not a
 manual habit.** Distill protocols, rules, and preferences straight out of
 the interaction — the guidance, the correction — instead of waiting for
-someone to write policy by hand; this repo's team and individual practice
-sources (precedent-team-repo-maintenance, precedent-individual — see
+someone to write policy by hand; this repo's shared and individual practice
+sources (precedent-shared-repo-maintenance, precedent-individual — see
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run this continuously
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically);
 [`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)).

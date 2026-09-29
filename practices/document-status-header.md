@@ -4,6 +4,7 @@ title:       A spec or record document declares its kind and status in frontmatt
 tier:        on-demand
 severity:    default
 applies_to:  ["spec/**/*.md", "record/**/*.md"]
+applies_to_why: "Its own applies_to, and the path IS the distinguishing condition: the standard is scoped to those two trees by definition, so a glob over them is exactly the practice's own scope rather than an approximation of it. Deliberately not '**/*.md' -- a document at the repository root or in documentation/ is out of scope, and surfacing the Rule there would be telling a reader to stamp a file the check will never look at. Decided: 2026-09-07, when the practice was added."
 occasion:    "creating, migrating, closing or superseding a document under spec/ or record/"
 gates:       []
 index_clause: "kind and status in frontmatter; a reader must not have to infer either"

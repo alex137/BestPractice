@@ -41,8 +41,23 @@ deliverables and indexes which documents back each part of each one.
 
 ### Build-environment gotchas — do NOT rediscover these
 
-- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
-  with a hook mechanism run it automatically — see `templates/harness/`).
+Environment and tooling traps are written down one per file under
+[gotchas/](gotchas/), each with what failed, what it cost, and the fix
+(practice `environment-gotchas`). **None of that catalogue is copied into
+this file**: hit a confusing, hard-to-explain failure, and before
+concluding it is new, grep for it —
+`grep -ril '<a keyword from what you are seeing>' gotchas/`. Add one as
+`gotchas/gotcha-<date>-<slug>.md` with `## Symptom`, `## Story` and
+`## Fix`, and mirror its fix into the bootstrap script (practice
+`session-bootstrap`) so it applies itself. The bullets below are standing
+instructions for this repo, not gotchas.
+
+- At session start, run `bash tools/bootstrap.sh` before other work. Claude
+  Code runs it for you from its SessionStart hook, on the web and
+  locally (locally it skips the package install and the machine-wide git
+  setup); in other harnesses, run it yourself unless your adapter wires it — Precedent's
+  [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
+  says which can.
 - **Keep `AGENTS.md`'s generated block current.** Before relying on it,
   run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
   if any declared source (`precedent.json`) has moved since the block was
@@ -50,7 +65,7 @@ deliverables and indexes which documents back each part of each one.
   diff, and commit.
 
 - **A brand-new session on this repo alone has no git read access to this
-  project's team sets** — session repo access is scoped per session, never
+  project's shared sets** — session repo access is scoped per session, never
   inherited just because `precedent.json` names a repo. No token or secret is
   involved: the tool that grants a session this access rides the same GitHub
   identity already behind the session, so it only ever succeeds because that
@@ -62,7 +77,7 @@ deliverables and indexes which documents back each part of each one.
   credential or production change. Never write this as "if the clone fails,
   ask to add the repo" — that only works when a human happens to be watching
   for the failure, and the whole point is that a person only ever attaches
-  the one repo they're actually working in; reaching for the team sources is
+  the one repo they're actually working in; reaching for the shared sources is
   this session's own job, every time.
 
   **Read the set names out of [`precedent.json`](precedent.json); never hard-code them here.**
@@ -143,13 +158,13 @@ practice idea in plain language, Claude:
 1. Restates it back to them in their own words to confirm before acting.
 2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_candidate.py).
    **Because they are not a listed approver
-   (`precedent-team-writing`'s `approvers.json`), this defaults to
+   (`precedent-shared-writing`'s `approvers.json`), this defaults to
    `precedent_candidate.py --as-issue true` against
-   `precedent-team-writing`** —
+   `precedent-shared-writing`** —
    a quiet `candidates/*.md` file accomplishes nothing when nobody with
    landing authority is watching it, per
-   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
-   rule for team candidates raised by a non-approver. Use a plain individual
+   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)'s
+   rule for shared-set candidates raised by a non-approver. Use a plain individual
    candidate file instead only if the idea is explicitly just their own
    working style, not something to share with the team.
 3. Never mentions promotion, resident budgets, `checked_by`, or any other
@@ -228,7 +243,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Administrator requests you must know how to handle
 
 - **"What's waiting for me?"** — the administrator's review loop: list open
-  PRs and open candidate Issues on `precedent-team-writing`, summarize each in
+  PRs and open candidate Issues on `precedent-shared-writing`, summarize each in
   plain language, and take the verdict in chat.
 - **"Add project members"** — same flow as
   [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/staging/templates/AGENTS.md.loader.template)'s
@@ -241,7 +256,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Practice sources — Precedent loader (policy)
 
 - `precedent.json` declares every practice source in force here — see
-  [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+  [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md#0-installing-directly-onto-the-precedent-loader)
   for the resolution and precedence rules. The `universal` source is a
   **real vendored copy** at `precedent/universal/`, not a live reference.
   The `team` sources resolve live from sibling clones instead — never

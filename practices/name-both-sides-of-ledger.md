@@ -4,6 +4,7 @@ title:       A computation that books a transfer names both sides of the ledger
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Domain-specific to work this repo does not do; no locus here. Decided: phase 4 routing pass."
 occasion:    "a computation books a transfer between two parties"
 gates:       []
 index_clause: "name both sides; check what is charged against what is received"

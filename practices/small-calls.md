@@ -4,6 +4,7 @@ title:       Decide small calls yourself; only stop for big ones
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. What licenses this is a judgment call coming up mid-work, a property of the moment rather than of a file or directory -- the same reason session-text and go-update have none. Reached through the occasion index. Decided: 2026-09-19, when the practice landed at universal."
 occasion:    "a judgment call is needed to keep work moving"
 gates:       []
 index_clause: "make small calls yourself; note them; stop only for big ones"
@@ -18,7 +19,7 @@ approved_by: "pending PR review -- drafted 2026-09-19 by Morgan F, moved from th
 strength: decided
 ---
 ## Rule
-Default to continuing, not asking. When a judgment call is needed to keep the work moving -- filling in a default, picking between two reasonable implementations, resolving an ambiguity that doesn't change the shape of what gets delivered -- make the call and note it, rather than stopping to ask first. Reserve stopping and asking for calls that are genuinely big: hard or costly to undo, change what gets delivered or to whom, spend real money, touch credentials or production, or are the kind of toss-up where two reasonable people would clearly land in different places. **Making a call is never authorization to write it into the repository.** Where `brainstorm-holds-commits` applies -- an exploratory thread, until the person authorizes the work -- keep making small calls and keep moving; just do not commit them. The reply carries them until there is a commit to carry them instead.
+Default to continuing, not asking. When a judgment call is needed to keep the work moving -- filling in a default, picking between two reasonable implementations, resolving an ambiguity that doesn't change the shape of what gets delivered -- make the call and note it, rather than stopping to ask first. Reserve stopping and asking for calls that are genuinely big: hard or costly to undo, change what gets delivered or to whom, spend real money, touch credentials or production, or are the kind of toss-up where two reasonable people would clearly land in different places. **Making a call is never authorization to write it into the repository.** Where [brainstorm-holds-commits](brainstorm-holds-commits.md) applies -- an exploratory thread, until the person authorizes the work -- keep making small calls and keep moving; just do not commit them. The reply carries them until there is a commit to carry them instead.
 
 **A call the person has already made is not a call to make again.** Where authorization has already been given -- for this merge, this push, this scope -- proceed on it. Do not put it back for a second yes, and do not treat the size of the action as a reason to: sizing decides whether a call needed asking in the first place, and once it has been asked and answered there is no call left to size. Re-asking is not caution; it spends the exact thing asking is supposed to protect, which is the person's attention, and it spends it on a decision they have already paid for. Where the authorization is genuinely narrower than the action in front of you, say precisely what falls outside it -- never re-put the original question.
 

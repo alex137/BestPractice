@@ -165,7 +165,7 @@ def expected_branch(clone_path):
     return declared if isinstance(declared, str) and declared.strip() \
         else SOURCE_BRANCH_DEFAULT
 # An INDIVIDUAL source resolves through a $HOME clone plus a user-level
-# config naming it; a TEAM source resolves as a SIBLING CHECKOUT beside the
+# config naming it; a SHARED source resolves as a SIBLING CHECKOUT beside the
 # consuming repo, by path, with nothing to write down -- see
 # tools/precedent_resolve.py's own header for why the two are wired
 # differently. Both are cloned the same way, which is all this tool does, so
@@ -175,7 +175,7 @@ def expected_branch(clone_path):
 #
 # Why it stopped being a placeholder: a credential carried by the
 # ENVIRONMENT, rather than granted per session by add_repo, can be used
-# before the agent's first turn -- and at that moment a team set is exactly
+# before the agent's first turn -- and at that moment a shared set is exactly
 # as cloneable as an individual one. See tools/precedent_source_credentials.py
 # for what was measured about that, and how far.
 
@@ -300,7 +300,7 @@ def _try_sync(repo_url, clone_path, branch=None):
     actually meets at startup:
 
       * sources_from_repo's ALREADY-ON-DISK branch calls this function
-        directly, so a team clone that exists -- which is every team clone
+        directly, so a shared-set clone that exists -- which is every shared-set clone
         after the first session -- was synced and never given a helper.
       * the individual source is not synced at session start at all while it
         looks usable: session-start.sh leaves it to precedent_resolve.py's
@@ -600,7 +600,7 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
             # every caller rather than only this one -- see its docstring for
             # the two paths that bypass run_sync entirely, and what that cost.
             #
-            # A team source is resolved BY PATH, as a sibling checkout, so
+            # A shared source is resolved BY PATH, as a sibling checkout, so
             # there is nothing to record; writing a config entry for one
             # would invent a resolution route precedent_resolve.py does not
             # read (practice: no-invented-specifics, applied to code).
@@ -608,9 +608,33 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
                 _write_config(pathlib.Path(config_path), level, name, clone_path,
                               repo_url=repo_url)
             return True, None
+        if _left_as_it_stands(clone_path, last_output):
+            # A WORKING COPY ON ANOTHER BRANCH IS STILL THE SOURCE. The
+            # refusal in _sync_once protects the checkout from being moved;
+            # it was never meant to take the source out of force, and its
+            # own comment says "Still in force as it stands." Until
+            # 2026-09-28 nothing recorded it, so an individual set the
+            # harness had attached on a session branch -- every attached
+            # repo in a multi-repo cloud session is -- resolved nowhere, and
+            # the caller blamed read access. A deterministic refusal is
+            # also not worth retrying.
+            print(f'precedent_source_bootstrap: {last_output} It is used '
+                  f'as the {level} source exactly as it stands.',
+                  file=sys.stderr)
+            if config_path is not None:
+                _write_config(pathlib.Path(config_path), level, name, clone_path,
+                              repo_url=repo_url)
+            return True, None
         if attempt < attempts:
             sleep(retry_delay)
     return False, last_output
+
+
+def _left_as_it_stands(clone_path, output):
+    """True when _sync_once declined to move a checkout it did not make (see
+    CLONE_MARKER) and that checkout is a practice source on disk."""
+    return ('was not cloned by this tool' in (output or '')
+            and (pathlib.Path(clone_path) / 'practices').is_dir())
 
 
 BASE_URL_ENV = 'PRECEDENT_SOURCE_BASE_URL'
@@ -713,7 +737,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     label-describes-content).
 
     THE TWO LEVELS DIFFER IN ONE THING ONLY -- where the clone URL comes
-    from -- and the difference is not arbitrary. A team set is private, so
+    from -- and the difference is not arbitrary. A shared set is private, so
     its URL is built from $PRECEDENT_SOURCE_BASE_URL and never written down
     (see the note below). Universal is PUBLIC, and every vendored engine
     already records exactly where it came from, in
@@ -729,7 +753,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     in the open and that was a deliberate decision -- see precedent.json's
     own comment. Building `<base>/<name>` keeps it that way.
 
-    -> [(name, ok, output)], one per declared team source. Never raises: a
+    -> [(name, ok, output)], one per declared shared source. Never raises: a
     set that cannot be cloned degrades the session (practice:
     fail-gracefully), it does not stop startup."""
     repo_path = pathlib.Path(repo_path)
@@ -764,7 +788,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             continue
         if (clone_path / 'practices').is_dir():
             # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
-            # returned 'already on disk' and stopped -- so a team clone was
+            # returned 'already on disk' and stopped -- so a shared-set clone was
             # pulled exactly once, when it was created, and every session
             # afterwards read whatever it held that day. Measured on a real
             # container: four attached sources 4, 4, 6 and 19 commits behind
@@ -931,7 +955,7 @@ def main(argv=None):
     p.add_argument('--clone')
     p.add_argument('--config',
                    help='where to record the resolution (individual only -- a '
-                        'team source resolves by path and records nothing)')
+                        'shared source resolves by path and records nothing)')
     # --teams-from is kept as an alias, not retired: it is baked into
     # session-start hooks already vendored into other repositories, and
     # renaming it out from under them would break the clone step silently at
@@ -940,7 +964,7 @@ def main(argv=None):
     # label-describes-content).
     p.add_argument('--sources-from', '--teams-from', dest='teams_from',
                    metavar='REPO',
-                   help="clone every team source REPO's precedent.json "
+                   help="clone every shared source REPO's precedent.json "
                         f'declares, from ${BASE_URL_ENV}/<name>. Mutually '
                         'exclusive with the single-source arguments above')
     p.add_argument('--branch', default=None, metavar='NAME',
@@ -965,7 +989,7 @@ def main(argv=None):
                                              retry_delay=args.retry_delay,
                                              branch=args.branch):
             if not ok:
-                print(f"precedent_source_bootstrap: team source "
+                print(f"precedent_source_bootstrap: shared source "
                       f"{name!r} is not on disk -- {out[-500:]}. Its practices "
                       f"are NOT in force this session.", file=sys.stderr)
         return 0

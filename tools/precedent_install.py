@@ -31,21 +31,20 @@ WHAT IT DOES NOT DO, on purpose. It does not fill in
 local/practices/project-voice.md's or
 local/practices/project-visual-identity.md's sections (an install
 does the essentials and stops -- INSTALL.md, "Essentials only").
-It does not wire a team or individual source beyond what --team declares;
-the team/individual question is a conversation with the administrator
+It does not wire a shared or individual source beyond what --team declares;
+the shared/individual question is a conversation with the administrator
 (INSTALL.md section 1 step 9). It does not commit: a person reviews the tree
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
-IT DOES NOT INSTALL THE GITHUB ACTIONS WORKFLOW EITHER, unless the
-individual or team source it resolves declares `"ci_workflows": "enabled"`
-in identity.json (2026-09-15, reversing the previous unconditional
-install). GitHub Actions minutes are metered per PRIVATE repository and
-billed per run, rounded up to the minute; installing the workflow into
-every dependent repo by default charges an adopter who vendors Precedent
-into many private repos for checks they never asked to run. Nothing
-declared resolves to disabled -- the tool still names the reason in its
-output and in the project's own GETTING_STARTED.md. See GITHUB_ACTIONS.md.
+IT INSTALLS TWO GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
+leak-gate.yml and light-check.yml -- one light check on a pull request into
+main, and a leak gate that never runs in a private repository. An individual
+or shared source whose identity.json declares `"github_ci_workflows":
+"disabled"` switches both off (the old key `ci_workflows` is still read).
+From 2026-09-15 to 2026-09-25 nothing declared meant disabled. The tool names
+the reason in its output and in the project's own GETTING_STARTED.md. See
+documentation/GITHUB_ACTIONS.md.
 
 Exit 0 when the install completed and the lint of the written files passed;
 exit 1 when it refused (already installed, not a git repository) or a step
@@ -80,6 +79,13 @@ ROOT_FILES = {
     'TODO.md': 'TODO.md.template',
     'GLOSSARY.md': 'GLOSSARY.md.template',
     'GETTING_STARTED.md': 'GETTING_STARTED.md',
+    # The one trap every install inherits, as a file in the catalogue
+    # rather than an entry inlined into AGENTS.md: resident
+    # environment-gotchas rules the catalogue out of the instructions file,
+    # and the templates' old inline section taught every consumer the
+    # opposite (very deep check 2026-09-21, B1; fixed 2026-09-28).
+    'gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md':
+        'gotchas/stale-checkout.md.template',
 }
 # This project's own voice and its own visual identity are repo-local
 # PRACTICEs, not root documents -- see
@@ -156,12 +162,35 @@ def _vendor_catalogue(dest):
     return sum(1 for _ in target.glob('*.md'))
 
 
+def _tool_lines(r, summary_prefix, drop=()):
+    """-> the lines of a child tool's output worth showing an adopter: its
+    own summary line (the stdout line starting `summary_prefix`, else its
+    last stdout line), then every distinct stderr line not starting with one
+    of `drop`. Until 2026-09-28 the installer showed only the last line of
+    stdout+stderr combined, so the sync's `OK` line -- the one INSTALL.md §0
+    step 6 tells the reader to confirm -- was never shown, and one warning of
+    two was."""
+    out = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    summary = next((ln for ln in out if ln.startswith(summary_prefix)),
+                   out[-1] if out else '')
+    lines = [summary] if summary else []
+    seen = set()
+    for ln in r.stderr.splitlines():
+        if not ln.strip() or ln in seen or ln.startswith(drop):
+            continue
+        seen.add(ln)
+        lines.append(ln)
+    return lines
+
+
 def _seed_engine(dest):
     r = _run([sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
               'seed', str(dest), '--kind', 'consumer'], ROOT)
     if r.returncode != 0:
         raise InstallRefused(f'the engine seed failed:\n{r.stdout}{r.stderr}')
-    return (r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else ''
+    # The hook NOTE is always true at seed time and never actionable: the
+    # harness step below writes the hooks it names.
+    return _tool_lines(r, 'SEEDED', drop=('NOTE: precedent_vendor_engine:',))
 
 
 def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force):
@@ -257,7 +286,7 @@ def _ci_paragraph_off():
     return (
         "- **No GitHub Actions workflow was installed.** Precedent's CI\n"
         "  workflows were switched off for this install by the `github_ci_workflows`\n"
-        "  setting of the individual or team source it resolves — GitHub Actions\n"
+        "  setting of the individual or shared source it resolves — GitHub Actions\n"
         "  minutes are metered per private repository and billed in whole-minute\n"
         "  increments per JOB. Turn them on by\n"
         "  declaring `\"github_ci_workflows\": \"enabled\"` in the individual or team\n"
@@ -306,6 +335,7 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
         text = (TEMPLATES / tmpl).read_text(encoding='utf-8')
         text = _substitute(text, common)
         text = _substitute(text, per_file.get(name, {}))
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding='utf-8')
         written.append(name)
     return written, skipped
@@ -358,19 +388,36 @@ def _readme(dest, project, about):
                                                         ' -- its opening is a placeholder')
 
 
-def _gitignore(dest):
-    tmpl = (TEMPLATES / 'gitignore.template').read_text(encoding='utf-8')
-    target = dest / '.gitignore'
+def merge_gitignore(target, tmpl, header):
+    """Write templates/gitignore.template's text `tmpl` to `target` when it
+    does not exist, else append, under the comment `header`, each of its
+    non-comment lines `target` lacks. Additive only: nothing already there is
+    changed or removed. -> None when written whole, else [lines appended].
+
+    Shared with precedent_update.py: the template gains lines after a repo is
+    installed (.claude/worktrees/, 2026-09-28), and a file written once is
+    never looked at again unless the update does it."""
     if not target.exists():
         target.write_text(tmpl, encoding='utf-8')
-        return '.gitignore: written'
+        return None
     have = target.read_text(encoding='utf-8')
-    missing = [l for l in tmpl.splitlines()
-               if l.strip() and not l.startswith('#') and l not in have.splitlines()]
+    lines = set(have.splitlines())
+    missing = list(dict.fromkeys(l for l in tmpl.splitlines()
+                                 if l.strip() and not l.startswith('#')
+                                 and l not in lines))
     if missing:
-        target.write_text(have.rstrip('\n') + '\n\n# Added by Precedent\'s installer\n'
+        target.write_text(have.rstrip('\n') + f'\n\n# {header}\n'
                           + '\n'.join(missing) + '\n', encoding='utf-8')
-        return f'.gitignore: {len(missing)} line(s) appended'
+    return missing
+
+
+def _gitignore(dest):
+    tmpl = (TEMPLATES / 'gitignore.template').read_text(encoding='utf-8')
+    added = merge_gitignore(dest / '.gitignore', tmpl, 'Added by Precedent\'s installer')
+    if added is None:
+        return '.gitignore: written'
+    if added:
+        return f'.gitignore: {len(added)} line(s) appended'
     return '.gitignore: already complete'
 
 
@@ -413,6 +460,27 @@ def _harness(dest, base_branch, force):
         if not (dest / name).exists() or force:
             shutil.copy2(src / name, dest / name)
     return note, sorted(set(wired))
+
+
+def _record_hooks(dest):
+    """Record the hooks _harness() just wired in ENGINE_MANIFEST.json's
+    `hook_files`/`hooks_sha256`, through the engine's own _write_hook_files,
+    so a refresh tracks them from the first update on.
+
+    seed() runs before _harness(), when no settings.json wires anything, so
+    it records no hook at all -- and until 2026-09-28 nothing recorded them
+    after: a fresh install's hooks were untracked, and a later refresh could
+    neither tell a hand-edit from the stock file nor deliver an upstream
+    fix to one. The engine's own copy writes the same bytes _harness() just
+    copied from the same templates, then hashes them; its notes about hooks
+    this kind does not wire are for a refresh reader, not an installer's."""
+    import contextlib
+    import io
+    with contextlib.redirect_stderr(io.StringIO()):
+        written = precedent_vendor_engine._write_hook_files(
+            dest, TEMPLATES / 'harness' / 'claude-code' / 'hooks')
+    return (f'hooks tracked in tools/ENGINE_MANIFEST.json: {len(written)}'
+            if written else 'hooks tracked: none wired')
 
 
 def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
@@ -477,7 +545,13 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
 
 
 _PLACEHOLDER = re.compile(r'<[A-Za-z][^<>\n]{0,70}>')
-_HTML_LIKE = re.compile(r'^</?[a-z]+(\s|>|/)|^<!--|^-->')
+# An explicit tag list: a lowercase `<word ...>` is far more often a
+# template placeholder (`<name them>`, `<path>`) than markup, and treating
+# every one as a tag hid a dozen real placeholders from the report
+# (very deep check, 2026-09-28).
+_HTML_LIKE = re.compile(r'^</?(a|b|br|code|details|div|em|hr|i|img|kbd|li|ol|p|'
+                        r'pre|span|strong|sub|summary|sup|table|td|th|tr|ul)'
+                        r'(\s|>|/)|^<!--|^-->')
 
 
 def _placeholders_left(dest, names):
@@ -555,6 +629,14 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
                              f'engine is already vendored here. This is an '
                              f'UPDATE, not an install: INSTALL.md §2. Pass '
                              f'--force to reinstall over it anyway.')
+    # A shared set that is not on disk makes the sync refuse AFTER everything
+    # else is written, and the engine it just seeded makes a re-run refuse
+    # as "already installed" -- so check before writing anything.
+    for name, tp in teams:
+        if not ((dest / tp).resolve() / 'practices').is_dir():
+            raise InstallRefused(f'--team {name}={tp}: no practices/ at '
+                                 f'{(dest / tp).resolve()}. Clone that set '
+                                 f'there first. Nothing was written.')
     branch, how = _base_branch(dest, base_branch)
     owner, repo = _remote_owner_repo(dest)
     owner_repo = f'{owner}/{repo}' if owner else None
@@ -567,7 +649,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
         + ('' if visibility == 'private' else ' -- private-level practices will NOT render into AGENTS.md'))
     n = _vendor_catalogue(dest)
     say(f'  vendored {n} practice(s) to {UNIVERSAL_PATH}/practices/')
-    say(f'  {_seed_engine(dest)}')
+    for line in _seed_engine(dest):
+        say(f'  {line}')
     _write_precedent_json(dest, branch, visibility, output_paths, teams, force)
     say('  wrote precedent.json')
     written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, ci_enabled, force)
@@ -578,6 +661,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  {_gitignore(dest)}')
     note, wired = _harness(dest, branch, force)
     say(f'  {note}; hooks: {", ".join(wired)}')
+    say(f'  {_record_hooks(dest)}')
     for line in _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         say(f'  {line}')
     say(f'  {_tiers(dest)}')
@@ -585,7 +669,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
     if r.returncode != 0:
         raise InstallRefused(f'the sync failed:\n{r.stdout}{r.stderr}')
-    say(f'  {(r.stdout + r.stderr).strip().splitlines()[-1]}')
+    for line in _tool_lines(r, 'precedent_sync_views OK'):
+        say(f'  {line}')
 
     all_instantiated = list(ROOT_FILES) + list(LOCAL_PRACTICE_FILES)
     md = all_instantiated + ['README.md']

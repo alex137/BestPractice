@@ -4,8 +4,10 @@ title:       "\"Simple please\" asks for the same substance in speech, not prose
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate. Decided: 2026-09-08, when the practice landed at universal."
 occasion:    "a person says \"Simple please\", or asks to be talked to that way"
 gates:       ["reply"]
+gates_why:   "It governs how every reply after the phrase is written, so the reply gate is the only moment it can fire; nothing about a file triggers it."
 index_clause: "say it as you would out loud; same substance"
 checked_by:  null
 defines:     ["Simple please"]

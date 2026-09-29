@@ -30,12 +30,23 @@ Alphabetical by phrase, deliberately: this is a lookup, and every other
 order (by date coined, by importance) is a judgment that goes stale and that
 nobody can predict from outside.
 
+TWO LISTS (2026-09-29, spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2).
+After the commands comes "Our language": the short list of words a person
+needs to follow a conversation, read from tools/our_language.json through
+our_language.py -- the same list documentation/OUR_LANGUAGE.md is rendered
+from, so the two cannot disagree. A practice's `command:` phrase that is
+also a word in that list ("Primary branch", "Tier branch") names a thing,
+not an action, so it moves out of the commands and is printed with the
+words. Without our_language.py beside this script -- an engine older than
+the list -- the commands still print, and a note says the second list
+could not be read.
+
 SOURCES. Every level is read -- universal, team, individual, repo-local --
 because a person's own set may coin a command and a session that listed only
 the universal ones would be confidently wrong about their own vocabulary.
 Where a source did not resolve this session, that is NAMED rather than
 silently dropped (practice: fail-gracefully): "I could not read your team
-set" is a different answer from "your team set defines no commands".
+set" is a different answer from "your shared set defines no commands".
 """
 import argparse
 import json
@@ -47,6 +58,11 @@ sys.path.insert(0, str(HERE))
 
 import split_practices as sp                                   # noqa: E402
 import build_views as bv                                       # noqa: E402
+
+try:
+    import our_language as ol                                  # noqa: E402
+except ImportError:                  # an engine that predates the word list
+    ol = None
 
 
 def find_root(start):
@@ -71,6 +87,22 @@ def _commands_in(fm):
     if not raw or raw == 'null':
         return {}
     return json.loads(raw)
+
+
+def words():
+    """-> (words, note). `words` is [(word, meaning), ...] from the Our
+    language list, in its own order; `note` is None, or the reason the list
+    could not be read -- said, never swallowed, because a missing second
+    list and an empty one look the same."""
+    if ol is None:
+        return [], ('our_language.py is not beside this script, so the '
+                    '"Our language" list could not be read.')
+    try:
+        return ol.load(), None
+    except SystemExit as e:                     # load() fails loudly by design
+        return [], f'the "Our language" list could not be read ({e}).'
+    except (OSError, ValueError) as e:
+        return [], f'the "Our language" list could not be read ({e}).'
 
 
 def collect(root=ROOT, resolved_view=False):
@@ -163,6 +195,7 @@ def collect(root=ROOT, resolved_view=False):
         notes.append(f'the declared sources could not be resolved ({e}), so '
                      "only this repo's own practices/ was read.")
 
+    word_names = {w.lower() for w, _ in words()[0]}
     entries = []
     for slug, (level, source, fm) in found.items():
         if not bv.is_in_force(fm):
@@ -177,6 +210,9 @@ def collect(root=ROOT, resolved_view=False):
             continue
         pairs = list(commands.items())            # insertion order, preserved
         phrase, gloss = pairs[0]
+        if phrase.lower() in word_names:
+            # A word, not an action: it is printed under "Our language".
+            continue
         synonyms = [p for p, _ in pairs[1:]]
         entries.append((phrase, gloss, slug, level, source, synonyms))
     entries.sort(key=lambda e: (e[0].lower(), e[2]))
@@ -224,7 +260,9 @@ def main(argv=None):
             print(f'  note: {n}')
         return 1
 
+    word_list, word_note = words()
     width = max(len(p) for p, *_ in entries)
+    print('Commands')
     for phrase, gloss, slug, level, source, synonyms in entries:
         syn = f'  Synonym: {", ".join(synonyms)}' if synonyms else ''
         if args.plain:
@@ -232,6 +270,13 @@ def main(argv=None):
         else:
             where = f'{level}/{source}' if source else level
             print(f'{phrase.ljust(width)}  {gloss}{syn}  [{slug}, {where}]')
+    if word_list:
+        wwidth = max(len(w) for w, _ in word_list)
+        print('\nOur language')
+        for word, meaning in word_list:
+            print(f'{word.ljust(wwidth)}  {meaning}')
+    if word_note:
+        notes = notes + [word_note]
     for n in notes:
         print(f'\nnote: {n}')
     return 0

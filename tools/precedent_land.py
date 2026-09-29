@@ -247,17 +247,18 @@ def land(candidate_path, level, repo_path, approved_by, against,
               f"only to you, is already in force, and nobody else approved "
               f"or needs to.")
     elif level == 'shared':
-        print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
+        print(f"DISCLOSE TO THE HUMAN: this is now part of the SHARED "
               f"practice set at {repo_path}, approved by "
               f"{approved_by!r}. It is already in force for "
-              f"everyone on that team.")
+              f"everyone who uses that set.")
     else:  # universal
         print("DISCLOSE TO THE HUMAN: this is a DRAFT ONLY, not yet in "
               "force for anyone. Stage 4's universal approval is a PR to "
               "Precedent -- commit this file on a branch and open a PR; this "
               "tool does not merge it, and nothing is in force until that PR "
-              "merges into precedent-beta-v01, gated by that branch's own "
-              "deep check, same as any other PR there.")
+              "merges into this repository's landing branch (python3 "
+              "tools/precedent_branches.py --landing), gated by that "
+              "branch's own check tier, same as any other PR there.")
     return dest, level
 
 

@@ -4,11 +4,13 @@ title:       "The Boildown: every reply closes with it, in a fixed order"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, not a place — routed by the `reply` gate instead, exactly as next-steps-after-commit was before it was absorbed here. Decided: Morgan, 2026-09-15."
 occasion:    ""
 gates:       ["reply"]
+gates_why:   "Its occasion is the end of every reply; tools/precedent_reply_check.py measures the heading and the two fixed sentence-pairs from the transcript at the stop hook. It carries NO occasion: for the same reason its predecessor did not -- the requirement is REFUSED at the stop hook whether or not a session recognised the occasion, so an index line would buy nothing a mechanical refusal doesn't already guarantee."
 index_clause: "every reply ends with The Boildown, in a fixed order, archive line last"
 checked_by:  null
-defines:     []
+defines:     ["Boildown"]
 status:      active
 in_force_at: null
 supersedes:  ["next-steps-after-commit", "merged-session-offers-a-practice", "handoff-is-pasteable", "closing-items-are-this-thread", "asks-stand-alone", "archive-a-finished-session"]

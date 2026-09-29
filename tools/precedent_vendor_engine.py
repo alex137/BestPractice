@@ -3,7 +3,7 @@
 consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 
-  'source'   — an individual or team practice SET (precedent-individual,
+  'source'   — an individual or shared practice SET (precedent-individual,
                precedent-team-repo-maintenance, precedent-team-tms). Needs
                ENGINE_FILES: enough to run its own AGENTS.md loader block
                (precedent_show.py's Rule/Detail/Why/Story/Install split,
@@ -29,7 +29,7 @@ Two KINDS, sharing one mechanism:
 
 THE GAP 'source' CLOSED FIRST. tools/precedent_bootstrap_source.py has only
 ever written practice content, config, approvers and the leak-blocklist —
-never an engine file. Every individual/team set that existed before this
+never an engine file. Every individual/shared set that existed before this
 tool got its tools/build_views.py, precedent_gate.py, precedent_paths.py,
 precedent_show.py and split_practices.py into place by an undocumented,
 one-off hand-copy, so none of them could tell a stale copy from a current
@@ -120,7 +120,7 @@ of BestPractice's OWN 60-odd practices, which has no meaning in either a
 source set or a consumer repo with a different catalogue entirely.
 `_trim_routing_scope` below keeps only the first and drops the second — the
 same trim a prior, undocumented hand-copy already applied by hand to every
-repo that needed it (precedent-individual, precedent-team-repo-maintenance, and
+repo that needed it (precedent-individual, precedent-shared-repo-maintenance, and
 and a private consumer repo's own top-level tools/routing_scope.json, all three
 confirmed byte-identical to this function's output before this tool
 existed, or was extended to the consumer kind); this tool just makes that
@@ -273,9 +273,9 @@ ENGINE_FILES = [
     # vendored-engine-file-refs-resolve, on the run that added it -- a
     # vendored build_views.py naming a companion nobody had copied.
     'glossary_terms.json',
-    # A team set's approvers.json -> CODEOWNERS generator. In the engine
-    # rather than in one team set's own tools/ because that is where it
-    # was, and the consequence was a second team set with declared
+    # A shared set's approvers.json -> CODEOWNERS generator. In the engine
+    # rather than in one shared set's own tools/ because that is where it
+    # was, and the consequence was a second shared set with declared
     # approvers and no way to enforce them (2026-09-06). No-ops in an
     # individual set, which has no approvers.json and needs none.
     'build_codeowners.py',
@@ -326,7 +326,7 @@ ENGINE_FILES = [
     # credential helper that lets a SessionStart hook clone one without
     # add_repo (added 2026-09-09). In the shared engine rather than the
     # consumer half because a source set is itself a repo somebody works in:
-    # a session rooted in precedent-team-writing needs the person's
+    # a session rooted in precedent-shared-writing needs the person's
     # individual set exactly as much as a consumer does, and had the same
     # silent absence. precedent_source_bootstrap.py imports it by name and
     # says so out loud when it is missing, so a tree vendored before this
@@ -336,13 +336,13 @@ ENGINE_FILES = [
     # WRITES ~/.config/precedent/config.json, which is the only thing that
     # makes an individual source resolve at all. Promoted out of the consumer
     # half on 2026-09-13, and the sentence above -- "a session rooted in
-    # precedent-team-writing needs the person's individual set exactly as
+    # precedent-shared-writing needs the person's individual set exactly as
     # much as a consumer does" -- is the whole argument; the credential
     # helper travelled on it and this file did not.
     #
     # THE INCIDENT. A session rooted in any of the four real practice sets
-    # (precedent-individual, precedent-team-writing,
-    # precedent-team-repo-maintenance, precedent-team-working-style) resolved
+    # (precedent-individual, precedent-shared-writing,
+    # precedent-shared-repo-maintenance, precedent-shared-working-style) resolved
     # NO individual source, every session, because nothing there ever wrote
     # that config. The canonical remedy already existed and could not be
     # installed: templates/harness/claude-code/hooks/
@@ -421,6 +421,14 @@ ENGINE_FILES = [
     # design without precedent_resolve.py -- which a source set does not get
     # -- reading that repo's own practices/ and saying so.
     'precedent_vocabulary.py',
+    # Its second list, "Our language" (2026-09-29,
+    # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
+    # loader precedent_vocabulary.py imports to read it. They travel with it
+    # because a vendored Vocabulary without them prints only the commands --
+    # it says so rather than failing, but the words are the half a new
+    # person most needs.
+    'our_language.py',
+    'our_language.json',
     # The reply gate's BLOCKING half. Left out when it landed 2026-09-13,
     # which had two costs the same day: the stop-hook check never reached a
     # consuming repo at all (its hook guards on the file existing, so it
@@ -455,12 +463,26 @@ ENGINE_FILES = [
     # repo receives a detector that detects nothing until a source declares
     # what it should fire on -- which is the honest default, not a gap.
     'precedent_close_detect.py',
+    # ...and the detector it imports for the one signal that needs no
+    # declaration: a person saying "from now on, always ...". The import is
+    # guarded, so until 2026-09-28 every install silently got an empty list
+    # and the pitch's "it notices and offers a rule" never fired anywhere
+    # but here (very deep check, pass 1). precedent_detect imports the other
+    # two.
+    'precedent_detect.py',
+    'precedent_promote.py',
+    'precedent_candidate.py',
+    # What a user-level SessionStart hook calls when a session opens above
+    # the repos it works in, so each repo's own SessionStart hooks run
+    # anyway (2026-09-28). Every repo carries it, so the hook finds a copy
+    # in whichever clones a session has.
+    'precedent_run_session_hooks.py',
     # The generator and the one-time converter for the 2026-09-16 todo/gotcha
     # migration's per-item TODO.md format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
     # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
     # reasoning that "a source set has no TODO.md of its own to convert" --
     # wrong: confirmed the same day that precedent-individual and
-    # precedent-team-writing (both `kind: source`) carry real, long-lived
+    # precedent-shared-writing (both `kind: source`) carry real, long-lived
     # TODO.mds of their own (520 and 112 lines) and were structurally unable
     # to run the migration, exactly like todo-migrate-available-but-unused's
     # own Story. A practice set is a repository somebody works in like any
@@ -531,6 +553,9 @@ ENGINE_FILES = [
     # upstream repo can do. See documentation/FOR_DEVELOPERS.md and
     # templates/GETTING_STARTED.md, which now say so.
     'very_deep_check.py',
+    # Written by very_deep_check.py's PRACTICE CATALOGUE section, so it
+    # travels with it.
+    'precedent_review_page.py',
     # Its CI FLEET AUDIT section runs this beside it (2026-09-26): every
     # workflow on every branch, asked of GitHub (practice:
     # ci-workflow-approved).
@@ -589,7 +614,7 @@ ENGINE_FILES = [
     # and repair it by hand if not" (added 2026-09-08, in BestPractice only
     # until 2026-09-24). Never vendored, so no source set had it -- and a
     # source set is exactly where the failure this tool exists for bites,
-    # since a team source resolving as a sibling clone is what roots a
+    # since a shared source resolving as a sibling clone is what roots a
     # session one directory ABOVE every repo's hooks in the first place
     # (this file's own docstring). In ENGINE_FILES rather than consumer-only
     # for the same reason precedent_vocabulary.py is: the guarantee it
@@ -1582,7 +1607,37 @@ def _vendorable_hook_names(dest_root, hooks_src_dir):
             if f'{HOOK_DEST_DIR}/{n}' not in claimed}
 
 
-def _write_hook_files(dest_root, hooks_src_dir):
+def _previous_manifest(dest_root, loaded):
+    """-> the engine record as it stood before this update, for the removal
+    passes: the manifest loaded from disk, merged with the one COMMITTED at
+    HEAD.
+
+    WHY THE COMMITTED ONE TOO (very deep check, 2026-09-28). A real update
+    runs twice: the consumer's OLD copy of this tool first, which vendors the
+    new one and rewrites the manifest from its own file list, leaving out
+    whatever upstream dropped; then the new copy. By the second pass the
+    manifest on disk no longer names the dropped file, so nothing removed
+    it and the message promising "the second pass cleans up" was false. An
+    update never commits, so HEAD still holds the record from before it."""
+    committed = {}
+    r = subprocess.run(['git', '-C', str(dest_root), 'show',
+                        f'HEAD:tools/{MANIFEST_NAME}'],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        try:
+            committed = json.loads(r.stdout)
+        except ValueError:
+            committed = {}
+    merged = {**committed, **loaded}
+    for key in ('files', 'hook_files'):
+        merged[key] = sorted(set(loaded.get(key) or [])
+                             | set(committed.get(key) or []))
+    for key in ('sha256', 'hooks_sha256'):
+        merged[key] = {**(committed.get(key) or {}), **(loaded.get(key) or {})}
+    return merged
+
+
+def _write_hook_files(dest_root, hooks_src_dir, previous=None):
     """Copy every hook script in `hooks_src_dir` into
     <dest_root>/.claude/hooks/, and record them in the SAME
     ENGINE_MANIFEST.json _write_engine_files just wrote (one provenance
@@ -1657,7 +1712,7 @@ def _write_hook_files(dest_root, hooks_src_dir):
     dest_hooks = dest_root / HOOK_DEST_DIR
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
     _remove_dropped_hook_files(dest_root, manifest_path, available,
-                               hooks_src_dir)
+                               hooks_src_dir, previous=previous)
     if not names:
         # Nothing wired here to write -- but a drop sweep may still have had
         # something to do, so this return comes AFTER it, not before. When
@@ -1695,7 +1750,7 @@ def _write_hook_files(dest_root, hooks_src_dir):
 
 
 def _remove_dropped_hook_files(dest_root, manifest_path, available,
-                               hooks_src_dir):
+                               hooks_src_dir, previous=None):
     """Delete a vendored hook that upstream no longer ships. -> [names]
 
     THE GAP THIS CLOSES (found 2026-09-21 by the very deep check's own
@@ -1736,8 +1791,14 @@ def _remove_dropped_hook_files(dest_root, manifest_path, available,
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return []
-    previous = list(manifest.get('hook_files') or [])
-    prev_hashes = manifest.get('hooks_sha256') or {}
+    # `previous` is the record as it stood BEFORE this refresh wrote
+    # anything (see _previous_manifest). The manifest on disk cannot serve:
+    # _write_engine_files has already rewritten it without `hook_files`, so
+    # read alone it always said nothing was vendored, and nothing was ever
+    # dropped (very deep check, 2026-09-28).
+    before = previous if previous is not None else manifest
+    previous = list(before.get('hook_files') or [])
+    prev_hashes = before.get('hooks_sha256') or {}
     dropped = sorted(n for n in previous
                      if n not in available or n in RETIRED_HOOK_FILES)
     if not dropped:
@@ -1771,8 +1832,12 @@ def _remove_dropped_hook_files(dest_root, manifest_path, available,
     if removed or kept:
         # The record has to lose the names too, or the next refresh reads
         # them as dropped all over again and says so all over again.
-        manifest['hook_files'] = [n for n in previous if n not in removed]
-        manifest['hooks_sha256'] = {k: v for k, v in prev_hashes.items()
+        manifest['hook_files'] = [n for n in (manifest.get('hook_files')
+                                              or previous)
+                                  if n not in removed]
+        manifest['hooks_sha256'] = {k: v for k, v in
+                                    (manifest.get('hooks_sha256')
+                                     or prev_hashes).items()
                                     if k not in removed}
         manifest_path.write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
@@ -3939,8 +4004,13 @@ def _read_template_sources(clone, commit, kind, out_dir):
         out = out_dir / src_rel
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(blob.stdout)
-        ok, log = _git_read(clone, 'log', '--format=', '--raw', '--no-abbrev',
-                            commit, '--', src_rel)
+        # `-m`: a template edit made inside a merge commit (a conflict
+        # resolution, or a fix committed with the merge) is a real past
+        # version too, and plain `--raw` shows merges no diff at all -- so a
+        # consumer holding exactly that version read as edited (very deep
+        # check, 2026-09-28, caught by this repo's own harness).
+        ok, log = _git_read(clone, 'log', '--format=', '--raw', '-m',
+                            '--no-abbrev', commit, '--', src_rel)
         blobs = set()
         if ok:
             for line in log.splitlines():
@@ -3980,18 +4050,40 @@ def _shell_blocks(text):
 
 def missing_template_blocks(local_text, template_text):
     """-> [(line_no, title, how)] for each template block whose code is not
-    all present in `local_text`: 'missing' when none of it is, else how many
-    of its lines are absent. Compared line by line after stripping, so local
-    re-indentation or local lines added around a block do not count
-    against it."""
+    all present in `local_text`: 'missing' when none of it is and nothing
+    local stands in its place, else 'changed (N of M lines)'. Compared line
+    by line after stripping, so local re-indentation or local lines added
+    around a block do not count against it.
+
+    A local block stands in the template's place when it carries the same
+    heading comment, or most of the same words. Until 2026-09-28 one small
+    local edit -- `pip install --quiet cmarkgfm pyyaml` where the template
+    says `cmarkgfm` -- made the whole block read 'missing', and copying it
+    in as told would have run the install twice."""
     have = {ln.strip() for ln in local_text.splitlines()}
+    local_blocks = _shell_blocks(local_text)
+
+    def words(lines):
+        return {w for ln in lines for w in ln.split()
+                if len(w) > 2 and w not in _TRIVIAL_SHELL_LINES}
+
+    def stands_in(title, code, local):
+        _n, l_title, l_code = local
+        if title not in code and l_title not in l_code and title == l_title:
+            return True
+        want, got = words(code), words(l_code)
+        return bool(want) and len(want & got) * 2 > max(len(want), len(got))
+
     out = []
     for line_no, title, code in _shell_blocks(template_text):
         absent = [c for c in code if c not in have]
         if not absent:
             continue
-        how = ('missing' if len(absent) == len(code)
-               else f'{len(absent)} of its {len(code)} lines absent or changed')
+        if len(absent) < len(code) or any(stands_in(title, code, b)
+                                           for b in local_blocks):
+            how = f'changed ({len(absent)} of {len(code)} lines)'
+        else:
+            how = 'missing'
         out.append((line_no, title, how))
     return out
 
@@ -4296,6 +4388,23 @@ def _section_text(lines, first, end):
     return '\n'.join(ln.rstrip() for ln in lines[first:end])
 
 
+def _heading_key(key):
+    """A section heading as the matcher compares it: whitespace collapsed,
+    case folded. A consumer following universal's headline-capitalization
+    writes "## Git / Workflow" where the template has "## Git / workflow";
+    matched exactly, eight sections a real consumer has were reported MISSING
+    and its real text was never compared again (very deep check,
+    2026-09-28)."""
+    return re.sub(r'\s+', ' ', key.strip()).casefold()
+
+
+def _same_section(local, template):
+    """True when two section texts differ at most in their heading's case."""
+    a, _, rest_a = local.partition('\n')
+    b, _, rest_b = template.partition('\n')
+    return rest_a == rest_b and _heading_key(a) == _heading_key(b)
+
+
 def _template_sections(text):
     """-> {key: (line_no, raw_text)} for every trackable section of a
     template: fixed heading, first occurrence."""
@@ -4328,7 +4437,8 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
                 out = out_dir / src_rel
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_bytes(blob.stdout)
-        ok, log = _git_read(clone, 'log', '--follow', '--format=@%H',
+        # `-m`, so a version a merge commit introduced is not skipped.
+        ok, log = _git_read(clone, 'log', '--follow', '-m', '--format=@%H',
                             '--name-only', commit, '--', src_rel)
         if not ok:
             continue
@@ -4372,10 +4482,10 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     lines = local.split('\n')
     spans = collections.defaultdict(list)
     for key, first, end in _md_sections(local):
-        spans[key].append((first, end))
+        spans[_heading_key(key)].append((first, end))
     plan = []
     for key, (line_no, raw) in template.items():
-        found = spans.get(key) or []
+        found = spans.get(_heading_key(key)) or []
         if not found:
             plan.append((key, srcs[0], line_no,
                          'absent' if key in recorded else 'missing', None))
@@ -4385,11 +4495,12 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
             continue
         span = found[0]
         text = _section_text(lines, *span)
-        if text == _instantiate(raw, subs):
+        if _same_section(text, _instantiate(raw, subs)):
             action = 'current'
         elif recorded.get(key):
             action = 'refresh' if _sha_text(text) == recorded[key] else 'diverged'
-        elif any(text in (past, _instantiate(past, subs))
+        elif any(_same_section(text, past)
+                 or _same_section(text, _instantiate(past, subs))
                  for past in history.get(key) or ()):
             action = 'adopt'
         else:
@@ -4639,11 +4750,19 @@ def _apply_agents_md_plan(dest_root, templates_dir, plan, recorded):
     for key, _src, _n, action, span in sorted(
             plan, key=lambda p: p[4][0] if p[4] else -1, reverse=True):
         new = _instantiate(template[key][1], subs)
+        if span:
+            # The repo's own heading line stays: only its case can differ
+            # from the template's (see _heading_key), and that difference is
+            # the repo following headline-capitalization, not drift.
+            head, sep, body = new.partition('\n')
+            new = lines[span[0]].rstrip() + sep + body
         if action in ('refresh', 'adopt'):
             lines[span[0]:span[1]] = new.split('\n')
             rewritten.append(key)
-        if action in ('refresh', 'adopt', 'current'):
+        if action in ('refresh', 'adopt'):
             recorded[key] = _sha_text(new)
+        elif action == 'current':
+            recorded[key] = _sha_text(_section_text(lines, *span))
         elif action in ('missing', 'absent'):
             recorded[key] = None
     if rewritten:
@@ -4712,21 +4831,43 @@ RETIRED_BRANCH_NAMES = {
     # old name: (new name, date renamed)
     'precedent-beta-v01': ('staging', '2026-09-25'),
 }
-RETIRED_NAME_FILES = ('AGENTS.md', 'CLAUDE.md', 'tools/bootstrap.sh')
+# A renamed name PREFIX, matched where a name starts rather than as a whole
+# word: the precedent-team-* practice sets became precedent-shared-* on
+# 2026-09-18. The update repoints precedent.json itself
+# (precedent_update.renamed_sources_step); the text a repo wrote naming the
+# old sets is reported here with the branch names.
+RETIRED_NAME_PREFIXES = {
+    # old prefix: (new prefix, date renamed)
+    'precedent-team-': ('precedent-shared-', '2026-09-18'),
+}
+# MAP.md and GLOSSARY.md are a consumer's own index and word list, and name
+# branches and sets as readily as AGENTS.md does. A copy that is generated
+# whole (a practice set's, headed "<!-- GENERATED by") is skipped: its text
+# comes from the catalogue, and a hand edit there is discarded.
+RETIRED_NAME_FILES = ('AGENTS.md', 'CLAUDE.md', 'tools/bootstrap.sh',
+                      'MAP.md', 'GLOSSARY.md')
 
 
 def retired_branch_mentions(dest_root):
     """-> [(rel, line_no, old, new)] for each line of RETIRED_NAME_FILES
-    that names a retired branch -- see the block comment above for what is
-    left out."""
+    that names a retired branch or a name under a retired prefix -- see the
+    block comments above for what is left out."""
     out = []
+    names = [(rf'(?<![\w-]){re.escape(old)}(?![\w-])',
+              rf'(?<![\w-]){re.escape(new)}(?![\w-])', old, new)
+             for old, (new, _d) in RETIRED_BRANCH_NAMES.items()]
+    names += [(rf'(?<![\w-]){re.escape(old)}(?=\w)',
+               rf'(?<![\w-]){re.escape(new)}(?=\w)', old, new)
+              for old, (new, _d) in RETIRED_NAME_PREFIXES.items()]
     for rel in RETIRED_NAME_FILES:
         path = dest_root / rel
         if not path.is_file():
             continue
+        text = path.read_text(encoding='utf-8', errors='replace')
+        if text.startswith('<!-- GENERATED by'):
+            continue
         generated = False
-        for n, line in enumerate(path.read_text(encoding='utf-8', errors='replace')
-                                 .splitlines(), 1):
+        for n, line in enumerate(text.splitlines(), 1):
             s = line.strip()
             if s.startswith(_GENERATED_BEGIN):
                 generated = True
@@ -4735,9 +4876,8 @@ def retired_branch_mentions(dest_root):
                 continue
             if generated:
                 continue
-            for old, (new, _date) in RETIRED_BRANCH_NAMES.items():
-                if re.search(rf'(?<![\w-]){re.escape(old)}(?![\w-])', line) \
-                        and not re.search(rf'(?<![\w-]){re.escape(new)}(?![\w-])', line):
+            for old_re, new_re, old, new in names:
+                if re.search(old_re, line) and not re.search(new_re, line):
                     out.append((rel, n, old, new))
     return out
 
@@ -4748,12 +4888,16 @@ def _report_retired_branch_names(dest_root):
     for rel, n, old, new in hits:
         by_old[(old, new)].append(f'{rel}:{n}')
     for (old, new), where in by_old.items():
-        date = RETIRED_BRANCH_NAMES[old][1]
-        print(f"RETIRED BRANCH NAME: {len(where)} line(s) of this repo's own text "
-              f"still name {old}, renamed {new} on {date}: {', '.join(where)}. "
-              f"The old name still works for now -- upstream keeps it as an "
-              f"alias until no refresh reports a mention -- so change each to "
-              f"{new} rather than waiting for it to break.")
+        branch = old in RETIRED_BRANCH_NAMES
+        date = (RETIRED_BRANCH_NAMES if branch else RETIRED_NAME_PREFIXES)[old][1]
+        print(f"RETIRED {'BRANCH ' if branch else ''}NAME: {len(where)} line(s) "
+              f"of this repo's own text still name {old}"
+              f"{'' if branch else '*'}, renamed {new}{'' if branch else '*'} "
+              f"on {date}: {', '.join(where)}. "
+              + ("The old name still works for now -- upstream keeps it as an "
+                 "alias until no refresh reports a mention -- so change each to "
+                 f"{new} rather than waiting for it to break." if branch else
+                 f"Change each to the {new}* name."))
         _left(f'{len(where)} mention(s) of {old}',
               f'renamed {new} on {date} -- change each line listed above '
               f'(vendor-update-runbook step 10(d))')
@@ -4876,7 +5020,8 @@ def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
     if previous:
         _remove_dropped_engine_files(dest_tools, previous, kind)
     if hooks_dir is not None:
-        written += _write_hook_files(dest_tools.parent, hooks_dir)
+        written += _write_hook_files(dest_tools.parent, hooks_dir,
+                                     previous=previous)
     return written
 
 
@@ -5599,7 +5744,7 @@ def refresh(clone, force=False, ref=None):
         # file -- hit this short-circuit on the matching commit and reported
         # "nothing to do", so the file never arrived and the manifest
         # asserted current the whole time. build_codeowners.py joined the
-        # engine on 2026-09-06 for a stated reason (a team set with declared
+        # engine on 2026-09-06 for a stated reason (a shared set with declared
         # approvers and no way to enforce them); none of the three sets ever
         # received it, and someone hand-copied it into one of them, which is
         # what broke that repo's build_views.py. The hand-copy was a symptom.
@@ -5630,7 +5775,8 @@ def refresh(clone, force=False, ref=None):
                   f"repo's vendored engine still carries {len(set_orphaned)} "
                   f"file(s) this kind no longer includes "
                   f"({', '.join(set_orphaned)}) -- removing them.")
-            _remove_dropped_engine_files(dest_tools, manifest, kind)
+            _remove_dropped_engine_files(
+                dest_tools, _previous_manifest(ROOT, manifest), kind)
             _rewrite_manifest_file_list(dest_tools, kind)
 
         # Hook analog of set_incomplete, above -- but the "wanted" hook names
@@ -5750,6 +5896,7 @@ def refresh(clone, force=False, ref=None):
                   f"({', '.join(engine_paths_incomplete)}) -- refreshing anyway.")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
+        before = _previous_manifest(ROOT, manifest)
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
         if catalogue_repointed:
             written.append(catalogue_repointed)
@@ -5758,7 +5905,7 @@ def refresh(clone, force=False, ref=None):
         # by then the dropped name is already gone from the record and there
         # is nothing left to find it by. `manifest` is the copy loaded at the
         # top of this function, which is the one that still remembers.
-        _remove_dropped_engine_files(dest_tools, manifest, kind)
+        _remove_dropped_engine_files(dest_tools, before, kind)
         # Wire first, then vendor: _write_hook_files is still gated on what
         # settings.json wires, so the entries it needs have to be there
         # before it looks. Never the other way round -- a file written
@@ -5766,7 +5913,8 @@ def refresh(clone, force=False, ref=None):
         if _apply_hook_wiring(ROOT, kind if 'kind' in manifest else None,
                               engine_dir / 'hooks'):
             written.append(ROOT / '.claude' / 'settings.json')
-        written += _write_hook_files(ROOT, engine_dir / 'hooks')
+        written += _write_hook_files(ROOT, engine_dir / 'hooks',
+                                     previous=before)
         ci_refreshed, ci_catchup, ci_replaced = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
         written += [ROOT / rel for rel in ci_refreshed + ci_replaced]

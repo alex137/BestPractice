@@ -5,8 +5,10 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["tools/very_deep_check.py", "record/stale_branches.md", "spec/VERY_DEEP_CHECK.md"]
+applies_to_why: "The distinguishing condition is that branch-sweep OUTPUT is being written -- the engine function that builds a delete link, the committed report it writes, or the document embedding the checkout's safe-to-delete list. All three are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT `**` and deliberately NOT practices/**. The globs alone were the whole routing until 2026-09-21, and that was the bug: they reach an audit and never reach an ordinary reply that names one branch, which is where nearly every branch mention actually happens. The `reply` gate was added for that case; the globs stay for the audit case. Decided: 2026-09-21, when the practice landed at universal; gate added the same day, Morgan."
 occasion:    "telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's"
 gates:       ["reply"]
+gates_why:   "A reply naming a branch as deletable has no file to match on. Morgan, 2026-09-21: the link has to arrive \"always always always\", and the miss was structural -- the path channel cannot see a sentence. The reply gate is the moment the naming happens, and it is the same moment the-boildown's item 6 is written."
 index_clause: "every branch named deletable is a filtered-page link naming what
   it merged into, never a blocker"
 index_required: false
@@ -103,7 +105,7 @@ Three things the report must not get wrong, each of which fails silently:
    and the one-click promise is gone.
 3. **Say what success looks like.** After the deletion the filtered page reads
    *"no branches matched"*, which looks like an error and is not.
-4. **Never a tier branch.** `main`, `staging`, `pre-staging`, staging's old
+4. <a id="never-a-tier-branch"></a>**Never a tier branch.** `main`, `staging`, `pre-staging`, staging's old
    name `precedent-beta-v01` and Promote's lock branch
    `precedent-promote-lock` are never offered for deletion, by any route,
    whatever a merge test says: a Promote fast-forwards the lower tiers, so
@@ -125,7 +127,7 @@ Over the GitHub API, with no clone, the test is four steps and step 2 is the
 one that gets skipped:
 
 1. List all branches; drop the repository's default branch, any protected
-   integration branch, and every tier branch in rule 4 above.
+   integration branch, and every tier branch in [rule 4 above](#never-a-tier-branch).
 2. List **closed** pull requests and keep only those whose `merged_at` is
    non-null. **A closed-unmerged pull request is not a merge.** Closing a pull
    request and deleting its branch destroys the work on it.

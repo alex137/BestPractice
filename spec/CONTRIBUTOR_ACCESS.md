@@ -137,7 +137,7 @@ no new mechanism:
   registry each.
 - **[tools/precedent_candidate.py](../tools/precedent_candidate.py)** is how
   anyone raises a suggestion. For a contributor who is not a listed approver
-  it defaults to `--as-issue true` against the relevant team set, per
+  it defaults to `--as-issue true` against the relevant shared set, per
   [spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md)'s rule: a quiet
   `candidates/*.md` file accomplishes nothing when nobody with landing
   authority is watching it.
@@ -218,7 +218,7 @@ state, then test it independently of what any command printed.
   `.github/workflows/`, which is the path that makes every other one
   meaningless if it is missed.
 - **"A practice idea becomes a real, visible candidate."** They describe an
-  observation in plain language, and an Issue appears on the team set where an
+  observation in plain language, and an Issue appears on the shared set where an
   approver will see it, with no mechanical-rule vocabulary in their
   conversation.
 - **"The boundary survives them."** They cannot edit `.github/CODEOWNERS`
@@ -242,7 +242,7 @@ either; that is finding 7.
   (named in `CODEOWNERS`), an **approver** (named in `approvers.json`).
   Nobody is stored as technical or non-technical anywhere. The one place a
   skill level legitimately lives is the person's own `register` field in
-  their `identity.json`, self-declared, which the team-level
+  their `identity.json`, self-declared, which the shared-level
   `default-register` practice already reads. That field was absent from
   the individual-set template until this review, so a person bootstrapped
   before 2026-09-14 fell to the non-technical default without ever being
@@ -353,7 +353,7 @@ either; that is finding 7.
    is a one-sentence check there.
 
 **Where this is documented for the people who will meet it** (2026-09-14):
-[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
+[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)'s
 step 10 is the install step; [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md)'s
 "Who May Change What" is the technical summary;
 [FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md)'s "What You
@@ -377,5 +377,5 @@ check's `CONTRIBUTOR BOUNDARY` section reads the setting on every run.
   the practice set, needing a current approver's agreement.
 - **Non-GitHub hosts** ([TODO.md](../TODO.md) item 8). Layer 2 is GitHub's
   CODEOWNERS specifically; the idea generalises, the file does not.
-- **A second team source for the same subject area**, which is a resolution
+- **A second shared source for the same subject area**, which is a resolution
   question, not an access one.

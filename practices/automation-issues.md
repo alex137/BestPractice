@@ -4,6 +4,7 @@ title:       Unattended automation reports its own blockers as a tracked issue
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is an unattended job hitting a blocker at run time, which is a property of an automation's run history, not of a file a session edits. Reached through the occasion index. Decided: 2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance."
 occasion:    "an unattended job hits something blocking its normal work, or something optional it cannot reach"
 gates:       []
 index_clause: "a blocked job files or updates an issue; skip an optional input, never silently"
@@ -14,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "pending PR review -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session"
+approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session"
 ---
 ## Rule
 Any unattended job -- whatever a team's own automation adds -- that hits something blocking it from finishing its normal work (a missing or revoked credential, an unexpected failure) reports that blocker by opening or updating a tracked issue, not only a CI annotation or a job-summary line. Keep the annotation too -- it's free and some readers will still see it -- but treat it as a backup, not the primary channel.

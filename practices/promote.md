@@ -1,15 +1,17 @@
 ---
 slug:        promote
-title:       "\"Promote\" moves pre-staging into staging, or staging into main, and says which first"
+title:       "\"Promote\" moves pre-staging into staging, or staging into main, and says which first; \"Promote N\" does stage N of the five-stage ladder"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Promote\" about branch tiers, or asks to move pre-staging into staging or staging into main"
+applies_to_why: "A phrase in a MESSAGE, like go-update's and push-directly's entries -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-25, when the practice landed."
+occasion:    "a message says \"Promote\", \"Promote N\" or \"Graduate\", or asks to move pre-staging into staging or staging into main"
 gates:       ["merge"]
+gates_why:   "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
 index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
 checked_by:  null
-defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass."}
+defines:     ["Promote", "pre-staging", "Promote N", "Graduate", "the five stages"]
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass. \"Promote N\" does stage N of the five-stage ladder: 1 Consider, 2 Act, 3 Booked, 4 Debut, 5 Produce.", "Graduate": "The same as **Promote**."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -33,10 +35,49 @@ approved_by: "Morgan, 2026-09-27 (decided) -- never recommend a Promote
   steps with work waiting -- moves pre-staging into staging (Morgan,
   2026-09-26: \"if my 'promote' is ambiguous and you don't know which of
   the two types of promotion it should refer to - then choose to do
-  pre-staging to staging\", strength: decided)."
+  pre-staging to staging\", strength: decided). \"Graduate\" as a second
+  word for the same command is his too (Morgan, 2026-09-26: \"Let's add a
+  new vocab word 'graduate' to be used as a synonym for 'promote'\",
+  strength: decided); \"Promote N\" and the five stages, 2026-09-27/28
+  (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, strength: decided)."
 strength:    assented
 ---
 ## Rule
+**The five stages.** Promote is also the one word for the whole ladder a
+piece of work climbs, from idea to production -- **"Promote N" does stage
+N**, and each stage has its own word and a synonym:
+
+| # | Stage | Synonym | What happens | Practice |
+|---|---|---|---|---|
+| 1 | **Consider** | Plan | Decide how much plan the work needs, and make that much. | [consider](consider.md) |
+| 2 | **Act** | Build | Build it on this session's feature branch, pushed so it survives. | [act](act.md) |
+| 3 | **Booked** | Shared Save | Move it from the feature branch to the landing branch (pre-staging). Also **Go update**, **Book it**. | [go-update](go-update.md) |
+| 4 | **Debut** | Test Readiness | Promote pre-staging into staging, full checks. | [debut](debut.md) |
+| 5 | **Produce** | Make live | Promote staging into main -- production -- full checks plus the GitHub test. | [produce](produce.md) |
+
+The ladder is **optional for everyone**: anyone may use its words, nobody
+has to, and a repository without pre-staging simply has fewer stages. A
+person's own individual set may require it for them.
+
+- **Read back every stage before it runs**, with its number, word and
+  synonym and the repository and branches: *"Now Promote 4: Debut, Test
+  Readiness -- moving pre-staging into staging (BestPractice)."* A request
+  covering several stages names them all: *"Now Promote 3 then 4: ..."*.
+- **Read the request, never scan it for a word.** Every stage word is
+  ordinary English. The same step can be asked for many ways -- "Debut",
+  "Promote 4", "promote pre-staging to staging", "move BestPractice staging
+  to main" -- and a named step wins over any guess. Stage 5, which changes
+  production, is read most strictly.
+- **A bare Promote means the next step this work has not done, and never
+  skips one.** Between possible moves, take the lowest: work on the feature
+  branch means Booked first; pre-staging and staging both waiting means
+  pre-staging into staging (below). Asking for a higher stage runs the
+  lower ones first, and a bare Promote never sends finished work back to
+  Consider.
+- **"Graduate" is another word for Promote.**
+
+The rest of this Rule is stages 4 and 5 -- the moves between branch tiers.
+
 When a message says **"Promote"** about the branch tiers -- the whole
 message, or a clause like "promote pre-staging" -- **first check this
 session's own branch for work that is not on pre-staging yet**: anything

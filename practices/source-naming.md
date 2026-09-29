@@ -4,6 +4,7 @@ title:       A practice-set source carries its identity in its own manifest; its
 tier:        on-demand
 severity:    default
 applies_to:  ["precedent.json", "precedent-source.json"]
+applies_to_why: "Declaring a source IS editing precedent.json, and a source's own identity IS its precedent-source.json, so the two paths identify the practice's distinguishing condition rather than merely a necessary one. The Rule's other half -- say the convention before anyone picks a name -- is a conversational moment with no file at all, and no gate reaches it either; the occasion index carries that half, which is why the occasion names importing and creating a repository, not only declaring one. Decided: 2026-09-06, the session that landed the practice."
 occasion:    "importing, creating, or declaring a repository that holds practices"
 gates:       []
 index_clause: "identity lives in the manifest; name chosen once, repo called anything"

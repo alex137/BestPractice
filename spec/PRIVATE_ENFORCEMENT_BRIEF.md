@@ -12,7 +12,7 @@ summary:       Bringing mechanical checks to the two private sets' practices, bl
 # Brief — Bringing Mechanical Checks to the Private Sets
 
 **Read this if you are a session opened against
-`themorgan/precedent-individual` or `themorgan/precedent-team-repo-maintenance`,
+`themorgan/precedent-individual` or `themorgan/precedent-shared-repo-maintenance`,
 or against Precedent with one or both of them also attached.** It was
 originally written for exactly one of those sessions at a time — see
 [Why this could not run from Precedent](#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
@@ -46,7 +46,7 @@ Measured 2026-09-07, across the sources attached then:
 | Source | Active practices | With a `checked_by` | Check scripts |
 |---|---|---|---|
 | `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
-| `precedent-team-repo-maintenance` | 40 | 8 | 8 |
+| `precedent-shared-repo-maintenance` | 40 | 8 | 8 |
 | `precedent-individual` | 15 | 8 | 8 |
 
 So both of the sets this brief was written for now have their own
@@ -70,7 +70,7 @@ already states the standard every practice at every source should meet:
 > with the specific reason (not "too hard to check"), so the next session
 > can tell a considered "no" from an unexamined one.
 
-That standard is source-agnostic by design — a team or individual practice
+That standard is source-agnostic by design — a shared or individual practice
 is the same file format, with the same reachability question, as a
 universal one. This brief is the missing piece: how to actually meet it
 from inside a private repo, which has no `precedent_check.py` of its own
@@ -92,13 +92,13 @@ here:
 - **A session cannot hold repositories from two owners with push access at
   once.** The two private sets belong to a different account than this one.
 - **The plan forbids it regardless** ([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#risks)):
-  *"Nothing from an individual or team set may be staged on this branch at
+  *"Nothing from an individual or shared set may be staged on this branch at
   any point, even transiently."* Reading a private practice's content into a
   session that also holds this branch, even just to write its check, is the
   exposure the whole arrangement exists to prevent.
 
 So: one session, opened only against `precedent-individual` **or**
-`precedent-team-repo-maintenance` — never both at once with push access, and
+`precedent-shared-repo-maintenance` — never both at once with push access, and
 never alongside this repo.
 
 ## What to bring with you (public, safe to read from either side)

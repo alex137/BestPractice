@@ -27,7 +27,7 @@ Two things follow, and both are checked:
    authority**, and no practice's `checked_by` may point at a script under
    `philosophy/`. A rule that has genuinely earned its way out of the
    essays gets *written as a practice file* in the source it belongs to —
-   `practices/` for a generic rule, a team or individual source for one
+   `practices/` for a generic rule, a shared or individual source for one
    specific to a group or a person. Citing an essay in place of doing that
    makes prose into policy nobody approved.
 2. **No practice in the exported catalogue (`practices/`) may name

@@ -4,6 +4,7 @@ title:       GitHub API spend is measured, budgeted, and read off the headers
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/github_budget.py", "tools/github_api_budgets.json", "**/*github*.py"]
+applies_to_why: "Its own applies_to, and a real locus: the module that makes the calls, the registry that declares what they should cost, and any new file whose name says it talks to GitHub. Deliberately NOT `**` -- a rule about API spend has nothing to say to a session editing a practice file. What the glob cannot reach is a tool that calls the API under an unrelated name, which is exactly why the mechanical check enumerates every tracked .py rather than trusting this list. Decided: 2026-09-14, when the practice was written."
 occasion:    "writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error"
 gates:       []
 index_clause: "measure API spend from response headers; budget each tool; never /rate_limit"

@@ -4,6 +4,7 @@ title:       "\"Weak yes\" authorizes the work and records that it was not argue
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. A standing command phrase fires on something the person said, not on a file being edited; it is reached through the occasion index and the reply gate. Decided: 2026-09-09."
 occasion:    "a person says \"Weak yes\", or agrees without conviction"
 gates:       ["reply"]
 index_clause: "do it, and record the approval as `assented`"

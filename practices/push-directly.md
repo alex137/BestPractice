@@ -4,8 +4,10 @@ title:       "\"Push directly to [branch]\" -- skip go-update's judgment call, p
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same as go-update's own entry above. Routed by the `merge` gate. Decided: 2026-09-20, when the practice landed."
 occasion:    "a message says \"Push directly\" [to a branch], or says to skip the PR for one change"
 gates:       ["merge"]
+gates_why:   "Its whole subject, like go-update's, is what happens at a merge -- here, skipping it."
 index_clause: "no PR; with no branch named, the branch already in play"
 checked_by:  null
 defines:     ["Push directly"]
@@ -92,6 +94,13 @@ just correct.
 **A step you cannot perform hands off; it does not come back as a
 question** -- run [prompt-please](prompt-please.md) on the spot, same as
 [go-update](go-update.md).
+
+**A person whose `identity.json` sets `promote_only: true` cannot be pushed
+to `staging` or `main` this way**: the push gate refuses it. For that
+person, "push directly to main" lands on their landing branch and a
+Promote moves it up; say so in the reply's first line
+([current-rule-governs](current-rule-governs.md)) rather than letting the
+gate refuse the push.
 
 ## Why
 `Go update`'s Rule already allows overriding its own high-risk/default

@@ -176,7 +176,7 @@ that adds up fastest for exactly the person most likely to be running it
 everywhere.
 
 (Named `ci_workflows` until 2026-09-25; the old name is still read.)
-So the installer resolves `"github_ci_workflows"` from the individual or team
+So the installer resolves `"github_ci_workflows"` from the individual or shared
 source it can reach ([tools/precedent_identity.py](../tools/precedent_identity.py)'s
 `ci_preference()`, same resolution order as `relayed_authorization`: the
 repo's own `identity.json` when it IS an individual source, else the one
@@ -379,7 +379,7 @@ coverage.
 
 ### The Views Drift Gate
 
-An individual or team practice set generates its own views — `AGENTS.md`'s
+An individual or shared practice set generates its own views — `AGENTS.md`'s
 loader block, [MAP.md](../MAP.md) and [GLOSSARY.md](../GLOSSARY.md) — from its
 `practices/` directory and the engine vendored into its own `tools/`.
 **No separate copy step** — installing `precedent-check.yml.template`
@@ -550,7 +550,7 @@ cannot run is not evidence that what it checks is fine.
 
 **A CONSUMING repo's generated views cannot be gated in CI at all, and
 the drift gate above refuses rather than pretending.** A consuming repo's
-`practices/` is materialized from the sources it resolves: a team source is
+`practices/` is materialized from the sources it resolves: a shared source is
 a sibling clone outside the repo, an individual source resolves through a
 private user-level config. Neither exists in a bare CI checkout, so there is
 nothing on the runner to regenerate the views *from* — and

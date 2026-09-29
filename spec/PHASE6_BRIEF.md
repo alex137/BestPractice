@@ -51,7 +51,7 @@ inherits" section first — this brief does not restate them.
    — the audit table (closed by this brief), `for_team:`/`in_repos:`'s
    blocked-on status, and the `additionalContext` delivery question.
 5. **A genuinely clean install directly onto the Precedent loader** —
-   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
    and [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template).
    Also corrects a stale claim this brief's own first draft made (that the
    "step-5 bridge" was unbuilt) — `tools/precedent_sync_views.py` already
@@ -64,7 +64,7 @@ inherits" section first — this brief does not restate them.
 **Two open decisions, explained in full and left for Morgan's judgment**,
 tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](PRACTICE_ENGINE_PLAN.md#open-decisions):
 whether the leak gate's vocabulary blocklist is miscalibrated or has simply
-never run clean, and whether `precedent-team-repo-maintenance`'
+never run clean, and whether `precedent-shared-repo-maintenance`'
 `session-trailer` check should accept `Claude-Session:` or every session
 should start writing a literal `Session:` line too. Neither has a right
 answer this session can pick on its own — both are explained at length in
@@ -130,7 +130,7 @@ writing this brief has had access to yet.
 
 1. ~~**Extend `SETUP.md`/`INSTALL.md` for a genuinely clean install
    directly onto the Precedent loader.**~~ **Done (2026-09-03).**
-   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
    and [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
    — vendor `practices/` + the whole `tools/` engine, write
    `precedent.json`, instantiate the loader-variant `AGENTS.md`, run
@@ -149,7 +149,7 @@ writing this brief has had access to yet.
    carries (deliberately honest about not being wired in yet, not an
    oversight).
 3. **Upgrade `SETUP.md`/`GETTING_STARTED.md`'s disclosure** once §0 is
-   rehearsed and item 2 lands — name the individual/team/universal levels
+   rehearsed and item 2 lands — name the individual/shared/universal levels
    explicitly, rather than the capture-gate-only description
    [decisions/2026-09-03-setup-getting-started-disclosure-gap.md](../decisions/2026-09-03-setup-getting-started-disclosure-gap.md)
    deliberately limited itself to.

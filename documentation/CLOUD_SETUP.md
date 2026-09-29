@@ -36,18 +36,72 @@ PRECEDENT_COMMIT_NAME=Your Name
 PRECEDENT_COMMIT_EMAIL=you@example.com
 PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires   # an IANA zone name, never an offset
 
-# Only if a team practice source resolves as a sibling clone beside this
-# project — skip it otherwise:
-PRECEDENT_FRESHNESS_ALSO=~/precedent-individual=main
+# Only if a shared practice source resolves as a sibling clone beside this
+# project — skip it otherwise. A hosted session clones everything under
+# /home/user/, never ~ (which is /root there), so write the full path:
+PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-shared-set>=main
 ```
 
 Once `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` are set, the
-SessionStart hook clones your individual and team practice sets **before
+SessionStart hook clones your individual and shared practice sets **before
 the first turn** and writes your `~/.config/precedent/config.json` itself —
 there is nothing else to fill in by hand for a hosted session. The one field
 nothing can resolve on its own is your timezone in that set's
 `identity.json`; `PRECEDENT_COMMIT_TZ` above covers the same ground without
 it.
+
+## Optional but Recommended: Run Each Repo's Startup Hooks
+
+**Skip this and a session that opens across several repositories quietly
+runs none of their startup hooks.** It is one paste into the environment's
+setup script, done once per environment.
+
+Claude Code runs the hooks of the folder a session is opened in. A session
+that works across several repositories is opened in the folder that holds
+them all (`/home/user`), which has no hooks of its own, so **none of the
+repositories' SessionStart hooks run**: no commit identity, no practice list
+from your own and your team's sets, no engine refresh. Nothing inside a
+repository can fix this, because nothing inside one runs. A user-level hook
+does run, wherever the session opens, and
+[tools/precedent_run_session_hooks.py](../tools/precedent_run_session_hooks.py)
+is what it calls: it runs each repository's own SessionStart hooks, and does
+nothing in a session opened inside a repository.
+
+Add this to the environment's **setup script** (the environment's settings,
+under Setup script). It writes the user-level hook each time a container
+starts, and only new sessions pick it up. `~` is `/root` on a hosted
+container, so `~/.claude` is the user-level folder; written as
+`/home/user/.claude` instead, it becomes the settings of the folder the
+session opens in, which works just as well for a session opened there:
+
+```sh
+mkdir -p ~/.claude
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path.home() / '.claude' / 'settings.json'
+d = json.loads(p.read_text()) if p.exists() else {}
+cmd = ('f=$(ls -d /home/user/*/tools/precedent_run_session_hooks.py '
+       '2>/dev/null | head -1); [ -n "$f" ] && python3 "$f" || true')
+starts = d.setdefault('hooks', {}).setdefault('SessionStart', [])
+if cmd not in json.dumps(starts):
+    starts.append({'hooks': [{'type': 'command', 'command': cmd}]})
+p.write_text(json.dumps(d, indent=2))
+PY
+```
+
+**First added to a real environment on 2026-09-28, not yet confirmed in a
+session started after it.** The runner itself was run by hand in a real
+session opened in `/home/user` and ran all 25 hooks across six repositories;
+whether the hosted harness reads the user-level settings the setup script
+writes is what the next new session shows. In it,
+`python3 tools/precedent_session_check.py` reports whether
+`.precedent/SESSION_PRACTICES.md` exists and whether commits are authored by
+you, and both are red when no hook ran.
+
+While there, check `PRECEDENT_FRESHNESS_ALSO`: it should name
+`/home/user/` paths, as in the example above, and
+`python3 tools/precedent_session_check.py` prints the value computed from
+the clones actually on disk.
 
 ## Two Things That Each Cost a Day When Skipped
 

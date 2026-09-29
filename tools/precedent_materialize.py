@@ -142,7 +142,7 @@ def _self_referential_sources(sources, out_dir):
 # `../spec/ATTENTION_CEILING.md` are real paths in Precedent and absent
 # from every repo that installs it. So every consuming repo was shipping
 # ~60 practice files whose internal links 404 -- and the practice files are
-# the product. precedent-team-repo-maintenance' own light check had already had
+# the product. precedent-shared-repo-maintenance' own light check had already had
 # to exempt materialized practices/ from its broken-link scan to stay
 # green, which is the workaround this replaces.
 #
@@ -235,7 +235,7 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
     and the answer was always no: materialize() empties tools/checks/
     before it writes practices/ and only fills it afterwards. So the link
     got "placed" as an absolute URL into the source repository, which for
-    a team or individual source is a PRIVATE repository, replacing a
+    a shared or individual source is a PRIVATE repository, replacing a
     relative link that would have worked perfectly once the run finished.
     Observed in a real four-source consumer, 2026-09-06. Asking the plan
     instead of the disk also makes a dry run and a real run agree by
@@ -346,7 +346,7 @@ def _git_toplevel(start):
 # read as hand-dropped.
 #
 # Deliberately NOT carrying a `practice:` citation, though this code exists to
-# satisfy one: the deep-check rule that requires the driver is a TEAM-level
+# satisfy one: the deep-check rule that requires the driver is a SHARED-level
 # practice, and this repo's catalogue is the universal one, so the slug does
 # not resolve here and code-cites-practice correctly reads the citation as a
 # dangling reference. The citation form has no way to say "a practice from a
@@ -382,17 +382,27 @@ RUN_ALL_TAIL = """  esac
 
 status=0
 failed=()
+ran=0
 for t in test_*.sh; do
   # A repo that materialized no tests leaves the glob unexpanded; without
   # this the driver would try to run a file literally named test_*.sh and
   # report a failure that is really an empty set.
   [ -e "$t" ] || continue
+  ran=$((ran + 1))
   echo "--- $t ---"
   if ! bash "$t"; then
     status=1
     failed+=("$t")
   fi
 done
+
+# Say what ran, so silence is never read as a pass (2026-09-28: a fresh
+# install materializes no tests, and this driver used to print nothing).
+if [ "$ran" -eq 0 ]; then
+  echo "run_all: 0 materialized tests -- nothing ran"
+elif [ "$status" -eq 0 ]; then
+  echo "run_all: $ran test(s) run, 0 failed"
+fi
 
 if [ "$status" -ne 0 ]; then
   echo

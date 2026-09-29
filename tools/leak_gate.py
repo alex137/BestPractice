@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """leak_gate.py — the hard-failing leak gate
 (PRACTICE_ENGINE_PLAN.md, "The Verification Harness": "Leak gate — no
-individual- or team-level term appears anywhere in Precedent.
+individual- or shared-level term appears anywhere in Precedent.
 RPP's private-repo-scrub machinery generalized from words to sources,
 hard-failing rather than warning.")
 
@@ -18,7 +18,7 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   STRUCTURAL (this file, always on, runs in CI). Precedent holds universal
   practices and nothing else. Anything shaped like private-source content
   fails: a practice file outside practices/, a path belonging to an
-  individual or team set, a practice whose frontmatter claims a non-
+  individual or shared set, a practice whose frontmatter claims a non-
   universal source, a personal email address, an absolute home directory.
   These patterns are safe to publish because they describe SHAPES, not
   anyone's actual vocabulary.
@@ -800,7 +800,7 @@ def local_clone_refs(root):
     # SIBLINGS ARE NOT ALL OF THEM, and this container is the proof: a
     # person's individual practice set is cloned wherever their user-level
     # config says, which here is $HOME/precedent-individual while this repo
-    # and all three team clones sit under /home/user. Surveying siblings
+    # and all three shared-set clones sit under /home/user. Surveying siblings
     # alone found four of the five repositories on this disk and missed the
     # private one -- so its name was never auto-blocklisted and never
     # reported as uncovered, which is the exact shape of the bug this
@@ -1309,7 +1309,7 @@ def _require_vocabulary_configured():
 
 def _private_sources_declared(root=None):
     """-> True when precedent.json declares a source whose practice text is
-    private -- an individual or team set.
+    private -- an individual or shared set.
 
     THE HOLE THIS CLOSES, and it is in the docstring above. That one says the
     setting lives in git config because "whether a person HAS an individual
@@ -1501,9 +1501,10 @@ def main():
         print(f'leak gate NOT APPLICABLE: {_why}, so pushing this tree '
               f'publishes nothing and there is no leak for this gate to '
               f'prevent. This is a stand-down, NOT a pass -- it inspected '
-              f'nothing. What still guards content leaving here is '
-              f'practice_audit.py\'s scrub over the vendored tree, which is '
-              f'where the export actually happens.')
+              f'nothing. Content leaving here goes upstream as a pull '
+              f'request against a public source, whose own leak gate scans '
+              f'it on arrival; a loader install has no export scrub of its '
+              f'own, so review anything bound for upstream by hand.')
         return 0
 
     # The bare-name half, and the one that actually stops a private name

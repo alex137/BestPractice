@@ -4,6 +4,7 @@ title:       "Layered practice packs: a domain layer between generic and repo-lo
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "PRACTICES.md", "precedent.json"]
+applies_to_why: "Deciding where a new rule belongs happens where rules and the source declaration live. Decided: phase 4 routing pass."
 occasion:    "deciding where a new rule belongs"
 gates:       []
 index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"
@@ -89,7 +90,7 @@ made this upstream's own extraction clean.
 
 ## Install
 **On Precedent's loader:** write the domain practice as an ordinary Universal
-or Team practice file, with `applies_to` / `occasion` / `gates` scoping it to
+or Shared practice file, with `applies_to` / `occasion` / `gates` scoping it to
 the domain's work. Nothing else to install — it is routed the same way as
 every other on-demand practice.
 

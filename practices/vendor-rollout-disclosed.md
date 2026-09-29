@@ -4,8 +4,10 @@ title:       A change to what this repo ships states whether and how it reaches 
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md", "templates/**", ".claude/hooks/*.sh"]
+applies_to_why: "A real locus for most of what it governs -- a practice file, a template, a hook script -- but not all of it: the engine files this also covers are named individually in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists rather than matched by a path glob, since that set is a curated allowlist, not every *.py file under tools/. Reached for those by the gates below instead. Decided: 2026-09-18, when the practice landed."
 occasion:    "committing a shipped practice, hook, template or engine file, before push or merge"
 gates:       ["merge", "push"]
+gates_why:   "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it."
 index_clause: "say whether shipped content must reach consumers, and whether it will"
 index_required: true
 checked_by:  null
@@ -30,7 +32,7 @@ side of the chain, say two things out loud, not one:
    this repo's own
    [MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md)
    or
-   [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md).
+   [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md).
    Say "no, self-contained" and move on when that is the honest answer.
    Living under one of the paths above is necessary for a change to matter
    downstream; it is not sufficient.

@@ -26,7 +26,7 @@ A blank `practices/` directory gives a team nothing to copy from. This one
 file — real frontmatter, real section headers, in the format Precedent
 actually reads — is faster to edit into a first practice than reading the
 spec cold. See
-[`spec/PRACTICE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/main/spec/PRACTICE_FORMAT.md)
+[`spec/PRACTICE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md)
 in Precedent's own repo for what each field means and when a section can be
 left empty.
 
@@ -45,6 +45,6 @@ exempt from the rule it is modelling. `## Detail` above is left empty on
 purpose, because that section genuinely may be.
 
 ## Install
-Nothing to install — a team practice is resolved live from this repo by
+Nothing to install — a shared practice is resolved live from this repo by
 `tools/precedent_resolve.py`, once a consuming project declares this repo
-as a `"level": "team"` source in its own `precedent.json`.
+as a `"level": "shared"` source in its own `precedent.json`.

@@ -4,6 +4,7 @@ title:       "\"Primary branch\" names trunk -- the one shared branch regular wo
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same reasoning as go-update and push-directly's own entries. Reached through the occasion index; it declares no gate because it defines a word rather than governing a workflow moment. Decided: 2026-09-22, when the practice landed."
 occasion:    "a person says \"Primary branch\", or asks which branch is trunk or takes routine pushes and PRs"
 gates:       []
 index_clause: "trunk: the branch regular work pushes to and PRs target"
@@ -38,9 +39,10 @@ default chosen just because it is configured that way.
 
 **Under the branch tiers it is the branch this person's `Go update` lands
 on** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
-`python3 tools/precedent_branches.py --landing` names it -- `pre-staging`
-for everyone since 2026-09-25, unless a person's `landing_branch` says
-staging, the branch the repository declares above, or `main`. Staging and main are then what the
+`python3 tools/precedent_branches.py --landing` names it: the person's own
+`landing_branch` (identity.json) if set, else the repository's
+(precedent.json), else `staging` (Morgan, 2026-09-27, strength: decided); new
+repositories are written with `pre-staging`. Staging and main are then what the
 primary branch is promoted into, never where routine work is pushed.
 Morgan, 2026-09-25: *"we now have a concept called \"primary branch\" -
 that should probably be updated in reference to this"* (strength:

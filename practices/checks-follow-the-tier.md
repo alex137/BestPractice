@@ -4,6 +4,7 @@ title:       "Checks follow the tier: pre-staging judges the change, staging jud
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/precedent_push_check.py", "tools/precedent_merge_check.py", "tools/precedent_branches.py"]
+applies_to_why: "It governs which branch tier a check runs at, so it binds the three files that decide that: the push check, the merge gate and the tier resolver. Editing any of them is the moment a check's tier is set. Decided: 2026-09-27, when the practice landed."
 occasion:    "adding a check, or deciding which branch tier a check runs at"
 gates:       []
 index_clause: "pre-staging: fast, changed files only; staging: every file; main: plus GitHub"
@@ -32,8 +33,9 @@ approved_by: "Morgan, 2026-09-27 (strength: decided): \"for pre-staging, we shou
 runs at the Promote to `staging`; a failure there is fixed on
 `pre-staging` and promoted again (Morgan, 2026-09-27, strength: decided:
 *"The point of pre-staging is to move fast, so I want the 10 minute checks
-to happen at the staging level, not pre-staging"*; his individual set's
-`promote-only` already has the Promote carry the full check).
+to happen at the staging level, not pre-staging"*; his own
+promote-only rule, in his individual set, already has the Promote carry the
+full check).
 
 **A new check states its tier when it is added**, and a check that reads
 the whole repository runs at `pre-staging` only in a form limited to the
@@ -80,7 +82,21 @@ regenerates; it never rewrites anything itself. Everything else waits for
 
 **What moves a check to `pre-staging`:** it is fast (seconds, not minutes)
 and its finding can be pinned to a file. A check that cannot name a file,
-or needs the test suite, belongs at `staging`.
+or needs the test suite, belongs at `staging`. On 2026-09-29 seven test-suite
+checks that each judge one practice file moved on that rule into
+`precedent_check.py`'s `practice-file-shape`, and the routing reason's check
+moved with the reason into the practice file (`routing-reason`) -- so a
+broken practice file is refused at `pre-staging`, not twenty minutes into
+`staging` (Morgan, 2026-09-29: "make those per-file checks thorough at
+pre-staging, much moreso than rolling it out to test unrelated files").
+
+**`pre-staging` never reads the full history.** The author and date checks
+read only commits not yet on any remote, and a practice check given the
+push's range reads only that range: the harness-adapter ledger check walked
+four folders' whole history there until 2026-09-29, and pinned its finding
+to a file the push had not changed, so it read everything and could never
+refuse. The whole history is the very deep check's to read (Morgan,
+2026-09-29: "pre-staging should never do any check of a full history").
 
 **Where it is built.** `tools/precedent_push_check.py` decides the tier from
 the branch a push writes (`precedent_branches.tier_for_push`) and adds the

@@ -4,6 +4,7 @@ title:       Nothing you ship may sound like it came from an AI
 tier:        resident
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Its own applies_to. The occasion is writing anything a person will read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the glob is a second reminder rather than the only channel. The half no glob can reach is the chat reply, which is why it also carries the `reply` gate. Decided: landed universal 2026-09-07."
 occasion:    "writing anything a person will read -- a document, a reply, a commit message"
 gates:       ["reply"]
 index_clause: "say the thing in your own words; unrewritten model output is output nobody thought about"

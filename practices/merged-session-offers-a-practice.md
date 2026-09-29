@@ -4,8 +4,10 @@ title:       "A merged session offers one practice on its way out, or none"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, not a place — routed by the `reply` gate instead. Decided: Morgan F, 2026-09-14."
 occasion:    "a merged session closes as ready to archive"
 gates:       ["reply"]
+gates_why:   "Its occasion is the closing reply of a session that merged something and is ready to archive; tools/precedent_close_detect.py measures that moment from the transcript."
 index_clause: "one candidate at most, in the closing list, from this session's work"
 checked_by:  null
 defines:     []

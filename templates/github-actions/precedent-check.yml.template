@@ -1,5 +1,5 @@
 # Install as .github/workflows/precedent-check.yml in a PRACTICE SET -- an
-# individual or team source set that authors its own practices/ and vendors
+# individual or shared source set that authors its own practices/ and vendors
 # the engine into its own tools/. See GITHUB_ACTIONS.md, "Install in a
 # Practice-Set Repository". Replaces views-drift.yml.template, which no
 # longer exists as a separate file (folded in below as this workflow's own

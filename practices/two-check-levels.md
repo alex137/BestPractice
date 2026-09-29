@@ -4,6 +4,7 @@ title:       "Two named check levels: a fast one for every commit, a full one be
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires once, when a repo names its check levels. Nothing recurring to trigger on. Decided: phase 4 routing pass."
 occasion:    "naming what \"run the checks\" means in a repo"
 gates:       []
 index_clause: "name a fast check and a full check; say which gates what"
@@ -34,8 +35,11 @@ commit path.** At minimum: conflict markers, invalid JSON or YAML syntax
 (a practice file's own frontmatter included), secret-shaped strings (an
 Amazon Web Services (AWS)-style key ID, a Privacy-Enhanced Mail (PEM)
 private-key header, a token), and broken relative doc links. Run it before
-every commit, and wire it into continuous integration too, so it binds
-every push even when a session forgets to run it by hand. A style linter
+every commit, and wire it into the repo's commit or push gate (a local
+hook) so it binds even when a session forgets. Add a CI job only where
+changes arrive that no session checked, such as a consuming repo taking
+contributions from forks; a practice source runs none
+([source-sets-run-no-ci](source-sets-run-no-ci.md)). A style linter
 (accidental strikethrough, unlinked references, unglossed acronyms) is a
 complementary tool, not a substitute: this is the broader, cheaper net for
 "something obviously went wrong" that is not a style question.

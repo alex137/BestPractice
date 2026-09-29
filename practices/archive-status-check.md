@@ -4,8 +4,10 @@ title:       "\"Archive\" and \"Archive?\" both check what's outstanding first, 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Same locus as `archive-command`: a phrase (or its plain-language equivalent) in a MESSAGE, not a file path. Decided: 2026-09-18, coined alongside archive-command as its intent-checking counterpart."
 occasion:    "a message says \"Archive\" or \"Archive?\", or asks whether the session can be archived"
 gates:       ["reply"]
+gates_why:   "The check and the resulting archive-or-report both land in the reply, the same turn the question was asked."
 index_clause: "check pending; archive if clear, else say what isn't"
 checked_by:  null
 defines:     ["Archive", "Archive?"]
@@ -47,7 +49,9 @@ reply:**
 1. Nothing in the container that anybody wants to keep would be lost --
    **every checkout it holds, not just the one this session worked in**.
    Run [tools/precedent_container_safe.py](../tools/precedent_container_safe.py)
-   and read its answer rather than recalling what was pushed.
+   and read its answer rather than recalling what was pushed. It also lists
+   any command this session started that is still running: archiving kills
+   it, so stop each one with nothing left to do, or wait for it.
 2. Nothing is left to do directly in this session.
 3. No Routine is bound to this session (`list_triggers`).
 

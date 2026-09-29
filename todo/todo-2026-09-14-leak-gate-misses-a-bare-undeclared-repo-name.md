@@ -3,7 +3,7 @@ slug:              todo-2026-09-14-leak-gate-misses-a-bare-undeclared-repo-name
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         "2026-09-14"
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -93,3 +93,7 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed 2026-09-28
+
+Its own condition is met, found by the very deep check's pass 4: `auto-cover-bare-names` (tools/leak_gate.py) is on in the individual blocklist; a probe naming an undeclared sibling clone bare in a staged file gave `leak gate FAIL: 1 hit`.

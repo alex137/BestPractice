@@ -18,6 +18,13 @@ variables.** [CLOUD_SETUP.md](CLOUD_SETUP.md) walks through just that part,
 cloud-first; come back here for `identity.json`, the leak gate's vocabulary
 layer, or anything you're running locally instead.
 
+**Optional but recommended on the web: one setup-script paste**, so a
+session opened across several repositories still runs each one's startup
+hooks. It is
+[CLOUD_SETUP.md's own section](CLOUD_SETUP.md#optional-but-recommended-run-each-repos-startup-hooks).
+Every path in a hosted container is under `/home/user/`, not `~` (which is
+`/root` there), so write `/home/user/` in any variable that names a clone.
+
 ## What Applies Until You Set Any of It
 
 **Nothing here is asked of you** — not at install, not at setup, not by a
@@ -32,6 +39,8 @@ interrupting you for a value you can change in one sentence later
 | `PRECEDENT_COMMIT_TZ`, and `identity.json`'s `timezone` | This repository's declared `fallback_timezone`, `America/New_York`, and the author-date check downgrades from enforced to guessed |
 | `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](../practices/declared-pronouns.md)) |
 | `identity.json`'s `relayed_authorization` | `refused` — your approval does not travel to a session you are not typing in |
+| `identity.json`'s `landing_branch` | The repository's `precedent.json` `landing_branch`, else `staging` — where `Go update` lands your work ([tier-branch](../practices/tier-branch.md)) |
+| `identity.json`'s `branch_push_checks` | `basic` on every branch except `staging` and `main`, which always get the full check |
 | `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` | No private set resolves, so your own and your team's practices are silently absent — **the one row here whose default is genuinely bad**, and the reason the rest of this page exists |
 
 **The defaults are cheap to be wrong about; the last row is not.** A record
@@ -52,7 +61,7 @@ the environment's own configuration; locally, in your shell profile
 ```sh
 # Reaching your private practice sets from a hosted session
 export PRECEDENT_GIT_TOKEN="github_pat_<your read-only token>"
-export PRECEDENT_SOURCE_BASE_URL="https://github.com/<your-github-account>"
+export PRECEDENT_SOURCE_BASE_URL="https://github.com/<the account that owns your team's practice sets>"
 export PRECEDENT_PING=1          # throwaway: proves the variables arrive at all
 
 # Who your commits are by, and in what zone
@@ -61,8 +70,9 @@ export PRECEDENT_COMMIT_EMAIL="<you@example.com>"
 export PRECEDENT_COMMIT_TZ="America/New_York"   # an IANA zone name, never an offset
 
 # Freshness-check repositories your project's own hooks never reach.
-# Write `~/name`, never a spelled-out path: $HOME differs between containers.
-export PRECEDENT_FRESHNESS_ALSO="~/precedent-individual=main"
+# On a hosted session every clone is under /home/user/ (~ is /root there);
+# on your own computer, use wherever your clones actually are.
+export PRECEDENT_FRESHNESS_ALSO="/home/user/precedent-individual=main"
 ```
 
 **2. Your user-level config**, at `~/.config/precedent/config.json` — the
@@ -159,14 +169,14 @@ follow a session into every repository it touches.
 | Variable | Status | Example value |
 |---|---|---|
 | `PRECEDENT_GIT_TOKEN` | Required to reach a private practice set from a hosted session; irrelevant without one | `github_pat_<the rest of your read-only token>` |
-| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/your-github-account` |
+| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/<the account that owns your team's practice sets>` — if your own `precedent-individual` lives under a different account (it does, unless you own the shared sets), also set `PRECEDENT_INDIVIDUAL_REPO` |
 | `PRECEDENT_COMMIT_NAME` | Recommended | `Your Name` |
 | `PRECEDENT_COMMIT_EMAIL` | Recommended, alongside the name | `you@example.com` |
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
-| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
+| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `/home/user/precedent-individual=main;/home/user/precedent-shared-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
-| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
-| `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
+| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
+| `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the shared sets | `https://github.com/another-account/precedent-individual` |
 
 **Give your environments distinct names, and set a throwaway
 `PRECEDENT_PING=1` beside the token.** Verified 2026-09-08: an account can hold
@@ -267,7 +277,7 @@ it.
 | `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py) uses it to clone them at session start — and, since 2026-09-11, to fast-forward the ones already on disk, so a container that has been up for days is not still reading the sources as they were the day it started. A clone with uncommitted work in it is reported and left alone, never clobbered. Since 2026-09-11 each synced clone also keeps the credential helper in its own config, so a later plain `git fetch` inside it works too — the helper names the variable, so no token is written to disk. Nothing else reads it. |
 | `PRECEDENT_SOURCE_BASE_URL` | same | Where a practice set is cloned from, by name: `<base>/<set-name>`, e.g. `https://github.com/<account>`. Covers the **individual** set as well as the team ones (since 2026-09-10) — [source-naming](../practices/source-naming.md) fixes that set's name to `precedent-individual` for everybody, so the account is the only unknown and this supplies it. Without it neither can be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](../precedent.json)'s own comment says why. |
 | `PRECEDENT_GIT_TOKEN_USER` | same | Optional. The username sent with the token; defaults to `x-access-token`, which GitHub accepts alongside any personal access token. |
-| `PRECEDENT_INDIVIDUAL_REPO` | same | Optional. The individual set's full URL, overriding the `<base>/precedent-individual` derivation above. Needed only where that set does not sit under the same account as the team sets. |
+| `PRECEDENT_INDIVIDUAL_REPO` | same | Optional. The individual set's full URL, overriding the `<base>/precedent-individual` derivation above. Needed only where that set does not sit under the same account as the shared sets. |
 | `PRECEDENT_GIT_TOKEN=inherit` | same | Opt-in: use whatever git credential the container itself carries (`GITHUB_TOKEN`, then `GH_TOKEN`). **Expect it to be refused** — see below. |
 
 **About `inherit`, and why it is opt-in rather than a fallback.** A Claude
@@ -303,6 +313,10 @@ reports the hook as unwired at every session start. The hook file and the one
 `SessionStart` command are both yours to add there — `--apply` writes neither
 for a set whose settings do not already declare the hook — ahead of
 `commit-identity.sh`, which reads that set for the author and the timezone.
+
+An individual set may also ship `bootstrap/pre-commit-fix`: the commit
+backstop runs it before every commit in every repository, and never lets it
+refuse one.
 
 **Verified end to end, 2026-09-10.** A real read-scoped token set on the
 environment, and a brand-new container came up with all four private sources
@@ -390,7 +404,7 @@ a clone that failed leaves exactly the same fingerprint.
 |---|---|---|
 | `git config precedent.freshness.intervalSeconds` | per checkout | How long the freshness guard's `user-prompt` mode stays quiet between checks. Default 600. |
 | `git config precedent.freshness.override true` | per checkout | Stops the guard refusing a write on a stale checkout. Deliberate override; the guard prints this remedy itself when it blocks. |
-| `PRECEDENT_FRESHNESS_ALSO` | environment | `;`-separated `<path>=<base branch>` entries naming repositories the session merely has **attached** — a sibling clone a team source resolves to, anything `add_repo` handed it. A hook only ever fires for the project dir, so without this an attached repo runs none of its own freshness checking, however correctly its guard is installed. Unset, nothing changes. An entry naming a path that is absent or is not a git repository is reported and skipped, never blocked on. Set it on the environment, like `PRECEDENT_COMMIT_*` below and for the same reason: environment variables follow a session into every repository it touches. **Write a path under your home directory as `~/name` or `$HOME/name`, not spelled out**: an individual practice source lives at `$HOME/precedent-individual`, and `$HOME` is not the same on every container, so an absolute path written on one names nothing on the next — silently, since a dead entry is skipped rather than blocked on. `$CLAUDE_PROJECT_DIR` is expanded too. `python3 tools/precedent_session_check.py` reports any entry that resolves to nothing and prints the value to set instead. |
+| `PRECEDENT_FRESHNESS_ALSO` | environment | `;`-separated `<path>=<base branch>` entries naming repositories the session merely has **attached** — a sibling clone a shared source resolves to, anything `add_repo` handed it. A hook only ever fires for the project dir, so without this an attached repo runs none of its own freshness checking, however correctly its guard is installed. Unset, nothing changes. An entry naming a path that is absent or is not a git repository is reported and skipped, never blocked on. Set it on the environment, like `PRECEDENT_COMMIT_*` below and for the same reason: environment variables follow a session into every repository it touches. **Write a path under your home directory as `~/name` or `$HOME/name`, not spelled out**: an individual practice source lives at `$HOME/precedent-individual`, and `$HOME` is not the same on every container, so an absolute path written on one names nothing on the next — silently, since a dead entry is skipped rather than blocked on. `$CLAUDE_PROJECT_DIR` is expanded too. `python3 tools/precedent_session_check.py` reports any entry that resolves to nothing and prints the value to set instead. |
 | `PRECEDENT_INDIVIDUAL_REPO` | environment | Overrides `individual.repo_url` for one session — for an environment that sets per-session variables and would rather not touch the config file. |
 | `PRECEDENT_COMMIT_NAME` / `_EMAIL` / `_TZ` | environment | The commit-identity layer that reaches a repository attached mid-session, which no hook can. Normally derived from your individual set's `identity.json` by the harness adapter's `env` block rather than set by hand. |
 | `PRECEDENT_ALLOW_ANY_AUTHOR=1` | one command | Lets a single commit through the author check. For a commit deliberately authored by someone else. |

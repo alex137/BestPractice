@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["**"]
+applies_to_why: "No locus, and deliberately so. The occasion is a moment in a conversation -- a branch has just done its job -- and the failure being prevented is a tool call, not an edit: a session about to run `git push origin --delete` is touching no file the path channel could match on. It carries its occasion-index line instead, which is the one channel loaded before a session acts. Decided: Morgan, 2026-09-21, when the practice was added."
 occasion:    "a branch has done its job, or a person says to delete branches"
 gates:       []
 index_clause: "never delete a remote branch; hand over the one-click link"
@@ -29,8 +30,8 @@ strength:    decided
 ## Rule
 **Do not try to delete a branch on the remote. Not once, not as a retry, and
 not by a different route after the first one failed.** A session running in
-Claude Code on the web cannot remove a remote ref — this is settled, measured,
-and not worth one more token of anybody's budget.
+Claude Code on the web cannot remove a remote ref — this is settled
+(measured 2026-09-14) and not worth one more token of anybody's budget.
 
 **Every one of these is forbidden**, listed by name so nobody rediscovers them
 one at a time:

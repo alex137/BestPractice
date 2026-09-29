@@ -4,10 +4,12 @@ title:       "\"Upstream fix\" asks whether the change fixes what caused the pro
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Upstream fix\", or asks whether a change fixes the root cause"
-gates:       []
-index_clause: "does it fix the cause? if not, fix the root or hand off"
-checked_by:  null
+applies_to_why: "A phrase in a MESSAGE, about whatever change is in front of the session -- no file path reaches it, and its work (finding the cause, fixing the root, handing off the rest) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-24, when the practice landed."
+occasion:    "a person says \"Upstream fix\", or asks whether a change fixes the root cause; or a session fixing a problem, adding a check for one, or adding an exemption"
+gates:       ["reply"]
+gates_why:   "Points 5 and 6 apply without being asked, to any fix a turn reports: the reply is where a check-only fix or a new exemption gets presented as done, so that is the moment to ask what caused it."
+index_clause: "fix the cause, not just add a check; a new exemption means look again"
+checked_by:  "tools/precedent_check.py"
 defines:     ["Upstream fix"]
 command:     {"Upstream fix": "Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo."}
 status:      active
@@ -59,6 +61,27 @@ order:
    more in plain prose outside it. Under that rule, the block carries a
    merge authorization only when the person gave one for this handoff.
 
+**Two more apply every time, without being asked** (Morgan, 2026-09-29,
+strength: decided):
+
+5. **A check that catches the problem later is not the fix. Remove what
+   made the mistake possible.** Ask what let it happen in the first place:
+   a second copy of something that has to be kept in step by hand, a manual
+   step no tool does, an instruction that steers the wrong way, a list
+   someone has to remember to update. Remove that. Add a check only for the
+   part that cannot be removed, and say which part that is. Example: new
+   practices kept arriving without an entry in a second routing file, and a
+   test caught it at staging; the fix was to move the reason into the
+   practice file itself, so there is no second file to forget.
+6. **Any new exemption is a sign the root fix has not been made.** Before
+   adding an exemption, allowlist or waiver entry to any check, ask why the
+   check is wrong about this case, and teach the check if it can learn.
+   Only when it cannot, or not in this session, add the exemption with a
+   `root_fix` saying which, hand off the root fix with
+   [Prompt Please](prompt-please.md), and tell the person either way.
+   `precedent_check.py --only upstream-fix` refuses a new
+   entry in a `precedent.json` exemption list without a `root_fix`.
+
 ## Detail
 **This command is the explicit, on-demand form of two standing rules.**
 [fix-the-original](fix-the-original.md) says to fix the origin of a copied
@@ -107,7 +130,24 @@ vendored in as the places to look, and routed any cross-repo work through
 [Prompt Please](prompt-please.md) rather than a new handoff mechanism.
 Strength: decided.
 
+**Points 5 and 6 came from one session's own misses** (2026-09-29). Five new
+practices failed a staging test for having no routing entry; the session
+added the entries, and Morgan asked why the fix was a check and not the
+cause: *"preventing that sort of issue is more important than just checking
+later ... in addition to add checks to find it later, fix what actually
+caused the problem originally."* The same session had also exempted a
+set's whole root from the file-name separator check, when the check simply
+did not know two names were fixed by engine tools. *"Maybe whenever we need
+to add an 'exemption' of any sort anywhere, we always use that as an
+example of a root fix opportunity."* Both root fixes shipped with the rule.
+
 ## Install
-No mechanical check. Whether a reply found the real cause is a judgment
-about the problem, not a property a script can see in the diff, the same
-as [go-update](go-update.md) and [write-it-up](write-it-up.md).
+Points 1 to 4 have no mechanical check: whether a reply found the real
+cause is a judgment about the problem, not a property a script can see in
+the diff, the same as [go-update](go-update.md) and
+[write-it-up](write-it-up.md). Points 5 and 6 reach every turn through the
+`reply` gate. Point 6 is also checked: `precedent_check.py --only
+upstream-fix` compares each exemption list in
+`precedent.json` (every `*_exempt` key, and `not_binding`) with the base
+branch, and refuses an entry that is new there and has no `root_fix`.
+Entries that were there before are left alone until someone touches them.

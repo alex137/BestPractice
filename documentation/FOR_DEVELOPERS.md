@@ -22,7 +22,7 @@ fetched while you work.
 One path. §1 below is described because installs made that way still
 exist, not because anyone should take it — it was retired 2026-09-23:
 
-- **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)**
+- **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)**
   — straight onto Precedent's three-source loader: the practice catalogue
   vendored at `precedent/universal/`, the engine at `tools/`, and
   `AGENTS.md`'s generated block (resident practices, occasion index,
@@ -130,7 +130,7 @@ here rather than leaving to be discovered at the link.
   omitting it is not neutral: `title_case.py` falls back to reasoning from
   *Precedent's* directory names, so your whole tree reads as published and
   `headline-capitalization` reports headings you never meant to rewrite.
-  [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using).
+  [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader).
 - **The timezone in `identity.json` is the field that fails silently.**
   Name and email resolve from the GitHub account the session is
   authenticated as, so a half-filled identity looks fine; nothing anywhere
@@ -150,7 +150,7 @@ defines it.
 
 **Not technical, or handing this to someone who isn't?**
 [SETUP.md](../SETUP.md) runs the same install as a conversation: the
-administrator pastes it to their AI Assistant and answers three questions.
+administrator pastes it to their AI Assistant and answers five questions.
 
 ## All Interaction Happens Through Chat or Voice With an AI Assistant
 
@@ -175,8 +175,8 @@ Before explaining how practices are created, it's useful to understand the
 different levels a practice can live at — every stage below names one.
 
 A practice lives at one of four levels, in precedence order (highest wins
-on conflict): **team > repo-local > individual > universal**. The team
-sits above the individual on purpose: your preference for a casual tone is
+on conflict): **shared > repo-local > individual > universal**. A shared
+set sits above the individual on purpose: your preference for a casual tone is
 about how you work, your team's rule that anything sent to a client is
 formal is about what you all ship, and the second has to win. A practice
 marked `severity: blocking` cannot be overridden from above at all, and
@@ -184,9 +184,9 @@ every override is reported rather than applied silently.
 
 - **Universal** — the shared, public Precedent library everyone starts
   from.
-- **Team** — a private repository of practices for one team. You can have
-  more than one (an engineering-conventions team repo and a separate
-  editorial-conventions team repo, say).
+- **Shared** — a private repository of practices a group of people share.
+  A project can declare more than one (an engineering-conventions set and a
+  separate editorial-conventions set, say).
 - **Individual** — a private, personal set of practices, declared in your
   own user-level configuration, never in a shared project's tracked
   files. One per person, however many teams you are on: your own facts
@@ -201,8 +201,8 @@ every override is reported rather than applied silently.
 **Two of those four levels are yours to create, and you are encouraged to.**
 If you keep writing the same rule into project after project, that rule
 wants to be an **individual** set. If your team keeps re-agreeing the same
-convention in review, that wants to be a **shared** set (`--level team` is
-the old spelling and still reads).
+convention in review, that wants to be a **shared** set (the old spelling, `--level team`,
+still reads).
 
 **Which of the two, decided by one question: do you want this rule in
 EVERY project you touch?** Your individual set resolves through your own
@@ -246,15 +246,15 @@ sources apply to it in a `precedent.json` at its root:
 {
   "sources": [
     {"level": "universal", "name": "precedent", "path": "process/upstream"},
-    {"level": "team", "name": "<your team repo>", "path": "../<your team repo>"}
+    {"level": "shared", "name": "<your shared-set repo>", "path": "../<your shared-set repo>"}
   ]
 }
 ```
 
-No new team or individual source? `precedent_bootstrap_source.py`
+No new shared or individual source? `precedent_bootstrap_source.py`
 instantiates a real starter set from a skeleton in one command:
 ```
-python3 tools/precedent_bootstrap_source.py --level team \
+python3 tools/precedent_bootstrap_source.py --level shared \
     --name <name> --dest <local clone path> --approver "Your Name:your-github-handle"
 ```
 (`--level individual` for a personal set — no `--approver` needed there;
@@ -297,8 +297,8 @@ runs at each one:
    ```
    This writes one dated file to `candidates/*.md` — nothing is loaded
    into context, filed as a practice, or shown to anyone else yet. For a
-   **team** candidate, the same command with `--level team --path <team
-   repo>`; pass `--as-issue true` instead of writing a file when whoever's
+   **shared-set** candidate, the same command with `--level shared --path
+   <shared-set repo>`; pass `--as-issue true` instead of writing a file when whoever's
    raising it isn't a listed approver (see "How practices are approved,"
    below) — that drafts a GitHub Issue body instead, since a quiet file
    nobody's watching doesn't get anyone's actual yes. A **universal**
@@ -325,7 +325,7 @@ runs at each one:
    python3 tools/precedent_land.py --file <the drafted candidate> \
        --level individual --path <your individual repo> --approved-by "<you>"
    ```
-   For team, add `--level team --path <team repo>` with `--approved-by`
+   For a shared set, add `--level shared --path <shared-set repo>` with `--approved-by`
    naming a listed approver. For universal, `precedent_land.py` only
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
@@ -369,7 +369,7 @@ workflow, not its first run on a collaborator's branch.
 
 Every GitHub setting in this section, and what GitHub itself does with a
 CODEOWNERS file, is [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md). The install
-step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using);
+step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader);
 the design, and the three GitHub behaviours it still rests on unverified,
 is [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md);
 [templates/document-project/](../templates/document-project/) is the
@@ -384,7 +384,7 @@ has to say yes?*
 - **Yours alone (individual level):** you're the only approver. Agreeing
   to it in conversation is the `--approved-by` step above — it lands
   immediately.
-- **Your team's:** a listed approver (an entry in that team repo's
+- **A shared set's:** a listed approver (an entry in that shared-set repo's
   `approvers.json`, matched by name or GitHub handle) has to agree. If
   you're one of them, your yes in conversation *is* the approval, landed
   the same way. If not, `precedent_candidate.py create --as-issue true`
@@ -435,7 +435,7 @@ Landing a *new* enforced practice carries a hard rule, not a suggestion:
 tested check behind it — a slug has to already be a key in
 `precedent_check.py`'s registry (universal) or have both a
 `tools/checks/check_<name>.py` and a passing
-`tools/checks/tests/test_<name>.sh` (team/individual) before it can land.
+`tools/checks/tests/test_<name>.sh` (shared/individual) before it can land.
 
 ### Retiring a Practice Nobody Uses
 

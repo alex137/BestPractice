@@ -31,7 +31,7 @@ The same six steps repeat every time, in order:
    [`decisions-carry-their-situation`](OUR_PHILOSOPHY.md#decisions-carry-their-situation)),
    staying visible to whichever session opens this repo next.
 
-## See Also
+## See also
 
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

@@ -12,7 +12,7 @@ four repositories" into "the practices in force here".
 WHO DECLARES WHICH SOURCE, AND WHY THAT SPLIT IS A PRIVACY BOUNDARY RATHER
 THAN A CONVENIENCE.
 
-  The CONSUMER REPO declares universal, its team set, and its own repo-local
+  The CONSUMER REPO declares universal, its shared set, and its own repo-local
   set, in a tracked config file (precedent.json). Everyone working there
   gets those, and everyone working there can already read them.
 
@@ -26,15 +26,15 @@ THAN A CONVENIENCE.
   their own personal practices and neither seeing the other's. That falls out
   of where the declaration lives; it is not a rule anyone has to remember.
 
-PRECEDENCE is team > repo-local > individual > universal, by slug (changed
-2026-09-03 from the phase-3 individual > team > universal order — see
+PRECEDENCE is shared > repo-local > individual > universal, by slug (changed
+2026-09-03 from the phase-3 individual > shared > universal order — see
 spec/SOURCES.md for the reasoning). A team's rules bind everyone in it, so
 they are the strongest -- closest to actual law for that group. Universal
 covers every Precedent user in the world, so by design it is the lowest
 common denominator and the weakest. An individual's own practices sit in
 between: more binding than a rule meant for the whole world, less binding
 than what a person's own team requires of them. Repo-local sits alongside
-that same ladder, between individual and team, since it speaks to the actual
+that same ladder, between individual and shared, since it speaks to the actual
 working reality of one specific repo rather than a person's general style --
 but nothing here is fixed forever: any practice at any level can still be
 reordered relative to one slug via `overrides:`, or protected from every
@@ -141,7 +141,7 @@ def _self_heal_individual_source(repo_root):
 def _self_heal_universal_source(repo_root):
     """practice: session-bootstrap -- the mirror-image gap to
     _self_heal_individual_source above, for a SOURCE-kind repo (an
-    individual or team practice set) that declares the universal source
+    individual or shared practice set) that declares the universal source
     (BestPractice) in its own precedent.json.
 
     NO TIMING RACE HERE, unlike the individual case: BestPractice is
@@ -289,7 +289,7 @@ def _self_heal_stale_render(repo_root):
 # HIGHEST PRECEDENCE FIRST -- read this tuple left to right as strongest to
 # weakest. (Changed 2026-09-03: this used to be listed lowest-first, weakest
 # to strongest, which reads backwards to an English speaker scanning a
-# left-to-right list -- team > repo-local > individual > universal is the
+# left-to-right list -- shared > repo-local > individual > universal is the
 # actual precedence order, matching how it is written and spoken everywhere
 # else in this codebase and its docs.)
 #
@@ -441,7 +441,7 @@ def warn_name_matches_path(level, name, path, where):
 
     Warning on every mismatch is wrong too, and that is the narrower point.
     The first version did, and it fired on perfectly correct fixtures and
-    checkouts whose directory is simply named something else ('team-set',
+    checkouts whose directory is simply named something else ('shared-set',
     'ind', a temporary directory) -- noise on legitimate work, which is the
     fastest way to teach a reader to ignore a warning. So it fires only when
     the directory basename already carries the `precedent-` prefix: that is a
@@ -637,9 +637,9 @@ def load_config(repo, user_config=None):
             # the universal source cannot write a relative path that is
             # correct everywhere: an individual set is cloned to
             # $HOME/precedent-individual, and $HOME is /root on some
-            # containers and /home/user on others, while the team sets and
+            # containers and /home/user on others, while the shared sets and
             # the consuming repo sit side by side. So "../BestPractice"
-            # resolves from a team set and names nothing from an individual
+            # resolves from a shared set and names nothing from an individual
             # one. Same reasoning, and the same remedy, as
             # PRECEDENT_FRESHNESS_ALSO's "write the path as ~/name, never
             # spelled out". An already-relative path is unaffected: expansion
@@ -1043,7 +1043,7 @@ def resolve(sources):
                 # whichever the config happens to list second. The plan
                 # says this fails loudly ("the resolver fails loudly if two
                 # same-level practices claim one slug"), and until
-                # 2026-09-06 it did not: two team sources with a shared
+                # 2026-09-06 it did not: two shared sources with a shared
                 # slug resolved silently to the later one, reported only as
                 # an `overridden:` notice on stderr that reads exactly like
                 # a legitimate higher-level override. load_source() already
@@ -1090,11 +1090,46 @@ def resolve(sources):
             practice['fm'], practice.get('sections'),
             slug_in_force=lambda s: follow_in_force_at(s, resolved, retired) is not None)
         if msg:
-            dangling.append({'slug': practice['slug'], 'source': practice['source'],
-                             'level': practice['level'], 'file': practice['file'],
-                             'why': msg})
+            entry = {'slug': practice['slug'], 'source': practice['source'],
+                     'level': practice['level'], 'file': practice['file'],
+                     'why': msg}
+            # A universal copy withdrawn ON PURPOSE to a set this repo does
+            # not declare is not "the deduplication that silently loses a
+            # rule": precedent_move.py wrote down where it went and that the
+            # reach loss was accepted. Said as that, so a reader can act on
+            # it (declare the set) instead of hunting a bug. Still reported
+            # -- the rule does not bind here, and whether that is fine is
+            # this repo's call.
+            gone = withdrawn_from_universal(practice.get('sections'))
+            if gone:
+                entry.update(withdrawn_on=gone[0], withdrawn_to=gone[1],
+                             why=(f"withdrawn from universal on {gone[0]}; in "
+                                  f"force in `{gone[1]}` -- declare that set "
+                                  f"to keep it"))
+            dangling.append(entry)
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired, 'dangling': dangling}
+
+
+# The Story line tools/precedent_move.py appends when it withdraws a
+# universal practice with --accept-reach-loss: "Withdrawn from universal on
+# <date>, deliberately, with --accept-reach-loss[ (approved by X)]:
+# deduplicated here; the rule is in force only from the <level> set `<set>`
+# now." Read back rather than stored as a new frontmatter field: a field
+# would change the practice-file format every set and consumer vendors, and
+# this sentence is already on every such stub.
+_WITHDRAWN_RE = re.compile(
+    r'Withdrawn from universal on (\d{4}-\d\d-\d\d)\b.*?'
+    r'in force only from the \w+ set `([^`]+)`', re.S)
+
+
+def withdrawn_from_universal(sections):
+    """-> (date, set name) when a deduplicated stub's ## Story records a
+    deliberate withdrawal from universal, else None. The LAST such line
+    wins, the way the latest Story line is the current record."""
+    story = (sections or {}).get('story') or ''
+    found = _WITHDRAWN_RE.findall(story)
+    return tuple(found[-1]) if found else None
 
 
 def follow_in_force_at(slug, resolved, retired):
@@ -1169,7 +1204,7 @@ def resident_stats(res):
     source existed to combine with. `spec/PRIVATE_SETS_BRIEF.md` flagged the
     gap explicitly and asked the session populating the private sets to
     report back a combined figure "so a Precedent session can build the
-    cross-source cap" -- nothing ever did. A team set marking six practices
+    cross-source cap" -- nothing ever did. A shared set marking six practices
     resident and an individual set marking three, on top of this repo's own
     six, pushes a real resolved session's context well past the 2,000-token
     budget with nothing objecting, because no single source's build ever
@@ -1268,7 +1303,7 @@ def main():
             sys.exit(
                 f"precedent resolve FAIL: no practice sources are declared for "
                 f"{repo}. A repository using Precedent declares its universal and "
-                f"team sources in a tracked {REPO_CONFIG}; a person declares their "
+                f"shared sources in a tracked {REPO_CONFIG}; a person declares their "
                 f"own individual set in their user-level config "
                 f"({DEFAULT_USER_CONFIG}, or {USER_CONFIG_ENV}). Nothing was "
                 f"resolved because nothing was asked for -- that is not an empty "
@@ -1321,7 +1356,10 @@ def main():
                          'refused': b['refused']['level']} for b in res['blocked']],
             'missing': res['missing'],
             'dangling': [{'slug': d['slug'], 'source': d['source'],
-                          'why': d['why']} for d in res.get('dangling', ())],
+                          'why': d['why'],
+                          **({'withdrawn_to': d['withdrawn_to']}
+                             if d.get('withdrawn_to') else {})}
+                         for d in res.get('dangling', ())],
             # None when an individual source was declared (its fate is then
             # in 'missing' like any other source's). Otherwise says whether
             # "no individual practices" is a finding or merely a silence.

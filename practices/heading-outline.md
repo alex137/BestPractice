@@ -4,6 +4,7 @@ title:       "A document's heading levels form an outline, with nothing skipped"
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Wide on purpose, and the counterpart to headline-capitalization's narrow glob. Whether an outline is BROKEN is not a matter of audience -- a skipped level misfiles a section in any renderer, in a spec or a practice file exactly as in a published page -- while how a heading is STYLED only matters where people outside the project read it. The two halves came out of one retired team rule that bound both to `**/*.md`; splitting the scopes is the point of splitting the slugs. Measured before it was set: the whole tracked tree had exactly one violation, in generated output, so the wide glob costs no backlog. Decided: 2026-09-06, when the practice was added."
 occasion:    "adding or re-levelling a heading in any document"
 gates:       []
 index_clause: "never jump a heading level; a heading one below its parent, or deeper by one"

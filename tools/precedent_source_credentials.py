@@ -161,8 +161,8 @@ def consuming_repo_root(engine_root=None):
     two levels up. `ROOT` there is `process/upstream`, and the vendored tree is
     a whole copy of THIS repository, precedent.json included. So the default
     root found a precedent.json, parsed it, resolved its `../precedent-team-*`
-    paths against `process/upstream/` -- and reported three team sources
-    missing, by name, at paths like `<consumer>/process/precedent-team-writing`
+    paths against `process/upstream/` -- and reported three shared sources
+    missing, by name, at paths like `<consumer>/process/precedent-shared-writing`
     that nothing has ever put anything at.
 
     That reading is the worst shape a wrong answer can take here, and it is
@@ -407,7 +407,7 @@ def unresolved_private_sources(repo_root=None, env=None):
     """-> [(level, name, why)] for every PRIVATE-level source this repo
     expects and this session does not have on disk.
 
-    Declaration is what makes a team source expected; for an individual set
+    Declaration is what makes a shared source expected; for an individual set
     there is nothing in any repo to declare it (that is the whole point of
     it living in a user-level config), so the expectation is structural: a
     hosted session that has no individual config has either not got one or
@@ -418,11 +418,16 @@ def unresolved_private_sources(repo_root=None, env=None):
 
     cfg = _read_json(root / 'precedent.json') or {}
     for src in cfg.get('sources', []) or []:
-        if src.get('level') != 'team':
+        # 'shared' since 2026-09-18; 'team' is the old spelling a config
+        # written before then still carries. Until 2026-09-29 this read only
+        # 'team', so every set declared the current way was skipped and a
+        # missing shared set was never reported -- the retired word hid the
+        # bug (practice: rename-updates-links).
+        if src.get('level') not in ('shared', 'team'):
             continue
         path = (root / str(src.get('path', ''))).resolve()
         if not (path / 'practices').is_dir():
-            out.append(('team', str(src.get('name') or path.name),
+            out.append(('shared', str(src.get('name') or path.name),
                         f'{path} has no practices/ directory'))
 
     user_cfg, code = individual_config_state(env)

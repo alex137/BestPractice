@@ -4,6 +4,7 @@ title:       "A variant re-derives what it inherits: limits it must respect, cho
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires on the relationship between a thing and its variant. Decided: phase 4 routing pass."
 occasion:    "building a variant of an existing thing"
 gates:       []
 index_clause: "re-derive what a variant inherits; limits bind, choices do not"

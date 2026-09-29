@@ -76,7 +76,7 @@ rather than shrugged at: **a session verifying that a local re-declaration is
 no longer load-bearing cannot do it by deduplicating the file and seeing the
 check still pass.** File presence alone produces that result, so the weak
 test "confirms" the removal while proving nothing. The decisive test is
-removing the file entirely. That is how a team set's re-declared
+removing the file entirely. That is how a shared set's re-declared
 catalogue-carries-stories copy was actually verified on 2026-09-13; the
 weaker test would have passed just as readily on a copy that was still the
 only thing switching the check on.
@@ -295,7 +295,7 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     exactly wrong for a practice SOURCE set: a source set's practices/
     holds its own practices only, so every other level's check skips
     there -- permanently, since it resolves no sources and materializes
-    nothing into itself. Measured 2026-09-12 in a team source: 12 checks
+    nothing into itself. Measured 2026-09-12 in a shared source: 12 checks
     passed and 42 SKIPPED, all 42 for that one reason. The cost was
     already paid once -- a practice file there shipped a relative link to
     a file materialization does not copy, live in the publishing set and
@@ -385,10 +385,10 @@ def register_materialized_checks():
 
     WHY THIS EXISTS. Until this ran, nothing anywhere invoked those
     scripts. `precedent_materialize.py` copied them in, `precedent_land.py`
-    refused to land a team or individual practice without one, and
+    refused to land a shared or individual practice without one, and
     `spec/PRIVATE_ENFORCEMENT_BRIEF.md` told a private set how to write
     them -- and then a consuming repo held fourteen real, tested check
-    scripts (nine in precedent-team-repo-maintenance, five in
+    scripts (nine in precedent-shared-repo-maintenance, five in
     precedent-individual, as of 2026-09-06) that no command ever ran. The
     enforced channel was live for the universal catalogue and hollow for
     exactly the sources an adopting team writes for itself.
@@ -848,6 +848,16 @@ def _cite_the_incident(ctx):
 VERSION_SUFFIX_RE = re.compile(
     r'(?:^|[-_.])(?:v\d+|version\d*|rev\d+|final|latest|old|new|copy|backup|bak|'
     r'draft|\d{4}[-_]\d{2}[-_]\d{2})$', re.I)
+# State words are a different case from version and date tokens. A version
+# or date token at the end of a name is a label on an evolving file whatever
+# sits beside it; a state word is also ordinary English -- whats-new.md,
+# deep_copy.py, a draft.md that IS the draft -- and refusing it anywhere
+# refused honest names (a very deep check, 2026-09-28). What the practice is
+# about is the FORK: report-final.md added beside report.md. So a state word
+# is flagged only when the name with it stripped already exists beside it,
+# which is the reverse of the coexistence exception a version token gets.
+VERSION_SUFFIX_STATE_WORDS = frozenset(
+    {'final', 'latest', 'old', 'new', 'copy', 'backup', 'bak', 'draft'})
 
 
 _FRONTMATTER_RE = re.compile(r'\A---\n(.*?)\n---\n', re.S)
@@ -917,7 +927,7 @@ def _foreign_practice(rel):
        'It tests that the section says something, not that it says something '
        'dramatic.',
        # Binds a publisher: a catalogue is the thing a source set publishes,
-       # so this rule is about its output. One team set proved it wanted to
+       # so this rule is about its output. One shared set proved it wanted to
        # run there the hard way -- it re-declared this practice locally
        # purely to defeat the gate, and that second copy never agreed with
        # universal's for the whole week it existed. Retired 2026-09-13 once
@@ -1780,11 +1790,14 @@ def _practice_carries_its_files(ctx):
     return out
 
 @check('no-version-suffix', 'change',
-       'a file added by this change must not carry a version, date or state '
-       'suffix in its name',
-       'a versioned name that was already committed, and a version token that '
-       'is not at the END of the name. It gates what a change ADDS, one file '
-       'at a time.',
+       'a file added by this change must not end its name in a version or '
+       'date token (unless it sits beside the unsuffixed predecessor it must '
+       'coexist with), nor in a state word -- final, draft, copy, new, old, '
+       'latest, backup -- beside the unsuffixed original it forks',
+       'a versioned name that was already committed, a version token that '
+       'is not at the END of the name, and a state-word fork whose original '
+       'has a different name. It gates what a change ADDS, one file at a '
+       'time.',
        # A practice file added under a versioned name is published under it.
        # Audit: spec/PUBLISHER_GATE_AUDIT.md.
        binds_publishers=True)
@@ -1803,15 +1816,26 @@ def _no_version_suffix(ctx):
         m = VERSION_SUFFIX_RE.search(stem)
         if not m:
             continue
+        predecessor = path.with_name(stem[:m.start()] + ext)
+        has_predecessor = bool(stem[:m.start()]) and \
+            (ctx.root / predecessor).exists()
+        token = stem[m.start():].lstrip('-_.').lower()
+        if token in VERSION_SUFFIX_STATE_WORDS:
+            # A state word names a fork only when the original is beside it.
+            if has_predecessor:
+                out.append(Finding(f, f'the file name carries a state word '
+                                      f'({token!r}) beside {predecessor.name} '
+                                      f'-- a forked copy the repository '
+                                      f'already versions; edit the original'))
+            continue
         # The Rule's own coexistence exception: a version suffix earns its
         # place when two versions must coexist and it is the NEW file that is
         # suffixed beside its unsuffixed predecessor. If a sibling with the
         # suffix stripped already exists in the same directory, this added
         # file is that legitimate case, not a redundant-with-VCS label.
-        predecessor = path.with_name(stem[:m.start()] + ext)
-        if (ctx.root / predecessor).exists():
+        if has_predecessor:
             continue
-        out.append(Finding(f, 'the file name carries its version or state '
+        out.append(Finding(f, 'the file name carries its version or date '
                               '— name it for what it is'))
     return out
 
@@ -1851,7 +1875,13 @@ def _technical_describes_people(ctx):
     # technical-describes-people.md, inside a mirror the consumer may not
     # edit and cannot rename. Ask the engine (practice: durable-fix).
     skip = ('practices/', 'record/') + _mirrored(ROOT)
-    for f in ctx.changed:
+    # The WHOLE tree, not ctx.changed. This is a tree-scope check, and
+    # --full-sweep builds no whole-tree ctx (only --all does), so on a clean
+    # checkout ctx.changed is empty and the sweep passed without reading a
+    # single path -- found 2026-09-28 by a very deep check. Untracked files
+    # are included for the same reason timestamps-carry-offset includes
+    # them: the tree being judged is the one the next commit will hold.
+    for f in _ls_files_on_disk('--cached', '--others', '--exclude-standard'):
         if f.startswith(skip):
             continue
         for part in pathlib.PurePath(f).parts:
@@ -1886,7 +1916,39 @@ def _separator_foreign():
 
 # Filenames fixed by the engine, identical in every Precedent repository,
 # and therefore never a repository's own separator choice.
-ENGINE_FIXED_FILENAMES = frozenset({'precedent-source.json'})
+#
+# READ FROM THE TOOLS, NOT LISTED HERE (2026-09-29). This was a hand-kept
+# set holding only precedent-source.json, so every other name a tool fixes
+# -- reply_check.json, very-deep-check-decisions.json -- read as the
+# repository's own choice, and a set carrying two of them was refused for a
+# clash no one in it could fix. The individual set exempted its root instead,
+# which hid the cause. Now a tool that fixes a file name declares it as a
+# module-level constant named *_NAME, *_FILENAME or *_MANIFEST, and this
+# set is collected from those declarations, so a new fixed name is covered
+# the day its tool declares it (practice: upstream-fix).
+_FIXED_NAME_RE = re.compile(
+    r"""^[A-Z][A-Z0-9_]*(?:NAME|MANIFEST)\s*=\s*['"]([A-Za-z0-9._-]+\.[A-Za-z]+)['"]""",
+    re.M)
+
+
+def _engine_fixed_filenames():
+    names = set()
+    for f in sorted(pathlib.Path(__file__).resolve().parent.glob('*.py')):
+        try:
+            names.update(_FIXED_NAME_RE.findall(f.read_text(encoding='utf-8')))
+        except OSError:
+            continue
+    return frozenset(names)
+
+
+ENGINE_FIXED_FILENAMES = _engine_fixed_filenames()
+
+
+# An ISO date inside a file name (report_2026-09-19.md) carries hyphens
+# because ISO 8601 puts them there, not because anyone chose "-" as the
+# separator. Counting them made a directory with one consistent convention
+# read as mixed (a dated report or audit carries its date in its name).
+_ISO_DATE_RE = re.compile(r'\d{4}-\d{2}-\d{2}')
 
 
 @check('filename-separator', 'tree',
@@ -1934,7 +1996,7 @@ def _filename_separator(ctx):
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not
         # chosen here.
-        stem = path.name.split('.')[0]
+        stem = _ISO_DATE_RE.sub('', path.name.split('.')[0])
         key = (str(path.parent), path.suffix)
         if '-' in stem:
             groups[key]['-'].append(path.name)
@@ -1953,9 +2015,13 @@ def _filename_separator(ctx):
             f'{dirname}/' if dirname != '.' else '.',
             f'{len(seen["-"])} file(s) use "-" ({kebab}) and '
             f'{len(seen["_"])} use "_" ({snake}) for the same kind '
-            f'(*{ext}) in one directory -- pick one, or exempt the group in '
-            f'precedent.json with the reason each name was determined '
-            f'elsewhere'))
+            f'(*{ext}) in one directory -- first fix the cause: rename the '
+            f'newer file to match its directory, or, when a tool fixes the '
+            f'name, declare it in that tool as a *_NAME constant so no '
+            f'repository counts it again. Exempt the group in precedent.json '
+            f'only when neither is possible, with the reason each name was '
+            f'determined elsewhere and a root_fix saying why the cause '
+            f'cannot be fixed (practice: upstream-fix)'))
     return out
 
 
@@ -2522,7 +2588,7 @@ def _practice_is_reachable(ctx):
     reads as authoritative.
 
     Measured here on 2026-09-06: 30 of 114 practices in force in Precedent's
-    own repo were reachable by nothing at all -- 27 from the team source and
+    own repo were reachable by nothing at all -- 27 from the shared source and
     3 from the individual one. Both are genuinely declared in
     `precedent.json` and in the user-level config; neither reaches
     `AGENTS.md`'s generated block, because `build_views.py` deliberately
@@ -2542,7 +2608,7 @@ def _practice_is_reachable(ctx):
     runs, which is this repo's own documented lesson.
 
     A source that does not RESOLVE in this environment is skipped, never
-    reported -- a team source is a sibling clone and an individual source
+    reported -- a shared source is a sibling clone and an individual source
     resolves through a private user-level config, so neither exists in a
     bare CI checkout, and their absence there is not evidence of anything.
     """
@@ -2619,7 +2685,7 @@ def _practice_is_reachable(ctx):
 
     # THE FIFTH CHANNEL, and why it is judged structurally rather than by
     # looking for the file. In a repo declaring `visibility: public`, the
-    # tracked loader block deliberately omits the team and individual
+    # tracked loader block deliberately omits the shared and individual
     # levels -- their text may not be committed -- and
     # tools/precedent_session_practices.py renders exactly that complement
     # into .precedent/SESSION_PRACTICES.md at session start, which
@@ -2855,6 +2921,52 @@ def _gotcha_record_entries(rel):
 # so this universal check does not start failing every not-yet-migrated
 # consumer the day it is vendored.
 _GOTCHA_FM_FIELD_RE = re.compile(r'^([a-z_]+):\s*(.*)$')
+# A line of an INDEX of the catalogue, as opposed to a citation of one trap
+# in running prose: a list item or table row whose link goes to one gotcha
+# file (or into an old GOTCHAS record's anchor). The Rule says none of the
+# catalogue loads into the instructions file, "not even a one-line-per-trap
+# index", and until 2026-09-28 the migrated branch of this check never looked
+# at the instructions file at all, so an index could regrow there unseen.
+# Prose that cites the trap it is talking about -- this repo's AGENTS.md
+# does, twice -- is a pointer at one story, not a catalogue, and passes.
+_GOTCHA_INDEX_LINE_RE = re.compile(
+    r'^[ \t]*(?:[-*+]|\d+[.)]|\|)[ \t].*\]\([^)]*'
+    r'(?:gotchas/gotcha-[^)]*\.md|GOTCHAS[^)#]*\.md#[A-Za-z0-9_-]+)[^)]*\)',
+    re.M)
+GOTCHA_INDEX_MAX_LINES = 1
+# Printed, never returned as a Finding, by the pre-migration fallback below:
+# advice to move, which must not fail a run that is otherwise clean.
+GOTCHA_MIGRATE_ADVISORY = (
+    '  (environment-gotchas: ADVISORY, not a violation -- {name} still '
+    'carries the gotcha catalogue, or an index of it; migrate to gotchas/ '
+    '(spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2), one file per trap, with '
+    'tools/todo_migrate.py, and leave {name} one pointer)')
+
+
+def _gotcha_index_findings():
+    """Findings for an instructions file that carries an index of the
+    gotcha catalogue -- two or more list or table lines each linking one
+    trap -- where the catalogue has migrated to gotchas/."""
+    out = []
+    for name in ('AGENTS.md', 'CLAUDE.md'):
+        f = ROOT / name
+        if not f.is_file():
+            continue
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        lines = [m for m in _GOTCHA_INDEX_LINE_RE.finditer(text)]
+        if len(lines) > GOTCHA_INDEX_MAX_LINES:
+            first = text.count('\n', 0, lines[0].start()) + 1
+            out.append(Finding(f'{name}:{first}',
+                               f'carries an index of the gotcha catalogue '
+                               f'({len(lines)} list or table lines each '
+                               f'linking one trap) -- none of the catalogue '
+                               f'loads into the instructions file, not even '
+                               f'a one-line index; keep one pointer to '
+                               f'gotchas/ and its generated overview'))
+    return out
 
 
 def _read_gotcha_files(root):
@@ -2905,8 +3017,10 @@ def _read_gotcha_files(root):
 @check('environment-gotchas', 'tree',
        'the session instructions point at a gotcha catalogue and every live '
        'entry in it carries what failed, not only the fix — reading '
-       'gotchas/*.md directly where a repo has migrated to that shape, or '
-       'following the link into the record on the pre-migration shape',
+       'gotchas/*.md directly where a repo has migrated to that shape (and '
+       'then refusing an index of it -- two or more list or table lines '
+       'each linking one trap -- in AGENTS.md or CLAUDE.md), or following '
+       'the link into the record on the pre-migration shape',
        'whether the story is a good story, whether it is true, or whether the '
        'catalogue is complete. It tells a one-line command from an entry that '
        'took the trouble to say what happened, and no more — padding defeats '
@@ -2926,9 +3040,10 @@ def _environment_gotchas(ctx):
     if gotcha_files is not None:
         out = []
         live = [g for g in gotcha_files if g[1] == 'live']
+        out.extend(_gotcha_index_findings())
         if not live:
-            return [Finding(name, 'gotchas/ exists but has no status: live '
-                                  'entries')]
+            return out + [Finding(name, 'gotchas/ exists but has no status: '
+                                        'live entries')]
         for f, status, symptom_ok, words, sentences in live:
             rel = f.relative_to(ROOT)
             if not symptom_ok:
@@ -2941,6 +3056,15 @@ def _environment_gotchas(ctx):
                                              f'{"sentence" if sentences == 1 else "sentences"}) '
                                              f'with no account of what failed'))
         return out
+
+    # THE PRE-MIGRATION SHAPE, still validated -- and now also told to move.
+    # Until 2026-09-28 this fallback judged an inline index in AGENTS.md and
+    # said nothing else, so a consumer that never migrated passed green
+    # forever while carrying the very catalogue the Rule says must not load
+    # into the instructions file. The validation stays, so an unmigrated
+    # consumer does not turn red the day this is vendored; the advisory is
+    # printed on every run, and never fails it.
+    print(GOTCHA_MIGRATE_ADVISORY.format(name=name))
 
     rest = text[m.end():]
     end = re.search(r'^#{1,4}\s', rest, re.M)
@@ -4223,10 +4347,21 @@ def _no_hardcoded_git_identity(ctx):
         raise NotApplicable('this repo has no tracked .claude/settings.json')
     try:
         payload = json.loads(settings.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        # Unparseable JSON is the harness's problem to report, not this
-        # check's to guess at.
-        return []
+    except (OSError, ValueError) as e:
+        # Used to return clean, on the theory that the harness reports it.
+        # Nothing did: a broken settings.json passed this check silently,
+        # and it is the one state in which this check cannot say whether
+        # an identity is hardcoded at all (very deep check, 2026-09-28).
+        return [Finding(str(settings.relative_to(ROOT)),
+                        f'could not be read as JSON ({e}) -- so whether it '
+                        f'hardcodes GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL '
+                        f'cannot be checked, and a harness that cannot parse '
+                        f'it runs none of the hooks it wires either')]
+    if not isinstance(payload, dict):
+        return [Finding(str(settings.relative_to(ROOT)),
+                        f'is JSON but not an object (it is a '
+                        f'{type(payload).__name__}), so it has no env block '
+                        f'or hooks a harness could read')]
     env = payload.get('env')
     if not isinstance(env, dict):
         return []
@@ -4254,39 +4389,40 @@ def _no_hardcoded_git_identity(ctx):
 
 @check('workflow-yaml-github-can-parse', 'tree',
        'no GitHub Actions workflow file, and no workflow template this repo '
-       'ships, uses a YAML anchor or alias -- GitHub\'s own workflow '
-       'parser rejects them outright, and a workflow it refuses to parse '
-       'does not fail, it never runs',
+       'ships, uses a YAML merge key (`<<: *name`) -- GitHub\'s own '
+       'workflow parser rejects it, and a workflow it refuses to parse '
+       'does not fail, it never runs. Plain anchors and aliases are fine: '
+       'GitHub has supported them since 2025-09-18',
        'everything else GitHub\'s parser is stricter about than PyYAML is. '
-       'This tests the one divergence that has actually cost a workflow '
-       'here; it is not a reimplementation of GitHub\'s schema, and a file '
-       'that clears it can still be rejected for another reason. Also '
-       'blind to a workflow PyYAML itself cannot parse -- that is '
-       'parse_check.py\'s finding, not this one\'s.',
+       'This tests the one divergence known to cost a workflow; it is not a '
+       'reimplementation of GitHub\'s schema, and a file that clears it can '
+       'still be rejected for another reason. Also blind to a workflow '
+       'PyYAML itself cannot parse -- that is parse_check.py\'s finding, '
+       'not this one\'s.',
        practice_backed=False)
 def _workflow_yaml_github_can_parse(ctx):
-    """A YAML anchor (`&name`) and alias (`*name`) are core YAML 1.1 and
-    PyYAML resolves them without complaint. GitHub Actions does not support
-    them in workflow files.
+    """A YAML merge key (`<<: *name`, extending a mapping with an aliased
+    one) is YAML 1.1, and PyYAML resolves it without complaint. GitHub
+    Actions does not support it in workflow files.
 
-    THE INCIDENT (2026-09-21, gotcha-2026-09-21-github-actions-rejects-yaml-
-    anchors-python-accepts). A workflow merging two repos' checks into one
-    job needed the same `paths:` list on its `push:` and `pull_request:`
-    triggers and used an anchor, which is what any YAML author would write.
-    `python3 -c "import yaml; yaml.safe_load(...)"` -- the exact command
-    this repository's own templates and pull-request bodies recommend --
-    accepted it.
+    THE HISTORY. This check was written on 2026-09-21 to refuse every anchor
+    and alias (gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-
+    accepts), on the belief that GitHub rejects them. It had supported plain
+    anchors and aliases since 2025-09-18 (GitHub changelog, "Actions: YAML
+    anchors and non-public workflow templates"); the session that met the
+    anchor expanded it before pushing, so the rejection was assumed, never
+    observed. A very deep check found that on 2026-09-28 and narrowed this
+    to the merge key, which that same changelog says is still unsupported.
 
     WHAT MAKES IT WORTH A CHECK RATHER THAN A NOTE. The failure is not a red
     run. GitHub refuses the file, so the workflow does not appear at all,
     and the branch reads as having no CI rather than broken CI. Every local
-    verification this project teaches passes it, which means the belief "it
-    parses locally, so it will run" is true for indentation, true for tabs,
-    true for a missing colon, and false for exactly this.
+    verification this project teaches passes it.
 
-    Detected through PyYAML's own event stream rather than by matching `&`
-    and `*` in the text: a workflow is full of `&&`, `2>&1` and `*.md`, and
-    a detector that cried wolf on those is one nobody would run twice."""
+    Detected through PyYAML's token stream -- a plain `<<` scalar in key
+    position -- rather than by matching `<<` in the text: a workflow's run
+    steps are full of heredocs (`cat <<EOF`), and a detector that cried wolf
+    on those is one nobody would run twice."""
     import re as _re
     try:
         import yaml
@@ -4299,42 +4435,41 @@ def _workflow_yaml_github_can_parse(ctx):
                           if x.suffix in ('.yml', '.yaml'))
     tmpl = ctx.root / 'templates' / 'github-actions'
     if tmpl.is_dir():
-        # The templates ship INTO other repos' .github/workflows/, so an
-        # anchor here is the same defect with a blast radius.
+        # The templates ship INTO other repos' .github/workflows/, so a
+        # merge key here is the same defect with a blast radius.
         targets += sorted(x for x in tmpl.iterdir() if x.is_file())
     if not targets:
         raise NotApplicable('no .github/workflows/ and no '
                             'templates/github-actions/ here -- this repo '
                             'neither runs nor ships a workflow file')
-    # THE FALLBACK IS NOT A CONVENIENCE, IT IS THE POINT. The first version
-    # of this check raised NotApplicable without PyYAML, and CI -- which
-    # does not install it -- skipped the check and failed its own planted
-    # case on the very first run. A check that silently declines in the one
-    # environment that gates every pull request is not a check
-    # (practice: durable-fix). So: the event stream where PyYAML exists, and
-    # where it does not, a STRUCTURAL match that only accepts an anchor or
-    # alias in a position YAML would read as one -- a bare `key: &name` or
-    # `- *name` line. `echo "a && b" 2>&1; ls *.md` matches none of them,
-    # which is the property the planted case exists to prove.
-    structural = _re.compile(
-        r'^\s*(?:-\s+)?(?:[A-Za-z0-9_.<-]+:\s*|-\s*)[&*][A-Za-z0-9_-]+'
-        r'\s*(?:#.*)?$')
+    # THE FALLBACK IS NOT A CONVENIENCE, IT IS THE POINT. CI does not
+    # install PyYAML, and the first version of this check skipped there and
+    # failed its own planted case on its first run (practice: durable-fix).
+    # So: the token stream where PyYAML exists, and where it does not, a
+    # STRUCTURAL match that only accepts `<<:` where YAML would read it as a
+    # key. `cat <<EOF` in a run step matches neither.
+    structural = _re.compile(r'^\s*(?:-\s+)?<<\s*:')
     findings = []
     for path in targets:
         try:
             text = path.read_text(encoding='utf-8')
         except OSError:
             continue
-        how = 'PyYAML event stream'
+        how = 'PyYAML token stream'
         if yaml is not None:
             try:
-                marks = [(getattr(ev, 'anchor', None), ev.start_mark.line + 1)
-                         for ev in yaml.parse(text)]
+                hits, prev = set(), None
+                for tok in yaml.scan(text):
+                    if (isinstance(prev, yaml.KeyToken)
+                            and isinstance(tok, yaml.ScalarToken)
+                            and tok.plain and tok.value == '<<'):
+                        hits.add(tok.start_mark.line + 1)
+                    prev = tok
             except yaml.YAMLError:
                 # Unparseable is parse_check.py's finding. A template
                 # carrying substitution placeholders may land here too.
                 continue
-            hits = sorted({line for name, line in marks if name})
+            hits = sorted(hits)
         else:
             how = 'structural match (no PyYAML here)'
             hits = sorted(i for i, line in enumerate(text.splitlines(), 1)
@@ -4342,15 +4477,14 @@ def _workflow_yaml_github_can_parse(ctx):
         if hits:
             findings.append(Finding(
                 str(path.relative_to(ctx.root)),
-                f'uses a YAML anchor or alias at line'
+                f'uses a YAML merge key (`<<:`) at line'
                 f'{"s" if len(hits) > 1 else ""} '
                 f'{", ".join(str(h) for h in hits)} ({how}). PyYAML '
-                f'resolves these; '
-                f'GitHub Actions rejects the file outright, and a workflow '
-                f'GitHub refuses to parse does not show up as a failing run '
-                f'-- it does not run at all, so the branch looks like it has '
-                f'no CI rather than broken CI. Write the repeated block out '
-                f'literally on both sides.'))
+                f'resolves it; GitHub Actions rejects the file outright, and '
+                f'a workflow GitHub refuses to parse does not show up as a '
+                f'failing run -- it does not run at all, so the branch looks '
+                f'like it has no CI rather than broken CI. Write the merged '
+                f'keys out literally; a plain `*alias` is fine.'))
     return findings
 
 
@@ -4534,10 +4668,10 @@ _ENGINE_REF_ABSENT_OK = {
 # catalogue did every part of the job except the job. `git commit -a` does
 # not stage an untracked file, so `practices/fail-gracefully.md` and
 # `practices/bold-key-phrases.md` were written, regenerated into every view,
-# given routing entries, deleted from both team sets -- and never added.
+# given routing entries, deleted from both shared sets -- and never added.
 #
 # For one pushed commit the two rules were in force NOWHERE: gone from both
-# team sets, absent from the repository they had been promoted into. EVERY
+# shared sets, absent from the repository they had been promoted into. EVERY
 # GATE PASSED, in both directions, and neither is a bug: locally the files
 # were on disk, so the loader and every check read them and were right; in
 # the pushed tree they did not exist, and a practice that does not exist
@@ -6608,8 +6742,37 @@ def _index_remembers_past(ctx):
     return out
 
 
-TWO_CHECK_LEVELS_RE = re.compile(
-    r'\*\*light check\*\*.{0,400}?\*\*deep check\*\*', re.S | re.I)
+# The practice's Rule puts the two names in the repo's GLOSSARY.md and says
+# any repo-chosen pair is fine; the check used to demand the literal bold
+# pair `**light check**` ... `**deep check**` in the instructions file, which
+# failed a repo that followed the Rule with its own names. The pair is now
+# read from GLOSSARY.md -- every row whose link points at the practice file,
+# wherever the repo keeps it (practices/, a mirror, a GitHub URL) -- and only
+# where the glossary names none does the practice's own suggested pair stand
+# in, so a repo that never wrote a glossary row is judged as before.
+TWO_CHECK_LEVELS_DEFAULT = ('light check', 'deep check')
+_TWO_CHECK_LEVELS_ROW_RE = re.compile(
+    r'^\|\s*([^|]+?)\s*\|.*\]\([^)]*two-check-levels\.md(?:#[^)]*)?\)',
+    re.M)
+
+
+def _two_check_level_names():
+    """-> (names, where) -- the repo's own level names from GLOSSARY.md, or
+    the practice's default pair when the glossary names none."""
+    g = ROOT / 'GLOSSARY.md'
+    if g.is_file():
+        try:
+            text = g.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            text = ''
+        names = []
+        for m in _TWO_CHECK_LEVELS_ROW_RE.finditer(text):
+            term = m.group(1).strip().strip('*`').strip()
+            if term and term.lower() not in [n.lower() for n in names]:
+                names.append(term)
+        if names:
+            return tuple(names), 'GLOSSARY.md'
+    return TWO_CHECK_LEVELS_DEFAULT, None
 
 
 
@@ -6896,22 +7059,460 @@ def _decommission_deletes_files(ctx):
 
 
 @check('two-check-levels', 'tree',
-       'the session instructions name two fixed, distinct check levels '
-       '("light check" / "deep check") and say which gates a commit versus '
-       'a push',
-       'whether those are the RIGHT two tools per level, or whether a '
+       'the session instructions name both of the repo\'s two check levels '
+       '-- the pair GLOSSARY.md defines against this practice, or "light '
+       'check" / "deep check" where the glossary defines none -- and the '
+       'glossary, when it names any, names two distinct levels',
+       'whether those are the RIGHT two tools per level, whether the file '
+       'says which level gates a commit and which a push, or whether a '
        'session actually runs the one it names -- only that a repo-chosen '
-       'pair of names exists, so "run the light check" and "run the deep '
-       'check" are unambiguous requests rather than needing re-description '
-       'every time.')
+       'pair of names exists and the instructions use it, so "run the light '
+       'check" and "run the deep check" are unambiguous requests rather than '
+       'needing re-description every time.')
 def _two_check_levels(ctx):
     name, text = _instructions_file()
-    if not TWO_CHECK_LEVELS_RE.search(text):
-        return [Finding(name, 'does not name a fixed "light check" / "deep '
-                              'check" pair, so a session asked to run '
-                              '"the check" has to re-derive what that '
-                              'means every time')]
+    names, source = _two_check_level_names()
+    if source and len(names) < 2:
+        return [Finding(source, f'defines only one check level against '
+                                f'two-check-levels ({names[0]!r}) -- the '
+                                f'practice names two, a fast one and a full '
+                                f'one')]
+    missing = [n for n in names
+               if not re.search(r'(?<![\w-])' + re.escape(n) + r'(?![\w-])',
+                                text, re.I)]
+    if missing:
+        origin = (f'the pair {source} defines' if source else
+                  'a fixed pair (GLOSSARY.md defines none, so "light check" '
+                  '/ "deep check" stands in)')
+        return [Finding(name, f'does not name {" or ".join(repr(n) for n in missing)} '
+                              f'-- {origin} -- so a session asked to run '
+                              f'"the check" has to re-derive what that '
+                              f'means every time')]
     return []
+
+
+@check('routing-reason', 'tree',
+       'every active on-demand practice in the engine\'s own catalogue says '
+       'why its applies_to is what it is, in its own applies_to_why field',
+       'whether the reason is a GOOD one, or whether the globs match it -- '
+       'only that a reason was written down where the practice is. A source '
+       'set or consumer is not held to it: the field is optional there, '
+       'since the second file that made it necessary only ever existed here.',
+       practice_backed=False,
+       selects_on=('practices/*.md', 'tools/routing_scope.json'))
+def _routing_reason(ctx):
+    # WHY THE REASON LIVES IN THE PRACTICE (2026-09-29). It used to live in
+    # tools/routing_scope.json, one entry per practice, and a harness test
+    # failed when a practice had none. The second list was the cause of the
+    # failure it tested for: five new practices arrived without entries, the
+    # test caught them only at staging, and a deleted practice would have
+    # left its entry behind with nothing to notice. The list's own copy of
+    # `gates` had already drifted on fourteen practices. Morgan, 2026-09-29:
+    # prevent what caused it, not only check for it later. With the reason
+    # in the file, a practice cannot arrive or leave without it, and this
+    # check pins its finding to that one file, so pre-staging runs it
+    # (practice: upstream-fix).
+    #
+    # The engine's origin only: it vendors no engine into itself, so it has
+    # no ENGINE_MANIFEST.json, and it carries the harness the old test
+    # lived in.
+    if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
+        raise NotApplicable('not the engine\'s own repository -- '
+                            'applies_to_why is optional here')
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    out = []
+    for f in sorted(practices_dir.glob('*.md')):
+        try:
+            fm, _sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        if (fm.get('tier') or '').strip() != 'on-demand':
+            continue
+        if (fm.get('status', 'active') or 'active').strip().strip('"') != 'active':
+            continue
+        why = (fm.get('applies_to_why') or '').strip().strip('"').strip()
+        if not why:
+            out.append(Finding(
+                str(f.relative_to(ctx.root)),
+                'has no applies_to_why -- add one line under applies_to '
+                'saying why these globs identify the practice\'s occasion, '
+                'or why it stays at "**" and which channel reaches it '
+                '(the occasion index, a gate, a check). '
+                'See spec/PRACTICE_FORMAT.md, "applies_to_why".'))
+    out += _glob_changed_reason_did_not(ctx, practices_dir)
+    return out
+
+
+def _glob_changed_reason_did_not(ctx, practices_dir):
+    """A practice whose applies_to changed since the base while its
+    applies_to_why stayed word for word the same.
+
+    WHY (2026-09-29). While the reason lived in tools/routing_scope.json,
+    changing a glob meant editing two files, which prompted a look at the
+    reason. With the reason on the line under the glob that nudge is gone,
+    and a glob can change under a sentence that explains the old one.
+    Morgan, 2026-09-29, agreeing to this check: a pattern change must come
+    with its reason looked at again. It cannot tell a real update from a
+    token one; it makes the question unskippable, not the answer good.
+    Only a practice that existed at the base is judged -- a new one has no
+    old reason to compare."""
+    base = (ctx.range.split('..')[0] if getattr(ctx, 'range', None)
+            else _published_default_branch())
+    if not base:
+        return []
+    out = []
+    for f in sorted(practices_dir.glob('*.md')):
+        rel = str(f.relative_to(ctx.root))
+        before = _git('show', f'{base}:{rel}')
+        if before.returncode != 0:
+            continue
+        try:
+            old_fm, _ = sp._parse_practice_text(before.stdout, rel)
+            new_fm, _ = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        if (old_fm.get('applies_to') or '').strip() == (new_fm.get('applies_to') or '').strip():
+            continue
+        if (old_fm.get('applies_to_why') or '').strip() != (new_fm.get('applies_to_why') or '').strip():
+            continue
+        out.append(Finding(rel, f'applies_to changed since {base} '
+                                f'({old_fm.get("applies_to", "").strip()} -> '
+                                f'{new_fm.get("applies_to", "").strip()}) but '
+                                f'applies_to_why did not -- update the reason '
+                                f'for the new pattern, or, if it still holds, '
+                                f'add a few words saying you checked it'))
+    return out
+
+
+@check('retired-words', 'tree',
+       'no live text uses a retired word: the engine\'s own (tools/'
+       'our_language.json, each finding naming the replacement) in Markdown, '
+       'and -- where a repository declares process/retired_vocabulary.json -- '
+       'that repository\'s own retired terms in any text file outside its '
+       'declared exempt_files',
+       'history, on purpose: todo/, decisions/, gotchas/, record/, evals/, a '
+       'document whose frontmatter says kind: record or a finished status, '
+       'a practice\'s ## Story, approved_by, text in quotation marks, and a '
+       'line that says it is about the retirement itself -- the same rules '
+       'for both lists, in Markdown. The engine\'s words are read in '
+       'Markdown only (code comments and messages were cleaned by hand when '
+       'each word was retired), and a consumer repository is not held to '
+       'them: they are this engine\'s vocabulary. A repository\'s own terms '
+       'are read in every text file, as they always were.',
+       practice_backed=False,
+       selects_on=('*.md', '**/*.md', 'tools/our_language.json',
+                   'tools/our_language.py', 'process/retired_vocabulary.json'))
+def _retired_words(ctx):
+    # practice: rename-updates-links ("a term ... renamed or retired, every
+    # place that still uses the old name ... is updated"). WHY THIS IS A
+    # REGISTRY AND NOT A CHECK PER WORD (2026-09-29): "team set" was retired
+    # by searching for that one phrase, so "team source", "team repo",
+    # `--level team` and a code path that only read level "team" all
+    # survived it, and the last one hid a real bug. Morgan asked for the old
+    # word cleaned up everywhere and for the cause fixed rather than a check
+    # added after it (practice: upstream-fix). Retiring the next word is one
+    # entry in our_language.json's `retired` list.
+    #
+    # ONE SCANNER FOR BOTH LISTS (2026-09-29, Morgan: "if you now do the
+    # whole job and that's redundant, then let's deprecate that"). A
+    # repository's own process/retired_vocabulary.json used to be scanned by
+    # migration-scrubs-vocabulary, with whole-file exemptions only; it is
+    # read here now, with the same history rules as the engine's words, and
+    # that check keeps only its other job (a leftover pre-migration pack).
+    try:
+        import our_language as _ol
+    except ImportError:
+        _ol = None
+    out, applies = [], False
+    if (_ol is not None and _ol.REGISTRY.is_file()
+            and _engine_manifest().get('kind') != 'consumer'):
+        applies = True
+        out += [Finding(f'{rel}:{n}',
+                        f'uses {word!r}, retired -- say {repl!r} instead '
+                        f'(tools/our_language.json lists what replaced it; a '
+                        f'quotation or a record of the past keeps the old word)')
+                for rel, n, word, repl, _line in _ol.retired_uses(ctx.root)]
+    cfg_path = ROOT / RETIRED_VOCAB_CONFIG
+    if cfg_path.is_file():
+        applies = True
+        out += _repo_retired_terms(cfg_path, _ol)
+    if not applies:
+        raise NotApplicable('neither the engine\'s retired words (a consumer '
+                            'is not held to them) nor a '
+                            f'{RETIRED_VOCAB_CONFIG} of this repository\'s own')
+    return sorted(out, key=lambda f: f.where)
+
+
+def _repo_retired_terms(cfg_path, _ol):
+    """Findings for a repository's own retired terms -- the scan that was
+    migration-scrubs-vocabulary's second half until 2026-09-29, unchanged in
+    what it reads and what it exempts, with the engine's history rules added
+    for Markdown."""
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        return [Finding(RETIRED_VOCAB_CONFIG, f'not valid JSON: {e}')]
+    if not isinstance(cfg, dict):
+        # A bare `["OldName"]` array where `{"terms": [...]}` belongs once
+        # raised an uncaught AttributeError and took every other check in
+        # the run down with it (2026-09-03); it is a finding, not a crash.
+        return [Finding(RETIRED_VOCAB_CONFIG,
+                        f'must be a JSON object with a "terms" list (e.g. '
+                        f'{{"terms": [...], "exempt_files": [...]}}), not a '
+                        f'{type(cfg).__name__}')]
+    terms = cfg.get('terms') or []
+    exempt_files = cfg.get('exempt_files') or []
+    if not isinstance(terms, list) or not isinstance(exempt_files, list):
+        bad = 'terms' if not isinstance(terms, list) else 'exempt_files'
+        return [Finding(RETIRED_VOCAB_CONFIG,
+                        f'{bad!r} must be a JSON array of strings, not a '
+                        f'{type(cfg[bad]).__name__}')]
+    if not terms:
+        return []
+    # An exempt_files entry ending in `/` exempts a directory: a
+    # materialized one holds other sources' content that can share a
+    # retired term by coincidence, and its file list changes every sync.
+    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files
+    retired = [(t, 'this repository\'s current wording', [_retired_term_re(t)])
+               for t in terms]
+    out = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        rel_dir = pathlib.Path(dirpath).relative_to(ROOT).as_posix()
+        rel_dir = '' if rel_dir == '.' else rel_dir
+        # .git is never this repo's content; process/upstream/ mirrors a
+        # different repo; agent worktrees are other checkouts of this one.
+        dirnames[:] = [d for d in dirnames
+                       if (f'{rel_dir}/{d}' if rel_dir else d)
+                       not in ('.git', 'process/upstream',
+                               AGENT_WORKTREES.rstrip('/'))]
+        for name in filenames:
+            rel = f'{rel_dir}/{name}' if rel_dir else name
+            if rel in RETIRED_VOCAB_SKIP_FILES:
+                continue
+            if any(_exempt_matches(rel, e) for e in exempt_files):
+                continue
+            if rel in _vendored_engine_files():
+                continue
+            try:
+                text = (ROOT / rel).read_text(encoding='utf-8')
+            except (UnicodeDecodeError, OSError):
+                continue
+            if rel.endswith('.md') and _ol is not None:
+                hits = [(n, w) for n, w, _r, _l in
+                        _ol.retired_uses_in(rel, text, retired)]
+            else:
+                hits = [(i, term) for i, line in enumerate(text.splitlines(), 1)
+                        for term in terms if _retired_term_re(term).search(line)]
+            for i, term in hits:
+                out.append(Finding(f'{rel}:{i}',
+                                   f'still carries retired term {term!r} -- '
+                                   f'scrub it, or add this file (or its '
+                                   f'directory, trailing "/") to exempt_files '
+                                   f'if it is genuinely a historical record or '
+                                   f'materialized third-party content'))
+    return out
+
+
+_BARE_CITATION_RE = re.compile(r'\bpractice\s+(\d+)\b', re.IGNORECASE)
+_SLUG_LINK_RE = re.compile(r'\]\(([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
+_GITHUB_REPO_RE = re.compile(
+    r'https?://(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)')
+_UPSTREAM_OWNER_REPO = 'alex137/BestPractice'
+
+
+@check('practice-file-shape', 'tree',
+       'each practice file in the engine\'s own catalogue is well-formed on '
+       'its own: its slug is its filename and no other file has it; a '
+       'checked_by names a script that exists; its body cites no practice by '
+       'number and every [slug](slug.md) link names a real practice; it '
+       'links no GitHub repository but this one; its ## Rule is non-empty '
+       'and does not end on a lead-in; and an on-demand practice has a '
+       'written, complete index_clause within the length limit',
+       'whether the Rule is good, or the index line apt -- only the shape a '
+       'script can see. A source set or consumer is not held to it here: '
+       'their practices link other sources\' slugs by URL, and a consumer\'s '
+       'catalogue is materialized, not authored.',
+       practice_backed=False,
+       selects_on=('practices/*.md', 'AGENTS.md'))
+def _practice_file_shape(ctx):
+    # MOVED FROM THE TEST SUITE (2026-09-29). Each of these was a
+    # verify_harness.py check -- check_slug_set, check_checked_by_targets_
+    # exist, check_no_bare_numeric_citations, check_slug_link_integrity,
+    # check_practices_link_only_reachable_repos, check_rule_is_self_
+    # contained, check_index_clauses -- so a practice file broken in any of
+    # these ways landed on pre-staging and was caught only at staging, 20
+    # minutes of suite later. Every one judges one file and takes
+    # milliseconds, and a finding here names that file, so the pre-staging
+    # changed-files run keeps it (Morgan, 2026-09-29: make the per-file
+    # checks at pre-staging thorough). The harness copies were deleted, not
+    # kept beside these: two checks of one property is the redundancy the
+    # very deep check's question 8 looks for.
+    if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
+        raise NotApplicable('not the engine\'s own repository')
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    try:
+        import build_views as _bv
+    except ImportError as e:
+        raise NotApplicable(f'build_views did not import: {e}')
+    parsed = {}
+    for f in sorted(practices_dir.glob('*.md')):
+        try:
+            parsed[f.stem] = (f, *sp._read_practice_file(f))
+        except sp.PracticeFileError:
+            continue          # an unparseable file is another check's finding
+    by_slug = collections.defaultdict(list)
+    for stem, (f, fm, _s) in parsed.items():
+        by_slug[(fm.get('slug') or '').strip()].append(f)
+    out = []
+
+    def rel(f):
+        return str(f.relative_to(ctx.root))
+
+    for stem, (f, fm, sections) in parsed.items():
+        slug = (fm.get('slug') or '').strip()
+        if slug != stem:
+            out.append(Finding(rel(f), f'frontmatter slug {slug!r} is not the '
+                                       f'filename {stem!r}'))
+        elif len(by_slug[slug]) > 1:
+            out.append(Finding(rel(f), f'slug {slug!r} is also used by '
+                                       + ', '.join(rel(o) for o in by_slug[slug]
+                                                   if o != f)))
+        target = (fm.get('checked_by') or 'null').strip().strip('"')
+        if target not in ('null', '') and not (ctx.root / target).exists():
+            out.append(Finding(rel(f), f'checked_by names {target!r}, which does '
+                                       f'not exist -- the practice claims '
+                                       f'enforcement it does not have'))
+        body = ' '.join(sections.get(k, '') for k in sections)
+        for m in _BARE_CITATION_RE.finditer(body):
+            out.append(Finding(rel(f), f'cites "practice {m.group(1)}" by number; '
+                                       f'link it by slug, [slug](slug.md), instead'))
+        for m in _SLUG_LINK_RE.finditer(body):
+            if m.group(1) not in parsed:
+                out.append(Finding(rel(f), f'links {m.group(1)}.md, which is not a '
+                                           f'practice in this catalogue'))
+        for m in _GITHUB_REPO_RE.finditer(f.read_text(encoding='utf-8', errors='ignore')):
+            owner_repo = f'{m.group(1)}/{m.group(2)}'
+            if owner_repo.lower() != _UPSTREAM_OWNER_REPO.lower():
+                out.append(Finding(rel(f), f'links {owner_repo}, a repository a '
+                                           f'reader of a shipped practice has no '
+                                           f'reason to be able to open -- name it '
+                                           f'instead of linking it'))
+        rule = (sections.get('rule') or '').strip()
+        if not rule:
+            out.append(Finding(rel(f), 'empty ## Rule -- a practice with nothing '
+                                       'to do is not loadable on its own'))
+        elif rule.endswith(':'):
+            out.append(Finding(rel(f), f'## Rule ends on a colon '
+                                       f'({rule.splitlines()[-1][:60]!r}) -- what it '
+                                       f'introduces is not in the Rule'))
+        if (fm.get('tier') or '').strip() == 'on-demand':
+            clause = _bv._json_str(fm.get('index_clause', ''))
+            if not clause:
+                out.append(Finding(rel(f), 'no index_clause -- an on-demand '
+                                           'practice needs the line that gets it '
+                                           'opened'))
+            else:
+                if len(clause) > _bv.INDEX_CLAUSE_MAX:
+                    out.append(Finding(rel(f), f'index_clause is {len(clause)} '
+                                               f'characters, over '
+                                               f'{_bv.INDEX_CLAUSE_MAX}'))
+                if clause.rstrip().endswith(('...', '…', ':')):
+                    out.append(Finding(rel(f), f'index_clause does not finish its '
+                                               f'thought: {clause!r}'))
+                if clause[:1].isupper() and not clause.startswith(('A ', 'I ')):
+                    out.append(Finding(rel(f), f'index_clause reads as a sentence, '
+                                               f'not a table cell: {clause!r}'))
+    # The instructions file carried the same two citation rules in the
+    # harness, and moves with them.
+    agents = ctx.root / 'AGENTS.md'
+    if agents.is_file():
+        text = agents.read_text(encoding='utf-8', errors='ignore')
+        for m in _BARE_CITATION_RE.finditer(text):
+            out.append(Finding('AGENTS.md', f'cites "practice {m.group(1)}" by '
+                                            f'number; link it by slug instead'))
+        for m in re.finditer(r'\]\(practices/([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)', text):
+            if m.group(1) not in parsed:
+                out.append(Finding('AGENTS.md', f'links practices/{m.group(1)}.md, '
+                                                f'which is not a practice here'))
+    return out
+
+
+def _exemption_lists(cfg):
+    """{key: [entry, ...]} for every exemption list precedent.json declares:
+    each `*_exempt` key, and `not_binding`."""
+    out = {}
+    for k, v in (cfg or {}).items():
+        if k.startswith('_') or not isinstance(v, list):
+            continue
+        if k.endswith('_exempt') or k == 'not_binding':
+            out[k] = v
+    return out
+
+
+def _entry_identity(entry):
+    # An entry is the same entry when everything but its root_fix is the
+    # same, so adding a root_fix to an old entry never makes it "new".
+    if isinstance(entry, dict):
+        entry = {k: v for k, v in entry.items() if k != 'root_fix'}
+    return json.dumps(entry, sort_keys=True)
+
+
+@check('upstream-fix', 'tree',
+       'every exemption-list entry in precedent.json that is new against the '
+       'base branch carries a root_fix: what was fixed instead, or why the '
+       'check cannot learn the case',
+       'whether the root_fix is TRUE, or whether a root fix was really out of '
+       'reach -- only that the question was answered in writing. Entries '
+       'already on the base branch are left alone until someone touches '
+       'them, and an exemption declared anywhere but precedent.json is not '
+       'seen.')
+def _exemption_names_its_root_fix(ctx):
+    # practice: upstream-fix, point 6. Morgan, 2026-09-29: "whenever we need
+    # to add an 'exemption' of any sort anywhere, we always use that as an
+    # example of a root fix opportunity." The same day a set exempted its
+    # whole root from filename-separator when the check only needed to learn
+    # two names engine tools fix -- the exemption hid the cause.
+    path = ctx.root / 'precedent.json'
+    try:
+        now = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('no readable precedent.json')
+    lists = _exemption_lists(now)
+    if not any(lists.values()):
+        return []
+    base = _published_default_branch()
+    if not base:
+        raise NotApplicable('no base branch to compare against, so no entry '
+                            'can be told apart as new')
+    shown = _git('show', f'{base}:precedent.json')
+    try:
+        before = _exemption_lists(json.loads(shown.stdout)) if shown.returncode == 0 else {}
+    except ValueError:
+        before = {}
+    out = []
+    for key, entries in lists.items():
+        old = {_entry_identity(e) for e in before.get(key, [])}
+        for e in entries:
+            if _entry_identity(e) in old:
+                continue
+            fix = e.get('root_fix') if isinstance(e, dict) else None
+            if isinstance(fix, str) and fix.strip():
+                continue
+            label = (e.get('path') or e.get('slug') or e.get('name') or '?') \
+                if isinstance(e, dict) else str(e)
+            out.append(Finding(
+                'precedent.json',
+                f'{key} gains an entry for {label!r} with no root_fix -- an '
+                f'exemption is a sign the cause has not been fixed. First '
+                f'ask why the check is wrong about this case and teach it if '
+                f'it can learn (then drop the entry). If it cannot, or not in '
+                f'this session, add "root_fix": saying which, and hand the '
+                f'root fix off (practice: upstream-fix)'))
+    return out
 
 
 @check('routing-audit', 'tree',
@@ -7141,8 +7742,21 @@ def _parallel_artifact_ledger(ctx):
     # CI checkout, most obviously) `--max-parents=0` cannot be trusted to
     # find every commit this check should treat as "can't verify, don't
     # guess" the same way it already treats a genuine root.
-    roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
+    # A RANGED RUN READS ONLY THE RANGE (2026-09-29). The pre-staging push
+    # check passes --range <landing>...HEAD with --changed-files-only, and
+    # this check used to walk each member directory's WHOLE history there
+    # anyway -- and then pinned its finding to LEDGER.md, a file the push
+    # usually did not change, so the changed-files filter dropped it: it
+    # read the full history and could never refuse. Morgan, 2026-09-29:
+    # "pre-staging should never do any check of a full history." Ranged,
+    # it reads only the commits the push brings and pins each finding to the
+    # member file the commit changed, which the filter keeps. The full check
+    # at staging still reads everything.
+    ranged = bool(getattr(ctx, 'range', None))
+    roots = (set() if ranged else
+             set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split()))
     roots |= _shallow_boundary_commits()
+    range_base = ctx.range.split('..')[0] if ranged else None
     findings = []
     for member_dir in _LEDGER_MEMBER_DIRS:
         # `git log` is newest-first, so the LAST entry is this member
@@ -7158,8 +7772,18 @@ def _parallel_artifact_ledger(ctx):
         # request caught it, and had to be written into the ledger by hand
         # as a row saying, in effect, "no transfer verdict applicable".
         # (closed and pruned from TODO.md; was the `ledger-root-commit-exemption` item.)
-        out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
-        inception = {out[-1]} if out else set()
+        if ranged:
+            out = _git('log', '--no-merges', '--format=%H', ctx.range,
+                       '--', member_dir).stdout.split()
+            # A member created inside the range is inception, told apart by
+            # its directory not existing at the range's base -- no history
+            # walk needed.
+            created_here = _git('cat-file', '-e',
+                                f'{range_base}:{member_dir}').returncode != 0
+            inception = {out[-1]} if out and created_here else set()
+        else:
+            out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
+            inception = {out[-1]} if out else set()
         for full_hash in out:
             if full_hash in roots or full_hash in inception:
                 continue
@@ -7175,8 +7799,13 @@ def _parallel_artifact_ledger(ctx):
                         f'and git could not show whether it added one '
                         f'itself -- not a finding, and not a pass'))
                     continue
+                where = 'templates/harness/LEDGER.md'
+                if ranged:
+                    touched = _git('show', '--name-only', '--format=',
+                                   full_hash, '--', member_dir).stdout.split()
+                    where = touched[0] if touched else where
                 findings.append(Finding(
-                    'templates/harness/LEDGER.md',
+                    where,
                     f'no row references {full_hash[:7]} ({member_dir}), a '
                     f'commit that changed a member of the harness-adapter '
                     f'family -- add a dated row with a per-member verdict'))
@@ -7194,6 +7823,7 @@ def _parallel_artifact_ledger(ctx):
     # commit twice by design, in the link text and the URL.
     for full_hash in {h for d in _LEDGER_MEMBER_DIRS
                       for h in _git('log', '--no-merges', '--format=%H',
+                                    *([ctx.range] if ranged else []),
                                     '--', d).stdout.split()}:
         # Counted over the change cells only -- see
         # _ledger_change_cells(). Counting whole lines made three correct
@@ -7488,7 +8118,7 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "five citations of `fail-gracefully` sit in this repo's own tools/ in "
        "exactly that form, naming a slug that resolves nowhere here, and the "
        "anchored form would make this check FAIL rather than fix them, "
-       "because the practice lives in a private team set. See TODO.md's "
+       "because the practice lives in a private shared set. See TODO.md's "
        "`universal-code-cites-team-slug`.")
 def _code_cites_practice(ctx):
     known = {}
@@ -7516,7 +8146,7 @@ def _code_cites_practice(ctx):
             # A slug some IN-FORCE practice declares it overrides is
             # superseded, not missing. In a consuming repo a higher-precedence
             # source can replace a universal practice under a different name
-            # -- precedent-team-repo-maintenance' `rule-links` overrides the
+            # -- precedent-shared-repo-maintenance' `rule-links` overrides the
             # universal `doc-references-are-links` -- and the overridden slug
             # then resolves to no file at all. The universal engine code that
             # cites it is still correct about why it exists; the rule simply
@@ -7741,28 +8371,22 @@ def _leftover_old_packs():
 
 @check('migration-scrubs-vocabulary', 'tree',
        "a migrated repo carries no leftover pre-migration practice pack "
-       "(process/manifest_*.json and its tree), and -- where the repo has "
-       "declared process/retired_vocabulary.json -- none of its listed terms "
-       "outside the declared exempt files/directories",
-       "the SECOND half is opt-in: the terms themselves (a specific old "
-       "repo's name, a retired secret) are never something BestPractice "
-       "could know in advance, so a repo that has declared no config is not "
-       "scanned for words at all. The pack half needs no declaration but is "
-       "scoped to a repo that has already migrated (a precedent.json at the "
-       "root) -- the old pack mechanism is still supported for one that has "
-       "not, and firing there would call a working install broken. Neither "
-       "half can tell whether the pack's CONTENT actually reached a "
-       "Precedent source: it sees that the tree is still here, never "
-       "whether deleting it would lose a rule. process/upstream/ is always "
-       "excluded, vendored content never being this repo's own migration to "
-       "finish.")
+       "(process/manifest_*.json and its tree)",
+       "the vocabulary half moved to retired-words on 2026-09-29, which reads "
+       "a declared process/retired_vocabulary.json with history-aware rules. "
+       "This half is scoped to a repo that has already migrated (a "
+       "precedent.json at the root) -- the old pack mechanism is still "
+       "supported for one that has not, and firing there would call a "
+       "working install broken. It cannot tell whether the pack's CONTENT "
+       "actually reached a Precedent source: it sees that the tree is still "
+       "here, never whether deleting it would lose a rule.")
 def _migration_scrubs_vocabulary(ctx):
     leftover = [
         Finding(man,
                 f'is the pre-migration practice-pack mechanism, in a repo '
                 f'that has already migrated to the Precedent loader'
                 + (f' (its tree is still at {tree}/)' if tree else '')
-                + '. A pack\'s rules live in a team or individual source '
+                + '. A pack\'s rules live in a shared or individual source '
                   'now, so the tree is a second, unsynced copy of rules '
                   'nobody reads. Retire it through the audit rather than by '
                   'hand: `python3 tools/precedent_decommission.py '
@@ -7775,94 +8399,18 @@ def _migration_scrubs_vocabulary(ctx):
                     'and this stops asking.')
         for man, tree in _leftover_old_packs()]
 
-    cfg_path = ROOT / RETIRED_VOCAB_CONFIG
-    if not cfg_path.is_file():
-        if leftover:
-            return leftover
-        raise NotApplicable(f'no {RETIRED_VOCAB_CONFIG} -- this repo has not '
-                            f'declared any retired vocabulary to scrub for, '
-                            f'and carries no leftover pre-migration pack')
-    try:
-        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
-    except json.JSONDecodeError as e:
-        return leftover + [Finding(RETIRED_VOCAB_CONFIG, f'not valid JSON: {e}')]
-    if not isinstance(cfg, dict):
-        # Valid JSON, wrong shape (e.g. a bare `["OldName"]` array where a
-        # `{"terms": [...]}` object belongs) used to reach `cfg.get(...)`
-        # below and raise an uncaught AttributeError, taking down every
-        # OTHER check in the same run with it (found in a 2026-09-03
-        # deep-check audit) -- a malformed config is exactly the kind of
-        # thing this check exists to catch, not crash on.
-        return leftover + [Finding(RETIRED_VOCAB_CONFIG,
-                        f'must be a JSON object with a "terms" list (e.g. '
-                        f'{{"terms": [...], "exempt_files": [...]}}), not a '
-                        f'{type(cfg).__name__}')]
-    terms = cfg.get('terms') or []
-    exempt_files = cfg.get('exempt_files') or []
-    if not isinstance(terms, list) or not isinstance(exempt_files, list):
-        bad = 'terms' if not isinstance(terms, list) else 'exempt_files'
-        return leftover + [Finding(RETIRED_VOCAB_CONFIG,
-                        f'{bad!r} must be a JSON array of strings, not a '
-                        f'{type(cfg[bad]).__name__}')]
-    if not terms:
-        if leftover:
-            return leftover
-        raise NotApplicable(f'{RETIRED_VOCAB_CONFIG} declares no terms -- '
-                            f'nothing to scrub for')
-    # A directory exemption (an exempt_files entry ending in `/`) exists for
-    # exactly one reason: a MATERIALIZED, regenerated directory (this repo's
-    # own practices/, filled in by precedent_materialize.py on every
-    # precedent_sync_views.py run) can legitimately hold OTHER repos' own
-    # content -- another source's own practice file citing ITS OWN
-    # provenance, say -- that happens to share a literal substring with a
-    # term this repo's migration is scrubbing for its own reasons. That
-    # content isn't this repo's own migration to finish, the same reasoning
-    # that already exempts process/upstream/ below, and a materialized
-    # directory's file list changes on every sync, so hand-listing it
-    # file-by-file in exempt_files would go stale the next time a slug is
-    # added or dropped. Found for real, migrating a dependent repo
-    # (2026-09-03): 'RepoPersonalPreferences' collided with a team-source
-    # practice's own approved_by provenance, and 'PERSONAL_PACK_TOKEN'
-    # collided with this file's own migration-scrubs-vocabulary.md Story
-    # section, which uses that string as ITS illustrative example -- both
-    # forced dropping otherwise-real retired terms rather than exempting the
-    # one directory they were colliding in.
-    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files
-    out = list(leftover)
-    for dirpath, dirnames, filenames in os.walk(ROOT):
-        rel_dir = pathlib.Path(dirpath).relative_to(ROOT).as_posix()
-        rel_dir = '' if rel_dir == '.' else rel_dir
-        # Prune .git and the vendored copy before descending -- .git is
-        # never this repo's own content, and process/upstream/ is a
-        # byte-identical mirror of a DIFFERENT repo, never hand-edited
-        # regardless of what it happens to still say.
-        dirnames[:] = [d for d in dirnames
-                       if (f'{rel_dir}/{d}' if rel_dir else d)
-                       not in ('.git', 'process/upstream')]
-        for name in filenames:
-            rel = f'{rel_dir}/{name}' if rel_dir else name
-            if rel in RETIRED_VOCAB_SKIP_FILES:
-                continue
-            if any(_exempt_matches(rel, e) for e in exempt_files):
-                continue
-            if rel in _vendored_engine_files():
-                continue
-            try:
-                text = (ROOT / rel).read_text(encoding='utf-8')
-            except (UnicodeDecodeError, OSError):
-                continue
-            for i, line in enumerate(text.splitlines(), 1):
-                for term in terms:
-                    if _retired_term_re(term).search(line):
-                        out.append(Finding(f'{rel}:{i}',
-                                            f'still carries retired term '
-                                            f'{term!r} -- scrub it, or add '
-                                            f'this file (or its directory, '
-                                            f'trailing "/") to exempt_files '
-                                            f'if it is genuinely a historical '
-                                            f'record or materialized '
-                                            f'third-party content'))
-    return sorted(out, key=lambda f: f.where)
+    # THE WORD SCAN MOVED (2026-09-29). This check also used to scan for a
+    # repository's own retired terms (process/retired_vocabulary.json); that
+    # is retired-words' job now, one scanner for the engine's words and a
+    # repository's own, with history left alone by section, quotation and
+    # document status rather than by whole file (Morgan, 2026-09-29: "if you
+    # now do the whole job and that's redundant, then let's deprecate
+    # that"). What stays here is the half nothing else does.
+    if leftover:
+        return leftover
+    raise NotApplicable('carries no leftover pre-migration practice pack '
+                        '(a declared retired_vocabulary.json is read by '
+                        'retired-words)')
 
 
 # practice: open-item-disposition -- the grammar of the disposition line, so
@@ -7880,12 +8428,53 @@ DISPOSITION_STAMP_RE = re.compile(r'^(?P<date>\d{4}-\d{2}-\d{2}),[ \t]*(?P<who>\
 # out of the practice file: a check that derives its own scope from the
 # document it is checking cannot report that the two disagree.
 DISPOSITION_FILE_GLOBS = ('**/TODO.md', 'templates/TODO.md.template')
+# The per-item format's half of the same applies_to (`**/todo/todo-*.md`).
+# Until 2026-09-28 only the two globs above were read, so after the
+# 2026-09-16 migration nothing validated the frontmatter `disposition:` the
+# items actually carry -- two open items sat on `raise`, a word that is not a
+# disposition at all, until a very deep check read them by hand. The
+# prose-line grammar above cannot see a frontmatter field, so it is read
+# separately. `null` is allowed: absence already means `wait`.
+DISPOSITION_ITEM_GLOB = '**/todo/todo-*.md'
+# A harness's agent worktrees: whole other checkouts of this repo, gitignored
+# (templates/gitignore.template, since 2026-09-28's 3f6cce0f). An rglob
+# reaches into them and judges another branch's items as this one's.
+AGENT_WORKTREES = '.claude/worktrees/'
+DISPOSITION_ITEM_CLOSED = ('done', 'dropped', 'closed')
+_DISPOSITION_FM_RE = re.compile(r'\A---\n(.*?)\n---', re.S)
+_DISPOSITION_FM_FIELD_RE = re.compile(r'^(status|disposition):[ \t]*(.*?)[ \t]*$', re.M)
+
+
+def _item_disposition_findings(rel, text):
+    """Findings for one todo/todo-*.md item's frontmatter `disposition:`.
+
+    Only an OPEN item is judged: a done or dropped item's disposition no
+    longer governs anything, and several closed items carry `done` there,
+    which is harmless history rather than a word a session acts on."""
+    fm = _DISPOSITION_FM_RE.match(text)
+    if not fm:
+        return []
+    fields = {}
+    for mm in _DISPOSITION_FM_FIELD_RE.finditer(fm.group(1)):
+        fields.setdefault(mm.group(1), mm.group(2).strip().strip('"\''))
+    if fields.get('status', '').lower() in DISPOSITION_ITEM_CLOSED:
+        return []
+    value = fields.get('disposition')
+    if value is None or value in ('null', '~', '') or value in DISPOSITION_VALUES:
+        return []
+    line_no = text.count('\n', 0, fm.start(1) + fm.group(1).find('disposition:')) + 1
+    return [Finding(f'{rel}:{line_no}',
+                    f'open item has disposition {value!r}, which is not one '
+                    f'of {", ".join(DISPOSITION_VALUES)} (or null, meaning '
+                    f'wait) -- a session reading it cannot tell whether it '
+                    f'may raise the item')]
 
 
 @check('open-item-disposition', 'tree',
        'every `**Disposition:` line in a TODO file names one of the three '
        'dispositions, and a `parked` or `ask` line records the date it was '
-       'set and who set it',
+       'set and who set it; and every OPEN todo/todo-*.md item\'s frontmatter '
+       '`disposition:` is one of the three, or null',
        'whether a disposition is HONOURED -- nothing mechanical can see a '
        'session raising a parked item in chat, which is the behaviour the '
        'practice is actually about. It also cannot tell a correct `wait` '
@@ -7909,14 +8498,31 @@ def _open_item_disposition(ctx):
         for rel in found:
             # _mirrored() guards its own import, so the fixture-safety
             # note above still holds: copied alone, it falls back.
-            if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)):
+            if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)) \
+                    or rel.startswith(AGENT_WORKTREES):
                 continue
             if rel not in files:
                 files.append(rel)
-    if not files:
+    items = []
+    for p in sorted(ROOT.rglob(DISPOSITION_ITEM_GLOB.split('/')[-1])):
+        if p.parent.name != 'todo' or not p.is_file():
+            continue
+        rel = p.relative_to(ROOT).as_posix()
+        if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)) \
+                or rel.startswith(AGENT_WORKTREES):
+            continue
+        items.append(rel)
+    if not files and not items:
         raise NotApplicable('this repository has no TODO file to check')
 
     out = []
+    for rel in items:
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError) as e:
+            out.append(Finding(rel, f'could not be read ({e})'))
+            continue
+        out.extend(_item_disposition_findings(rel, text))
     for rel in sorted(files):
         try:
             text = (ROOT / rel).read_text(encoding='utf-8')
@@ -8071,7 +8677,13 @@ def _todo_migrate_available_but_unused(ctx):
         return []
     if not (ROOT / 'TODO.md').exists():
         return []
-    if (ROOT / 'todo').is_dir():
+    # At least one migrated ITEM, not the directory alone (2026-09-28). A
+    # classic-layout migration rehearsal ran todo_migrate.py, which failed,
+    # then build_todo_index.py, which wrote todo/TODO.md and todo/CLOSED.md
+    # over an empty directory -- and this check went green with zero items
+    # migrated and every old bullet still sitting in TODO.md. An index with
+    # nothing to index is not evidence the migration ran.
+    if any((ROOT / 'todo').glob('todo-*.md')):
         return []
     text = ctx.read('TODO.md')
     if TODO_STUB_HEADING_RE.match(text):
@@ -8089,8 +8701,8 @@ def _todo_migrate_available_but_unused(ctx):
         return []
     return [Finding('TODO.md',
         'tools/todo_migrate.py is vendored into this repo but TODO.md is '
-        'still the old single-file format and no todo/ directory exists '
-        '-- run `python3 tools/todo_migrate.py --apply` then `python3 '
+        'still the old single-file format and no todo/todo-*.md item exists '
+        '-- run `python3 tools/todo_migrate.py --source todo.md --apply` then `python3 '
         'tools/build_todo_index.py` (practices/vendor-update-runbook.md)')]
 
 

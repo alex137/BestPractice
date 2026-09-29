@@ -4,6 +4,7 @@ title:       The clone on disk answers first — GitHub's search API is the scar
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus, and deliberately `**`. What the rule governs is a session's choice of TOOL in the moment it goes looking for something -- a local grep against a GitHub search call -- which happens before any file is opened and leaves no artifact in the tree at all. There is no path whose editing means the choice was made badly, so a narrower glob would only make the rule invisible at the moment it fires. Decided: 2026-09-14, when the practice was written."
 occasion:    "about to search a repo, or use a GitHub tool for what the clone holds"
 gates:       []
 index_clause: "grep the clone first; list before search; fewer windows at once"
@@ -29,10 +30,10 @@ CI's verdict, what someone said in a review.
 
 **When you do ask GitHub, ask the narrow question.** A repo-scoped
 `list_*` before a `search_*`; one call that names the thing before a query
-that goes hunting for it. **`search` is 30 requests a MINUTE, account-wide,
-shared by every session open at that moment** — the tightest allowance on
-the account by a wide margin, and roughly five hundred times tighter than
-the ordinary hourly pool it is easy to mistake it for.
+that goes hunting for it. **`search` is 30 requests a MINUTE (as of 2026-09),
+account-wide, shared by every session open at that moment** — the tightest
+allowance on the account by a wide margin, and about eight times tighter
+than the 15,000-an-hour pool (250 a minute) it is easy to mistake it for.
 
 **The other lever is how many windows are working at once.** Allowances are
 shared across sessions, so the fifth simultaneous session is not five times

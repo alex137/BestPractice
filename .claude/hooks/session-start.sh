@@ -21,7 +21,7 @@
 # HERE and not THERE reaches one harness out of four. That is not
 # hypothetical: until 2026-09-21 this hook ran seven things and the script
 # ran three, and the difference included .precedent/SESSION_PRACTICES.md --
-# every team and individual practice in force, which AGENTS.md's Standing
+# every shared and individual practice in force, which AGENTS.md's Standing
 # instruction tells every session to read and which no non-Claude session
 # had ever been given. Adding a step here? Add it there, or write the
 # reason it cannot travel into templates/harness/PARALLELS.md, which is
@@ -210,7 +210,7 @@ fi
 # A source with its own uncommitted changes is left alone rather than
 # refreshed -- precedent_refresh_sources.py checks for that before writing
 # anything, so a person's in-progress edit in precedent-individual or a
-# team set is never interleaved with a regenerated diff it did not ask
+# shared set is never interleaved with a regenerated diff it did not ask
 # for. Reports and never gates on failure, like everything else here.
 if [ -f tools/precedent_refresh_sources.py ]; then
   python3 tools/precedent_refresh_sources.py --apply 2>/dev/null || true
@@ -274,7 +274,7 @@ if [ -n "$_ident_script" ]; then
   # record/GOTCHAS.md#g40). An individual set does not have to be a sibling of
   # the primary repo -- `~/.config/precedent/config.json` puts it wherever it
   # was cloned, which on this container is `$HOME/precedent-individual` while
-  # the primary repo and every team clone sit under a different parent. The
+  # the primary repo and every shared-set clone sit under a different parent. The
   # glob below then covers all of those and misses the individual set, so the
   # one repo this block reads the identity FROM was the one repo it never
   # applied it TO. The script is idempotent, so naming a path twice (when the
@@ -287,9 +287,9 @@ if [ -n "$_ident_script" ]; then
     #
     # THREE MARKERS, NOT ONE, and the first version had only the first two:
     # a CONSUMER declares `precedent.json`, an INDIVIDUAL set declares
-    # `identity.json` -- and a TEAM set has NEITHER. It is a practice
+    # `identity.json` -- and a SHARED set has NEITHER. It is a practice
     # repository, so what it has is `practices/`. Tested by breaking all
-    # four checkouts' git config and re-running: the two team sets were
+    # four checkouts' git config and re-running: the two shared sets were
     # silently skipped, which is the exact failure this block exists to
     # stop, reproduced by the block itself.
     if [ -f "$_abs/precedent.json" ] || [ -f "$_abs/identity.json" ] \
@@ -308,7 +308,7 @@ fi
 # repositories and built a seven-commit patch for THIS repo that it could not
 # push, because a session holding one owner's repositories is refused
 # another's. It sat blocked four days on "root session at alex137/BestPractice
-# to land the team-set declaration in precedent.json", having spent about a
+# to land the shared-set declaration in precedent.json", having spent about a
 # hundred dollars to reach a branch nobody could land. The rule was right; the
 # MOMENT was missing, and the session least likely to stop and read a practice
 # file is the one already deep enough in the work for this to cost the most.
@@ -330,7 +330,7 @@ fi
 # The repo this hook lives in, resolved from this script's own path, not
 # from the working directory or CLAUDE_PROJECT_DIR: when the harness roots a
 # session one directory above the repo, both of those point somewhere else
-# (and that layout is this project's own, since a team source resolves as a
+# (and that layout is this project's own, since a shared source resolves as a
 # sibling clone).
 #
 # It used to be resolved for the upstream-carry notice, which said at
@@ -358,7 +358,8 @@ _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 # which is correct: this is the engine's own origin and has nothing
 # vendored. It earns its place in the repos this hook is copied into.
 #
-# --quiet, so it speaks only when the repo is actually behind: a line that
+# --quiet, so it speaks only when the repo is behind or a source could not
+# be checked: a line that
 # says "current" every single session is a line nobody reads by the third
 # day. It exits 0 on no network, no manifest and a malformed one, so a
 # hiccup cannot block a session start (practice: fail-gracefully).
