@@ -1468,6 +1468,13 @@
       ],
       "why": "No locus. Any gate that chains checks or runs units concurrently; the practice is a property of the gate runner, not of a path.",
       "decided": "2026-09-28 routing, with the practice"
+    },
+    "judgment-check-or-tool": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. A second implementation of a mechanism can turn up in any tool, and the full practice audit covers the whole catalogue; the occasion index is the channel.",
+      "decided": "2026-09-29 routing, with the practice"
     }
   },
   "gates": {
