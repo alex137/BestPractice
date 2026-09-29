@@ -104,7 +104,10 @@ lines; **the session judges every pair** -- merge them, and into which
 source, or keep both and why -- and rewrites the page with `--verdicts`, so
 each verdict sits beside its pair. Wording alone also matches rules that do
 different jobs, which is why no pair is a finding until it is judged, and
-why a pair judged different stays on the page with its reason.
+why a pair judged different stays on the page with its reason. The same
+section prints GENERATED FILES: tracked files a tool may write that
+[tools/generated_files.json](https://github.com/alex137/BestPractice/blob/staging/tools/generated_files.json)
+does not list, for the session to list or to say why each is not generated.
 [tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
 writes it under `.precedent/`, which git ignores, and the run's PRACTICE
 CATALOGUE section calls it. Add the unlanded branches you judged safe to
@@ -129,7 +132,7 @@ version people are actually running, which is `main`: in every repo in
 force, the run reads a working branch cut from `origin/main` (cut one if
 the harness checked out something else). It changes nothing there
 directly. Every fix is committed on that working branch and lands the
-ordinary way, `Go update` onto the person's landing branch and a Promote
+ordinary way, Booked (`Go update`) onto the person's landing branch and a Promote
 from there, never pushed to `main`. **Reading `main` alone would re-find
 what is already fixed and waiting to be promoted**, so the tool's
 `LIVE VERSUS LANDING` section names, per repo, the files the landing
@@ -2574,6 +2577,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
 - **Extended 2026-09-29, Morgan (strength: decided)**, with the review page's third list, practices that may overlap, after asking whether the check looked for redundant or very similar practices in different repos and in the same one. Nothing did mechanically: the within-source scan caught a duplicate `defines:` term or a sibling override, and pass 3's placement read asked the question by hand. The script proposes pairs; the session judges them.
 - **Extended 2026-09-29, Morgan (strength: decided)**, so a renamed repository is found wherever it is named -- every tracked file in this checkout and in every source, not only the always-loaded instructions files -- and fixed in the run: the clone's remote repointed and every current reference rewritten, history left as written. Asked as a question first ("does Very Deep Check do a check to see if any called repos are redirected ... add that to VDC if it doesn't"); it reported renames in two places and fixed none.
+- **Extended 2026-09-29, Morgan (strength: decided)**, with the GENERATED FILES lines: the reverse search for a file a tool writes that the new list of generated files does not name. Asked as a question ("does bestpractice maintain a list of all files that are auto-generated ... Is this checked in VDC and/or should it be?"); there was no single list, and todo/TODO.md had gone out of date with nothing checking it.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
