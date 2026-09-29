@@ -4,6 +4,7 @@ title:       "Renamed: go-merge is now go-update"
 tier:        on-demand
 severity:    default
 applies_to:  []
+applies_to_why: "DEDUPLICATED 2026-09-26 -- the slug go-update replaced. Kept so links to go-merge.md resolve; it routes nothing, the rule is in force as go-update. Decided: 2026-09-26 rename."
 occasion:    "a link or a reference still names go-merge"
 gates:       []
 index_clause: "renamed go-update 2026-09-26; the rule is in force there"

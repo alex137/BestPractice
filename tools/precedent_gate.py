@@ -76,7 +76,7 @@ _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 # `_ENGINE_DIR.parent` is the wrong answer for exactly one layout: an engine
 # copy vendored inside a consuming repo at process/upstream/tools/. There ROOT
 # lands on the VENDORED tree, whose practices/ is the universal catalogue
-# alone, so every team and individual practice reads as absent -- silently,
+# alone, so every shared and individual practice reads as absent -- silently,
 # which is the one failure mode this project exists to prevent. Reproduced
 # 2026-09-14 in a real consumer: `precedent_show.py default-register` answered
 # "unknown slug", for a shared practice that repo has in force.
@@ -186,7 +186,7 @@ def resolved_gate_practices(root, gate):
     repo that is the materialized union of every source, so nothing was
     missing. In THIS repo -- and in any repo whose sources resolve as
     sibling clones rather than through precedent_materialize.py -- it is the
-    universal catalogue alone, so a team or individual practice declaring
+    universal catalogue alone, so a shared or individual practice declaring
     `gates: ["reply"]` had no invocation point anywhere: the stop hook ran
     the gate, the gate read a directory those practices are not in, and
     printed the universal three. Measured here that day: three individual

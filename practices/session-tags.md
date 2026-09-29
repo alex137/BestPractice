@@ -4,8 +4,10 @@ title:       "A session is tagged when it is created, in four namespaces"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment -- creating a session -- and the tags live on the session service, not in any tree. No file path reaches it. Routed by the `reply` gate. Decided: 2026-09-14, when the practice landed at universal."
 occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
+gates_why:   "The obligation lands where a session is created, which is a tool call made while composing a reply."
 index_clause: "tag at creation: subject, repo, role, wants; never retrofitted"
 index_required: true
 checked_by:  null

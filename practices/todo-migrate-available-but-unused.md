@@ -4,6 +4,7 @@ title:       A vendored migration tool a repo has never run is a finding, not a 
 tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md"]
+applies_to_why: "The distinguishing condition is a repo's own TODO.md -- whether it is still the old single-file format is the whole question this practice asks, and the mechanical check (checked_by) is the real enforcement; the glob covers a session already editing the file by hand, which is when a person is most likely to notice its shape. Decided: 2026-09-19."
 occasion:    "editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time"
 gates:       []
 index_clause: "the tool arrived but TODO.md never got migrated -- run it now"

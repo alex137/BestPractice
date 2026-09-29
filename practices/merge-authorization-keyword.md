@@ -4,8 +4,10 @@ title:       A standing merge-authorization keyword
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "RETIRED 2026-09-07 -- kept here because the routing check still reads every on-demand practice file, and an entry that vanishes reads as one nobody decided. It routes nothing: a retired practice is not in force. Was: a moment, routed by the `merge` gate instead. Decided: phase 4 routing pass. Retired: 2026-09-07 -- see practices/merge-authorization-keyword.md ## Story."
 occasion:    "the user gives a standing merge instruction"
 gates:       ["merge"]
+gates_why:   "Fires when the standing merge instruction is used."
 index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
 defines:     []

@@ -4,6 +4,7 @@ title:       Deliverables look like their output; the record doc holds everythin
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "A reader-facing deliverable is a document. Its check already runs over changed markdown; the glob makes the Rule reachable at the same scope. Decided: phase 4 routing pass."
 occasion:    "writing a reader-facing deliverable with supporting apparatus"
 gates:       []
 index_clause: "the deliverable holds only what its audience needs"

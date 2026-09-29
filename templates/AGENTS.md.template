@@ -87,14 +87,14 @@ instructions for this repo, not gotchas.
      that softening is the exact mistake this bullet exists to prevent. -->
 
 - **A brand-new session on this repo alone has no git read access to
-  <team-repo-name> or <individual-repo-name>** — session repo access is
+  <shared-set-repo-name> or <individual-repo-name>** — session repo access is
   scoped per session, never inherited just because `precedent.json` or a
   bootstrap hook names a repo. No token or secret is involved: the tool
   that grants a session this access rides the same GitHub identity already
   behind the session, so it only ever succeeds because that person is
   already a collaborator on the target repo. **At the very start of every
   session, before running `tools/bootstrap.sh`, call that tool for
-  <team-repo-name> (and <individual-repo-name>, for the person it belongs
+  <shared-set-repo-name> (and <individual-repo-name>, for the person it belongs
   to) — silently, with no confirmation needed first.** This is a read-only
   scope extension, not a credential or production change. Never write this
   as "if the clone fails, ask to add the repo" — that only works when a
@@ -109,7 +109,7 @@ instructions for this repo, not gotchas.
   the next bootstrap run points `~/.config/precedent/config.json` at that
   clone and links `~/precedent-individual` to it. Either path is the same
   tree. Never clone it anywhere else: a second copy is one nothing loads,
-  and it drifts from the first within the hour. <team-repo-name> is
+  and it drifts from the first within the hour. <shared-set-repo-name> is
   the other way round: its clone lives at the path `precedent.json`
   resolves, beside this repo, so clone it there if nothing has.
 

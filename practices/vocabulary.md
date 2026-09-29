@@ -4,8 +4,10 @@ title:       "\"Vocabulary\" lists every standing command, read off the practice
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate. Decided: 2026-09-13, when the practice landed at universal."
 occasion:    "a person says \"Vocabulary\", or asks what the standing commands are"
 gates:       ["reply"]
+gates_why:   "The whole obligation is the shape of one reply: the commands in force, read off the catalogue, and nothing around them."
 index_clause: "list every command in force; read it, never recall it"
 checked_by:  null
 defines:     ["Vocabulary"]

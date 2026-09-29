@@ -800,7 +800,7 @@ def local_clone_refs(root):
     # SIBLINGS ARE NOT ALL OF THEM, and this container is the proof: a
     # person's individual practice set is cloned wherever their user-level
     # config says, which here is $HOME/precedent-individual while this repo
-    # and all three team clones sit under /home/user. Surveying siblings
+    # and all three shared-set clones sit under /home/user. Surveying siblings
     # alone found four of the five repositories on this disk and missed the
     # private one -- so its name was never auto-blocklisted and never
     # reported as uncovered, which is the exact shape of the bug this

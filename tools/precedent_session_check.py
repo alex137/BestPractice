@@ -17,7 +17,7 @@ been authored by the container's bot and refused by this repo's own check),
 the global commit backstop, the freshness guard, the package installs, the
 path-trigger channel, the Stop-time git check, and
 `.precedent/SESSION_PRACTICES.md` -- which is the ONLY route by which the
-team and individual practices in force reach a session at all. AGENTS.md's
+shared and individual practices in force reach a session at all. AGENTS.md's
 Standing Instruction tells every session to read that file; there was no file.
 
 WHY THE EXISTING GOTCHA DID NOT COVER IT. AGENTS.md already records that a
@@ -137,10 +137,10 @@ def checks(offline=False):
     # 2. The practices in force from private sources reached the session.
     sp = ROOT / '.precedent' / 'SESSION_PRACTICES.md'
     ok = sp.is_file()
-    out.append(('the team and individual practices in force were written to '
+    out.append(('the shared and individual practices in force were written to '
                 '.precedent/SESSION_PRACTICES.md', ok,
                 '' if ok else
-                'the file does not exist, so every team and individual '
+                'the file does not exist, so every shared and individual '
                 'practice binding work here is SILENTLY absent -- AGENTS.md '
                 "tells this session to read it and there is nothing to read. "
                 'Regenerate: python3 tools/precedent_session_practices.py'))

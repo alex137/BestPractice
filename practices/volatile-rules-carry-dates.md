@@ -4,6 +4,7 @@ title:       Volatile rules carry their dates
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The path identifies 'a rule is being written', which is necessary but not distinguishing -- the practice fires only when the rule depends on the OUTSIDE WORLD, and no path can see that. A glob on the rule locus surfaced it on 13 of 20 eval cases against 4 it applies to. Decided: phase 4 routing pass."
 occasion:    "writing a rule that depends on the outside world"
 gates:       []
 index_clause: "it carries its date, inline"

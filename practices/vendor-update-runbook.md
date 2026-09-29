@@ -4,8 +4,10 @@ title:       Taking an upstream update into a vendored tree
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, not a file class — it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate. Decided: 2026-09-08, when the practice landed."
 occasion:    "a message says \"Update Vendors\", or an upstream update is taken into a vendoring repo"
 gates:       ["merge"]
+gates_why:   "An update lands as a merge, and the merge is the last moment the sequence can still be checked before it is someone else's committed history."
 index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
 defines:     ["Update Vendors"]
@@ -850,5 +852,5 @@ Step 7 runs itself: [tools/precedent_vendor_engine.py](../tools/precedent_vendor
 prints the same line after a `refresh` or a `status`, so an update made
 without reading this file still surfaces a source nobody can reach
 (practice: checkable-gets-checked). Asked for by Morgan, 2026-09-09, in the
-thread that found a whole session running with no team or individual
+thread that found a whole session running with no shared or individual
 practices in force and no error anywhere.

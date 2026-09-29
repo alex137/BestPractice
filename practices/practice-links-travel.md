@@ -4,6 +4,7 @@ title:       A practice links only what travels with it
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md"]
+applies_to_why: "The path IS the distinguishing condition: the rule is about what a file in the published catalogue may link, and every such file is in practices/. local/practices/*.md is deliberately out -- a repo-local source is read in place here and materialized nowhere, so its links travel nowhere. Decided: 2026-09-11, when the practice landed at universal."
 occasion:    "writing or editing a practice file"
 gates:       []
 index_clause: "link only what travels with the file; the rest is an absolute upstream URL"
@@ -79,7 +80,7 @@ published a private set's name from a public one on 2026-09-23.
 **The public and private answers differ, and neither is the general case.**
 What decides it is whether the target is readable by whoever ends up holding
 the practice file. A universal practice published from a world-readable
-upstream can name its own repository in a URL freely; an individual or team
+upstream can name its own repository in a URL freely; an individual or shared
 set cannot, and pays for the reference with a path the reader has to resolve
 by hand.
 

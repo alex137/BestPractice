@@ -70,8 +70,8 @@ that project's `precedent.json`:
 A project that does not list it does not get it. That is the whole
 control.
 
-**`--level team` still works** and means the same thing — it is the
-pre-2026-09-18 spelling. Everything the engine prints says `shared`.
+**The old spelling, `--level team`, still works** and means the same thing
+— it was the spelling until 2026-09-18. Everything the engine prints says `shared`.
 
 ## Name It for Its Subject, Not for a Group of People
 

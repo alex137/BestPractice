@@ -4,6 +4,7 @@ title:       A practice source runs no continuous integration
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/precedent_vendor_engine.py", "templates/github-actions/**"]
+applies_to_why: "The rule binds the two places a CI workflow can be declared for a source: the engine registry that ships it, and the templates it ships from. Editing either is the moment to remember that a source gets none. Decided: 2026-09-21."
 occasion:    "installing, refreshing or adding a continuous-integration workflow in a practice SOURCE -- an individual or shared set"
 gates:       []
 index_clause: "a practice source runs no CI -- its checks already ran before the push"

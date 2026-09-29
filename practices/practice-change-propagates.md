@@ -4,6 +4,7 @@ title:       A changed practice is changed everywhere it is cited
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md", "local/practices/*.md"]
+applies_to_why: "The path IS the distinguishing condition: the rule fires when a practice file is renamed, retired, deleted or has its Rule reworded, and every such file is in practices/ or a repo-local source's practices/. Unlike practice-links-travel, local/practices/ is in -- a repo-local practice is cited by this repo's own files, so renaming one strands citations just the same. The consuming-side half (Update Vendors) is reached through vendor-update-runbook, not a path. Decided: 2026-09-27, when the practice landed at universal."
 occasion:    "renaming, retiring, deduplicating, deleting or rewording a practice -- or taking an update that did"
 gates:       ["merge"]
 index_clause: "find every citation in every source; fix what you can reach, hand off the rest"

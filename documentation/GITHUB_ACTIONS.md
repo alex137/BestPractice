@@ -176,7 +176,7 @@ that adds up fastest for exactly the person most likely to be running it
 everywhere.
 
 (Named `ci_workflows` until 2026-09-25; the old name is still read.)
-So the installer resolves `"github_ci_workflows"` from the individual or team
+So the installer resolves `"github_ci_workflows"` from the individual or shared
 source it can reach ([tools/precedent_identity.py](../tools/precedent_identity.py)'s
 `ci_preference()`, same resolution order as `relayed_authorization`: the
 repo's own `identity.json` when it IS an individual source, else the one

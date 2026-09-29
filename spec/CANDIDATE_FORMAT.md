@@ -26,18 +26,18 @@ level decides which repository it lives in** — [spec/SOURCES.md](SOURCES.md)'s
 | Level | Where |
 |---|---|
 | Individual | Always `candidates/*.md` in that person's own individual-set repo. There's no one else whose approval a candidate could be standing in for — you own the set — so this is for deliberately deferring a decision, never for asking permission. |
-| Team | `candidates/*.md` in that team's own private repo, **by default** — or a GitHub Issue on that same repo, via `precedent_candidate.py create --level team --as-issue true`. See "Which one for team" below for how to choose; it's not a free choice between two equivalent options. |
+| Shared | `candidates/*.md` in that set's own private repo, **by default** — or a GitHub Issue on that same repo, via `precedent_candidate.py create --level shared --as-issue true`. See "Which one for a shared set" below for how to choose; it's not a free choice between two equivalent options. |
 | Universal | **A GitHub Issue** on `alex137/BestPractice`, labeled `precedent-candidate`, using [.github/ISSUE_TEMPLATE/practice-candidate.md](../.github/ISSUE_TEMPLATE/practice-candidate.md) — never a file. See [spec/SOURCES.md](SOURCES.md#universal-candidates-are-github-issues-not-a-fourth-candidates) for why: `tools/leak_gate.py` already forbids a `candidates/` directory in Precedent, unconditionally, by shape rather than content. |
 
 A `candidates/` directory is exactly as private-shaped as `practices/` and
-carries the identical leak-gate consequence in the individual/team repos it
+carries the identical leak-gate consequence in the individual/shared-set repos it
 lives in — nothing here weakens that; it only says where the universal case
 goes instead.
 
-## Which one for team: file or Issue
+## Which one for a shared set: file or Issue
 
 **This is a question about authority, not about who has git access.**
-`precedent_land.py`'s own rule for team practices is that a listed
+`precedent_land.py`'s own rule for shared-set practices is that a listed
 approver's own say-so lands one directly — no pull request (PR), no
 candidate, no waiting (PRACTICE_ENGINE_PLAN.md: *"for a small team ... the session
 commits it directly"*). That means the quiet `candidates/*.md` path and
@@ -54,7 +54,7 @@ preference:
 - **Whoever's raising it is NOT a listed approver** → a quiet file in
   `candidates/` accomplishes nothing on its own, since nothing is watching
   that directory for it. Use `--as-issue true` instead: it drafts the same
-  candidate body, but as a GitHub Issue on that team repo (auto-detecting
+  candidate body, but as a GitHub Issue on that shared-set repo (auto-detecting
   the repo from the clone's own `origin` remote, or the GitHub org/user
   (OWNER) and repository name (REPO) via `--github-repo OWNER/REPO`
   if that can't be determined), labeled `precedent-candidate`
@@ -69,7 +69,7 @@ preference:
   already names for universal.
 
 An issue template isn't required for `--as-issue` to work — the tool
-drafts the full body regardless — but a team repo that wants the Issue
+drafts the full body regardless — but a shared-set repo that wants the Issue
 pre-structured for a human filing it by hand can add its own
 `.github/ISSUE_TEMPLATE/`, the same shape BestPractice's own
 `.github/ISSUE_TEMPLATE/practice-candidate.md` already uses.

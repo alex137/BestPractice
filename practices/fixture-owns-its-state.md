@@ -4,8 +4,10 @@ title:       A fixture owns every piece of state it asserts on
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.py", "**/*.sh", "**/test_*", "**/tests/**"]
+applies_to_why: "Test code, in the two languages this project writes it in, plus anything under a tests/ directory or named test_* in any language. Deliberately NOT `**`: the rule is about fixtures, and routing it everywhere would fire on ordinary assignment in production code, which is the shape checkable-gets-checked warns teaches sessions to ignore a signal. Decided: 2026-09-08, when the practice landed."
 occasion:    "writing a test, fixture or control that reads or edits state it did not create"
 gates:       ["review"]
+gates_why:   "A fixture's inherited state is visible in the diff that introduces it and nowhere else afterwards -- once it is merged it reads as a passing test."
 index_clause: "a fixture that inherits real state is testing the environment too"
 index_required: false
 checked_by:  null

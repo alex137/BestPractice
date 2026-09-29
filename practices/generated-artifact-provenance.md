@@ -4,6 +4,7 @@ title:       Provenance for generated artifacts
 tier:        on-demand
 severity:    default
 applies_to:  ["deck/**", "MAP.md", "GLOSSARY.md"]
+applies_to_why: "Where this repo actually builds and commits generated artifacts. Narrow on purpose: a glob over everything a build might touch would fire constantly and say nothing. Decided: phase 4 routing pass."
 occasion:    "building or committing a generated artifact"
 gates:       []
 index_clause: "stamp a build code and a manifest; never hand-edit output"

@@ -4,6 +4,7 @@ title:       A practice declares every file it owns, and they travel and move wi
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md", "tools/checks/tests/*.sh"]
+applies_to_why: "The path IS the distinguishing condition: the rule is about what a published practice declares and what its shipped test reads, and those live in practices/ and tools/checks/tests/. local/practices/ is out for the reason practice-links-travel's entry gives -- it never travels. Decided: 2026-09-26, when the practice landed at universal."
 occasion:    "writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set"
 gates:       []
 index_clause: "declare a practice's own files in `ships:`; a move carries them"

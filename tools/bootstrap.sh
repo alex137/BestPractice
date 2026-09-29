@@ -79,7 +79,7 @@ fi
 # carries the practices in force from every other source this repo
 # declares. Nothing outside Claude Code has ever written that file, so a
 # codex or gemini-cli session read the instruction, found no file, and
-# worked without a single team or individual practice -- silently, which
+# worked without a single shared or individual practice -- silently, which
 # is the same failure mode the file itself exists to prevent.
 #
 # Order matches session-start.sh's deliberately, so the two can be read

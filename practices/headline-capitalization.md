@@ -4,6 +4,7 @@ title:       "Outward-facing headings use one headline capitalization, defined o
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "`**` because the scope is an EXCLUSION, and a glob cannot express one. Every document is outward-facing unless tools/title_case.py names it internal (INTERNAL_DIRS/INTERNAL_FILES), which is the one definition both the gate and this practice read. Written as an allowlist it decayed within a day -- the practice shipped covering `documentation/` alone and `content/` and `book*/` had to be added the same afternoon, so an unclassified new directory would have been missed silently. This way the path-trigger fires a little wider than the gate enforces, which is the harmless direction: the reader is reminded on a practice file and the check then says it is out of scope. Morgan settled the boundary 2026-09-06: capitalization is for what outsiders read, and internal working files are never to be 'fixed'. Decided: 2026-09-06, when the practice was added."
 occasion:    "writing or editing a heading in an outward-facing document"
 gates:       []
 index_clause: "outward-facing headings are New York Times headline case, applied by tool"

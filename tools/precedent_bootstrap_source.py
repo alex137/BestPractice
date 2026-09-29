@@ -3,7 +3,7 @@
 individual or shared practice repo yet a real, working one in one command.
 
 THE GAP THIS CLOSES. Every source in PRACTICE_ENGINE_PLAN.md's three-source
-model (universal/team/individual) has always assumed the team or individual
+model (universal/shared/individual) has always assumed the shared or individual
 repo already exists somewhere -- INSTALL.md step 9 and SETUP.md step 2 both
 ask "do you already have one?" and simply stop if the answer is no. Nothing
 in this repo has ever handed a new adopter a place to start. This tool does:
@@ -18,7 +18,7 @@ any hosting API.
 
 It also vendors a real, tracked, refreshable engine into the new set's own
 tools/ -- see tools/precedent_vendor_engine.py's docstring. This closed a
-gap discovered only after precedent-individual, precedent-team-repo-maintenance
+gap discovered only after precedent-individual, precedent-shared-repo-maintenance
 and precedent-team-tms already existed: nothing here had ever put an
 engine file in place before, so every one of them got its copy from an
 undocumented, one-off hand-copy instead (precedent-team-tms's turned out
@@ -678,7 +678,7 @@ def verify(level, path):
     A source that was migrated into place instead -- assembled by hand from
     an older system -- never passed through here, and nothing afterwards
     ever asked whether it came out the right shape. 2026-09-06:
-    `precedent-team-repo-maintenance`, migrated rather than bootstrapped, had no
+    `precedent-shared-repo-maintenance`, migrated rather than bootstrapped, had no
     `leak-blocklist.txt` at all, while the team skeleton ships one and the
     set bootstrapped by this tool has it. Nobody had noticed, because
     nothing was looking.

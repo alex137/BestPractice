@@ -4,8 +4,10 @@ title:       A tool's warning never justifies rewriting published history
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment — routed by the `push` gate, and enforced by a turn-end check. Decided: phase 4 routing pass."
 occasion:    "a tool warns about already-published git history"
 gates:       ["push"]
+gates_why:   "The moment a tool complains about published history is the moment before a push."
 index_clause: "fix the setting forward; never rewrite published history"
 index_required: false
 checked_by:  "tools/precedent_check.py"

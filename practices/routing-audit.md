@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       engine-dev
 applies_to:  ["**"]
+applies_to_why: "Not a place -- \"checking whether practices that should have fired, fired\" is a periodic act a person invokes, not a file-touch trigger. Reachability comes from its occasion clause. Decided: 2026-09-03, full-practice-audit / routing-audit session."
 occasion:    "checking whether practices that should have fired for recent work did"
 gates:       []
 index_clause: "run the mechanical coverage check now; roll the deep-read slice forward"

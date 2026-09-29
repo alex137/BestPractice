@@ -4,8 +4,10 @@ title:       "A prompt one session seeds into another says which session sent it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus, and for a sharper reason than most: what triggers it is a harness call, not a file. The obligation lands entirely inside an argument to create_session or create_trigger, and nothing about it is ever written to the tree -- so there is no path whose editing means 'you should have declared where this prompt came from'. Reached through the occasion index alone. Decided: 2026-09-12, when the practice landed."
 occasion:    "seeding or scheduling a prompt into another session"
 gates:       []
+gates_why:   "No gate. The moment is the harness call, which is not one of merge, review, push or reply -- a session can seed a prompt in the middle of any of them, and pinning it to the reply gate would miss every spawn that happens mid-turn."
 index_clause: "it opens by naming the session that sent it"
 checked_by:  null
 defines:     []

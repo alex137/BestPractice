@@ -300,7 +300,7 @@ def _try_sync(repo_url, clone_path, branch=None):
     actually meets at startup:
 
       * sources_from_repo's ALREADY-ON-DISK branch calls this function
-        directly, so a team clone that exists -- which is every team clone
+        directly, so a shared-set clone that exists -- which is every shared-set clone
         after the first session -- was synced and never given a helper.
       * the individual source is not synced at session start at all while it
         looks usable: session-start.sh leaves it to precedent_resolve.py's
@@ -788,7 +788,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             continue
         if (clone_path / 'practices').is_dir():
             # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
-            # returned 'already on disk' and stopped -- so a team clone was
+            # returned 'already on disk' and stopped -- so a shared-set clone was
             # pulled exactly once, when it was created, and every session
             # afterwards read whatever it held that day. Measured on a real
             # container: four attached sources 4, 4, 6 and 19 commits behind

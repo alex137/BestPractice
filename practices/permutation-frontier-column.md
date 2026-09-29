@@ -4,6 +4,7 @@ title:       A permutation table carries a frontier column
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires on the shape of a table being built, not its location. Decided: phase 4 routing pass."
 occasion:    "building a permutation or configuration-sweep table"
 gates:       []
 index_clause: "one full table with a computed Frontier column"

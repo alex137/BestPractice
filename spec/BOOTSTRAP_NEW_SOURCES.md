@@ -1,5 +1,5 @@
 ---
-title:         Bootstrapping a Brand-New Individual or Team Set
+title:         Bootstrapping a Brand-New Individual or Shared Set
 kind:          procedure
 status:        current
 opened:        2026-09-04
@@ -7,22 +7,22 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       The generalized procedure for bootstrapping a brand-new individual or team practice set from zero.
+summary:       The generalized procedure for bootstrapping a brand-new individual or shared practice set from zero.
 ---
-# Bootstrapping a Brand-New Individual or Team Set
+# Bootstrapping a Brand-New Individual or Shared Set
 
 This is the generalized, repeatable procedure for the case
 [the guided-install conversation](../SETUP.md) step 2 and
 [INSTALL.md](../INSTALL.md) step 9 both used to leave as a dead end: an
-adopter with **no** individual practice repo and **no** team practice repo
+adopter with **no** individual practice repo and **no** shared-set practice repo
 yet, who wants one. It exists because every other piece of documentation
-about individual/team sources — this document included until now —
+about individual/shared sources — this document included until now —
 assumed the repo already existed.
 
 **This is a different document from
 [PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md), on purpose.** That brief
 records how `themorgan/precedent-individual` and
-`themorgan/precedent-team-repo-maintenance` were actually populated: bespoke,
+`themorgan/precedent-shared-repo-maintenance` were actually populated: bespoke,
 one-off work, done from a session opened directly against those two
 already-*existing* private repos, carrying RepoPersonalPreferences' (RPP)
 real 46 rules across.
@@ -116,7 +116,7 @@ assume a session has:
   **The path is a relative sibling and not `~/BestPractice`**, which is the
   measured answer rather than the tidy one: `$HOME` is `/root` on some
   containers and `/home/user` on others, and an individual set is cloned
-  under `$HOME` while the team sets sit beside the consuming repo — so a `~`
+  under `$HOME` while the shared sets sit beside the consuming repo — so a `~`
   path names nothing on the container where the sets actually live. The
   sibling is correct everywhere because the clone step creates it there,
   from the URL and branch the set's own `tools/ENGINE_MANIFEST.json` already
@@ -161,8 +161,8 @@ assume a session has:
   as of this document's 2026-09-05 update; before it, the tool wrote only
   practice content, config, approvers and the leak-blocklist, and every
   engine copy that existed (`precedent-individual`,
-  `precedent-team-repo-maintenance`) came from an undocumented, one-off
-  hand-copy that nothing could tell was stale (`precedent-team-tms`'s was
+  `precedent-shared-repo-maintenance`) came from an undocumented, one-off
+  hand-copy that nothing could tell was stale (`precedent-team-tms`'s, as that set was named at the time, was
   simply missing).
 - Refuses to write into a non-empty destination without `--force true`.
 - Prints — or, opted in with `--write-user-config true` /
@@ -178,7 +178,7 @@ stays explicit, below.
 
 ## The vendored engine
 
-A brand-new individual or team set is a source repo, not a four-source
+A brand-new individual or shared set is a source repo, not a four-source
 consumer — it has no `process/upstream/` tree and no use for
 [`precedent_materialize.py`](../tools/precedent_materialize.py)/
 [`precedent_resolve.py`](../tools/precedent_resolve.py)/
@@ -236,7 +236,7 @@ nobody touches for a month is told nothing for a month.
 ### The scheduled channel, and why there is not one
 
 **There is no scheduled refresh anywhere, at any level, as of
-2026-09-14.** Not in the templates, not in the team sets, not in anyone's
+2026-09-14.** Not in the templates, not in the shared sets, not in anyone's
 individual set. The third channel a reader expects to find here does not
 exist, and its absence is a decision rather than a gap.
 
@@ -353,7 +353,7 @@ than a small, purpose-built tool.
 
 **The four-source CONSUMER case, closed 2026-09-05.** This document and
 `precedent_vendor_engine.py`'s `'source'` kind closed the gap above for a
-*source* repo (an individual or team set) first. A real four-source
+*source* repo (an individual or shared set) first. A real four-source
 consumer (universal + team + individual + repo-local, with
 `process/upstream/` and the full `precedent_materialize.py`/
 `precedent_resolve.py`/`precedent_sync_views.py` toolchain) needed the same
@@ -479,7 +479,7 @@ case documented above.
    the third of the same shape**: how technical their replies should be, in
    their own words — nothing else can tell, on purpose
    ([practices/technical-describes-people.md](../practices/technical-describes-people.md)).
-   Unfilled, a team-level default may decide it for them. `--verify` reports
+   Unfilled, a shared-level default may decide it for them. `--verify` reports
    all three.
    **`relayed_authorization` (2026-09-14) is the same shape and also has to be
    asked**: the skeleton ships `"refused"`, which is a real answer rather than
@@ -534,7 +534,7 @@ and it needs at least one approver at creation time.
 6. On a hosted/ephemeral session where nothing under the project's git
    checkout persists between sessions, wire the sibling-checkout access
    the same way [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s
-   step 4 already documents for an existing team source — this is the
+   step 4 already documents for an existing shared source — this is the
    identical gap, not a new one.
 7. Fill in `leak-blocklist.txt` and `approvers.json` for real, delete
    `practices/example-starter-<level>.md` once a real first practice replaces it.
