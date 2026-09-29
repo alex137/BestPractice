@@ -158,6 +158,7 @@ import split_practices as sp
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import generated_blocks  # noqa: E402
 
 
 # Which trees this repo MIRRORS from somewhere else, and therefore may not
@@ -7069,19 +7070,16 @@ def _rename_updates_links(ctx):
                 text = f.read_text(encoding='utf-8', errors='ignore')
             except OSError:
                 continue
-            in_generated = False
-            for i, line in enumerate(text.splitlines(), 1):
+            lines = text.splitlines()
+            for i, (line, in_generated) in enumerate(
+                    zip(lines, generated_blocks.mask(lines)), 1):
                 # The loader block is rewritten wholesale by build_views.py
                 # from the practice sources, so a reference inside it is the
                 # sources' to fix, exactly like the materialized files it is
                 # summarising. Skipped as a REGION, not as a file: the
                 # hand-written half of the same document must still be
                 # repointed, and usually is the thing that most needs to be.
-                if '<!-- BEGIN GENERATED: precedent-loader -->' in line:
-                    in_generated = True
-                elif '<!-- END GENERATED -->' in line:
-                    in_generated = False
-                    continue
+                # Either marker style counts (tools/generated_blocks.py).
                 if in_generated:
                     continue
                 # A permalink pinned to a commit names the file as it was at
@@ -9143,8 +9141,8 @@ SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES
 #
 # WHAT IS DELIBERATELY NOT SCANNED: the generated loader block. It is a copy
 # of practice text ON PURPOSE, which is the whole design, so reporting it
-# would be reporting the mechanism working. Everything between the BEGIN/END
-# GENERATED markers is cut before the scan.
+# would be reporting the mechanism working. Every generated block, in either
+# marker style, is cut before the scan (tools/generated_blocks.py).
 _DUP_SHINGLE = 12
 _DUP_MIN_RUN = 3
 
@@ -9165,22 +9163,7 @@ def _dup_shingles(words, n=_DUP_SHINGLE):
 
 
 def _strip_generated(text):
-    try:
-        import build_views as _bv
-        b, e = _bv.BEGIN_MARKER, _bv.END_MARKER
-    except Exception:
-        b, e = '<!-- BEGIN GENERATED: precedent-loader -->', '<!-- END GENERATED -->'
-    out, pos = [], 0
-    while True:
-        i = text.find(b, pos)
-        if i < 0:
-            out.append(text[pos:])
-            return ''.join(out)
-        out.append(text[pos:i])
-        j = text.find(e, i)
-        if j < 0:
-            return ''.join(out)
-        pos = j + len(e)
+    return generated_blocks.blank(text)
 
 
 def _practice_corpus(root):
