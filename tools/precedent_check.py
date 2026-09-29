@@ -6002,6 +6002,11 @@ def _vocabulary_reaches_the_consumer(ctx):
             'the consumer, by design (spec/ONE_COMMAND_UPDATE_PLAN.md): a '
             'vendored copy would be the stale one, sitting in the tree it '
             'is updating',
+        'precedent_three_way.py':
+            'the rules Update Vendors settles a locally edited vendored file '
+            'by; it runs beside precedent_update.py and checkin.py in the '
+            'BestPractice clone, and reaches a migrated repo\'s '
+            'process/upstream/ with the mirror, never through the engine list',
     }
     NEVER_VENDORED = set(UPSTREAM_ONLY)
 
