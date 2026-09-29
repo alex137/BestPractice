@@ -1,15 +1,15 @@
 ---
 slug:        go-update
-title:       "\"Go update\", \"Approved\" and \"Book it\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
+title:       "\"Go update\", \"Approved\" and \"Book it\" (stage 3, Booked) -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Go update\", \"Approved\" or \"Book it\", or plainly authorizes a merge"
+occasion:    "a message says \"Go update\", \"Approved\", \"Book it\", \"Booked\" or \"Promote 3\", or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\"/\"Book it\": push; high-risk: PR and merge"
+index_clause: "\"Go update\"/\"Approved\"/\"Book it\" (stage 3): push; high-risk: PR and merge"
 checked_by:  null
-defines:     ["Go update", "Approved", "Book", "Book it"]
-command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to.", "Book it": "The same as **Go update** (also just **Book**): save the work and land it on pre-staging, the shared save, so it won't be lost -- step 3, Booked, of the five-stage ladder."}
+defines:     ["Go update", "Approved", "Book", "Book it", "Booked", "Shared Save"]
+command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to.", "Book it": "The same as **Go update** (also just **Book**): save the work and land it on pre-staging, the shared save, so it won't be lost -- step 3, Booked, of the five-stage ladder.", "Booked": "Stage 3 (Promote 3), the same as **Go update**: move this session's work from its feature branch to the landing branch (pre-staging, for anyone who uses the three tiers), where it won't be lost.", "Shared Save": "The same as **Booked**."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -56,10 +56,16 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
 strength:    decided
 ---
 ## Rule
-**"Book" and "Book it" mean the same as `Go update`**: land the work on
-pre-staging, the shared save. It is step 3, Booked, of the five-stage
-ladder in
-[spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md).
+**"Book", "Book it", "Booked", "Shared Save" and "Promote 3" mean the same
+as `Go update`**: land the work on the landing branch -- pre-staging, the
+shared save, for anyone who uses the three tiers. This file is stage 3,
+**Booked**, of the five-stage ladder ([promote](promote.md), and
+[spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)):
+the step that moves a session's work off its feature branch to somewhere it
+won't be lost. When it is asked for by a stage word, it is read back as a
+stage first (*"Now Promote 3: Booked, the Shared Save -- moving
+`claude/<topic>-<random>` into pre-staging (BestPractice)"*). For anyone
+not using the ladder, `Go update` behaves exactly as below, word for word.
 Read any of these words for what the message means in the conversation it
 arrives in, not as a string to match: "book it if there's anything to
 book; if not, promote", said after a day of landing and promoting, asks

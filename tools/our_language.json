@@ -64,6 +64,10 @@
     {
       "word": "tier branch",
       "meaning": "One of the branches in the pre-staging, staging, main climb, or one of the two that travel with them: staging's old name `precedent-beta-v01` and Promote's lock branch `precedent-promote-lock`. A tier branch is never offered for deletion."
+    },
+    {
+      "word": "stage",
+      "meaning": "One of the five steps work climbs from idea to production: Consider, Act, Booked, Debut, Produce. \"Promote 3\" means stage 3, and each stage is read back before it runs."
     }
   ]
 }

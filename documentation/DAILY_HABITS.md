@@ -101,14 +101,19 @@ each one saves you a paragraph of explaining:
 <!--gen:vocabulary-->
 | Say this | And it will |
 |---|---|
+| **Act** | Stage 2 (Promote 2): build the change, on this session's own feature branch, pushed to GitHub so a lost session does not lose it -- not yet shared. Synonym: Build |
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: across every repo with Precedent installed, what waits on pre-staging for staging and on staging for main, and which of this week's branches are stale. |
+| **Consider** | Stage 1 (Promote 1): decide how much planning the work needs and do that much -- a one-line plan for a small change, a Brainstorm, a Plan it, or a full Write it up -- and say which. Synonym: Plan |
+| **Debut** | Stage 4 (Promote 4): move pre-staging into staging, with the full local checks, saying so first -- saving this session's own work to pre-staging first if it is not there yet. Synonym: Test Readiness |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved, Book it |
+| **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved, Book it, Booked, Shared Save |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
+| **Plan it** | Write a plan in the session -- numbered steps, the risks, what "done" looks like, and what is out of scope -- and hand it back as one prompt ready to paste into another session for its critique. Nothing is saved to the repository. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
-| **Promote** | Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass. |
+| **Produce** | Stage 5 (Promote 5): move staging into main -- production -- with the full local checks plus the GitHub test, saying so first. Synonym: Make live |
+| **Promote** | Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass. "Promote N" does stage N of the five-stage ladder: 1 Consider, 2 Act, 3 Booked, 4 Debut, 5 Produce. Synonym: Graduate |
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach. |
 | **Push directly** | Save the work and push it straight to the branch right now -- no pull request, whatever go-update's classification would otherwise call for. Name the branch ("push directly to main") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
@@ -121,7 +126,7 @@ each one saves you a paragraph of explaining:
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes and what each one does, then the words worth knowing to follow a conversation about it. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
-| **Write it up** | Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link. |
+| **Write it up** | Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link. Synonym: Spec it out |
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is

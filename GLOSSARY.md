@@ -6,6 +6,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| Act | [act](practices/act.md) |
 | allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
 | API budget | [github-api-budget](practices/github-api-budget.md) |
@@ -17,12 +18,15 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Boildown | [the-boildown](practices/the-boildown.md) |
 | Book | [go-update](practices/go-update.md) |
 | Book it | [go-update](practices/go-update.md) |
+| Booked | [go-update](practices/go-update.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
 | Chief of Staff | [chief-of-staff](practices/chief-of-staff.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
+| Consider | [consider](practices/consider.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
+| Debut | [debut](practices/debut.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
@@ -37,21 +41,28 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-update](practices/go-update.md) |
+| Graduate | [promote](practices/promote.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | Landing branch | [tier-branch](practices/tier-branch.md) |
 | lease board | [lease-in-flight-work](practices/lease-in-flight-work.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | live citation | [practice-change-propagates](practices/practice-change-propagates.md) |
+| Make live | [produce](practices/produce.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
+| One-line plan | [consider](practices/consider.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
+| Plan it | [plan-it](practices/plan-it.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | pre-staging | [promote](practices/promote.md) |
 | Primary branch | [primary-branch](practices/primary-branch.md) |
+| Produce | [produce](practices/produce.md) |
+| production | [produce](practices/produce.md) |
 | Promote | [promote](practices/promote.md) |
+| Promote N | [promote](practices/promote.md) |
 | Promotion Reviews | [chief-of-staff](practices/chief-of-staff.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
@@ -66,12 +77,16 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
+| Shared Save | [go-update](practices/go-update.md) |
 | Simple please | [plain-words](practices/plain-words.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | source manifest | [source-naming](practices/source-naming.md) |
+| Spec it out | [write-it-up](practices/write-it-up.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | subject: | [session-tags](practices/session-tags.md) |
+| Test Readiness | [debut](practices/debut.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
+| the five stages | [promote](practices/promote.md) |
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |

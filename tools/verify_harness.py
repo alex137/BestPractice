@@ -15295,6 +15295,79 @@ def check_vocabulary_prefers_the_file_you_are_standing_on():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_archive_guard_refuses_work_left_on_a_feature_branch():
+    """`require_landed_if_says` refuses the archive sentence while a feature
+    branch holds work its repo has not landed, and accepts it once each such
+    branch is named in a `**Branch disposition:** BRANCH -- drop` line
+    (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, step 7).
+
+    Two halves, because they fail differently. The FINDER is run on a
+    fixture repo with a real feature branch ahead of its landing branch, so
+    the parse of precedent_gate's NOT YET LANDED line is tested against the
+    line that function really prints. The VERDICT is run with the finder
+    pinned, so the escape and its negative controls do not depend on
+    whatever this machine's own clones happen to hold. Owns its state.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as rc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='archive-guard-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='f@example.com')
+
+    def git(*a, cwd):
+        return subprocess.run(['git', *a], cwd=str(cwd), env=env,
+                              capture_output=True, text=True)
+    cases = []
+    real = rc._stranded_branches
+    try:
+        origin = tmp / 'origin.git'
+        git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=tmp)
+        repo = tmp / 'repo'
+        git('clone', '-q', str(origin), str(repo), cwd=tmp)
+        (repo / 'precedent.json').write_text('{"base_branch": "main"}\n', encoding='utf-8')
+        git('add', '-A', cwd=repo); git('commit', '-qm', 'base', cwd=repo)
+        git('push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        git('fetch', '-q', 'origin', cwd=repo)
+        git('checkout', '-q', '-b', 'claude/fixture-abc123', cwd=repo)
+        (repo / 'work.md').write_text('finished work\n', encoding='utf-8')
+        git('add', '-A', cwd=repo); git('commit', '-qm', 'work', cwd=repo)
+
+        found = rc._stranded_branches(str(repo), siblings=False)
+        cases.append(('the finder reports a feature branch ahead of its landing branch',
+                      ('this checkout', 'claude/fixture-abc123') in found, f'{found}'))
+        git('checkout', '-q', 'main', cwd=repo)
+        clean = rc._stranded_branches(str(repo), siblings=False)
+        cases.append(('negative control: on the landing branch itself, nothing is stranded',
+                      clean == [], f'{clean}'))
+
+        rc._stranded_branches = lambda *a, **k: [('this checkout', 'claude/fixture-abc123')]
+        req = [{'practice': 'ladder-required', '_source': 'individual/fixture',
+                'require_landed_if_says': ['You can archive this session']}]
+        kinds = lambda text: [v['kind'] for v in rc.violations(text, req)]
+        cases += [
+            ('the archive sentence is refused while work sits on a feature branch',
+             'landed' in kinds('Done.\n\nYou can archive this session.'), ''),
+            ('a **Branch disposition:** line naming that branch lets it through',
+             'landed' not in kinds('**Branch disposition:** claude/fixture-abc123 -- '
+                                   'drop (superseded)\n\nYou can archive this session.'), ''),
+            ('negative control: a disposition naming a DIFFERENT branch does not',
+             'landed' in kinds('**Branch disposition:** claude/other -- drop (x)\n\n'
+                               'You can archive this session.'), ''),
+            ('negative control: "Don\'t archive this session" is never refused by it',
+             'landed' not in kinds("Don't archive this session."), ''),
+        ]
+    finally:
+        rc._stranded_branches = real
+        shutil.rmtree(tmp, ignore_errors=True)
+    ok = all(passed for _, passed, _ in cases)
+    for name, passed, detail in cases:
+        if not passed:
+            print(f"  archive guard did NOT behave as stated: {name} [{detail}]")
+    check(f'the archive guard refuses work left on a feature branch, and '
+          f'accepts a named drop ({len(cases)} stated cases)', ok)
+
+
 def check_vocabulary_moves_a_word_to_our_language():
     """A `command:` phrase that is also a word in tools/our_language.json
     prints under "Our language", not among the commands, and the word list
@@ -43973,6 +44046,7 @@ def main():
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
     check_vocabulary_prefers_the_file_you_are_standing_on()
     check_vocabulary_moves_a_word_to_our_language()
+    check_archive_guard_refuses_work_left_on_a_feature_branch()
     check_beta_watermark_commits_only_when_it_actually_reports_something()
     check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
     check_trivial_checkin_exempts_the_boildown_gate()
