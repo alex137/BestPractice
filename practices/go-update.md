@@ -1,15 +1,15 @@
 ---
 slug:        go-update
-title:       "\"Go update\" and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
+title:       "\"Go update\", \"Approved\" and \"Book it\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Go update\" or \"Approved\", or plainly authorizes a merge"
+occasion:    "a message says \"Go update\", \"Approved\" or \"Book it\", or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\": default push; high-risk: sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\"/\"Book it\": push; high-risk: PR and merge"
 checked_by:  null
-defines:     ["Go update", "Approved"]
-command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to."}
+defines:     ["Go update", "Approved", "Book", "Book it"]
+command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to.", "Book it": "The same as **Go update** (also just **Book**): save the work and land it on pre-staging, the shared save, so it won't be lost -- step 3, Booked, of the five-stage ladder."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -48,10 +48,24 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   is of that repo? If not, it should. (This helps avoid the problem of, I
   tell it to update, and it does so but only the local clone only.)\"; slug
   renamed go-merge to go-update 2026-09-26, Morgan -- \"Go update, rename
-  go-merge to go-update\""
+  go-merge to go-update\"; \"Book\" and \"Book it\" added 2026-09-28,
+  Morgan -- \"Add 'book' and 'book it' as synonyms\", the Booked stage of
+  spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, and \"don't just literally look at
+  the words but think about the words I say, the context, what we had been
+  discussing\""
 strength:    decided
 ---
 ## Rule
+**"Book" and "Book it" mean the same as `Go update`**: land the work on
+pre-staging, the shared save. It is step 3, Booked, of the five-stage
+ladder in
+[spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md).
+Read any of these words for what the message means in the conversation it
+arrives in, not as a string to match: "book it if there's anything to
+book; if not, promote", said after a day of landing and promoting, asks
+for exactly this, and a word missing from the vocabulary is a reason to
+read the recent plans and the thread, not to call it unknown.
+
 If the message you are answering tells you to `Go update` --
 case-insensitive, **anywhere in the message**, as its own line, as a whole
 sentence, or as a clause inside a longer one -- treat it as authorization,

@@ -69,7 +69,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-api-budget](practices/github-api-budget.md) | on-demand | writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
-| [go-update](practices/go-update.md) | on-demand | a message says "Go update" or "Approved", or plainly authorizes a merge |
+| [go-update](practices/go-update.md) | on-demand | a message says "Go update", "Approved" or "Book it", or plainly authorizes a merge |
 | [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repo, or use a GitHub tool for what the clone holds |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |

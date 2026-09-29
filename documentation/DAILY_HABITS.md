@@ -105,7 +105,7 @@ each one saves you a paragraph of explaining:
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: across every repo with Precedent installed, what waits on pre-staging for staging and on staging for main, and which of this week's branches are stale. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved |
+| **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved, Book it |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
 | **Primary branch** | Trunk -- the one shared branch regular work pushes to and pull requests target, as this repository declares it (usually main). |
