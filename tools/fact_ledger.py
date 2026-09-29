@@ -222,8 +222,21 @@ del _fact_ledger_reads
 HOOK_VERSION = hashlib.sha256(READS_HOOK.encode()).hexdigest()[:12]
 
 
+def _load_record():
+    # the hashing is content_record's (beside this file), loaded by path
+    # because this module is itself often loaded by path
+    spec = importlib.util.spec_from_file_location("_fact_ledger_content_record",
+                                                  Path(__file__).resolve().parent / "content_record.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+content_record = _load_record()
+
+
 def sha(data):
-    return hashlib.sha256(data.encode() if isinstance(data, str) else data).hexdigest()[:16]
+    return content_record.digest(data, 16)
 
 
 class Ledger:
@@ -237,7 +250,7 @@ class Ledger:
         self._rk = None
         self._keys = {}
         self._covered = {}
-        self._repo = {}
+        self.reader = content_record.Reader(self.root, length=16)
         if path:
             self.load()
 
@@ -280,45 +293,12 @@ class Ledger:
         return sorted((k[0], k[1], v) for k, v in out.items())
 
     def repo_state(self, path):
-        """The state a local git query can see in the repository at `path`:
-        HEAD, every ref, the working tree against HEAD (tracked changes and
-        untracked files, by content). Computed once per ledger -- a run does
-        not change it -- so a unit that runs git against a checkout it did
-        not make can still hold a fact, re-run when any of that moves."""
-        key = str(path)
-        if key not in self._repo:
-            import subprocess
-
-            def git(*a):
-                r = subprocess.run(["git", "-C", key, *a], capture_output=True)
-                return r.stdout if r.returncode == 0 else b"?"
-            h = hashlib.sha256()
-            for part in (git("rev-parse", "HEAD"), git("for-each-ref", "--format=%(refname) %(objectname)"),
-                         git("diff", "HEAD", "--binary"), git("status", "--porcelain=v1", "-uall", "-z")):
-                h.update(part + b"\0")
-            for name in git("ls-files", "--others", "--exclude-standard", "-z").split(b"\0"):
-                f = Path(key) / name.decode(errors="replace")
-                if name and f.is_file():
-                    h.update(name + b"\0" + f.read_bytes())
-            self._repo[key] = h.hexdigest()[:16]
-        return self._repo[key]
+        """The state a local git query can see in the repository at `path`
+        (content_record kind "g"), computed once per ledger."""
+        return self.reader.repo_state(path)
 
     def read_sig(self, kind, rel):
-        if kind == "e":
-            v = os.environ.get(rel)
-            return sha("\0unset" if v is None else v)
-        if kind == "x":
-            full = self.root / rel
-            return "dir" if full.is_dir() else ("file" if os.path.lexists(full) else "missing")
-        p = self.root / rel
-        if kind == "g":
-            return self.repo_state(p)
-        try:
-            if kind == "d":
-                return sha("\n".join(sorted(x.name for x in p.iterdir())))
-            return sha(p.read_bytes())
-        except OSError:
-            return "missing"
+        return self.reader.sig(kind, rel)
 
     # -- the code fingerprint -----------------------------------------------
     def reach_engine(self):
@@ -378,11 +358,14 @@ class Ledger:
     def holds(self, f, code, out=None):
         """A fact holds when its code, every read, and (when given) the
         output it recorded are all what they are now."""
-        return (f.get("code") == code and f.get("hook") == HOOK_VERSION
-                and (out is None or f.get("out") == sha(out))
-                and f.get("reads") is not None
-                and all(rel in self.ignore or self.read_sig(kind, rel) == s
-                        for kind, rel, s in f["reads"]))
+        return (f.get("code") == code and self.reads_hold(f)
+                and (out is None or f.get("out") == sha(out)))
+
+    def reads_hold(self, f):
+        """The fact was taken under this hook and every read it recorded
+        still has the content the work saw."""
+        return (f.get("hook") == HOOK_VERSION and f.get("reads") is not None
+                and content_record.Record(f["reads"]).holds(self.reader, self.ignore)[0])
 
     def find(self, scope, name, code, out=None):
         """The holding fact for (scope, name), or None."""

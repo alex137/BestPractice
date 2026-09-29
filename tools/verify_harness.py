@@ -13412,6 +13412,116 @@ def _conflict_marker_hits(named_texts):
             for name, text in named_texts for m in _CONFLICT_MARKER.finditer(text)]
 
 
+def check_update_with_source_stamps_that_sources_manifest():
+    """`checkin.py update --source NAME` records which commit it mirrored in
+    process/manifest_NAME.json, and leaves the universal manifest alone.
+    Origin: the stamp was written to process/manifest.json whatever the
+    source, so vendoring a shared set moved the universal set's
+    synced_from to a commit of a different repository. Control: with no
+    source selected the stamp lands in the universal manifest."""
+    import importlib.util, tempfile
+    bad, cases = [], []
+    spec = importlib.util.spec_from_file_location('_vh_checkin', ROOT / 'tools' / 'checkin.py')
+    ck = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ck)
+    with tempfile.TemporaryDirectory() as t:
+        root = pathlib.Path(t)
+        (root / 'process').mkdir()
+        uni = root / 'process' / 'manifest.json'
+        shared = root / 'process' / 'manifest_team-x.json'
+        for f in (uni, shared):
+            f.write_text(json.dumps({'upstream': {'commit': 'old', 'synced_from': 'old'}}), encoding='utf-8')
+        saved = (ck.ROOT, ck.MANIFEST, ck.UPSTREAM, ck.SOURCE)
+        try:
+            ck.ROOT = root
+            ck.MANIFEST = uni
+            ck._select_source('team-x')
+            ck._stamp_synced_from('new')
+            got_shared = json.loads(shared.read_text())['upstream']['synced_from']
+            got_uni = json.loads(uni.read_text())['upstream']['synced_from']
+            cases.append('a shared source stamps its own manifest')
+            if got_shared != 'new' or got_uni != 'old':
+                bad.append(f'with --source: shared={got_shared!r}, universal={got_uni!r}')
+            ck.MANIFEST = uni
+            ck._stamp_synced_from('newer')
+            cases.append('control: no source stamps the universal manifest')
+            if json.loads(uni.read_text())['upstream']['synced_from'] != 'newer':
+                bad.append('with no source the universal manifest was not stamped')
+        finally:
+            ck.ROOT, ck.MANIFEST, ck.UPSTREAM, ck.SOURCE = saved
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_branch_store_and_its_callers():
+    """The shared branch store (tools/branch_store.py, spec/SHARED_ENGINES_PLAN.md)
+    and the two tools built on it, on a scratch remote. The store's own
+    self-check covers both modes; this adds the callers' behaviour that the
+    move onto the store had to keep: the lease board refuses an overlapping
+    take from another holder, a replacing take drops the holder's older lease
+    in the same commit, and every change is a commit (history); the result
+    cache keeps KEEP entries per family, publishes as one root commit, pulls
+    an entry byte for byte into another clone, and two clones publishing in
+    turn on a stale tip keep both entries."""
+    bad, cases = [], []
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'branch_store.py'), '--self-check'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        bad.append('branch_store self-check: ' + (r.stdout + r.stderr).strip()[-300:])
+    cases.append('store self-check')
+    import tempfile
+    script = r"""
+import importlib, json, os, pathlib, subprocess, sys
+sys.path.insert(0, sys.argv[1]); t = pathlib.Path(sys.argv[2])
+def git(*a): return subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.strip()
+git("init", "-q", "--bare", str(t / "r.git"))
+for c in "ab":
+    git("clone", "-q", str(t / "r.git"), str(t / c))
+    git("-C", str(t / c), "-c", "user.email=x@example.invalid", "-c", "user.name=x",
+        "commit", "-q", "--allow-empty", "-m", "i")
+    git("-C", str(t / c), "checkout", "-q", "-b", "w" + c)
+def load(c):
+    for m in ("lease_board", "result_cache"): sys.modules.pop(m, None)
+    lb = importlib.import_module("lease_board"); rc = importlib.import_module("result_cache")
+    lb.REPO = rc.REPO = str(t / c); rc.KEEP = 2; rc.WAIT_S = 2; rc.POLL_S = 1
+    return lb, rc
+out = {}
+lb, rc = load("a"); lb.take(["X"], "k", lease_id="L1")
+lbB, _ = load("b")
+try: lbB.take(["X"], "k", lease_id="L2"); out["refused"] = False
+except lbB.LeaseConflict: out["refused"] = True
+lb, _ = load("a"); lb.take(["Y"], "k", lease_id="L3", replace_kind=True)
+out["board"] = sorted(lb.board())
+out["coord_commits"] = int(git("-C", str(t / "r.git"), "rev-list", "--count", "coord"))
+_, rc = load("a"); m = t / "a" / "m"; m.mkdir()
+for i, k in enumerate(["aaaaaaaa1", "bbbbbbbb2", "cccccccc3"]):
+    f = m / f"s_{k}.pkl"; f.write_bytes(bytes([i]) * 100); rc.publish(f)
+_, rcB = load("b"); rcB._fetch()
+_, rcA = load("a"); f = m / "o_dddddddd4.pkl"; f.write_bytes(b"A"); rcA.publish(f)
+g = t / "b" / "m" / "p_eeeeeeee5.pkl"; g.parent.mkdir(); g.write_bytes(b"B"); rcB.publish(g)
+out["index"] = sorted(json.loads(git("-C", str(t / "r.git"), "show", "result-cache:index.json")))
+out["cache_commits"] = int(git("-C", str(t / "r.git"), "rev-list", "--count", "result-cache"))
+_, rcB = load("b"); d = t / "b" / "m" / "s_cccccccc3.pkl"
+out["pulled"] = rcB.ready(d, claim=False) and d.read_bytes() == bytes([2]) * 100
+print(json.dumps(out))
+"""
+    with tempfile.TemporaryDirectory() as t:
+        env = dict(os.environ, PRECEDENT_TZ='UTC')
+        r = subprocess.run([sys.executable, '-c', script, str(ROOT / 'tools'), t],
+                           capture_output=True, text=True, env=env)
+        try:
+            out = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            return (False, '', 'callers script failed: ' + r.stderr.strip()[-400:])
+    want = {'refused': True, 'board': ['L3'], 'coord_commits': 2,
+            'index': ['o_dddddddd4.pkl', 'p_eeeeeeee5.pkl', 's_bbbbbbbb2.pkl', 's_cccccccc3.pkl'],
+            'cache_commits': 1, 'pulled': True}
+    for k, v in want.items():
+        cases.append(k)
+        if out.get(k) != v:
+            bad.append(f'{k}: got {out.get(k)!r}, want {v!r}')
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_no_conflict_markers_in_shipped_tools():
     """No file that runs ships with a merge conflict marker in it (practice
     vendor-update-runbook: a port between a vendored copy and its upstream is
@@ -29381,6 +29491,20 @@ def check_reach_key_self_check():
     check(name, p.returncode == 0 and 'PASS' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
 
 
+def check_content_record_self_check():
+    """content_record.py's own property checks: a fresh record holds; a
+    changed file, listing, existence or environment variable is each
+    reported as moved; ignored names never count; the two text schemes
+    are frozen to their literal digests."""
+    name = 'content_record reports exactly what moved, under frozen schemes'
+    tool = ROOT / 'tools' / 'content_record.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/content_record.py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), '--self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'OK' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
+
+
 def check_doc_sync_ledger():
     """doc_sync's ledger skips a block whose code fingerprint, recorded reads
     and output all still hold, and re-emits it when any of the three moves.
@@ -29402,8 +29526,9 @@ def check_doc_sync_ledger():
         (d / 'tools').mkdir()
         shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
         shutil.copy2(rk, d / 'tools' / 'reach_key.py')
-        if (ROOT / 'tools' / 'fact_ledger.py').is_file():
-            shutil.copy2(ROOT / 'tools' / 'fact_ledger.py', d / 'tools' / 'fact_ledger.py')
+        for f in ('fact_ledger.py', 'content_record.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
         (d / 'data.txt').write_text('7\n')
         model = (
             'import os, sys\n'
@@ -29512,7 +29637,7 @@ def check_doc_sync_fails_fast():
         (d / '.git').mkdir()
         (d / 'tools').mkdir()
         shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
-        for f in ('reach_key.py', 'fact_ledger.py'):
+        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py'):
             if (ROOT / 'tools' / f).is_file():
                 shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
         (d / 'slow.py').write_text('import time\ntime.sleep(60)\nprint("x")\n')
@@ -29542,9 +29667,10 @@ def check_model_audit_ledger():
     that counts its own runs."""
     name = 'model_audit skips a model whose clean audit still holds, and re-runs a changed one'
     engine = ROOT / 'tools' / 'model_audit.py'
-    needs = [engine, ROOT / 'tools' / 'fact_ledger.py', ROOT / 'tools' / 'reach_key.py']
+    needs = [engine, ROOT / 'tools' / 'fact_ledger.py', ROOT / 'tools' / 'reach_key.py',
+             ROOT / 'tools' / 'content_record.py']
     if not all(p.is_file() for p in needs):
-        not_applicable(name, 'model_audit.py, fact_ledger.py or reach_key.py is absent')
+        not_applicable(name, 'model_audit.py, fact_ledger.py, content_record.py or reach_key.py is absent')
         return
     import tempfile as _tf
     bad = []
@@ -44202,6 +44328,10 @@ def main():
           *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
     check('checks read what their rules name', *check_checks_read_what_their_rules_name())
+    check('checkin update --source stamps that source\'s manifest, not the universal one',
+          *check_update_with_source_stamps_that_sources_manifest())
+    check('the branch store and the lease board and result cache on it',
+          *check_branch_store_and_its_callers())
     check('no file that runs ships with a merge conflict marker',
           *check_no_conflict_markers_in_shipped_tools())
     check_routing_scope(files)
@@ -44306,6 +44436,7 @@ def main():
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
     check_reach_key_self_check()
+    check_content_record_self_check()
     check_doc_sync_ledger()
     check_doc_sync_fails_fast()
     check_model_audit_ledger()

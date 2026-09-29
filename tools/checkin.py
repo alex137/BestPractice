@@ -571,7 +571,7 @@ def _stamp_synced_from(commit):
     needs and which upstream.commit cannot answer during the normal cycle,
     because it legitimately lags from update() until the merge is recorded.
     """
-    path = ROOT / 'process' / 'manifest.json'
+    path = MANIFEST        # the selected source's manifest (--source), not always the universal one
     m = json.loads(path.read_text(encoding='utf-8'))
     m.setdefault('upstream', {})['synced_from'] = commit
     path.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n",

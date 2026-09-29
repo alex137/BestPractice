@@ -103,6 +103,14 @@ leaves for the next, and the clock. **Anything the hook cannot see means
 no skip** — a kind of dependency the ledger does not record is a case
 where it must refuse to hold a fact, and the test proves it refuses.
 
+**The hashing is one shared engine.** What a read's signature is, and
+whether a recorded set of reads still holds, is
+[tools/content_record.py](https://github.com/alex137/BestPractice/blob/staging/tools/content_record.py);
+the ledger keeps what is particular to facts (the reads hook, the code
+fingerprint, the hook version). A gate that checks a fact inline instead
+of asking the ledger drifts from it: one did, and it skipped the
+hook-version comparison every other fact made.
+
 ## Why
 The expensive part of a drift gate is almost never the comparison; it is
 re-deriving what every unit prints. When nothing changed, all of that is
@@ -141,5 +149,5 @@ Give each gate that re-runs work to compare its output a ledger file
 authority lives in CI), a fact per unit recorded only on a clean pass,
 and a `--full` switch. Record reads with an audit hook in the process
 that did the work, never by declaration. The shared engine is
-`tools/fact_ledger.py`; the document gate and the model audit in this
+`tools/fact_ledger.py`, over `tools/content_record.py`; the document gate and the model audit in this
 repository use it. The harness has none, for the reason above.

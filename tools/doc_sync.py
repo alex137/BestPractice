@@ -217,8 +217,8 @@ def owned_figures_cached(script, ledger):
         return []
     code = _led().code_key(script, ["owned_figures"], b"owned")
     for f in ledger.get(("#owned", script), []):
-        if not FULL and f.get("code") == code and f.get("reads") is not None and f.get("figures") is not None \
-                and all(_led().read_sig(k, r) == sig for k, r, sig in f["reads"]):
+        if not FULL and f.get("code") == code and f.get("figures") is not None \
+                and _led().reads_hold(f):
             return [(lab, forms) for lab, forms in f["figures"]]
     fd, out = tempfile.mkstemp(suffix=".json")
     os.close(fd)
@@ -338,7 +338,8 @@ def _led():
         # would otherwise count as a read of every block it emits
         here = Path(__file__).resolve().parent
         own = set()
-        for f in (Path(__file__).resolve(), here / "fact_ledger.py", here / "reach_key.py"):
+        for f in (Path(__file__).resolve(), here / "fact_ledger.py", here / "content_record.py",
+                  here / "reach_key.py"):
             try:
                 own.add(str(f.relative_to(Path(ROOT).resolve())))
             except ValueError:

@@ -1,21 +1,22 @@
 ---
 title:         Two shared engines -- a branch store and a content-hash record
 kind:          proposal
-status:        drafted
+status:        accepted
 opened:        2026-09-29
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "The first run of practice judgment-check-or-tool: two mechanisms that each exist more than once across the catalogue and its private sets, what each copy does, what a merged engine keeps, and how each caller moves over. A plan for the owner to decide on; no engine is written yet."
+summary:       "The first run of practice judgment-check-or-tool: two mechanisms that each existed more than once across the catalogue and its private sets, what each copy did, what the merged engine keeps, and how each caller moved over. Built 2026-09-29 as tools/branch_store.py and tools/content_record.py; section 6 records what the build found."
 ---
 
 # Two shared engines -- a branch store and a content-hash record
 
 This is the first application of
 [judgment-check-or-tool](../practices/judgment-check-or-tool.md). Two
-mechanisms each exist more than once. **Nothing here is built yet**; the
-merge is the owner's call.
+mechanisms each existed more than once. **Both engines are built**
+(owner's go-ahead, 2026-09-29): `tools/branch_store.py` and
+`tools/content_record.py`. Section 6 records what building them found.
 
 ## 1. The branch store
 
@@ -149,3 +150,31 @@ them: [lease-in-flight-work](../practices/lease-in-flight-work.md),
 One runner for every gate (the fail-fast behavior now lives separately
 in each gate) is a third candidate. It is left out: the gates differ
 more in what they run than in how, and the copies have not drifted yet.
+
+## 6. What building it found
+
+- **A fourth copy of the record check.** The document gate checked a
+  cached declaration's reads inline instead of asking the ledger, and the
+  inline copy skipped the hook-version comparison every other fact made.
+  One fact in the consuming repository had been taken under an older
+  hook and would have kept being skipped; on the merged engine it re-ran.
+- **Three private copies, not two.** The private set's drift check and
+  its package builder each carried the same text normalization, and the
+  builder a third function for raw bytes. All three now go through the
+  engine's two frozen schemes (`rstrip`, `raw`), which the host shim hands
+  to the private engines. In the consuming repository every input any
+  stored record names hashed identically, and every stored record's
+  status against today's content was unchanged.
+- **A bug in the vendoring tool.** Vendoring a shared set wrote the
+  "last synced from" stamp into the universal manifest whatever set was
+  being vendored. Fixed, with a test that fails on the old code.
+- **Claims left by killed solves.** The live lease board held nine
+  claims from solves a process-group kill had stopped: exit hooks do not
+  run on a signal. Released by hand; the cache practice now says so.
+
+How each move was checked: the lease board and cache against a
+transcript of their behaviour on a scratch remote, identical before and
+after, and a mutation of each one's history mode changed it; the fact
+ledger by every committed fact in the consuming repository still holding
+(127 document blocks, 48 model audits); the private hashes by a
+before-and-after probe, with a wrong scheme shown to change it.

@@ -192,6 +192,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | Path | What it is |
 |---|---|
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the path-triggered loader against this repo's own commit history |
+| [tools/branch_store.py](tools/branch_store.py) | Small records on a dedicated branch of a shared remote, with the push as the lock: the git plumbing shared by the lease board and the result cache |
 | [tools/build_codeowners.py](tools/build_codeowners.py) | CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json |
 | [tools/build_gotcha_index.py](tools/build_gotcha_index.py) | gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md |
 | [tools/build_todo_index.py](tools/build_todo_index.py) | todo/TODO.md and todo/CLOSED.md, generated from todo/*.md's frontmatter |
@@ -199,6 +200,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/catalogue_stats.py](tools/catalogue_stats.py) | The figures about the catalogue that other documents cite, computed rather than hand-typed |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |
 | [tools/ci_fleet_audit.py](tools/ci_fleet_audit.py) | Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs |
+| [tools/content_record.py](tools/content_record.py) | Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check |
 | [tools/doc_html.py](tools/doc_html.py) | The one sortable-table HTML renderer for repo documents |
 | [tools/doc_lifecycle.py](tools/doc_lifecycle.py) | The document status header — kind, status, supersession — checked across spec/ and record/ |
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |

@@ -61,11 +61,11 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import precedent_time  # noqa: E402  one module for every emitted moment
+import branch_store    # noqa: E402  the branch plumbing, shared with result_cache
 
 REMOTE = "origin"
 BRANCH = "coord"
@@ -82,8 +82,7 @@ the full history of who held what.
 """
 
 
-class BoardUnreachable(RuntimeError):
-    pass
+BoardUnreachable = branch_store.Unreachable
 
 
 class LeaseConflict(RuntimeError):
@@ -93,12 +92,17 @@ class LeaseConflict(RuntimeError):
 
 
 # ------------------------------------------------------------------ git ----
-def _git(*args, env=None, input=None, check=True):
-    e = dict(os.environ)
-    if env:
-        e.update(env)
-    r = subprocess.run(["git", *args], cwd=REPO, env=e, input=input,
-                       capture_output=True, text=True)
+# The branch plumbing is branch_store's (history mode: every take, update and
+# release is a commit on the board branch). Built per call, because the host
+# shim sets REMOTE/BRANCH/DIR/REPO after import.
+def _store():
+    return branch_store.BranchStore(REMOTE, BRANCH, REPO, ref=_ref(),
+                                    retries=RETRIES, history=True,
+                                    seed={"README.md": README.format(dir=DIR)})
+
+
+def _git(*args, check=True):
+    r = _store().git(*args)
     if check and r.returncode != 0:
         raise subprocess.CalledProcessError(r.returncode, ["git", *args],
                                             r.stdout, r.stderr)
@@ -110,91 +114,33 @@ def _ref():
 
 
 def _fetch():
-    """Fetch the board branch into a private ref. Returns its commit, or None
-    when the branch does not exist yet. Raises BoardUnreachable otherwise."""
-    r = _git("ls-remote", "--heads", REMOTE, BRANCH, check=False)
-    if r.returncode != 0:
-        raise BoardUnreachable(f"cannot reach {REMOTE}: {r.stderr.strip()}")
-    if not r.stdout.strip():
-        return None
-    r = _git("fetch", "--quiet", "--no-tags", REMOTE,
-             f"+refs/heads/{BRANCH}:{_ref()}", check=False)
-    if r.returncode != 0:
-        raise BoardUnreachable(f"cannot fetch {REMOTE}/{BRANCH}: "
-                               f"{r.stderr.strip()}")
-    return _git("rev-parse", _ref()).stdout.strip()
+    return _store().fetch()
 
 
 def _read(commit):
-    if commit is None:
-        return {}
-    r = _git("ls-tree", "--name-only", f"{commit}:{DIR}", check=False)
-    if r.returncode != 0:
-        return {}
+    st = _store()
     out = {}
-    for name in r.stdout.split():
+    for name in st.list(commit, DIR):
         if not name.endswith(".json"):
             continue
-        blob = _git("show", f"{commit}:{DIR}/{name}").stdout
         try:
-            lease = json.loads(blob)
+            lease = json.loads(st.read(commit, f"{DIR}/{name}") or "")
         except ValueError:
             continue
         out[lease.get("id", name[:-5])] = lease
     return out
 
 
-def _commit(parent, writes, deletes, message):
-    """Build a commit on `parent` (None = new root) that writes `writes`
-    ({lease_id: lease}) and deletes `deletes` (lease ids), without touching
-    the working tree or the real index."""
-    with tempfile.TemporaryDirectory() as tmp:
-        env = {"GIT_INDEX_FILE": os.path.join(tmp, "index")}
-        if parent:
-            _git("read-tree", parent, env=env)
-        else:
-            _git("read-tree", "--empty", env=env)
-            sha = _git("hash-object", "-w", "--stdin",
-                       input=README.format(dir=DIR)).stdout.strip()
-            _git("update-index", "--add", "--cacheinfo",
-                 f"100644,{sha},README.md", env=env)
-        for lid, lease in writes.items():
-            body = json.dumps(lease, indent=2, sort_keys=True) + "\n"
-            sha = _git("hash-object", "-w", "--stdin", input=body).stdout.strip()
-            _git("update-index", "--add", "--cacheinfo",
-                 f"100644,{sha},{DIR}/{lid}.json", env=env)
-        for lid in deletes:
-            _git("update-index", "--force-remove", f"{DIR}/{lid}.json", env=env)
-        tree = _git("write-tree", env=env).stdout.strip()
-    args = ["commit-tree", tree, "-m", message]
-    if parent:
-        args += ["-p", parent]
-    return _git(*args).stdout.strip()
-
-
-def _push(commit):
-    r = _git("push", "--quiet", REMOTE, f"{commit}:refs/heads/{BRANCH}",
-             check=False)
-    return r.returncode == 0, r.stderr.strip()
-
-
 def _transact(mutate, message):
     """Read the board, apply `mutate(board) -> (writes, deletes)`, push; on a
     rejected push re-read and re-apply, so the check inside `mutate` always
     runs against the board it is about to replace."""
-    err = ""
-    for attempt in range(RETRIES):
-        parent = _fetch()
-        writes, deletes = mutate(_read(parent))
-        if not writes and not deletes:
-            return
-        commit = _commit(parent, writes, deletes, message)
-        ok, err = _push(commit)
-        if ok:
-            _git("update-ref", _ref(), commit, check=False)
-            return
-        time.sleep(1 + attempt)
-    raise BoardUnreachable(f"push to {REMOTE}/{BRANCH} kept failing: {err}")
+    def change(tip):
+        writes, deletes = mutate(_read(tip))
+        return ({f"{DIR}/{lid}.json": json.dumps(l, indent=2, sort_keys=True) + "\n"
+                 for lid, l in writes.items()},
+                [f"{DIR}/{lid}.json" for lid in deletes])
+    _store().transact(change, message)
 
 
 # ------------------------------------------------------------------ API ----
