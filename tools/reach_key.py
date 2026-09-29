@@ -980,7 +980,7 @@ def self_check():
          "lib.py", ("lib.py", "S = 2.0", "S = 3.0")),
         ("a decorator names a module a parameter shadows",
          {"helper.py": H.replace("return f", "return lambda *a: f(*a)"),
-          "lib.py": "import helper as h\n@h.deco\ndef solve(h):\n    return h\n"},
+          "lib.py": "import helper as h\n" "@" "h.deco\ndef solve(h):\n    return h\n"},
          "lib.py", ("helper.py", "lambda *a: f(*a)", "lambda *a: 0")),
         ("a computed getattr on a local named like a module",
          {"helper.py": H, "lib.py": "import helper as h\nclass Row:\n    def price(self):\n        return 1\n"

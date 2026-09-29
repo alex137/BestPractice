@@ -53,7 +53,17 @@ def _fact_ledger_reads():
     root = _os.path.realpath(root) + _os.sep
     me = _os.path.realpath(__file__)
     loaders = {_os.path.realpath(x) for x in _os.environ.get("FACT_LEDGER_LOADERS", "").split(_os.pathsep) if x}
-    own_env = ("FACT_LEDGER_READS", "FACT_LEDGER_ROOT", "FACT_LEDGER_LOADERS", "PYTHONPATH")
+    plumbing = {_os.path.realpath(x) for x in _os.environ.get("FACT_LEDGER_PLUMBING", "").split(_os.pathsep) if x}
+    def from_plumbing():
+        # a memo loader or shared-cache client (the host's ignore list): what
+        # it runs fetches or stores results keyed by code, and changes none
+        f = _sys._getframe(1)
+        while f is not None:
+            if _os.path.realpath(f.f_code.co_filename) in plumbing:
+                return True
+            f = f.f_back
+        return False
+    own_env = ("FACT_LEDGER_READS", "FACT_LEDGER_ROOT", "FACT_LEDGER_LOADERS", "FACT_LEDGER_PLUMBING", "PYTHONPATH")
     busy = [False]
     seen = {}
     skip = (_os.sep + ".git" + _os.sep, _os.sep + ".cache" + _os.sep + "models" + _os.sep, "__pycache__")
@@ -130,10 +140,10 @@ def _fact_ledger_reads():
             elif event == "subprocess.Popen":
                 exe, argv = args[0], args[1]
                 prog = _os.path.basename(_os.fsdecode(exe or (argv[0] if isinstance(argv, (list, tuple)) and argv else argv or "")))
-                if not prog.startswith("python"):
+                if not prog.startswith("python") and not from_plumbing():
                     # a non-Python child's reads are invisible here
                     write("#opaque\tstarted " + prog)
-            elif event in ("os.system", "os.exec", "os.posix_spawn", "os.spawn"):
+            elif event in ("os.system", "os.exec", "os.posix_spawn", "os.spawn") and not from_plumbing():
                 write("#opaque\t" + event)
         finally:
             busy[0] = False
@@ -244,6 +254,7 @@ class Ledger:
         env["FACT_LEDGER_READS"] = str(reads_file)
         env["FACT_LEDGER_ROOT"] = str(self.root)
         env["FACT_LEDGER_LOADERS"] = os.pathsep.join(str(Path(x).resolve()) for x in loaders)
+        env["FACT_LEDGER_PLUMBING"] = os.pathsep.join(str((self.root / x).resolve()) for x in sorted(self.ignore))
         return env
 
     @staticmethod
