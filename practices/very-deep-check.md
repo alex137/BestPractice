@@ -49,6 +49,17 @@ it changes nothing and the server answers before an object is written — so a
 `HANDOFF` verdict is a quotable refusal rather than an inference from the
 owner in the URL.
 
+**Every branch is read for a verdict, and only the current copy is checked
+and fixed.** This is the one check that reads every branch of every repo in
+force, and it reads them for two answers only: did the branch's work land,
+and should the branch go. Lints, checks and fixes (the FIX SWEEP included)
+run on each repo's current copy, never on a side branch. One read reaches
+further on purpose and reports without fixing: the CI fleet audit reads the
+workflow files on branches pushed in the last seven days, because GitHub
+runs a pushed branch's own workflows (Morgan, 2026-09-29, strength:
+decided). The tier checks never read other
+branches at all ([checks-follow-the-tier](checks-follow-the-tier.md)).
+
 **A repo that needs a handoff stays in scope, deliberately.** Dropping it
 would lose every finding in the seam between it and a repo still in scope,
 which is the class this check exists for — a set's practice contradicting

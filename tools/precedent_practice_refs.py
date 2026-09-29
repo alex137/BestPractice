@@ -301,36 +301,70 @@ def must_fix(row, withdrawn=None):
         rel.startswith('practices/') or '/practices/' in rel)
 
 
-def received_paths(root):
-    """Paths in `root` it received from somewhere else and must not edit:
-    materialized practices and checks of other sources (MANIFEST.json), the
-    vendored engine (tools/ENGINE_MANIFEST.json), mirrored upstream trees."""
+def received_owners(root):
+    """-> {path or prefix: owner} for everything `root` received from
+    somewhere else and must not edit: materialized practices and checks of
+    other sources (MANIFEST.json, owner = the source that wrote each), the
+    vendored engine (tools/ENGINE_MANIFEST.json, owner = the engine), and
+    mirrored upstream trees (a prefix ending in "/", owner = that tree).
+
+    THE ONE ANSWER to "did this repo write this file?" -- precedent_check.py's
+    runner drops a finding on any of these (a check opts back in with
+    `judges_received`), and every scan that skips received files asks here.
+    Until 2026-09-29 three copies of this question lived in precedent_check.py
+    alone, each answering part of it, and a check that forgot to ask judged a
+    consumer's received check files, which the next sync overwrites.
+    Match a path with received_owner(), never by set membership: a mirrored
+    tree is a prefix."""
     root = Path(root)
-    skip = set()
+    owners = {}
     try:
         m = json.loads((root / 'MANIFEST.json').read_text(encoding='utf-8'))
         local = {s.get('name') for s in (m.get('sources') or [])
                  if isinstance(s, dict) and s.get('level') == 'repo-local'}
         for e in (m.get('practices') or []):
             if isinstance(e, dict) and e.get('slug') and e.get('source') not in local:
-                skip.add(f"practices/{e['slug']}.md")
+                owners[f"practices/{e['slug']}.md"] = e.get('source') or 'another source'
         for e in (m.get('checks') or []):
             if isinstance(e, dict) and e.get('path') and e.get('source') not in local:
-                skip.add(e['path'])
-    except (ValueError, OSError):
+                owners[e['path']] = e.get('source') or 'another source'
+    except (ValueError, OSError, AttributeError):
         pass
     try:
         em = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json').read_text(
             encoding='utf-8'))
-        skip |= {f'tools/{f}' for f in (em.get('files') or [])}
-    except (ValueError, OSError):
+        for f in (em.get('files') or []):
+            owners[f'tools/{f}'] = 'the vendored engine'
+    except (ValueError, OSError, AttributeError):
         pass
     try:
-        skip |= {p if p.endswith('/') else p + '/'
-                 for p in pr.mirrored_prefixes(root)}
+        for p in pr.mirrored_prefixes(root):
+            p = p if p.endswith('/') else p + '/'
+            owners[p] = f'the mirrored tree {p}'
     except Exception:                               # practice: fail-gracefully
         pass
-    return skip
+    return owners
+
+
+def received_owner(rel, owners):
+    """The owner of `rel` in received_owners()'s answer, or None when this
+    repo wrote it. A key ending in "/" is a mirrored tree and matches by
+    prefix."""
+    rel = str(rel)
+    if rel.startswith('./'):
+        rel = rel[2:]
+    if rel in owners:
+        return owners[rel]
+    for key, owner in owners.items():
+        if key.endswith('/') and rel.startswith(key):
+            return owner
+    return None
+
+
+def received_paths(root):
+    """The keys of received_owners(): paths, and mirrored-tree prefixes
+    ending in "/"."""
+    return set(received_owners(root))
 
 
 def source_roots(repo):
