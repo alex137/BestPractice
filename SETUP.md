@@ -338,6 +338,10 @@ the project is wrong without them.
   A wrong timezone is a one-sentence fix whenever they notice; the question
   that would have prevented it costs them a decision on the day they know
   least.
+- **Use Precedent's own words the way [Our
+  Language](documentation/OUR_LANGUAGE.md) defines them** -- "individual
+  set", "shared set", "in force", "pre-staging" -- and point the person at
+  that page once, the first time one of them comes up.
 - One step at a time; never assume git or GitHub vocabulary. "Branch",
   "merge", "pull request", "workflow", "personal access token",
   "repository secret", "default branch" and "environment variable" each
