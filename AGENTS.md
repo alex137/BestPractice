@@ -291,7 +291,7 @@ When comparing an option against a baseline:
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted
-  session-title-names-the-difference — title by the differentiator, at creation or once known; never the task alone
+  session-title-names-the-difference — title by the differentiator; never the task alone, never an open sibling's title
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When decommissioning a mechanism that leaves files with no remaining job:
