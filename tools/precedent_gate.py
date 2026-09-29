@@ -904,10 +904,15 @@ def main():
         # Same standing rule as .precedent/SESSION_PRACTICES.md's header,
         # said at the other place this text now surfaces: a private source's
         # practice text has never been published, and this repo is public.
-        print("NOTE: some rules below come from PRIVATE sources (team, "
-              "individual). They bind this work exactly as the universal "
-              "ones do; never quote their text into a commit message, a "
-              "pull request or an issue.\n")
+        # "Shared or individual", not "PRIVATE (team, individual)": the
+        # level was renamed from team on 2026-09-18, and a shared set may be
+        # public -- so the note names the levels and leaves privacy to each
+        # set's own declaration (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md,
+        # Part 3).
+        print("NOTE: some rules below come from your individual set or a "
+              "shared set. They bind this work exactly as the universal "
+              "ones do; never quote the text of one that is private into a "
+              "commit message, a pull request or an issue.\n")
 
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:

@@ -45,6 +45,6 @@ exempt from the rule it is modelling. `## Detail` above is left empty on
 purpose, because that section genuinely may be.
 
 ## Install
-Nothing to install — a team practice is resolved live from this repo by
+Nothing to install — a shared practice is resolved live from this repo by
 `tools/precedent_resolve.py`, once a consuming project declares this repo
-as a `"level": "team"` source in its own `precedent.json`.
+as a `"level": "shared"` source in its own `precedent.json`.
