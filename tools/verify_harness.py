@@ -11,6 +11,10 @@ NOT YET APPLICABLE rather than skipped silently, so their absence stays
 visible instead of reading as a pass.
 
 Run:  python3 tools/verify_harness.py
+      python3 tools/verify_harness.py --as-ci             # CI's two shards
+      python3 tools/verify_harness.py --as-ci --isolated  # and CI's machine:
+            a copy with no siblings, no personal config or source token,
+            then the tests that went not-applicable there, run here
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
@@ -367,8 +371,19 @@ def check(name, ok, detail='', failure=''):
     print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {shown}" if shown and not ok else ""))
 
 
+# The check_* function running now, innermost last -- pushed and popped by
+# _install_fixture_error_guard's wrapper. not_applicable() reads it, so a
+# run can name the FUNCTIONS that went not-applicable and a second run can
+# select exactly those (PRECEDENT_CHECK_ONLY takes function names, and a
+# verdict's own name is prose). run_as_ci_isolated() is the caller.
+_CURRENT_CHECK = []
+NA_FUNCTIONS = set()
+
+
 def not_applicable(name, reason):
     NA.append((name, reason))
+    if _CURRENT_CHECK:
+        NA_FUNCTIONS.add(_CURRENT_CHECK[-1])
     print(f"N/A:  {name} -- {reason}")
 
 
@@ -575,6 +590,7 @@ def _install_fixture_error_guard():
 
     def _wrap(name, fn):
         def wrapper(*args, **kwargs):
+            _CURRENT_CHECK.append(name)
             try:
                 return fn(*args, **kwargs)
             except FixtureSetupError as exc:
@@ -582,6 +598,8 @@ def _install_fixture_error_guard():
                 # Reported already; the triple keeps the `check('<name>',
                 # *check_foo())` call sites from recording it a second time.
                 return (_CHECK_ALREADY_REPORTED, '', '')
+            finally:
+                _CURRENT_CHECK.pop()
         return wrapper
 
     for name in names:
@@ -6323,6 +6341,165 @@ def run_as_ci():
     print(f'\n--as-ci: all {len(CI_SHARDS)} shard(s) green -- this is what '
           f'CI will run.')
     return 0
+
+
+# What GitHub's runner does not have, and a session's machine does. Unset in
+# the isolated run; see run_as_ci_isolated().
+ISOLATION_UNSET = ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+                   'PRECEDENT_INDIVIDUAL_REPO', 'CLAUDE_PROJECT_DIR')
+
+
+def _isolated_env(base, home):
+    """-> the environment the isolated run gives the harness: `base` with
+    every PRECEDENT_* and GIT_* variable and ISOLATION_UNSET removed, $HOME
+    an empty directory, no user-level config, the runner's UTC clock, and
+    git refusing every transport but a local file. The last one is not
+    GitHub's -- its runner has a network -- but a self-heal that clones a
+    source from the network would put the missing sibling right back, and
+    the run would quietly stop matching the runner it stands in for."""
+    env = {k: v for k, v in base.items()
+           if not k.startswith(('PRECEDENT_', 'GIT_')) and k not in ISOLATION_UNSET}
+    env.update(HOME=str(home), TZ='UTC',
+               PRECEDENT_USER_CONFIG=str(pathlib.Path(home) / '.no-user-config.json'),
+               GIT_ALLOW_PROTOCOL='file', GIT_TERMINAL_PROMPT='0',
+               GIT_CONFIG_NOSYSTEM='1')
+    return env
+
+
+def _new_entries(parent, before):
+    """-> sorted names in `parent` that were not in `before`."""
+    return sorted(set(p.name for p in pathlib.Path(parent).iterdir()) - set(before))
+
+
+def run_as_ci_isolated():
+    """-> exit status. --as-ci, from a copy of this commit laid out the way
+    GitHub's runner lays it out, then the not-applicable slice again here.
+
+    WHY. On 2026-09-29 the full local check passed and GitHub's deep-check
+    failed: build_views sized a set's occasion cap from the universal source
+    cloned BESIDE it, and the runner has no sibling clones, so universal
+    measured 0. --as-ci reproduces CI's command shape and never its
+    environment (run_as_ci's docstring); this is the environment half.
+
+    THE COPY. A clone of HEAD in a temporary directory whose parent holds
+    nothing else, with this checkout's remote-tracking refs and origin URL
+    (actions/checkout's fetch-depth: 0 gives the runner every branch), run
+    under _isolated_env(): an empty $HOME, no user config, no source token,
+    UTC. Committed work only -- the runner checks out a commit too.
+
+    THE SECOND RUN. A test that needs what only this machine has -- a
+    private source, a sibling clone -- goes not-applicable in the copy.
+    Those functions (not_applicable() records them) run once more here, in
+    the ordinary environment, so the pair covers everything the plain
+    --as-ci covered, plus what the runner would see.
+
+    AFTERWARDS the copy's parent must still hold only the copy: anything
+    new there is a sibling some step fetched, and the run is reported as
+    no longer isolated rather than passed."""
+    import shutil, tempfile
+    work = pathlib.Path(tempfile.mkdtemp(prefix='precedent-isolated-'))
+    t0 = time.monotonic()
+    try:
+        parent, home = work / 'work', work / 'home'
+        parent.mkdir()
+        home.mkdir()
+        repo = parent / ROOT.name
+        r = subprocess.run(['git', 'clone', '--quiet', '--no-checkout', str(ROOT),
+                            str(repo)], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f'--as-ci --isolated: could not copy this checkout: '
+                  f'{r.stderr.strip()}')
+            return 1
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        url = subprocess.run(['git', '-C', str(ROOT), 'remote', 'get-url',
+                              'origin'], capture_output=True, text=True).stdout.strip()
+        for args in (['fetch', '--quiet', str(ROOT),
+                      '+refs/remotes/origin/*:refs/remotes/origin/*'],
+                     ['checkout', '--quiet', '--detach', head]):
+            subprocess.run(['git', '-C', str(repo), *args], capture_output=True)
+        if url:
+            subprocess.run(['git', '-C', str(repo), 'remote', 'set-url',
+                            'origin', url], capture_output=True)
+        before = [p.name for p in parent.iterdir()]
+        na_file = work / 'not-applicable.txt'
+        env = _isolated_env(os.environ, home)
+        env['PRECEDENT_NA_FUNCTIONS_FILE'] = str(na_file)
+        print(f'=== isolated: {repo} at {head[:12]} (no siblings, empty '
+              f'$HOME, no source token, UTC) ===', flush=True)
+        rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
+                             '--as-ci'], cwd=repo, env=env).returncode
+        grown = _new_entries(parent, before)
+        t1 = time.monotonic()
+        slice_ = sorted(set(na_file.read_text(encoding='utf-8').split())
+                        if na_file.is_file() else set())
+        print(f'\n--as-ci --isolated: {"green" if rc == 0 else "FAILED"} in '
+              f'{(t1 - t0) / 60:.1f} min; {len(slice_)} function(s) were not '
+              f'applicable there' + (f': {", ".join(slice_)}' if slice_ else ''),
+              flush=True)
+        if grown:
+            print(f'--as-ci --isolated: NOT ISOLATED -- the run added '
+                  f'{", ".join(grown)} beside the copy, so it no longer '
+                  f'matches a runner with no sibling clones. Find the step '
+                  f'that fetched it and stop it fetching there.')
+            return 1
+        rc2 = 0
+        if slice_:
+            env2 = dict(os.environ)
+            for k in ('PRECEDENT_CHECK_SKIP', 'PRECEDENT_NA_FUNCTIONS_FILE'):
+                env2.pop(k, None)
+            env2.update(PRECEDENT_CHECK_ONLY=','.join(slice_),
+                        PRECEDENT_HARNESS_ALL='1')
+            print('\n=== here, the not-applicable slice ===', flush=True)
+            rc2 = subprocess.run([sys.executable, str(pathlib.Path(__file__))],
+                                 env=env2).returncode
+            print(f'--as-ci --isolated: the slice was '
+                  f'{"green" if rc2 == 0 else "FAILED"} in '
+                  f'{(time.monotonic() - t1) / 60:.1f} min', flush=True)
+        return 1 if rc or rc2 else 0
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def check_isolated_run_matches_the_runner():
+    """_isolated_env() and _new_entries(), which decide whether the isolated
+    run looks like GitHub's runner and whether it stayed that way. Pure
+    functions, so this is cheap: the run itself is minutes, and is what the
+    full check at staging executes."""
+    import tempfile
+    base = {'PATH': '/bin', 'HOME': '/root', 'TZ': 'America/Argentina/Buenos_Aires',
+            'PRECEDENT_GIT_TOKEN': 't', 'PRECEDENT_SOURCE_BASE_URL': 'u',
+            'PRECEDENT_INDIVIDUAL_REPO': 'r', 'PRECEDENT_COMMIT_NAME': 'n',
+            'PRECEDENT_CHECK_ONLY': 'x', 'GIT_AUTHOR_NAME': 'a',
+            'CLAUDE_PROJECT_DIR': '/p'}
+    env = _isolated_env(base, '/tmp/empty-home')
+    cases = [
+        ('no source token, base URL or individual repo',
+         not {'PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+              'PRECEDENT_INDIVIDUAL_REPO'} & set(env)),
+        ('no PRECEDENT_* or GIT_* variable leaks through except the ones set',
+         {k for k in env if k.startswith(('PRECEDENT_', 'GIT_'))} ==
+         {'PRECEDENT_USER_CONFIG', 'GIT_ALLOW_PROTOCOL', 'GIT_TERMINAL_PROMPT',
+          'GIT_CONFIG_NOSYSTEM'}),
+        ('an empty $HOME and a user config that does not exist',
+         env['HOME'] == '/tmp/empty-home' and
+         env['PRECEDENT_USER_CONFIG'].startswith('/tmp/empty-home/')),
+        ('the runner\'s clock, UTC', env['TZ'] == 'UTC'),
+        ('git may not fetch over a network', env['GIT_ALLOW_PROTOCOL'] == 'file'),
+        ('PATH is kept', env['PATH'] == '/bin'),
+        ('the base environment is not changed', base['TZ'] != 'UTC'),
+    ]
+    with tempfile.TemporaryDirectory() as td:
+        (pathlib.Path(td) / 'BestPractice').mkdir()
+        before = ['BestPractice']
+        quiet = _new_entries(td, before)
+        (pathlib.Path(td) / 'BestPractice-clone').mkdir()
+        cases += [('nothing new beside the copy reads as isolated', quiet == []),
+                  ('a sibling that appeared is named',
+                   _new_entries(td, before) == ['BestPractice-clone'])]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the isolated --as-ci run looks like GitHub\'s runner '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_as_ci_shards_match_the_workflow():
@@ -44979,6 +45156,7 @@ def main():
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
+    check_isolated_run_matches_the_runner()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
@@ -45255,6 +45433,11 @@ def main():
         # by now is hundreds of lines above.
         _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
+    na_file = os.environ.get('PRECEDENT_NA_FUNCTIONS_FILE')
+    if na_file and NA_FUNCTIONS:
+        # Appended, not written: --as-ci runs one process per shard.
+        with open(na_file, 'a', encoding='utf-8') as fh:
+            fh.write(''.join(f'{n}\n' for n in sorted(NA_FUNCTIONS)))
     _report_check_durations()
     return 1 if FAILED else 0
 
@@ -45271,6 +45454,8 @@ if __name__ == '__main__':
         sys.exit(0)
     # BEFORE main(), because this does not run the suite -- it runs the
     # suite twice, the two ways CI does, each in its own process.
+    if '--as-ci' in sys.argv[1:] and '--isolated' in sys.argv[1:]:
+        sys.exit(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
         sys.exit(run_as_ci())
     sys.exit(main())
