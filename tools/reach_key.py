@@ -103,8 +103,65 @@ def _class_shell(node):
     runs when the class is defined, without what runs only when a method
     is called."""
     c = ast.parse(ast.unparse(node)).body[0]
-    c.body = [b for b in c.body if not isinstance(b, _FUNCS)] or [ast.Pass()]
+    body = []
+    for b in c.body:
+        if isinstance(b, _FUNCS):
+            # the method's decorators run when the class is defined; its
+            # body runs only when called, so a stub stands in for it
+            b.body = [ast.Pass()]
+            b.returns = None
+        body.append(b)
+    c.body = body or [ast.Pass()]
     return c
+
+
+_PLAIN_DECORATORS = {"property", "staticmethod", "classmethod", "cached_property", "setter", "getter",
+                     "deleter", "abstractmethod", "wraps", "lru_cache", "cache"}
+
+
+def _registered_methods(node):
+    """Methods under a decorator that is not one of the plain ones: such a
+    decorator can hand the function to something that calls it by a name
+    the code never writes (a registry keyed by name)."""
+    out = set()
+    for b in node.body:
+        if isinstance(b, _FUNCS):
+            for d in b.decorator_list:
+                f = d.func if isinstance(d, ast.Call) else d
+                name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
+                if name not in _PLAIN_DECORATORS:
+                    out.add(b.name)
+    return out
+
+
+def _class_body_names(node):
+    """Names the class body uses outside its methods' bodies (class-level
+    statements, method decorators): a method named there runs without being
+    named as an attribute (`area = property(_area)`, `cost = price`)."""
+    out = set()
+    for b in node.body:
+        parts = b.decorator_list if isinstance(b, _FUNCS) else [b]
+        for part in parts:
+            out |= {n.id for n in ast.walk(part) if isinstance(n, ast.Name)}
+    return out
+
+
+def _external_base(R, m, node):
+    """A base class outside the repository (json.JSONEncoder, Thread, dict,
+    Enum): its machinery calls methods by names the repository's code never
+    writes (`default`, `run`, `_missing_`), so every method counts."""
+    for b in node.bases:
+        root = b
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if isinstance(b, ast.Name) and b.id == "object":
+            continue
+        if isinstance(root, ast.Name) and (root.id in m.defs or R.module_alias(m, root.id)
+                                            or (root.id in m.imports
+                                                and R.find(m.imports[root.id][1], m.path.parent))):
+            continue
+        return True
+    return False
 
 
 def _methods(node, name):
@@ -303,21 +360,32 @@ def _refs_record(R, m, node, dynamic):
     work, whole, attrs, widen = [], set(), set(), [False]
     loads, loaded = _path_loads(R, m, node)
     whole |= loaded
+    loads |= _param_loader_names(node)       # a helper that loads the path its caller names
+    for n in ast.walk(node):
+        # a call to such a helper: the file its caller names is what loads
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in m.defs \
+                and _param_loader_names(m.defs[n.func.id]):
+            hit = _resolve_rel(R, m, n.args[0]) if n.args else None
+            whole.add(hit if hit is not None else _EVERY_MODULE)
     local = _locals(node)            # a name bound in a function is local throughout it
+    outer = _outer_scope_ids(node)   # defaults, decorators, annotations: evaluated outside it
+
+    def is_local(name, nid):
+        return name in local and nid not in outer
     lazy = _lazy_imports(R, m, node)  # `import x as q` inside the function: q is module x
 
-    def attr_ref(chain):
+    def attr_ref(chain, nid=None):
         """Follow base.a1.a2... through module aliases; queue the first
         non-module attribute, or hash a module reached as a bare value."""
-        if chain[0] in lazy:
+        if chain[0] in lazy and not is_local(chain[0], nid):
             mod = lazy[chain[0]]
             if isinstance(mod, tuple):           # `from x import name`, then name.attr
                 work.append(mod)
                 return
         else:
-            mod = None if chain[0] in local else R.module_alias(m, chain[0])
+            mod = None if is_local(chain[0], nid) else R.module_alias(m, chain[0])
         if not mod:
-            if chain[0] in local:
+            if is_local(chain[0], nid):
                 return
             if chain[0] in m.defs or chain[0] in m.assigns or chain[0] in m.imports:
                 work.append((m.path, chain[0]))
@@ -360,15 +428,16 @@ def _refs_record(R, m, node, dynamic):
                 literal = isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str)
                 if literal:
                     attrs.add(n.args[1].value)
-                elif not (isinstance(n.args[0], ast.Name) and R.module_alias(m, n.args[0].id)):
+                elif not (isinstance(n.args[0], ast.Name) and not is_local(n.args[0].id, id(n.args[0]))
+                          and R.module_alias(m, n.args[0].id)):
                     widen[0] = True          # an object's attribute by computed name: any method may run
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
                 and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2 \
                 and isinstance(n.args[0], ast.Name):
             if isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str):
-                attr_ref([n.args[0].id, n.args[1].value])
+                attr_ref([n.args[0].id, n.args[1].value], id(n.args[0]))
                 consumed.add(id(n.args[0]))
-            elif dynamic:
+            elif dynamic and not is_local(n.args[0].id, id(n.args[0])):
                 modp = R.module_alias(m, n.args[0].id)
                 if modp:
                     whole.add(modp)
@@ -380,19 +449,19 @@ def _refs_record(R, m, node, dynamic):
                 cur = cur.value
             if isinstance(cur, ast.Name):
                 consumed.add(id(cur))
-                attr_ref([cur.id, *reversed(chain)])
+                attr_ref([cur.id, *reversed(chain)], id(cur))
         for c in ast.iter_child_nodes(n):
             if isinstance(n, ast.Attribute) and isinstance(c, ast.Attribute):
                 c._parent_attr = n
     for n in ast.walk(node):
-        if isinstance(n, ast.Name) and id(n) not in consumed and n.id in lazy:
+        if isinstance(n, ast.Name) and id(n) not in consumed and n.id in lazy and not is_local(n.id, id(n)):
             target = lazy[n.id]
             if isinstance(target, tuple):
                 work.append(target)
             else:
                 whole.add(target)            # the lazily imported module used as a bare value
             continue
-        if isinstance(n, ast.Name) and id(n) not in consumed and n.id in local:
+        if isinstance(n, ast.Name) and id(n) not in consumed and is_local(n.id, id(n)):
             continue
         if isinstance(n, ast.Name) and id(n) not in consumed:
             modp = R.module_alias(m, n.id)
@@ -405,6 +474,7 @@ def _refs_record(R, m, node, dynamic):
             whole.add(m.path)
         elif isinstance(n, ast.Name) and n.id == "importlib" and id(n) not in loads:
             whole.add(m.path)
+            whole.add(_EVERY_MODULE)     # it may load a file the text does not name
     return work, whole, attrs, widen[0]
 
 
@@ -442,7 +512,26 @@ def _locals(node):
         elif isinstance(n, ast.NamedExpr) and isinstance(n.target, ast.Name):
             names.add(n.target.id)
         stack.extend(ast.iter_child_nodes(n))
+    # a name a nested function declares global is the module's there, and the
+    # outer set filters the whole tree: never treat it as local (over-broad)
+    declared |= {x for n in ast.walk(node) if isinstance(n, (ast.Global, ast.Nonlocal)) for x in n.names}
     return frozenset(names - declared)
+
+
+def _outer_scope_ids(node):
+    """ids of the Name nodes a function evaluates in its enclosing scope:
+    its parameter defaults, decorators and annotations. A parameter named
+    like a module constant (`def drag(q, S=S)`) is local inside the body,
+    and the module's `S` in the default."""
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return frozenset()
+    a = node.args
+    parts = list(a.defaults) + [d for d in a.kw_defaults if d is not None]
+    if not isinstance(node, ast.Lambda):
+        parts += list(node.decorator_list) + ([node.returns] if node.returns else [])
+        parts += [x.annotation for x in a.posonlyargs + a.args + a.kwonlyargs + [y for y in (a.vararg, a.kwarg) if y]
+                  if x.annotation is not None]
+    return frozenset(id(n) for part in parts for n in ast.walk(part) if isinstance(n, ast.Name))
 
 
 def _lazy_imports(R, m, node):
@@ -466,10 +555,112 @@ def _lazy_imports(R, m, node):
             p = R.find(n.module.split(".")[0], m.path.parent)
             if p:
                 for a in n.names:
-                    sub = R.find(a.name, p.parent) if R.load(p) and a.name not in R.load(p).defs \
-                        and a.name not in R.load(p).assigns else None
-                    out[a.asname or a.name] = sub if sub else (p, a.name)
+                    out[a.asname or a.name] = (p, a.name)   # x is a flat module: name is in it
     return out
+
+
+def _all_imports(R, m):
+    """Every repository module m imports, at module level or inside a
+    function: a lazily imported module's import-time effects run when the
+    function that imports it does."""
+    out = set()
+    for imp in m.imports.values():
+        q = R.find(imp[1], m.path.parent)
+        if q:
+            out.add(q)
+    for n in ast.walk(m.tree):
+        if hasattr(n, "lineno") and n.lineno <= len(m.lines) and IO_MARK in m.lines[n.lineno - 1]:
+            continue
+        if isinstance(n, ast.Import):
+            for a in n.names:
+                q = R.find(a.name.split(".")[0], m.path.parent)
+                if q:
+                    out.add(q)
+        elif isinstance(n, ast.ImportFrom) and n.module and not n.level:
+            q = R.find(n.module.split(".")[0], m.path.parent)
+            if q:
+                out.add(q)
+    return out
+
+
+def _is_path_load_exec(st):
+    """`spec.loader.exec_module(module)`: the statement that runs a module
+    loaded by path (the host-shim idiom). It runs that file into the module
+    object it names and nothing else, so it is not counted as an import-time
+    effect of the loader: the loaded file is hashed when reached code uses
+    the name it was bound to (see _path_loads). A file that patches other
+    modules as it loads would escape this; the host shims do not."""
+    return (isinstance(st, ast.Expr) and isinstance(st.value, ast.Call)
+            and isinstance(st.value.func, ast.Attribute) and st.value.func.attr == "exec_module"
+            and isinstance(st.value.func.value, ast.Attribute) and st.value.func.value.attr == "loader"
+            and len(st.value.args) == 1 and isinstance(st.value.args[0], ast.Name))
+
+
+_EVERY_MODULE = Path("/__every_repository_module__")
+
+
+def _param_loader_names(node):
+    """For a function that loads, by spec_from_file_location, a path built
+    from one of its own parameters (`def _load(rel): ... ROOT / rel`): the
+    importlib Name nodes of that load, which its call sites resolve. Empty
+    for anything else."""
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return set()
+    a = node.args
+    params = {x.arg for x in a.posonlyargs + a.args + a.kwonlyargs}
+    out = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                and n.func.attr in ("spec_from_file_location", "module_from_spec"):
+            base = n.func.value
+            while isinstance(base, ast.Attribute):
+                base = base.value
+            if not (isinstance(base, ast.Name) and base.id == "importlib"):
+                continue
+            if n.func.attr == "spec_from_file_location" and not (
+                    len(n.args) >= 2 and any(isinstance(x, ast.Name) and x.id in params
+                                             for x in ast.walk(n.args[1]))):
+                return set()                 # a load its callers do not name
+            out.add(id(base))
+    return out
+
+
+def _resolve_rel(R, m, arg):
+    """A repository file named by a string constant, relative to the root,
+    the module's directory or one of its parents; None when it is not a
+    constant or names no file."""
+    if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value.endswith(".py")):
+        return None
+    rel = Path(arg.value)
+    for b in ([R.root] if R.root else []) + [m.path.parent] + list(m.path.parents):
+        if (b / rel).is_file():
+            return (b / rel).resolve()
+    return None
+
+
+def _spelled_tail(expr):
+    """The part of a spelled path whose constants name the file: the whole
+    `BASE / "a" / "b.py"`, or the constant arguments of an os.path.join."""
+    if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and expr.func.attr == "join":
+        return ast.Tuple(elts=list(expr.args[1:]), ctx=ast.Load())
+    return expr
+
+
+def _path_spelled(expr):
+    """A path whose every segment after its base is a string constant:
+    `BASE / "a" / "b.py"` (the base may be anything: ROOT, HERE,
+    Path(__file__).parent). A variable segment anywhere else means the file
+    cannot be named from the text."""
+    if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and expr.func.attr == "join":
+        # os.path.join(BASE, "a", "b.py"): every argument after the base a constant
+        return len(expr.args) >= 2 and all(isinstance(x, ast.Constant) and isinstance(x.value, str)
+                                           for x in expr.args[1:])
+    base = expr
+    while isinstance(base, ast.BinOp) and isinstance(base.op, ast.Div):
+        if not (isinstance(base.right, ast.Constant) and isinstance(base.right.value, str)):
+            return isinstance(expr, ast.Constant) and isinstance(expr.value, str)
+        base = base.left
+    return base is not expr or (isinstance(expr, ast.Constant) and isinstance(expr.value, str))
 
 
 def _path_loads(R, m, node):
@@ -480,23 +671,41 @@ def _path_loads(R, m, node):
     accounts for, the files to hash whole). A path that cannot be resolved
     from its string constants is left to the caller, who hashes the module
     whole as before."""
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+    if isinstance(node, ast.ClassDef):
         return set(), set()
     names, files = set(), set()
     for n in ast.walk(node):
         if not (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-                and n.func.attr in ("spec_from_file_location", "module_from_spec")):
+                and n.func.attr in ("spec_from_file_location", "module_from_spec", "import_module")):
             continue
         base = n.func.value
         while isinstance(base, ast.Attribute):
             base = base.value
         if not (isinstance(base, ast.Name) and base.id == "importlib"):
             continue
-        if n.func.attr == "spec_from_file_location":
+        if n.func.attr == "import_module":
+            arg = n.args[0] if n.args else None
+            hit = R.find(arg.value, m.path.parent) if isinstance(arg, ast.Constant) and isinstance(arg.value, str) \
+                and "." not in arg.value else None
+            if hit is None:
+                continue
+            files.add(hit.resolve())
+        elif n.func.attr == "spec_from_file_location":
             if len(n.args) < 2:
                 continue
+            expr = n.args[1]
+            if isinstance(expr, ast.Name):
+                # the path held in a local the function assigns once
+                bound = [st.value for st in ast.walk(node) if isinstance(st, ast.Assign)
+                         and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name)
+                         and st.targets[0].id == expr.id]
+                if len(bound) != 1:
+                    continue
+                expr = bound[0]
+            if not _path_spelled(expr):
+                continue
             parts = [c.value for c in sorted(
-                (c for c in ast.walk(n.args[1]) if isinstance(c, ast.Constant) and isinstance(c.value, str)),
+                (c for c in ast.walk(_spelled_tail(expr)) if isinstance(c, ast.Constant) and isinstance(c.value, str)),
                 key=lambda c: (c.lineno, c.col_offset))]              # source order, not walk order
             if not parts or not parts[-1].endswith(".py"):
                 continue
@@ -520,7 +729,7 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
     items, whole, done = [], set(), {(R.entry.path, s) for s in stop}
     classes, attrs, widen = [], set(), [False]   # reached classes; attribute names used; dynamic attribute access seen
     work = [(R.entry.path, e) for e in entries]
-    dirs_key = tuple(str(d) for d in R.dirs)
+    dirs_key = tuple(str(d) for d in R.dirs) + (str(R.root),)
 
     # every repo module the entry file imports, transitively: their
     # import-time side effects run whatever the solve reaches
@@ -534,15 +743,16 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
                 continue
             closure.add(p)
             m = R.load(p)
-            for imp in m.imports.values():
-                q = R.find(imp[1], p.parent)
-                if q and q not in closure:
+            for q in _all_imports(R, m):
+                if q not in closure:
                     todo.append(q)
         if _SESSION is not None:
             _SESSION[ck] = closure
     for p in sorted(closure):
         m = R.load(p)
         for i, st in enumerate(m.effects):
+            if _is_path_load_exec(st):
+                continue          # followed through the name it binds, when that is reached
             items.append((p, "effect", str(i), _digest(m, "effect", str(i), st)))
             work.append((p, ("__stmt__", st)))
 
@@ -568,6 +778,11 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
                 _SESSION[k] = rec
         work.extend(rec[0])
         whole.update(rec[1])
+        if _EVERY_MODULE in whole:
+            # a load the text does not name: every module it could be counts
+            whole.discard(_EVERY_MODULE)
+            for d in R.dirs:
+                whole.update(q.resolve() for q in Path(d).rglob("*.py") if "__pycache__" not in q.parts)
         attrs.update(rec[2])
         if rec[3]:
             widen[0] = True
@@ -628,9 +843,12 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
             used_attrs(R.load(p).tree)
         more = False
         for p, cls in classes:
-            for b in R.load(p).defs[cls].body:
+            cnode = R.load(p).defs[cls]
+            named = _class_body_names(cnode) | _registered_methods(cnode)
+            external = _external_base(R, R.load(p), cnode)
+            for b in cnode.body:
                 if isinstance(b, _FUNCS) and (p, f"{cls}.{b.name}") not in done \
-                        and (widen[0] or _dunder(b.name) or b.name in attrs):
+                        and (widen[0] or external or _dunder(b.name) or b.name in attrs or b.name in named):
                     work.append((p, ("__method__", cls, b.name)))
                     more = True
         if not more and not work:
@@ -754,6 +972,72 @@ def self_check():
             if moved != should:
                 fails.append(f"class, {what}: the key {'moved' if moved else 'held'}, it should have "
                              f"{'moved' if should else 'held'}")
+    # the review's cases (2026-09-29): each edit is one the solve can see
+    H = "def twice(x):\n    return 2 * x\ndef deco(f):\n    return f\n"
+    must_move = [
+        ("a parameter default names a module constant (S=S)",
+         {"lib.py": "S = 2.0\ndef drag(q, S=S):\n    return q * S\ndef solve():\n    return drag(3)\n"},
+         "lib.py", ("lib.py", "S = 2.0", "S = 3.0")),
+        ("a decorator names a module a parameter shadows",
+         {"helper.py": H.replace("return f", "return lambda *a: f(*a)"),
+          "lib.py": "import helper as h\n@h.deco\ndef solve(h):\n    return h\n"},
+         "lib.py", ("helper.py", "lambda *a: f(*a)", "lambda *a: 0")),
+        ("a computed getattr on a local named like a module",
+         {"helper.py": H, "lib.py": "import helper as h\nclass Row:\n    def price(self):\n        return 1\n"
+                                    "def solve(col):\n    h = Row()\n    return getattr(h, col)()\n"},
+         "lib.py", ("lib.py", "return 1", "return 2")),
+        ("a method reached through property()",
+         {"lib.py": "class Row:\n    def _area(self):\n        return 1\n    area = property(_area)\n"
+                    "def solve():\n    return Row().area\n"},
+         "lib.py", ("lib.py", "return 1", "return 2")),
+        ("a method a standard-library base calls (JSONEncoder.default)",
+         {"lib.py": "import json\nclass Enc(json.JSONEncoder):\n    def default(self, o):\n        return 1\n"
+                    "def solve():\n    return json.dumps(object(), cls=Enc)\n"},
+         "lib.py", ("lib.py", "return 1", "return 2")),
+        ("a method a registering decorator hands out",
+         {"lib.py": "REG = {}\ndef reg(f):\n    REG[f.__name__] = f\n    return f\nclass Row:\n    @reg\n"
+                    "    def price(self):\n        return 1\ndef solve():\n    return REG['price'](Row())\n"},
+         "lib.py", ("lib.py", "return 1\ndef solve", "return 2\ndef solve")),
+        ("a lazily imported module's import-time effects",
+         {"tab.py": "T = {}\nfor i in range(3):\n    T[i] = i * 2\n",
+          "lib.py": "def solve():\n    import tab\n    return tab.T[2]\n"},
+         "lib.py", ("tab.py", "i * 2", "i * 3")),
+        ("a nested function's global against an outer local",
+         {"helper.py": H, "lib.py": "import helper as h\ndef solve(x):\n    h = 1\n    def g():\n        global h\n"
+                                    "        return h.twice(x)\n    return g()\n"},
+         "lib.py", ("helper.py", "2 * x", "3 * x")),
+        ("a load by path with a variable segment",
+         {"v2/eng.py": "def f():\n    return 1\n",
+          "lib.py": "import importlib.util\nfrom pathlib import Path\nV = 'v2'\n"
+                    "_s = importlib.util.spec_from_file_location('e', Path(__file__).parent / V / 'eng.py')\n"
+                    "E = importlib.util.module_from_spec(_s)\n_s.loader.exec_module(E)\n"
+                    "def solve():\n    return E.f()\n"},
+         "lib.py", ("v2/eng.py", "return 1", "return 2")),
+        ("a loader helper called with a constant path",
+         {"eng.py": "def f():\n    return 1\n",
+          "lib.py": "import importlib.util\nfrom pathlib import Path\nROOT = Path(__file__).parent\n"
+                    "def _load(rel):\n    s = importlib.util.spec_from_file_location('x', ROOT / rel)\n"
+                    "    m = importlib.util.module_from_spec(s)\n    s.loader.exec_module(m)\n    return m\n"
+                    "E = _load('eng.py')\ndef solve():\n    return E.f()\n"},
+         "lib.py", ("eng.py", "return 1", "return 2")),
+        ("a path held in a local, built with os.path.join",
+         {"eng.py": "def f():\n    return 1\n",
+          "lib.py": "import importlib.util, os\ndef solve():\n"
+                    "    path = os.path.join(os.path.dirname(__file__), 'eng.py')\n"
+                    "    s = importlib.util.spec_from_file_location('x', path)\n"
+                    "    m = importlib.util.module_from_spec(s)\n    s.loader.exec_module(m)\n    return m.f()\n"},
+         "lib.py", ("eng.py", "return 1", "return 2")),
+    ]
+    for what, files, entry, (fn, old_t, new_t) in must_move:
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            for n, t in files.items():
+                (d / n).parent.mkdir(parents=True, exist_ok=True)
+                (d / n).write_text(t)
+            a = reach_key(d / entry, ["solve"], [str(d)], root=d)
+            (d / fn).write_text((d / fn).read_text().replace(old_t, new_t))
+            if reach_key(d / entry, ["solve"], [str(d)], root=d) == a:
+                fails.append(f"{what}: an edit the solve can see held the key")
     with tempfile.TemporaryDirectory() as td:
         # a local that shares a module alias's name is the local, not the
         # module: an edit to the module's unreached code holds the key, and
@@ -788,9 +1072,14 @@ def self_check():
         (d / "fmt.py").write_text(shim + "NEW = engine.Qty()\n")
         if reach_key(d / "solver.py", ["solve"], [str(d)], root=d) != a:
             fails.append("load by path: a name added to the loader, never read, moved the key")
+        (d / "other.py").write_text("import fmt\ndef solve(x):\n    return x + 1\n")
+        c = reach_key(d / "other.py", ["solve"], [str(d)], root=d)
         (d / "eng" / "fmt_engine.py").write_text("class Qty:\n    def __call__(self, v):\n        return repr(v)\n")
         if reach_key(d / "solver.py", ["solve"], [str(d)], root=d) == a:
             fails.append("load by path: an edit to the loaded file held the key")
+        if reach_key(d / "other.py", ["solve"], [str(d)], root=d) != c:
+            fails.append("load by path: a solve that imports the loader but uses none of it re-keyed "
+                         "when the loaded file changed")
     return fails
 
 

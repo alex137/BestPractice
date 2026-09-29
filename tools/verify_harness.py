@@ -605,15 +605,23 @@ def _install_fixture_error_guard():
 # check that raised or failed. The ledger is local
 # (.cache/verify_harness/, gitignored) and never used under CI or with
 # --full / PRECEDENT_CHECK_LEDGER=0: CI stays the authority, the ledger only
-# makes the second local run after a small fix cheap.
+# makes the second local run after a small fix cheap. It is OFF by default
+# (see _ledger_enabled): a review found it unsound for this suite.
 _LEDGER_STATE = {'unit': None, 'depth': 0}
 _GIT_REMOTE = {'fetch', 'pull', 'push', 'clone', 'ls-remote', 'submodule'}
 
 
 def _ledger_enabled():
-    return not (os.environ.get('CI') or os.environ.get('PRECEDENT_CHECK_LEDGER') == '0'
-                or '--full' in sys.argv[1:] or os.environ.get('PRECEDENT_CHECK_ONLY')
-                or os.environ.get('PRECEDENT_CHECK_SKIP'))
+    # OFF unless asked for (PRECEDENT_CHECK_LEDGER=1). A review on 2026-09-29
+    # replayed as PASS eight of nine checks that truly failed: the checks
+    # here test the environment in ways the reads hook cannot see
+    # (existence tests in this process, git and network calls in tool
+    # children, state one check leaves for the next), and the leak gate
+    # replayed PASS with a leak present. Soundness would leave almost every
+    # slow check without a fact, so the saving is small and the risk is not.
+    return (os.environ.get('PRECEDENT_CHECK_LEDGER') == '1'
+            and not (os.environ.get('CI') or '--full' in sys.argv[1:]
+                     or os.environ.get('PRECEDENT_CHECK_ONLY') or os.environ.get('PRECEDENT_CHECK_SKIP')))
 
 
 def _ledger_env_sig():
@@ -29641,9 +29649,11 @@ def check_doc_sync_ledger():
             shutil.copy2(ROOT / 'tools' / 'fact_ledger.py', d / 'tools' / 'fact_ledger.py')
         (d / 'data.txt').write_text('7\n')
         model = (
-            'import sys\n'
+            'import os, sys\n'
             'def value():\n'
-            '    return int(open(__file__.rsplit("/", 1)[0] + "/data.txt").read()) * 2\n'
+            '    here = __file__.rsplit("/", 1)[0]\n'
+            '    extra = (1 if os.path.exists(here + "/FLAG") else 0) + int(os.environ.get("TOY_FLAG", "0"))\n'
+            '    return int(open(here + "/data.txt").read()) * 2 + extra\n'
             'def unrelated():\n'
             '    return 1\n'
             'def emit_table():\n'
@@ -29670,10 +29680,13 @@ def check_doc_sync_ledger():
             'e.DOC_GLOB = "*.md"\n'
             'e.main()\n')
 
+        toy_env = {}
+
         def gate(*extra):
+            env = {k: v for k, v in os.environ.items() if k not in ('PYTHONNOUSERSITE', 'TOY_FLAG')}
+            env.update(toy_env)
             p = subprocess.run([sys.executable, 'shim.py', *extra], cwd=d, capture_output=True,
-                               text=True, env={k: v for k, v in os.environ.items()
-                                               if k not in ('PYTHONNOUSERSITE',)})
+                               text=True, env=env)
             return p.returncode, p.stdout + p.stderr
 
         def emits():
@@ -29694,10 +29707,21 @@ def check_doc_sync_ledger():
             ('the self-check the emit never runs', lambda: (d / 'model.py').write_text(
                 (d / 'model.py').read_text().replace('value() == 14', 'value() >= 14')), False, 0),
             ('a function the emit calls (same output)', lambda: (d / 'model.py').write_text(
-                (d / 'model.py').read_text().replace('* 2\n', '* 2 + 0\n')), True, 0),
+                (d / 'model.py').read_text().replace('* 2 + extra', '* 2 + 0 + extra')), True, 0),
             ('a data file the emit read', lambda: (d / 'data.txt').write_text('8\n'), True, 1),
             ('a hand edit inside the block', lambda: (d / 'doc.md').write_text(
                 (d / 'doc.md').read_text().replace('| 16 |', '| 99 |')), True, 1),
+            # what no open() shows: a file the emit only tests for, and an
+            # environment variable it reads
+            ('a file the emit tests for appearing', lambda: (d / 'FLAG').write_text(''), True, 1),
+            ('an environment variable the emit reads', lambda: toy_env.update(TOY_FLAG='3'), True, 1),
+            # the emitter table rebound outside its literal: the block's key
+            # must cover the new entry
+            ('the emitter table rebound by |=', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace(
+                    'EMITTERS = {"table": emit_table}\n',
+                    'EMITTERS = {"table": emit_table}\ndef emit_other():\n    return emit_table() + " "\n'
+                    'EMITTERS |= {"table": emit_other}\n')), True, 1),
         ]
         for what, edit, should_emit, should_fail in steps:
             edit()

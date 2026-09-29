@@ -317,7 +317,20 @@ def _ledger():
 def _audit_entries(path):
     import ast
     top = ast.parse(path.read_text()).body
-    return [st.name for st in top if isinstance(st, ast.FunctionDef) and st.name in ("self_check", "check_anchors")]
+    names = set()
+    for st in top:
+        # defined here, assigned, or imported from another module: the key
+        # follows the name wherever it is bound
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(st.name)
+        elif isinstance(st, (ast.Import, ast.ImportFrom)):
+            names.update(a.asname or a.name for a in st.names)
+        elif isinstance(st, ast.Assign):
+            names.update(t.id for t in st.targets if isinstance(t, ast.Name))
+    ents = [n for n in ("self_check", "check_anchors") if n in names]
+    # no self-check the key can name: every name the script binds stands
+    # in, so the key is never empty
+    return ents or sorted(names)
 
 
 def audit_with_ledger(scripts, full=False, verbose=False):

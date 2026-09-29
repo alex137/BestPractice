@@ -44,16 +44,45 @@ import tempfile
 from pathlib import Path
 
 READS_HOOK = r"""
-import os as _os, sys as _sys
+import os as _os, sys as _sys, hashlib as _hl
 def _fact_ledger_reads():
     out = _os.environ.get("FACT_LEDGER_READS")
     root = _os.environ.get("FACT_LEDGER_ROOT")
     if not out or not root:
         return
     root = _os.path.realpath(root) + _os.sep
+    me = _os.path.realpath(__file__)
+    loaders = {_os.path.realpath(x) for x in _os.environ.get("FACT_LEDGER_LOADERS", "").split(_os.pathsep) if x}
+    own_env = ("FACT_LEDGER_READS", "FACT_LEDGER_ROOT", "FACT_LEDGER_LOADERS", "PYTHONPATH")
     busy = [False]
-    seen = set()
-    skip = (".git" + _os.sep, ".cache" + _os.sep, "__pycache__")
+    seen = {}
+    skip = (_os.sep + ".git" + _os.sep, _os.sep + ".cache" + _os.sep + "models" + _os.sep, "__pycache__")
+    def sha(b):
+        return _hl.sha256(b).hexdigest()[:16]
+    def write(line):
+        with open(out, "a") as f:
+            f.write(line + "\n")
+    def loading_code():
+        # the first frame that is not this hook: the import system, a loader
+        # the gate named, or no Python frame at all (the interpreter opening
+        # the main script) are loading code, which the fingerprint covers
+        f = _sys._getframe(1)
+        while f is not None and _os.path.realpath(f.f_code.co_filename) == me:
+            f = f.f_back
+        if f is None:
+            return True
+        fn = f.f_code.co_filename
+        # frozen import machinery (<frozen importlib._bootstrap>, <frozen
+        # zipimport>, which opens the main script to test it for a zip)
+        return "importlib" in fn or fn.startswith("<frozen ") or _os.path.realpath(fn) in loaders
+    def record(kind, rel, sig):
+        k = (kind, rel)
+        if k in seen:
+            if seen[k] != sig:            # changed while the run was reading it
+                write("#opaque\t" + kind + " " + rel + " changed during the run")
+            return
+        seen[k] = sig
+        write(kind + "\t" + rel + "\t" + sig)
     def note(kind, path):
         try:
             if isinstance(path, int):
@@ -66,19 +95,21 @@ def _fact_ledger_reads():
         if not full.startswith(root):
             return
         rel = full[len(root):]
-        if rel.endswith(".pyc") or any(x in rel for x in skip) or (kind, rel) in seen:
+        if rel.endswith(".pyc") or any(x in _os.sep + rel for x in skip):
             return
-        if rel.endswith(".py"):
-            # the import system reading code is the fingerprint's business;
-            # anything else reading a .py file reads it as data
-            f = _sys._getframe(2)
-            while f is not None:
-                if "importlib" in f.f_code.co_filename:
-                    return
-                f = f.f_back
-        seen.add((kind, rel))
-        with open(out, "a") as f:
-            f.write(kind + "\t" + rel + "\n")
+        if rel.endswith(".py") and loading_code():
+            return
+        try:
+            if kind == "d":
+                sig = sha("\n".join(sorted(_os.listdir(full))).encode())
+            elif _os.path.isdir(full):
+                return
+            else:
+                with open(full, "rb") as fh:
+                    sig = sha(fh.read())
+        except OSError:
+            sig = "missing"
+        record(kind, rel, sig)
     def hook(event, args):
         if busy[0]:
             return
@@ -89,46 +120,96 @@ def _fact_ledger_reads():
                 if isinstance(mode, str):
                     if any(c in mode for c in "wax") and "+" not in mode:
                         return
-                elif flags & 3:
+                elif (flags & 3) == 1:          # O_WRONLY; O_RDWR reads too
                     return
-                if _os.path.isfile(args[0]) if not isinstance(args[0], int) else False:
-                    note("f", args[0])
+                note("f", args[0])
             elif event in ("os.listdir", "os.scandir") and args:
-                # the import system lists every directory it searches; that
-                # is where code is found, which the fingerprint covers, not
-                # data the work reads
-                f = _sys._getframe(1)
-                while f is not None:
-                    if "importlib" in f.f_code.co_filename:
-                        return
-                    f = f.f_back
-                p = args[0] if args[0] is not None else "."
-                note("d", p)
+                if loading_code():
+                    return
+                note("d", args[0] if args[0] is not None else ".")
+            elif event == "subprocess.Popen":
+                exe, argv = args[0], args[1]
+                prog = _os.path.basename(_os.fsdecode(exe or (argv[0] if isinstance(argv, (list, tuple)) and argv else argv or "")))
+                if not prog.startswith("python"):
+                    # a non-Python child's reads are invisible here
+                    write("#opaque\tstarted " + prog)
+            elif event in ("os.system", "os.exec", "os.posix_spawn", "os.spawn"):
+                write("#opaque\t" + event)
         finally:
             busy[0] = False
+    E = type(_os.environ)
+    class _RecEnv(E):
+        # a variable the work reads is a read: its value at the time
+        def __getitem__(self, k):
+            try:
+                v = E.__getitem__(self, k)
+            except KeyError:
+                v = None
+            if not busy[0] and k not in own_env:
+                busy[0] = True
+                try:
+                    record("e", k, sha(("\0unset" if v is None else v).encode()))
+                finally:
+                    busy[0] = False
+            if v is None:
+                raise KeyError(k)
+            return v
+    try:
+        _os.environ.__class__ = _RecEnv
+    except TypeError:
+        write("#opaque\tthe environment could not be watched")
+    # existence and type tests raise no audit event: os.stat and os.lstat
+    # (which Path.exists, os.path.exists and isfile go through; the import
+    # system uses the posix module directly) record what they found
+    def kind_of(full):
+        if _os.path.isdir(full):
+            return "dir"
+        return "file" if _os.path.lexists(full) else "missing"
+    def watch(fn):
+        def wrapped(path, *a, **k):
+            if not busy[0] and not isinstance(path, int):
+                busy[0] = True
+                try:
+                    full = _os.path.realpath(_os.fsdecode(_os.fspath(path)))
+                    if full.startswith(root) and not any(x in _os.sep + full[len(root):] for x in skip):
+                        record("x", full[len(root):], kind_of(full))
+                except Exception:
+                    pass
+                finally:
+                    busy[0] = False
+            return fn(path, *a, **k)
+        return wrapped
+    _os.stat = watch(_os.stat)
+    _os.lstat = watch(_os.lstat)
     def modules():
         # every repository module the process loaded: the fingerprint covers
         # the ones it can follow, and the rest are hashed whole from this list
         busy[0] = True
         try:
-            with open(out, "a") as f:
-                for m in list(_sys.modules.values()):
-                    fn = getattr(m, "__file__", None)
-                    if fn and fn.endswith(".py"):
-                        full = _os.path.realpath(fn)
-                        if full.startswith(root) and ".cache" + _os.sep not in full:
-                            f.write("m\t" + full[len(root):] + "\n")
-                f.write("#done\n")
+            for m in list(_sys.modules.values()):
+                fn = getattr(m, "__file__", None)
+                if fn and fn.endswith(".py"):
+                    full = _os.path.realpath(fn)
+                    if full.startswith(root) and _os.sep + ".cache" + _os.sep not in full:
+                        try:
+                            with open(full, "rb") as fh:
+                                write("m\t" + full[len(root):] + "\t" + sha(fh.read()))
+                        except OSError:
+                            pass
+            write("#done")
         except Exception:
             pass
     import atexit as _atexit
     _atexit.register(modules)
-    with open(out, "a") as f:
-        f.write("#active\n")
+    write("#active")
     _sys.addaudithook(hook)
 _fact_ledger_reads()
 del _fact_ledger_reads
 """
+
+# A fact records the hook that saw its reads: a change to what the hook
+# watches invalidates every fact recorded under the old one.
+HOOK_VERSION = hashlib.sha256(READS_HOOK.encode()).hexdigest()[:12]
 
 
 def sha(data):
@@ -151,7 +232,7 @@ class Ledger:
             self.load()
 
     # -- the hook -----------------------------------------------------------
-    def hook_env(self, reads_file, env=None):
+    def hook_env(self, reads_file, env=None, loaders=()):
         """The environment of a run that records its reads: the hook rides in
         a usercustomize on PYTHONPATH, so the script itself runs exactly as
         it would from the shell."""
@@ -162,6 +243,7 @@ class Ledger:
         env["PYTHONPATH"] = self._hook_dir + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
         env["FACT_LEDGER_READS"] = str(reads_file)
         env["FACT_LEDGER_ROOT"] = str(self.root)
+        env["FACT_LEDGER_LOADERS"] = os.pathsep.join(str(Path(x).resolve()) for x in loaders)
         return env
 
     @staticmethod
@@ -172,9 +254,19 @@ class Ledger:
             lines = Path(reads_file).read_text().splitlines()
         except OSError:
             return None
-        if "#active" not in lines or "#done" not in lines:
-            return None
-        return sorted({tuple(ln.split("\t", 1)) for ln in lines if "\t" in ln})
+        if "#active" not in lines or lines.count("#active") != lines.count("#done"):
+            return None                  # a process that never loaded the hook, or died
+        if any(ln.startswith("#opaque") for ln in lines):
+            return None                  # something the hook cannot see
+        out = {}
+        for ln in lines:
+            parts = ln.split("\t")
+            if len(parts) == 3 and not ln.startswith("#"):
+                k = (parts[0], parts[1])
+                if k in out and out[k] != parts[2] and parts[0] != "m":
+                    return None          # two processes saw different contents
+                out.setdefault(k, parts[2])
+        return sorted((k[0], k[1], v) for k, v in out.items())
 
     def repo_state(self, path):
         """The state a local git query can see in the repository at `path`:
@@ -201,6 +293,12 @@ class Ledger:
         return self._repo[key]
 
     def read_sig(self, kind, rel):
+        if kind == "e":
+            v = os.environ.get(rel)
+            return sha("\0unset" if v is None else v)
+        if kind == "x":
+            full = self.root / rel
+            return "dir" if full.is_dir() else ("file" if os.path.lexists(full) else "missing")
         p = self.root / rel
         if kind == "g":
             return self.repo_state(p)
@@ -269,7 +367,8 @@ class Ledger:
     def holds(self, f, code, out=None):
         """A fact holds when its code, every read, and (when given) the
         output it recorded are all what they are now."""
-        return (f.get("code") == code and (out is None or f.get("out") == sha(out))
+        return (f.get("code") == code and f.get("hook") == HOOK_VERSION
+                and (out is None or f.get("out") == sha(out))
                 and f.get("reads") is not None
                 and all(rel in self.ignore or self.read_sig(kind, rel) == s
                         for kind, rel, s in f["reads"]))
@@ -283,10 +382,17 @@ class Ledger:
         does not cover is kept as a read and hashed whole; a covered one is
         left to the fingerprint."""
         covered = self._covered.get(code, set()) | self.ignore
-        keep = sorted({("f" if kind == "m" else kind, rel) for kind, rel in reads
-                       if not (kind == "m" and rel in covered)})
+        # each read carries the content the work saw (hashed by the hook at
+        # the time), never the content at recording time
+        keep = {}
+        for r in reads:
+            kind, rel, sig = r if len(r) == 3 else (r[0], r[1], None)
+            if kind == "m" and rel in covered:
+                continue
+            kind = "f" if kind == "m" else kind
+            keep.setdefault((kind, rel), sig if sig is not None else self.read_sig(kind, rel))
         f = {"doc": scope, "block": name, "script": script, "code": code, "out": sha(out),
-             "reads": [[kind, rel, self.read_sig(kind, rel)] for kind, rel in keep]}
+             "hook": HOOK_VERSION, "reads": [[k, r, s] for (k, r), s in sorted(keep.items())]}
         f.update(extra)
         return f
 

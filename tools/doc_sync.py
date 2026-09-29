@@ -349,7 +349,9 @@ def _led():
 
 
 def _hook_env(reads_file):
-    return _led().hook_env(reads_file)
+    # the gate's own file loads model scripts (the batch child reads and
+    # compiles them): its reads of code are code, not data
+    return _led().hook_env(reads_file, loaders=[Path(__file__).resolve()])
 
 
 def _parse_reads(reads_file):
@@ -477,15 +479,13 @@ def _block_entries(script, name):
     table = [st for st in tree.body if isinstance(st, ast.Assign) and len(st.targets) == 1
              and isinstance(st.targets[0], ast.Name) and st.targets[0].id == "EMITTERS"
              and isinstance(st.value, ast.Dict)]
-    edited = any(
-        (isinstance(n, (ast.Assign, ast.AugAssign)) and any(
-            isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name) and t.value.id == "EMITTERS"
-            for t in (n.targets if isinstance(n, ast.Assign) else [n.target])))
-        or (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "EMITTERS"
-            and n.attr in ("update", "setdefault", "pop", "clear", "__setitem__"))
-        or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "EMITTERS" for t in n.targets)
-            and n not in table)
-        for n in ast.walk(tree))
+    # the table narrows a block's key only when nothing but its literal
+    # definition binds it: any other use outside the dispatch (an update,
+    # `EMITTERS |= ...`, an item assignment, a helper that takes it) may
+    # rebind an entry, so the whole dispatch is kept
+    inside = {id(n) for st in table + guards for n in ast.walk(st)}
+    edited = any(isinstance(n, ast.Name) and n.id == "EMITTERS" and id(n) not in inside
+                 for n in ast.walk(tree))
     if "EMITTERS" in names and len(table) == 1 and not edited:
         d = table[0].value
         vals = [v for k, v in zip(d.keys, d.values) if isinstance(k, ast.Constant) and k.value == name]
@@ -533,13 +533,20 @@ def block_re(name):
 # group; the first failure stops the rest and the gate exits at once.
 _PROCS = set()
 _ABORTED = []
+import threading as _threading
+_PROCS_LOCK = _threading.Lock()
 
 
 def _run(argv, env=None):
-    import threading
-    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                         env=env, start_new_session=True)
-    _PROCS.add(p)
+    if _ABORTED:
+        # a failure already stopped the gate: a queued emit never starts
+        return subprocess.CompletedProcess(argv, -9, "", "skipped: the gate stopped at an earlier failure")
+    with _PROCS_LOCK:
+        if _ABORTED:
+            return subprocess.CompletedProcess(argv, -9, "", "skipped: the gate stopped at an earlier failure")
+        p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                             env=env, start_new_session=True)
+        _PROCS.add(p)
     try:
         out, err = p.communicate()
     finally:
@@ -550,8 +557,12 @@ def _run(argv, env=None):
 def _abort_all():
     import os
     import signal
-    _ABORTED.append(True)
-    for p in list(_PROCS):
+    with _PROCS_LOCK:
+        _ABORTED.append(True)
+        procs = list(_PROCS)
+    for p in procs:
+        if p.poll() is not None:
+            continue                    # finished: its group id may be reused
         try:
             os.killpg(p.pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError, OSError):
