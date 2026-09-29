@@ -29737,6 +29737,55 @@ def check_refresh_sources_path_names_the_whole_target():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_lists_a_linked_tree_once():
+    """candidate_dirs() returns one entry per working tree. The source
+    bootstrap leaves a symlink at the attach path pointing to the declared
+    clone; the refresh used to list both, fetch the one tree twice under two
+    labels, and on 2026-09-29 print one as failed and the other as current,
+    which read as a duplicate clone that did not exist.
+
+    Planted: a checkout, a declared clone outside its parent, and a sibling
+    symlink to that clone. CONTROL: a second, separate tree at a sibling path
+    is still listed, so the dedupe is by tree and not by name (practice:
+    control-asserts-which-failure). Hermetic: ROOT and declared_paths are
+    stubbed, nothing is fetched."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-linked-tree-'))
+    saved = (prs.ROOT, prs.declared_paths)
+    try:
+        work, home = tmp / 'work', tmp / 'home'
+        checkout = work / 'consumer'
+        declared = home / 'precedent-individual'
+        for d in (checkout, declared):
+            d.mkdir(parents=True)
+        (work / 'precedent-individual').symlink_to(declared,
+                                                   target_is_directory=True)
+        prs.ROOT = checkout
+        prs.declared_paths = lambda: [declared.resolve()]
+        got = [p.resolve() for p in prs.candidate_dirs()]
+        cases.append(('a sibling symlink to the declared clone is one entry',
+                      got.count(declared.resolve()) == 1, str(got)))
+        cases.append(('...and the checkout itself is not listed',
+                      checkout.resolve() not in got, str(got)))
+        other = work / 'precedent-shared-writing'
+        other.mkdir()
+        got = [p.resolve() for p in prs.candidate_dirs()]
+        cases.append(('CONTROL: a separate sibling tree is still listed',
+                      other.resolve() in got
+                      and got.count(declared.resolve()) == 1, str(got)))
+    finally:
+        prs.ROOT, prs.declared_paths = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'refresh lists a symlinked source tree once '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -44872,6 +44921,7 @@ def main():
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()
+    check_refresh_sources_lists_a_linked_tree_once()
     check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()

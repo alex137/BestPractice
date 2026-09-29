@@ -221,14 +221,25 @@ def candidate_dirs(extra_paths=()):
     session with several repos attached gets them side by side under one
     parent. Not a filesystem-wide search: a wide walk would be slow, would
     reach into places nobody asked about, and would turn an unrelated repo
-    that happens to vendor this engine into something this tool reports on."""
+    that happens to vendor this engine into something this tool reports on.
+
+    ONE ENTRY PER WORKING TREE, keyed on the resolved path. Declared paths
+    arrive resolved and siblings do not, so a sibling that is a symlink to
+    the declared clone -- which is exactly what precedent_source_bootstrap
+    leaves at the attach path -- used to come out as a second entry. The
+    refresh then fetched the one tree twice under two labels, and on
+    2026-09-29 the first fetch failed and the second succeeded, which read
+    as "one copy is stale, the other is current" and sent a session off
+    diagnosing a duplicate clone that did not exist."""
     seen, out = set(), []
+    root = ROOT.resolve()
     for p in [*(pathlib.Path(x).expanduser().resolve() for x in extra_paths),
               *declared_paths(),
               *sorted(ROOT.parent.iterdir())]:
-        if p == ROOT or not p.is_dir() or p in seen:
+        real = p.resolve()
+        if real == root or not p.is_dir() or real in seen:
             continue
-        seen.add(p)
+        seen.add(real)
         out.append(p)
     return out
 

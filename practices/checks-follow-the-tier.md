@@ -29,6 +29,17 @@ approved_by: "Morgan, 2026-09-27 (strength: decided): \"for pre-staging, we shou
 - **Into `main`: thorough, plus GitHub.** The full suite on every file, and
   the repository's GitHub test where it has one.
 
+**Every tier checks one version: the one landing.** Its own files, plus
+the current copy of each practice set in force, read and never fixed. **No
+tier's check fetches, lints, checks or fixes any other branch**, and none
+reads a clone the session's sources do not declare. Reading every branch
+belongs to the [very deep check](very-deep-check.md) alone, run on request,
+and even there only to say whether a branch's work landed and whether the
+branch should go (Morgan, 2026-09-29, strength: decided: *"I don't want
+'everything, ever' on the deep check we do upon every promote to
+staging"*; the doc checks ran on every branch from 2026-09-14 to
+2026-09-19, which is the case this rules out).
+
 **No session runs the full check before landing on `pre-staging`.** It
 runs at the Promote to `staging`; a failure there is fixed on
 `pre-staging` and promoted again (Morgan, 2026-09-27, strength: decided:
