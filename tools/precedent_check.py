@@ -158,6 +158,7 @@ import split_practices as sp
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import generated_blocks  # noqa: E402
 
 
 # Which trees this repo MIRRORS from somewhere else, and therefore may not
@@ -2136,6 +2137,57 @@ def _generated_files_registered(ctx):
                                     f'listed in {GENERATED_REGISTRY} -- add it, '
                                     f'with the command that checks it is '
                                     f'current'))
+    return out
+
+
+# ---- checks-use-generated-blocks --------------------------------------------
+# A check that skips generated text matches the markers through
+# tools/generated_blocks.py, never by hand (Morgan, 2026-09-29: "we should
+# check this also"). Until that day every engine scan matched the markers
+# itself and each knew one of the two styles; a shared set's
+# no-stale-counts check knew only `gen:`, read the loader block's "1 of 20
+# practices" as a stale count and refused a Promote. The engine's own scans
+# moved onto the helper the same day. This holds the checks a repo or a
+# practice source writes to the same line, since those are the ones nobody
+# in this repository reads. Every finding names its file, so into
+# pre-staging it judges only the check files a change touches, and at
+# staging every one (checks-follow-the-tier).
+_CHECK_DIRS = ('tools/checks/', 'local/tools/checks/')
+_MARKER_SPELLING = re.compile(r'BEGIN GENERATED|END GENERATED|<!--(?:/\??)?gen\b')
+
+
+@check('checks-use-generated-blocks', 'tree',
+       'no check under tools/checks/ or local/tools/checks/ matches '
+       'generated-block markers itself -- it asks tools/generated_blocks.py, '
+       'which knows both marker styles and needs the closing marker',
+       'a check that finds generated text some other way than spelling a '
+       'marker (reading a line count, say), and the engine\'s own tools/*.py, '
+       'which write the markers and so must spell them -- the engine\'s '
+       'skipping scans were moved onto the helper and verify_harness.py '
+       'pins them. Test files under tests/ plant markers on purpose and are '
+       'not read.',
+       practice_backed=False,
+       selects_on=('tools/checks/**/*.py', 'local/tools/checks/**/*.py'))
+def _checks_use_generated_blocks(ctx):
+    out = []
+    for rel in _ls_files_on_disk(*_CHECK_DIRS):
+        parts = pathlib.PurePosixPath(rel).parts
+        if not rel.endswith('.py') or 'tests' in parts[:-1] \
+                or parts[-1].startswith('test_'):
+            continue
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if _MARKER_SPELLING.search(line):
+                out.append(Finding(
+                    f'{rel}:{n}',
+                    'matches generated-block markers itself -- use '
+                    'tools/generated_blocks.py (mask(), blank() or spans()), '
+                    'which knows both the gen: and the BEGIN/END GENERATED '
+                    'style and ignores an opener with no closer'))
+                break
     return out
 
 
@@ -7069,19 +7121,16 @@ def _rename_updates_links(ctx):
                 text = f.read_text(encoding='utf-8', errors='ignore')
             except OSError:
                 continue
-            in_generated = False
-            for i, line in enumerate(text.splitlines(), 1):
+            lines = text.splitlines()
+            for i, (line, in_generated) in enumerate(
+                    zip(lines, generated_blocks.mask(lines)), 1):
                 # The loader block is rewritten wholesale by build_views.py
                 # from the practice sources, so a reference inside it is the
                 # sources' to fix, exactly like the materialized files it is
                 # summarising. Skipped as a REGION, not as a file: the
                 # hand-written half of the same document must still be
                 # repointed, and usually is the thing that most needs to be.
-                if '<!-- BEGIN GENERATED: precedent-loader -->' in line:
-                    in_generated = True
-                elif '<!-- END GENERATED -->' in line:
-                    in_generated = False
-                    continue
+                # Either marker style counts (tools/generated_blocks.py).
                 if in_generated:
                     continue
                 # A permalink pinned to a commit names the file as it was at
@@ -9143,8 +9192,8 @@ SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES
 #
 # WHAT IS DELIBERATELY NOT SCANNED: the generated loader block. It is a copy
 # of practice text ON PURPOSE, which is the whole design, so reporting it
-# would be reporting the mechanism working. Everything between the BEGIN/END
-# GENERATED markers is cut before the scan.
+# would be reporting the mechanism working. Every generated block, in either
+# marker style, is cut before the scan (tools/generated_blocks.py).
 _DUP_SHINGLE = 12
 _DUP_MIN_RUN = 3
 
@@ -9165,22 +9214,7 @@ def _dup_shingles(words, n=_DUP_SHINGLE):
 
 
 def _strip_generated(text):
-    try:
-        import build_views as _bv
-        b, e = _bv.BEGIN_MARKER, _bv.END_MARKER
-    except Exception:
-        b, e = '<!-- BEGIN GENERATED: precedent-loader -->', '<!-- END GENERATED -->'
-    out, pos = [], 0
-    while True:
-        i = text.find(b, pos)
-        if i < 0:
-            out.append(text[pos:])
-            return ''.join(out)
-        out.append(text[pos:i])
-        j = text.find(e, i)
-        if j < 0:
-            return ''.join(out)
-        pos = j + len(e)
+    return generated_blocks.blank(text)
 
 
 def _practice_corpus(root):

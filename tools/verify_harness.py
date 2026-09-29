@@ -2314,6 +2314,7 @@ def check_practice_audit_loader():
             tools_dir = repo / 'process' / 'upstream' / 'tools'
             tools_dir.mkdir(parents=True)
             shutil.copy(ROOT / 'tools' / 'practice_audit.py', tools_dir / 'practice_audit.py')
+            shutil.copy(ROOT / 'tools' / 'generated_blocks.py', tools_dir / 'generated_blocks.py')
             if catalogue:
                 (repo / 'process' / 'upstream' / 'practices').mkdir()
                 (repo / 'process' / 'upstream' / 'practices' / 'x.md').write_text(
@@ -2410,6 +2411,7 @@ def check_practice_audit_declined():
         (up / 'tools').mkdir(parents=True)
         (up / 'practices').mkdir()
         shutil.copy(ROOT / 'tools' / 'practice_audit.py', up / 'tools' / 'practice_audit.py')
+        shutil.copy(ROOT / 'tools' / 'generated_blocks.py', up / 'tools' / 'generated_blocks.py')
         old = up / 'practices' / 'old-rule.md'
         gone = up / 'practices' / 'gone-rule.md'
         old.write_text('---\nslug: old-rule\nstatus: active\n---\n## Rule\nnarrow\n',
@@ -2534,6 +2536,7 @@ def check_practice_audit_fires():
         tools_dir = repo / 'process' / 'upstream' / 'tools'
         tools_dir.mkdir(parents=True)
         shutil.copy(ROOT / 'tools' / 'practice_audit.py', tools_dir / 'practice_audit.py')
+        shutil.copy(ROOT / 'tools' / 'generated_blocks.py', tools_dir / 'generated_blocks.py')
         (repo / 'process' / 'upstream').mkdir(exist_ok=True)
         (repo / 'local').mkdir()
         (repo / 'local' / 'diverged.md').write_text('customized on purpose\n', encoding='utf-8')
@@ -24756,6 +24759,8 @@ def check_leftover_pack_is_flagged_after_migration():
         # module scope (practice: timestamps-carry-offset).
         _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                       base / 'process' / 'upstream' / 'tools')
+        _shutil.copy2(ROOT / 'tools' / 'generated_blocks.py',
+                      base / 'process' / 'upstream' / 'tools')
         _shutil.copy2(prac, base / 'practices')
         for d in ('tools', 'process/upstream/tools'):
             sp_dst = base / d
@@ -33942,6 +33947,106 @@ def check_refresh_wired_settings_is_not_lost_work():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_generated_blocks_both_styles():
+    """generated_blocks.py: the one "is this line generated?" every scan that
+    skips generated text uses (added 2026-09-29). Each tool used to match
+    one marker style itself, and a shared set's no-stale-counts check,
+    knowing only `<!--gen:NAME-->`, read the loader block's "1 of 20
+    practices" as a stale hand-written count.
+
+    Stated cases, one per shape (practice: checks-plant-their-state), with
+    the unclosed-marker control: an opener with no closer hides nothing, so
+    a marker quoted in a document cannot hide the rest of it (practice:
+    control-asserts-which-failure). The callers are checked too, through the
+    three whose skip used to know only one style, and so is
+    checks-use-generated-blocks, which holds a repo's own checks to it."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import generated_blocks as gb
+    L, E = gb.LOADER_BEGIN, gb.LOADER_END
+    shapes = [
+        ('the loader style is generated, both marker lines included',
+         ['hand', L, 'gen 1 of 20 practices', E, 'hand'],
+         [False, True, True, True, False]),
+        ('the gen: style is generated, both marker lines included',
+         ['hand', '<!--gen:t-->', 'gen', '<!--/gen:t-->', 'hand'],
+         [False, True, True, True, False]),
+        ('an indented marker still counts',
+         ['  <!--gen:t-->', '  gen', '  <!--/gen:t-->'], [True] * 3),
+        ('both styles in one document',
+         ['<!--gen:a-->', 'x', '<!--/gen:a-->', 'hand', L, 'y', E],
+         [True, True, True, False, True, True, True]),
+        ('CONTROL: an unclosed loader opener hides nothing',
+         ['hand', L, 'hand still', 'hand still'], [False] * 4),
+        ('CONTROL: an unclosed gen: opener hides nothing',
+         ['<!--gen:a-->', 'hand', 'hand'], [False] * 3),
+        ('CONTROL: a gen: block closes only on its own name',
+         ['<!--gen:a-->', 'x', '<!--/gen:b-->', 'hand'], [False] * 4),
+        ('CONTROL: a marker quoted mid-line in prose is not a marker',
+         [f'keep the `{L}` marker', 'hand', E, 'hand'],
+         [False, False, False, False]),
+    ]
+    bad = []
+    for label, lines, want in shapes:
+        got = gb.mask(lines)
+        if got != want:
+            bad.append(f'{label}: got {got}')
+    text = '\n'.join(['a', L, 'b', E, 'c'])
+    if gb.blank(text).split('\n') != ['a', '', '', '', 'c']:
+        bad.append('blank() does not keep line numbers')
+
+    import importlib
+    import tempfile
+    dl = importlib.import_module('doc_lint')
+    loader_doc = '\n'.join(['<!--numbers:gated-->', L, 'rated 500 kW', E,
+                            'rated 40 kW'])
+    got = [q for _n, q in dl.check_quantities(loader_doc)]
+    if got != ['40 kW']:
+        bad.append(f'doc_lint numbers gate: a loader-block figure is flagged '
+                   f'or a hand one missed: {got}')
+    pc_src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    if 'generated_blocks.blank(text)' not in pc_src:
+        bad.append('precedent_check.py _strip_generated no longer uses the helper')
+    pa = importlib.import_module('practice_audit')
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'AGENTS.md').write_text('\n'.join(
+            ['<!--gen:x-->', 'declined as a duplicate of upstream', '<!--/gen:x-->',
+             'this rule is a duplicate of another practice']) + '\n',
+            encoding='utf-8')
+        hits = [n for _f, n, _t in pa.prose_declines(root)]
+        if hits != [4]:
+            bad.append(f'practice_audit prose scan: want line 4 only, got {hits}')
+
+    # checks-use-generated-blocks: a check that spells a marker itself is
+    # named; one that asks the helper, and a test that plants a marker on
+    # purpose, are not.
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        for f in (ROOT / 'tools').glob('*.py'):
+            shutil.copy(f, repo / 'tools' / f.name)
+        chk = repo / 'tools' / 'checks'
+        (chk / 'check_hand.py').write_text(
+            "SKIP = '<!-- BEGIN GENERATED: precedent-loader -->'\n", encoding='utf-8')
+        (chk / 'check_helper.py').write_text(
+            'import generated_blocks\nmask = generated_blocks.mask\n', encoding='utf-8')
+        (chk / 'tests' / 'test_plant.py').write_text(
+            "PLANT = '<!--gen:a-->'\n", encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
+        subprocess.run(['git', 'add', '-A'], cwd=repo, capture_output=True)
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'checks-use-generated-blocks'], cwd=repo,
+                           capture_output=True, text=True)
+        named = set(re.findall(r'tools/checks/\S+?\.py', r.stdout))
+        if named != {'tools/checks/check_hand.py'}:
+            bad.append(f'checks-use-generated-blocks: want only check_hand.py '
+                       f'named, got {sorted(named)}: {r.stdout[-300:]}')
+    check(f'generated_blocks.py finds generated text in both marker styles, '
+          f'closing marker required, and the scans use it '
+          f'({len(shapes) + 4} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_frontmatter_field_order_fixer():
     """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
     FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
@@ -34640,6 +34745,7 @@ def check_source_supplied_checks_run():
         # scope (practice: timestamps-carry-offset), so a fixture engine tree
         # without it does not degrade -- every case here dies on the import.
         shutil.copy(ROOT / 'tools' / 'precedent_time.py', repo / 'tools')
+        shutil.copy(ROOT / 'tools' / 'generated_blocks.py', repo / 'tools')
         (repo / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
 
@@ -44767,6 +44873,7 @@ def main():
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_frontmatter_field_order_fixer()
+    check_generated_blocks_both_styles()
     check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
