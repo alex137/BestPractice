@@ -1292,7 +1292,8 @@ def update(repo, skip_check=False, ref=None):
         rel = universal_catalogue_path(repo)
         if rel:
             before = {p for p in before if not (p.startswith(f'{rel}/practices/')
-                                                or p == f'{rel}/{CATALOGUE_SYNC_NAME}')}
+                                                or p == f'{rel}/{CATALOGUE_SYNC_NAME}'
+                                                or p == f'{rel}/precedent-source.json')}
 
     # After the templates have moved: what they replaced that an update
     # cannot convert for the repo, the install-once file an update can

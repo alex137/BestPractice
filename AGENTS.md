@@ -279,7 +279,7 @@ When building a variant of an existing thing:
 When checking whether practices that should have fired for recent work did:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When committing a shipped practice, hook, template or engine file, before push or merge:
-  vendor-rollout-disclosed — say whether shipped content must reach consumers, and whether it will
+  vendor-rollout-disclosed — say whether shipped content must reach consumers, if it will, how it migrates
 When committing anything:
   session-trailer — a Session: <url> trailer on every commit
 When committing anything that touches the vendored/public tree:

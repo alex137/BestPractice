@@ -192,9 +192,17 @@ def derived_occasion_cap(root, sources=None):
     """-> (cap, why) for a repository with no occasion_index_tokens of its own:
     the sum of every declared source's allowance plus its repo-local
     allowance (repo_local_occasion_tokens, 400 unless its registry says
-    otherwise). -> (None, why) when any declared source declares no
-    allowance -- a set whose engine predates them -- and the old single
-    fallback applies instead."""
+    otherwise).
+
+    A SOURCE THAT DECLARES NO ALLOWANCE YET counts at its current measured
+    share (Morgan, 2026-09-29: "ANY change to the mechanics of how it works
+    must take into account updates/upgrades/migrations"). Allowances arrive
+    unevenly -- a set clone not yet pulled, a vendored universal tree an
+    older Update Vendors wrote without its precedent-source.json -- and a
+    repository mid-migration must build exactly as it did before, not be
+    refused by a cap it has half of. Such a source is uncapped until it
+    declares one, and `why` names it. -> (None, why) only when the sources
+    cannot be read at all, and the single fallback applies."""
     import precedent_resolve as _pr
     try:
         if sources is None:
@@ -213,10 +221,14 @@ def derived_occasion_cap(root, sources=None):
             m = {}
         v = m.get('occasion_share_tokens')
         if not isinstance(v, int):
-            return None, (f"{src.get('name')} declares no occasion_share_tokens "
-                          f"in its precedent-source.json")
+            pdir = pathlib.Path(src['path']) / 'practices'
+            v = occasion_share(load_practices(pdir, announce=False)) \
+                if pdir.is_dir() else 0
+            parts.append(f"{src.get('name')} ~{v} measured (it declares no "
+                         f"occasion_share_tokens yet, so it is not capped)")
+        else:
+            parts.append(f"{src.get('name')} {v}")
         total += v
-        parts.append(f"{src.get('name')} {v}")
     return (total, ' + '.join(parts)) if parts else (None, 'no sources declared')
 
 

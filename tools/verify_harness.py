@@ -35220,9 +35220,19 @@ def check_universal_occasion_share_is_capped():
         (d / 'shr' / 'precedent-source.json').write_text(
             _json.dumps({'name': 'shr', 'level': 'shared'}), encoding='utf-8')
         cap2, why2 = bv.derived_occasion_cap(d, srcs)
-        cases.append(('a source that declares no allowance leaves the single '
-                      'fallback in place, and says which source',
-                      cap2 is None and 'shr' in why2, f'{cap2} ({why2})'))
+        cases.append(('MID-MIGRATION: a source that declares no allowance yet '
+                      'counts at its measured share (0 for an empty catalogue '
+                      'here), is named, and does not drop the whole repo back '
+                      'to the single fallback',
+                      cap2 == 2000 + bv.REPO_LOCAL_OCCASION_TOKENS
+                      and 'shr' in why2 and 'measured' in why2,
+                      f'{cap2} ({why2})'))
+        (d / 'uni' / 'precedent-source.json').unlink()
+        cap3, why3 = bv.derived_occasion_cap(d, srcs)
+        cases.append(('MID-MIGRATION: a vendored universal tree with no '
+                      'precedent-source.json, as an older Update Vendors wrote '
+                      'it, still builds', cap3 is not None and 'measured' in why3,
+                      f'{cap3} ({why3})'))
     finally:
         shutil.rmtree(d, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
