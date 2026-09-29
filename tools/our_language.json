@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "Our language: the short list of words a person needs to follow a",
+    "conversation about Precedent. The one source for them -- the page",
+    "documentation/OUR_LANGUAGE.md is rendered from this file by",
+    "tools/our_language.py, and doc_sync.py fails if the two disagree.",
+    "Edit the words here, never on the page.",
+    "Plan: spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, Part 1."
+  ],
+  "words": [
+    {"word": "practice",
+     "meaning": "A rule. Each one is a single file holding the rule, the reason for it, and the story of how it came about."},
+    {"word": "universal set",
+     "meaning": "The practices everyone gets. It is BestPractice's own collection, named `precedent`."},
+    {"word": "individual set",
+     "meaning": "The practices just for you. Usually a repository named `precedent-individual`."},
+    {"word": "shared set",
+     "meaning": "Practices a group of people share. A repository may use none, one, or several."},
+    {"word": "full set",
+     "meaning": "Every practice set in force for you: the universal set, your individual set, your shared sets, and the repo-local practices of the repository you are in."},
+    {"word": "repo-local",
+     "meaning": "Belonging to the repository you are working in -- your work repository, the one with BestPractice copied in. Its own practices, kept in its `local/` folder, are its repo-local practices, and apply only there."},
+    {"word": "in force",
+     "meaning": "A practice that actually applies here, right now."},
+    {"word": "source",
+     "meaning": "Where a set of practices comes from, usually a repository."},
+    {"word": "level",
+     "meaning": "Which kind of set a source is: universal, shared, individual, or repo-local."},
+    {"word": "primary branch",
+     "meaning": "The one shared branch regular work lands on. (A branch is a separate line of work in a repository.)"},
+    {"word": "feature branch",
+     "meaning": "The short-lived branch one session works on, on GitHub -- the kind named like `claude/<topic>-<random>`. GitHub's own word for it; some teams say \"topic branch\". It survives a lost session but is easy to forget, and it is deleted once its work is merged."},
+    {"word": "pre-staging, staging, main",
+     "meaning": "The three branches work climbs through, in that order. Pre-staging is where saved work waits, staging is where it is fully checked, and main is production -- what everyone gets."}
+  ]
+}
