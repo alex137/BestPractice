@@ -79,6 +79,13 @@ is one of the signals that tells it so.
 time run an operation is a lease board with one item; the same push-as-lock
 mechanics apply.
 
+**The git mechanics are one shared engine.** The board keeps its
+policy — what a lease is, who holds it, what overlaps — and leaves
+every fetch, private-index commit, push and retry to
+[tools/branch_store.py](https://github.com/alex137/BestPractice/blob/staging/tools/branch_store.py)
+in history mode, the same engine the shared result cache uses in
+snapshot mode. A fix to how records reach the branch lands once.
+
 ## Why
 The costliest duplicate is the one nobody can see coming: each session's
 reasoning is sound against the trunk it read, so no review of either
@@ -98,7 +105,8 @@ knowledge, which belongs in git, but a board of leases on work in flight,
 as JSON files on a branch rather than a database file git cannot merge.
 
 ## Install
-Vendor [tools/lease_board.py](https://github.com/alex137/BestPractice/blob/staging/tools/lease_board.py) and write a host shim
+Vendor [tools/lease_board.py](https://github.com/alex137/BestPractice/blob/staging/tools/lease_board.py) with
+[tools/branch_store.py](https://github.com/alex137/BestPractice/blob/staging/tools/branch_store.py) and write a host shim
 that sets `REMOTE` (the repository whose work it guards, by URL once work
 spans repositories), `BRANCH` and `DIR`. Wire the call sites: the command
 that starts the work calls `conflicts()` and refuses on a hit, then

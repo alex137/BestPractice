@@ -110,7 +110,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 166 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 170 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -254,6 +254,8 @@ When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
 When a person says "Write it up" or "Spec it out", or asks for a write-up:
   write-it-up — "Write it up": commit a full report of issue and fix, then link it
+When a second implementation of the same mechanism turns up, or a full practice audit runs:
+  judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, or use a GitHub tool for what the clone holds:
@@ -324,6 +326,8 @@ When renaming, moving or deleting a file others may link to, or renaming or reti
   rename-updates-links — repoint every link, and every use of a retired name, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
+When reviewing code that decides what is skipped, cached, held or refused:
+  review-against-a-contract — give each reviewer a one-line contract; a finding counts once reproduced
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When setting up a project a session works in, or a session reporting that its checkout is behind:
@@ -350,6 +354,10 @@ When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
 When writing or changing anything that automatically repairs a state it found wrong:
   repair-cannot-discard-work — an auto-repair must never discard work; reporting is not repairing
+When writing or running a drift gate or an audit that re-runs scripts to compare their output:
+  gate-ledger — record code, reads and result per unit; skip a unit whose fact holds
+When writing or running a gate that chains several checks or runs work concurrently:
+  gates-fail-fast — cheap checks first; a failure skips the slow ones and stops the work beside it
 When writing or running a gate, audit or solve over a minute:
   slow-steps-report-and-cache — print elapsed and remaining; cache a heavy solve to disk
 When writing or triaging an open item:
@@ -484,11 +492,9 @@ place — nothing is ever deleted, and nothing moves.
   certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned
   both CI jobs red on a locally green tree. The two shards partition the
   suite, so the pair costs about what one run costs (measured 4m01s against
-  ~4m20s, 2026-09-22). The bare `--as-ci` reproduces CI's command shape,
-  not its environment: a local session resolves private sources CI cannot.
-  **`--as-ci --isolated`**, which the deep check runs since 2026-09-29, runs
-  the shards in a clone with no siblings, an empty `$HOME` and no source
-  credentials, then runs here only what could not run there.
+  ~4m20s, 2026-09-22). It reproduces CI's command SHAPE, never CI's
+  environment: a local session resolves private sources CI cannot, so green
+  here means the sharding is not what breaks, not that CI will be green.
 
 ## Conventions (every session, every reply)
 

@@ -2214,6 +2214,9 @@ TOOLS_DESCRIPTIONS = {
     'doc_lifecycle.py': "The document status header — kind, status, "
                         "supersession — checked across spec/ and record/",
     'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",
+    'branch_store.py': "Small records on a dedicated branch of a shared remote, with the push as the lock: the git plumbing shared by the lease board and the result cache",
+    'content_record.py': "Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check",
+    'fact_ledger.py': "Verified facts (code fingerprint, recorded reads, result) that let a drift gate or an audit skip a unit whose fact still holds",
     'full_practice_audit.py': "The full practice audit — on-demand, whole-catalogue sweep across every source",
     'lease_board.py': "The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock",
     'leak_gate.py': "The push-time leak gate — structural rules always, private-term blocklist when configured",

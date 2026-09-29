@@ -13506,6 +13506,159 @@ def check_precedent_check_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+_CONFLICT_MARKER = re.compile(r'^(?:' + '<' * 7 + '|' + '>' * 7 + r')(?: |$)', re.M)
+
+
+def _conflict_marker_hits(named_texts):
+    return [(name, text.count('\n', 0, m.start()) + 1)
+            for name, text in named_texts for m in _CONFLICT_MARKER.finditer(text)]
+
+
+def check_update_with_source_stamps_that_sources_manifest():
+    """`checkin.py update --source NAME` records which commit it mirrored in
+    process/manifest_NAME.json, and leaves the universal manifest alone.
+    Origin: the stamp was written to process/manifest.json whatever the
+    source, so vendoring a shared set moved the universal set's
+    synced_from to a commit of a different repository. Control: with no
+    source selected the stamp lands in the universal manifest."""
+    import importlib.util, tempfile
+    bad, cases = [], []
+    spec = importlib.util.spec_from_file_location('_vh_checkin', ROOT / 'tools' / 'checkin.py')
+    ck = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ck)
+    with tempfile.TemporaryDirectory() as t:
+        root = pathlib.Path(t)
+        (root / 'process').mkdir()
+        uni = root / 'process' / 'manifest.json'
+        shared = root / 'process' / 'manifest_team-x.json'
+        for f in (uni, shared):
+            f.write_text(json.dumps({'upstream': {'commit': 'old', 'synced_from': 'old'}}), encoding='utf-8')
+        saved = (ck.ROOT, ck.MANIFEST, ck.UPSTREAM, ck.SOURCE)
+        try:
+            ck.ROOT = root
+            ck.MANIFEST = uni
+            ck._select_source('team-x')
+            ck._stamp_synced_from('new')
+            got_shared = json.loads(shared.read_text())['upstream']['synced_from']
+            got_uni = json.loads(uni.read_text())['upstream']['synced_from']
+            cases.append('a shared source stamps its own manifest')
+            if got_shared != 'new' or got_uni != 'old':
+                bad.append(f'with --source: shared={got_shared!r}, universal={got_uni!r}')
+            ck.MANIFEST = uni
+            ck._stamp_synced_from('newer')
+            cases.append('control: no source stamps the universal manifest')
+            if json.loads(uni.read_text())['upstream']['synced_from'] != 'newer':
+                bad.append('with no source the universal manifest was not stamped')
+        finally:
+            ck.ROOT, ck.MANIFEST, ck.UPSTREAM, ck.SOURCE = saved
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_branch_store_and_its_callers():
+    """The shared branch store (tools/branch_store.py, spec/SHARED_ENGINES_PLAN.md)
+    and the two tools built on it, on a scratch remote. The store's own
+    self-check covers both modes; this adds the callers' behaviour that the
+    move onto the store had to keep: the lease board refuses an overlapping
+    take from another holder, a replacing take drops the holder's older lease
+    in the same commit, and every change is a commit (history); the result
+    cache keeps KEEP entries per family, publishes as one root commit, pulls
+    an entry byte for byte into another clone, and two clones publishing in
+    turn on a stale tip keep both entries."""
+    bad, cases = [], []
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'branch_store.py'), '--self-check'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        bad.append('branch_store self-check: ' + (r.stdout + r.stderr).strip()[-300:])
+    cases.append('store self-check')
+    import tempfile
+    script = r"""
+import importlib, json, os, pathlib, subprocess, sys
+sys.path.insert(0, sys.argv[1]); t = pathlib.Path(sys.argv[2])
+def git(*a): return subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.strip()
+git("init", "-q", "--bare", str(t / "r.git"))
+for c in "ab":
+    git("clone", "-q", str(t / "r.git"), str(t / c))
+    git("-C", str(t / c), "-c", "user.email=x@example.invalid", "-c", "user.name=x",
+        "commit", "-q", "--allow-empty", "-m", "i")
+    git("-C", str(t / c), "checkout", "-q", "-b", "w" + c)
+def load(c):
+    for m in ("lease_board", "result_cache"): sys.modules.pop(m, None)
+    lb = importlib.import_module("lease_board"); rc = importlib.import_module("result_cache")
+    lb.REPO = rc.REPO = str(t / c); rc.KEEP = 2; rc.WAIT_S = 2; rc.POLL_S = 1
+    return lb, rc
+out = {}
+lb, rc = load("a"); lb.take(["X"], "k", lease_id="L1")
+lbB, _ = load("b")
+try: lbB.take(["X"], "k", lease_id="L2"); out["refused"] = False
+except lbB.LeaseConflict: out["refused"] = True
+lb, _ = load("a"); lb.take(["Y"], "k", lease_id="L3", replace_kind=True)
+out["board"] = sorted(lb.board())
+out["coord_commits"] = int(git("-C", str(t / "r.git"), "rev-list", "--count", "coord"))
+_, rc = load("a"); m = t / "a" / "m"; m.mkdir()
+for i, k in enumerate(["aaaaaaaa1", "bbbbbbbb2", "cccccccc3"]):
+    f = m / f"s_{k}.pkl"; f.write_bytes(bytes([i]) * 100); rc.publish(f)
+_, rcB = load("b"); rcB._fetch()
+_, rcA = load("a"); f = m / "o_dddddddd4.pkl"; f.write_bytes(b"A"); rcA.publish(f)
+g = t / "b" / "m" / "p_eeeeeeee5.pkl"; g.parent.mkdir(); g.write_bytes(b"B"); rcB.publish(g)
+out["index"] = sorted(json.loads(git("-C", str(t / "r.git"), "show", "result-cache:index.json")))
+out["cache_commits"] = int(git("-C", str(t / "r.git"), "rev-list", "--count", "result-cache"))
+_, rcB = load("b"); d = t / "b" / "m" / "s_cccccccc3.pkl"
+out["pulled"] = rcB.ready(d, claim=False) and d.read_bytes() == bytes([2]) * 100
+print(json.dumps(out))
+"""
+    with tempfile.TemporaryDirectory() as t:
+        env = dict(os.environ, PRECEDENT_TZ='UTC')
+        r = subprocess.run([sys.executable, '-c', script, str(ROOT / 'tools'), t],
+                           capture_output=True, text=True, env=env)
+        try:
+            out = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            return (False, '', 'callers script failed: ' + r.stderr.strip()[-400:])
+    want = {'refused': True, 'board': ['L3'], 'coord_commits': 2,
+            'index': ['o_dddddddd4.pkl', 'p_eeeeeeee5.pkl', 's_bbbbbbbb2.pkl', 's_cccccccc3.pkl'],
+            'cache_commits': 1, 'pulled': True}
+    for k, v in want.items():
+        cases.append(k)
+        if out.get(k) != v:
+            bad.append(f'{k}: got {out.get(k)!r}, want {v!r}')
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_no_conflict_markers_in_shipped_tools():
+    """No file that runs ships with a merge conflict marker in it (practice
+    vendor-update-runbook: a port between a vendored copy and its upstream is
+    a three-way merge, and the result is read for leftover markers before it
+    is used). The origin: a port that went through a merge with the wrong
+    base produced a tool holding conflict markers, and only a later read
+    caught it. Scans the tracked scripts and configuration under tools/,
+    templates/ and .claude/; documents are left alone, since a document may
+    show a marker on purpose."""
+    bad, cases = [], []
+    lt, gt = '<' * 7, '>' * 7
+    planted = [('x.py', f'a = 1\n{lt} HEAD\nb = 2\n=======\nb = 3\n{gt} other\n')]
+    if len(_conflict_marker_hits(planted)) != 2:
+        bad.append('a planted two-sided conflict was not found on both lines')
+    cases.append('a planted conflict is found')
+    quiet = [('y.md', 'Title\n=======\n'), ('z.py', "s = '" + lt + "'\n" + '<' * 6 + ' x\n')]
+    if _conflict_marker_hits(quiet):
+        bad.append('a heading underline or a marker inside a string counted as a conflict')
+    cases.append('a heading underline and an in-string marker are quiet')
+    r = subprocess.run(['git', '-C', str(ROOT), 'ls-files', 'tools', 'templates', '.claude'],
+                       capture_output=True, text=True)
+    files = [f for f in r.stdout.splitlines()
+             if f.endswith(('.py', '.sh', '.json', '.yml', '.yaml', '.toml'))]
+    texts = []
+    for f in files:
+        try:
+            texts.append((f, (ROOT / f).read_text(encoding='utf-8')))
+        except (OSError, UnicodeDecodeError):
+            continue
+    hits = _conflict_marker_hits(texts)
+    if hits:
+        bad.append('conflict marker in ' + ', '.join(f'{n}:{ln}' for n, ln in hits[:5]))
+    return (not bad, f'{len(cases)} stated cases, {len(texts)} files scanned', '; '.join(bad))
+
+
 def check_checks_read_what_their_rules_name():
     """Seven checks, each read against its own practice's Rule by the
     2026-09-28 very deep check, and each found judging something narrower
@@ -30054,6 +30207,309 @@ def check_refresh_sources_lists_a_linked_tree_once():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_reach_key_self_check():
+    """reach_key.py's own property checks: a change the solve can run moves
+    the key, one it cannot does not -- functions, constants, import-time
+    patches, and class methods one at a time (a method moves the key only
+    when reached code names it), plus early cutoff through `stop`."""
+    name = 'reach_key keys a solve on the code it can reach, a method at a time'
+    tool = ROOT / 'tools' / 'reach_key.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/reach_key.py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), '--self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'PASS' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
+
+
+def check_content_record_self_check():
+    """content_record.py's own property checks: a fresh record holds; a
+    changed file, listing, existence or environment variable is each
+    reported as moved; ignored names never count; the two text schemes
+    are frozen to their literal digests."""
+    name = 'content_record reports exactly what moved, under frozen schemes'
+    tool = ROOT / 'tools' / 'content_record.py'
+    if not tool.is_file():
+        not_applicable(name, 'tools/content_record.py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), '--self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'OK' in p.stdout, (p.stdout + p.stderr).strip()[-400:])
+
+
+def check_doc_sync_ledger():
+    """doc_sync's ledger skips a block whose code fingerprint, recorded reads
+    and output all still hold, and re-emits it when any of the three moves.
+    Built in a scratch repository with one script and one document; the
+    script counts its own emits in a file the hook does not track (a write,
+    not a read)."""
+    name = ('doc_sync skips an unchanged block (and one whose self-check alone changed) and '
+            're-emits one whose code, data or text moved')
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    rk = ROOT / 'tools' / 'reach_key.py'
+    if not engine.is_file() or not rk.is_file():
+        not_applicable(name, 'tools/doc_sync.py or tools/reach_key.py is absent')
+        return
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        shutil.copy2(rk, d / 'tools' / 'reach_key.py')
+        # everything doc_sync imports beside it (generated_blocks since staging's shared marker reader)
+        for f in ('fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'data.txt').write_text('7\n')
+        model = (
+            'import os, sys\n'
+            'def value():\n'
+            '    here = __file__.rsplit("/", 1)[0]\n'
+            '    extra = (1 if os.path.exists(here + "/FLAG") else 0) + int(os.environ.get("TOY_FLAG", "0"))\n'
+            '    return int(open(here + "/data.txt").read()) * 2 + extra\n'
+            'def unrelated():\n'
+            '    return 1\n'
+            'def emit_table():\n'
+            '    open(__file__.rsplit("/", 1)[0] + "/emits.log", "a").write("x")\n'
+            '    return f"| v |\\n|---|\\n| {value()} |"\n'
+            'def self_check():\n'
+            '    return value() == 14\n'
+            'EMITTERS = {"table": emit_table}\n'
+            'if __name__ == "__main__":\n'
+            '    if len(sys.argv) == 3 and sys.argv[1] == "--emit":\n'
+            '        print(EMITTERS[sys.argv[2]]())\n'
+            '        sys.exit(0)\n'
+            '    if len(sys.argv) == 2 and sys.argv[1] == "--self-check":\n'
+            '        sys.exit(0 if self_check() else 1)\n'
+        )
+        (d / 'model.py').write_text(model)
+        (d / 'doc.md').write_text('# Doc\n\n<!--gen:table-->\n<!--/gen:table-->\n\nNumbers by: model.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util, sys\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "table", "model.py")]\n'
+            'e.LEDGER = "ledger.jsonl"\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+
+        toy_env = {}
+
+        def gate(*extra):
+            env = {k: v for k, v in os.environ.items() if k not in ('PYTHONNOUSERSITE', 'TOY_FLAG')}
+            env.update(toy_env)
+            p = subprocess.run([sys.executable, 'shim.py', *extra], cwd=d, capture_output=True,
+                               text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def emits():
+            f = d / 'emits.log'
+            return len(f.read_text()) if f.is_file() else 0
+        rc, out = gate('--write')
+        if rc != 0 or '| 14 |' not in (d / 'doc.md').read_text():
+            bad.append(f'the first --write did not fill the block: {out[-300:]}')
+        if not (d / 'ledger.jsonl').is_file():
+            bad.append('no ledger fact was recorded')
+        n = emits()
+        steps = [
+            ('an unchanged tree', lambda: None, False, 0),
+            ('a function the emit never calls', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('return 1', 'return 2')), False, 0),
+            # the dispatch branch an --emit run cannot take (a self-check, a
+            # smoke mode) is left out of the block's fingerprint
+            ('the self-check the emit never runs', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('value() == 14', 'value() >= 14')), False, 0),
+            ('a function the emit calls (same output)', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('* 2 + extra', '* 2 + 0 + extra')), True, 0),
+            ('a data file the emit read', lambda: (d / 'data.txt').write_text('8\n'), True, 1),
+            ('a hand edit inside the block', lambda: (d / 'doc.md').write_text(
+                (d / 'doc.md').read_text().replace('| 16 |', '| 99 |')), True, 1),
+            # what no open() shows: a file the emit only tests for, and an
+            # environment variable it reads
+            ('a file the emit tests for appearing', lambda: (d / 'FLAG').write_text(''), True, 1),
+            ('an environment variable the emit reads', lambda: toy_env.update(TOY_FLAG='3'), True, 1),
+            # the emitter table rebound outside its literal: the block's key
+            # must cover the new entry
+            ('the emitter table rebound by |=', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace(
+                    'EMITTERS = {"table": emit_table}\n',
+                    'EMITTERS = {"table": emit_table}\ndef emit_other():\n    return emit_table() + " "\n'
+                    'EMITTERS |= {"table": emit_other}\n')), True, 1),
+        ]
+        for what, edit, should_emit, should_fail in steps:
+            edit()
+            rc, out = gate()
+            ran = emits() > n
+            n = emits()
+            if ran != should_emit:
+                bad.append(f'{what}: the block {"was" if ran else "was not"} emitted')
+            if bool(rc) != bool(should_fail):
+                bad.append(f'{what}: the gate exited {rc}')
+            if should_fail:
+                gate('--write')
+                n = emits()
+    check(name, not bad, '; '.join(bad))
+
+
+def check_doc_sync_fails_fast():
+    """doc_sync runs emits concurrently; the first one that fails stops the
+    rest and the gate exits at once, instead of waiting for the slowest
+    emit beside it (origin 2026-09-28: a script that crashed in its first
+    second was reported fourteen minutes later, twice). A scratch repository
+    with one emit that sleeps a minute and one that fails."""
+    name = 'doc_sync stops every other emit when one fails'
+    engine = ROOT / 'tools' / 'doc_sync.py'
+    if not engine.is_file():
+        not_applicable(name, 'tools/doc_sync.py is absent')
+        return
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        shutil.copy2(engine, d / 'tools' / 'doc_sync.py')
+        for f in ('reach_key.py', 'fact_ledger.py', 'content_record.py', 'generated_blocks.py'):
+            if (ROOT / 'tools' / f).is_file():
+                shutil.copy2(ROOT / 'tools' / f, d / 'tools' / f)
+        (d / 'slow.py').write_text('import time\ntime.sleep(60)\nprint("x")\n')
+        (d / 'bad.py').write_text('import time\ntime.sleep(1)\nraise SystemExit("broken")\n')
+        (d / 'doc.md').write_text('<!--gen:a-->\n<!--/gen:a-->\n<!--gen:b-->\n<!--/gen:b-->\n'
+                                  'Numbers by: slow.py bad.py\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util\n'
+            'spec = importlib.util.spec_from_file_location("ds_engine", "tools/doc_sync.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.PAIRS = [("doc.md", "a", "slow.py"), ("doc.md", "b", "bad.py")]\n'
+            'e.DOC_GLOB = "*.md"\n'
+            'e.main()\n')
+        t0 = time.time()
+        p = subprocess.run([sys.executable, 'shim.py'], cwd=d, capture_output=True, text=True,
+                           env={**os.environ, 'DOC_SYNC_JOBS': '2'}, timeout=120)
+        took = time.time() - t0
+    check(name, p.returncode != 0 and took < 20 and 'bad.py' in p.stderr,
+          f'exit {p.returncode} after {took:.0f}s: {(p.stdout + p.stderr).strip()[-300:]}')
+
+
+def check_model_audit_ledger():
+    """model_audit with a ledger audits each model in its own process and
+    records a fact for a clean audit; a model whose fact holds is not run
+    again, a change to its self-check or to a file it read runs it, and a
+    failing audit is never recorded. A scratch repository with one model
+    that counts its own runs."""
+    name = 'model_audit skips a model whose clean audit still holds, and re-runs a changed one'
+    engine = ROOT / 'tools' / 'model_audit.py'
+    needs = [engine, ROOT / 'tools' / 'fact_ledger.py', ROOT / 'tools' / 'reach_key.py',
+             ROOT / 'tools' / 'content_record.py']
+    if not all(p.is_file() for p in needs):
+        not_applicable(name, 'model_audit.py, fact_ledger.py, content_record.py or reach_key.py is absent')
+        return
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        (d / '.git').mkdir()
+        (d / 'tools').mkdir()
+        for p in needs:
+            shutil.copy2(p, d / 'tools' / p.name)
+        (d / 'limit.txt').write_text('10\n')
+        (d / 'model.py').write_text(
+            'import os\n'
+            'def value():\n'
+            '    return 3\n'
+            'def self_check():\n'
+            '    open(os.path.join(os.path.dirname(__file__), "runs.log"), "a").write("x")\n'
+            '    lim = int(open(os.path.join(os.path.dirname(__file__), "limit.txt")).read())\n'
+            '    return [] if value() < lim else ["value over the limit"]\n')
+        (d / 'shim.py').write_text(
+            'import importlib.util, sys\n'
+            'spec = importlib.util.spec_from_file_location("ma_engine", "tools/model_audit.py")\n'
+            'e = importlib.util.module_from_spec(spec); spec.loader.exec_module(e)\n'
+            'e.INSTRUMENTED = ["model.py"]\n'
+            'e.LEDGER = "audit.jsonl"\n'
+            'sys.exit(e.main())\n')
+
+        def audit():
+            p = subprocess.run([sys.executable, 'shim.py'], cwd=d, capture_output=True, text=True)
+            return p.returncode
+
+        def runs():
+            f = d / 'runs.log'
+            return len(f.read_text()) if f.is_file() else 0
+        steps = [
+            ('the first audit', lambda: None, True, 0),
+            ('an unchanged tree', lambda: None, False, 0),
+            ('a comment in the model', lambda: (d / 'model.py').write_text(
+                '# a note\n' + (d / 'model.py').read_text()), False, 0),
+            ('a function the self-check calls', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('return 3', 'return 4')), True, 0),
+            ('a file the self-check read (now failing)', lambda: (d / 'limit.txt').write_text('2\n'), True, 1),
+            ('the same failing tree again', lambda: None, True, 1),
+        ]
+        n = 0
+        for what, edit, should_run, should_fail in steps:
+            edit()
+            rc = audit()
+            ran = runs() > n
+            n = runs()
+            if ran != should_run:
+                bad.append(f'{what}: the model {"was" if ran else "was not"} audited')
+            if bool(rc) != bool(should_fail):
+                bad.append(f'{what}: the audit exited {rc}')
+    check(name, not bad, '; '.join(bad))
+
+
+def check_push_check_runs_cheap_checks_first():
+    """precedent_push_check.run() moves the slow checks (the harness suite,
+    the deep-check suites) behind every fast one, and skips them once a fast
+    one has failed -- the push is refused either way. Origin 2026-09-28: a
+    merge gate spent ten minutes on the harness suite before reporting stale
+    generated views, a one-second finding, then ten more on the fixed push.
+    Asserted on the function itself, with stand-in checks that record the
+    order they ran in."""
+    name = 'the push check runs its slow checks last, and not after a fast failure'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not tool.is_file():
+        not_applicable(name, 'precedent_push_check.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('ppc_cheap_first', tool)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    import tempfile as _tf
+    bad = []
+    with _tf.TemporaryDirectory() as d:
+        d = pathlib.Path(d)
+        log = d / 'order.txt'
+        def stand_in(label, code):
+            f = d / f'{label}.py'
+            f.write_text(f'open({str(log)!r}, "a").write({label!r} + "\\n")\n'
+                         f'raise SystemExit({code})\n')
+            return (label, [sys.executable, str(f)], 'stand-in')
+        checks = [stand_in('verify_harness', 0), stand_in('fast_ok', 0), stand_in('fast_bad', 1),
+                  stand_in('deep_check', 0)]
+        env_all = os.environ.pop('PRECEDENT_PUSH_CHECK_ALL', None)
+        try:
+            import contextlib as _cl, io as _io
+            with _cl.redirect_stdout(_io.StringIO()):
+                failed, _m, _t, _f = mod.run(d, checks)
+            ran = log.read_text().split()
+            if ran != ['fast_ok', 'fast_bad']:
+                bad.append(f'with a fast failure, ran {ran}, expected the fast checks only')
+            if failed != ['fast_bad']:
+                bad.append(f'reported {failed} as failed')
+            log.unlink()
+            os.environ['PRECEDENT_PUSH_CHECK_ALL'] = '1'
+            with _cl.redirect_stdout(_io.StringIO()):
+                mod.run(d, checks)
+            ran = log.read_text().split()
+            if ran != ['fast_ok', 'fast_bad', 'verify_harness', 'deep_check']:
+                bad.append(f'under PRECEDENT_PUSH_CHECK_ALL=1, ran {ran}')
+        finally:
+            os.environ.pop('PRECEDENT_PUSH_CHECK_ALL', None)
+            if env_all is not None:
+                os.environ['PRECEDENT_PUSH_CHECK_ALL'] = env_all
+    check(name, not bad, '; '.join(bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -45355,6 +45811,12 @@ def main():
           *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
     check('checks read what their rules name', *check_checks_read_what_their_rules_name())
+    check('checkin update --source stamps that source\'s manifest, not the universal one',
+          *check_update_with_source_stamps_that_sources_manifest())
+    check('the branch store and the lease board and result cache on it',
+          *check_branch_store_and_its_callers())
+    check('no file that runs ships with a merge conflict marker',
+          *check_no_conflict_markers_in_shipped_tools())
     check_routing_reason_lives_in_the_practice()
     check_filename_separator_knows_names_it_did_not_choose()
     check_new_exemption_needs_a_root_fix()
@@ -45464,6 +45926,12 @@ def main():
     check_refresh_sources_path_names_the_whole_target()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
+    check_push_check_runs_cheap_checks_first()
+    check_reach_key_self_check()
+    check_content_record_self_check()
+    check_doc_sync_ledger()
+    check_doc_sync_fails_fast()
+    check_model_audit_ledger()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()

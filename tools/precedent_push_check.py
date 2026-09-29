@@ -987,6 +987,23 @@ def already_landed(root, argv, out, landed):
     return None if left else found
 
 
+# CHEAP CHECKS FIRST, AND A SLOW ONE ONLY WHEN THEY PASSED (2026-09-28). The
+# harness suite takes minutes and every other check takes seconds, and it
+# ran first: a merge gate refused a pull request for stale generated views
+# -- a one-second finding -- after ten minutes, then took ten more on the
+# fixed push. So the slow checks run last, and not at all once a fast one
+# has failed, because the push is refused either way and the fix will be
+# checked again. PRECEDENT_PUSH_CHECK_ALL=1 runs every check regardless,
+# for a session that wants every failure in one pass.
+SLOW_CHECKS = ('verify_harness', 'deep_check', 'consumer_shape')
+
+
+def cheap_first(checks):
+    """The checks with the slow ones moved to the end, order otherwise kept."""
+    return [c for c in checks if c[0] not in SLOW_CHECKS] + \
+        [c for c in checks if c[0] in SLOW_CHECKS]
+
+
 def _run_streaming_stderr(argv, cwd):
     """subprocess.run(argv, capture_output=True, text=True), except that
     each line the child writes to stderr is ALSO passed through to this
@@ -1032,7 +1049,15 @@ def run(root, checks, landed=None, reported=None):
     failed only on such findings."""
     failed, missing, findings = [], [], {}
     started = time.monotonic()
+    checks = cheap_first(checks)
+    run_all = os.environ.get('PRECEDENT_PUSH_CHECK_ALL') == '1'
     for i, (name, argv, replaces) in enumerate(checks, 1):
+        if name in SLOW_CHECKS and failed and not run_all:
+            print(f'[{i}/{len(checks)}] {name}: NOT RUN -- {", ".join(failed)} '
+                  f'already failed, so this push is refused either way; fix '
+                  f'that and run again (PRECEDENT_PUSH_CHECK_ALL=1 runs it '
+                  f'anyway)', flush=True)
+            continue
         script = root / argv[1]
         shown = ' '.join([shown_interpreter(argv), *argv[1:]])
         if not script.is_file() and name in OPTIONAL:

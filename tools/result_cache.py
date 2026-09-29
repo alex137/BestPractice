@@ -69,14 +69,13 @@ import json
 import os
 import pathlib
 import re
-import subprocess
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import precedent_time  # noqa: E402
 import lease_board     # noqa: E402
+import branch_store    # noqa: E402
 
 REMOTE = "origin"
 BRANCH = "result-cache"
@@ -106,12 +105,16 @@ def _note(msg):
         print(f"[result-cache] {msg}", file=sys.stderr)
 
 
+def _store():
+    # The branch plumbing is branch_store's, in snapshot mode: every publish
+    # is a new root commit pushed with a lease on the tip it read. Built per
+    # call, because the host shim sets REMOTE/BRANCH/REPO after import.
+    return branch_store.BranchStore(REMOTE, BRANCH, REPO, ref=_ref(),
+                                    retries=RETRIES, history=False)
+
+
 def _git(*args, input=None, env=None, text=True):
-    e = dict(os.environ)
-    if env:
-        e.update(env)
-    return subprocess.run(["git", *args], cwd=REPO, input=input, env=e,
-                          capture_output=True, text=text)
+    return _store().git(*args, input=input, env=env, text=text)
 
 
 def _ref():
@@ -127,41 +130,29 @@ def _fetch(force=False):
     if _fetched and not force:
         return _tip
     _fetched = True
-    r = _git("ls-remote", "--heads", REMOTE, BRANCH)
-    if r.returncode != 0:
-        _note(f"cache unreachable ({r.stderr.strip()[:120]}); local memos only")
+    try:
+        _tip = _store().fetch()
+    except branch_store.Unreachable as e:
+        what = "cache unreachable" if e.stage == "list" else "cache fetch failed"
+        _note(f"{what} ({e.stderr[:120]}); local memos only")
         _tip = None
-        return None
-    if not r.stdout.strip():
-        _tip = None
-        return None
-    r = _git("fetch", "--quiet", "--no-tags", REMOTE,
-             f"+refs/heads/{BRANCH}:{_ref()}")
-    if r.returncode != 0:
-        _note(f"cache fetch failed ({r.stderr.strip()[:120]}); local memos only")
-        _tip = None
-        return None
-    _tip = _git("rev-parse", _ref()).stdout.strip()
     return _tip
 
 
 def _index(tip):
-    if not tip:
-        return {}
-    r = _git("show", f"{tip}:index.json")
     try:
-        return json.loads(r.stdout) if r.returncode == 0 else {}
+        return json.loads(_store().read(tip, "index.json") or "{}")
     except ValueError:
         return {}
 
 
 def _pull(tip, name, dest):
-    r = _git("cat-file", "blob", f"{tip}:{name}", text=False)
-    if r.returncode != 0:
+    data = _store().read(tip, name, binary=True)
+    if data is None:
         return False
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + f".{os.getpid()}.tmp")
-    tmp.write_bytes(r.stdout)
+    tmp.write_bytes(data)
     os.replace(tmp, dest)        # atomic: a concurrent reader never sees half
     return True
 
@@ -378,9 +369,14 @@ def publish(path, at_exit=False):
             _note(f"{path.name}: {size / 2**20:.0f} MiB is over the "
                   f"{MAX_BYTES / 2**20:.0f} MiB share limit; kept local only")
             return
-        blob = _git("hash-object", "-w", str(path)).stdout.strip()
-        for attempt in range(RETRIES):
-            tip = _fetch(force=True)
+        st = _store()
+
+        def snapshot(tip):
+            # the whole cache as it should stand after this publish: the
+            # entries kept from `tip` (by blob, never read into memory),
+            # this file, and the index
+            global _tip
+            _tip = tip
             idx = _index(tip)
             seq = 1 + max((e.get("seq", 0) for e in idx.values()), default=0)
             idx[path.name] = dict(family=family(path.name), bytes=size, seq=seq,
@@ -396,35 +392,20 @@ def publish(path, at_exit=False):
                 total += idx[n].get("bytes", 0)
                 if total > TOTAL_BYTES and n != path.name:
                     idx.pop(n)
-            with tempfile.TemporaryDirectory() as tmp:
-                env = {"GIT_INDEX_FILE": os.path.join(tmp, "index")}
-                _git("read-tree", "--empty", env=env)
-                for n in idx:
-                    if n == path.name:
-                        sha = blob
-                    else:
-                        sha = _git("rev-parse", f"{tip}:{n}").stdout.strip()
-                        if not sha:
-                            continue
-                    _git("update-index", "--add", "--cacheinfo",
-                         f"100644,{sha},{n}", env=env)
-                isha = _git("hash-object", "-w", "--stdin",
-                            input=json.dumps(idx, indent=1, sort_keys=True)
-                            + "\n").stdout.strip()
-                _git("update-index", "--add", "--cacheinfo",
-                     f"100644,{isha},index.json", env=env)
-                tree = _git("write-tree", env=env).stdout.strip()
-            commit = _git("commit-tree", tree, "-m",
-                          f"publish {path.name}").stdout.strip()
-            lease = f"--force-with-lease=refs/heads/{BRANCH}:{tip or ''}"
-            r = _git("push", "--quiet", lease, REMOTE,
-                     f"{commit}:refs/heads/{BRANCH}")
-            if r.returncode == 0:
-                print(f"[result-cache] {path.name}: shared on {REMOTE}/{BRANCH}",
-                      file=sys.stderr)
-                return
-            time.sleep(1 + attempt)
-        _note(f"{path.name}: could not publish ({r.stderr.strip()[:120]})")
+            writes = {}
+            for n in idx:
+                kept = branch_store.File(str(path)) if n == path.name else st.blob(tip, n)
+                if kept:
+                    writes[n] = kept
+            writes["index.json"] = json.dumps(idx, indent=1, sort_keys=True) + "\n"
+            return writes, []
+        try:
+            st.transact(snapshot, f"publish {path.name}")
+        except branch_store.Unreachable as e:
+            _note(f"{path.name}: could not publish ({e.stderr[:120]})")
+            return
+        print(f"[result-cache] {path.name}: shared on {REMOTE}/{BRANCH}",
+              file=sys.stderr)
     finally:
         release(path)
 
