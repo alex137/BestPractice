@@ -35398,6 +35398,41 @@ def check_universal_occasion_share_is_capped():
                       'precedent-source.json, as an older Update Vendors wrote '
                       'it, still builds', cap3 is not None and 'measured' in why3,
                       f'{cap3} ({why3})'))
+
+        # A PRACTICE SET's block carries its own catalogue and defers
+        # universal, so its cap is its own allowance -- never universal's,
+        # and never 0 because universal is not cloned beside it. GitHub's
+        # test for the first version refused a bootstrapped set at a 0-token
+        # cap on exactly that (2026-09-29).
+        pset = d / 'pset'
+        (pset / 'practices').mkdir(parents=True)
+        (pset / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(d / 'no-universal-clone-here')}]}),
+            encoding='utf-8')
+        (pset / 'precedent-source.json').write_text(_json.dumps(
+            {'name': 'pset', 'level': 'shared', 'occasion_share_tokens': 123}),
+            encoding='utf-8')
+        env_keep = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(d / 'no-user-config.json')
+        try:
+            cap4, why4 = bv.block_occasion_cap(pset)
+            (pset / 'precedent-source.json').write_text(_json.dumps(
+                {'name': 'pset', 'level': 'shared'}), encoding='utf-8')
+            cap5, why5 = bv.block_occasion_cap(pset)
+        finally:
+            if env_keep is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = env_keep
+        cases.append(('a practice set is capped at its own allowance, with '
+                      'universal deferred and not cloned beside it',
+                      cap4 == 123, f'{cap4} ({why4})'))
+        cases.append(('MID-MIGRATION: a practice set that declares no '
+                      'allowance yet keeps the single fallback, never a 0 cap',
+                      cap5 == bv.OCCASION_INDEX_BUDGET_TOKENS
+                      and 'declares no' in why5, f'{cap5} ({why5})'))
     finally:
         shutil.rmtree(d, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
