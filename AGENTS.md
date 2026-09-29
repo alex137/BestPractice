@@ -32,11 +32,11 @@ is an index entry: load the practice (`python3 tools/precedent_show.py
 SLUG`) before acting on one**, and the long form each used to carry here is
 in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 
-- **"Go update"** / **"Approved"** / **"Book it"** ([go-update](practices/go-update.md)) —
+- **"Booked"** / **"Go update"** / **"Approved"** / **"Book it"** ([go-update](practices/go-update.md)) —
   land it on the landing branch: a direct push by default, the full pull
   request chain for a high-risk change, and confirm `origin` carries it.
 - **"Promote N"** and the stage words ([promote](practices/promote.md)) —
-  the five stages: Consider, Act, Booked (= Go update), Debut, Produce.
+  the five stages: Consider, Act, Booked (also "Go update"), Debut, Produce.
   Read each back before it runs; optional, unless a person's own set
   requires it.
 - **"Push directly to [branch]"** ([push-directly](practices/push-directly.md))
@@ -202,8 +202,8 @@ When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
-When a message says "Go update", "Approved", "Book it", "Booked" or "Promote 3", or plainly authorizes a merge:
-  go-update — "Go update"/"Approved"/"Book it" (stage 3): push; high-risk: PR and merge
+When a message says "Booked", "Go update", "Approved", "Book it" or "Promote 3", or plainly authorizes a merge:
+  go-update — "Booked" (stage 3; also "Go update", "Approved"): push; high-risk: PR and merge
 When a message says "Promote", "Promote N" or "Graduate", or asks to move pre-staging into staging or staging into main:
   promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
@@ -428,7 +428,7 @@ place — nothing is ever deleted, and nothing moves.
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
 - **Work lands on your landing branch, never `main`** (the opening
-  paragraph; `python3 tools/precedent_branches.py --landing`). `Go update`
+  paragraph; `python3 tools/precedent_branches.py --landing`). Booked (`Go update`)
   decides whether that is a direct push or a pull request.
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
   §4). Reviewing one, you are the **second scrub line**: the contributing

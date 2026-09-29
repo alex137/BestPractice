@@ -15,36 +15,56 @@
       "meaning": "A rule. Each one is a single file holding the rule, the reason for it, and the story of how it came about."
     },
     {
+      "word": "level",
+      "meaning": "A category you get practices from: universal, shared, individual, or repo-local. The repository that actually holds the rules is one instance of a level -- its source."
+    },
+    {
       "word": "universal set",
-      "meaning": "The practices everyone gets. It is BestPractice's own collection, named `precedent`."
+      "meaning": "One level of practices: the one everyone who uses Precedent gets. It is BestPractice's own collection, named `precedent`."
     },
     {
       "word": "individual set",
-      "meaning": "The practices just for you. Usually a repository named `precedent-individual`."
+      "meaning": "One level of practices: the one just for you. Usually a repository named `precedent-individual`."
     },
     {
       "word": "shared set",
-      "meaning": "Practices a group of people share. A repository may use none, one, or several."
-    },
-    {
-      "word": "full set",
-      "meaning": "Every practice set in force for you: the universal set, your individual set, your shared sets, and the repo-local practices of the repository you are in."
+      "meaning": "One level of practices: the one a group of people share. A repository may use none, one, or several."
     },
     {
       "word": "repo-local",
-      "meaning": "Belonging to the repository you are working in -- your work repository, the one with BestPractice copied in. Its own practices, kept in its `local/` folder, are its repo-local practices, and apply only there."
+      "meaning": "One level of practices: the one belonging to the repository you are working in -- your work repository, the one with BestPractice copied in. They live in its `local/` folder and apply only there."
+    },
+    {
+      "word": "full set",
+      "meaning": "All the levels you have access to, together: the universal set, your individual set, your shared sets, and the repo-local practices of the repository you are in."
+    },
+    {
+      "word": "source",
+      "meaning": "One instance of a level: the repository a set of practices comes from."
+    },
+    {
+      "word": "universal source",
+      "meaning": "BestPractice, the repository everyone's universal practices come from."
+    },
+    {
+      "word": "individual source",
+      "meaning": "Your own repository of practices, usually `precedent-individual`. Its rules apply to everything you do, in every repository."
+    },
+    {
+      "word": "shared source",
+      "meaning": "One repository of practices that a group of people share, such as `precedent-shared-writing`. One instance of the shared set level."
     },
     {
       "word": "in force",
       "meaning": "A practice that actually applies here, right now."
     },
     {
-      "word": "source",
-      "meaning": "Where a set of practices comes from, usually a repository."
+      "word": "decided",
+      "meaning": "How a decision was made: the person running the session actively wanted it, in their own words. Its counterpart is **assented**; every recorded decision is one or the other, or unknown."
     },
     {
-      "word": "level",
-      "meaning": "Which kind of set a source is: universal, shared, individual, or repo-local."
+      "word": "assented",
+      "meaning": "How a decision was made: the person running the session went along with a recommendation the session made, without pushing for it themselves. Its counterpart is **decided**."
     },
     {
       "word": "primary branch",
@@ -52,7 +72,7 @@
     },
     {
       "word": "landing branch",
-      "meaning": "The branch your saved work lands on when you say \"Go update\": pre-staging if you use all three branch tiers, otherwise staging, or main."
+      "meaning": "The branch your saved work lands on when you say \"Booked\" (or \"Go update\"): pre-staging if you use all three branch tiers, otherwise staging, or main."
     },
     {
       "word": "feature branch",
@@ -64,7 +84,7 @@
     },
     {
       "word": "tier branch",
-      "meaning": "One of the branches in the pre-staging, staging, main climb, or one of the two that travel with them: staging's old name `precedent-beta-v01` and Promote's lock branch `precedent-promote-lock`. A tier branch is never offered for deletion."
+      "meaning": "One of these branches: pre-staging, staging or main, plus the two that travel with them -- staging's old name `precedent-beta-v01` and Promote's lock branch `precedent-promote-lock`. A tier branch is never offered for deletion."
     },
     {
       "word": "stage",

@@ -103,12 +103,12 @@ each one saves you a paragraph of explaining:
 |---|---|
 | **Act** | Stage 2 (Promote 2): build the change, on this session's own feature branch, pushed to GitHub so a lost session does not lose it -- not yet shared. Synonym: Build |
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
+| **Booked** | Stage 3 (Promote 3): save the work, land it on your landing branch on GitHub (pre-staging, for anyone who uses the three tiers) where it won't be lost, and tell you which branch it went to. Synonym: Go update, Approved, Book it, Shared Save |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: across every repo with Precedent installed, what waits on pre-staging for staging and on staging for main, and which of this week's branches are stale. |
 | **Consider** | Stage 1 (Promote 1): decide how much planning the work needs and do that much -- a one-line plan for a small change, a Brainstorm, a Plan it, or a full Write it up -- and say which. Synonym: Plan |
 | **Debut** | Stage 4 (Promote 4): move pre-staging into staging, with the full local checks, saying so first -- saving this session's own work to pre-staging first if it is not there yet. Synonym: Test Readiness |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved, Book it, Booked, Shared Save |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Plan it** | Write a plan in the session -- numbered steps, the risks, what "done" looks like, and what is out of scope -- and hand it back as one prompt ready to paste into another session for its critique. Nothing is saved to the repository. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
