@@ -36041,6 +36041,86 @@ def check_source_credentials():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_hosted_sessions_resolve_without_attaching_a_repo():
+    """Two ways a hosted session resolves its sources with no human in the
+    loop, added together on 2026-09-29 after a consumer's sessions were told
+    at start to attach a private shared set by hand (the person saw an
+    unexplained permission prompt and refused it) and printed an
+    individual-set warning above every reply for a person who had declined
+    one.
+
+    1. PRECEDENT_INDIVIDUAL=none in the person's own environment makes
+       unresolved_private_sources expect no individual set -- and only that
+       value does.
+    2. checkin.py --source, with the consumer's `vendor_practices` opt-in,
+       mirrors the set's practices/ and precedent-source.json beside its
+       code; without the opt-in it still mirrors code only.
+    3. _stamp_synced_from writes to the manifest of the source being
+       checked in, never to the universal manifest."""
+    import shutil, tempfile, importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_credentials as psc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='hosted-no-attach-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+        home = tmp / 'home'
+        home.mkdir()
+        base = {'HOME': str(home),
+                'PRECEDENT_USER_CONFIG': str(home / 'absent.json')}
+        without = psc.unresolved_private_sources(repo, env=dict(base))
+        cases.append(('with no user config and no declaration, the individual '
+                      'set is reported unresolved',
+                      [u[0] for u in without] == ['individual'], repr(without)))
+        declined = psc.unresolved_private_sources(
+            repo, env={**base, 'PRECEDENT_INDIVIDUAL': 'None '})
+        cases.append(('PRECEDENT_INDIVIDUAL=none (any case, trimmed) expects no '
+                      'individual set', declined == [], repr(declined)))
+        other = psc.unresolved_private_sources(
+            repo, env={**base, 'PRECEDENT_INDIVIDUAL': 'yes'})
+        cases.append(('any other value of PRECEDENT_INDIVIDUAL changes nothing',
+                      [u[0] for u in other] == ['individual'], repr(other)))
+
+        import checkin
+        for opted, want in ((False, {'filing'}),
+                            (True, {'filing', 'practices',
+                                    'precedent-source.json'})):
+            importlib.reload(checkin)
+            clone = tmp / f'set-{opted}'
+            (clone / 'filing').mkdir(parents=True)
+            (clone / 'practices').mkdir()
+            (clone / 'filing' / 'engine.py').write_text('x = 1\n')
+            (clone / 'practices' / 'rule.md').write_text('rule\n')
+            (clone / 'precedent-source.json').write_text(json.dumps(
+                {'name': 'fixture-set', 'level': 'shared', 'code': ['filing']}))
+            host = tmp / f'host-{opted}'
+            (host / 'process').mkdir(parents=True)
+            checkin.ROOT = host
+            checkin._select_source('fixture-set')
+            checkin.MANIFEST.write_text(json.dumps(
+                {'upstream': {'vendor_practices': True} if opted else {}}))
+            checkin._bind_source(clone)
+            got = {f.parts[0] for f in checkin._files(clone)}
+            cases.append((f'vendor_practices={opted}: the mirror is '
+                          f'{sorted(want)}', got == want, repr(sorted(got))))
+            (host / 'process' / 'manifest.json').write_text('{}')
+            checkin._stamp_synced_from('abc1234def')
+            own = json.loads(checkin.MANIFEST.read_text())
+            uni = json.loads((host / 'process' / 'manifest.json').read_text())
+            cases.append((f'vendor_practices={opted}: synced_from lands in the '
+                          f"set's own manifest, not the universal one",
+                          own.get('upstream', {}).get('synced_from') == 'abc1234def'
+                          and 'upstream' not in uni, f'{own} / {uni}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a hosted session resolves its sources without attaching a repo by '
+          f'hand ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_vendored_engine_reads_the_consumer_root():
     """An engine copy vendored INSIDE another repo reads that repo's
     precedent.json -- not the vendored tree's own copy of BestPractice's.
@@ -36710,6 +36790,24 @@ def check_individual_source_bootstrap_self_heals():
                       'source is a definite answer, even on a remote session',
                       st8.get('certain') is True
                       and st8.get('code') == 'config-declares-none', out8))
+
+        # PRECEDENT_INDIVIDUAL=none: the person's own environment says there
+        # is no individual set, which is the one "none" a fresh hosted
+        # container can carry. It must be definite and must not trigger the
+        # self-heal, with no user config anywhere.
+        rc8b, out8b = run(str(resolve_tool), '--repo', str(nohook), '--json',
+                          env_extra={'HOME': str(home6),
+                                     'CLAUDE_CODE_REMOTE': 'true',
+                                     'PRECEDENT_INDIVIDUAL': 'none',
+                                     'PRECEDENT_USER_CONFIG':
+                                         str(home6 / 'absent.json')})
+        st8b = (_json_prefix(out8b) or {}).get('individual_status') or {}
+        cases.append(('PRECEDENT_INDIVIDUAL=none is a definite "no '
+                      'individual set" on a remote session with no user '
+                      'config at all',
+                      st8b.get('certain') is True
+                      and st8b.get('code') == 'env-declares-none'
+                      and 'could not find out' not in out8b, out8b))
 
         # --- cases 9-11: BestPractice as a CONSUMER of its own instructions -
         # The root cause of the hook being absent here for as long as it was:
@@ -44394,6 +44492,7 @@ def main():
     check_stale_render_self_heals()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
+    check_hosted_sessions_resolve_without_attaching_a_repo()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()

@@ -430,6 +430,13 @@ def unresolved_private_sources(repo_root=None, env=None):
             out.append(('shared', str(src.get('name') or path.name),
                         f'{path} has no practices/ directory'))
 
+    # PRECEDENT_INDIVIDUAL=none is the person saying, in their own
+    # environment, that they have no individual set: nothing is expected, so
+    # nothing is unresolved (precedent_resolve.NO_INDIVIDUAL_ENV, where the
+    # reason it is an environment variable is written down).
+    if (env.get('PRECEDENT_INDIVIDUAL') or '').strip().lower() == 'none':
+        return out
+
     user_cfg, code = individual_config_state(env)
     if code == 'no-config-file':
         out.append(('individual', 'precedent-individual',

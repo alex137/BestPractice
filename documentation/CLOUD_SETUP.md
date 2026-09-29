@@ -30,6 +30,8 @@ values substituted in.
 PRECEDENT_GIT_TOKEN=github_pat_<your read-only token>
 PRECEDENT_SOURCE_BASE_URL=https://github.com/<your-github-account>
 PRECEDENT_PING=1          # throwaway: proves the variables arrive at all
+# Instead of the two lines above, if you have no individual practice set:
+PRECEDENT_INDIVIDUAL=none # says so; without it every turn warns the set may be missing
 
 # Who your commits are by, and in what zone
 PRECEDENT_COMMIT_NAME=Your Name
@@ -49,6 +51,20 @@ there is nothing else to fill in by hand for a hosted session. The one field
 nothing can resolve on its own is your timezone in that set's
 `identity.json`; `PRECEDENT_COMMIT_TZ` above covers the same ground without
 it.
+
+**No individual set?** Set `PRECEDENT_INDIVIDUAL=none` and nothing else from
+the first block. A fresh container has no user config, so without the
+variable the resolver can't tell "this person has none" from "this person's
+set couldn't be fetched", and it prints the second above every reply. The
+variable lives in your environment rather than any repository because a
+repository never speaks for the person working in it.
+
+**A private shared set with no token?** Vendor its practices into the
+consumer instead of resolving them from a sibling clone: set
+`upstream.vendor_practices: true` in the consumer's
+`process/manifest_<set>.json`, run `checkin.py update <clone> --source <set>`,
+and point the source's `path` in `precedent.json` at `process/<set>`. Only in
+a private consumer.
 
 ## Optional but Recommended: Run Each Repo's Startup Hooks
 

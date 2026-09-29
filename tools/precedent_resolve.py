@@ -80,6 +80,18 @@ import build_views as bv
 REPO_CONFIG = 'precedent.json'
 USER_CONFIG_ENV = 'PRECEDENT_USER_CONFIG'
 DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.json'
+# A person with no individual set says so here, in their own environment
+# (a hosted environment's settings, a shell profile), with the value `none`.
+# Why an environment variable and not a file: the only "none" the resolver
+# accepted was a user config declaring `individual: null`, and a hosted
+# session starts in a fresh container that never has one -- so a person who
+# has no individual set, and said so, was told on every turn that their
+# practices might be silently missing. A tracked file cannot say it
+# either: a repository never speaks for the person working in it. The
+# environment is the one place that is theirs and survives a fresh
+# container. (2026-09-29, a consumer whose owner declined an individual set
+# had the unknown-state warning printed above every reply.)
+NO_INDIVIDUAL_ENV = 'PRECEDENT_INDIVIDUAL'
 
 # The project-committed path a session-start hook that bootstraps a
 # privately-scoped individual source lives at, by convention (INSTALL.md
@@ -512,6 +524,12 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
     unapplied, and every diagnostic in the repository agreed there was
     nothing to apply. Nothing was wrong with the individual set; this
     session simply had no way to reach it and never said so."""
+    if why == 'env-declares-none':
+        return {'certain': True, 'code': why,
+                'message': (f"{NO_INDIVIDUAL_ENV}=none in this environment: "
+                            f"this person has no individual set. No "
+                            f"individual practices are in force, and that is "
+                            f"a definite answer.")}
     if why == 'config-declares-none':
         return {'certain': True, 'code': why,
                 'message': (f"{user_cfg_path} exists and declares no "
@@ -684,6 +702,8 @@ def load_config(repo, user_config=None):
         self-heal, so a hook that got half-way through -- which is what a
         hook killed part-way by a failing `git clone` actually leaves --
         was reported as 'this person has no individual set' forever."""
+        if os.environ.get(NO_INDIVIDUAL_ENV, '').strip().lower() == 'none':
+            return None, False, 'env-declares-none'
         if not user_cfg_path.exists():
             return None, False, 'no-config-file'
         cfg = _read_json(user_cfg_path, 'the user config')
@@ -700,7 +720,7 @@ def load_config(repo, user_config=None):
 
     entry, usable, why = _individual_entry()
     heal = None
-    if not usable:
+    if not usable and why != 'env-declares-none':
         # practice: session-bootstrap -- a hook that ran too early to have
         # this session's own `add_repo` access yet (guaranteed on a fresh
         # session, not just possible) looks identical, from here, to "this
