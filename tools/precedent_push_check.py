@@ -582,6 +582,9 @@ CHANGED_PRACTICE_CHECK = ('changed_practice',
 #     test (tools/checks/tests/test_x.sh) run -- once, the materialized
 #     copy where there is one;
 #   - a new check has that test, and defines SOURCE_ROOT;
+#   - in BestPractice, a change to the check registry or the harness leaves
+#     every registered check with a planted case (a text read, no harness
+#     run -- see _unplanted_checks);
 #   - a changed practice file's generated views (AGENTS.md, MAP.md,
 #     GLOSSARY.md) were regenerated with it -- in a repository whose own
 #     views build_views.py renders, which is BestPractice and a practice set.
@@ -611,6 +614,49 @@ def _is_engine_check(root, rel):
     except (OSError, ValueError):
         return False
     return rel[len(f'{engine}/'):] in files
+
+
+# Every check precedent_check.py registers needs a planted case in
+# verify_harness.py's check_precedent_check_fires -- the harness asserts it
+# ("every registered check has a planted case here"), but only on a full
+# run, which pre-staging never does. On 2026-09-29 a new check went to
+# pre-staging without one, the session ran only the harness cases its
+# change touched, and the Debut to staging failed 20 minutes in. This reads
+# the same two sets as text, in well under a second, whenever a change
+# touches either side. The cause itself -- a check's case living in a
+# second, much larger file -- is a todo item
+# (todo/todo-2026-09-29-planted-case-lives-beside-its-check.md).
+_CHECK_REG_RE = re.compile(r"""^@check\(\s*['"]([\w-]+)['"]""", re.M)
+_CASE_RE = re.compile(r"""\bcase\(\s*['"]([\w-]+)['"]""")
+_CHECKED_BY_RE = re.compile(r"""^checked_by:\s*['"]?([^'"\s#]+)""", re.M)
+_CHECK_SCRIPT_DIRS = ('tools/checks', 'local/tools/checks')
+
+
+def _unplanted_checks(root):
+    """-> sorted slugs registered here with no `case('<slug>', ...)` in
+    tools/verify_harness.py: every @check in tools/precedent_check.py, and
+    every check_*.py script precedent_check.register_materialized_checks()
+    would add (named by the practice whose checked_by claims it, else by its
+    stem -- the same naming). [] where either file is missing."""
+    pc, vh = root / 'tools' / 'precedent_check.py', root / 'tools' / 'verify_harness.py'
+    if not (pc.is_file() and vh.is_file()):
+        return []
+    registered = set(_CHECK_REG_RE.findall(pc.read_text(encoding='utf-8',
+                                                        errors='replace')))
+    claimed = {}
+    for d in ('practices', 'local/practices'):
+        for f in sorted((root / d).glob('*.md')):
+            m = _CHECKED_BY_RE.search(f.read_text(encoding='utf-8',
+                                                  errors='replace')[:4000])
+            if m and m.group(1).endswith('.py') and '/checks/' in m.group(1):
+                claimed.setdefault(Path(m.group(1)).name, f.stem)
+    for d in _CHECK_SCRIPT_DIRS:
+        for script in sorted((root / d).glob('check_*.py')):
+            slug = claimed.get(script.name, script.stem)
+            registered.add(slug)
+    declared = set(_CASE_RE.findall(vh.read_text(encoding='utf-8',
+                                                 errors='replace')))
+    return sorted(registered - declared)
 
 
 def changed_files_check(root, since):
@@ -701,6 +747,17 @@ def changed_files_check(root, since):
                 f'"PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)`, and resolve '
                 f'PRACTICE_FILE against SOURCE_ROOT, or check_deep_check.py '
                 f'refuses the next Promote')
+    if repo_kind(HERE) == 'upstream' and any(
+            rel in ('tools/precedent_check.py', 'tools/verify_harness.py')
+            or re.match(r'(?:local/)?tools/checks/check_\w+\.py$', rel)
+            for rel in files):
+        for slug in _unplanted_checks(root):
+            problems.append(
+                f'{slug}: a registered check with no planted case -- add '
+                f"case('{slug}', <plant>) to check_precedent_check_fires in "
+                f'tools/verify_harness.py, planting the violation it exists '
+                f'to catch; the harness refuses a check without one, and '
+                f'the full check at the next Debut runs it')
     for test in tests:
         try:
             r = subprocess.run(['bash', test], cwd=root, capture_output=True,

@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided)"
+approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented)"
 strength:    assented
 ---
 ## Rule
@@ -25,7 +25,7 @@ Before a commit that touches shipped content -- a file under `practices/`,
 `templates/`, `.claude/hooks/`, or one of the exact filenames in
 [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
 `ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- reaches the push or merge
-side of the chain, say three things out loud, not one:
+side of the chain, say four things out loud, not one:
 
 1. **Does this need to reach the repos that vendor this one?** Most edits
    here do not -- a wording fix, a Story section filled in, a spec document,
@@ -54,8 +54,15 @@ side of the chain, say three things out loud, not one:
    not-yet-updated shape and shows it still builds. A change that cannot be
    made safe that way says so here, with what a repository has to do
    first.
+4. **Has a new or changed check run in a consuming repo that received
+   other sources' files?** A consumer holds practices and checks its sets
+   wrote, and the vendored engine, and a check can judge those copies
+   where nobody can fix them. The runner already drops findings on
+   received files, and the changed-files check asks a new check for its
+   planted case; this question covers what those two cannot see. Run the
+   check in that shape, or say why it cannot misread a received file.
 
-**Neither answer is a promise.** This repo cannot make a consumer actually
+**No answer is a promise.** This repo cannot make a consumer actually
 run `Update Vendors` -- what it can do, and must, is say plainly whether a
 change is waiting on that step, so the gap is visible at the point of
 change rather than discovered downstream.
@@ -87,6 +94,15 @@ mechanics of how it works must take into account updates/upgrades/
 migrations."* A source with no allowance yet now counts at its measured
 size, Update Vendors copies the file across, and the harness plants both
 half-updated shapes.
+
+**2026-09-29: the fourth question, received files.** A new engine check,
+checks-use-generated-blocks, went live and then judged check files a
+consuming repo had received from a practice set -- copies the next sync
+overwrites, which only the set could fix. Nothing had run it in a
+consumer's shape. The same batch moved the skip for received files into
+the check runner and taught the pre-staging check to ask a new check for
+its planted case; the question keeps the part no tool sees in view.
+
 ## Install
 No mechanical check, and this is a considered gap, not the first
 plausible-sounding reason. Two designs were considered and both fail for
