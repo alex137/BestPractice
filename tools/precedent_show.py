@@ -66,7 +66,7 @@ _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 # alone, so every team and individual practice reads as absent -- silently,
 # which is the one failure mode this project exists to prevent. Reproduced
 # 2026-09-14 in a real consumer: `precedent_show.py default-register` answered
-# "unknown slug", for a team practice that repo has in force.
+# "unknown slug", for a shared practice that repo has in force.
 # consuming_repo_root() returns _ENGINE_DIR.parent unchanged everywhere else.
 try:                                            # noqa: E402
     import sys as _sys
@@ -168,7 +168,7 @@ def _materialize_manifest(root):
     _practices_are_materialized): keyed off MANIFEST.json's own
     `generated_by`, not a path guess -- so this never fires, and never has
     to be told not to, for BestPractice checking itself or for an
-    individual/team set's own repo."""
+    individual/shared set's own repo."""
     manifest_path = root / 'MANIFEST.json'
     if not manifest_path.is_file():
         return None

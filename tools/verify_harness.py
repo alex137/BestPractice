@@ -87,7 +87,7 @@ for _var in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE'):
 # THE SAME SHAPE AGAIN, on the private-source credential, and this one made
 # the harness's own result depend on which container it ran in. Two fixtures
 # build a scenario where NO credential is available -- "with no base url the
-# team source is named on stderr as NOT in force", and "--write-session-hook
+# shared source is named on stderr as NOT in force", and "--write-session-hook
 # with NO --repo-url ... degrades quietly" -- and then spawn a subprocess
 # carrying the container's own environment. Where PRECEDENT_GIT_TOKEN and
 # PRECEDENT_SOURCE_BASE_URL are set (INSTALL.md section 8, and every session
@@ -2818,7 +2818,7 @@ def check_source_precedence():
         practice(universal, 'client-tone-2', level_note='blocking, unrelated '
                  'to the override target below', severity='blocking')
         practice(universal, 'legacy-note-format', level_note='an unrelated '
-                 'universal practice the blocked team practice tries to '
+                 'universal practice the blocked shared practice tries to '
                  'retire')
         practice(team, 'client-tone-2', level_note='refused: collides with '
                  'a blocking universal practice under its OWN slug',
@@ -2938,9 +2938,9 @@ def check_source_precedence():
         coll_universal, coll_team = tmp / 'cu', tmp / 'ct'
         practice(coll_universal, 'shared-target',
                  level_note='the contested universal practice')
-        practice(coll_team, 'claim-one', level_note='first team practice',
+        practice(coll_team, 'claim-one', level_note='first shared practice',
                  overrides='shared-target')
-        practice(coll_team, 'claim-two', level_note='second team practice',
+        practice(coll_team, 'claim-two', level_note='second shared practice',
                  overrides='shared-target')
         (collision / 'precedent.json').write_text(json.dumps({
             'format_version': 1,
@@ -3087,13 +3087,13 @@ def check_source_precedence():
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
              '--repo', str(two_teams)], capture_output=True, text=True)
         out_two = r_two.stdout + r_two.stderr
-        cases.append(('two team-level sources defining one slug is a loud '
+        cases.append(('two shared-level sources defining one slug is a loud '
                       'failure, not a silent last-one-wins',
                       r_two.returncode == 1 and 'shared' in out_two
                       and 'same level' in out_two))
 
-        # ...and two team sources that DON'T collide still resolve fine --
-        # the rule must not have turned "more than one team source" into an
+        # ...and two shared sources that DON'T collide still resolve fine --
+        # the rule must not have turned "more than one shared source" into an
         # error by itself.
         (t_a / 'practices' / 'shared.md').unlink()
         practice(t_a, 'a-only', level_note='Only in A.')
@@ -3102,7 +3102,7 @@ def check_source_precedence():
              '--repo', str(two_teams), '--json'], capture_output=True, text=True)
         slugs_ok = ({p['slug'] for p in json.loads(r_ok.stdout).get('practices', [])}
                     if r_ok.returncode == 0 else set())
-        cases.append(('two non-colliding team sources still resolve together',
+        cases.append(('two non-colliding shared sources still resolve together',
                       r_ok.returncode == 0 and {'a-only', 'b-only', 'shared'} <= slugs_ok))
 
         ok = all(passed for _, passed in cases)
@@ -3121,7 +3121,7 @@ def check_cross_source_resident_budget():
     just this repo's own practices/ directory (spec/PRIVATE_SETS_BRIEF.md,
     "One open gap to report back, not to solve there": build_views.py's
     RESIDENT_BUDGET_TOKENS only ever saw this repo's practices/, and
-    precedent_resolve.py had no resident/budget logic at all -- a team set
+    precedent_resolve.py had no resident/budget logic at all -- a shared set
     marking several practices resident, on top of an individual set doing
     the same, could push a real session's resident block well past the cap
     with nothing objecting).
@@ -3192,7 +3192,7 @@ def check_cross_source_resident_budget():
         single_over_ok = (rc1b == 1
                           and data1b.get('resident', {}).get('over_budget') is True)
 
-        # direction 2: a synthetic team source with an oversized resident
+        # direction 2: a synthetic shared source with an oversized resident
         # Rule, stacked on top of this repo's own resident practices, must
         # push the combined figure over budget and be refused
         consumer = tmp / 'consumer'
@@ -4453,7 +4453,7 @@ def check_source_names_detects_a_rename():
     RENAMED is reported, and a name it could not check is never reported as
     current.
 
-    THE INCIDENT (2026-09-11). A team source was renamed on GitHub. A
+    THE INCIDENT (2026-09-11). A shared source was renamed on GitHub. A
     consuming repo went on declaring, cloning, attaching and materializing
     under the old name with every check green, for an unknown number of
     sessions, because GitHub redirects a renamed repository indefinitely:
@@ -5399,7 +5399,7 @@ def check_session_practices_load_without_publishing():
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-session-'))
     try:
-        # A repo declaring universal (itself) + a team source.
+        # A repo declaring universal (itself) + a shared source.
         repo = tmp / 'repo'
         (repo / 'practices').mkdir(parents=True)
         team = tmp / 'team' / 'practices'
@@ -5422,7 +5422,7 @@ def check_session_practices_load_without_publishing():
 
         extra, levels, notes = psp.collect(str(repo))
         slugs = {fm['slug'] for fm, _s, _f in extra}
-        cases.append(("a team source's practice IS collected for the session",
+        cases.append(("a shared source's practice IS collected for the session",
                       'team-only-rule' in slugs))
         cases.append(('...and the universal one is NOT duplicated -- it is already '
                       'in the committed AGENTS.md, and repeating it would double '
@@ -5432,7 +5432,7 @@ def check_session_practices_load_without_publishing():
                       levels.get('team-only-rule') == 'shared'))
 
         text = psp.render(extra, levels, notes)
-        cases.append(('the rendered block names the team practice',
+        cases.append(('the rendered block names the shared practice',
                       'team-only-rule' in text))
         cases.append(('...and warns, in the file itself, never to commit it',
                       'Never commit it' in text))
@@ -5928,9 +5928,9 @@ def check_codeowners_check_is_a_check():
          file must be a function of its SOURCE; stamped with the time it was
          built, "is it current?" has no stable answer.
 
-    BestPractice has no approvers.json -- it is not a team set -- so none of
+    BestPractice has no approvers.json -- it is not a shared set -- so none of
     this is exercised by the tree, and that is exactly why it went unnoticed
-    while the tool was private to one team set. The fixture supplies one.
+    while the tool was private to one shared set. The fixture supplies one.
     Now that build_codeowners.py is in ENGINE_FILES, every source set the
     bootstrap creates inherits whichever behavior this has."""
     import tempfile, shutil
@@ -6304,7 +6304,7 @@ def check_retired_practices_leave_the_views():
     wrong one.
 
     BestPractice's own catalogue has no retired practice, which is precisely
-    why nothing here caught it: found 2026-09-06 in a private team set whose
+    why nothing here caught it: found 2026-09-06 in a private shared set whose
     generated AGENTS.md listed all three of its retired practices, one of
     them retired that same day. So this case supplies a retired practice of
     its own rather than relying on the tree having one."""
@@ -8100,7 +8100,7 @@ def check_update_vendors_reruns_over_its_own_output():
 
 
 def _sync_views_fixture(tmp, universal, team):
-    """A consumer with a universal catalogue inside it and one team source
+    """A consumer with a universal catalogue inside it and one shared source
     beside it, each {slug: extra frontmatter lines}. -> (repo, team_dir,
     user_config, write) where write(dir, slug, extra) (re)writes a practice."""
     repo, team_dir = tmp / 'c', tmp / 'precedent-team-x'
@@ -10445,7 +10445,7 @@ def check_precedent_check_fires():
             # dropped from the block BEFORE resolution and their absence
             # cannot make it unverifiable. Copying them back in only gave
             # layered-practice-packs' baseline the real repo's 34 unreachable
-            # team practices to report -- an open architectural question (see
+            # shared practices to report -- an open architectural question (see
             # todo/todo-2026-09-06-unreachable-practices.md), not a defect a fixture planted,
             # and it made every planted case below prove nothing. A fixture
             # for a PRIVATE consumer's multi-source block would need them; the
@@ -10472,7 +10472,7 @@ def check_precedent_check_fires():
                 env.update(env_extra)
             # The fixture must not resolve whoever's individual set happens
             # to be configured on this machine. It is found by ABSOLUTE path
-            # from a user-level config, so unlike the team source (a relative
+            # from a user-level config, so unlike the shared source (a relative
             # sibling that a temp-dir fixture cannot reach) it follows the
             # fixture anywhere -- and layered-practice-packs' baseline then
             # reports that developer's private practices, making the planted
@@ -12476,7 +12476,7 @@ def check_precedent_check_fires():
         # precedent_materialize.py on every precedent_sync_views.py run,
         # can hold another source's own legitimate content that happens to
         # share a literal substring with a retired term -- a real
-        # dependent-repo migration hit this with a team source's own
+        # dependent-repo migration hit this with a shared source's own
         # `approved_by` provenance note). Both directions in one fixture:
         # the term INSIDE the exempted directory is clean; the SAME term
         # OUTSIDE it still fails -- proving this isn't a blanket disable.
@@ -14095,7 +14095,7 @@ def check_publisher_bound_checks_run_in_a_source_set():
     practice SOURCE set is the case that gate got wrong: its practices/
     holds its own practices only, it resolves no sources and materializes
     nothing into itself, so every other level's check skipped there
-    permanently. Measured 2026-09-12 in a team source: 12 passed, 42
+    permanently. Measured 2026-09-12 in a shared source: 12 passed, 42
     SKIPPED, all 42 that one cause.
 
     It had already cost something. A practice file in that set shipped a
@@ -17869,7 +17869,7 @@ def check_show_flags_unreachable_materialized_source():
 def check_sync_refuses_to_lose_a_recorded_practice():
     """A sync will not silently drop a rule the repository already published.
 
-    The incident, 2026-09-07: promoting two practices out of a team set into
+    The incident, 2026-09-07: promoting two practices out of a shared set into
     the universal catalogue left every consumer pinned before the promotion
     with them in NEITHER source, so its next sync deleted both. `--check`
     named them; a real sync rmtree's practices/ and says nothing.
@@ -23010,7 +23010,7 @@ def check_freshness_guard_checks_attached_repositories():
 
     A hook fires for the project dir and nothing else, so a repository the
     session merely has ATTACHED -- `add_repo`, a SessionStart clone, the
-    sibling clone a team practice source resolves to -- runs none of its own
+    sibling clone a shared practice source resolves to -- runs none of its own
     freshness checking however correctly its guard is installed (AGENTS.md's
     gotchas carry the general form of this). An environment variable is the
     one thing that follows a session into every repository it touches, which
@@ -24017,8 +24017,8 @@ def check_commit_identity_copies_are_identical():
 
     # EVERY OTHER ATTACHED SOURCE'S COPY, and this is where the check had a
     # hole. It compared three copies -- this repo's two and the individual
-    # source's -- and a TEAM set carries one too, at .claude/hooks/. Nothing
-    # looked there, so both team sets sat three generations behind
+    # source's -- and a SHARED set carries one too, at .claude/hooks/. Nothing
+    # looked there, so both shared sets sat three generations behind
     # (2026-09-07: missing the merge backstop, the timezone derivation AND
     # the global identity fix) while this check reported every copy
     # identical. A check that names the copies it compares is only as good
@@ -25675,7 +25675,7 @@ def check_creation_pipeline_fires():
 
         # --- non-duplication defaults to checking the candidate's OWN repo too --
         # Deep-check regression case: --against used to default to ROOT alone
-        # regardless of the candidate's level, so promoting an individual/team
+        # regardless of the candidate's level, so promoting an individual/shared
         # candidate with no explicit --against silently never checked it
         # against that repo's own catalogue.
         (repo / 'practices' / 'pipeline-fixture-owncatalogue.md').write_text(
@@ -25855,7 +25855,7 @@ def check_creation_pipeline_fires():
         # exactly when a team candidate needs to become a GitHub Issue rather
         # than a quiet candidates/ file: only when whoever's raising it is NOT
         # a listed approver. A listed approver's own say-so already lands a
-        # team practice directly (precedent_land.py), so --as-issue and the
+        # shared practice directly (precedent_land.py), so --as-issue and the
         # nudge below are both about authority, never about git access.
         team_repo = tmp / 'precedent-team-fixture'
         (team_repo / 'candidates').mkdir(parents=True)
@@ -25871,10 +25871,10 @@ def check_creation_pipeline_fires():
         rc, out = pyrun(promote_tool, '--file', str(f10), '--level', 'team')
         rc, out = pyrun(land_tool, '--file', str(f10), '--level', 'team',
                         '--path', str(team_repo), '--approved-by', 'Approved Person')
-        cases.append(('landing a team practice by a real approver discloses the '
-                      'named team set, already in force for everyone on it',
+        cases.append(('landing a shared practice by a real approver discloses the '
+                      'named shared set, already in force for everyone on it',
                       rc == 0 and 'DISCLOSE TO THE HUMAN' in out
-                      and 'TEAM practice set' in out and str(team_repo) in out
+                      and 'SHARED practice set' in out and str(team_repo) in out
                       and "'Approved Person'" in out))
 
         def make_issue_draft(raised_by, **extra):
@@ -25923,10 +25923,10 @@ def check_creation_pipeline_fires():
                         '--signal', 'explicit-instruction', '--raised-by', 'Approved Person',
                         '--observed', 'x', '--proposed-rule', 'x')
         cases.append(('an approver filing a team candidate (rather than landing '
-                      'directly) discloses which team set it sits in and that it '
+                      'directly) discloses which shared set it sits in and that it '
                       'still needs a yes',
                       rc == 0 and 'DISCLOSE TO THE HUMAN' in out
-                      and 'TEAM set at' in out and str(team_repo) in out
+                      and 'SHARED set at' in out and str(team_repo) in out
                       and 'already an approver' in out))
 
         rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
@@ -25991,12 +25991,12 @@ def check_creation_pipeline_fires():
 def check_bootstrap_source_produces_resolvable_set():
     """spec/BOOTSTRAP_NEW_SOURCES.md's own claim, tested rather than trusted:
     tools/precedent_bootstrap_source.py's output is not just files copied
-    into place, it is a working individual set AND team set that
+    into place, it is a working individual set AND shared set that
     tools/precedent_resolve.py actually resolves cleanly the moment they're
     wired in -- the property that matters, since a skeleton nobody can
     resolve is no better than no skeleton at all.
 
-    Fixture: bootstrap one individual set and one team set into a scratch
+    Fixture: bootstrap one individual set and one shared set into a scratch
     dir, point a synthetic consumer repo's precedent.json (team) and
     PRECEDENT_USER_CONFIG (individual) at them, and resolve. A fixture
     practice with ONE slug is then planted into both sets, which exercises
@@ -26023,7 +26023,7 @@ def check_bootstrap_source_produces_resolvable_set():
     try:
         bootstrap_tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         indiv_dest = tmp / 'indiv-set'
-        team_dest = tmp / 'team-set'
+        team_dest = tmp / 'shared-set'
 
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
                         '--name', 'precedent-individual', '--dest', str(indiv_dest))
@@ -26033,14 +26033,14 @@ def check_bootstrap_source_produces_resolvable_set():
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))
-        cases.append(('bootstrapping a team set without --approver is refused',
+        cases.append(('bootstrapping a shared set without --approver is refused',
                       rc == 1 and 'approver' in out, out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest),
                         '--approver', 'Harness Approver:harness-approver-gh')
         approvers_json = team_dest / 'approvers.json'
-        cases.append(('bootstrapping a team set succeeds and seeds approvers.json',
+        cases.append(('bootstrapping a shared set succeeds and seeds approvers.json',
                       rc == 0 and approvers_json.is_file()
                       and json.loads(approvers_json.read_text()).get('approvers')
                       == [{'name': 'Harness Approver', 'github': 'harness-approver-gh'}], out))
@@ -26092,7 +26092,7 @@ def check_bootstrap_source_produces_resolvable_set():
         cases.append(('the resulting consumer repo resolves cleanly -- no missing, '
                       'no blocked sources',
                       rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
-        cases.append(('the planted shared slug resolves, won by the team set over '
+        cases.append(('the planted shared slug resolves, won by the shared set over '
                       'the individual set (real precedence, not just presence)',
                       slugs.get('zz-shared-slug', {}).get('level') == 'shared', out))
         cases.append(('and the two skeletons\' own placeholders no longer collide: '
@@ -26104,7 +26104,7 @@ def check_bootstrap_source_produces_resolvable_set():
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'bootstrap_source produces a resolvable individual and team set '
+    check(f'bootstrap_source produces a resolvable individual and shared set '
           f'({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
@@ -26708,7 +26708,7 @@ def _write_fixture_practice(path, slug, applies_to, rule_text):
 
 
 def check_session_start_refreshes_an_attached_team_clone():
-    """A team source that is already on disk is PULLED at session start, not
+    """A shared source that is already on disk is PULLED at session start, not
     waved through.
 
     THE INCIDENT (2026-09-11). sources_from_repo() returned
@@ -27339,7 +27339,7 @@ def check_vendor_engine_consumer_case():
     Distinct from that check in what it has to prove: a source set's
     vendored engine only ever reads ONE practices/ directory (its own). A
     consumer's vendored engine has to actually RESOLVE three real, separate
-    sources (universal = this repo's own checkout, a fixture team set, a
+    sources (universal = this repo's own checkout, a fixture shared set, a
     fixture repo-local set) through precedent_resolve.py/precedent_
     materialize.py/precedent_sync_views.py into one materialized tree
     BEFORE build_views.py/precedent_gate.py/precedent_paths.py/
@@ -27376,7 +27376,7 @@ def check_vendor_engine_consumer_case():
 
         # practice: fixture-owns-its-state -- this fixture declares exactly
         # three sources in its own precedent.json (universal, one fixture
-        # team set, one fixture repo-local set) and every assertion below
+        # shared set, one fixture repo-local set) and every assertion below
         # assumes only those three resolve. Without this, a session whose
         # REAL individual practice source is configured (an ordinary state
         # for an interactive Precedent session, not a broken one) leaks that
@@ -27395,7 +27395,7 @@ def check_vendor_engine_consumer_case():
 
         _write_fixture_practice(team_dir / 'practices' / 'consumer-fixture-team.md',
                                  'consumer-fixture-team', ['team-only/**'],
-                                 'A team-level fixture rule, present in no other repo.')
+                                 'A shared-level fixture rule, present in no other repo.')
         _write_fixture_practice(consumer / 'local' / 'practices' / 'consumer-fixture-local.md',
                                  'consumer-fixture-local', ['local-only/**'],
                                  'A repo-local fixture rule, present in no other repo.')
@@ -30988,7 +30988,7 @@ def check_source_shape_is_verified():
                     (d / rel).write_text(text, encoding='utf-8')
             return d
 
-        cases.append(('a complete team set is well-formed',
+        cases.append(('a complete shared set is well-formed',
                       bss.verify('team', fixture('team')) == []))
         cases.append(('a complete individual set is well-formed',
                       bss.verify('individual', fixture('individual')) == []))
@@ -32258,7 +32258,7 @@ def check_loader_block_covers_every_declared_source():
     # block carries is the publishable source's own text, and only the SLUG
     # is shared. Without this the guard fired on the first same-slug
     # override to exist (catalogue-carries-stories, 2026-09-07 -- landed at
-    # universal, and the team source that had authored it first kept a copy
+    # universal, and the shared source that had authored it first kept a copy
     # to put the rule in force on itself, since a source repo consumes no
     # catalogue). Verified by reading the rendered line: it was universal's
     # index_clause, not the team's. A finding nobody can act on without
@@ -35191,7 +35191,7 @@ def check_fixtures_own_the_credential_environment():
 
     THE INCIDENT (2026-09-11). Two checks below build a scenario where NO
     credential is available -- check_source_credentials' "with no base url
-    the team source is named on stderr as NOT in force", and
+    the shared source is named on stderr as NOT in force", and
     check_individual_source_bootstrap_self_heals' "--write-session-hook with
     NO --repo-url ... degrades quietly" -- and then spawned a subprocess
     carrying the container's own environment. Since 2026-09-10 a real
@@ -35663,7 +35663,7 @@ def check_source_credentials():
                       'file it writes', rc == 0 and cloned and TOKEN not in on_disk,
                       f'rc={rc} cloned={cloned} {out[:300]}'))
 
-        # --- 8: a team source is cloned by path, and records nothing --------
+        # --- 8: a shared source is cloned by path, and records nothing --------
         # A real repo to clone FROM, named the way the set is named: the URL
         # is built as <base>/<name>, which is the whole convention under test.
         remotes = tmp / 'remotes'
@@ -35677,11 +35677,11 @@ def check_source_credentials():
                       env_extra={psb.BASE_URL_ENV: f'file://{remotes}',
                                  'HOME': str(home_empty)})
         # the fixture set is named precedent-team-fixture, so file://<tmp>/precedent-team-fixture
-        cases.append(('--teams-from clones each declared team source to the '
+        cases.append(('--teams-from clones each declared shared source to the '
                       'sibling path the repo declares',
                       rc == 0 and (repo.parent / 'team-fixture-clone' / 'practices').is_dir(),
                       f'rc={rc} {out[:400]}'))
-        cases.append(('...and writes no user config for it: a team source '
+        cases.append(('...and writes no user config for it: a shared source '
                       'resolves by path, so there is nothing to record',
                       not (home_empty / '.config' / 'precedent' / 'config.json')
                       .read_text(encoding='utf-8').count('team'),
@@ -35692,7 +35692,7 @@ def check_source_credentials():
         shutil.rmtree(repo.parent / 'team-fixture-clone', ignore_errors=True)
         rc, out = run(str(bootstrap), '--teams-from', str(repo),
                       '--remote-only', 'false', env_extra={'HOME': str(home_empty)})
-        cases.append(('with no base url the team source is named on stderr as '
+        cases.append(('with no base url the shared source is named on stderr as '
                       'NOT in force, rather than passing quietly',
                       rc == 0 and psb.BASE_URL_ENV in out
                       and 'NOT in force' in out, f'rc={rc} {out[:300]}'))
@@ -35752,7 +35752,7 @@ def check_vendored_engine_reads_the_consumer_root():
     the consumer's precedent.json two levels above it. Both runbook steps that
     reconcile sources default `--repo` to the engine's own parent, and the
     vendored tree -- being a whole copy of this repository -- HAS a
-    precedent.json there. So step 7 reported three declared team sources
+    precedent.json there. So step 7 reported three declared shared sources
     missing, by name, at `<consumer>/process/precedent-team-*`, and step 8
     left the same three UNVERIFIED. Both readings were false, both were
     specific enough to be believed, and the runbook passes no --repo.
@@ -37320,7 +37320,7 @@ def check_mirrored_prefixes_answers_both_install_models():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
 
-        # §0: vendored catalogue, a live sibling team source, a repo-local
+        # §0: vendored catalogue, a live sibling shared source, a repo-local
         # source, and NO process/manifest.json.
         (tmp / 's0' / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
         (tmp / 's0' / 'local' / 'practices').mkdir(parents=True)
@@ -37337,7 +37337,7 @@ def check_mirrored_prefixes_answers_both_install_models():
                       'precedent/universal/' in s0, str(s0)))
         cases.append(('and does NOT exclude its own repo-local source, which '
                       'is hand-authored', 'local/' not in s0, str(s0)))
-        cases.append(('and does NOT exclude a team source resolved from a '
+        cases.append(('and does NOT exclude a shared source resolved from a '
                       'sibling clone outside this repo',
                       not any('precedent-team-writing' in x for x in s0),
                       str(s0)))
@@ -38533,7 +38533,7 @@ def check_move_tool_lands_then_deduplicates():
         (indiv / 'practices' / 'zz-second.md').write_text(practice('zz-second'), encoding='utf-8')
         r = run([tool, '--slug', 'zz-second', '--from', 'individual', '--from-path', str(indiv),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Nobody'])
-        cases.append(('an approver not listed in the team set is refused by name',
+        cases.append(('an approver not listed in the shared set is refused by name',
                       r.returncode == 1 and 'not in' in r.stderr and 'approver' in r.stderr,
                       r.stderr[:300]))
         # -- universal -> team duplicates, never deduplicates, on landing;
@@ -38683,7 +38683,7 @@ def check_move_tool_covers_every_direction_and_team_removals():
                 '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Somebody Else')
         cases.append(('team -> individual by a name the team does not list is refused as a '
                       'REMOVAL needing that team\'s approver, and writes nothing',
-                      r.returncode == 1 and 'removing a practice from a team set' in r.stderr
+                      r.returncode == 1 and 'removing a practice from a shared set' in r.stderr
                       and not (indiv / 'practices' / 'zz-guarded.md').exists()
                       and 'status:      active' in text(team / 'practices' / 'zz-guarded.md'),
                       r.stderr[-400:]))
@@ -38705,7 +38705,7 @@ def check_move_tool_covers_every_direction_and_team_removals():
         (indiv / 'practices' / 'zz-guarded.md').write_text(P('zz-guarded'), encoding='utf-8')
         r = run('--slug', 'zz-guarded', '--from', 'team', '--from-path', str(team),
                 '--to', 'individual', '--to-path', str(indiv), '--dedupe-only')
-        cases.append(('--dedupe-only from a team set with no --approved-by is refused',
+        cases.append(('--dedupe-only from a shared set with no --approved-by is refused',
                       r.returncode == 1 and '--approved-by' in r.stderr
                       and 'status:      active' in text(team / 'practices' / 'zz-guarded.md'),
                       r.stderr[-400:]))
@@ -40368,7 +40368,7 @@ def check_public_tree_bakes_in_no_owner_account():
     THE INCIDENT (2026-09-10). INSTALL.md section 8 states that no tracked
     file names the account owning the private practice sets -- that is the
     entire reason PRECEDENT_SOURCE_BASE_URL is an environment variable. It
-    was true of the three team sets and false of the individual one: this
+    was true of the three shared sets and false of the individual one: this
     repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh` carried
     a full `https://github.com/<account>/precedent-individual`, on a public
     branch, five lines below its own comment saying a public consumer should
@@ -40603,13 +40603,13 @@ def check_very_deep_check_convergent_drift():
 
     THE DIRECTION IS PINNED AS UNKNOWN. Convergence says the sets and the
     generator disagree systematically; it does not say which side is right,
-    and the first live run met exactly the ambiguous case (three team sets
+    and the first live run met exactly the ambiguous case (three shared sets
     sharing an OLDER freshness-guard.sh, not a change the template was
     missing). A finding that asserted "the template is wrong" would send
     somebody to copy a stale build upstream.
 
     Untracked files are pinned as NOT drift -- the first live run reported a
-    harness-written `.claude/settings.local.json` in all three team sets,
+    harness-written `.claude/settings.local.json` in all three shared sets,
     which is container state, not a shape the skeleton is missing."""
     # practice: slow-steps-report-and-cache -- this fixture is one of the
     # harness's slowest (~32s of a ~250s run, measured), bootstrapping two
@@ -41521,7 +41521,7 @@ def check_sync_refuses_to_write_from_incomplete_sources():
         removed_on_request = not (repo / 'practices' / 'widget-rule.md').exists()
 
         results = [
-            ('the team practice lands while its source is reachable', landed),
+            ('the shared practice lands while its source is reachable', landed),
             ('an unreachable declared source REFUSES the write', refused),
             ('and the tracked practice it contributed survives', survived),
             ('--check still inspects without writing', checked_ok and survived_check),
@@ -42205,7 +42205,7 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
 
     THE INCIDENT, 2026-09-08. The withdrawn table landed that morning and
     rendered `in_force_at:` as `[slug](practices/slug.md)` unconditionally.
-    The first team set to regenerate with it produced MAP.md linking
+    The first shared set to regenerate with it produced MAP.md linking
     `practices/headline-capitalization.md` -- a UNIVERSAL practice, in a repo
     that has no such file -- and that set then failed its own `light-check`
     on a broken relative link, inside a generated file its own header tells
@@ -43278,11 +43278,11 @@ def check_assumed_visibility_never_deletes_practices():
         user.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
         results = []
 
-        # Seed a PRIVATE consumer that really carries the team practice.
+        # Seed a PRIVATE consumer that really carries the shared practice.
         repo = _fixture(tmp, 'private')
         psv.sync(str(repo), user_config=str(user))
         seeded = (repo / 'practices' / 'team-only-rule.md').exists()
-        results.append(('a private consumer materializes the team practice', seeded))
+        results.append(('a private consumer materializes the shared practice', seeded))
 
         # Now the reported state: the declaration goes away.
         cfg = _json.loads((repo / 'precedent.json').read_text())

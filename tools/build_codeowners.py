@@ -31,14 +31,14 @@ and the command that rebuilds it, since it is exactly the case that calls
 for one: a file a later regeneration overwrites wholesale.
 
 WHY THIS IS PART OF THE VENDORED SOURCE-SET ENGINE. It was written inside
-one team set and lived only there, which meant the plan's own approval
+one shared set and lived only there, which meant the plan's own approval
 mechanism -- "approvers are declared in the set's own config, and
 CODEOWNERS is generated from that list" -- had exactly one implementation,
-in a private repo, reachable by nobody else. A second team set
+in a private repo, reachable by nobody else. A second shared set
 (bootstrapped 2026-09-05 from templates/practice-set-shared/) got its
 approvers.json and no way to turn it into enforcement: approvers declared,
 approvals unenforced, and nothing saying so. Promoted here 2026-09-06 so
-every team set the bootstrap tool creates has it from the first commit
+every shared set the bootstrap tool creates has it from the first commit
 (practice: affordance-is-shared).
 
 An individual set has no approvers.json and needs none -- one person is
@@ -119,7 +119,7 @@ def load_approvers(approvers_file: pathlib.Path) -> list[dict]:
     if not approvers:
         raise SystemExit(f"{approvers_file}: no approvers declared -- a team "
                           f"set needs at least one (PRACTICE_ENGINE_PLAN.md: "
-                          f"'at creation, whoever creates a team set is its "
+                          f"'at creation, whoever creates a shared set is its "
                           f"first approver; no ceremony, and there is always "
                           f"at least one').")
     for entry in approvers:
@@ -239,7 +239,7 @@ def main(check_only: bool = False, root: pathlib.Path = ROOT):
             # is nothing to generate, and saying so beats a traceback.
             print(f"no approvers.json and no `owned_paths` in precedent.json "
                   f"under {root}, so there is no registry to generate "
-                  f"CODEOWNERS from -- nothing to do. (A team set declares "
+                  f"CODEOWNERS from -- nothing to do. (A shared set declares "
                   f"its approvers in approvers.json; a project drawing the "
                   f"contributor boundary declares `maintainers` and "
                   f"`owned_paths` in precedent.json; an individual set has "

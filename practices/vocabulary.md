@@ -51,7 +51,7 @@ the one most likely to be missing is the one added most recently.
 
 **Say which sources did not resolve.** The tool prints a note for every
 source it could not read. That note goes into the answer -- *"I could not
-read your team set, so any command it defines is not below"* -- because a
+read your shared set, so any command it defines is not below"* -- because a
 short list and an incomplete list look identical.
 
 **A command a session cannot honour is not listed.** If a phrase's practice

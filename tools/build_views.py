@@ -268,7 +268,7 @@ def repo_is_public(root):
     accident". The opposite is true: omitting it is exactly how a public
     repo publishes by accident. Found 2026-09-07 in a real public consumer
     that had never declared the field and carried 10 individual-level and
-    40 team-level practices in its tracked tree, one of them a person's name
+    40 shared-level practices in its tracked tree, one of them a person's name
     and email address.
 
     Silence would be its own failure here -- a degraded path that does not
@@ -297,7 +297,7 @@ def repo_is_public(root):
         # entire content this run is about to drop. The old single NOTICE
         # covered both in the same informational register, and a real
         # install read straight past it while receiving 89 practices
-        # instead of 121, with three team sets bound to nothing
+        # instead of 121, with three shared sets bound to nothing
         # (2026-09-10). Say WHICH sources are being dropped, and say that
         # the install is not doing its job.
         dropped = []
@@ -474,7 +474,7 @@ def load_practices(practices_dir=None, in_force_only=True, announce=True):
     cosmetic for the one channel that decides what a session actually loads.
 
     Invisible in BestPractice, whose own catalogue has no retired practice.
-    Found 2026-09-06 in a private team set with three of them -- all three
+    Found 2026-09-06 in a private shared set with three of them -- all three
     were listed in the AGENTS.md its own README calls "what a session
     actually loads", months after retirement, including one retired that
     same day. precedent_resolve.py had this right all along and prints
@@ -1386,7 +1386,7 @@ def _is_carried(text, carried):
 
 
 def repo_is_practice_source(root):
-    """Whether this repo IS a practice set -- an individual or team source --
+    """Whether this repo IS a practice set -- an individual or shared source --
     rather than a repo that consumes them.
 
     Read from tools/ENGINE_MANIFEST.json's `kind`, which
@@ -1618,7 +1618,7 @@ def loader_practices(root, own_practices):
 
     THE BLOCK RENDERS EVERY SOURCE THE REPO DECLARES, not just its own
     catalogue. Precedent's own repo declares three -- universal (itself),
-    a team set, and a repo-local one -- and rendered ONLY the universal
+    a shared set, and a repo-local one -- and rendered ONLY the universal
     one, so 65 of 65 universal practices reached the block while 0 of 41
     team and 0 of 11 individual did. The config said they were in force,
     the resolver agreed, and the one artifact a session actually reads
@@ -1683,7 +1683,7 @@ def loader_practices(root, own_practices):
     res = _pr.resolve(declared)
     if res['missing']:
         # A declared source that does not resolve HERE makes the block
-        # unverifiable, not stale. A team source is a sibling clone and an
+        # unverifiable, not stale. A shared source is a sibling clone and an
         # individual source resolves through a private user-level config, so
         # neither exists in a bare CI checkout -- and the committed block was
         # built where they did. Regenerating without them and calling the
@@ -1900,7 +1900,7 @@ def _render_withdrawn(withdrawn):
             # than not.
             #
             # Found 2026-09-08, the first time the withdrawn table (landed
-            # that day) was regenerated in a team set: `header-caps` names
+            # that day) was regenerated in a shared set: `header-caps` names
             # `headline-capitalization`, which is universal, and the table
             # linked `practices/headline-capitalization.md` into a repo that
             # has no such file. The set then FAILED ITS OWN light-check on a
@@ -2062,8 +2062,8 @@ TOOLS_DESCRIPTIONS = {
     'precedent_reply_check.py': "The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires",
     'precedent_container_safe.py': "Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work",
     'precedent_close_detect.py': "Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material",
-    'precedent_bootstrap_source.py': "Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet",
-    'precedent_source_bootstrap.py': "Clone-or-pull for a privately-scoped individual or team source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal",
+    'precedent_bootstrap_source.py': "Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet",
+    'precedent_source_bootstrap.py': "Clone-or-pull for a privately-scoped individual or shared source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal",
     'precedent_source_credentials.py': "Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo",
     'github_budget.py': "What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session",
     'precedent_source_names.py': "Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it",
@@ -2103,7 +2103,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
     'precedent_move.py': "Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name",
     'precedent_install.py': "Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt",
-    'precedent_vendor_engine.py': "Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or team set, and keeps it refreshable",
+    'precedent_vendor_engine.py': "Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable",
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'todo_progress.py': 'which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict',
     'move_paths.py': "Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten",
@@ -2195,7 +2195,7 @@ def render_glossary_md(practices, root=None):
 # rendered into every source set's own GLOSSARY.md by its vendored copy of
 # this file -- where `spec/` does not exist and most of `practices/` is a
 # different catalogue. Emitted verbatim, those rows are eight dead links in
-# a generated file nobody hand-edits, which is what a real team set's own
+# a generated file nobody hand-edits, which is what a real shared set's own
 # light check reported on 2026-09-11, immediately after a vendor update.
 #
 # So the same rule practice-links-travel already states for practice files:

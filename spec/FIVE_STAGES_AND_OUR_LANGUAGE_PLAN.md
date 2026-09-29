@@ -473,6 +473,13 @@ Each numbered item is its own landing, through the ladder itself.
    message is inside enforcement code, so *high-risk*.
 4. **The "team" cleanup** across live text here and in the four sets, and
    the check that keeps it out. *The check is enforcement code: high-risk.*
+   **The check is split out** (2026-09-29): the existing retired-words
+   check (`process/retired_vocabulary.json`, practice
+   migration-scrubs-vocabulary) exempts whole files only, and "team set"
+   still lives, correctly, in the `## Story` sections of 16 practices and in
+   about a hundred dated records. Exempting those files would switch the
+   check off where it is needed, so it waits on a section-aware exemption
+   -- its own change to the check code.
 5. **The stages**: practice files for Consider (with "Plan it"), Act,
    Booked, Debut and Produce, each with its synonym; Promote's practice
    gains "Promote N", the read-back, the bare-Promote rule and "Graduate";

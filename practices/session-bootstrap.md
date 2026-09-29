@@ -35,7 +35,7 @@ strength of the case is easy to misjudge, corrected here 2026-09-06 after
 getting it wrong once already.** Setup that only touches what's already
 inside the container (installing a package, initializing a submodule) can
 run once at session start and be done. A hook that clones a
-**privately-scoped** source — an individual or team practice repo the
+**privately-scoped** source — an individual or shared practice repo the
 session has no standing access to — depends on something outside its own
 control: the session's own git read access, granted per session by the
 agent's own `add_repo` tool call, in the agent's own turn. A

@@ -5,7 +5,7 @@
     "environment -- by default ~/.config/precedent/config.json, or",
     "wherever $PRECEDENT_USER_CONFIG points -- so it names your personal",
     "set, which nobody else can read.",
-    "A shared project declares only universal and team sources, in its own",
+    "A shared project declares only universal and shared sources, in its own",
     "tracked precedent.json; the tools refuse a personal set declared there.",
     "",
     "`repo_url` is what the session-start hook clones your set FROM. It",

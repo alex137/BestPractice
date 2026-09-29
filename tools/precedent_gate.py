@@ -79,7 +79,7 @@ _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 # alone, so every team and individual practice reads as absent -- silently,
 # which is the one failure mode this project exists to prevent. Reproduced
 # 2026-09-14 in a real consumer: `precedent_show.py default-register` answered
-# "unknown slug", for a team practice that repo has in force.
+# "unknown slug", for a shared practice that repo has in force.
 # consuming_repo_root() returns _ENGINE_DIR.parent unchanged everywhere else.
 try:                                            # noqa: E402
     import sys as _sys
@@ -728,7 +728,7 @@ def main():
     # only ever true when this repo's own tree really is the universal
     # catalogue, and resolved_gate_practices() names the one case that
     # tells them apart (see its docstring). Reproduced 2026-09-22: with
-    # `unresolved_level` hardcoded, an unresolved individual or team source
+    # `unresolved_level` hardcoded, an unresolved individual or shared source
     # printed its own practices as `(universal)`, which is wrong in a way
     # nothing downstream could catch.
     entries, source_notes, unresolved_level = resolved_gate_practices(root, gate)
