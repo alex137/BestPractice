@@ -50,7 +50,10 @@ class Checkout:
         """Clone on first use; configure the commit identity."""
         if not (self.path / ".git").is_dir():
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            r = subprocess.run(["git", "clone", "--quiet", self.clone_url, str(self.path)],
+            # core.symlinks=false: a link in the repository is checked out as
+            # a plain file, so no write can follow one out of the checkout.
+            r = subprocess.run(["git", "clone", "--quiet", "-c", "core.symlinks=false",
+                                self.clone_url, str(self.path)],
                                capture_output=True, text=True, env=_env(), timeout=600)
             if r.returncode != 0:
                 raise GitError(f"could not clone {self.clone_url}: {r.stderr.strip()[:400]}")
@@ -127,7 +130,11 @@ class Checkout:
     def quarantine(self, why):
         """Set changes aside without losing them. -> a name the owner can find."""
         label = f"chatbridge: {why}"
-        self.git("stash", "push", "--include-untracked", "--quiet", "-m", label)
+        self.git("stash", "push", "--include-untracked", "--quiet", "-m", label, check=False)
+        left = self.changed_paths()
+        if left:
+            raise GitError(f"couldn't set aside {', '.join(left[:3])} -- the checkout at "
+                           f"{self.path} needs a look before the next turn")
         return "git stash list in " + str(self.path)
 
     def push_work(self):

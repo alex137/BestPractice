@@ -31,7 +31,7 @@
       "web_url": "https://github.com/YOUR-ACCOUNT/YOUR-REPO",
       "landing_branch": "main",
       "push_work_branch": true,
-      "content_extensions": [".md", ".markdown", ".txt", ".csv", ".tsv"],
+      "content_extensions": [".md", ".markdown"],
       "extra_owned_paths": []
     }
   },

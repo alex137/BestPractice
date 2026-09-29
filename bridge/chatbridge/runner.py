@@ -35,7 +35,11 @@ _FLAG_CACHE = {}
 
 # The bridge's own credentials: the model's process has no use for them, so
 # it never gets them, whatever its tools could or couldn't read.
-_BRIDGE_SECRETS = {"OPENAI_API_KEY"}
+_BRIDGE_SECRETS = {"OPENAI_API_KEY", "GH_TOKEN", "GITHUB_TOKEN", "GITHUB_PAT"}
+
+
+class UnsafeClaude(RuntimeError):
+    pass
 
 _PARENT_SESSION_VARS = {
     "CLAUDECODE", "CLAUDE_PID", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_REMOTE_SESSION_ID",
@@ -89,6 +93,12 @@ def build_command(cfg: dict, *, root, scope_file, system_prompt, session_id=None
         argv += ["--disallowedTools", DENIED_TOOLS]
     if "--restricted" in flags and cfg.get("restricted", True):
         argv += ["--restricted"]
+    elif not cfg.get("allow_unrestricted"):
+        # Without restricted mode, user and project settings would load --
+        # their hooks and allow rules -- so the content line would rest on
+        # the guard alone. Refuse rather than run weaker.
+        raise UnsafeClaude("this Claude Code has no --restricted mode; update it "
+                           "(or set claude.allow_unrestricted, knowingly)")
     elif cfg.get("setting_sources") is not None:
         argv += ["--setting-sources", cfg["setting_sources"]]
     if "--strict-mcp-config" in flags:
@@ -104,9 +114,12 @@ def build_command(cfg: dict, *, root, scope_file, system_prompt, session_id=None
 
 def run_turn(cfg: dict, *, root, scope_file, system_prompt, prompt,
              session_id=None, read_only=False) -> TurnResult:
-    argv = build_command(cfg, root=root, scope_file=scope_file,
-                         system_prompt=system_prompt, session_id=session_id,
-                         read_only=read_only)
+    try:
+        argv = build_command(cfg, root=root, scope_file=scope_file,
+                             system_prompt=system_prompt, session_id=session_id,
+                             read_only=read_only)
+    except UnsafeClaude as e:
+        return TurnResult("", session_id, True, error=str(e))
     # A bridge started from inside a Claude Code session must not run its
     # turns AS that session: drop the variables that carry its identity.
     env = {k: v for k, v in os.environ.items() if k not in _PARENT_SESSION_VARS
@@ -124,7 +137,9 @@ def run_turn(cfg: dict, *, root, scope_file, system_prompt, prompt,
         data = {}
     if not data:
         err = (r.stderr or r.stdout or "no output").strip()[:400]
-        if session_id and "session" in err.lower():
+        low = err.lower()
+        if session_id and ("no conversation found" in low or
+                           ("session" in low and "not found" in low)):
             # A session that no longer exists: start fresh rather than fail.
             return run_turn(cfg, root=root, scope_file=scope_file,
                             system_prompt=system_prompt, prompt=prompt, session_id=None,

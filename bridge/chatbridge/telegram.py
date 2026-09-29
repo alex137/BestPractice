@@ -17,6 +17,7 @@ wrote this, 2026-09-28.)
 """
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -34,6 +35,7 @@ class Incoming:
     text: str = ""                 # typed text, or a caption
     voice_file_id: str = ""        # set for voice notes, audio files, video notes
     voice_seconds: int = 0
+    voice_filename: str = ""       # what to call the audio for the transcriber
     forwarded: bool = False        # the person is showing someone else's words
     reply_to_message_id: int = 0   # the bot message this one answers, if any
     callback_id: str = ""
@@ -78,6 +80,10 @@ class Telegram:
                 raise TelegramError(f"{method}: HTTP {e.code}") from None
         except urllib.error.URLError as e:
             raise TelegramError(f"{method}: {e.reason}") from None
+        except (OSError, http.client.HTTPException, ValueError) as e:
+            # A dropped long poll or a proxy's non-JSON page: urllib doesn't
+            # wrap errors raised while reading the response.
+            raise TelegramError(f"{method}: {type(e).__name__}: {e}") from None
         if not data.get("ok"):
             raise TelegramError(f"{method}: {data.get('description', data)}")
         return data.get("result")
@@ -85,8 +91,11 @@ class Telegram:
     def download(self, file_id: str) -> bytes:
         info = self.call("getFile", file_id=file_id)
         url = f"{self.base}/file/bot{self.token}/{info['file_path']}"
-        with urllib.request.urlopen(url, timeout=self.timeout) as r:
-            return r.read()
+        try:
+            with urllib.request.urlopen(url, timeout=self.timeout) as r:
+                return r.read()
+        except (OSError, http.client.HTTPException) as e:
+            raise TelegramError(f"download: {type(e).__name__}: {e}") from None
 
     # -- the adapter surface ---------------------------------------------
     def me(self) -> dict:
@@ -166,6 +175,8 @@ def parse_update(u: dict):
     if not m or "from" not in m:
         return None
     voice = m.get("voice") or m.get("audio") or m.get("video_note")
+    fname = ("voice.ogg" if m.get("voice") else "video.mp4" if m.get("video_note")
+             else (m.get("audio") or {}).get("file_name") or "audio.mp3")
     reply = m.get("reply_to_message") or {}
     return Incoming(
         kind="message", user_id=m["from"]["id"], chat_id=m["chat"]["id"],
@@ -173,6 +184,7 @@ def parse_update(u: dict):
         text=m.get("text") or m.get("caption") or "",
         voice_file_id=(voice or {}).get("file_id", ""),
         voice_seconds=(voice or {}).get("duration", 0),
+        voice_filename=fname if voice else "",
         forwarded=bool(m.get("forward_origin") or m.get("forward_date")),
         reply_to_message_id=reply.get("message_id", 0),
         first_name=m["from"].get("first_name", ""))

@@ -138,7 +138,27 @@ def cmd_check(cfg, a):
         row(res.returncode == 0 and bool(res.stdout.strip()), f"repo {name} reachable",
             f"branch {r['landing_branch']}" if res.returncode == 0 and res.stdout.strip()
             else (res.stderr.strip()[:200] or f"no branch {r['landing_branch']}"))
-    denied = proxy_denials()
+    # Reachable is not writable: a repository attached read-only answers
+    # ls-remote and refuses every push. A dry-run push asks for write access.
+    from .gitops import Checkout, GitError
+    state = os.path.expanduser(cfg.get("state_dir", "~/.local/state/chatbridge"))
+    for name, r in cfg["repos"].items():
+        handle = next((h for h, p in cfg["people"].items() if name in p.get("repos", [])), None)
+        if not handle:
+            continue
+        co = Checkout(os.path.join(state, "checkouts", name, handle), r["clone_url"],
+                      r["landing_branch"], f"chat/{handle}")
+        try:
+            co.ensure()
+            res = co.git("push", "--dry-run", "--quiet", "origin",
+                         f"HEAD:refs/heads/chat/{handle}", check=False)
+            row(res.returncode == 0, f"repo {name} accepts pushes",
+                "" if res.returncode == 0 else
+                (res.stderr.strip()[:200] + " -- attach it with push access"))
+        except GitError as e:
+            row(False, f"repo {name} accepts pushes", str(e)[:200])
+    denied = [h for h in proxy_denials()
+              if any(k in h for k in ("telegram", "huggingface", "hf.co", "openai"))]
     if denied:
         row(False, "network", "this environment's network policy refused: " +
             ", ".join(denied) + " -- add them to the environment's allowed domains")
@@ -146,7 +166,8 @@ def cmd_check(cfg, a):
 
 
 def proxy_denials():
-    """Hosts a Claude Code cloud environment's egress proxy refused recently,
+    """Hosts a Claude Code cloud environment's egress proxy refused recently
+    (the caller keeps only the ones the bridge needs),
     read from its status page. Empty anywhere else."""
     proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or ""
     if not proxy.startswith("http://127.0.0.1"):

@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import sys
 
 _TOOLS = pathlib.Path(__file__).resolve().parents[2] / "tools"
@@ -65,9 +66,23 @@ DEFAULT_OWNED = [
     ("/CLAUDE.md", "the instructions every session loads"),
     ("/GEMINI.md", "the instructions every session loads"),
     ("CODEOWNERS", "who reviews what"),
+    # Instruction files are machinery wherever they sit: a CLAUDE.md in a
+    # subfolder is loaded by the next session that works there.
+    ("CLAUDE.md", "an instructions file sessions load"),
+    ("CLAUDE.local.md", "an instructions file sessions load"),
+    ("AGENTS.md", "an instructions file sessions load"),
+    ("AGENTS.override.md", "an instructions file sessions load"),
+    ("GEMINI.md", "an instructions file sessions load"),
+    ("SKILL.md", "a skill sessions load"),
 ]
 
-DEFAULT_CONTENT_EXTENSIONS = [".md", ".markdown", ".txt", ".csv", ".tsv"]
+# Markdown only by default. `.txt` and `.csv` are opt-in per repository,
+# because `requirements.txt` or `CMakeLists.txt` are build inputs, not prose.
+DEFAULT_CONTENT_EXTENSIONS = [".md", ".markdown"]
+
+# Build and dependency files with a content-looking extension, refused even
+# where a repository opts `.txt` in.
+BUILD_BASENAMES = ("requirements", "constraints", "cmakelists", "robots", "llms")
 
 
 class Scope:
@@ -90,7 +105,7 @@ class Scope:
         if self.read_only:
             return False, "this person has read-only access through the chat"
         if self.broken:
-            return False, ("this repository's CODEOWNERS has a pattern the "
+            return False, ("this repository names machinery with a pattern the "
                            "bridge cannot read (" + ", ".join(self.broken) +
                            "), so every write is refused until it is fixed")
         parts = rel.split("/")
@@ -103,6 +118,9 @@ class Scope:
         if hit:
             return False, f"{hit[0]} is repository machinery ({hit[1]})"
         ext = os.path.splitext(rel)[1].lower()
+        base = parts[-1].lower()
+        if any(base.startswith(b) for b in BUILD_BASENAMES) and ext != ".md":
+            return False, f"{parts[-1]} is a build or dependency file"
         if ext not in self.content_extensions:
             return False, (f"'{ext or 'no extension'}' is not a content file "
                            f"type here ({', '.join(self.content_extensions)})")
@@ -170,6 +188,21 @@ def load_scope(repo_root, extra_owned=None, content_extensions=None) -> Scope:
         for o in data.get("owned_paths") or []:
             if isinstance(o, dict) and o.get("path"):
                 owned.append((o["path"], o.get("why") or "owned_paths"))
+    # Files the root instruction files pull in with @path are instructions too.
+    for top in ("CLAUDE.md", "AGENTS.md"):
+        f = root / top
+        if f.is_file():
+            for m in re.finditer(r"(?:^|\s)@([\w./-]+)", f.read_text(encoding="utf-8",
+                                                                     errors="replace")):
+                target = normalize(m.group(1))
+                if target and not target.startswith("."):
+                    owned.append(("/" + target, f"imported by {top}"))
+    # Submodules are other repositories: never content.
+    gm = root / ".gitmodules"
+    if gm.is_file():
+        for m in re.finditer(r"(?m)^\s*path\s*=\s*(\S+)", gm.read_text(encoding="utf-8")):
+            owned.append(("/" + m.group(1).strip("/") + "/", "a git submodule"))
+            owned.append(("/" + m.group(1).strip("/"), "a git submodule"))
     co = find_codeowners(root)
     if co is not None:
         for pattern, _owners, _n in parse_codeowners(co.read_text(encoding="utf-8")):
@@ -179,4 +212,9 @@ def load_scope(repo_root, extra_owned=None, content_extensions=None) -> Scope:
                 owned.append((pattern, "CODEOWNERS"))
     for p in extra_owned or []:
         owned.append((p, "the bridge's configuration"))
+    # Any machinery pattern the matcher can't translate fails closed, whichever
+    # registry it came from -- dropping it would let its paths through.
+    for p, _why in owned:
+        if pattern_to_regex(p) is None and p not in broken:
+            broken.append(p)
     return Scope(owned, content_extensions or DEFAULT_CONTENT_EXTENSIONS, broken)

@@ -20,6 +20,9 @@ starting it again is one paste.
   earlier messages and the full answers behind **More** are gone. **That's
   fine to lose for a test**: every change you made is already on GitHub, on
   your chat branch or landed.
+- **Changes the bridge refused are set aside on that machine**, so they go
+  when it goes. That's fine to lose: they're edits it wouldn't save, and
+  the full answer (under More, while the machine lasts) says what they were.
 - **Claude's turns run on the session's own Claude login**, so they count
   against your plan like any other session. No separate key.
 - **Voice notes are transcribed in the same machine**, by an open-source
@@ -220,7 +223,8 @@ When those are dealt with: write a configuration file from
 [config.example.json](config.example.json) with each person, their
 repositories and `can_land`, run the bridge with it
 (`python3 bridge/run.py run --config <file>`), and send each of them an
-invite (`python3 bridge/run.py invite --handle <theirs>`). Suggest they turn
+invite (`python3 bridge/run.py invite --config <file> --handle <theirs>`),
+which works while the bridge is running. Suggest they turn
 on Telegram's two-step verification, since whoever holds their Telegram
 account can talk to the bot as them.
 

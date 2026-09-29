@@ -47,22 +47,37 @@ class Store:
             self.data["bindings"][str(user_id)] = handle
             self.save()
 
+    # Invites live in their own file, read fresh each time: `invite` runs as a
+    # separate process while the bridge is serving, and the bridge rewrites
+    # state.json on every poll, which would otherwise erase the new invite.
+    def _invites(self):
+        p = self.dir / "invites.json"
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+
+    def _save_invites(self, inv):
+        fd, tmp = tempfile.mkstemp(dir=self.dir, prefix=".invites-")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(inv, f)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, self.dir / "invites.json")
+
     def new_invite(self, handle: str, days: float = 7) -> str:
         code = secrets.token_urlsafe(18)  # 24 chars of [A-Za-z0-9_-]
         with self.lock:
-            self.data["invites"][code] = {"handle": handle,
-                                          "expires": time.time() + days * 86400}
-            self.save()
+            inv = self._invites()
+            inv[code] = {"handle": handle, "expires": time.time() + days * 86400}
+            self._save_invites(inv)
         return code
 
     def redeem(self, code: str):
         """-> handle, once. An invite is single-use and expires."""
         with self.lock:
-            inv = self.data["invites"].pop(code, None)
-            self.save()
-        if not inv or inv["expires"] < time.time():
+            inv = self._invites()
+            found = inv.pop(code, None)
+            self._save_invites(inv)
+        if not found or found["expires"] < time.time():
             return None
-        return inv["handle"]
+        return found["handle"]
 
     # -- per-person conversation state ------------------------------------
     def person(self, handle: str) -> dict:

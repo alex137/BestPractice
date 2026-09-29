@@ -593,8 +593,8 @@ says it), or **open**.
   the setup guide steers the first test to a plain repository for this
   reason.
 - **Without restricted mode, the lock is weaker**, because project settings
-  would load (their hooks and allow rules). *Fixed*: `check` now refuses to
-  pass a Claude Code without `--restricted`.
+  would load (their hooks and allow rules). *Fixed*: the bridge refuses to
+  run a turn on a Claude Code without `--restricted`, and `check` says so.
 
 ### Must be settled before anyone else uses it
 
@@ -612,7 +612,36 @@ says it), or **open**.
   turns and makes every write fail all three locks. That's the sensible
   first setting for anyone new.
 
-<!-- review-findings: independent -->
+### What the independent code review found
+
+A separate agent read the whole bridge adversarially, on 2026-09-29. It
+couldn't run `claude` or reach the network; it verified its scope claims by
+running the code. It found five high, seven medium and seven low items. **Every
+high item is fixed**, each with a test, and each test was shown to fail
+without its fix where that could be staged.
+
+| # | Finding | What happened |
+|---|---|---|
+| 1 | **Instruction files outside the root counted as content**: a CLAUDE file in a docs folder, or an AGENTS file in a subfolder, written from chat would steer the next full session | *Fixed*: instruction and skill files are machinery wherever they sit, and so is anything the root instruction files import with `@path` |
+| 2 | **`.txt` let build files through**: `requirements.txt` counted as content | *Fixed*: Markdown only by default, `.txt`/`.csv` opt-in per repository, and dependency and build files refused even then |
+| 3 | **A dropped long poll killed the bridge**: urllib doesn't wrap errors raised while reading, and a proxy cutting idle connections is ordinary | *Fixed*: every network failure is a Telegram error the loop retries, and no single update can stop the loop. The test fails without the fix |
+| 4 | **First setup couldn't push**: the default attach is read-only, and `check` only tested reading | *Fixed*: the start prompt asks for push access, and `check` does a dry-run push |
+| 5 | **An invite made while the bridge ran was erased** by its next save | *Fixed*: invites live in their own file, read fresh |
+| 6 | **Without restricted mode, repository hooks would run with the bridge's secrets** | *Fixed*: no turn runs without restricted mode, and GitHub tokens join the secrets stripped from the model's process |
+| 7 | **An owned path the matcher couldn't read was silently dropped** (fails open) | *Fixed*: any unreadable machinery pattern refuses every write |
+| 8 | **Glob patterns, git's files and symbolic links could reach past the checkout** | *Fixed*: the guard checks Glob patterns and refuses `.git/`, and checkouts are cloned with symbolic links off |
+| 9 | **The docs contradicted landing**: protection requiring pull requests refuses the bridge's direct push, and a catch-all `CODEOWNERS` line makes every write refused | *Documented*, above and in the setup guide. Landing through a pull request stays *open* |
+| 10 | **Two bridges on one token fight** | *Fixed in part*: a clear message and a back-off. The bridge can't tell which copy is the stale one, so it doesn't exit; the guide says to stop the old session |
+| 11 | **A turn that errored part-way had its half-made edits committed** | *Fixed*: they are set aside, and no Land button is offered |
+| 12 | **A failed commit lost the answer** | *Fixed*: the answer is saved first, and a failed commit is reported |
+| 13 | **Any error mentioning "session" re-ran the whole turn** | *Fixed*: only a missing-conversation error does |
+| 14 | **Voice edge cases**: one failed note dropped the whole batch, an empty transcript got no reply, captions were lost, every file was named `.ogg` | *Fixed*, all four |
+| 15 | **Long repository names overflowed Telegram's 64-byte button data** | *Fixed*: buttons carry a position, not a name |
+| 16 | **Dictated text became commit subjects**, putting private speech in git history | *Fixed*: subjects name the files changed |
+| 17 | **Old, unrelated proxy refusals failed `check`** | *Fixed*: only hosts the bridge uses count |
+| 18 | **Set-aside changes don't survive a cloud machine** | *Documented*, with why that's fine to lose |
+| 19 | **Submodules misbehave**: writes into one are invisible or impossible to set aside | *Fixed*: submodule paths are machinery, and a set-aside that doesn't clear the tree stops with a message instead of looping |
+
 
 ## Open questions
 

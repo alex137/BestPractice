@@ -75,7 +75,9 @@ class ScopeTest(unittest.TestCase):
         self.s = load_scope(self.root)
 
     def test_content_and_machinery(self):
-        cases = {"notes/plan.md": True, "README.md": True, "data/list.csv": True,
+        cases = {"notes/plan.md": True, "README.md": True, "data/list.csv": False,
+                 "docs/CLAUDE.md": False, "sub/AGENTS.md": False, "CLAUDE.local.md": False,
+                 "tools2/SKILL.md": False, "requirements.txt": False,
                  "tools/x.py": False, "tools/readme.md": False, ".github/workflows/a.yml": False,
                  ".claude/settings.json": False, "precedent.json": False, "AGENTS.md": False,
                  "CLAUDE.md": False, "practices/new-rule.md": False, "notes/.hidden.md": False,
@@ -102,12 +104,35 @@ class ScopeTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("read-only access", why)
         self.assertTrue(load_scope(self.root).is_content("notes/plan.md"))  # the control
-        argv = runner.build_command({"command": sys.executable}, root=str(self.root),
+        argv = runner.build_command({"command": sys.executable, "allow_unrestricted": True},
+                                    root=str(self.root),
                                     scope_file="x", system_prompt="p", read_only=True)
         tools = argv[argv.index("--tools") + 1] if "--tools" in argv else \
             argv[argv.index("--allowedTools") + 1]
         self.assertNotIn("Edit", tools.split(","))
         self.assertNotIn("Write", tools.split(","))
+
+    def test_refuses_claude_without_restricted_mode(self):
+        from chatbridge import runner
+        fake = self.root / "old-claude"
+        fake.write_text("#!/bin/sh\necho '--tools'\n")
+        fake.chmod(0o755)
+        r = runner.run_turn({"command": str(fake)}, root=str(self.root), scope_file="x",
+                            system_prompt="p", prompt="hi")
+        self.assertTrue(r.is_error)
+        self.assertIn("no --restricted mode", r.error)
+
+    def test_imports_and_submodules_are_machinery(self):
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\nAlso read @guides/rules.md\n")
+        (self.root / ".gitmodules").write_text('[submodule "lib"]\n\tpath = vendor/lib\n')
+        s = load_scope(self.root)
+        self.assertIn("imported by CLAUDE.md", s.verdict("guides/rules.md")[1])
+        self.assertIn("submodule", s.verdict("vendor/lib/README.md")[1])
+        self.assertTrue(s.is_content("guides/other.md"))  # the control
+
+    def test_untranslatable_owned_path_fails_closed(self):
+        s = load_scope(self.root, extra_owned=["docs/[ab]/"])
+        self.assertIn("cannot read", s.verdict("docs/a/x.md")[1])
 
     def test_roundtrip(self):
         s2 = Scope.from_json(self.s.to_json())
@@ -148,7 +173,7 @@ class GuardTest(unittest.TestCase):
         fake = os.path.join(self.root, "fake-claude")
         with open(fake, "w") as f:
             f.write("#!/usr/bin/env python3\nimport json,os,sys\n"
-                    "if '--help' in sys.argv: sys.exit(0)\n"
+                    "if '--help' in sys.argv: print('--restricted --tools'); sys.exit(0)\n"
                     f"json.dump(dict(os.environ), open({seen!r}, 'w'))\n"
                     "print(json.dumps({'result': 'ok', 'session_id': 's'}))\n")
         os.chmod(fake, 0o755)
@@ -209,6 +234,36 @@ class ShaperTest(unittest.TestCase):
         self.assertIn("a &lt; b", h)
         self.assertIn("&amp;b=2", h)
         self.assertIn("<blockquote expandable>Heard: hi", h)
+
+
+# ------------------------------------------------- survival under stress
+class SurvivalTest(unittest.TestCase):
+    def test_dropped_connection_is_a_telegram_error(self):
+        import socket
+        from chatbridge.telegram import TelegramError
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+
+        def hang_up():
+            conn, _ = srv.accept()
+            conn.recv(4096)
+            conn.close()  # the proxy cutting a long poll mid-wait
+        threading.Thread(target=hang_up, daemon=True).start()
+        tg = Telegram(TOKEN, f"http://127.0.0.1:{port}", timeout=5)
+        with self.assertRaises(TelegramError) as cm:
+            tg.poll(0, wait=1)
+        self.assertIn("getUpdates", str(cm.exception))
+        srv.close()
+
+    def test_invite_made_while_the_bridge_runs_survives(self):
+        d = tempfile.mkdtemp()
+        running = Store(d)                      # the bridge's own store
+        code = Store(d).new_invite("me")        # a separate `invite` process
+        running.set_offset(99)                  # the bridge's next poll rewrites its state
+        self.assertEqual(running.redeem(code), "me")
+        self.assertIsNone(running.redeem(code))  # still single-use
 
 
 # ------------------------------------------------- cloud configuration

@@ -16,8 +16,10 @@ hosted version would add, is in
 
 **Instructions that arrive through chat are limited to content, for
 everyone, the repository's owner included.** Content is documents, notes,
-decisions and lists: files with a content extension (`.md`, `.txt`, `.csv`
-and so on) outside the repository's machinery. Machinery is everything
+decisions and lists: Markdown files (`.md`, `.markdown`) outside the
+repository's machinery. `.txt` and `.csv` can be added per repository with
+`content_extensions`; build and dependency files such as `requirements.txt`
+stay machinery even then. Machinery is everything
 listed below, and it can never be changed from chat, whatever the message
 says or whoever sends it. The owner has a normal session for that.
 
@@ -25,14 +27,18 @@ Machinery is read from the same places GitHub enforces from, so the bridge
 and branch protection cannot disagree about a path:
 
 1. a built-in floor: `.github/`, `.claude/`, `tools/`, `practices/`,
-   `local/`, `templates/`, `precedent.json`, the AGENTS and CLAUDE instruction files, any
-   `CODEOWNERS`, and any hidden file or folder;
+   `local/`, `templates/`, `precedent.json`, `CODEOWNERS`, any hidden file
+   or folder, git submodules, and instruction files wherever they sit
+   (the CLAUDE, AGENTS, GEMINI and SKILL files, plus anything the root
+   instruction files pull in with `@path`);
 2. `owned_paths` in the repository's `precedent.json`;
 3. every pattern in the repository's `CODEOWNERS`, whoever owns it;
 4. `extra_owned_paths` in the bridge's configuration.
 
-A `CODEOWNERS` pattern the bridge can't read makes it refuse every write,
-and it says so. To see how the bridge would treat a path:
+A machinery pattern the bridge can't read, from any of these, makes it
+refuse every write, and it says so. **A catch-all `*` line in `CODEOWNERS`
+makes everything machinery**, so the bridge can then change nothing, which
+is correct for a repository where everything needs review. To see how the bridge would treat a path:
 `python3 bridge/run.py scope --repo notes docs/plan.md tools/x.py`.
 
 ## Three Locks, and Which One Holds
@@ -50,8 +56,11 @@ and it says so. To see how the bridge would treat a path:
    git, so nothing is committed except by the bridge. It lists every changed
    path and commits only if **all** of them are content. Otherwise the
    changes are set aside with `git stash` (kept, never deleted), nothing is
-   saved, and the reply opens with what was refused. **This is the boundary**:
-   it doesn't depend on the model behaving or on a hook firing.
+   saved, and the reply opens with what was refused. The same happens to a
+   turn that errors or times out part-way, so half-made edits never land.
+   **This is the boundary**: it doesn't depend on the model behaving or on a
+   hook firing. It sees only the checkout, which is why the checkout is
+   cloned with symbolic links turned off: no write can follow a link out.
 
 For anyone but the owner on a real project, add a fourth: branch protection
 with code-owner review, so GitHub refuses machinery changes too
