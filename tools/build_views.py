@@ -203,8 +203,10 @@ def derived_occasion_cap(root, sources=None):
     refused by a cap it has half of. Such a source is uncapped until it
     declares one, and `why` names it. -> (None, why) only when the sources
     cannot be read at all, and the single fallback applies."""
-    import precedent_resolve as _pr
     try:
+        # A copy of this file can run with no resolver beside it (a consumer
+        # fixture, a partial vendor); then the old single cap applies.
+        import precedent_resolve as _pr
         if sources is None:
             sources = _pr.load_config(str(root))
     except (Exception, SystemExit) as e:                    # noqa: BLE001
