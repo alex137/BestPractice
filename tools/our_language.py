@@ -114,6 +114,19 @@ def is_history(rel, text):
     return fm.get('status') in HISTORY_STATUSES
 
 
+def _history_row(line):
+    """A Markdown table row one of whose cells is a finished status --
+    MAP.md's withdrawn-practice rows, a registry of superseded documents --
+    records the past, and its text (a withdrawn practice's own Story, often)
+    keeps its words. Found 2026-09-29: an individual set's regenerated MAP.md
+    quoted a deduplicated practice's Story ("the three team sets"), and the
+    retired-word check refused an update over it."""
+    if not line.lstrip().startswith('|'):
+        return False
+    cells = {c.strip().strip('`*').lower() for c in line.strip().strip('|').split('|')}
+    return bool(cells & HISTORY_STATUSES)
+
+
 def retired_uses_in(rel, text, retired):
     """-> [(line_number, word, replacement, line)] for each live use."""
     if is_history(rel, text):
@@ -131,6 +144,8 @@ def retired_uses_in(rel, text, retired):
         # and with it any quote left open by a typo.
         if not line.strip():
             in_quote = False
+        if _history_row(line):
+            continue
         in_front = text.startswith('---\n') and n <= fm_end
         live_parts, i = [], 0
         while not in_front and i <= len(line):
