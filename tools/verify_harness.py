@@ -35780,11 +35780,22 @@ def check_source_credentials():
             (home_bad, 'malformed', 'did not parse as JSON'),
             (home_empty, 'declares none', 'declares no individual source'),
         ):
-            why = psc.unresolved_private_sources(repo, env={'HOME': str(home)})
+            # The repo-name variable is the sign that this person HAS an
+            # individual set; without any such sign a missing set is "none"
+            # (asserted separately, just below).
+            why = psc.unresolved_private_sources(
+                repo, env={'HOME': str(home), 'PRECEDENT_INDIVIDUAL_REPO': 'file:///fixture/precedent-individual'})
             cases.append((f'a user config that is {state} is REPORTED as '
                           f'{state}, not as "declares no individual source" '
                           f'for all three', any(words in w for _, _, w in why),
                           str(why)))
+
+        why = psc.unresolved_private_sources(
+            repo, env={'HOME': str(home_absent), 'CLAUDE_CODE_REMOTE': 'true'})
+        cases.append(('on a hosted session with no user config and NO sign of an individual set '
+                      '(no token, base URL, repo name or clone), nothing is '
+                      'reported unresolved -- the person has none',
+                      why == [], str(why)))
 
         for home, state, words in (
             (home_absent, 'an absent', 'does not exist at all'),
@@ -35908,7 +35919,8 @@ def check_source_credentials():
         # failed for want of a credential leaves behind, so MISSING is the
         # right reading there and 'unconfigured' is the right reading on a
         # local machine. Both are asserted, a few lines apart.
-        hosted = {'HOME': str(home_empty), 'CLAUDE_CODE_REMOTE': 'true'}
+        hosted = {'HOME': str(home_empty), 'CLAUDE_CODE_REMOTE': 'true',
+                  'PRECEDENT_INDIVIDUAL_REPO': 'file:///fixture/precedent-individual'}
         rc, out = run(str(tool), '--repo', str(repo), env_extra=hosted)
         cases.append(('the CLI reports MISSING and still exits 0 -- a missing '
                       'credential degrades a session, never takes one down',
@@ -36049,9 +36061,9 @@ def check_hosted_sessions_resolve_without_attaching_a_repo():
     individual-set warning above every reply for a person who had declined
     one.
 
-    1. PRECEDENT_INDIVIDUAL=none in the person's own environment makes
-       unresolved_private_sources expect no individual set -- and only that
-       value does.
+    1. With no sign of an individual set in the environment (no token,
+       base URL, repo name or clone), unresolved_private_sources expects
+       none; each sign on its own restores the expectation.
     2. checkin.py --source, with the consumer's `vendor_practices` opt-in,
        mirrors the set's practices/ and precedent-source.json beside its
        code; without the opt-in it still mirrors code only.
@@ -36068,20 +36080,22 @@ def check_hosted_sessions_resolve_without_attaching_a_repo():
         (repo / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
         home = tmp / 'home'
         home.mkdir()
-        base = {'HOME': str(home),
+        base = {'HOME': str(home), 'CLAUDE_CODE_REMOTE': 'true',
                 'PRECEDENT_USER_CONFIG': str(home / 'absent.json')}
-        without = psc.unresolved_private_sources(repo, env=dict(base))
-        cases.append(('with no user config and no declaration, the individual '
-                      'set is reported unresolved',
-                      [u[0] for u in without] == ['individual'], repr(without)))
-        declined = psc.unresolved_private_sources(
-            repo, env={**base, 'PRECEDENT_INDIVIDUAL': 'None '})
-        cases.append(('PRECEDENT_INDIVIDUAL=none (any case, trimmed) expects no '
-                      'individual set', declined == [], repr(declined)))
-        other = psc.unresolved_private_sources(
-            repo, env={**base, 'PRECEDENT_INDIVIDUAL': 'yes'})
-        cases.append(('any other value of PRECEDENT_INDIVIDUAL changes nothing',
-                      [u[0] for u in other] == ['individual'], repr(other)))
+        none_seen = psc.unresolved_private_sources(repo, env=dict(base))
+        cases.append(('with no user config and no sign of an individual set, '
+                      'nothing is expected', none_seen == [], repr(none_seen)))
+        for var in psc.INDIVIDUAL_SIGNAL_ENVS:
+            seen = psc.unresolved_private_sources(repo, env={**base, var: 'x'})
+            cases.append((f'{var} set is a sign of an individual set, so its '
+                          f'absence is reported',
+                          [u[0] for u in seen] == ['individual'], repr(seen)))
+        clone = home / 'precedent-individual' / 'practices'
+        clone.mkdir(parents=True)
+        seen = psc.unresolved_private_sources(repo, env=dict(base))
+        cases.append(('an individual clone on disk with no config is a sign '
+                      'too, so the missing config is reported',
+                      [u[0] for u in seen] == ['individual'], repr(seen)))
 
         import checkin
         for opted, want in ((False, {'filing'}),
@@ -36756,7 +36770,7 @@ def check_individual_source_bootstrap_self_heals():
         home6 = tmp / 'home-nohook'
         home6.mkdir()
         rc6b, out6b = run(str(resolve_tool), '--repo', str(nohook), '--json',
-                          env_extra={'HOME': str(home6),
+                          env_extra={'HOME': str(home6), 'PRECEDENT_INDIVIDUAL_REPO': 'file:///fixture/precedent-individual',
                                      'CLAUDE_CODE_REMOTE': 'true',
                                      'PRECEDENT_USER_CONFIG':
                                          str(home6 / 'config.json')})
@@ -36791,22 +36805,19 @@ def check_individual_source_bootstrap_self_heals():
                       st8.get('certain') is True
                       and st8.get('code') == 'config-declares-none', out8))
 
-        # PRECEDENT_INDIVIDUAL=none: the person's own environment says there
-        # is no individual set, which is the one "none" a fresh hosted
-        # container can carry. It must be definite and must not trigger the
-        # self-heal, with no user config anywhere.
+        # No sign anywhere of an individual set -- no token, base URL, repo
+        # name or clone -- is a definite "none" even on a remote session with
+        # no hook and no user config: nothing could have fetched one.
         rc8b, out8b = run(str(resolve_tool), '--repo', str(nohook), '--json',
                           env_extra={'HOME': str(home6),
                                      'CLAUDE_CODE_REMOTE': 'true',
-                                     'PRECEDENT_INDIVIDUAL': 'none',
                                      'PRECEDENT_USER_CONFIG':
                                          str(home6 / 'absent.json')})
         st8b = (_json_prefix(out8b) or {}).get('individual_status') or {}
-        cases.append(('PRECEDENT_INDIVIDUAL=none is a definite "no '
-                      'individual set" on a remote session with no user '
-                      'config at all',
+        cases.append(('with no sign of an individual set, a remote session '
+                      'with no user config reports a definite "none"',
                       st8b.get('certain') is True
-                      and st8b.get('code') == 'env-declares-none'
+                      and st8b.get('code') == 'no-individual-signal'
                       and 'could not find out' not in out8b, out8b))
 
         # --- cases 9-11: BestPractice as a CONSUMER of its own instructions -
