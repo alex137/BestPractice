@@ -71,8 +71,12 @@ def load_retired(registry=REGISTRY):
 # rename-updates-links: "a use that quotes or records the past keeps the old
 # name"). Everything else is live text and follows the new word.
 HISTORY_DIRS = ('todo/', 'decisions/', 'gotchas/', 'record/', 'evals/')
-HISTORY_STATUSES = {'closed', 'executed', 'accepted', 'superseded', 'retired',
-                    'deduplicated'}
+# The finished states of tools/doc_lifecycle.py's LEGAL table (a brief
+# closed, a proposal accepted, executed or abandoned, a reference
+# superseded), plus a practice's own retired and deduplicated. A `record` of
+# any status is history by definition: "a true observation of a date".
+HISTORY_STATUSES = {'closed', 'executed', 'accepted', 'abandoned', 'superseded',
+                    'retired', 'deduplicated'}
 # A line talking about the retirement itself names the old word by necessity.
 ABOUT_RETIREMENT = re.compile(
     r'retir|formerly|renamed|\bold (?:name|word|spelling)|pre-rename|'

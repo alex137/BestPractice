@@ -205,7 +205,7 @@ widening what sessions may run
      into a single set.
    - **The shared sets for the repo's kind of work, not only its team's.**
      Declare what
-     [INSTALL.md's "Which team sets does this repo declare?" table](../INSTALL.md#1-install-into-a-dependent-repo)
+     [INSTALL.md's "Which shared sets does this repo declare?" table](../INSTALL.md#1-install-into-a-dependent-repo)
      gives for this kind of repo — ordinarily that team's set plus
      `precedent-shared-writing` and `precedent-shared-working-style`, each
      a `level: "shared"` entry pointing at its sibling clone. Then **read
