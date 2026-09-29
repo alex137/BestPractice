@@ -11,6 +11,10 @@ NOT YET APPLICABLE rather than skipped silently, so their absence stays
 visible instead of reading as a pass.
 
 Run:  python3 tools/verify_harness.py
+      python3 tools/verify_harness.py --as-ci             # CI's two shards
+      python3 tools/verify_harness.py --as-ci --isolated  # and CI's machine:
+            a copy with no siblings, no personal config or source token,
+            then the tests that went not-applicable there, run here
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
@@ -367,8 +371,19 @@ def check(name, ok, detail='', failure=''):
     print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {shown}" if shown and not ok else ""))
 
 
+# The check_* function running now, innermost last -- pushed and popped by
+# _install_fixture_error_guard's wrapper. not_applicable() reads it, so a
+# run can name the FUNCTIONS that went not-applicable and a second run can
+# select exactly those (PRECEDENT_CHECK_ONLY takes function names, and a
+# verdict's own name is prose). run_as_ci_isolated() is the caller.
+_CURRENT_CHECK = []
+NA_FUNCTIONS = set()
+
+
 def not_applicable(name, reason):
     NA.append((name, reason))
+    if _CURRENT_CHECK:
+        NA_FUNCTIONS.add(_CURRENT_CHECK[-1])
     print(f"N/A:  {name} -- {reason}")
 
 
@@ -575,6 +590,7 @@ def _install_fixture_error_guard():
 
     def _wrap(name, fn):
         def wrapper(*args, **kwargs):
+            _CURRENT_CHECK.append(name)
             try:
                 return fn(*args, **kwargs)
             except FixtureSetupError as exc:
@@ -582,6 +598,8 @@ def _install_fixture_error_guard():
                 # Reported already; the triple keeps the `check('<name>',
                 # *check_foo())` call sites from recording it a second time.
                 return (_CHECK_ALREADY_REPORTED, '', '')
+            finally:
+                _CURRENT_CHECK.pop()
         return wrapper
 
     for name in names:
@@ -657,6 +675,25 @@ def load_practice_files():
     else:
         check('every practices/*.md file parses', True)
     return out
+
+
+def _without_session_id(fn):
+    """Run a check with no CLAUDE_CODE_REMOTE_SESSION_ID in the environment.
+    precedent_gate._unlanded_work reports only commits carrying this
+    session's trailer when that id is set, so a fixture whose commits carry
+    none must not inherit the id of the session running the harness
+    (practice: fixture-owns-its-state)."""
+    import functools
+
+    @functools.wraps(fn)
+    def run(*a, **k):
+        saved = os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        try:
+            return fn(*a, **k)
+        finally:
+            if saved is not None:
+                os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = saved
+    return run
 
 
 def check_source_coverage(files, original_practices_by_number):
@@ -6306,6 +6343,165 @@ def run_as_ci():
     return 0
 
 
+# What GitHub's runner does not have, and a session's machine does. Unset in
+# the isolated run; see run_as_ci_isolated().
+ISOLATION_UNSET = ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+                   'PRECEDENT_INDIVIDUAL_REPO', 'CLAUDE_PROJECT_DIR')
+
+
+def _isolated_env(base, home):
+    """-> the environment the isolated run gives the harness: `base` with
+    every PRECEDENT_* and GIT_* variable and ISOLATION_UNSET removed, $HOME
+    an empty directory, no user-level config, the runner's UTC clock, and
+    git refusing every transport but a local file. The last one is not
+    GitHub's -- its runner has a network -- but a self-heal that clones a
+    source from the network would put the missing sibling right back, and
+    the run would quietly stop matching the runner it stands in for."""
+    env = {k: v for k, v in base.items()
+           if not k.startswith(('PRECEDENT_', 'GIT_')) and k not in ISOLATION_UNSET}
+    env.update(HOME=str(home), TZ='UTC',
+               PRECEDENT_USER_CONFIG=str(pathlib.Path(home) / '.no-user-config.json'),
+               GIT_ALLOW_PROTOCOL='file', GIT_TERMINAL_PROMPT='0',
+               GIT_CONFIG_NOSYSTEM='1')
+    return env
+
+
+def _new_entries(parent, before):
+    """-> sorted names in `parent` that were not in `before`."""
+    return sorted(set(p.name for p in pathlib.Path(parent).iterdir()) - set(before))
+
+
+def run_as_ci_isolated():
+    """-> exit status. --as-ci, from a copy of this commit laid out the way
+    GitHub's runner lays it out, then the not-applicable slice again here.
+
+    WHY. On 2026-09-29 the full local check passed and GitHub's deep-check
+    failed: build_views sized a set's occasion cap from the universal source
+    cloned BESIDE it, and the runner has no sibling clones, so universal
+    measured 0. --as-ci reproduces CI's command shape and never its
+    environment (run_as_ci's docstring); this is the environment half.
+
+    THE COPY. A clone of HEAD in a temporary directory whose parent holds
+    nothing else, with this checkout's remote-tracking refs and origin URL
+    (actions/checkout's fetch-depth: 0 gives the runner every branch), run
+    under _isolated_env(): an empty $HOME, no user config, no source token,
+    UTC. Committed work only -- the runner checks out a commit too.
+
+    THE SECOND RUN. A test that needs what only this machine has -- a
+    private source, a sibling clone -- goes not-applicable in the copy.
+    Those functions (not_applicable() records them) run once more here, in
+    the ordinary environment, so the pair covers everything the plain
+    --as-ci covered, plus what the runner would see.
+
+    AFTERWARDS the copy's parent must still hold only the copy: anything
+    new there is a sibling some step fetched, and the run is reported as
+    no longer isolated rather than passed."""
+    import shutil, tempfile
+    work = pathlib.Path(tempfile.mkdtemp(prefix='precedent-isolated-'))
+    t0 = time.monotonic()
+    try:
+        parent, home = work / 'work', work / 'home'
+        parent.mkdir()
+        home.mkdir()
+        repo = parent / ROOT.name
+        r = subprocess.run(['git', 'clone', '--quiet', '--no-checkout', str(ROOT),
+                            str(repo)], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f'--as-ci --isolated: could not copy this checkout: '
+                  f'{r.stderr.strip()}')
+            return 1
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        url = subprocess.run(['git', '-C', str(ROOT), 'remote', 'get-url',
+                              'origin'], capture_output=True, text=True).stdout.strip()
+        for args in (['fetch', '--quiet', str(ROOT),
+                      '+refs/remotes/origin/*:refs/remotes/origin/*'],
+                     ['checkout', '--quiet', '--detach', head]):
+            subprocess.run(['git', '-C', str(repo), *args], capture_output=True)
+        if url:
+            subprocess.run(['git', '-C', str(repo), 'remote', 'set-url',
+                            'origin', url], capture_output=True)
+        before = [p.name for p in parent.iterdir()]
+        na_file = work / 'not-applicable.txt'
+        env = _isolated_env(os.environ, home)
+        env['PRECEDENT_NA_FUNCTIONS_FILE'] = str(na_file)
+        print(f'=== isolated: {repo} at {head[:12]} (no siblings, empty '
+              f'$HOME, no source token, UTC) ===', flush=True)
+        rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
+                             '--as-ci'], cwd=repo, env=env).returncode
+        grown = _new_entries(parent, before)
+        t1 = time.monotonic()
+        slice_ = sorted(set(na_file.read_text(encoding='utf-8').split())
+                        if na_file.is_file() else set())
+        print(f'\n--as-ci --isolated: {"green" if rc == 0 else "FAILED"} in '
+              f'{(t1 - t0) / 60:.1f} min; {len(slice_)} function(s) were not '
+              f'applicable there' + (f': {", ".join(slice_)}' if slice_ else ''),
+              flush=True)
+        if grown:
+            print(f'--as-ci --isolated: NOT ISOLATED -- the run added '
+                  f'{", ".join(grown)} beside the copy, so it no longer '
+                  f'matches a runner with no sibling clones. Find the step '
+                  f'that fetched it and stop it fetching there.')
+            return 1
+        rc2 = 0
+        if slice_:
+            env2 = dict(os.environ)
+            for k in ('PRECEDENT_CHECK_SKIP', 'PRECEDENT_NA_FUNCTIONS_FILE'):
+                env2.pop(k, None)
+            env2.update(PRECEDENT_CHECK_ONLY=','.join(slice_),
+                        PRECEDENT_HARNESS_ALL='1')
+            print('\n=== here, the not-applicable slice ===', flush=True)
+            rc2 = subprocess.run([sys.executable, str(pathlib.Path(__file__))],
+                                 env=env2).returncode
+            print(f'--as-ci --isolated: the slice was '
+                  f'{"green" if rc2 == 0 else "FAILED"} in '
+                  f'{(time.monotonic() - t1) / 60:.1f} min', flush=True)
+        return 1 if rc or rc2 else 0
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def check_isolated_run_matches_the_runner():
+    """_isolated_env() and _new_entries(), which decide whether the isolated
+    run looks like GitHub's runner and whether it stayed that way. Pure
+    functions, so this is cheap: the run itself is minutes, and is what the
+    full check at staging executes."""
+    import tempfile
+    base = {'PATH': '/bin', 'HOME': '/root', 'TZ': 'America/Argentina/Buenos_Aires',
+            'PRECEDENT_GIT_TOKEN': 't', 'PRECEDENT_SOURCE_BASE_URL': 'u',
+            'PRECEDENT_INDIVIDUAL_REPO': 'r', 'PRECEDENT_COMMIT_NAME': 'n',
+            'PRECEDENT_CHECK_ONLY': 'x', 'GIT_AUTHOR_NAME': 'a',
+            'CLAUDE_PROJECT_DIR': '/p'}
+    env = _isolated_env(base, '/tmp/empty-home')
+    cases = [
+        ('no source token, base URL or individual repo',
+         not {'PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+              'PRECEDENT_INDIVIDUAL_REPO'} & set(env)),
+        ('no PRECEDENT_* or GIT_* variable leaks through except the ones set',
+         {k for k in env if k.startswith(('PRECEDENT_', 'GIT_'))} ==
+         {'PRECEDENT_USER_CONFIG', 'GIT_ALLOW_PROTOCOL', 'GIT_TERMINAL_PROMPT',
+          'GIT_CONFIG_NOSYSTEM'}),
+        ('an empty $HOME and a user config that does not exist',
+         env['HOME'] == '/tmp/empty-home' and
+         env['PRECEDENT_USER_CONFIG'].startswith('/tmp/empty-home/')),
+        ('the runner\'s clock, UTC', env['TZ'] == 'UTC'),
+        ('git may not fetch over a network', env['GIT_ALLOW_PROTOCOL'] == 'file'),
+        ('PATH is kept', env['PATH'] == '/bin'),
+        ('the base environment is not changed', base['TZ'] != 'UTC'),
+    ]
+    with tempfile.TemporaryDirectory() as td:
+        (pathlib.Path(td) / 'BestPractice').mkdir()
+        before = ['BestPractice']
+        quiet = _new_entries(td, before)
+        (pathlib.Path(td) / 'BestPractice-clone').mkdir()
+        cases += [('nothing new beside the copy reads as isolated', quiet == []),
+                  ('a sibling that appeared is named',
+                   _new_entries(td, before) == ['BestPractice-clone'])]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the isolated --as-ci run looks like GitHub\'s runner '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_as_ci_shards_match_the_workflow():
     """CI_SHARDS above must be what .github/workflows/deep-check.yml sets.
 
@@ -6451,6 +6647,7 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+@_without_session_id
 def check_reply_gate_names_work_not_yet_landed():
     """Committed, pushed, and sitting on a branch nobody merges from is a
     state the stop hook cannot report and the person kept paying for.
@@ -7255,7 +7452,11 @@ def check_changed_files_only_judges_the_change():
                                                                     encoding='utf-8')
         (wt / 'tools' / 'checks' / 'tests' / 'test_zzfixture.sh').write_text(
             'echo "the fixture test failed"; exit 1\n', encoding='utf-8')
-        git('add', 'tools/checks')
+        # A new check also brings its planted case, or the changed-files
+        # check refuses it for that instead (2026-09-29).
+        with open(wt / 'tools' / 'verify_harness.py', 'a', encoding='utf-8') as f:
+            f.write("\n# case('check_zzfixture', ...) -- the fixture's planted case\n")
+        git('add', 'tools/checks', 'tools/verify_harness.py')
         git('commit', '-qm', 'a check whose own test fails')
         rc, out = files_check(start)
         failed_ok = rc == 1 and 'test_zzfixture.sh: failed' in out
@@ -13364,8 +13565,13 @@ def check_branch_store_and_its_callers():
     an entry byte for byte into another clone, and two clones publishing in
     turn on a stale tip keep both entries."""
     bad, cases = [], []
+    # The store and its callers commit with git's ambient identity; a runner
+    # or a clean $HOME may have none (practice: fixture-owns-its-state).
+    env = dict(os.environ, PRECEDENT_TZ='UTC',
+               GIT_AUTHOR_NAME='x', GIT_AUTHOR_EMAIL='x@example.invalid',
+               GIT_COMMITTER_NAME='x', GIT_COMMITTER_EMAIL='x@example.invalid')
     r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'branch_store.py'), '--self-check'],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=env)
     if r.returncode != 0:
         bad.append('branch_store self-check: ' + (r.stdout + r.stderr).strip()[-300:])
     cases.append('store self-check')
@@ -13406,7 +13612,6 @@ out["pulled"] = rcB.ready(d, claim=False) and d.read_bytes() == bytes([2]) * 100
 print(json.dumps(out))
 """
     with tempfile.TemporaryDirectory() as t:
-        env = dict(os.environ, PRECEDENT_TZ='UTC')
         r = subprocess.run([sys.executable, '-c', script, str(ROOT / 'tools'), t],
                            capture_output=True, text=True, env=env)
         try:
@@ -15704,6 +15909,7 @@ def check_vocabulary_prefers_the_file_you_are_standing_on():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+@_without_session_id
 def check_archive_guard_refuses_work_left_on_a_feature_branch():
     """`require_landed_if_says` refuses the archive sentence while a feature
     branch holds work its repo has not landed, and accepts it once each such
@@ -19608,6 +19814,59 @@ def check_changed_files_asks_a_new_check_for_its_test():
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
 
 
+def check_changed_files_asks_a_new_check_for_its_planted_case():
+    """In BestPractice, a change to the check registry or the harness is
+    refused when a registered check has no planted case in
+    check_precedent_check_fires -- named, in seconds, with the line to add.
+
+    The harness asserts the same thing ("every registered check has a
+    planted case here"), but only on a full run, which pre-staging never
+    does: on 2026-09-29 a new check reached pre-staging without one and the
+    Debut to staging failed 20 minutes in. Both halves of the registry are
+    held: an @check in precedent_check.py, and a check script, named by the
+    practice whose checked_by claims it. The control is the same tree with
+    both cases added.
+    """
+    import tempfile
+    name = 'the changed-files check asks a new check for its planted case'
+    engine = ('from x import check\n'
+              "@check('zzz-planted', 'tree', 'w', 'b')\ndef a(ctx): return []\n"
+              "@check(\n    'zzz-unplanted', 'tree', 'w', 'b')\n"
+              'def b(ctx): return []\n')
+    harness = "def f():\n    case('zzz-planted', None)\n"
+    script = {'local/practices/zzz-claim.md':
+                  '---\nslug: zzz-claim\n'
+                  'checked_by: local/tools/checks/check_zzclaim.py\n---\n',
+              'local/tools/checks/check_zzclaim.py': _FIXTURE_CHECK_HEAD,
+              'local/tools/checks/tests/test_zzclaim.sh':
+                  '# check_zzclaim.py\nexit 0\n'}
+    with tempfile.TemporaryDirectory() as td:
+        commit, run = _changed_files_fixture(pathlib.Path(td) / 'missing')
+        commit({'tools/precedent_check.py': engine,
+                'tools/verify_harness.py': harness, **script})
+        rc, out = run()
+        commit2, run2 = _changed_files_fixture(pathlib.Path(td) / 'planted')
+        commit2({'tools/precedent_check.py': engine,
+                 'tools/verify_harness.py': harness +
+                     "    case('zzz-unplanted', None)\n"
+                     "    case(\n        'zzz-claim', None)\n",
+                 **script})
+        rc2, out2 = run2()
+    cases = [
+        ('an @check with no case is refused, by name',
+         rc == 1 and 'zzz-unplanted: a registered check with no planted case'
+         in out),
+        ('a check script is named by the practice that claims it',
+         'zzz-claim: a registered check with no planted case' in out),
+        ('a check that has its case is not named',
+         'zzz-planted: a registered' not in out),
+        ('control: with every case planted, it passes', rc2 == 0),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
 def check_changed_files_runs_one_copy_of_a_repo_local_test():
     """A repo-local test and its materialized copy change together, and only
     the materialized copy runs -- the one run_all.sh runs. Running both put
@@ -20760,6 +21019,7 @@ def check_merge_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+@_without_session_id
 def check_promote_pre_staging():
     """Promote moves pre-staging into staging (spec/BRANCH_TIERS_PLAN.md),
     and is the one route by which the batch gets its full check.
@@ -21049,6 +21309,18 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+        # Only the flow this session worked on (Morgan, 2026-09-29): with a
+        # session id set and no commit in the batch carrying it, the batch
+        # is another session's and gets no line.
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01FixtureNotInAnyCommit'
+        try:
+            pg, got = unlanded()
+        finally:
+            os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        cases.append(("a pre-staging batch this session made none of gets no "
+                      "Promote line",
+                      not any('a Promote can move them' in l for l in got)
+                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -29890,6 +30162,55 @@ def check_refresh_sources_path_names_the_whole_target():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_lists_a_linked_tree_once():
+    """candidate_dirs() returns one entry per working tree. The source
+    bootstrap leaves a symlink at the attach path pointing to the declared
+    clone; the refresh used to list both, fetch the one tree twice under two
+    labels, and on 2026-09-29 print one as failed and the other as current,
+    which read as a duplicate clone that did not exist.
+
+    Planted: a checkout, a declared clone outside its parent, and a sibling
+    symlink to that clone. CONTROL: a second, separate tree at a sibling path
+    is still listed, so the dedupe is by tree and not by name (practice:
+    control-asserts-which-failure). Hermetic: ROOT and declared_paths are
+    stubbed, nothing is fetched."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-linked-tree-'))
+    saved = (prs.ROOT, prs.declared_paths)
+    try:
+        work, home = tmp / 'work', tmp / 'home'
+        checkout = work / 'consumer'
+        declared = home / 'precedent-individual'
+        for d in (checkout, declared):
+            d.mkdir(parents=True)
+        (work / 'precedent-individual').symlink_to(declared,
+                                                   target_is_directory=True)
+        prs.ROOT = checkout
+        prs.declared_paths = lambda: [declared.resolve()]
+        got = [p.resolve() for p in prs.candidate_dirs()]
+        cases.append(('a sibling symlink to the declared clone is one entry',
+                      got.count(declared.resolve()) == 1, str(got)))
+        cases.append(('...and the checkout itself is not listed',
+                      checkout.resolve() not in got, str(got)))
+        other = work / 'precedent-shared-writing'
+        other.mkdir()
+        got = [p.resolve() for p in prs.candidate_dirs()]
+        cases.append(('CONTROL: a separate sibling tree is still listed',
+                      other.resolve() in got
+                      and got.count(declared.resolve()) == 1, str(got)))
+    finally:
+        prs.ROOT, prs.declared_paths = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'refresh lists a symlinked source tree once '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_reach_key_self_check():
     """reach_key.py's own property checks: a change the solve can run moves
     the key, one it cannot does not -- functions, constants, import-time
@@ -34532,6 +34853,137 @@ def check_generated_blocks_both_styles():
           not bad, '; '.join(bad))
 
 
+def check_runner_drops_findings_on_received_files():
+    """precedent_check.py's runner drops a finding on a file the repository
+    RECEIVED -- another source's materialized practice or check, the
+    vendored engine, a mirrored tree -- once, for every check, and names the
+    source that owns it (precedent_practice_refs.received_owners()).
+
+    WHY. Until 2026-09-29 each check had to remember that skip on its own.
+    checks-use-generated-blocks went live without it, and a consuming repo's
+    full check judged check files a practice set had written there, which
+    the next sync overwrites. So this plants violations in received files
+    for several unrelated checks, in a consumer-shaped fixture, and requires
+    that none is named -- while the SAME violation in a file the repo wrote
+    still is, since a drop that silenced the check would pass the first
+    half alone. It also holds the two registrations that must keep their
+    findings on received files: a source-supplied check script (its one
+    finding carries the script's own path) and
+    vendored-engine-file-refs-resolve (its subject is the received copy)."""
+    import shutil, tempfile
+    bad = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_practice_refs as ppr
+
+    # The one definition, in-process: a MANIFEST.json entry of a repo-local
+    # source is the repo's own, a mirrored tree matches by prefix.
+    with tempfile.TemporaryDirectory() as td:
+        r = pathlib.Path(td)
+        (r / 'tools').mkdir()
+        (r / 'MANIFEST.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                        {'level': 'shared', 'name': 'zzz-shared', 'path': '/x'}],
+            'practices': [{'slug': 'mine', 'source': 'local'},
+                          {'slug': 'theirs', 'source': 'zzz-shared'}],
+            'checks': [{'path': 'tools/checks/check_theirs.py',
+                        'source': 'zzz-shared'}]}), encoding='utf-8')
+        (r / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['zzz_engine.py']}), encoding='utf-8')
+        owners = ppr.received_owners(r)
+        owners['vendor/upstream/'] = 'the mirrored tree vendor/upstream/'
+        want = {'practices/theirs.md': 'zzz-shared',
+                'tools/checks/check_theirs.py': 'zzz-shared',
+                'tools/zzz_engine.py': 'the vendored engine',
+                'vendor/upstream/practices/x.md':
+                    'the mirrored tree vendor/upstream/',
+                'practices/mine.md': None, 'docs/x.md': None,
+                'vendor/upstreamish.md': None}
+        got = {k: ppr.received_owner(k, owners) for k in want}
+        if got != want:
+            bad.append(f'received_owner: want {want}, got {got}')
+
+    # A consumer-shaped copy of this tree, one run of the whole check.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-received-'))
+    try:
+        repo = tmp / 'consumer'
+        shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
+            '.git', '__pycache__', '*.pyc', 'prompts'))
+        retired = 'team' + ' sets'          # a retired word, built not spelled
+        marker = '<!-- BEGIN ' + 'GENERATED: precedent-loader -->'
+        (repo / 'MANIFEST.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                        {'level': 'shared', 'name': 'zzz-shared', 'path': '/x'}],
+            'practices': [{'slug': 'zzz-received', 'source': 'zzz-shared'}],
+            'checks': [{'path': 'tools/checks/check_zzz_received.py',
+                        'source': 'zzz-shared'}],
+            'withheld': []}, indent=1) + '\n', encoding='utf-8')
+        # Received: a practice using a retired word, and a check that spells
+        # a generated-block marker itself -- and, run as a check, reports.
+        (repo / 'practices' / 'zzz-received.md').write_text(
+            f'Written by another source. It still says {retired}.\n',
+            encoding='utf-8')
+        chk = repo / 'tools' / 'checks'
+        chk.mkdir(parents=True, exist_ok=True)
+        (chk / 'check_zzz_received.py').write_text(
+            f'import sys\nSKIP = {marker!r}\n'
+            f'print("zzz-received-script-finding")\nsys.exit(1)\n',
+            encoding='utf-8')
+        # The repo's own copies of the same two violations.
+        (repo / 'zzz-own.md').write_text(
+            f'Written here. It still says {retired}.\n', encoding='utf-8')
+        (chk / 'check_zzz_own.py').write_text(
+            f'import sys\nSKIP = {marker!r}\nsys.exit(0)\n', encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A'],
+                     ['-c', 'user.email=harness@example.com', '-c',
+                      'user.name=harness', 'commit', '-qm', 'consumer']):
+            subprocess.run(['git', *args], cwd=repo, capture_output=True)
+        env = dict(os.environ,
+                   PRECEDENT_USER_CONFIG=str(repo / '.no-user-config.json'))
+        env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+
+        def run(*slugs):
+            out = ''
+            for slug in slugs:
+                r = subprocess.run(
+                    [sys.executable, 'tools/precedent_check.py', '--only', slug],
+                    cwd=repo, capture_output=True, text=True, env=env)
+                out += r.stdout + r.stderr
+            return out
+
+        out = run('retired-words', 'checks-use-generated-blocks')
+        for name in ('practices/zzz-received.md', 'check_zzz_received.py'):
+            if name in out:
+                bad.append(f'{name} is received, and was named: {out[-400:]}')
+        for name in ('zzz-own.md', 'check_zzz_own.py'):
+            if name not in out:
+                bad.append(f'{name} is the repo\'s own, and was NOT named: '
+                           f'{out[-400:]}')
+        if 'for zzz-shared' not in out:
+            bad.append(f'no note naming zzz-shared as the owner: {out[-400:]}')
+
+        out = run('check_zzz_received')
+        if 'zzz-received-script-finding' not in out:
+            bad.append(f'a source-supplied check script lost its finding: '
+                       f'{out[-400:]}')
+
+        # vendored-engine-file-refs-resolve judges the received copy itself.
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'files': ['zzz_engine.py']}), encoding='utf-8')
+        # Built, never spelled: the check scans this very file.
+        (repo / 'tools' / 'zzz_engine.py').write_text(
+            'X = ROOT / ' + "'tools' / 'zzz_missing.json'\n", encoding='utf-8')
+        out = run('vendored-engine-file-refs-resolve')
+        if 'tools/zzz_engine.py' not in out:
+            bad.append(f'vendored-engine-file-refs-resolve went quiet on a '
+                       f'received engine file: {out[-400:]}')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('findings on files a repo received are dropped once by the runner '
+          'and named by owner; the repo\'s own copies, a source-supplied '
+          'check script and vendored-engine-file-refs-resolve still report',
+          not bad, '; '.join(bad))
+
+
 def check_frontmatter_field_order_fixer():
     """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
     FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
@@ -38364,6 +38816,7 @@ def check_promote_into_main_exits_nonzero_until_main_moves():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+@_without_session_id
 def check_reply_gate_refreshes_the_landing_branch():
     """The reply gate's NOT YET LANDED line reads origin/<landing branch>
     fresh, not as last fetched.
@@ -43176,6 +43629,95 @@ def check_very_deep_check_records_its_components():
               f'and cost ({len(results)} stated cases)', not failed, detail)
 
 
+@_without_session_id
+def check_reply_gate_reports_only_this_sessions_flow():
+    """The reply gate's unlanded and Promote lines name only the branch or
+    flow this session worked on -- commits carrying its session trailer --
+    in this checkout and in a sibling clone alike (Morgan, 2026-09-29,
+    strength: decided: "only tell me about that promotions that I need to
+    do *ONLY* regarding the branch/flow that I edited/worked on in that
+    session window"). With no session id to match, this checkout keeps its
+    line and a sibling gets none."""
+    name = 'reply gate reports only this session\'s own flow'
+    import precedent_gate as pg
+    import tempfile
+
+    cases = []
+    sid_env = 'cse_01FixtureOwnSession'
+    trailer = 'Claude-Session: https://claude.ai/code/session_01FixtureOwnSession'
+    saved = {k: os.environ.get(k) for k in ('HOME', 'PRECEDENT_USER_CONFIG')}
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-own-flow-'))
+    try:
+        (tmp / 'home').mkdir()
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+
+        def make(dirname):
+            up = tmp / f'{dirname}.git'
+            subprocess.run(['git', 'init', '--bare', '-q', str(up)], check=True)
+            repo = tmp / 'root' / dirname
+            subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], check=True)
+
+            def g(*a):
+                return subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True)
+            g('config', 'user.name', 'Harness Fixture')
+            g('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+            g('config', 'commit.gpgsign', 'false')
+            (repo / 'precedent.json').write_text(
+                json.dumps({'base_branch': 'trunk', 'sources': []}), encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', 'first')
+            g('remote', 'add', 'origin', str(up))
+            g('push', '-q', '-u', 'origin', 'trunk')
+            g('switch', '-q', '-c', 'feature')
+            return repo, g
+
+        work, gw = make('work')
+        sib, gs = make('precedent-sibling')
+        (work / 'w.txt').write_text('w\n', encoding='utf-8')
+        gw('add', '-A'); gw('commit', '-qm', 'another session\'s work')
+        (sib / 's.txt').write_text('s\n', encoding='utf-8')
+        gs('add', '-A'); gs('commit', '-qm', 'another session\'s work')
+
+        def scan():
+            return pg._unlanded_work(work, siblings=True)
+
+        got = scan()
+        cases.append(('no session id: this checkout keeps its line',
+                      any(l.startswith('this checkout:') for l in got), str(got)))
+        cases.append(('no session id: a sibling gets no line',
+                      not any('precedent-sibling' in l for l in got), str(got)))
+
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = sid_env
+        got = scan()
+        cases.append(('commits this session did not make get no line, in '
+                      'this checkout or a sibling', got == [], str(got)))
+
+        (work / 'w.txt').write_text('w, mine\n', encoding='utf-8')
+        gw('add', '-A'); gw('commit', '-qm', f'my work\n\n{trailer}')
+        (sib / 's.txt').write_text('s, mine\n', encoding='utf-8')
+        gs('add', '-A'); gs('commit', '-qm', f'my work\n\n{trailer}')
+        got = scan()
+        cases.append(('a commit carrying this session\'s trailer brings this '
+                      'checkout\'s line back',
+                      any(l.startswith('this checkout:') and "'feature'" in l
+                          for l in got), str(got)))
+        cases.append(('and a sibling\'s line, named by its directory',
+                      any(l.startswith('precedent-sibling:') for l in got), str(got)))
+    finally:
+        os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+@_without_session_id
 def check_shallow_clone_never_fabricates_unlanded_work():
     """A branch whose merge base is out of reach must never be reported as
     carrying a COUNT of unlanded commits (practice: very-deep-check,
@@ -45153,6 +45695,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_very_deep_check_records_its_components()
     check_shallow_clone_never_fabricates_unlanded_work()
+    check_reply_gate_reports_only_this_sessions_flow()
     check_a_renamed_engine_file_never_survives_a_reseed()
     check_leak_gate_refuses_a_fresh_container()
     check_structural_only_actually_drops_the_private_half()
@@ -45261,6 +45804,7 @@ def main():
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
+    check_isolated_run_matches_the_runner()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
@@ -45334,6 +45878,7 @@ def main():
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()
+    check_refresh_sources_lists_a_linked_tree_once()
     check_promote_pre_staging()
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
@@ -45406,6 +45951,7 @@ def main():
     check_frontmatter_is_real_yaml()
     check_frontmatter_field_order_fixer()
     check_generated_blocks_both_styles()
+    check_runner_drops_findings_on_received_files()
     check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
@@ -45505,6 +46051,7 @@ def main():
     check_leak_gate_notes_an_uncovered_private_repo()
     check_rename_links_spares_a_commit_pinned_permalink()
     check_changed_files_asks_a_new_check_for_its_test()
+    check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
@@ -45548,6 +46095,11 @@ def main():
         # by now is hundreds of lines above.
         _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
+    na_file = os.environ.get('PRECEDENT_NA_FUNCTIONS_FILE')
+    if na_file and NA_FUNCTIONS:
+        # Appended, not written: --as-ci runs one process per shard.
+        with open(na_file, 'a', encoding='utf-8') as fh:
+            fh.write(''.join(f'{n}\n' for n in sorted(NA_FUNCTIONS)))
     _report_check_durations()
     return 1 if FAILED else 0
 
@@ -45564,6 +46116,8 @@ if __name__ == '__main__':
         sys.exit(0)
     # BEFORE main(), because this does not run the suite -- it runs the
     # suite twice, the two ways CI does, each in its own process.
+    if '--as-ci' in sys.argv[1:] and '--isolated' in sys.argv[1:]:
+        sys.exit(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
         sys.exit(run_as_ci())
     sys.exit(main())
