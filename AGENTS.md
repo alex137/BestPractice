@@ -106,7 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 163 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 164 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -310,6 +310,8 @@ When renaming, moving or deleting a file others may link to, or renaming or reti
   rename-updates-links — repoint every link, and every use of a retired name, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
+When reviewing code that decides what is skipped, cached, held or refused:
+  review-against-a-contract — give each reviewer a one-line contract; a finding counts once reproduced
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When setting up a project a session works in, or a session reporting that its checkout is behind:

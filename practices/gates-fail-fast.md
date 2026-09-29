@@ -47,6 +47,12 @@ property of the gate runners, and the harness tests them — with a fast
 failure the slow checks do not run, the override runs them, and a gate
 with one unit that sleeps a minute and one that fails exits in seconds.
 
+**The same order holds outside a gate.** Before starting any expensive
+run — a cold solve, a regeneration, a long suite — run the cheap check
+that could invalidate it: scan the cache keys the run will use, run the
+one-case smoke version, lint the input. Minutes spent afterwards finding
+that the run was wasted are the same waste as a slow check run first.
+
 ## Why
 A slow check exists to catch the rare deep problem. When it runs first,
 every shallow problem — a stale generated file, a lint slip — costs its

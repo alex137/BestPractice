@@ -80,7 +80,7 @@ and network calls made by tool children, state one check leaves for the
 next) cannot be observed well enough: a sound ledger leaves nearly every
 slow check without a fact, and an unsound one replays a PASS over a real
 failure. Measure the sound version's saving before shipping one, and
-default it off when the saving is small.
+do not ship it when the saving is small.
 
 **The ledger is not a licence to skip the gate.** It makes the bare
 gate cheap enough to run every time; a `--full` switch ignores it for
@@ -91,6 +91,17 @@ purpose: it is a property of the gate tools, not of a repository's files,
 and the harness tests the tools themselves — a held unit is skipped, and a
 changed reached function, a changed read file, or a hand edit inside a
 generated block each re-runs it.
+
+**Test the skip against a full run on trees broken on purpose.** A
+ledger's own tests are written by the person who believes it works, and
+they pass. The test that finds the holes breaks one dependency per case,
+runs the skipping gate beside a `--full` run, and requires the two
+verdicts to agree. Give it one case for each kind of dependency the work
+can have: a file's content, a file that goes missing, an existence test,
+an environment variable, a child process, the network, state one unit
+leaves for the next, and the clock. **Anything the hook cannot see means
+no skip** — a kind of dependency the ledger does not record is a case
+where it must refuse to hold a fact, and the test proves it refuses.
 
 ## Why
 The expensive part of a drift gate is almost never the comparison; it is
@@ -121,7 +132,8 @@ change to the hook not invalidating old facts, and the script itself
 counted as data, which hid a real gap in the per-block narrowing. Each
 was reproduced on a toy repository and fixed. The same review ran the
 harness ledger against checks that truly failed and saw it replay eight
-of nine as PASS, which is why that one is now off by default.
+of nine as PASS. It was switched off, then removed: a sound version
+would have skipped almost nothing.
 
 ## Install
 Give each gate that re-runs work to compare its output a ledger file
@@ -130,5 +142,4 @@ authority lives in CI), a fact per unit recorded only on a clean pass,
 and a `--full` switch. Record reads with an audit hook in the process
 that did the work, never by declaration. The shared engine is
 `tools/fact_ledger.py`; the document gate and the model audit in this
-repository use it, and the harness carries one that is off by default
-for the reason above.
+repository use it. The harness has none, for the reason above.

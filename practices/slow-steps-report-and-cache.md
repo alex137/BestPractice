@@ -85,6 +85,14 @@ the figure the solve itself computed, with a tolerance set by measuring
 how much the solve's figure depends on what the process did before it; a
 rebuild that is exact whatever came before is the better-defined figure.
 
+**Count where a conservative fallback fires.** When a key cannot follow
+something (a module loaded by a path it cannot name, a lookup it cannot
+resolve), falling back to hashing more is sound. It is also silent: one
+unresolved load can make a key cover the whole repository, and every
+edit then re-solves. Ship the fallback with a census — scan every real
+key and list where the fallback fired — and treat each firing as a gap
+to close. The goal is zero firings in practice.
+
 ## Why
 A gate that takes twenty minutes gets skipped, run concurrently with its
 siblings (halving both), or trusted from memory. And a wait with nothing on

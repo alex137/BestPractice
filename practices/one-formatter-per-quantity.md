@@ -66,6 +66,14 @@ formatter's declared affix and the grammar, not a bug in either. Put the
 magnitude in the column header ("Cost, $M") and print the bare number;
 the check then holds and the column still sorts.
 
+**Keep formatting out of the computed path, and assert it.** When an
+expensive computation builds a record that also carries printed labels,
+a memo keyed on the code it reaches will treat every formatter edit as a
+change to the computation. Split each such record into its numbers and
+its words, have the computation read only the numbers, and add a
+self-check that no memoized computation reaches the formatter. Then a
+change to how a figure prints re-runs nothing but the printing.
+
 ## Why
 **An inline format string is a second copy of a policy, and copies diverge.** The policy for a quantity kind is not one number — it is decimal places, thresholds, approximation marking and unit affixes together — so every inline `f"{x:.1f} t"` is a partial restatement that will be updated in one place and not the other.
 

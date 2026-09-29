@@ -37,6 +37,11 @@ config — edit the shim. A new check, a new interaction, a bug fix: engine.
 A new document registered, a new stopword, a different default branch:
 shim.
 
+**Work done on the engine in a consumer goes back upstream by a
+three-way merge**, with the consumer's last-synced copy as the base
+([vendor-update-runbook](vendor-update-runbook.md)). The engine is the
+file both sides edit, so it is the one a plain copy damages.
+
 ## Why
 **Why not a fork.** A host that copies the tool and edits its copy is
 running two implementations synced by hand. The vendoring audit's drift

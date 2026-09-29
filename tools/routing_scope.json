@@ -1475,6 +1475,13 @@
       ],
       "why": "No locus. A second implementation of a mechanism can turn up in any tool, and the full practice audit covers the whole catalogue; the occasion index is the channel.",
       "decided": "2026-09-29 routing, with the practice"
+    },
+    "review-against-a-contract": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. The code whose failure is silent (a cache key, a skip ledger, a gate) can live anywhere; the practice is a property of how the review is run, and the occasion index is the channel.",
+      "decided": "2026-09-29 routing, with the practice"
     }
   },
   "gates": {

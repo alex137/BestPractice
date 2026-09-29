@@ -741,6 +741,15 @@ re-run the refresh. A hand-edit is detected as drift and refused, and
 `--force` is the wrong answer to that refusal — it discards the guard
 rather than the edit.
 
+**Port a change between a vendored copy and its upstream with a
+three-way merge, never a file copy.** Copying the consumer's file over
+the upstream's deletes whatever the upstream gained since the last sync,
+and nothing reports it. The merge base is **the consumer's last-synced
+copy** — the upstream file the vendored one was taken from — not whatever
+common commit git offers; the wrong base reports conflicts that are not
+there and hides ones that are. Read the conflict count before using the
+result, and never ship a file that still holds a conflict marker.
+
 ## Why
 An update is not one operation, it is a small pipeline where each stage
 consumes the last stage's output. Run out of order it does not fail, it
