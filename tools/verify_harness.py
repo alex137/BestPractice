@@ -33958,7 +33958,8 @@ def check_generated_blocks_both_styles():
     the unclosed-marker control: an opener with no closer hides nothing, so
     a marker quoted in a document cannot hide the rest of it (practice:
     control-asserts-which-failure). The callers are checked too, through the
-    three whose skip used to know only one style."""
+    three whose skip used to know only one style, and so is
+    checks-use-generated-blocks, which holds a repo's own checks to it."""
     sys.path.insert(0, str(ROOT / 'tools'))
     import generated_blocks as gb
     L, E = gb.LOADER_BEGIN, gb.LOADER_END
@@ -34015,9 +34016,34 @@ def check_generated_blocks_both_styles():
         hits = [n for _f, n, _t in pa.prose_declines(root)]
         if hits != [4]:
             bad.append(f'practice_audit prose scan: want line 4 only, got {hits}')
+
+    # checks-use-generated-blocks: a check that spells a marker itself is
+    # named; one that asks the helper, and a test that plants a marker on
+    # purpose, are not.
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        for f in (ROOT / 'tools').glob('*.py'):
+            shutil.copy(f, repo / 'tools' / f.name)
+        chk = repo / 'tools' / 'checks'
+        (chk / 'check_hand.py').write_text(
+            "SKIP = '<!-- BEGIN GENERATED: precedent-loader -->'\n", encoding='utf-8')
+        (chk / 'check_helper.py').write_text(
+            'import generated_blocks\nmask = generated_blocks.mask\n', encoding='utf-8')
+        (chk / 'tests' / 'test_plant.py').write_text(
+            "PLANT = '<!--gen:a-->'\n", encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
+        subprocess.run(['git', 'add', '-A'], cwd=repo, capture_output=True)
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'checks-use-generated-blocks'], cwd=repo,
+                           capture_output=True, text=True)
+        named = set(re.findall(r'tools/checks/\S+?\.py', r.stdout))
+        if named != {'tools/checks/check_hand.py'}:
+            bad.append(f'checks-use-generated-blocks: want only check_hand.py '
+                       f'named, got {sorted(named)}: {r.stdout[-300:]}')
     check(f'generated_blocks.py finds generated text in both marker styles, '
           f'closing marker required, and the scans use it '
-          f'({len(shapes) + 3} stated cases)',
+          f'({len(shapes) + 4} stated cases)',
           not bad, '; '.join(bad))
 
 

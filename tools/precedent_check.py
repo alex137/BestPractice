@@ -2140,6 +2140,57 @@ def _generated_files_registered(ctx):
     return out
 
 
+# ---- checks-use-generated-blocks --------------------------------------------
+# A check that skips generated text matches the markers through
+# tools/generated_blocks.py, never by hand (Morgan, 2026-09-29: "we should
+# check this also"). Until that day every engine scan matched the markers
+# itself and each knew one of the two styles; a shared set's
+# no-stale-counts check knew only `gen:`, read the loader block's "1 of 20
+# practices" as a stale count and refused a Promote. The engine's own scans
+# moved onto the helper the same day. This holds the checks a repo or a
+# practice source writes to the same line, since those are the ones nobody
+# in this repository reads. Every finding names its file, so into
+# pre-staging it judges only the check files a change touches, and at
+# staging every one (checks-follow-the-tier).
+_CHECK_DIRS = ('tools/checks/', 'local/tools/checks/')
+_MARKER_SPELLING = re.compile(r'BEGIN GENERATED|END GENERATED|<!--(?:/\??)?gen\b')
+
+
+@check('checks-use-generated-blocks', 'tree',
+       'no check under tools/checks/ or local/tools/checks/ matches '
+       'generated-block markers itself -- it asks tools/generated_blocks.py, '
+       'which knows both marker styles and needs the closing marker',
+       'a check that finds generated text some other way than spelling a '
+       'marker (reading a line count, say), and the engine\'s own tools/*.py, '
+       'which write the markers and so must spell them -- the engine\'s '
+       'skipping scans were moved onto the helper and verify_harness.py '
+       'pins them. Test files under tests/ plant markers on purpose and are '
+       'not read.',
+       practice_backed=False,
+       selects_on=('tools/checks/**/*.py', 'local/tools/checks/**/*.py'))
+def _checks_use_generated_blocks(ctx):
+    out = []
+    for rel in _ls_files_on_disk(*_CHECK_DIRS):
+        parts = pathlib.PurePosixPath(rel).parts
+        if not rel.endswith('.py') or 'tests' in parts[:-1] \
+                or parts[-1].startswith('test_'):
+            continue
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if _MARKER_SPELLING.search(line):
+                out.append(Finding(
+                    f'{rel}:{n}',
+                    'matches generated-block markers itself -- use '
+                    'tools/generated_blocks.py (mask(), blank() or spans()), '
+                    'which knows both the gen: and the BEGIN/END GENERATED '
+                    'style and ignores an opener with no closer'))
+                break
+    return out
+
+
 @check('generated-artifact-provenance', 'tree',
        'every generated view names the script that builds it and says it is '
        'generated, and regenerating it changes nothing',

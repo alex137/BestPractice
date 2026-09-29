@@ -47,10 +47,21 @@ closed:            null
   reaches `main` here and the set's engine is refreshed. Changing the check
   before then would make it crash on the import.
 
+  **Enforced, not just recorded** (Morgan, 2026-09-29: *"we should check
+  this also"*). `precedent_check.py --only checks-use-generated-blocks`
+  names any check under `tools/checks/` or `local/tools/checks/` that
+  spells a marker itself. The helper and the check arrive in the same
+  engine refresh. After that refresh, the shared writing set's check is
+  named at its next Promote to `staging`. Into `pre-staging` it is named
+  only when a change touches that file (checks-follow-the-tier). As of
+  2026-09-29 it is the only check in the four sets that the new check
+  names.
+
 ## How It Closes
 
-Each practice set's own checks either use [`generated_blocks.py`](../tools/generated_blocks.py) or are
-shown to match no generated-block markers at all. A session rooted in each
+`checks-use-generated-blocks` passes in every practice set: each set's
+own checks either use [`generated_blocks.py`](../tools/generated_blocks.py)
+or match no generated-block markers at all. A session rooted in each
 set does the work there, and each set's approvers decide its merge.
 
 ## Notes
