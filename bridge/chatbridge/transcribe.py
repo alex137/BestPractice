@@ -10,10 +10,17 @@ Three backends, picked in the configuration's "transcription" block:
              the audio file's path -- a local Whisper build, for instance.
              Nothing leaves the machine. argv is a list with "{input}" where
              the path goes.
+  "whisper-local"
+             An open-source Whisper model run by faster-whisper on the
+             machine the bridge runs on. No key, no third party: in a cloud
+             session the audio stays in the container Claude works in.
   "none"     Voice notes are refused with a sentence saying why.
 
-Claude does not take audio input through the API (per its documentation,
-read 2026-09-28), so transcription is always a separate step.
+Claude cannot listen to audio: the API takes no audio input (per its
+documentation, read 2026-09-28), and Claude Code's file tools read text,
+images and PDFs, not sound. So transcription is always a separate step;
+"whisper-local" is the nearest thing to handing the audio to Claude, since
+it runs beside it.
 """
 from __future__ import annotations
 
@@ -96,6 +103,55 @@ class Command:
         return r.stdout.strip()
 
 
+class WhisperLocal:
+    """An open-source Whisper model run on this machine by faster-whisper.
+    The audio never leaves the machine the bridge runs on -- in a cloud
+    session, the same container Claude works in. The model downloads from
+    Hugging Face on first use, so that host has to be reachable once."""
+    available = True
+
+    def __init__(self, model="small", language=None, compute_type="int8",
+                 download_root=None):
+        try:
+            import faster_whisper  # noqa: F401
+        except ImportError:
+            raise TranscriptionError(
+                "the whisper-local backend needs faster-whisper: "
+                "pip install faster-whisper") from None
+        self.model_name, self.language = model, language
+        self.compute_type, self.download_root = compute_type, download_root
+        self._model = None
+
+    def load(self):
+        if self._model is None:
+            from faster_whisper import WhisperModel
+            try:
+                self._model = WhisperModel(self.model_name, device="cpu",
+                                           compute_type=self.compute_type,
+                                           download_root=self.download_root)
+            except Exception as e:
+                raise TranscriptionError(
+                    f"couldn't load the Whisper model '{self.model_name}' ({e}). "
+                    "If this is a download failure, allow huggingface.co -- and any "
+                    "host `check` lists as refused -- in the network settings") from None
+        return self._model
+
+    def transcribe(self, audio: bytes, filename: str = "voice.ogg") -> str:
+        model = self.load()
+        suffix = os.path.splitext(filename)[1] or ".ogg"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+            f.write(audio)
+            path = f.name
+        try:
+            segments, _info = model.transcribe(path, language=self.language,
+                                               vad_filter=True)
+            return " ".join(s.text.strip() for s in segments).strip()
+        except Exception as e:
+            raise TranscriptionError(f"transcription failed: {e}") from None
+        finally:
+            os.unlink(path)
+
+
 def from_config(cfg: dict):
     backend = (cfg or {}).get("backend", "none")
     if backend == "none":
@@ -108,6 +164,10 @@ def from_config(cfg: dict):
             prompt=cfg.get("prompt"))
     if backend == "command":
         return Command(cfg.get("argv"), timeout=cfg.get("timeout_seconds", 300))
+    if backend == "whisper-local":
+        return WhisperLocal(model=cfg.get("model", "small"), language=cfg.get("language"),
+                            compute_type=cfg.get("compute_type", "int8"),
+                            download_root=cfg.get("download_root"))
     raise TranscriptionError(f"unknown transcription backend {backend!r}")
 
 

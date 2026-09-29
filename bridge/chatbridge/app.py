@@ -138,7 +138,14 @@ class Bridge:
     # -- identity --------------------------------------------------------------
     def person_handle(self, user_id):
         h = self.store.handle_for(user_id)
-        return h if h in self.cfg.get("people", {}) else None
+        if h in self.cfg.get("people", {}):
+            return h
+        # A configured Telegram user id binds without an invite -- for a
+        # cloud session, where the bridge's state starts empty every time.
+        for handle, p in self.cfg.get("people", {}).items():
+            if str(p.get("telegram_user_id") or "") == str(user_id):
+                return handle
+        return None
 
     def person(self, handle):
         return self.cfg["people"][handle]
@@ -152,12 +159,15 @@ class Bridge:
                 repos = self.person(handle).get("repos", [])
                 self.store.set_current_repo(handle, repos[0] if repos else None)
                 self.tg.send_plain(inc.chat_id, f"Connected. You're working in "
-                                   f"{repos[0] if repos else 'no repository yet'}. {HELP}")
+                                   f"{repos[0] if repos else 'no repository yet'}. {HELP} "
+                                   f"(Your Telegram user id is {inc.user_id}: setting it "
+                                   f"in the configuration skips the invite next time.)")
                 return
             self.tg.send_plain(inc.chat_id, "That invite link has expired or was already used.")
             return
         if inc.kind == "message":
-            self.tg.send_plain(inc.chat_id, "This is a private bot. Ask its owner for an invite link.")
+            self.tg.send_plain(inc.chat_id, "This is a private bot. Ask its owner for an "
+                               f"invite link. (Your Telegram user id is {inc.user_id}.)")
 
     # -- routing -------------------------------------------------------------------
     def is_batchable(self, inc):

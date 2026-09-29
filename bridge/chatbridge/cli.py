@@ -4,6 +4,7 @@
   python3 bridge/run.py invite --config ... --handle morgan
   python3 bridge/run.py run    --config ...
   python3 bridge/run.py scope  --config ... --repo notes path/one.md tools/x.py
+  python3 bridge/run.py cloud-config --out PATH   # a config from environment variables
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.request
 
 from . import runner, transcribe
 from .app import Bridge
@@ -119,8 +121,12 @@ def cmd_check(cfg, a):
         row(False, "Claude Code is installed", f"'{command}' is not on PATH")
     try:
         t = transcribe.from_config(cfg.get("transcription"))
-        row(t.available, "voice-note transcription",
-            "" if t.available else "backend is 'none': voice notes will be refused")
+        if isinstance(t, transcribe.WhisperLocal):
+            t.load()  # downloads the model on first run
+            row(True, f"voice-note transcription (local Whisper '{t.model_name}' loaded)")
+        else:
+            row(t.available, "voice-note transcription",
+                "" if t.available else "backend is 'none': voice notes will be refused")
     except transcribe.TranscriptionError as e:
         row(False, "voice-note transcription", str(e))
     for name, r in cfg["repos"].items():
@@ -130,12 +136,78 @@ def cmd_check(cfg, a):
         row(res.returncode == 0 and bool(res.stdout.strip()), f"repo {name} reachable",
             f"branch {r['landing_branch']}" if res.returncode == 0 and res.stdout.strip()
             else (res.stderr.strip()[:200] or f"no branch {r['landing_branch']}"))
+    denied = proxy_denials()
+    if denied:
+        row(False, "network", "this environment's network policy refused: " +
+            ", ".join(denied) + " -- add them to the environment's allowed domains")
     return 0 if ok else 1
+
+
+def proxy_denials():
+    """Hosts a Claude Code cloud environment's egress proxy refused recently,
+    read from its status page. Empty anywhere else."""
+    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or ""
+    if not proxy.startswith("http://127.0.0.1"):
+        return []
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(proxy.rstrip("/") + "/__agentproxy/status", timeout=5) as r:
+            data = json.loads(r.read().decode())
+    except Exception:
+        return []
+    hosts = []
+    for f in data.get("recentRelayFailures") or []:
+        h = (f.get("host") or "").rsplit(":", 1)[0]
+        if h and h not in hosts and "403" in (f.get("detail") or ""):
+            hosts.append(h)
+    return hosts
+
+
+def cloud_config():
+    """A configuration built from environment variables, for a cloud session
+    where nothing on disk survives. Nothing secret is in it: the bot token
+    stays in its own environment variable."""
+    e = os.environ.get
+    repo = e("CHATBRIDGE_REPO", "")
+    if repo.count("/") != 1:
+        raise SystemExit("set CHATBRIDGE_REPO to owner/name, e.g. alex137/chat-test")
+    name = repo.split("/")[1]
+    handle = e("CHATBRIDGE_HANDLE", "me")
+
+    def gitcfg(key):
+        r = subprocess.run(["git", "config", "--global", key], capture_output=True, text=True)
+        return r.stdout.strip() or None
+
+    voice = e("CHATBRIDGE_VOICE", "whisper-local")
+    transcription = {"backend": voice}
+    if voice == "whisper-local":
+        transcription.update(model=e("CHATBRIDGE_WHISPER_MODEL", "small"),
+                             language=e("CHATBRIDGE_LANGUAGE") or None)
+    elif voice == "openai":
+        transcription.update(api_key_env="OPENAI_API_KEY",
+                             language=e("CHATBRIDGE_LANGUAGE") or None)
+    return {
+        "bot_token_env": "CHATBRIDGE_TELEGRAM_TOKEN",
+        "state_dir": e("CHATBRIDGE_STATE_DIR", "~/.local/state/chatbridge"),
+        "claude": {"command": "claude", "restricted": True},
+        "transcription": transcription,
+        "reply": {"max_sentences": 3, "max_chars": 450, "batch_seconds": 4},
+        "repos": {name: {"clone_url": f"https://github.com/{repo}.git",
+                         "web_url": f"https://github.com/{repo}",
+                         "landing_branch": e("CHATBRIDGE_LANDING", "main")}},
+        "people": {handle: {"name": e("CHATBRIDGE_NAME", handle), "repos": [name],
+                            "can_land": True,
+                            "telegram_user_id": e("CHATBRIDGE_TELEGRAM_USER_ID") or None,
+                            "git_name": e("CHATBRIDGE_GIT_NAME") or gitcfg("user.name"),
+                            "git_email": e("CHATBRIDGE_GIT_EMAIL") or gitcfg("user.email")}},
+    }
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="chatbridge")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    cc = sub.add_parser("cloud-config")
+    cc.add_argument("--out", default=DEFAULT_CONFIG)
     for name in ("run", "invite", "check", "scope"):
         sp = sub.add_parser(name)
         sp.add_argument("--config", default=DEFAULT_CONFIG)
@@ -147,6 +219,13 @@ def main(argv=None):
             sp.add_argument("--checkout", help="an existing local checkout to read the line from")
             sp.add_argument("paths", nargs="+")
     a = ap.parse_args(argv)
+    if a.cmd == "cloud-config":
+        out = os.path.expanduser(a.out)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(cloud_config(), f, indent=2)
+        print(f"wrote {out}")
+        return 0
     cfg = load_config(a.config)
     return {"run": cmd_run, "invite": cmd_invite, "check": cmd_check,
             "scope": cmd_scope}[a.cmd](cfg, a) or 0

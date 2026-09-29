@@ -1,17 +1,18 @@
-# Chat bridge — Telegram access to a repository, content only
+# Chat Bridge — Telegram Access to a Repository, Content Only
 
 **A Telegram bot that is a narrow front door to Claude Code working on a
 repository.** You send a voice note or a message; Claude does the work in the
 repository; you get back a few sentences, a link, and a **More** button for
 the full answer.
 
-**Status: a local test build.** It runs on one computer with long polling, so
-it needs no server, domain or certificate. The thinking behind it, and what a
+**Status: a test build.** It runs inside a Claude Code cloud session
+([cloud_start.sh](cloud_start.sh)) or on any always-on computer, and
+uses long polling, so it needs no server of its own, domain or certificate. The thinking behind it, and what a
 hosted version would add, is in
 [spec/SPECULATIVE_TELEGRAM_ACCESS.md](../spec/SPECULATIVE_TELEGRAM_ACCESS.md).
 **To set it up, follow [SETUP.md](SETUP.md).**
 
-## The rule it exists to keep
+## The Rule It Exists to Keep
 
 **Instructions that arrive through chat are limited to content, for
 everyone, the repository's owner included.** Content is documents, notes,
@@ -34,7 +35,7 @@ A `CODEOWNERS` pattern the bridge can't read makes it refuse every write,
 and it says so. To see how the bridge would treat a path:
 `python3 bridge/run.py scope --repo notes docs/plan.md tools/x.py`.
 
-## Three locks, and which one holds
+## Three Locks, and Which One Holds
 
 1. **The tool set.** Each turn runs `claude -p` with file tools only
    (`--tools`), the rest listed as disallowed, no Model Context Protocol (MCP) servers, and
@@ -56,7 +57,7 @@ For anyone but the owner on a real project, add a fourth: branch protection
 with code-owner review, so GitHub refuses machinery changes too
 ([SETUP.md](SETUP.md#adding-another-person-later)).
 
-## What happens to a message
+## What Happens to a Message
 
 1. **Only private chats, only invited people.** Anyone else gets one line
    saying the bot is private. Group chats are ignored.
@@ -98,6 +99,12 @@ with code-owner review, so GitHub refuses machinery changes too
 
 Set in the configuration's `transcription` block:
 
+- `"backend": "whisper-local"`: an open-source Whisper model run by
+  `faster-whisper` on the bridge's own machine; this is the cloud setup's
+  default. No key and no third party, and the audio stays where Claude is
+  working. `model` is `small` by default (`base` is faster, `medium` more
+  accurate), and `language` saves it guessing. The model downloads from
+  Hugging Face the first time on each machine.
 - `"backend": "openai"`: any OpenAI-compatible `/audio/transcriptions`
   endpoint (`base_url`, `model`, key in the environment variable named by
   `api_key_env`). Takes Telegram's Ogg voice notes as they come.
@@ -107,10 +114,12 @@ Set in the configuration's `transcription` block:
   `ffmpeg` first.
 - `"backend": "none"`: voice notes are refused with a sentence saying why.
 
-Claude doesn't take audio through its API, so transcription is always a
-separate step.
+**Claude can't listen to audio.** Its API takes no audio input, and Claude
+Code's file tools read text, images and PDFs, not sound. So transcription is
+always a separate step, and running it beside Claude is the nearest thing to
+handing Claude the recording.
 
-## Where things live
+## Where Things Live
 
 | What | Where |
 |---|---|
@@ -123,11 +132,14 @@ separate step.
 **Telegram identifiers never enter a repository**; commits carry the
 person's handle only.
 
-## Known limits of this build
+## Known Limits of This Build
 
-- **One computer, which must stay awake.** A hosted version is phase 2 of the
-  spec.
-- **The full answer lives on the bridge's computer**, behind the More button,
+- **It runs only while its machine does.** In a cloud session that's until
+  the session's machine is reclaimed, and each new machine starts with empty
+  state: new invite (unless `telegram_user_id` is configured), fresh
+  conversation, and no earlier More answers. Changes are on GitHub and
+  survive. A hosted, always-on version is phase 2 of the spec.
+- **The full answer lives on the bridge's machine**, behind the More button,
   not on GitHub. Links to changes point at GitHub, and on a private
   repository they only open for someone logged in with access.
 - **Collapsed quotes** (`<blockquote expandable>`) are a newer Telegram

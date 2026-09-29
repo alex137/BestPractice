@@ -40,7 +40,9 @@ def setUpModule():
         f.write("[user]\n\tname = Fixture\n\temail = fixture@example.invalid\n"
                 "[init]\n\tdefaultBranch = main\n")
     wanted = {"HOME": tmp, "GIT_CONFIG_GLOBAL": gitcfg, "GIT_CONFIG_NOSYSTEM": "1",
-              "CHATBRIDGE_TELEGRAM_TOKEN": TOKEN}
+              "CHATBRIDGE_TELEGRAM_TOKEN": TOKEN,
+              # The fake Telegram server is local: never route it through a proxy.
+              "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost"}
     for k in list(os.environ):
         if k.startswith(("GIT_", "CHATBRIDGE_")) or k in ("ANTHROPIC_API_KEY", "CLAUDECODE"):
             _SAVED_ENV[k] = os.environ.pop(k)
@@ -163,6 +165,59 @@ class ShaperTest(unittest.TestCase):
         self.assertIn("a &lt; b", h)
         self.assertIn("&amp;b=2", h)
         self.assertIn("<blockquote expandable>Heard: hi", h)
+
+
+# ------------------------------------------------- cloud configuration
+class CloudConfigTest(unittest.TestCase):
+    KEYS = ("CHATBRIDGE_REPO", "CHATBRIDGE_HANDLE", "CHATBRIDGE_NAME", "CHATBRIDGE_LANDING",
+            "CHATBRIDGE_VOICE", "CHATBRIDGE_WHISPER_MODEL", "CHATBRIDGE_TELEGRAM_USER_ID",
+            "CHATBRIDGE_GIT_NAME", "CHATBRIDGE_GIT_EMAIL", "CHATBRIDGE_LANGUAGE")
+
+    def setUp(self):
+        self.saved = {k: os.environ.pop(k, None) for k in self.KEYS}
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            os.environ.pop(k, None)
+            if v is not None:
+                os.environ[k] = v
+
+    def test_built_from_environment(self):
+        from chatbridge.cli import cloud_config
+        os.environ.update(CHATBRIDGE_REPO="acme/chat-test", CHATBRIDGE_HANDLE="morgan",
+                          CHATBRIDGE_TELEGRAM_USER_ID="4242")
+        c = cloud_config()
+        r = c["repos"]["chat-test"]
+        self.assertEqual(r["clone_url"], "https://github.com/acme/chat-test.git")
+        self.assertEqual(r["landing_branch"], "main")
+        p = c["people"]["morgan"]
+        self.assertEqual(p["telegram_user_id"], "4242")
+        self.assertEqual(p["git_email"], "fixture@example.invalid")  # from the fixture's git config
+        self.assertEqual(c["transcription"], {"backend": "whisper-local", "model": "small",
+                                              "language": None})
+        self.assertNotIn(TOKEN, json.dumps(c))  # the token never lands in the file
+
+    def test_repo_required(self):
+        from chatbridge.cli import cloud_config
+        with self.assertRaises(SystemExit) as cm:
+            cloud_config()
+        self.assertIn("set CHATBRIDGE_REPO", str(cm.exception))
+
+    def test_whisper_local_needs_its_package(self):
+        try:
+            import faster_whisper  # noqa: F401
+            self.skipTest("faster-whisper is installed here")
+        except ImportError:
+            pass
+        with self.assertRaises(transcribe.TranscriptionError) as cm:
+            transcribe.from_config({"backend": "whisper-local"})
+        self.assertIn("pip install faster-whisper", str(cm.exception))
+
+    def test_configured_id_binds_without_invite(self):
+        cfg = {"people": {"morgan": {"repos": [], "telegram_user_id": "4242"}}, "repos": {}}
+        b = Bridge(cfg, None, Store(tempfile.mkdtemp()), transcribe.NoTranscriber())
+        self.assertEqual(b.person_handle(4242), "morgan")
+        self.assertIsNone(b.person_handle(4243))
 
 
 # ------------------------------------------------------- the whole loop

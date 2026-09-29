@@ -106,6 +106,25 @@ instructions must be limited to content -- even from me, from anyone."*
 - **The full answer lives behind a More button** on the bridge's computer in
   this build, not on a GitHub issue. Links to changes still point at GitHub.
 
+Morgan, 2026-09-29, on the same test: *"can you rewrite it to assume it's done
+in a Cloud environment?"* — and, on transcription, *"maybe the audio file
+could go to you and you could transcribe it for your use? At least for this
+test. What do you think?"*
+
+- **The test runs inside a Claude Code cloud session** — `strength:
+  decided`, in his words. The bridge starts with one script
+  ([bridge/cloud_start.sh](../bridge/cloud_start.sh)) in a dedicated cloud
+  environment that holds the bot token and allows `api.telegram.org`. It
+  runs only while that session's machine does, which the test will measure.
+- **Claude can't transcribe the audio itself**: its API takes no audio
+  input, and Claude Code's file tools read text, images and PDFs, not sound.
+  **The session's proposal, not yet agreed:** transcribe in the same machine
+  with an open-source Whisper model (`whisper-local`), the nearest honest
+  version of "the audio goes to you". No third party, no extra account. It
+  costs a one-off package install and model download per machine, and it is
+  untested on real audio, because the model host is blocked from the
+  environment that built it.
+
 ## What has actually been checked
 
 **Two kinds of source, dated 2026-09-28, and one gap:**
