@@ -1377,13 +1377,17 @@ stay manual:
    why it stays behind. *(Origin: a same-day sync verified tree-identical
    and erased another thread's two hours-old practice additions; the loss
    surfaced only because that thread's session was still open to notice.)*
-2. `python3 process/upstream/tools/checkin.py push <upstream-clone>` —
-   runs the **scrub audit first (must pass; nothing is copied on failure)**,
-   then mirrors the vendored tree into the clone's working tree.
-3. Commit in the clone on a branch and open a PR against Precedent.
-   Human review of that PR is the second scrub line — the blocklist catches
-   known vocabulary; the reviewer catches what the blocklist doesn't know
-   yet (and adds it to the blocklist).
+2. `python3 ../BestPractice/tools/precedent_local_edits.py send --repo . --why "..."`
+   (or `checkin.py push <upstream-clone> --why "..."`, which calls it) —
+   merges each committed change onto upstream's landing branch three ways,
+   so nothing upstream gained since the mirror is reverted; runs **this
+   repo's scrub audit and the upstream's leak gate and basic tier first
+   (nothing is pushed on a failure)**; then pushes a branch in the clone
+   and prints the prompt for the session that lands it.
+3. That session opens the PR against Precedent. Human review of it is the
+   second scrub line — the blocklist catches known vocabulary; the
+   reviewer catches what the blocklist doesn't know yet (and adds it to
+   the blocklist).
 4. When the PR merges:
    `python3 process/upstream/tools/checkin.py record <upstream-clone> --note "PR #N"`
    — pulls the upstream default branch, **verifies it is byte-identical to

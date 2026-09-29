@@ -974,7 +974,14 @@ def push(clone, why='', force=False):
     so it keeps the old mirror below, with its scrub read from this repo."""
     if CODE_DIRS is None:
         sys.path.insert(0, str(HERE.parent))
-        import precedent_local_edits
+        try:
+            import precedent_local_edits
+        except ImportError:
+            sys.exit(f"checkin FAIL: push hands its work to "
+                     f"precedent_local_edits.py, which is not beside this copy "
+                     f"in {HERE.parent}. Run the BestPractice clone's own: "
+                     f"python3 ../BestPractice/tools/precedent_local_edits.py "
+                     f"send --repo . --why \"...\"")
         return precedent_local_edits.send(ROOT, why, owner=clone,
                                           layers=(precedent_local_edits.CATALOGUE,))
     return _mirror_push(clone, force)

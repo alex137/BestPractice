@@ -7498,6 +7498,136 @@ def check_update_vendors_resolves_a_catalogue_edit():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_send_carries_a_local_edit_upstream():
+    """tools/precedent_local_edits.py send turns a consumer's committed edit
+    to a received engine file into a branch in the owner's clone, merged
+    three ways onto the owner's landing branch, scrubbed on both sides, and
+    pushed -- never a pull request, never a merge
+    (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md, part one, 2026-09-29).
+
+    The owner is a full local clone of this repo whose origin is a bare
+    repository in the fixture, so the push leaves nothing on the machine's
+    real remotes. Its commits are authored as whoever this checkout's own
+    identity resolves to, as a real clone's would be, so its basic tier
+    judges the branch as it judges any other push.
+
+    Negative control, measured 2026-09-29: with send's three-way merge
+    replaced by a plain copy of the local file, the "not reverted" case
+    fails; with consumer_scrub() returning nothing, the private-word case
+    pushes the branch and fails (the owner's gate has never heard of the
+    word -- which is the whole point of scrubbing on the consumer's side);
+    the file did not exist before, so every case fails without it."""
+    fx = _LocalEditsFixture('precedent-send-')
+    cases = []
+    tool = [sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py')]
+    try:
+        import precedent_identity
+        who = precedent_identity.declared_identity(ROOT) or {}
+    except Exception:                           # noqa: BLE001
+        who = {}
+    ident = {k: v for k, v in (
+        ('GIT_AUTHOR_NAME', who.get('name')), ('GIT_AUTHOR_EMAIL', who.get('email')),
+        ('GIT_COMMITTER_NAME', who.get('name')), ('GIT_COMMITTER_EMAIL', who.get('email'))) if v}
+    try:
+        repo = fx.consumer('secret-client-repo')
+        seeded = fx.seeded_from(repo)
+        f = repo / 'tools' / 'precedent_show.py'
+        base = f.read_bytes()
+
+        # The owner: its landing branch has moved on since the consumer
+        # vendored, with a change to the same file.
+        fx.env.update(ident)
+        owner, bare = fx.tmp / 'owner', fx.tmp / 'owner.git'
+        fx.sh('git', 'clone', '-q', '--no-local', str(ROOT), str(owner), cwd=fx.tmp)
+        landing = fx.sh(sys.executable, 'tools/precedent_branches.py', '--landing',
+                        cwd=owner)[1].split()[0]
+        fx.sh('git', 'checkout', '-q', '-B', landing, seeded, cwd=owner)
+        (owner / 'tools' / 'precedent_show.py').write_bytes(
+            base + b'\n# upstream moved on since vendoring\n')
+        fx.sh('git', 'commit', '-qam', 'upstream moved on', cwd=owner)
+        fx.sh('git', 'clone', '-q', '--bare', str(owner), str(bare), cwd=fx.tmp)
+        fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=owner)
+        heads_before = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+
+        def send(consumer, why):
+            return fx.sh(*tool, 'send', '--repo', str(consumer), '--owner-clone',
+                         str(owner), '--why', why, cwd=consumer)
+
+        def new_branches():
+            now = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+            # Only send's own branches: the owner's basic tier also shares its
+            # check receipts on a branch of their own, which is not this.
+            return [b for b in (l.split('\t')[1][len('refs/heads/'):]
+                                for l in now.splitlines()
+                                if l not in heads_before.splitlines())
+                    if b.startswith('local-edit/')]
+
+        # No edits: nothing happens, and it says so.
+        rc, out = send(repo, 'nothing')
+        cases.append(('a consumer with no edits does nothing and says so',
+                      rc == 0 and 'nothing to send' in out and not new_branches(),
+                      out[-800:]))
+
+        # A leak-gate word in the edit: refused before anything is pushed.
+        # base64, as this file's other probes are: the harness is itself
+        # scanned by the gate, so the word cannot appear in it literally.
+        import base64
+        word = base64.b64decode('c2hpdA==').decode()
+        f.write_bytes(_insert(base, f'# this {word} is a local fix\n'))
+        fx.commit(repo, 'a local fix with a word the gate refuses')
+        rc, out = send(repo, 'it crashed')
+        leftover = fx.git(owner, 'branch', '--list', 'local-edit/*')
+        cases.append(('an edit carrying a leak-gate word is refused before '
+                      'anything is pushed, and no branch is left behind',
+                      rc == 2 and 'REFUSED before anything left this machine' in out
+                      and not new_branches() and not leftover, out[-1500:]))
+
+        # A word only THIS repo's own scrub list knows -- the owner's gate
+        # has never heard of it, so only the consumer's side can stop it.
+        (repo / 'process').mkdir(exist_ok=True)
+        (repo / 'process' / 'scrub_blocklist.txt').write_text(
+            'zanzibar-codename\n', encoding='utf-8')
+        f.write_bytes(_insert(base, '# works around the zanzibar-codename import\n'))
+        fx.commit(repo, 'a local fix naming a private word')
+        rc, out = send(repo, 'it crashed')
+        cases.append(('a word only this repo\'s scrub list knows is refused by '
+                      'this repo\'s side, before anything is pushed',
+                      rc == 2 and 'the scrub on this repo\'s side found' in out
+                      and 'zanzibar-codename' in out and not new_branches(),
+                      out[-1500:]))
+
+        # The real case.
+        f.write_bytes(_insert(base, '# a local fix for an empty slug\n'))
+        fx.commit(repo, 'fix the show tool on an empty slug')
+        rc, out = send(repo, 'precedent_show.py crashed on an empty slug')
+        made = new_branches()
+        branch = made[0] if len(made) == 1 else ''
+        sent = fx.sh('git', '--git-dir', str(bare), 'show',
+                     f'{branch}:tools/precedent_show.py', cwd=fx.tmp)[1] if branch else ''
+        cases.append(('the branch appears upstream carrying the local change',
+                      rc == 0 and branch.startswith('local-edit/')
+                      and '# a local fix for an empty slug' in sent,
+                      (out + '\n' + '\n'.join(made))[-2000:]))
+        cases.append(('...merged onto the landing branch, so upstream\'s change '
+                      'since vendoring is kept, not reverted',
+                      '# upstream moved on since vendoring' in sent, sent[-400:]))
+        cases.append(('...on a branch whose name does not carry the consumer\'s '
+                      'name', bool(branch) and 'secret' not in branch
+                      and 'client' not in branch, branch))
+        cases.append(('...with a paste-ready prompt that asks for a test that '
+                      'fails without the fix, and no merge or pull request',
+                      'Paste into:' in out and 'a test that fails without the fix' in out
+                      and 'No pull request' in out, out[-2000:]))
+        cases.append(('...and the consumer\'s edit left in place, said so',
+                      b'# a local fix for an empty slug' in f.read_bytes()
+                      and 'Your local edit stays in place' in out, out[-800:]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_judges_the_committed_tree():
     """precedent_update's deep check judges the staged update as it will be
     committed, then leaves the index and working tree exactly as it found
@@ -32841,6 +32971,10 @@ def check_checkin_update_never_mutates_the_clone():
         # shape that never ships.
         shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                      consumer / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
+        # push hands its work to send (2026-09-29); the real vendored tree
+        # carries both, since the mirror brings the whole tools/ at once.
+        shutil.copy2(ROOT / 'tools' / 'precedent_local_edits.py',
+                     consumer / 'process' / 'upstream' / 'tools' / 'precedent_local_edits.py')
 
         def clone_state():
             return tuple(g(*a).stdout.strip() for a in (
@@ -32957,6 +33091,9 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
         'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
                                     ).read_text(encoding='utf-8'),
+        # push hands the work to send (2026-09-29), from the same directory.
+        'tools/precedent_local_edits.py': (ROOT / 'tools' / 'precedent_local_edits.py'
+                                           ).read_text(encoding='utf-8'),
         # push() runs the vendored scrub first; this fixture is about the
         # mirror, so the scrub is a stub that passes.
         'tools/practice_audit.py': 'raise SystemExit(0)\n',
@@ -33028,22 +33165,25 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
                       'HEAD on another branch', recorded == landed,
                       f'recorded={recorded} landed={landed}'))
 
-        # push: upstream stops vendoring retired.txt. The tracked file must
-        # still go; the three stray files must not.
+        # push: this repo drops retired.txt. Since 2026-09-29 push hands the
+        # work to precedent_local_edits.py send, which builds a branch in a
+        # worktree of its own -- so the clone's working tree, tracked files
+        # and stray files alike, is never touched, whatever happens next.
         _git(clone, 'checkout', '-q', 'main')
         (vend / 'retired.txt').unlink()
         rc, out = run('push')
-        cases.append(('push still deletes a tracked file the vendored tree '
-                      'dropped', rc == 0 and 'checkin push OK' in out
-                      and not (clone / 'retired.txt').exists(), out))
+        cases.append(('push hands the work to send, which asks what went wrong '
+                      'before doing anything', rc == 2
+                      and 'precedent_local_edits send REFUSED: --why is required' in out,
+                      out))
         survived = [rel for rel, text in stray.items()
                     if (clone / rel).is_file()
                     and (clone / rel).read_text(encoding='utf-8') == text]
-        cases.append(('push leaves every file git does not track in the clone '
-                      'untouched', len(survived) == len(stray),
+        cases.append(('push leaves the clone\'s working tree untouched: every '
+                      'file git does not track, and the tracked file this repo '
+                      'dropped', len(survived) == len(stray)
+                      and (clone / 'retired.txt').is_file(),
                       f'survived={survived}\n{out}'))
-        cases.append(('and says it left them alone',
-                      'left 3 file(s) git does not track' in out, out))
 
     failed = [f'{n}: {d[:400]}' for n, ok, d in cases if not ok]
     check(f'checkin.py ignores files git does not track in the source clone '
@@ -46113,6 +46253,8 @@ def main():
           *check_update_vendors_survives_an_upstream_deletion())
     check('Update Vendors resolves a committed local edit to an engine file by rule',
           *check_update_vendors_resolves_local_edits())
+    check('send carries a committed local edit upstream as a scrubbed branch',
+          *check_send_carries_a_local_edit_upstream())
     _catalogue_edit = check_update_vendors_resolves_a_catalogue_edit()
     if _catalogue_edit is not None:    # None: not applicable, said as such
         check('Update Vendors resolves a committed local edit in process/upstream/',

@@ -29,7 +29,7 @@ patch, without upstream's fix,** until somebody decides by hand.
 local edit itself (part two, below, built first because every consumer runs
 it). A new command sends the edits that remain upstream as a ready branch
 (part one). Both live in one new file,
-`tools/precedent_local_edits.py`, which
+[tools/precedent_local_edits.py](../tools/precedent_local_edits.py), which
 runs from the BestPractice clone the way
 [tools/precedent_update.py](../tools/precedent_update.py) does.
 
@@ -72,7 +72,11 @@ belong to BestPractice.
   so there is no BASE to merge against. An edit there is silently
   overwritten, which is worse than a refusal. Filed as
   [todo/todo-2026-09-29-received-practice-edits-are-overwritten.md](../todo/todo-2026-09-29-received-practice-edits-are-overwritten.md).
-- **A shared set's mirrored tree (`process/<name>/`)**, the same way.
+- **A shared set's mirrored tree (`process/<name>/`)**, the same way;
+  `checkin.py push --source` keeps its old mirror into the clone until then.
+- **A section 0 install's universal catalogue** (`precedent/universal/`),
+  which Update Vendors replaces wholesale and which already treats a file
+  equal to any version upstream ever carried as upstream's text.
 
 ## Part two: Update Vendors resolves the edit
 
@@ -209,9 +213,37 @@ leaves the machine). Each case is shown to fail without the code it tests.
 
 ## Shipping
 
-`precedent_local_edits.py`, `precedent_update.py` and `checkin.py` are not
-engine files: each consumer runs them from the source clone. The new
-behaviour reaches a consumer on its next Update Vendors, whatever engine
-copy it carries. The pull request answers
-[vendor-rollout-disclosed](../practices/vendor-rollout-disclosed.md)'s four
-questions.
+The four questions of
+[vendor-rollout-disclosed](../practices/vendor-rollout-disclosed.md):
+
+1. **Does it need to reach consumers?** Yes, and all but one line of the
+   changed code is outside the engine. The exception is the wording of the
+   engine refresh's own refusal in `precedent_vendor_engine.py`, which now
+   names Update Vendors and `send` instead of "move the edit upstream"; a
+   consumer gets it on its next refresh, and until then sees the old
+   wording, which still refuses correctly. `precedent_local_edits.py`, `precedent_update.py` and
+   `checkin.py` are run from the BestPractice clone (`python3
+   ../BestPractice/tools/... --repo .`). The two practice edits
+   ([upstream-bug-stops-here](../practices/upstream-bug-stops-here.md),
+   [vendor-update-runbook](../practices/vendor-update-runbook.md)) reach
+   consumers as practice text, the usual way.
+2. **Will the update mechanism carry it?** Yes, with nothing to wait for:
+   a consumer's next Update Vendors runs the new code, whatever engine copy
+   it carries. The one gap: a repo that runs `checkin.py` from its own
+   vendored `process/upstream/tools/` copy gets the new `push` only when its
+   catalogue mirror brings `checkin.py` and `precedent_local_edits.py` in,
+   and the mirror brings both at once.
+3. **Does it work where the update has not arrived?** Yes. None of the new
+   logic is in the engine, and the consumer's own refresh sees exactly the
+   text it recorded, because the swap writes BASE before it runs. Everything
+   new is optional: no `kept_template_divergences` entry means nothing is
+   kept on purpose, no journal means nothing to replay, and a
+   `process/manifest.json` with no `upstream.commit` gets today's refusal.
+   The fixtures seed from this checkout, so the engine a fixture runs is
+   the one it was seeded with; no fixture seeds from an older engine
+   commit, and that is safe to leave because no step reads a new field
+   from the engine.
+4. **A new check in a consumer holding received files?** None is added.
+   `record`'s carry check changes only to skip the files named with
+   `--resolving`, which Update Vendors passes for exactly the files it is
+   resolving.

@@ -36,7 +36,7 @@ nothing records it here.
    carries.
 2. Before overwriting, compare the file on disk with that record. A
    mismatch is a local edit: run it through
-   `tools/precedent_local_edits.py`'s
+   [tools/precedent_local_edits.py](../tools/precedent_local_edits.py)'s
    rules, the same as the other two layers, and let `send` carry it to the
    set that owns it (`received_owners()` already names the owner).
 3. A test with a consumer-shaped fixture: an edited received practice
