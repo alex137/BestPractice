@@ -79,8 +79,12 @@ FIELD_ORDER = (
     'severity',
     'scope',
     'applies_to',
+    # Why applies_to is what it is -- moved here from tools/routing_scope.json
+    # on 2026-09-29, so a practice cannot arrive or leave without it.
+    'applies_to_why',
     'occasion',
     'gates',
+    'gates_why',
     'index_clause',
     'index_required',
     'checked_by',

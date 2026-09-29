@@ -4,8 +4,10 @@ title:       Conventions cite the incident that created them
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "PRACTICES.md"]
+applies_to_why: "A new convention or rule is written into the catalogue. That is a place, not just a moment, and its check already scopes there. Decided: phase 4 routing pass."
 occasion:    "writing a new convention or rule"
 gates:       ["review"]
+gates_why:   "A review that produces a rule produces it here; it also has a glob for where the rule is written."
 index_clause: "record the failure a rule prevents, inline with the rule"
 index_required: false
 checked_by:  "tools/precedent_check.py"

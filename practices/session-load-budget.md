@@ -4,6 +4,7 @@ title:       Every always-loaded surface carries a declared ceiling, in every re
 tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "CLAUDE.md", "**/AGENTS.md", "**/CLAUDE.md", "templates/*AGENTS.md*", "tools/session_load_budgets.json"]
+applies_to_why: "Its own applies_to, and a tight locus for once: what a session loads before its first turn is a short, known list of files, and the registry declaring their ceilings is the other file a change here touches. Decided: 2026-09-11, when the practice landed."
 occasion:    "adding to a file every session loads, or asking what a session pays before it starts work"
 gates:       []
 index_clause: "declare a ceiling for what every session loads; reduce by archiving"

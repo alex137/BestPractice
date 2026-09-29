@@ -31,8 +31,8 @@ WHAT IT DOES NOT DO, on purpose. It does not fill in
 local/practices/project-voice.md's or
 local/practices/project-visual-identity.md's sections (an install
 does the essentials and stops -- INSTALL.md, "Essentials only").
-It does not wire a team or individual source beyond what --team declares;
-the team/individual question is a conversation with the administrator
+It does not wire a shared or individual source beyond what --team declares;
+the shared/individual question is a conversation with the administrator
 (INSTALL.md section 1 step 9). It does not commit: a person reviews the tree
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.

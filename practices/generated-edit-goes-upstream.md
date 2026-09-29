@@ -4,6 +4,7 @@ title:       A change to a generated file is made in its source, never in the fi
 tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "MAP.md", "GLOSSARY.md"]
+applies_to_why: "The three views tools/build_views.py writes here, named one by one rather than globbed. No pattern can express 'is generated' -- that is a property of how a file is produced, not of its path -- and the wider alternative measured badly: twelve practices already path-trigger on each of these files, so routing this one at '**/*.md' would add a thirteenth to every markdown file in the repo in order to reach three. AGENTS.md is in the list because its loader block is generated even though the file around it is not. Decided: 2026-09-11, with the practice."
 occasion:    "asked to add, change or remove something in a generated file"
 gates:       []
 index_clause: "change the input the file is built from, never the file -- and say which input"

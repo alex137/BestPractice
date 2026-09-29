@@ -26,7 +26,7 @@ accurate to what phase 3 actually built and is left as the historical
 record, per this repo's own convention of dated addenda over rewritten
 history. The "What exists" table immediately below is current status,
 though, and is updated to match: it now reflects four sources and the
-current precedence order (team > repo-local > individual > universal — see
+current precedence order (shared > repo-local > individual > universal — see
 PRACTICE_ENGINE_PLAN.md's "Source" section for the reasoning, noted there
 without belaboring it).
 
@@ -250,7 +250,7 @@ rather than wire a hook with nothing to do.
 ## What phase 3 did not do, and why it could not be done from here
 
 **The two private sets exist but are still empty.** The plan's phase-3 item 1
-is to populate `precedent-individual` and `precedent-team-repo-maintenance` from
+is to populate `precedent-individual` and `precedent-shared-repo-maintenance` from
 RepoPersonalPreferences' 46 rules — default everything to team, promote to
 universal individually, move the person-specific handful to individual, and
 retire `morgan-scope` and `bestpractice-wins` because the structure now says
@@ -268,7 +268,7 @@ current fact:
   than this one, and a session cannot hold both with write access at once.
   The session that populates them is a session opened against *them*, not
   against Precedent.
-- **The plan forbids it anyway.** *"Nothing from an individual or team set may
+- **The plan forbids it anyway.** *"Nothing from an individual or shared set may
   be staged on this branch at any point, even transiently"*
   ([Risks](PRACTICE_ENGINE_PLAN.md#risks)). Every push here is publication
   into a public repository owned by someone else. Doing the split "from here"
@@ -358,7 +358,7 @@ left open, the same way [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md) records
 the calls phase 1's conversion had to make.)*
 
 PRACTICE_ENGINE_PLAN.md's Stage 2 says a candidate is "a dated file in
-`candidates/`." That works for individual and team candidates — each lands
+`candidates/`." That works for individual and shared-set candidates — each lands
 in `candidates/` inside that level's own private repo, no different from
 `practices/`. It cannot work for a **universal** candidate, because
 [tools/leak_gate.py](../tools/leak_gate.py)'s `FORBIDDEN_PATHS` already bans
@@ -384,7 +384,7 @@ mechanism is GitHub-native start to finish rather than a file for stage 2
 and a PR for stage 4.
 
 **The cost, stated rather than hidden**: `tools/precedent_candidate.py`
-lists and creates individual/team candidates by reading the filesystem, but
+lists and creates individual/shared-set candidates by reading the filesystem, but
 for universal it can only draft the Issue body — it does not open the Issue
 itself. Automated Issue creation needs a GitHub credential this tool does
 not carry, which is exactly the gap

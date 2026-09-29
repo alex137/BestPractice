@@ -164,9 +164,9 @@ hold hundreds of practices without the resident set moving.
 |---|---|
 | **Practice** | The unit. One file. Replaces both BestPractice's "practice" and RPP's "rule" as the name of the thing. |
 | **Rule** | The imperative section *inside* a practice — one to three sentences. Not a synonym for practice. |
-| **Source** | Where a practice comes from and who may see it: Precedent, a Team set, or an Individual set. |
+| **Source** | Where a practice comes from and who may see it: Precedent, a Shared set, or an Individual set. |
 | **Universal source** | The Precedent catalogue itself, vendored into a consumer repo at `process/upstream/` and tracked in its `process/manifest.json`. Every consumer repo has one. |
-| **Team source** | A team's own shared conventions, kept in the team's own repo and declared in a consumer repo's `precedent.json` — resolved live from a sibling checkout, never vendored, because the team already maintains it independently. *(Added 2026-09-02, against a real gap found installing a team source for the first time in a dependent repo: this term and Individual source below weren't named on their own, only folded into Source's definition — see [INSTALL.md](../INSTALL.md) §1 step 9.)* |
+| **Shared source** | Conventions a group of people share, kept in the set's own repo and declared in a consumer repo's `precedent.json` — resolved live from a sibling checkout, never vendored, because the set is already maintained independently. *(Added 2026-09-02, against a real gap found installing a shared source for the first time in a dependent repo: this term and Individual source below weren't named on their own, only folded into Source's definition — see [INSTALL.md](../INSTALL.md) §1 step 9.)* |
 | **Individual source** | One person's own facts — commit identity, a timezone, a personal shorthand — kept in their own private repo and declared only in their own user-level config (`~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG`), never in any shared repo's tracked files. The one case a consumer repo's own `precedent.json` refuses by name. |
 | **Precedent** | The public repo: the engine, the checks, and the universal practice catalogue. BestPractice itself, restructured — the work lands on a branch and merges back. |
 | **Consumer repo** | Any project that uses practices. |
@@ -425,7 +425,7 @@ Four levels. **The repo is public**, which decides the shape.
 | Level | Lives in | Visible to | Decided by |
 |---|---|---|---|
 | **Universal** | Precedent, public | Everyone | Precedent's maintainer, via PR |
-| **Team** | One private repo per team | That team | That set's **approvers** — a review *is* the decision |
+| **Shared** | One private repo per set, named for its subject | Everyone who declares it | That set's **approvers** — a review *is* the decision |
 | **Individual** | One private repo per person | Only that person | The person. No review. |
 | **Repo-local** | The consuming repo itself | Everyone with access to that repo | Whoever can commit to that repo |
 
@@ -494,7 +494,7 @@ than practice by practice later.
 | Today | Goes to | Why |
 |---|---|---|
 | **BestPractice's 51 practices** | **Universal**, in Precedent | They are already public and already the shared baseline. Keeping them where they are requires no decision and imposes nothing new on anyone. |
-| **RPP's 46 rules**, by default | **Team** (`precedent-team-repo-maintenance`) | They are one small group's working conventions, not everybody's. Publishing them as universal would impose them on every Precedent user, which is not what they are. |
+| **RPP's 46 rules**, by default | **Shared** (`precedent-shared-repo-maintenance`) | They are one small group's working conventions, not everybody's. Publishing them as universal would impose them on every Precedent user, which is not what they are. |
 | **The Morgan-specific handful** | **Individual** (`precedent-individual`) | Commit identity, Buenos Aires timezone, the name in a file header, GitHub attribution, pronouns, the `go`/`merge` shorthand — facts about one person, and RPP already identifies exactly these under its `morgan-scope` rule. |
 
 **Default all of RPP to team even where a practice looks generic.** Several
@@ -523,7 +523,7 @@ and a useful signal to look for elsewhere in the 46.
 #### One Individual Set per Person, Not per Team
 
 **A person has exactly one individual set, however many teams they belong to.**
-Three teams means three team repos and still one personal repo. A practice like
+Three teams means three shared-set repos and still one personal repo. A practice like
 *"always write my name in capitals"* is written once and follows its author
 into every repo they work in — never copied, never re-approved, never
 remembered three times.
@@ -531,7 +531,7 @@ remembered three times.
 **Who declares which sources is therefore split, and this matters for
 privacy.** A shared repo may only name the sources everyone in it can read:
 
-- **The consumer repo** declares universal plus its team set, in a tracked
+- **The consumer repo** declares universal plus its shared set, in a tracked
   config file. Everyone working there gets those.
 - **The person** declares their own individual set in their *user-level*
   config, outside any shared repo.
@@ -555,7 +555,7 @@ How each source actually arrives:
 | Source | How it gets there | Cost at work time |
 |---|---|---|
 | **Universal** | Vendored into the project repo as tracked files, exactly as BestPractice is vendored today | None — already on disk |
-| **Team** | Vendored the same way. Everyone with access to the project can see the team's practices anyway, so there is nothing to protect | None — already on disk |
+| **Shared** | Vendored the same way. Everyone with access to the project can see the shared set's practices anyway, so there is nothing to protect | None — already on disk |
 | **Individual** | A local clone in the person's own environment, named in their user-level config | None — already on disk |
 
 Nothing is fetched from a remote when a session starts. **This is not a new
@@ -573,8 +573,8 @@ pretending they were applied.
 
 #### Precedence, and the One Case Precedence Alone Does Not Decide
 
-The engine resolves with **precedence: team > repo-local > individual >
-universal** (reordered 2026-09-03; originally individual > team > universal —
+The engine resolves with **precedence: shared > repo-local > individual >
+universal** (reordered 2026-09-03; originally individual > shared > universal —
 see below for why). A practice may name a lower-source slug in `overrides:`;
 the resolver fails loudly if two same-level practices claim one slug.
 
@@ -586,7 +586,7 @@ lowest common denominator: the weakest claim on any one person or team, so it
 ranks lowest. An individual's own practices sit in between: more binding than
 something meant to work for the whole world, less binding than what a
 person's own team actually requires of them. Repo-local sits alongside that
-same ladder, between individual and team, since it speaks to one specific
+same ladder, between individual and shared, since it speaks to one specific
 repo's own working reality rather than a person's general style.
 
 **The exception is what `severity: blocking` is for.** A practice at any
@@ -700,7 +700,7 @@ The current system has no removal path at all. This one has:
   `in_force_at: none` and a `## Story` line. The bar is what stops
   "something similar exists" being an answer. Full format:
   [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md#status).
-- **Promotion**, the normal life of a good practice: individual → team →
+- **Promotion**, the normal life of a good practice: individual → shared →
   universal. A file move plus a scrub plus a PR to the higher source.
 - **A mechanical promotion signal.** *The same practice restated in a second
   scope was never scope-specific* — RPP's `doc-recipe` rule generalized. Once
@@ -798,7 +798,7 @@ candidate becomes a practice only if it passes all four:
 | Level | Who approves | How |
 |---|---|---|
 | **Individual** | The person | *"Yes, do it"* in the session is the approval. No proposal document, no review, no waiting. Recorded as `approved_by` with a date. |
-| **Team** | That set's approvers | The session proposes; an approver says yes. Implemented as a review on the team repo, so the approval *is* the record. |
+| **Shared** | That set's approvers | The session proposes; an approver says yes. Implemented as a review on the shared-set repo, so the approval *is* the record. |
 | **Universal** | Precedent's maintainer | A PR to Precedent. |
 
 **The session always proposes a level with a reason, defaulting to the
@@ -821,7 +821,7 @@ engine can **read** the list, so a session can tell you *"this needs Fabian's
 approval"* instead of leaving you to work it out. And the design survives
 moving off GitHub, which a `CODEOWNERS` file does not.
 
-- **At creation**, whoever creates a team set is its first approver. No
+- **At creation**, whoever creates a shared set is its first approver. No
   ceremony, and there is always at least one.
 - **Adding or removing an approver is itself a change to the set**, so it
   needs the current approvers' approval. That is self-hosting and stops
@@ -880,14 +880,14 @@ One rule held firmly: **a practice claiming `checked_by` is not finished until
 that check exists and has a test proving it fires.** Otherwise "we will
 enforce it later" is precisely how a catalogue arrives at 44 of 46 unenforced.
 
-#### Landing a Team Practice While Working in a Project — the Round Trip
+#### Landing a Shared-Set Practice While Working in a Project — the Round Trip
 
 The common case, spelled out because it crosses a repository boundary and the
 wrong instinct here is a well-known trap.
 
 You are working in a project that has your team's practices **vendored** — a
 copy of them tracked inside the project. Mid-session you decide something
-should become a team practice. The vocabulary for what follows is standard
+should become a shared-set practice. The vocabulary for what follows is standard
 dependency management:
 
 | Term | Meaning |
@@ -912,7 +912,7 @@ misuses it.
 3. You approve.
 4. **The session writes it to the team's own repo**, on a branch, as a
    proposal — never to the vendored copy in the project you are sitting in.
-5. **An approver on that team set says yes**, and it lands on that set's main
+5. **An approver on that shared set says yes**, and it lands on that set's main
    branch. *(If you are the approver, steps 3 to 5 collapse into your one
    "yes" — the session commits it directly. For a small team this is the
    normal case, and there is no waiting at all.)*
@@ -960,7 +960,7 @@ what that source imposes:
 | Level | What a removal (deduplication or retirement) requires |
 |---|---|
 | **Individual** | The owner's own *"yes, drop it"* — identical to individual creation, since there is no one else's approval to seek. |
-| **Team** | An approver's review, through the same `approvers.json`/`CODEOWNERS` mechanism Stage 4 uses for a new team practice — never an automatic flip, even when the evidence (never fired, never cited) looks conclusive. |
+| **Shared** | An approver's review, through the same `approvers.json`/`CODEOWNERS` mechanism Stage 4 uses for a new shared-set practice — never an automatic flip, even when the evidence (never fired, never cited) looks conclusive. |
 | **Universal** | A PR to Precedent, same as universal promotion. |
 
 This follows directly from a sentence [Stage 4](#stage-4--approval-by-level)
@@ -1019,7 +1019,7 @@ For any repo, before and after migration:
   applied and assert the loader would have surfaced it. This is what proves
   the loading model works rather than merely type-checks, and it is the test
   that matters most.
-- **Leak gate** — no individual- or team-level term appears anywhere in
+- **Leak gate** — no individual- or shared-level term appears anywhere in
   Precedent. RPP's `private-repo-scrub` machinery generalized from words to
   sources, hard-failing rather than warning.
 
@@ -1030,7 +1030,7 @@ For any repo, before and after migration:
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
 | 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](../AGENTS.md), [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
-| 3 ✅ | **Split the sources.** *(Closed 2026-09-01 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All five hold, the fifth (the two private sets populated from RPP's 46 rules) from a session opened directly against `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance` — reported done by Morgan, 2026-09-01, per this plan's own architecture that population can only happen from a session holding those repos, never from here — see the phase-3 section.** |
+| 3 ✅ | **Split the sources.** *(Closed 2026-09-01 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first shared set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All five hold, the fifth (the two private sets populated from RPP's 46 rules) from a session opened directly against `themorgan/precedent-individual` and `themorgan/precedent-shared-repo-maintenance` — reported done by Morgan, 2026-09-01, per this plan's own architecture that population can only happen from a session holding those repos, never from here — see the phase-3 section.** |
 | 4 ✅ | **Enforcement push.** *(Closed 2026-08-31 — see [What Phase 4 Built, and What It Found First](#what-phase-4-built-and-what-it-found-first).)* *(Swapped ahead of the creation pipeline, 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Convert checkable practices to scripts, starting with the ones phase 2 measured as most-missed; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above the current 8-of-52; each converted practice has a test proving its check fires; the routing eval re-run shows the converted practices no longer missed. **The first two hold. The third does not, as written, and cannot: this plan's own design says an enforced practice is never routed, so the routing eval cannot show one 'no longer missed'. It is answered by a coverage report that states its own limit. The row's 'drop their prose from the resident tier' was also not followed, for two practices whose check is narrower than their rule. Both departures are argued in the phase-4 section rather than quietly taken.** |
 | 5 ✅ | **The creation pipeline.** *(Tooling built and harness-tested 2026-09-02 — see [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md).)* Candidates, detection signals, promotion criteria, approval routing, the periodic removal report. | **Met, mechanically: `check_creation_pipeline_fires()` in [tools/verify_harness.py](../tools/verify_harness.py) proves a candidate promotes, lands and parses end to end, and that each of the four criteria refuses individually with a reason.** Not yet met in the sense that matters most: no real candidate has been raised against a real incident yet, so the criteria's thresholds are tested for mechanism, not calibration — see [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md#what-phase-6-inherits). |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. *(Underway, not closed — first real migration run 2026-09-02, see [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md).)* | Each repo passes the harness before its migration lands. **One of them does: the project's own prior notes repository migrated 2026-09-02, deliberately first as the beta test for the pattern rather than in the order this plan's own text elsewhere suggested (RepoPersonalPreferences, "the one whose failure modes are understood"). That same migration is what drove building `tools/precedent_sync_views.py` (2026-09-03) — the one-command sync a consumer repo actually runs — after finding nothing connected the resolver's output to a generated `AGENTS.md` for a multi-source repo. Not yet met for the rest: no other consumer repo has migrated, so the pattern is proven once, not yet repeated.** |
@@ -1052,7 +1052,7 @@ repository.**
 - **Structural**, in [tools/leak_gate.py](../tools/leak_gate.py), on from
   phase 2. Precedent holds universal practices and nothing else, so
   anything *shaped* like private-source content fails: an individual- or
-  team-level path, a practice claiming a non-universal source, a personal
+  shared-level path, a practice claiming a non-universal source, a personal
   email address, an absolute path inside someone's home directory, a
   `candidates/` or `outbox/` directory. These patterns describe shapes
   rather than anyone's words, so they are safe to publish. This layer runs
@@ -1218,7 +1218,7 @@ done.
 **Phase 3 is now closed on both sides.** Everything the private sets plug
 into exists, is tested, and is documented — and, as of 2026-09-01, the two
 private sets themselves have been populated, from a session opened directly
-against `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance`
+against `themorgan/precedent-individual` and `themorgan/precedent-shared-repo-maintenance`
 rather than from here, per the structural reason this section originally
 explained: no session working in Precedent can hold those repos or write
 into them. That reasoning is kept below rather than deleted, since it still
@@ -1253,7 +1253,7 @@ Two independent reasons, both structural rather than circumstantial:
   BestPractice. The session that populates them is a session opened against
   *them*.
 - **This plan forbids it regardless.** [Risks](#risks): *"Nothing from an
-  individual or team set may be staged on this branch at any point, even
+  individual or shared set may be staged on this branch at any point, even
   transiently."* Every push here publishes into a public repository owned by
   someone else. Doing the migration "from here" means holding private content
   in this working tree, which is the exposure the whole arrangement exists to
@@ -1560,10 +1560,10 @@ repositories attached (per
 `python3 tools/precedent_resolve.py --repo <a consumer config naming
 universal + team> --user-config <a config naming the individual set>`
 resolved the real 54 universal + 40 team + 5 individual practices (97
-after 2 team/individual overrides replace their universal originals) and
+after 2 shared/individual overrides replace their universal originals) and
 reported: **resident block across all sources: ~659 of 2000 token budget
 (10 practices: `bold-key-phrases`, `nonblocking-questions`, `small-calls`
-from the team set; `buenos-aires-dates` from the individual set;
+from the shared set; `buenos-aires-dates` from the individual set;
 `environment-gotchas`, `orientation-map`, `quick-index`,
 `reply-links-files`, `repo-is-memory`, `verify-postcondition` from the
 universal set)**, exit 0 both plain and `--strict`. Comfortably under
@@ -1633,16 +1633,16 @@ Precedent                              the engine and universal catalogue
 - **Do not repeat the owner in the name.** The account already namespaces it,
   so `themorgan/precedent-individual` is unambiguous and every person's set has
   the same name in their own account, which keeps tooling simple.
-- **Name a team for its purpose, never its roster.** A set called
-  `precedent-team-morgan-alex` is stale the moment a third person joins, and
+- **Name a shared set for its purpose, never its roster.** A set called
+  `precedent-shared-morgan-alex` is stale the moment a third person joins, and
   renaming a repo breaks every vendored reference to it. Slugs are lowercase
   and hyphenated.
 - **Practice slugs stay unique across all sources**, since precedence resolves
-  by slug — a team practice sharing a universal practice's slug reads as a
+  by slug — a shared-set practice sharing a universal practice's slug reads as a
   deliberate override, which is a feature only when it is intended.
 
-**Once there is a second team, move the team sets into a GitHub organization.**
-An org backs approver lists with real GitHub Teams and stops team repos living
+**Once there is a second team, move the shared sets into a GitHub organization.**
+An org backs approver lists with real GitHub Teams and stops shared-set repos living
 in a personal account when the team is not personal. Not worth doing for one
 team; worth knowing before there are five.
 
@@ -1714,7 +1714,7 @@ binding from now on rather than from phase 3:
 - **The leak gate must run before every push, not before every merge.** A
   merge-time gate is a gate on the wrong event now. Unchanged by the note
   below -- this keeps running regardless.
-- **Nothing from an individual or team set may be staged on this branch at
+- **Nothing from an individual or shared set may be staged on this branch at
   any point, even transiently** *(relaxed 2026-09-01 for active
   development -- see below)*. Phase 3's source split has to build the
   private sets in their own private repos and wire Precedent to *resolve*
@@ -1725,7 +1725,7 @@ binding from now on rather than from phase 3:
   of active pre-Phase-5 development —
   [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).**
   A session working on Precedent may now also hold
-  `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance`,
+  `themorgan/precedent-individual` and `themorgan/precedent-shared-repo-maintenance`,
   read and write across all three, and stage their content into this
   working tree — Morgan's own call about Morgan's own content, made
   because there is nothing sensitive in either private set today and the
@@ -1829,7 +1829,7 @@ matching the rest of this document's own current-state discipline
   working. Full reasoning, the departures from the originating brief, and
   what this does not close:
   [decisions/2026-09-06-deduplication-not-retirement.md](../decisions/2026-09-06-deduplication-not-retirement.md).
-- **2026-09-04 — v32.** An adopter with no individual or team repo yet had
+- **2026-09-04 — v32.** An adopter with no individual or shared-set repo yet had
   nowhere to start — closed for the case that doesn't need the full
   creation pipeline. New skeletons
   ([templates/practice-set-individual/](../templates/practice-set-individual/),
@@ -1897,7 +1897,7 @@ matching the rest of this document's own current-state discipline
 - **Name: Precedent.**
 - **Ships with an example set** — a one-time frozen copy of Morgan's private
   practices, illustrative only, never updated from the live individual set.
-- **Team sets: one repo per team**, for the permissions reason above.
+- **Shared sets: one repo per team**, for the permissions reason above.
 - **A practice belongs to one team**; the multi-team case is speculative and
   deferred.
 
@@ -1905,7 +1905,7 @@ matching the rest of this document's own current-state discipline
 
 - **A practice belonging to more than one team, and a domain bundle shared
   across teams.** Two framings of the same gap, merged 2026-09-01: the
-  original case was a single practice claimed by two team repos; the second,
+  original case was a single practice claimed by two shared-set repos; the second,
   found auditing `layered-practice-packs` against this plan, is a
   compliance- or lab-workflow domain whose rules several different teams
   would all want, independent of any one team's roster — the case the old
@@ -1913,8 +1913,8 @@ matching the rest of this document's own current-state discipline
   cross-team form. Revisit both together when a real case appears.
 - **A single consumer repo declaring more than one `team` source, and what
   happens when they disagree.** Distinct from the item above (which is about
-  one practice needing to be claimed by two team repositories); this is about one
-  repo's own `precedent.json` naming two team sources at once. Same-slug
+  one practice needing to be claimed by two shared-set repositories); this is about one
+  repo's own `precedent.json` naming two shared sources at once. Same-slug
   collisions between them are already caught loudly today (`resolve()`'s
   `override_claims_by_level` check applies per level regardless of how many
   sources contribute to that level), but two teams' practices that don't
@@ -1957,7 +1957,7 @@ matching the rest of this document's own current-state discipline
   would make "which one applies here" depend on filesystem iteration
   order, which is exactly the kind of silent, undebuggable behavior this
   whole plan exists to replace with something checkable. `for_team:`
-  resolves against whichever team source a consumer repo's own
+  resolves against whichever shared source a consumer repo's own
   `precedent.json` names (a repo not naming that team keeps the
   `for_team: null` variant, if one exists, or gets nothing); `in_repos:`
   resolves against the consuming repo's own identity (`owner/repo`, read

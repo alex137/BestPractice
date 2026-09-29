@@ -4,8 +4,10 @@ title:       "The second-pass capture sweep: production work gets a separate cap
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment — routed by the `merge` gate instead. Decided: phase 4 routing pass."
 occasion:    "finishing substantial work, before the merge capture gate"
 gates:       ["merge"]
+gates_why:   "Its occasion says 'before the merge-time capture gate' in so many words."
 index_clause: "a separate capture pass after the work, not inside it"
 index_required: true
 checked_by:  null

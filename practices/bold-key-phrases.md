@@ -4,6 +4,7 @@ title:       Bold the key phrases by default -- people skim
 tier:        resident
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Its own applies_to. The occasion is writing any document meant to be read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the path glob is a second reminder rather than the only one. Decided: promoted to universal 2026-09-07."
 occasion:    "writing any document meant to be read"
 gates:       []
 index_clause: "bold the key phrases by default, without being asked"

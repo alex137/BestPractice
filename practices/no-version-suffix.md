@@ -4,6 +4,7 @@ title:       Filenames have no version suffix; the VCS is the version
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Applies to any added file, which is what `**` means. Its check covers it at exactly that scope. Decided: phase 4 routing pass."
 occasion:    "naming a new file"
 gates:       []
 index_clause: "name a file for what it is; the repository is the version"

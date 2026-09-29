@@ -4,6 +4,7 @@ title:       "\"Reduction pass\" reduces what every session loads, and reports w
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "`**` because this is a standing COMMAND, not a rule about a kind of file. \"Reduction pass\" can be said in any turn, about any repository's always-loaded surfaces, and the session has to already know what it means -- the same reasoning as go-update, park-it and three-things, which are all at `**` for being phrases rather than file-shaped rules. The occasion index is the channel that matters here; a path trigger could not fire on a sentence. The second half of the occasion (\"an always-loaded surface is near its ceiling\") is served by tools/precedent_gate.py's merge and push gates, which print the headroom notice, rather than by any glob. Decided: 2026-09-14, when the practice was added."
 occasion:    "a person says \"Reduction pass\", or an always-loaded surface is near its ceiling"
 gates:       []
 index_clause: "work the menu in order; move, never delete; report what moved"

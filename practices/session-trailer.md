@@ -4,6 +4,7 @@ title:       Commit messages link the session where the change was planned
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is committing anything -- a moment, not a place, and every path is committed. Reached through the occasion index. Decided: 2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance."
 occasion:    "committing anything"
 gates:       []
 index_clause: "a Session: <url> trailer on every commit"

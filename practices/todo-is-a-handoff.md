@@ -4,8 +4,10 @@ title:       A TODO is a handoff, not a parking lot
 tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md", "todo/todo-*.md"]
+applies_to_why: "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it. Decided: post-phase-4, converting Alex's practice 53."
 occasion:    "writing or triaging an open item"
 gates:       ["merge"]
+gates_why:   "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate."
 index_clause: "queue only for a stated blocked-on/out-of-scope reason; else just do it"
 index_required: true
 checked_by:  null

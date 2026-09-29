@@ -112,7 +112,7 @@ nothing to choose here — this page installs §0, always.
    the leak gate stands down, so say the list only matters for what goes
    back upstream, or if the repository is ever made public.
    If they answered yes to the third question, follow INSTALL.md §1 step 9
-   for what to actually do with a team or individual repo (a shared source
+   for what to actually do with a shared or individual repo (a shared source
    goes in a new `precedent.json`; an individual source is never touched
    by this session at all — it's declared in that person's own user-level
    config, not this project). If they'd like one set up now instead,
@@ -321,7 +321,7 @@ any time just by asking an AI Assistant** — *"help me fill in my
 project's voice"*. That sentence is the whole handover.
 
 **What is in scope and must not be skipped as "polish":** the private-word
-blocklist, the commit identity, the team and individual source question,
+blocklist, the commit identity, the shared and individual source question,
 and anything a mechanical check fails without. Those are not refinements —
 the project is wrong without them.
 

@@ -6,7 +6,8 @@
     "tools/our_language.py, and doc_sync.py fails if the two disagree.",
     "Edit the words here, never on the page.",
     "A word listed here is printed under \"Our language\" by the Vocabulary command (tools/precedent_vocabulary.py), and a practice's `command:` phrase that matches one moves there instead of the command list -- it names a thing, not an action.",
-    "Plan: spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, Part 1."
+    "Plan: spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, Part 1.",
+    "`retired` lists words that are no longer ours, with what replaced them. precedent_check.py's retired-words check reads it and refuses a retired phrase in live text (practice: rename-updates-links), so retiring the next word is one entry here, not a new check. History is left alone: a practice's ## Story, text in quotation marks, todo/, decisions/, gotchas/, record/, evals/, and any document whose frontmatter says kind: record or a finished status (closed, executed, accepted, superseded, retired). A line that says it is about the retirement itself (retired, formerly, renamed, old name) is left alone too."
   ],
   "words": [
     {
@@ -68,6 +69,32 @@
     {
       "word": "stage",
       "meaning": "One of the five steps work climbs from idea to production: Consider, Act, Booked, Debut, Produce. \"Promote 3\" means stage 3, and each stage is read back before it runs."
+    }
+  ],
+  "retired": [
+    {
+      "word": "team (as a level)",
+      "replacement": "shared",
+      "retired": "2026-09-18",
+      "why": "A set of practices is shared by whoever declares it, not owned by a team: one person can use several, and one set serves people on many teams. \"team\" meaning a group of people is still ordinary English and is not retired.",
+      "decided": "Morgan, 2026-09-28 (plan spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md, Part 3); the code rename 2026-09-18",
+      "patterns": [
+        "\\bteam[- ](?:set|sets|source|sources|repo|repos|repository|repositories|practice|practices|level|levels|library|libraries|clone|clones|rung|candidate|candidates|copy|catalogue|layer)\\b",
+        "--level team\\b",
+        "\"level\":\\s*\"team\"",
+        "\\bnamed team\\b",
+        "\\bteam/individual\\b",
+        "\\bteam (?:and|or) individual\\b",
+        "\\bindividual (?:and|or) team\\b",
+        "\\bteam > ",
+        "\\bteam ↔",
+        "→ team\\b",
+        "\\bprecedent-team-[a-z]",
+        "\\bindividual/team\\b",
+        "\\bteam/universal\\b",
+        "\\*\\*team\\*\\*",
+        "\\bteam ?→"
+      ]
     }
   ]
 }

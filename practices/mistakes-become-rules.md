@@ -4,8 +4,10 @@ title:       "Mistakes become rules: root-cause the miss, then encode the preven
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check. Decided: phase 4 routing pass."
 occasion:    "a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself"
 gates:       ["review"]
+gates_why:   "Its occasion is 'a review finds a defect'. No path reaches a moment."
 index_clause: "root-cause the miss, then encode the prevention"
 index_required: false
 checked_by:  null

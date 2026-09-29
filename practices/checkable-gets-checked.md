@@ -4,8 +4,10 @@ title:       A new practice gets a mechanical check before it gets left advisory
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "PRACTICES.md"]
+applies_to_why: "Fires when a new practice is written, same locus as cite-the-incident, whose glob this copies directly. Decided: second enforcement-sweep session."
 occasion:    "writing a new convention or rule"
 gates:       ["review"]
+gates_why:   "Whether a check was genuinely attempted is a judgment a review makes, the same as mistakes-become-rules' proportionality guard."
 index_clause: "attempt a mechanical check before leaving a new practice advisory-only"
 index_required: false
 checked_by:  null

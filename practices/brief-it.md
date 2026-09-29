@@ -4,6 +4,7 @@ title:       "\"Brief it\" hands another session a self-contained briefing: the 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, and its work (assembling the briefing and handing it back) happens inline in the reply rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-19, when the practice landed."
 occasion:    "a person asks, in whatever words, for a write-up of the current issue that they can hand to other sessions"
 gates:       []
 index_clause: "\"Brief it\" -- one paste block: situation, session id, recommendation, repos"

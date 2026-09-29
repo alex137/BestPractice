@@ -163,8 +163,8 @@ practice idea in plain language, Claude:
    `precedent-shared-writing`** —
    a quiet `candidates/*.md` file accomplishes nothing when nobody with
    landing authority is watching it, per
-   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
-   rule for team candidates raised by a non-approver. Use a plain individual
+   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)'s
+   rule for shared-set candidates raised by a non-approver. Use a plain individual
    candidate file instead only if the idea is explicitly just their own
    working style, not something to share with the team.
 3. Never mentions promotion, resident budgets, `checked_by`, or any other

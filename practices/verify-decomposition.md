@@ -4,6 +4,7 @@ title:       Verify the decomposition, not the total — and never encode an imp
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires on a computed total being reported, wherever that happens. Decided: phase 4 routing pass."
 occasion:    "reporting a computed total or a negative feasibility result"
 gates:       []
 index_clause: "check the parts, not the total; never assert an impossibility"

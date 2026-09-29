@@ -4,6 +4,7 @@ title:       A project's own document leads with what the project is
 tier:        on-demand
 severity:    default
 applies_to:  ["README.md", "SETUP.md", "templates/GETTING_STARTED.md"]
+applies_to_why: "Phase 1 scoped this to README.md alone from the Install text, but the practice's own occasion is \"writing a README or other project-facing entry document\" -- and AGENTS.md's own Conventions section (readers-vocabulary) already names SETUP.md and templates/GETTING_STARTED.md alongside README.md as this repo's other outward-facing entry documents. Left at README.md only, the glob silently missed the two files the occasion's own \"or other\" clause names. Decided: phase 1, widened in the 2026-09-02 deep-check pass."
 occasion:    "writing a README or other project-facing entry document"
 gates:       []
 index_clause: "say what the project is before how it is maintained"

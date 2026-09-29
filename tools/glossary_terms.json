@@ -17,7 +17,7 @@
   "terms": [
     {
       "term": "level",
-      "definition": "Which population a rule binds. Four of them: universal (everyone using Precedent), team (one named team), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs.",
+      "definition": "Which population a rule binds. Four of them: universal (everyone using Precedent), shared (everyone who declares that shared set), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs.",
       "see": "practices/layered-practice-packs.md"
     },
     {

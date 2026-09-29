@@ -4,8 +4,10 @@ title:       "\"My options\" asks for the real choices, plainly, with a recommen
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment (the person says the phrase, or asks for a decision's options laid out), not a place. Nothing is written to the tree, so no path exists whose editing means the command was ignored -- the same shape as plain-words and three-things beside it. Reached through the occasion index and the reply gate. Decided: 2026-09-12, when the practice landed."
 occasion:    "a person says \"My options\", or asks to see a decision's options or hand them off"
 gates:       ["reply"]
+gates_why:   "The reply is the whole artifact: the options, their costs and the recommendation either appear there or they do not."
 index_clause: "every option, plainer, your pick -- or a paste-ready handoff"
 checked_by:  null
 defines:     ["My options"]

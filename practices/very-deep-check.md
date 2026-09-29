@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
+applies_to_why: "Not a place -- a whole-repo coherence review is invoked explicitly by a person, or after drift-inviting work, not triggered by touching any one file. Reachability comes from its occasion clause, the same as its full-practice-audit and routing-audit siblings. Decided: 2026-09-05, in the session that enumerated and wired the RepoPersonalPreferences 'very deep check'."
 occasion:    "a person explicitly asks for a \"very deep check\""
 gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never routine"
@@ -34,7 +35,7 @@ and often; this covers what can only be judged, and is deliberately rare
 because the judging is expensive.
 
 **Scope is every Precedent repo in the session, not this checkout alone** —
-this repo, each attached team and individual source, and any consuming repo
+this repo, each attached shared and individual source, and any consuming repo
 the engine is vendored into. A finding is as likely to be in the seam
 between two of them as inside any one, which is the reason they are read
 together rather than one at a time.
@@ -182,7 +183,7 @@ decided) from
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 3.
 
-**Every declared team and individual source must actually be present before
+**Every declared shared and individual source must actually be present before
 the check runs.** The ordinary loader tolerates a missing personal source and
 says so on stderr — the right call for routine loading, where one operator's
 absent individual set is expected. It is the wrong call here: a very deep
@@ -428,8 +429,8 @@ method"). Build the fixtures.
   below, and **a practice moved between levels**
   ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)):
   two bootstrapped sets and a consumer in scratch, every direction the
-  page offers (individual → team, team → individual, team → universal,
-  and universal → team/individual, both halves — the initial duplicate
+  page offers (individual → shared, shared → individual, shared → universal,
+  and universal → shared/individual, both halves — the initial duplicate
   landing and the deliberate `--dedupe-only --accept-reach-loss`
   withdrawal), with `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
@@ -440,7 +441,7 @@ method"). Build the fixtures.
   not fix; a rehearsal checks that a planted mention came out right and a
   dated one did not move. Added 2026-09-14, the day Morgan
   asked whether the run had tested it and it had not: the rehearsal
-  returned thirteen findings and the move tool. The universal → team/
+  returned thirteen findings and the move tool. The universal → shared/
   individual direction was added 2026-09-23, the same day a hand-done
   version of exactly that move (before the tool supported it) shipped a
   deduplication this repo's own consumer-fixture check later found
@@ -538,7 +539,7 @@ method"). Build the fixtures.
   cannot fix.
 - **The generator, against the sets that already exist.** Run
   [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
-  for each resolved team and individual source and diff its output against
+  for each resolved shared and individual source and diff its output against
   the real set, file by file — the tool's `BOOTSTRAP DRIFT` section does
   this, and it needs those sets attached to do anything at all. A set is
   created once and then lived in for months while the generator keeps
@@ -672,10 +673,21 @@ confidently.
    and retired-term list: test each term against a plausible compound.
    *(Found: retired term `pack_sync` matching `voice_pack_sync.py`, a live
    tool — nothing could satisfy the finding but renaming a real file.)*
-8. **Are there two of anything that should be one?** Two scripts doing the
-   same job, two implementations of one rule, a helper copied instead of
-   imported, a constant list maintained in two files, a check and a gate
-   testing the same property. Copies do not stay identical: one gets fixed
+8. **Are there two of anything that should be one -- any needless
+   redundancy?** Two scripts doing the same job, two implementations of one
+   rule, a helper copied instead of imported, a constant list maintained in
+   two files, a check and a gate testing the same property, two checks
+   scanning for the same thing, two practices saying one rule, a document
+   restating a spec it could link. **The tool's `SECOND LISTS OF PRACTICES`
+   section is this question's mechanical half:** it names every hand-kept
+   file that lists most of the catalogue by slug, and a reader decides
+   whether each is a generated view (fine) or a copy that can drift. *(Found
+   2026-09-29, both missed by earlier runs of this question: a hand-kept list
+   of every practice's routing reason, whose copy of the gates had drifted
+   on fourteen practices, and two checks scanning for retired words, one
+   with history-aware rules and one without. Morgan, that day: add a check
+   for needless redundancy -- this is it, widened, rather than a second
+   pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
    it is called ([search-by-purpose](search-by-purpose.md) is the same
@@ -1341,7 +1353,7 @@ first so this pass spends its attention on what they cannot see.
   aggregate, months later.
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)'s "SESSION LOAD"
   section counts the instructions file section by section for this checkout
-  **and for each attached team and individual source**, plus the untracked
+  **and for each attached shared and individual source**, plus the untracked
   practice file when private sources resolved, and flags any section large
   enough to be worth splitting and any entry whose own text says its trap is
   settled. **Read those flags, do not obey them:** an entry's claim that it
@@ -1541,7 +1553,7 @@ first so this pass spends its attention on what they cannot see.
 - **Self-application** — a rule this repo asks of every project it's
   installed into that this repo doesn't yet follow itself.
 - **Cross-source staleness** — a check, tool, or convention this repo changed
-  that an attached team or individual source's own tooling, vendored engine
+  that an attached shared or individual source's own tooling, vendored engine
   copy, or written practice still assumes the old form of. Update the source
   in the same pass (per [cross-source-rollout](cross-source-rollout.md)) if
   it's attached; if a `blocked-on` TODO for it already exists, confirm it's
@@ -2562,12 +2574,12 @@ compared against its origin before the tool reads a line, and anything but
 provably-current exits non-zero (`--allow-stale` for a deliberately offline
 run) — with `--freshen` fast-forwarding a clean tree that is strictly
 behind, and declining a diverged or dirty one, where a fast-forward
-discards commits; a missing declared team or individual source is a hard,
+discards commits; a missing declared shared or individual source is a hard,
 non-zero-exit failure by default (pass `--allow-missing-sources` only when
 proceeding without it is actually intended); every tracked JSON and YAML file is parsed with a real parser
 (pass 2's format-claims question), and a file that does not parse stops the
 run, since the tool
-reads `precedent.json` to enumerate its own scope; each team and individual
+reads `precedent.json` to enumerate its own scope; each shared and individual
 source is checked against the shape its bootstrap skeleton ships, catching a
 source migrated into place that never passed through bootstrap; and both
 halves of the branch sweep are real git checks — `merge-base --is-ancestor`

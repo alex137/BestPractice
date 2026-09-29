@@ -4,6 +4,7 @@ title:       Every timestamp carries its offset, and one module writes them all
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.py", "**/*.sh", "precedent.json"]
+applies_to_why: "Routed by locus, not by '**': a moment is stamped into a file by CODE, so the trigger is opening a script -- .py for the engine's own emitters, .sh for a hook that resolves or applies the session zone, and precedent.json because that is where the repo's fallback_timezone is declared. Prose that merely mentions a date is volatile-rules-carry-dates' business, not this one's, which is why **/*.md is deliberately absent. Decided: 2026-09-09."
 occasion:    "writing code that stamps a date or a time into a file, a record or a document"
 gates:       []
 index_clause: "a stamp carries its offset; never a bare date.today()"

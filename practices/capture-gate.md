@@ -4,8 +4,10 @@ title:       Capture in the thread that created the need — before the merge
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, not a place — routed by the `merge` gate instead. Decided: phase 4 routing pass."
 occasion:    "merging a branch"
 gates:       ["merge"]
+gates_why:   "Its occasion IS the merge."
 index_clause: "capture follow-on work in the thread that created the need"
 index_required: true
 checked_by:  null

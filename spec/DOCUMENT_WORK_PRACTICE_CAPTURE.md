@@ -73,7 +73,7 @@ expected, not a gap; the other six carry it.
 candidates should default to
 [precedent_candidate.py](../tools/precedent_candidate.py) `--as-issue
 true` — a GitHub Issue on the team repo — per
-[spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
+[spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)'s
 existing rule that a quiet `candidates/*.md` file accomplishes nothing when
 nobody with landing authority is watching it. This also happens to be the
 closest thing to "commenting on the shared style guide" the whole pitch is

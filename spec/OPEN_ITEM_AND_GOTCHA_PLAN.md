@@ -817,7 +817,7 @@ file's history; `Words` is how long the item has grown.
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
-| [`roll-out-four-pass-restructure`](../todo/todo-2026-09-06-roll-out-four-pass-restructure.md) | ≤09-06 | 262 | wait | Roll the very deep check's four-pass restructure out to `precedent-team-repo-maintenance`' own `deep-check` |
+| [`roll-out-four-pass-restructure`](../todo/todo-2026-09-06-roll-out-four-pass-restructure.md) | ≤09-06 | 262 | wait | Roll the very deep check's four-pass restructure out to `precedent-shared-repo-maintenance`' own `deep-check` |
 | [`attach-private-sources`](../todo/todo-2026-09-06-attach-private-sources.md) | ≤09-06 | 883 | wait | Run one session rooted at each private set — this unblocks four other items at once |
 | [`source-repo-consumes-no-catalogue`](../todo/todo-2026-09-06-source-repo-consumes-no-catalogue.md) | ≤09-06 | 120 | wait | A source repo consumes no catalogue, so it cannot check itself |
 | [`decision-strength-private-sources`](../todo/todo-2026-09-09-decision-strength-private-sources.md) | 09-09 | 167 | wait | Carry `decision-strength` into the two private practice sets |

@@ -120,7 +120,7 @@ of BestPractice's OWN 60-odd practices, which has no meaning in either a
 source set or a consumer repo with a different catalogue entirely.
 `_trim_routing_scope` below keeps only the first and drops the second — the
 same trim a prior, undocumented hand-copy already applied by hand to every
-repo that needed it (precedent-individual, precedent-team-repo-maintenance, and
+repo that needed it (precedent-individual, precedent-shared-repo-maintenance, and
 and a private consumer repo's own top-level tools/routing_scope.json, all three
 confirmed byte-identical to this function's output before this tool
 existed, or was extended to the consumer kind); this tool just makes that
@@ -326,7 +326,7 @@ ENGINE_FILES = [
     # credential helper that lets a SessionStart hook clone one without
     # add_repo (added 2026-09-09). In the shared engine rather than the
     # consumer half because a source set is itself a repo somebody works in:
-    # a session rooted in precedent-team-writing needs the person's
+    # a session rooted in precedent-shared-writing needs the person's
     # individual set exactly as much as a consumer does, and had the same
     # silent absence. precedent_source_bootstrap.py imports it by name and
     # says so out loud when it is missing, so a tree vendored before this
@@ -336,13 +336,13 @@ ENGINE_FILES = [
     # WRITES ~/.config/precedent/config.json, which is the only thing that
     # makes an individual source resolve at all. Promoted out of the consumer
     # half on 2026-09-13, and the sentence above -- "a session rooted in
-    # precedent-team-writing needs the person's individual set exactly as
+    # precedent-shared-writing needs the person's individual set exactly as
     # much as a consumer does" -- is the whole argument; the credential
     # helper travelled on it and this file did not.
     #
     # THE INCIDENT. A session rooted in any of the four real practice sets
-    # (precedent-individual, precedent-team-writing,
-    # precedent-team-repo-maintenance, precedent-team-working-style) resolved
+    # (precedent-individual, precedent-shared-writing,
+    # precedent-shared-repo-maintenance, precedent-shared-working-style) resolved
     # NO individual source, every session, because nothing there ever wrote
     # that config. The canonical remedy already existed and could not be
     # installed: templates/harness/claude-code/hooks/
@@ -482,7 +482,7 @@ ENGINE_FILES = [
     # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
     # reasoning that "a source set has no TODO.md of its own to convert" --
     # wrong: confirmed the same day that precedent-individual and
-    # precedent-team-writing (both `kind: source`) carry real, long-lived
+    # precedent-shared-writing (both `kind: source`) carry real, long-lived
     # TODO.mds of their own (520 and 112 lines) and were structurally unable
     # to run the migration, exactly like todo-migrate-available-but-unused's
     # own Story. A practice set is a repository somebody works in like any

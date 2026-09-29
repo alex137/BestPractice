@@ -4,6 +4,7 @@ title:       An affordance you build for yourself is an affordance you hand to e
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. 'A mechanism that makes something reachable' is a property of what you built, not of where you built it. Decided: phase 4 routing pass."
 occasion:    "building a mechanism that makes something discoverable or reachable"
 gates:       []
 index_clause: "name who else it now serves"

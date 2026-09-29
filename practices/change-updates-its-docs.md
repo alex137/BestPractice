@@ -4,8 +4,10 @@ title:       A change updates the documents that describe it, in the same commit
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Any change can have a reader-facing half -- a tool, a template, a config key, a practice. No glob narrower than everything describes \"the thing some document describes\", and a narrower one would silently exempt whichever kind of file nobody thought of. Decided: 2026-09-08, when the practice landed."
 occasion:    "changing a mechanism, a workflow or a behaviour that some document describes"
 gates:       ["merge"]
+gates_why:   "The merge is the last moment the document and the change can still land in the same commit, which is the whole rule."
 index_clause: "update the document that describes it, in the same commit -- never later"
 index_required: false
 checked_by:  null

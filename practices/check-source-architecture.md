@@ -4,6 +4,7 @@ title:       An option you invented is not a baseline — check the source archi
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A reasoning step about options, with no artifact. Decided: phase 4 routing pass."
 occasion:    "comparing an option against a baseline"
 gates:       []
 index_clause: "check both options exist in the source before costing them"

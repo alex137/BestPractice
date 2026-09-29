@@ -4,8 +4,10 @@ title:       "\"Go update\", \"Approved\" and \"Book it\" (stage 3, Booked) -- a
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-08, when it moved up from the individual set."
 occasion:    "a message says \"Go update\", \"Approved\", \"Book it\", \"Booked\" or \"Promote 3\", or plainly authorizes a merge"
 gates:       ["merge"]
+gates_why:   "Its whole subject is what happens at a merge."
 index_clause: "\"Go update\"/\"Approved\"/\"Book it\" (stage 3): push; high-risk: PR and merge"
 checked_by:  null
 defines:     ["Go update", "Approved", "Book", "Book it", "Booked", "Shared Save"]

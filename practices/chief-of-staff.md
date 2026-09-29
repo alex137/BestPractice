@@ -4,8 +4,10 @@ title:       "\"Chief of Staff\" routes the fleet instead of doing the work"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE or a scheduled sweep -- no file path reaches it. Routed by the `reply` gate. Decided: 2026-09-14, when the practice landed at universal."
 occasion:    "a person says \"Chief of Staff\""
 gates:       ["reply"]
+gates_why:   "The whole obligation is the shape of one report: the state-not-prose filter, and a clickable link on every session named."
 index_clause: "on request only; name the window read, link each session; Promotion Reviews last"
 checked_by:  null
 defines:     ["Chief of Staff", "the sweeper", "the desk", "Promotion Reviews"]

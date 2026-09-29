@@ -4,6 +4,7 @@ title:       Code that exists because of a practice cites it by slug, in place
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/**"]
+applies_to_why: "The occasion is writing code because a practice requires it, which happens in tools/ -- this repo's only place code implementing a practice's behavior is written. Decided: follow-up session, 2026-09-03."
 occasion:    "writing code because a specific practice requires it"
 gates:       []
 index_clause: "cite the practice's slug in a comment, right where the code is"

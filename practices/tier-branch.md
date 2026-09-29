@@ -4,6 +4,7 @@ title:       "\"Tier branch\" names one rung of the pre-staging -> staging -> ma
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A phrase in a MESSAGE, like primary-branch -- no file path reaches it. Reached through the occasion index; no gate, because it defines a word rather than governing a workflow moment. Decided: 2026-09-28, when the practice landed."
 occasion:    "a person says \"Tier branch\", or asks which branches are the tiers"
 gates:       []
 index_clause: "pre-staging, staging or main -- plus staging's old name and Promote's lock"
