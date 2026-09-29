@@ -281,6 +281,31 @@ def _unpromoted(repo, staging, _git):
     return int(ahead)
 
 
+def _this_session_id():
+    """-> 'session_<id>' for this Claude Code Remote session, '' when the
+    harness does not say. The harness hands the id over as cse_<id>; its
+    public form, the one a commit's session trailer carries, is session_<id>
+    (practice: session-trailer)."""
+    raw = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID', '').strip()
+    if not raw:
+        return ''
+    return 'session_' + (raw[4:] if raw.startswith('cse_') else raw)
+
+
+def _range_is_this_sessions(repo, rng, own, _git):
+    """-> True when a commit in `rng` carries this session's trailer: the
+    branch or flow those commits sit on is one this session worked on.
+
+    With no session id to look for (a harness that does not say), the answer
+    falls back to `own` -- this checkout still gets its line, since it is the
+    one this session works in, and another repository gets none, since
+    nothing ties its commits to this session (practice: the-boildown)."""
+    sid = _this_session_id()
+    if not sid:
+        return own
+    return sid in _git(repo, 'log', '--format=%B', rng)
+
+
 # The reply gate runs at every turn start; a fetch that cannot finish in this
 # long is treated as offline rather than held up for.
 REFRESH_TIMEOUT_SECONDS = 8
@@ -305,7 +330,8 @@ def _refresh_remote_branch(repo, branch):
 
 def _unlanded_work(root, siblings=True):
     """-> [str] one line per repo in this session whose committed work is not
-    on the branch that repo actually merges into. Never raises.
+    on the branch that repo actually merges into -- and only where those
+    commits are this session's own. Never raises.
 
     WHY THE REPLY GATE AND NOT THE STOP HOOK (Morgan, 2026-09-21, strength:
     decided): "if there are changes that are committed but NOT YET ON
@@ -361,6 +387,18 @@ def _unlanded_work(root, siblings=True):
         head = _git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')
         if not head or head == 'HEAD':
             continue
+        # ONLY THE FLOW THIS SESSION WORKED ON. A line below is printed only
+        # when the commits it would name carry this session's trailer --
+        # in this checkout as much as in a sibling clone. Another session's
+        # batch waiting on its own Promote is not this session's to report,
+        # and printing it at the end of every session confused more than it
+        # helped (Morgan, 2026-09-29, strength: decided): "only tell me about
+        # that promotions that I need to do *ONLY* regarding the branch/flow
+        # that I edited/worked on in that session window ... *UNLESS* our
+        # session is blocked on it." Whether a session is blocked on work it
+        # did not make is its own judgment, never this scan's, so the scan
+        # reports nothing for that case (practice: the-boildown).
+        own = repo.resolve() == pathlib.Path(root).resolve()
         # The branch this repo actually lands work on. precedent.json's
         # base_branch is the declaration; origin/HEAD is the fallback.
         base = ''
@@ -390,6 +428,9 @@ def _unlanded_work(root, siblings=True):
                 base = landing
             pending = _unpromoted(repo, staging, _git) \
                 if landing == pb.PRE_STAGING else None
+            if pending and not _range_is_this_sessions(
+                    repo, f'origin/{staging}..origin/{pb.PRE_STAGING}', own, _git):
+                pending = None
             if pending:
                 name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
                     else 'this checkout'
@@ -418,6 +459,8 @@ def _unlanded_work(root, siblings=True):
             continue
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
         if not ahead or ahead == '0':
+            continue
+        if not _range_is_this_sessions(repo, f'origin/{base}..HEAD', own, _git):
             continue
         # origin/<base> is only as fresh as the last fetch, and a pull request
         # merged through the GitHub API -- how every cloud session merges --
