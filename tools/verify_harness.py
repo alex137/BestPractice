@@ -11290,6 +11290,18 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
+        # checks-use-generated-blocks -- a repo's own check that finds
+        # generated text by spelling a marker itself, the shape a shared
+        # set's no-stale-counts check had, instead of asking
+        # tools/generated_blocks.py.
+        def _plant_hand_marker(repo):
+            (repo / 'tools' / 'checks').mkdir(parents=True, exist_ok=True)
+            (repo / 'tools' / 'checks' / 'check_zzz_hand.py').write_text(
+                "SKIP_FROM = '<!-- BEGIN GENERATED: precedent-loader -->'\n",
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+        case('checks-use-generated-blocks', _plant_hand_marker)
+
         # practice-change-propagates -- a live lookup of a practice this tree
         # renamed away. `go-merge` is a deduplicated stub forwarding to
         # `go-update` here, so a README telling the reader to look it up
@@ -11312,6 +11324,14 @@ def check_precedent_check_fires():
         # materialized practice and check, and attribution is by that record
         # rather than by live resolution -- a bare CI checkout can reach
         # universal and repo-local but never team or individual.
+        # The planted path is built, never spelled: this file is inside every
+        # fixture, so a literal copy of it here is itself a stale reference.
+        # The old stale-reference scan hid it by accident -- any line quoting
+        # the loader marker opened a "generated block" in this file -- and
+        # tools/generated_blocks.py, which needs the marker alone on its line,
+        # no longer does (2026-09-29).
+        zzz_old = 'notes/' + 'ZZZ_OLD.md'
+
         def _setup_received(repo):
             _setup_rename(repo)
             (repo / 'MANIFEST.json').write_text(json.dumps({
@@ -11329,18 +11349,18 @@ def check_precedent_check_fires():
             (repo / 'notes' / 'ZZZ_OLD.md').write_text('placeholder\n',
                                                        encoding='utf-8')
             (repo / 'practices' / 'zzz-received.md').write_text(
-                'Materialized from another source; it names `notes/ZZZ_OLD.md`\n'
+                f'Materialized from another source; it names `{zzz_old}`\n'
                 'as this convention\'s canonical example.\n', encoding='utf-8')
             (repo / 'tools' / 'checks').mkdir(parents=True, exist_ok=True)
             (repo / 'tools' / 'checks' / 'check_zzz_received.py').write_text(
-                '# materialized check; its docstring names notes/ZZZ_OLD.md\n',
+                f'# materialized check; its docstring names {zzz_old}\n',
                 encoding='utf-8')
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'materialized output from another source')
             git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
 
         def _plant_received_only(repo):
-            git(repo, 'mv', 'notes/ZZZ_OLD.md', 'notes/ZZZ_NEW.md')
+            git(repo, 'mv', zzz_old, 'notes/ZZZ_NEW.md')
             git(repo, 'commit', '-qm', 'rename; only received files still name it')
 
         repo = fresh('rename-updates-links-received')
@@ -11356,7 +11376,7 @@ def check_precedent_check_fires():
         repo = fresh('rename-updates-links-editable')
         _setup_received(repo)
         (repo / 'docs-page.md').write_text(
-            'See `notes/ZZZ_OLD.md` for the details.\n', encoding='utf-8')
+            f'See `{zzz_old}` for the details.\n', encoding='utf-8')
         git(repo, 'add', '-A')
         git(repo, 'commit', '-qm', 'a page this repo owns names the same path')
         git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -11378,7 +11398,7 @@ def check_precedent_check_fires():
         rewrite(repo, 'AGENTS.md', lambda x: x.replace(
             '<!-- BEGIN GENERATED: precedent-loader -->',
             '<!-- BEGIN GENERATED: precedent-loader -->\n'
-            'A regenerated line naming notes/ZZZ_OLD.md.', 1))
+            f'A regenerated line naming {zzz_old}.', 1))
         git(repo, 'add', '-A')
         git(repo, 'commit', '-qm', 'loader block names the path')
         git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -11395,7 +11415,7 @@ def check_precedent_check_fires():
         (repo / 'notes' / 'ZZZ_OLD.md').write_text('placeholder\n',
                                                    encoding='utf-8')
         rewrite(repo, 'AGENTS.md', lambda x:
-                'A hand-written line naming notes/ZZZ_OLD.md.\n' + x)
+                f'A hand-written line naming {zzz_old}.\n' + x)
         git(repo, 'add', '-A')
         git(repo, 'commit', '-qm', 'hand-written half names the path')
         git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
