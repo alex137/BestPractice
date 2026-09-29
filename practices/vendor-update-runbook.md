@@ -58,7 +58,7 @@ needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestP
 Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 
 **This does not lift the gate the chain already runs through**, and it does
-not add one. `Go update` publishes by the repository's usual conventions, and
+not add one. Booked (`Go update`) publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all. Step 6 below is the
 landing branch's check, and it sits before the merge for that reason: a red check stops this merge exactly as it stops any
 other. What the phrase removes is the second question, not the gate. So a
@@ -715,7 +715,7 @@ says so, both from the vendored tree under `process/upstream/`.
 12. **Publish it, without asking again.** Run [go-update](go-update.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop after step 11 and ask. Every condition
-    `Go update` carries still holds -- a branch the repository restricts is
+    Booked (`Go update`) carries still holds -- a branch the repository restricts is
     still restricted, and a step this session cannot reach hands off rather
     than coming back as a question.
 

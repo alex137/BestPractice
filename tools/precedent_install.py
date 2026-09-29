@@ -159,6 +159,11 @@ def _vendor_catalogue(dest):
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(ROOT / 'practices', target)
+    # The source's own manifest travels with its catalogue: a consumer's
+    # occasion-index cap sums what each source declares there (2026-09-29).
+    if (ROOT / 'precedent-source.json').is_file():
+        shutil.copy2(ROOT / 'precedent-source.json',
+                     dest / UNIVERSAL_PATH / 'precedent-source.json')
     return sum(1 for _ in target.glob('*.md'))
 
 

@@ -66,7 +66,7 @@ name them as an owner and whether `approvers.json` lists them.
 
 The contributor is a **Write** collaborator on the project repository. They
 push branches, open pull requests and merge their own content work, through
-the assistant, using [`Go merge`](../practices/go-update.md) — they never need
+the assistant, using [Booked](../practices/go-update.md) (`Go update`) — they never need
 to see git vocabulary to do it.
 
 **Write alone restricts nothing**, which is why layer 2 is not optional. A

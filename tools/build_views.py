@@ -107,6 +107,17 @@ RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
 # nobody decided it (practice: constants-are-risk-inputs) -- registered in
 # session_load_budgets.json's _occasion_index_fallback_comment.
 OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
+# code-cites-practice: session-load-budget -- EACH SOURCE'S SHARE of every
+# consumer's occasion index (Morgan, 2026-09-29: the universal share,
+# strength: assented; one per set and a consumer cap that is their sum,
+# strength: decided). A consumer's index carries every source it declares
+# under one cap, and no consumer can shrink a source's part of it. So each
+# source declares its own allowance -- `occasion_share_tokens` in its own
+# precedent-source.json, the file a consumer already reads to identify it --
+# and is held to it when it builds itself; a consumer's cap is the sum of
+# the allowances of the sources it declares. Whichever source grows is
+# caught where it grows.
+REPO_LOCAL_OCCASION_TOKENS = _budget('repo_local_occasion_tokens', 400)
 
 
 def surface_budget(name, default):
@@ -150,6 +161,141 @@ class ResidentBudgetExceeded(Exception):
         self.tokens, self.budget = tokens, budget
         super().__init__(f'resident block is ~{tokens} tokens, over the '
                          f'{budget}-token hard cap')
+def occasion_share(practices):
+    """-> tokens of the occasion index these practices render ALONE, measured
+    with the same renderer and the same estimate as the whole index. Given a
+    source's own catalogue, it is that source's share of every consumer's
+    index."""
+    block, _t, _n = build_loader_block(practices, occasion_budget_tokens=None,
+                                       budget_tokens=10 ** 9)
+    if '## Occasion index' not in block:
+        return 0
+    idx = block.split('## Occasion index', 1)[1].split('```')[1]
+    return _approx_tokens(idx)
+
+
+universal_occasion_share = occasion_share      # the name it was added under
+
+
+def own_occasion_allowance(root):
+    """-> the `occasion_share_tokens` a source declares in its own
+    precedent-source.json, or None (not a source, or none declared)."""
+    f = pathlib.Path(root) / 'precedent-source.json'
+    try:
+        v = json.loads(f.read_text(encoding='utf-8')).get('occasion_share_tokens')
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if isinstance(v, int) else None
+
+
+def derived_occasion_cap(root, sources=None):
+    """-> (cap, why) for a repository with no occasion_index_tokens of its own:
+    the sum of every declared source's allowance plus its repo-local
+    allowance (repo_local_occasion_tokens, 400 unless its registry says
+    otherwise).
+
+    A SOURCE THAT DECLARES NO ALLOWANCE YET counts at its current measured
+    share (Morgan, 2026-09-29: "ANY change to the mechanics of how it works
+    must take into account updates/upgrades/migrations"). Allowances arrive
+    unevenly -- a set clone not yet pulled, a vendored universal tree an
+    older Update Vendors wrote without its precedent-source.json -- and a
+    repository mid-migration must build exactly as it did before, not be
+    refused by a cap it has half of. Such a source is uncapped until it
+    declares one, and `why` names it. -> (None, why) only when the sources
+    cannot be read at all, and the single fallback applies."""
+    try:
+        # A copy of this file can run with no resolver beside it (a consumer
+        # fixture, a partial vendor); then the old single cap applies.
+        import precedent_resolve as _pr
+        if sources is None:
+            sources = _pr.load_config(str(root))
+    except (Exception, SystemExit) as e:                    # noqa: BLE001
+        return None, f'the declared sources could not be read ({e})'
+    total, parts = 0, []
+    for src in sources:
+        if _pr.normalize_level(src.get('level')) == 'repo-local':
+            total += REPO_LOCAL_OCCASION_TOKENS
+            parts.append(f'repo-local {REPO_LOCAL_OCCASION_TOKENS}')
+            continue
+        try:
+            m = _pr.read_source_manifest(src['path']) or {}
+        except Exception:                                   # noqa: BLE001
+            m = {}
+        v = m.get('occasion_share_tokens')
+        if not isinstance(v, int):
+            pdir = pathlib.Path(src['path']) / 'practices'
+            v = occasion_share(load_practices(pdir, announce=False)) \
+                if pdir.is_dir() else 0
+            parts.append(f"{src.get('name')} ~{v} measured (it declares no "
+                         f"occasion_share_tokens yet, so it is not capped)")
+        else:
+            parts.append(f"{src.get('name')} {v}")
+        total += v
+    return (total, ' + '.join(parts)) if parts else (None, 'no sources declared')
+
+
+def occasion_cap(root):
+    """-> (cap, why): this repository's own occasion_index_tokens when its
+    registry declares one (a decision it took), else the sum of the
+    allowances of the sources whose practices THIS block carries, else the
+    single fallback.
+
+    THE SUM COVERS WHAT THE BLOCK CARRIES, NOTHING ELSE. The first version
+    (2026-09-29, same day) summed every declared source. A practice set
+    declares universal and defers it -- its tracked block carries its own
+    catalogue only -- so its cap was universal's allowance, a number about
+    a catalogue the block does not hold, and its own catalogue counted for
+    nothing. Where universal was cloned beside it that was a large, loose
+    cap and nothing showed; in GitHub's test, with no clone, universal
+    measured 0 and a freshly bootstrapped set was refused at a 0-token cap.
+    So: the sources sources_for_tracked_block() keeps, plus this repo's own
+    catalogue when the repo is itself a source that none of them already is.
+
+    A SOURCE REPO THAT DECLARES NO ALLOWANCE YET keeps the old single
+    fallback (practice: vendor-rollout-disclosed, question 3): a set made
+    before allowances existed, or by a bootstrap that does not write one,
+    builds as it always did."""
+    f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
+    try:
+        explicit = json.loads(f.read_text(encoding='utf-8')).get('occasion_index_tokens')
+    except (OSError, ValueError, AttributeError):
+        explicit = None
+    if isinstance(explicit, int):
+        return explicit, 'occasion_index_tokens in tools/session_load_budgets.json'
+    return block_occasion_cap(root)
+
+
+def block_occasion_cap(root):
+    """-> (cap, why) from the sources this repo's block carries, as
+    occasion_cap() describes; the part of it no registry overrides."""
+    root = pathlib.Path(root)
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+        carried, _deferred, _notes = sources_for_tracked_block(
+            root, _pr.load_config(str(root)))
+    except (Exception, SystemExit) as e:                    # noqa: BLE001
+        return (OCCASION_INDEX_BUDGET_TOKENS,
+                f'the fallback (the declared sources could not be read: {e})')
+    total, parts = 0, []
+    if (root / 'precedent-source.json').is_file() and not any(
+            _same_repository(s['path'], root) for s in carried):
+        own = own_occasion_allowance(root)
+        if own is None:
+            return (OCCASION_INDEX_BUDGET_TOKENS,
+                    'the fallback (this source declares no '
+                    'occasion_share_tokens in precedent-source.json yet)')
+        total, parts = own, [f'this source {own}']
+    if carried:
+        cap, why = derived_occasion_cap(root, carried)
+        if cap is not None:
+            total += cap
+            parts.append(why)
+    if not parts:
+        return OCCASION_INDEX_BUDGET_TOKENS, 'the fallback (no sources declared)'
+    return total, f"the sum of its sources' allowances: {' + '.join(parts)}"
+
+
 class OccasionIndexBudgetExceeded(Exception):
     """The generated occasion index is over its declared ceiling.
 
@@ -1731,7 +1877,7 @@ def loader_practices(root, own_practices):
 
 
 def render_agents_md(practices, agents_md=None, source_levels=None,
-                     defers_sources=False):
+                     defers_sources=False, occasion_budget=None):
     """-> (text, stats), where stats is (resident_tokens, n_resident,
     n_total) FROM THE BLOCK THIS RETURNED -- not re-derived.
 
@@ -1757,7 +1903,8 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
         block, tokens, n_resident = build_loader_block(
             practices, source_levels=source_levels,
             defers_sources=defers_sources, block_dir=agents_md.parent,
-            occasion_budget_tokens=OCCASION_INDEX_BUDGET_TOKENS)
+            occasion_budget_tokens=(occasion_budget if occasion_budget
+                                    is not None else OCCASION_INDEX_BUDGET_TOKENS))
     except OccasionIndexBudgetExceeded as e:
         sys.exit(f"build_views FAIL: {e}")
     except ResidentBudgetExceeded as e:
@@ -1966,16 +2113,32 @@ def _engine_scope_files():
     return {f for f in files if f.endswith('.py')}
 
 
+def generated_label(generated_by, edit_instead, regenerate):
+    """-> the frontmatter lines a wholly generated Markdown file opens with.
+
+    WHY A LABEL AND NOT A COMMENT (Morgan, 2026-09-29, strength: assented).
+    The hidden `<!-- GENERATED ... -->` comment never showed on GitHub, so a
+    reader there had no sign the file was generated, and checks had to
+    search the text for a phrase. GitHub renders frontmatter as a small
+    table at the top of the page. The wording is his: "Generated by X.
+    Don't edit here; edit Y instead, then run Z." -- true under both
+    generated-artifact-provenance and derived-file-marker, and it says
+    where the change belongs."""
+    note = (f"Generated by {generated_by}. Don't edit here; edit "
+            f"{edit_instead} instead, then run {regenerate}.")
+    return ['---', f'generated_by: {generated_by}',
+            f'edit_instead: "{edit_instead}"',
+            'note: "' + note.replace('"', "'") + '"', '---']
+
+
 def render_map_md(practices, withdrawn=()):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
+    # The label every generated file opens with (tools/generated_files.json
+    # lists them all): visible as a small table on GitHub, read by
+    # precedent_check.py's generated-files-registered (Morgan, 2026-09-29).
     lines = [
-        "<!-- GENERATED by tools/build_views.py -- do not hand-edit. Regenerate with "
-        "`python3 tools/build_views.py`; `python3 tools/build_views.py --check` exits "
-        "non-zero if this file has drifted from a fresh regeneration. "
-        "Source: practices/ -- each row is one practice file's own frontmatter. To "
-        "change a row, edit that practice file; to change what the table shows at all, "
-        "edit tools/build_views.py. An edit here is discarded by the next "
-        "regeneration. -->",
+        *generated_label('tools/build_views.py', 'practices/*.md',
+                         'python3 tools/build_views.py'),
         '',
         "# Repository map — where to find things",
         '',
@@ -2047,6 +2210,7 @@ TOOLS_DESCRIPTIONS = {
     'parse_check.py': "Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check",
     'doc_lint.py': "Markdown hygiene checks — strikethrough, links, acronyms",
     'frontmatter_yaml.py': "The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift",
+    'generated_blocks.py': "Whether a line is inside a generated block, in both marker styles, closing marker required -- the one answer every scan that skips generated text uses",
     'doc_lifecycle.py': "The document status header — kind, status, "
                         "supersession — checked across spec/ and record/",
     'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",
@@ -2136,12 +2300,9 @@ def render_glossary_md(practices, root=None):
             terms.append((term, fm['slug']))
     terms.sort(key=lambda t: t[0].lower())
     lines = [
-        "<!-- GENERATED by tools/build_views.py -- do not hand-edit. Regenerate with "
-        "`python3 tools/build_views.py`; `python3 tools/build_views.py --check` exits "
-        "non-zero if this file has drifted from a fresh regeneration. "
-        "Source: practices/ -- the `defines:` frontmatter field of the practice that "
-        "owns each term. To add or change a term, edit that field on that practice; an "
-        "edit here is discarded by the next regeneration. -->",
+        *generated_label('tools/build_views.py',
+                         "the defines: field of practices/*.md",
+                         'python3 tools/build_views.py'),
         '',
         "# Canonical names",
         '',
@@ -2306,9 +2467,24 @@ def main():
     # public repo, or another repository's catalogue in a practice set --
     # reaches the session only through the untracked file, so the standing
     # instruction has to point at it.
+    _cap, _cap_why = occasion_cap(root)
     new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
         block_practices, agents_md, source_levels=levels,
-        defers_sources=defers_any_source(root))
+        defers_sources=defers_any_source(root), occasion_budget=_cap)
+    _own = own_occasion_allowance(root)
+    if _own is not None:
+        share = occasion_share(practices)
+        if share > _own:
+            sys.exit(
+                f"build_views FAIL: this source's share of every consumer's "
+                f"occasion index is ~{share} tokens, over its {_own}-token "
+                f"allowance (occasion_share_tokens in precedent-source.json). "
+                f"A consumer carries this share, with every other source it "
+                f"declares, under a cap that is the sum of their allowances, "
+                f"and cannot shrink it. Give a file-bound practice a real "
+                f"applies_to glob and drop its occasion:, or shorten the "
+                f"longest index_clause values; raising the allowance is the "
+                f"person's decision, with the reason recorded there.")
     targets = [(agents_md, new_agents)]
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()

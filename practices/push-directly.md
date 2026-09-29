@@ -55,14 +55,14 @@ branch the work is already headed toward** -- the branch this session's
 own work has actually been developed and committed against, never a
 repository's configured default branch chosen just because it is
 configured that way. Under the branch tiers that is where this person's
-`Go update` lands, which `python3 tools/precedent_branches.py --landing`
+Booked (`Go update`) lands, which `python3 tools/precedent_branches.py --landing`
 names -- `pre-staging` for a person whose `landing_branch` says so (the
 tiered route is opt-in since 2026-09-26); for everyone else, where the repository declares a branch -- `base_branch` in its
 `precedent.json`, or a rule of its own -- the declaration decides it
 ([primary-branch](primary-branch.md)); absent one, it is whichever branch
 the change in front of you is already on.
 
-**This is not a new kind of permission.** `Go update`'s Rule already lets a
+**This is not a new kind of permission.** Booked's Rule already lets a
 direct, specific instruction about one change override its own
 classification, high-risk included. `Push directly` is that instruction,
 standing and reusable, so it does not need to be re-argued in a full
@@ -71,7 +71,7 @@ sentence every time it is meant.
 **It authorizes this one change, not a standing exemption.** Said about a
 different piece of work later, it authorizes that push, to whatever branch
 that invocation names or defaults to; it does not turn off the high-risk
-classification generally, and `Go update` still asks the question on the
+classification generally, and Booked still asks the question on the
 next change that does not carry this phrase.
 
 Same verification as [go-update](go-update.md): the light check still runs
@@ -103,12 +103,12 @@ Promote moves it up; say so in the reply's first line
 gate refuse the push.
 
 ## Why
-`Go update`'s Rule already allows overriding its own high-risk/default
+Booked's Rule already allows overriding its own high-risk/default
 classification with a direct, specific instruction -- but writing that
 instruction out in full, "skip the PR even though this touches a
 governance practice," costs a sentence every time it is meant. `Push
 directly` names the override once, so saying it costs two words, the same
-saving `Go update` and `Approved` already make for the base case.
+saving Booked (`Go update`, `Approved`) already makes for the base case.
 
 **Naming the branch inline, and defaulting the rest, closes the gap the
 original two words left.** A bare "push directly" said nothing about

@@ -73,3 +73,5 @@ Not open until: for the WhatsApp half, a Meta Business account, a business entit
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-28: a companion brainstorm, [spec/SPECULATIVE_TELEGRAM_ACCESS.md](../spec/SPECULATIVE_TELEGRAM_ACCESS.md), covers content-only permissions, short replies with links, and mapping a Telegram user to repositories. It proposes an answer to the enforcement problem above: the bot never bypasses branch protection, every change goes through a pull request, and `CODEOWNERS` on machinery paths makes GitHub check the files rather than the author. It also found that Claude Code now documents a Telegram channel plugin (research preview, read 2026-09-28) — a near-zero-build route if Morgan himself is the user. Nothing closes; the item's condition is unchanged.

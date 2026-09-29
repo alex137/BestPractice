@@ -90,8 +90,10 @@ broken practice file is refused at `pre-staging`, not twenty minutes into
 `staging` (Morgan, 2026-09-29: "make those per-file checks thorough at
 pre-staging, much moreso than rolling it out to test unrelated files").
 
-**`pre-staging` never reads the full history.** The author and date checks
-read only commits not yet on any remote, and a practice check given the
+**`pre-staging` never reads the full history.** The author, date and
+session-trailer checks read only commits not yet on any remote (the
+trailer check since 2026-09-29, where a repository declares the set that
+carries it), and a practice check given the
 push's range reads only that range: the harness-adapter ledger check walked
 four folders' whole history there until 2026-09-29, and pinned its finding
 to a file the push had not changed, so it read everything and could never

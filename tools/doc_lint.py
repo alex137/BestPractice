@@ -91,6 +91,7 @@ process/upstream/tools/doc_lint.py.)
 """
 import re, sys, subprocess, pathlib
 import frontmatter_yaml
+import generated_blocks
 
 def _git(args, cwd=None):
     return subprocess.run(['git'] + args, cwd=cwd, capture_output=True, text=True).stdout.strip()
@@ -718,13 +719,13 @@ def _decontent(line):
 # (--numbers-report), not a gate.
 #
 # Exemptions inside a gated document:
-#   * inside a <!--gen:...--> block            (generated -- best)
+#   * inside a generated block, either marker style (generated -- best;
+#     tools/generated_blocks.py says what counts as one)
 #   * a line carrying an http(s) citation      (externally sourced)
 #   * <!--rom--> on the line                   (declared unsourced estimate)
 NUM_UNIT = (r"(?:m|km|mi|nmi|ft|kt|mph|kg|lb|MW|kW|kWh|MJ|kJ|h|hr|min|%|L|gal)")
 QTY_RE = re.compile(r"(?<![\w.])(?:[≈~]\s?)?\d[\d,]*(?:\.\d+)?\s?(?:" + NUM_UNIT
                     + r")(?![\w/])|\$\s?\d[\d,]*(?:\.\d+)?[MBk]?")
-GEN_BLOCK_RE = re.compile(r"<!--gen:.*?<!--/gen:[\w-]+-->", re.S)
 GATE_MARKER = "<!--numbers:gated-->"
 
 
@@ -762,7 +763,7 @@ def check_quantities(text):
     """[(line_no, quantity)] for quantities that are neither generated, cited,
     nor <!--rom-->-marked. Only meaningful for a document that opts in."""
     out = []
-    outside = GEN_BLOCK_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    outside = generated_blocks.blank(text)
     for i, line in enumerate(outside.splitlines(), 1):
         if "<!--rom-->" in line:
             continue

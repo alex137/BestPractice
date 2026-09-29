@@ -39,7 +39,7 @@ interrupting you for a value you can change in one sentence later
 | `PRECEDENT_COMMIT_TZ`, and `identity.json`'s `timezone` | This repository's declared `fallback_timezone`, `America/New_York`, and the author-date check downgrades from enforced to guessed |
 | `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](../practices/declared-pronouns.md)) |
 | `identity.json`'s `relayed_authorization` | `refused` — your approval does not travel to a session you are not typing in |
-| `identity.json`'s `landing_branch` | The repository's `precedent.json` `landing_branch`, else `staging` — where `Go update` lands your work ([tier-branch](../practices/tier-branch.md)) |
+| `identity.json`'s `landing_branch` | The repository's `precedent.json` `landing_branch`, else `staging` — where Booked (`Go update`) lands your work ([tier-branch](../practices/tier-branch.md)) |
 | `identity.json`'s `branch_push_checks` | `basic` on every branch except `staging` and `main`, which always get the full check |
 | `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` | No private set resolves, so your own and your team's practices are silently absent — **the one row here whose default is genuinely bad**, and the reason the rest of this page exists |
 

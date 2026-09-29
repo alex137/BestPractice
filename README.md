@@ -4,14 +4,18 @@
 machines. ([Humans at our
 Best](philosophy/HUMANS_AT_OUR_BEST.md))*
 
-Attempts to Describe Precedent in <20 words:
+Attempts to Describe Precedent in <40 words:
 
-- Humans collaborate and AI pattern matches.
-- All is lost when you close a Claude/ChatGPT/AI Assistant Session. It
+- **Humans collaborate** and **AI pattern matches**.
+- **All is lost when you close** a Claude/ChatGPT/AI Assistant Session. It
   should be smartly shared and learned from.
-- AI watches you collaborate, and suggests (and can enforce) patterns,
+- AI watches you collaborate, and **suggests (and can enforce)** patterns,
   protocols, rules.
-- You work; AI uses github to remember, organize, and suggest protocols.
+- You work; **AI uses github to remember**, organize, and suggest protocols.
+- **Three insights together:** AI intermediates & improves ALL work, you
+  don't write ANYTHING yourself + AI organizes work as you do it in
+  Github + AI finds & suggests rules based on what each of you decides or
+  pushes.
 
 The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:
