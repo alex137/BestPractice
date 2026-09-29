@@ -4,8 +4,10 @@ title:       Fix the original, not just the copy in front of you
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. The occasion is a property of the file's HISTORY -- was it copied from somewhere -- which no glob can express: the instantiated copy of a template looks exactly like a file written in place. Routed by the `review` and `reply` gates and by the occasion index instead. Decided: 2026-09-12, when the practice landed."
 occasion:    "fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy"
 gates:       ["review", "reply"]
+gates_why:   "`review` catches it while the fix is being made, which is the only moment the origin is cheap to fix. `reply` catches the disclosure half -- every copy has to be named in the reply, and that obligation exists even when the origin turned out to be unreachable."
 index_clause: "fix the origin, every copy, and the gate that missed it -- name them all"
 index_required: false
 checked_by:  null

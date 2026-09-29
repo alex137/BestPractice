@@ -4,8 +4,10 @@ title:       An upstream bug is never patched in the repo that copied it
 tier:        on-demand
 severity:    default
 applies_to:  ["process/upstream/**", "precedent/universal/**", "tools/*.py", "tools/checks/**", "practices/**", ".claude/hooks/**", "tools/bootstrap.sh", ".github/workflows/light-check.yml", ".github/workflows/leak-gate.yml"]
+applies_to_why: "The paths where a copy of another repository's file usually lives: the vendored upstream tree, a declared universal source path, the engine and check scripts, practices, hooks, the bootstrap script and the two shipped workflows. The distinguishing condition is who wrote the file, which no glob can express, so these are where the edit that should stop tends to start; a session that owns the file says so and carries on. Decided: 2026-09-28, when the practice landed."
 occasion:    "about to change a file to fix a bug, in a repository that did not write that file"
 gates:       ["review"]
+gates_why:   "`review` is the moment a fix is chosen, before the edit, which is the only moment this rule can still stop a local patch to an upstream bug."
 index_clause: "classify first; an upstream bug stops here and goes upstream by Prompt Please"
 index_required: false
 checked_by:  null

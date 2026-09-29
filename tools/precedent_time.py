@@ -67,7 +67,7 @@ that declared nothing gets, and it is deliberately a real zone rather than
 UTC: see WHAT IS DELIBERATELY NOT IN THE LADDER below.
 
 A TEAM RUNG WAS ASKED FOR AND DECIDED AGAINST, between the person and
-rung 5. A team practice set declares a zone of its
+rung 5. A shared practice set declares a zone of its
 own, and that declaration is read only when somebody is working inside that
 set's own repository -- rung 5 means "this repo", never "my team". Decided
 against on 2026-09-11, by Morgan, with the reasoning and the two rejected

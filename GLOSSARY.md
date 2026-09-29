@@ -6,6 +6,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| Act | [act](practices/act.md) |
 | allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
 | API budget | [github-api-budget](practices/github-api-budget.md) |
@@ -15,12 +16,17 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Boildown | [the-boildown](practices/the-boildown.md) |
+| Book | [go-update](practices/go-update.md) |
+| Book it | [go-update](practices/go-update.md) |
+| Booked | [go-update](practices/go-update.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
 | Chief of Staff | [chief-of-staff](practices/chief-of-staff.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
+| Consider | [consider](practices/consider.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
+| Debut | [debut](practices/debut.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
@@ -35,21 +41,28 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-update](practices/go-update.md) |
+| Graduate | [promote](practices/promote.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | Landing branch | [tier-branch](practices/tier-branch.md) |
 | lease board | [lease-in-flight-work](practices/lease-in-flight-work.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | live citation | [practice-change-propagates](practices/practice-change-propagates.md) |
+| Make live | [produce](practices/produce.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
+| One-line plan | [consider](practices/consider.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
+| Plan it | [plan-it](practices/plan-it.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | pre-staging | [promote](practices/promote.md) |
 | Primary branch | [primary-branch](practices/primary-branch.md) |
+| Produce | [produce](practices/produce.md) |
+| production | [produce](practices/produce.md) |
 | Promote | [promote](practices/promote.md) |
+| Promote N | [promote](practices/promote.md) |
 | Promotion Reviews | [chief-of-staff](practices/chief-of-staff.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
@@ -64,12 +77,16 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
+| Shared Save | [go-update](practices/go-update.md) |
 | Simple please | [plain-words](practices/plain-words.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | source manifest | [source-naming](practices/source-naming.md) |
+| Spec it out | [write-it-up](practices/write-it-up.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | subject: | [session-tags](practices/session-tags.md) |
+| Test Readiness | [debut](practices/debut.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
+| the five stages | [promote](practices/promote.md) |
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
@@ -89,9 +106,9 @@ The words the mechanism itself is made of. No single practice owns these, so the
 
 | Term | What it means | Where it is spelled out |
 |---|---|---|
-| **level** | Which population a rule binds. Four of them: universal (everyone using Precedent), team (one named team), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs. | [practices/layered-practice-packs.md](practices/layered-practice-packs.md) |
+| **level** | Which population a rule binds. Four of them: universal (everyone using Precedent), shared (everyone who declares that shared set), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs. | [practices/layered-practice-packs.md](practices/layered-practice-packs.md) |
 | **source** | A place practices come from -- usually a repository, sometimes a directory inside one. Each source sits at exactly one level, and a repository declares the sources in force in it in its own precedent.json. The individual source is the exception that is never declared in a shared file: it is named in a person's own user-level config, so its existence stays private. | [practices/source-naming.md](practices/source-naming.md) |
-| **level repo** | Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just "the source", or "the individual set" / "a team set" when the level matters. Naming conventions for those repositories are in source-naming. | [practices/source-naming.md](practices/source-naming.md) |
+| **level repo** | Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just "the source", or "the individual set" / "a shared set" when the level matters. Naming conventions for those repositories are in source-naming. | [practices/source-naming.md](practices/source-naming.md) |
 | **catalogue** | All the practice files of one source, taken together -- what that source teaches. "The catalogue" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | **in force** | A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-update` is practices/go-update.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |

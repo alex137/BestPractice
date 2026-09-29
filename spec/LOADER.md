@@ -32,7 +32,7 @@ implementation note, not a restatement.
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
 
 **Generated views are no longer this-repo-only (2026-09-03).** A team or
-individual source repo (e.g. `precedent-team-repo-maintenance`,
+individual source repo (e.g. `precedent-shared-repo-maintenance`,
 `precedent-individual`) vendors the same [tools/build_views.py](../tools/build_views.py)
 and runs `python3 tools/build_views.py --agents-only` on its own
 `practices/`, getting the identical resident-block/occasion-index/standing-
@@ -122,7 +122,7 @@ Every section of the generated block is emitted only if this source fills the
 channel it describes. That was not true until 2026-09-06, and the way it broke
 is worth keeping.
 
-[`precedent-team-tms`](https://github.com/themorgan/precedent-team-tms) deleted
+[`precedent-team-tms`](https://github.com/themorgan/precedent-team-tms), as the set was named at the time, deleted
 its bootstrap placeholder, which left it with one resident practice and no
 on-demand ones. The block it generated still carried an occasion index —
 rendered as an empty ``` ``` box — and a standing instruction telling every
@@ -160,7 +160,7 @@ consuming repo taking a vendor update.
 [tools/build_views.py](../tools/build_views.py)'s `_place_rule_links` now
 repoints each one against the block's own directory — `practices/…` for the
 instructions file, `../practices/…` for `.precedent/SESSION_PRACTICES.md` — using
-the **materialized** copy's path, since a team or individual practice's text
+the **materialized** copy's path, since a shared or individual practice's text
 comes from a clone outside the consuming repo entirely.
 
 A link it cannot place is **left exactly as its author wrote it** and named on
@@ -197,14 +197,14 @@ a number in a sentence. That is `docs-track-models`, happening here.
 <!--gen:catalogue-->
 | | |
 |---|---|
-| Practices in the catalogue | 169 |
-| Resident, loaded every session | 11 of 169 practices |
+| Practices in the catalogue | 174 |
+| Resident, loaded every session | 11 of 174 practices |
 | Resident block size | ≈1045 tokens of a 2000-token hard cap |
 | `## Rule` share of the catalogue | 26% of the catalogue |
-| Rules still over 150 words | 80 |
+| Rules still over 150 words | 82 |
 | Carrying a `## Detail` | 119 |
-| Carrying a `## Story` | 169 |
-| Enforced by a check | 54 of 169 practices carry a `checked_by` |
+| Carrying a `## Story` | 174 |
+| Enforced by a check | 55 of 174 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py
@@ -369,7 +369,8 @@ has measured, and it settles where the remaining effort should go.
 ### What changed
 
 - **A glob pass**, recorded with a reason per practice in
-  [tools/routing_scope.json](../tools/routing_scope.json). Eight practices
+  `tools/routing_scope.json` (moved 2026-09-29 into each practice's own
+  `applies_to_why`). Eight practices
   gained a narrower `applies_to`; 24 stay at `**` with the reason stated. Only
   three of the eight were in the v4 miss table — the rest were scoped on the
   merits, so the pass is not a fit to twenty commits.
@@ -470,8 +471,8 @@ The residue after routing and enforcement is small and specific:
   registry is recognised by what it is *for*, and this repo's are `.json`,
   `.py` and `.md` alike. It is the one practice in the catalogue that every
   channel misses by construction, and it is recorded that way in
-  [tools/routing_scope.json](../tools/routing_scope.json) rather than left
-  looking like an oversight.
+  its own `applies_to_why` (until 2026-09-29, `tools/routing_scope.json`)
+  rather than left looking like an oversight.
 - **`convention-to-audit`, `volatile-rules-carry-dates`, `repo-is-memory`**
   (×1 each) — single misses in one run, on practices that were found in every
   other case. Not a pattern.

@@ -4,8 +4,10 @@ title:       Use the pronouns a person declares; where none resolves, they/them
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Deliberately unrouted by path. The occasion is writing about a person in the third person, which happens in a reply, a commit message and a pull-request body as readily as in a tracked file -- no glob reaches the first three, and a glob that tried would fire on every markdown file in the repo to catch the few that name a person. The index clause carries the whole rule in one line, which is what makes leaving it at '**' cheap. Decided: 2026-09-12, when the practice landed."
 occasion:    "writing about a person in the third person -- a reply, a document, a commit message, a pull-request body"
 gates:       ["reply"]
+gates_why:   "Writing the reply is the moment a session refers to the person it is working with, which is the commonest occasion by far and the one no path can reach."
 index_clause: "use the pronouns a person declares; none declared means they/them, never guess"
 index_required: false
 checked_by:  null

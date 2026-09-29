@@ -41,7 +41,7 @@ Run:
 
   The default was documented as a trap right here and went on catching
   people anyway: 2026-09-09, a careful session ran it bare from a consuming
-  repo, --repo resolved to `process/upstream/`, the team sources' `../` paths
+  repo, --repo resolved to `process/upstream/`, the shared sources' `../` paths
   then resolved against `process/`, every one of them missed, and the run
   hard-failed claiming the universal source's path collided with its own
   output directory. Nothing was wrong with that repo. A documented trap that
@@ -224,7 +224,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # rewritten to match. Exit 0, one warning line, a committable diff that
     # looks like a deliberate removal.
     #
-    # This is the CI state by definition: a private team or individual
+    # This is the CI state by definition: a private shared or individual
     # source is unreachable in every continuous-integration checkout, which
     # is exactly where an automated sync would run unattended.
     #
@@ -337,7 +337,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             # sync, silently, as a committable diff that reads as deliberate.
             #
             # Reported 2026-09-07 from a real private repo updating to this
-            # engine: 15 individual- and team-level practices would have gone,
+            # engine: 15 individual- and shared-level practices would have gone,
             # and the session caught it only by checking the repo's actual
             # visibility by hand. This is the same silent-deletion failure
             # this tool already refuses for an unreachable source, arriving
@@ -409,7 +409,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     #   * A slug whose recorded source IS STILL DECLARED, and which that
     #     source no longer produces, is the real case: the rule moved or the
     #     vendored copy went stale, and syncing now loses it. That is the
-    #     2026-09-07 incident -- promoting two practices out of a team set
+    #     2026-09-07 incident -- promoting two practices out of a shared set
     #     left every consumer pinned before the promotion with them in
     #     neither source.
     if not check:

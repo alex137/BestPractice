@@ -4,6 +4,7 @@ title:       When a tool flags something, judge it and give a verdict, never the
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. It fires when a tool's output reaches a reply, which is a moment, not a file -- the same reason small-calls has none. Reached through the reply gate and the occasion index. Decided: 2026-09-26, when the practice landed at universal."
 occasion:    "a tool, hook, check or gate flags something the person would otherwise have to judge"
 gates:       ["reply"]
 index_clause: "judge what a tool flagged; give the person a verdict and why, never its name"

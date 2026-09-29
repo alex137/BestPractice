@@ -4,8 +4,10 @@ title:       "\"Drop it\" marks an item parked and ends the subject"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate. Decided: 2026-09-08, when it moved up from the repo-local source."
 occasion:    "a person says \"Drop it\" about an open item or a question"
 gates:       ["reply"]
+gates_why:   "The obligation lands in the reply: mark the item this turn, say which one, ask nothing back."
 index_clause: "mark the item `parked` now; never raise it unprompted again"
 checked_by:  null
 defines:     ["Drop it"]

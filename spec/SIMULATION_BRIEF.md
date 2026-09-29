@@ -136,7 +136,7 @@ So: for each repo attached to a simulation run —
   BestPractice's own — so path-glob matching is exercised against layouts
   it wasn't written against.
 - Materialize that repo's actual resolved practice set (universal + its
-  own team/individual/repo-local sources, via the same
+  own shared/individual/repo-local sources, via the same
   `precedent_materialize.py` / `precedent_sync_views.py` path a real
   install uses) rather than assuming BestPractice's catalogue applies
   as-is.

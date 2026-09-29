@@ -4,6 +4,7 @@ title:       Review code whose failure is silent against a stated contract, and 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. The code whose failure is silent (a cache key, a skip ledger, a gate) can live anywhere; the practice is a property of how the review is run, and the occasion index is the channel. Decided: 2026-09-29, with the practice."
 occasion:    "reviewing code that decides what is skipped, cached, held or refused"
 gates:       []
 index_clause: "give each reviewer a one-line contract; a finding counts once reproduced"

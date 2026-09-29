@@ -4,6 +4,7 @@ title:       A workflow file runs only with the person's approval, pinned to its
 tier:        on-demand
 severity:    default
 applies_to:  [".github/workflows/**"]
+applies_to_why: "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run. Decided: 2026-09-25, when the practice landed."
 occasion:    "a .github/workflows file is added, edited, or found in an update or migration"
 gates:       ["push"]
 index_clause: "no workflow added or edited without the person's words, hash-pinned"

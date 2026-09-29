@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       engine-dev
 applies_to:  ["templates/harness/claude-code/hooks/**", "templates/harness/claude-code/settings.json", "tools/precedent_bootstrap_source.py", "tools/precedent_vendor_engine.py"]
+applies_to_why: "the three places a hook's kind is declared -- the shipped hooks, the two kinds' templates, and HOOK_WIRING -- are exactly these files; an edit anywhere else cannot add or drop a hook. Decided: 2026-09-25, with the practice."
 occasion:    "adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs"
 gates:       ["merge"]
 index_clause: "a new hook joins its kind's HOOK_WIRING list and template, same commit"

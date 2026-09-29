@@ -173,6 +173,23 @@ def _bind_source(clone):
         sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} lists no `code` "
                  f"directories, so there is nothing to vendor -- a set whose "
                  f"practices resolve live needs no mirror at all.")
+    # A consumer may opt in to vendoring the set's PRACTICES too, by setting
+    # `vendor_practices: true` under `upstream` in its own
+    # process/manifest_<name>.json. Then practices/ and the set's
+    # precedent-source.json are mirrored beside its code, the consumer's
+    # precedent.json points the source at process/<name>, and a fresh
+    # container resolves the set with no sibling clone and no repository
+    # access granted mid-session. Only for a private consumer: a private
+    # set's rules in a public tree are exactly what the leak gate refuses.
+    # Why: a consumer whose sessions cannot reach the set until the agent
+    # attaches it by hand ran every fresh session without the set's rules
+    # until someone asked why a repository was being added (2026-09-29).
+    try:
+        own = json.loads(MANIFEST.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        own = {}
+    if (own.get('upstream') or {}).get('vendor_practices'):
+        dirs += ['practices', SOURCE_MANIFEST]
     CODE_DIRS = dirs
 
 
@@ -427,7 +444,8 @@ def _files(base):
     if CODE_DIRS is not None:
         # A shared set's mirror is its declared code directories and nothing
         # else -- never its manifest (a private set's manifest in a consumer's
-        # tree is what the leak gate refuses), never its practices.
+        # tree is what the leak gate refuses), never its practices -- unless
+        # the consumer opted in with `vendor_practices` (see _bind_source).
         files = {f for f in files
                  if any(f.as_posix() == d or f.as_posix().startswith(d + '/')
                         for d in CODE_DIRS)}
@@ -571,7 +589,11 @@ def _stamp_synced_from(commit):
     needs and which upstream.commit cannot answer during the normal cycle,
     because it legitimately lags from update() until the merge is recorded.
     """
-    path = MANIFEST        # the selected source's manifest (--source), not always the universal one
+    # MANIFEST, never a hard-coded process/manifest.json: with --source the
+    # stamp belongs to that set's own manifest. The hard-coded path wrote a
+    # shared set's commit into the universal manifest's synced_from, which
+    # then named a commit the universal upstream does not have (2026-09-29).
+    path = MANIFEST
     m = json.loads(path.read_text(encoding='utf-8'))
     m.setdefault('upstream', {})['synced_from'] = commit
     path.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n",

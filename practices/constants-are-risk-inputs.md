@@ -4,6 +4,7 @@ title:       Undecided operating constants are risk inputs, not doctrine
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus here. The constants it governs live in a host repo's model scripts, which this repository does not contain, and the occasion is an analysis being written rather than a file being edited. Reached through the occasion index. Decided: 2026-09-08, when the practice landed."
 occasion:    "a model or comparison rests on an operating constant nobody decided"
 gates:       []
 index_clause: "an undecided constant is a swept, registered input, never doctrine"

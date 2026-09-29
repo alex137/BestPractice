@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.svg", "**/*.ico", "**/*.pdf", "**/*.zip", "**/*.woff", "**/*.woff2", "**/*.ttf", "**/*.otf", "**/*.mp3", "**/*.mp4", "**/*.mov"]
+applies_to_why: "Its own applies_to: common binary/asset extensions, a real locus for the moment such a file is actually being written. Deliberately not `**` -- a rule about handling original binaries has nothing to say to a session editing a practice file. index_required: true because the glob only fires once the write is already chosen; the decision it governs -- attach the original versus decline or recreate -- happens earlier, at the request, which only the occasion index reaches. Decided: 2026-09-16, when the practice landed."
 occasion:    "asked to include an image, logo or other binary asset the person supplies"
 gates:       []
 index_clause: "attach the file itself; recreating it from a description is invention"

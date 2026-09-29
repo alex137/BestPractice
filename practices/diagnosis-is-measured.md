@@ -4,8 +4,10 @@ title:       "A tool's named causes are hypotheses; measure before you relay one
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Not a property of any file. It fires when a session READS a diagnostic -- a hook's stderr, a tool's error text, a guard's cause list -- which can happen in any turn touching any path, or none. Routed by the `reply` gate, since the obligation binds what the session may then assert. Decided: 2026-09-14, when the practice landed at universal."
 occasion:    "a tool, hook or error message names the possible causes of a failure"
 gates:       ["reply"]
+gates_why:   "The cost lands in the reply: a relayed guess presented as a finding, and a recommendation built on it. That is what the gate has to catch."
 index_clause: "a tool's named causes are hypotheses; measure one before you relay it"
 index_required: false
 checked_by:  null

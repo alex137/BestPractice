@@ -4,8 +4,10 @@ title:       A test that expects a failure must assert which failure, not merely
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/**/*.py", "**/tests/**", "**/*_test.py", "**/test_*.py"]
+applies_to_why: "Its own applies_to. A control lives with the code it controls, and in this repo that is tools/ -- verify_harness.py and the check scripts are where every planted case is written. The test-file globs carry it to repos laid out conventionally, which this one is not. Deliberately not '**': the occasion is writing a test, and a glob over everything would surface it on documents and practice files where there is no control to assert anything about. Decided: 2026-09-07, when the practice was added."
 occasion:    "writing a test, fixture or control that proves a guard fires"
 gates:       ["review"]
+gates_why:   "Asking 'what else could produce this failure?' is a reviewer's question about a diff that adds a control, the same shape as checkable-gets-checked's review gate."
 index_clause: "a non-zero exit is not evidence; assert the message that guard prints"
 index_required: false
 checked_by:  null

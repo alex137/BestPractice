@@ -76,10 +76,10 @@ _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 # `_ENGINE_DIR.parent` is the wrong answer for exactly one layout: an engine
 # copy vendored inside a consuming repo at process/upstream/tools/. There ROOT
 # lands on the VENDORED tree, whose practices/ is the universal catalogue
-# alone, so every team and individual practice reads as absent -- silently,
+# alone, so every shared and individual practice reads as absent -- silently,
 # which is the one failure mode this project exists to prevent. Reproduced
 # 2026-09-14 in a real consumer: `precedent_show.py default-register` answered
-# "unknown slug", for a team practice that repo has in force.
+# "unknown slug", for a shared practice that repo has in force.
 # consuming_repo_root() returns _ENGINE_DIR.parent unchanged everywhere else.
 try:                                            # noqa: E402
     import sys as _sys
@@ -186,7 +186,7 @@ def resolved_gate_practices(root, gate):
     repo that is the materialized union of every source, so nothing was
     missing. In THIS repo -- and in any repo whose sources resolve as
     sibling clones rather than through precedent_materialize.py -- it is the
-    universal catalogue alone, so a team or individual practice declaring
+    universal catalogue alone, so a shared or individual practice declaring
     `gates: ["reply"]` had no invocation point anywhere: the stop hook ran
     the gate, the gate read a directory those practices are not in, and
     printed the universal three. Measured here that day: three individual
@@ -728,7 +728,7 @@ def main():
     # only ever true when this repo's own tree really is the universal
     # catalogue, and resolved_gate_practices() names the one case that
     # tells them apart (see its docstring). Reproduced 2026-09-22: with
-    # `unresolved_level` hardcoded, an unresolved individual or team source
+    # `unresolved_level` hardcoded, an unresolved individual or shared source
     # printed its own practices as `(universal)`, which is wrong in a way
     # nothing downstream could catch.
     entries, source_notes, unresolved_level = resolved_gate_practices(root, gate)
@@ -904,10 +904,15 @@ def main():
         # Same standing rule as .precedent/SESSION_PRACTICES.md's header,
         # said at the other place this text now surfaces: a private source's
         # practice text has never been published, and this repo is public.
-        print("NOTE: some rules below come from PRIVATE sources (team, "
-              "individual). They bind this work exactly as the universal "
-              "ones do; never quote their text into a commit message, a "
-              "pull request or an issue.\n")
+        # "Shared or individual", not "PRIVATE (team, individual)": the
+        # level was renamed from team on 2026-09-18, and a shared set may be
+        # public -- so the note names the levels and leaves privacy to each
+        # set's own declaration (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md,
+        # Part 3).
+        print("NOTE: some rules below come from your individual set or a "
+              "shared set. They bind this work exactly as the universal "
+              "ones do; never quote the text of one that is private into a "
+              "commit message, a pull request or an issue.\n")
 
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:

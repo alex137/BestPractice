@@ -2,10 +2,16 @@
 
 *Humans should do what humans do best, and leave the rest to the
 machines. ([Humans at our
-Best](philosophy/HUMANS_AT_OUR_BEST.md))*\
-*All is lost when you close a Claude/ChatGPT/AI Assistant Session.
-That's a problem, but we don't want our AI conversations to be shared.
-Precedent tries to find the balance that works for us.*
+Best](philosophy/HUMANS_AT_OUR_BEST.md))*
+
+Attempts to Describe Precedent in <20 words:
+
+- Humans collaborate and AI pattern matches.
+- All is lost when you close a Claude/ChatGPT/AI Assistant Session. It
+  should be smartly shared and learned from.
+- AI watches you collaborate, and suggests (and can enforce) patterns,
+  protocols, rules.
+- You work; AI uses github to remember, organize, and suggest protocols.
 
 The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:
@@ -158,7 +164,9 @@ Works](documentation/TEN_THINGS.md) is the one page to read first, then
 Precedent)](documentation/WHY_PRECEDENT.md) for the fuller pitch, and
 the how-to guide for your situation: [if you write
 code](documentation/FOR_DEVELOPERS.md), or [if you
-don't](documentation/FOR_EVERYONE_ELSE.md).
+don't](documentation/FOR_EVERYONE_ELSE.md). If a word like "individual set" or
+"pre-staging" trips you up, [Our Language](documentation/OUR_LANGUAGE.md)
+is the short list of what each one means.
 
 **Already set up?** [How to Use This Day to Day](documentation/DAILY_HABITS.md)
 has the daily habits and the phrases your AI Assistant is guaranteed to

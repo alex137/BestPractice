@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       engine-dev
 applies_to:  ["templates/harness/**"]
+applies_to_why: "templates/harness/{claude-code,codex,gemini-cli} is a literal parallel family: a change to one raises the transfer question for the others. Decided: phase 4 routing pass."
 occasion:    "a change must propagate across several parallel artifacts"
 gates:       []
 index_clause: "ledger the transfer verdict per member, per change"

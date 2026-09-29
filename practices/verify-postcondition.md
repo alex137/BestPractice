@@ -4,8 +4,10 @@ title:       Verify the postcondition, not the command
 tier:        resident
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Resident; its applies_to is not this file's business. Decided: phase 4 routing pass."
 occasion:    "after any state-changing operation"
 gates:       ["push", "reply"]
+gates_why:   "The postconditions it names are git state, checked before a push and at the end of a turn."
 index_required: true
 checked_by:  "tools/precedent_check.py"
 defines:     []

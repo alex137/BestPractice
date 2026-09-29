@@ -4,6 +4,7 @@ title:       Work in flight is leased on a coordination branch, so a second sess
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. The work a lease guards is whatever a repository finds costly to start twice -- a submission, a migration, a solve -- and it shares no path. Reached through the occasion index. Decided: 2026-09-27, when the practice landed."
 occasion:    "starting slow, costly or external work from a snapshot of trunk that another session could start too"
 gates:       []
 index_clause: "lease work in flight on a branch; the starting tool checks the board first"

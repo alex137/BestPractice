@@ -4,6 +4,7 @@ title:       A gate that re-runs work to prove nothing changed keeps a ledger of
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. A gate that re-runs work to prove nothing changed can live anywhere; the practice is a property of the gate tool, not of a path. Decided: 2026-09-28, with the practice."
 occasion:    "writing or running a drift gate or an audit that re-runs scripts to compare their output"
 gates:       []
 index_clause: "record code, reads and result per unit; skip a unit whose fact holds"

@@ -65,7 +65,7 @@ instructions for this repo, not gotchas.
   diff, and commit.
 
 - **A brand-new session on this repo alone has no git read access to this
-  project's team sets** — session repo access is scoped per session, never
+  project's shared sets** — session repo access is scoped per session, never
   inherited just because `precedent.json` names a repo. No token or secret is
   involved: the tool that grants a session this access rides the same GitHub
   identity already behind the session, so it only ever succeeds because that
@@ -77,7 +77,7 @@ instructions for this repo, not gotchas.
   credential or production change. Never write this as "if the clone fails,
   ask to add the repo" — that only works when a human happens to be watching
   for the failure, and the whole point is that a person only ever attaches
-  the one repo they're actually working in; reaching for the team sources is
+  the one repo they're actually working in; reaching for the shared sources is
   this session's own job, every time.
 
   **Read the set names out of [`precedent.json`](precedent.json); never hard-code them here.**
@@ -163,8 +163,8 @@ practice idea in plain language, Claude:
    `precedent-shared-writing`** —
    a quiet `candidates/*.md` file accomplishes nothing when nobody with
    landing authority is watching it, per
-   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
-   rule for team candidates raised by a non-approver. Use a plain individual
+   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)'s
+   rule for shared-set candidates raised by a non-approver. Use a plain individual
    candidate file instead only if the idea is explicitly just their own
    working style, not something to share with the team.
 3. Never mentions promotion, resident budgets, `checked_by`, or any other

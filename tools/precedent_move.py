@@ -18,7 +18,7 @@ that is safe and with nothing left to remember:
   1. LAND the practice at the destination, as its own file, carrying the
      Rule, Detail, Why and Story exactly as they are -- this is vetted text,
      not a new draft -- with the destination level's own approval recorded
-     (`--approved-by`; a listed approver for a team set).
+     (`--approved-by`; a listed approver for a shared set).
      One thing about the text does change: a link to a SIBLING practice
      that is not at the destination is re-homed -- a universal practice's
      URL, else the slug in backticks, never a URL into another set (see
@@ -75,7 +75,7 @@ practice); `--from universal --to
 universal` (nothing to move); `--dedupe-only` on a practice that moved
 OUT of universal, without `--accept-reach-loss` also given (see below), or
 while the universal clone's tools/ still cite it as `practice: <slug>`;
-withdrawing a practice from a team set without `--approved-by` naming one
+withdrawing a practice from a shared set without `--approved-by` naming one
 of THAT set's approvers (a removal changes what the team is bound by).
 A `--to universal` draft from a file with no ## Install gets an empty one,
 and says so: every universal practice carries the section.
@@ -99,7 +99,7 @@ UNIVERSAL AS THE SOURCE duplicates, never deduplicates, on landing.
 exactly as any other landing, but the universal copy stays `status: active`
 -- it is NOT marked deduplicated, and `in_force_at` is not touched. This is
 structural, not caution: universal is the one level every Precedent
-consumer resolves, and a team or individual set is not, so a universal
+consumer resolves, and a shared or individual set is not, so a universal
 practice deduplicated to point at one leaves the rule genuinely in force
 nowhere for any consumer that never declared that destination -- most of
 them. [tools/precedent_sync_views.py](precedent_sync_views.py) reports an unresolvable `in_force_at` on
@@ -166,15 +166,15 @@ def _field(fm, key):
 
 
 def _check_team_approver(repo, name, removing=False):
-    """A team set's own approvers.json must list `name`. Landing in a team
+    """A shared set's own approvers.json must list `name`. Landing in a team
     set needs one of them; so does REMOVING a practice from one, since that
     changes what the whole team is bound by (spec/MOVING_PRACTICES.md, step
-    2, "Team"). Until 2026-09-28 only the landing was checked: a team copy
+    2, "Team"). Until 2026-09-28 only the landing was checked: a shared-set copy
     was deduplicated on the destination's approval alone, and `--dedupe-only`
     asked for no name at all."""
     f = pathlib.Path(repo) / 'approvers.json'
-    what = ('removing a practice from a team set' if removing
-            else 'landing in a team set')
+    what = ('removing a practice from a shared set' if removing
+            else 'landing in a shared set')
     if not f.is_file():
         raise MoveRefused(f'{f} does not exist, so no approver can be verified '
                           f'-- {what} needs one of its listed approvers')
@@ -410,7 +410,7 @@ _HISTORY_RE = re.compile(
 # "(verified 2026-08-28)" kept item 8's two current links to a withdrawn
 # practice from being fixed, and nothing said so.
 _LIST_ITEM_RE = re.compile(r'^\s*(?:\d+\.|[-*+])\s')
-# A level named AS a place ("the team set", "universal's", "individual
+# A level named AS a place ("the shared set", "universal's", "individual
 # practice") -- not the adjective inside a slug like tabular-shared-renderer,
 # which on the first run of this report was most of what it named.
 _LEVEL_WORD_RE = re.compile(
@@ -766,12 +766,12 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                           'approval is what makes this a move rather than a copy')
     if not approved_by and from_level == 'shared':
         raise MoveRefused('--approved-by NAME is required: removing a practice from a '
-                          'team set changes what the whole team is bound by, so it needs '
+                          'shared set changes what the whole team is bound by, so it needs '
                           'one of that set\'s own approvers (spec/MOVING_PRACTICES.md, '
                           'step 2)')
     # The source copy is withdrawn on this run -- the one moment its
     # mentions elsewhere stop being true (step 3, _fix_mentions), and the
-    # moment a team source's own approval is needed.
+    # moment a shared source's own approval is needed.
     source_withdrawn = dedupe_only or (to_level != 'universal'
                                        and not duplicate_from_universal)
 

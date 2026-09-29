@@ -4,8 +4,10 @@ title:       Fix it where the fix survives
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, not a file class — it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead. Decided: 2026-09-08, when the practice landed."
 occasion:    "when fixing anything -- a bug, a stale file, a broken environment"
 gates:       ["review", "reply"]
+gates_why:   "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
 index_clause: "prefer the fix that survives a fresh container; name a band-aid as one"
 index_required: false
 checked_by:  null

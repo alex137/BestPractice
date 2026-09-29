@@ -4,8 +4,10 @@ title:       "\"Push directly to [branch]\" -- skip go-update's judgment call, p
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same as go-update's own entry above. Routed by the `merge` gate. Decided: 2026-09-20, when the practice landed."
 occasion:    "a message says \"Push directly\" [to a branch], or says to skip the PR for one change"
 gates:       ["merge"]
+gates_why:   "Its whole subject, like go-update's, is what happens at a merge -- here, skipping it."
 index_clause: "no PR; with no branch named, the branch already in play"
 checked_by:  null
 defines:     ["Push directly"]

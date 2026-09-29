@@ -5,8 +5,10 @@ tier:        on-demand
 severity:    default
 scope:       engine-dev
 applies_to:  ["**"]
+applies_to_why: "A moment, not a place -- what makes a change cross-source-relevant is its meaning, not which file it touched, so no glob identifies it. Routed by the `merge` gate instead. Decided: 2026-09-05, same session that added very-deep-check's source-presence and stale-branch additions."
 occasion:    "a change here has implications for how an attached team, individual, or repo-local source should work"
 gates:       ["merge"]
+gates_why:   "The rollout (or the blocked-on TODO standing in for it) has to happen before the thread ends, the same timing capture-gate and todo-is-a-handoff already use."
 index_clause: "roll it out to attached sources now; else a blocked-on TODO"
 index_required: false
 checked_by:  null
@@ -64,7 +66,7 @@ sets kept citing the old name for a day, and nothing at merge time asked.
 
 [very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md) is this same gap seen from the other side, on-demand rather
 than at every merge: run against the checkout plus every attached
-team/individual source, it should read whether a check, tool, or
+shared/individual source, it should read whether a check, tool, or
 convention this repo changed has left an attached source assuming the old
 behavior, and fix or flag it in the same pass. This practice is what
 should have made that drift impossible to accumulate in the first place;

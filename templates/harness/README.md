@@ -80,7 +80,7 @@ has named [`../../tools/bootstrap.sh`](../../tools/bootstrap.sh) as the
 harness-neutral equivalent of Claude Code's `SessionStart` hook since this
 directory existed, and for all that time the script ran three of the hook's
 seven steps. What the other three adapters were therefore never given: the
-declared team sources cloned, those sources refreshed, and
+declared shared sources cloned, those sources refreshed, and
 `.precedent/SESSION_PRACTICES.md` written — the file this repo's own
 Standing instruction tells **every** session to read, carrying every team
 and individual practice in force. A codex session read that instruction,
@@ -144,7 +144,7 @@ Then contribute the adapter back upstream.
 
 **A practice SOURCE's adapters can travel mechanically, since 2026-09-12.**
 Everything above is about the adapter templates in this directory, which a
-repo installs by hand. A practice source (an individual or team set) that
+repo installs by hand. A practice source (an individual or shared set) that
 ships its own `bootstrap/*.sh` no longer needs that step: it declares each one
 in its own `precedent.json`, and
 [tools/precedent_materialize.py](../../tools/precedent_materialize.py)

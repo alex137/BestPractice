@@ -148,6 +148,48 @@ def token_var(env=None):
     return None
 
 HERE = pathlib.Path(__file__).resolve().parent
+
+
+# The environment variables that only a person who HAS an individual set, or
+# is setting one up, would put in their environment.
+INDIVIDUAL_SIGNAL_ENVS = (TOKEN_ENV, 'PRECEDENT_SOURCE_BASE_URL',
+                          'PRECEDENT_INDIVIDUAL_REPO')
+
+
+def individual_signals(env=None):
+    """-> the evidence this environment carries that its person has an
+    individual practice set: the names of the variables above that are set,
+    and any individual clone already on disk under $HOME or /home/user.
+    Empty means no evidence at all.
+
+    Why this decides whether a missing set is "none" or "unknown". A hosted
+    session reaches an individual set only through something the person set
+    up -- a token, a base URL, a repo name -- or through a clone some earlier
+    step left on disk. With none of those there was nothing that could have
+    fetched a set, so a missing one is "this person has none", a definite
+    answer. Until 2026-09-29 every hosted session with no user config was
+    "unknown", and a consumer whose owner had no individual set printed a
+    may-be-silently-missing warning above every reply, which taught everyone
+    to skip warnings. The case this gives up: a person whose only route to
+    their set is attaching it by hand mid-session, with no variable set. For
+    them a failed fetch goes quiet; setting PRECEDENT_INDIVIDUAL_REPO brings
+    the warning back."""
+    real = env is None
+    env = os.environ if env is None else env
+    found = [name for name in INDIVIDUAL_SIGNAL_ENVS
+             if (env.get(name) or '').strip()]
+    homes = {pathlib.Path(env.get('HOME') or '~').expanduser()}
+    # A hosted session clones under /home/user while $HOME is /root. Looked
+    # at only for the real environment: a caller passing its own env (a test
+    # fixture) gets an answer from that env alone.
+    if real:
+        homes.add(pathlib.Path('/home/user'))
+    for home in sorted(homes):
+        clone = home / 'precedent-individual'
+        if (clone / 'practices').is_dir():
+            found.append(str(clone))
+    return found
+
 ROOT = HERE.parent
 
 
@@ -161,8 +203,8 @@ def consuming_repo_root(engine_root=None):
     two levels up. `ROOT` there is `process/upstream`, and the vendored tree is
     a whole copy of THIS repository, precedent.json included. So the default
     root found a precedent.json, parsed it, resolved its `../precedent-team-*`
-    paths against `process/upstream/` -- and reported three team sources
-    missing, by name, at paths like `<consumer>/process/precedent-team-writing`
+    paths against `process/upstream/` -- and reported three shared sources
+    missing, by name, at paths like `<consumer>/process/precedent-shared-writing`
     that nothing has ever put anything at.
 
     That reading is the worst shape a wrong answer can take here, and it is
@@ -407,7 +449,7 @@ def unresolved_private_sources(repo_root=None, env=None):
     """-> [(level, name, why)] for every PRIVATE-level source this repo
     expects and this session does not have on disk.
 
-    Declaration is what makes a team source expected; for an individual set
+    Declaration is what makes a shared source expected; for an individual set
     there is nothing in any repo to declare it (that is the whole point of
     it living in a user-level config), so the expectation is structural: a
     hosted session that has no individual config has either not got one or
@@ -418,14 +460,27 @@ def unresolved_private_sources(repo_root=None, env=None):
 
     cfg = _read_json(root / 'precedent.json') or {}
     for src in cfg.get('sources', []) or []:
-        if src.get('level') != 'team':
+        # 'shared' since 2026-09-18; 'team' is the old spelling a config
+        # written before then still carries. Until 2026-09-29 this read only
+        # 'team', so every set declared the current way was skipped and a
+        # missing shared set was never reported -- the retired word hid the
+        # bug (practice: rename-updates-links).
+        if src.get('level') not in ('shared', 'team'):
             continue
         path = (root / str(src.get('path', ''))).resolve()
         if not (path / 'practices').is_dir():
-            out.append(('team', str(src.get('name') or path.name),
+            out.append(('shared', str(src.get('name') or path.name),
                         f'{path} has no practices/ directory'))
 
     user_cfg, code = individual_config_state(env)
+    # On a hosted session with no sign anywhere that this person has an
+    # individual set, nothing is expected, so nothing is unresolved (see
+    # individual_signals). A local machine keeps its own answer below: there
+    # an absent config was already definite, and says how to declare one.
+    if code in ('no-config-file', 'config-declares-none') \
+            and (env.get('CLAUDE_CODE_REMOTE') or '').strip() == 'true' \
+            and not individual_signals(env):
+        return out
     if code == 'no-config-file':
         out.append(('individual', 'precedent-individual',
                     f'{user_cfg} does not exist'))

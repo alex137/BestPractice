@@ -4,6 +4,7 @@ title:       Exported tools are one engine plus host shims
 tier:        on-demand
 severity:    default
 applies_to:  ["process/upstream/**", "templates/harness/**"]
+applies_to_why: "The occasion is EXPORTING a tool across a repo boundary, which happens in the vendored tree and the host shims -- not in tools/, where the engine is merely authored. A first draft of this pass used tools/** and surfaced the practice on 10 of 20 eval cases against 3 it applies to; re-reading the occasion is what narrowed it, not the cost figure, though the cost figure is what prompted the re-read. Decided: phase 4 routing pass."
 occasion:    "exporting a tool across a repo boundary"
 gates:       []
 index_clause: "one vendored engine, thin host shims, never a fork"

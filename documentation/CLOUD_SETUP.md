@@ -36,19 +36,33 @@ PRECEDENT_COMMIT_NAME=Your Name
 PRECEDENT_COMMIT_EMAIL=you@example.com
 PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires   # an IANA zone name, never an offset
 
-# Only if a team practice source resolves as a sibling clone beside this
+# Only if a shared practice source resolves as a sibling clone beside this
 # project — skip it otherwise. A hosted session clones everything under
 # /home/user/, never ~ (which is /root there), so write the full path:
-PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-team-set>=main
+PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-shared-set>=main
 ```
 
 Once `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` are set, the
-SessionStart hook clones your individual and team practice sets **before
+SessionStart hook clones your individual and shared practice sets **before
 the first turn** and writes your `~/.config/precedent/config.json` itself —
 there is nothing else to fill in by hand for a hosted session. The one field
 nothing can resolve on its own is your timezone in that set's
 `identity.json`; `PRECEDENT_COMMIT_TZ` above covers the same ground without
 it.
+
+**No individual set?** Set nothing from the first block. With no token, base
+URL or repo name in the environment and no clone on disk, nothing could have
+fetched a set, so a hosted session reads a missing one as "you have none"
+and says nothing. If you reach your set some other way, such as attaching
+it by hand, set `PRECEDENT_INDIVIDUAL_REPO` so a failed fetch is still
+reported.
+
+**A private shared set with no token?** Vendor its practices into the
+consumer instead of resolving them from a sibling clone: set
+`upstream.vendor_practices: true` in the consumer's
+`process/manifest_<set>.json`, run `checkin.py update <clone> --source <set>`,
+and point the source's `path` in `precedent.json` at `process/<set>`. Only in
+a private consumer.
 
 ## Optional but Recommended: Run Each Repo's Startup Hooks
 

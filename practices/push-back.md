@@ -4,6 +4,7 @@ title:       "Push-back mode: argue, don't just comply, on writing-and-thinking 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is what the current piece of work is FOR -- prose meant to persuade or be judged by a human reader -- not a file path or a repo; its own Detail says so directly. Reached through the occasion index. Decided: 2026-09-19, when the practice landed at universal from the shared set precedent-shared-writing."
 occasion:    "drafting or reviewing prose meant to persuade or be judged"
 gates:       []
 index_clause: "argue a real counter-case before building on a stated stance"

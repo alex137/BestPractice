@@ -4,8 +4,10 @@ title:       A convention violated once becomes an audit that fails loudly
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment — routed by the `review` gate instead. Decided: phase 4 routing pass."
 occasion:    "a convention is violated for the first time"
 gates:       ["review"]
+gates_why:   "Fires when a convention is violated, which is something a review notices."
 index_clause: "promote a costly broken convention to a script that exits non-zero"
 index_required: false
 checked_by:  null

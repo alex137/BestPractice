@@ -3,7 +3,7 @@
 consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 
-  'source'   — an individual or team practice SET (precedent-individual,
+  'source'   — an individual or shared practice SET (precedent-individual,
                precedent-team-repo-maintenance, precedent-team-tms). Needs
                ENGINE_FILES: enough to run its own AGENTS.md loader block
                (precedent_show.py's Rule/Detail/Why/Story/Install split,
@@ -29,7 +29,7 @@ Two KINDS, sharing one mechanism:
 
 THE GAP 'source' CLOSED FIRST. tools/precedent_bootstrap_source.py has only
 ever written practice content, config, approvers and the leak-blocklist —
-never an engine file. Every individual/team set that existed before this
+never an engine file. Every individual/shared set that existed before this
 tool got its tools/build_views.py, precedent_gate.py, precedent_paths.py,
 precedent_show.py and split_practices.py into place by an undocumented,
 one-off hand-copy, so none of them could tell a stale copy from a current
@@ -120,7 +120,7 @@ of BestPractice's OWN 60-odd practices, which has no meaning in either a
 source set or a consumer repo with a different catalogue entirely.
 `_trim_routing_scope` below keeps only the first and drops the second — the
 same trim a prior, undocumented hand-copy already applied by hand to every
-repo that needed it (precedent-individual, precedent-team-repo-maintenance, and
+repo that needed it (precedent-individual, precedent-shared-repo-maintenance, and
 and a private consumer repo's own top-level tools/routing_scope.json, all three
 confirmed byte-identical to this function's output before this tool
 existed, or was extended to the consumer kind); this tool just makes that
@@ -273,9 +273,9 @@ ENGINE_FILES = [
     # vendored-engine-file-refs-resolve, on the run that added it -- a
     # vendored build_views.py naming a companion nobody had copied.
     'glossary_terms.json',
-    # A team set's approvers.json -> CODEOWNERS generator. In the engine
-    # rather than in one team set's own tools/ because that is where it
-    # was, and the consequence was a second team set with declared
+    # A shared set's approvers.json -> CODEOWNERS generator. In the engine
+    # rather than in one shared set's own tools/ because that is where it
+    # was, and the consequence was a second shared set with declared
     # approvers and no way to enforce them (2026-09-06). No-ops in an
     # individual set, which has no approvers.json and needs none.
     'build_codeowners.py',
@@ -326,7 +326,7 @@ ENGINE_FILES = [
     # credential helper that lets a SessionStart hook clone one without
     # add_repo (added 2026-09-09). In the shared engine rather than the
     # consumer half because a source set is itself a repo somebody works in:
-    # a session rooted in precedent-team-writing needs the person's
+    # a session rooted in precedent-shared-writing needs the person's
     # individual set exactly as much as a consumer does, and had the same
     # silent absence. precedent_source_bootstrap.py imports it by name and
     # says so out loud when it is missing, so a tree vendored before this
@@ -336,13 +336,13 @@ ENGINE_FILES = [
     # WRITES ~/.config/precedent/config.json, which is the only thing that
     # makes an individual source resolve at all. Promoted out of the consumer
     # half on 2026-09-13, and the sentence above -- "a session rooted in
-    # precedent-team-writing needs the person's individual set exactly as
+    # precedent-shared-writing needs the person's individual set exactly as
     # much as a consumer does" -- is the whole argument; the credential
     # helper travelled on it and this file did not.
     #
     # THE INCIDENT. A session rooted in any of the four real practice sets
-    # (precedent-individual, precedent-team-writing,
-    # precedent-team-repo-maintenance, precedent-team-working-style) resolved
+    # (precedent-individual, precedent-shared-writing,
+    # precedent-shared-repo-maintenance, precedent-shared-working-style) resolved
     # NO individual source, every session, because nothing there ever wrote
     # that config. The canonical remedy already existed and could not be
     # installed: templates/harness/claude-code/hooks/
@@ -421,6 +421,14 @@ ENGINE_FILES = [
     # design without precedent_resolve.py -- which a source set does not get
     # -- reading that repo's own practices/ and saying so.
     'precedent_vocabulary.py',
+    # Its second list, "Our language" (2026-09-29,
+    # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
+    # loader precedent_vocabulary.py imports to read it. They travel with it
+    # because a vendored Vocabulary without them prints only the commands --
+    # it says so rather than failing, but the words are the half a new
+    # person most needs.
+    'our_language.py',
+    'our_language.json',
     # The reply gate's BLOCKING half. Left out when it landed 2026-09-13,
     # which had two costs the same day: the stop-hook check never reached a
     # consuming repo at all (its hook guards on the file existing, so it
@@ -474,7 +482,7 @@ ENGINE_FILES = [
     # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
     # reasoning that "a source set has no TODO.md of its own to convert" --
     # wrong: confirmed the same day that precedent-individual and
-    # precedent-team-writing (both `kind: source`) carry real, long-lived
+    # precedent-shared-writing (both `kind: source`) carry real, long-lived
     # TODO.mds of their own (520 and 112 lines) and were structurally unable
     # to run the migration, exactly like todo-migrate-available-but-unused's
     # own Story. A practice set is a repository somebody works in like any
@@ -606,7 +614,7 @@ ENGINE_FILES = [
     # and repair it by hand if not" (added 2026-09-08, in BestPractice only
     # until 2026-09-24). Never vendored, so no source set had it -- and a
     # source set is exactly where the failure this tool exists for bites,
-    # since a team source resolving as a sibling clone is what roots a
+    # since a shared source resolving as a sibling clone is what roots a
     # session one directory ABOVE every repo's hooks in the first place
     # (this file's own docstring). In ENGINE_FILES rather than consumer-only
     # for the same reason precedent_vocabulary.py is: the guarantee it
@@ -5736,7 +5744,7 @@ def refresh(clone, force=False, ref=None):
         # file -- hit this short-circuit on the matching commit and reported
         # "nothing to do", so the file never arrived and the manifest
         # asserted current the whole time. build_codeowners.py joined the
-        # engine on 2026-09-06 for a stated reason (a team set with declared
+        # engine on 2026-09-06 for a stated reason (a shared set with declared
         # approvers and no way to enforce them); none of the three sets ever
         # received it, and someone hand-copied it into one of them, which is
         # what broke that repo's build_views.py. The hand-copy was a symptom.

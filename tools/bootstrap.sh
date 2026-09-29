@@ -79,14 +79,14 @@ fi
 # carries the practices in force from every other source this repo
 # declares. Nothing outside Claude Code has ever written that file, so a
 # codex or gemini-cli session read the instruction, found no file, and
-# worked without a single team or individual practice -- silently, which
+# worked without a single shared or individual practice -- silently, which
 # is the same failure mode the file itself exists to prevent.
 #
 # Order matches session-start.sh's deliberately, so the two can be read
 # against each other line by line. Each step reports and never gates,
 # exactly like every other block here.
 
-# Clone the declared TEAM sources, where the environment carries a
+# Clone the declared SHARED sources, where the environment carries a
 # credential (PRECEDENT_GIT_TOKEN / PRECEDENT_SOURCE_BASE_URL --
 # documentation/PER_MACHINE_SETUP.md). No token, no network call: the tool
 # says which sources are missing and why, and startup continues. The

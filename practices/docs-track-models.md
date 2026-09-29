@@ -4,6 +4,7 @@ title:       Documents track their models, and every transformation lives in cod
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "a document presents a script-derived figure"
 gates:       []
 index_clause: "every script-derived figure sits inside a generated block"

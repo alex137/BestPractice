@@ -4,6 +4,7 @@ title:       A check a repo cannot legitimately clear carries a declared decline
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/precedent_check.py", "tools/checks/**/*.py"]
+applies_to_why: "The distinguishing condition is that a CHECK is being written or changed, and in this engine a check is one of two things: a @check function in precedent_check.py, or a source's own check_*.py under tools/checks/. Both are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT practices/** -- editing a practice file is necessary for writing a rule and says nothing about whether a check is involved, which is the test this file's note sets. Decided: 2026-09-14, on landing the practice."
 occasion:    "writing or changing a check that can report a deliberate state"
 gates:       ["review"]
 index_clause: "a check reporting a state a repo chose needs a declared decline, with a reason"

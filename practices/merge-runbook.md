@@ -4,8 +4,10 @@ title:       A merge runbook with fixed per-file-class rules
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment — routed by the `merge` gate instead. Decided: phase 4 routing pass."
 occasion:    "merging a branch that touches shared files"
 gates:       ["merge"]
+gates_why:   "Fires when merging a branch that touches shared files."
 index_clause: "write conflict resolution per file class, once, then follow it"
 index_required: false
 checked_by:  null

@@ -4,6 +4,7 @@ title:       A workflow file outside what the vendored engine tracks gets a seco
 tier:        on-demand
 severity:    advisory
 applies_to:  [".github/workflows/**"]
+applies_to_why: "Its own applies_to. The occasion is a workflow file being added or changed, which is exactly what the glob names -- the mechanical check (precedent_check.py's tree-scope registration) reads the same manifest comparison this practice describes, so the path channel and the check agree by construction rather than by two hand-kept lists. Decided: 2026-09-20, when the practice landed."
 occasion:    "a .github/workflows/*.yml file is added or changed"
 gates:       []
 index_clause: "an untracked workflow file -- verify by content, never by name"

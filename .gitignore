@@ -11,7 +11,7 @@ __pycache__/
 evals/routing/prompts/
 
 # Written at session start by tools/precedent_session_practices.py: the
-# practices in force from the TEAM and INDIVIDUAL sources. Untracked on
+# practices in force from the SHARED and INDIVIDUAL sources. Untracked on
 # purpose and not negotiable -- this repository is public, that text is not,
 # and committing it would publish private practice content on the very
 # commit that added the convenience. See that tool's docstring.

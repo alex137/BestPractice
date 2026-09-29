@@ -36,7 +36,7 @@ than either alone.)
 
 **Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
-against the real `precedent-team-repo-maintenance` and `precedent-individual`
+against the real `precedent-shared-repo-maintenance` and `precedent-individual`
 repos rather than fixtures. Its own record —
 `process/PRECEDENT_MIGRATION.md`
 (dependent repo, private; not fetchable from a BestPractice-only session) —
@@ -67,7 +67,7 @@ for domain/team/personal rules that did not come from BestPractice itself (a
 [layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
 old pack mechanism). A repo with no such tree skips those three and does the
 rest. A pack whose *source* repo has no plans to split into
-Precedent-shaped team/individual sets can stay a pack — the mechanism,
+Precedent-shaped shared/individual sets can stay a pack — the mechanism,
 described in that practice's own Install section, is still supported — and
 the repo still migrates the rest of the way onto the loader.
 
@@ -181,16 +181,16 @@ widening what sessions may run
      a live reference provides. Vendoring stays; only the *second* source
      moves off it.
    - `level: "shared"` pointing at a relative path to a sibling clone of the
-     team repo (`../<team-repo-name>`) — **not** vendored. A team set that
+     shared-set repo (`../<shared-set-repo-name>`) — **not** vendored. A shared set that
      already has its own maintained repo (unlike a domain pack with no repo
      yet) is resolved live, the same way Precedent's own `precedent.json`
-     resolves `precedent-team-repo-maintenance` for itself. On a hosted agent
+     resolves `precedent-shared-repo-maintenance` for itself. On a hosted agent
      platform, resolving it live needs the session to actually have git
      read access to that sibling repo — step 4 below covers this gap and
      its fix together with the individual source's identical one; don't
      stop at declaring the path here and assume access follows.
 
-     **If no team repo exists yet, create one here rather than defaulting
+     **If no shared-set repo exists yet, create one here rather than defaulting
      everything to repo-local.** `tools/precedent_bootstrap_source.py
      --level shared` builds it from the skeleton
      ([BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)). Before anybody
@@ -205,7 +205,7 @@ widening what sessions may run
      into a single set.
    - **The shared sets for the repo's kind of work, not only its team's.**
      Declare what
-     [INSTALL.md's "Which team sets does this repo declare?" table](../INSTALL.md#1-install-into-a-dependent-repo)
+     [INSTALL.md's "Which shared sets does this repo declare?" table](../INSTALL.md#1-install-into-a-dependent-repo)
      gives for this kind of repo — ordinarily that team's set plus
      `precedent-shared-writing` and `precedent-shared-working-style`, each
      a `level: "shared"` entry pointing at its sibling clone. Then **read
@@ -387,7 +387,7 @@ widening what sessions may run
    project's config or a hook references another repo by name. A
    brand-new session opened on only the consuming project has no git
    credentials for either sibling repo at all, so the individual
-   bootstrap hook above, and the team source's live resolution in step 3,
+   bootstrap hook above, and the shared source's live resolution in step 3,
    both fail on a fresh session with nothing wrong in the code — until
    this gate is closed.
 
@@ -398,7 +398,7 @@ widening what sessions may run
    repo — the same fact that let them declare the source at all. There is
    nothing to generate, store, or rotate. The consuming repo's own
    `AGENTS.md` still needs the plain instruction this always required:
-   **call `add_repo` (read access) for both the team and individual
+   **call `add_repo` (read access) for both the shared and individual
    sibling repos at the very start of every session, before running any
    bootstrap script, without asking first** — reaching for both is the
    session's own job every time, since repo access is a per-session grant
@@ -464,7 +464,7 @@ widening what sessions may run
    hook itself, before the agent's first turn, which is the one thing
    `add_repo` can never be. Then
    `python3 tools/precedent_source_bootstrap.py --teams-from .` clones every
-   team set the repo declares, and the individual set's own hook succeeds on
+   shared set the repo declares, and the individual set's own hook succeeds on
    its first attempt. **Verify rather than assume it took:**
    `python3 tools/precedent_source_credentials.py` prints `MISSING` for
    exactly the state this closes, and the same line appears in the session
@@ -473,7 +473,7 @@ widening what sessions may run
    was no error, only silence and the universal catalogue.
 
 5. **Retire the old vendored pack tree — always, not if convenient.** The
-   pack's rules live in a team or individual source now; the tree left
+   pack's rules live in a shared or individual source now; the tree left
    behind is a second, unsynced copy of rules nobody reads and nothing
    updates. Two rules follow, and the second is the one repos actually miss:
 
@@ -483,7 +483,7 @@ widening what sessions may run
    - **A repo that ALREADY migrated and still has one deletes it now.**
      Confirmed with Morgan 2026-09-07, for `RepoPersonalPreferences`
      specifically: its 46 rules were migrated into the private
-     individual and team sets on 2026-09-01
+     individual and shared sets on 2026-09-01
      ([PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)), and 44 of the
      landed practices across those three sets still cite it as their
      origin — so the content is safely elsewhere and the vendored copy is
@@ -500,15 +500,15 @@ widening what sessions may run
    order, and the first item is not optional:
 
    1. **Declare the sources first**, in the same change. A pack's rules
-      move into *team and individual* sources far more often than into the
+      move into *shared and individual* sources far more often than into the
       universal catalogue — measured on the one real case, sixteen of
       twenty-two — so a repo that deletes the tree before declaring its
-      team sources in `precedent.json` and wiring the individual one (step
+      shared sources in `precedent.json` and wiring the individual one (step
       4; never a `precedent.json` entry) has nowhere left to get them. It does not
       fail loudly; it just stops carrying the rules.
    2. **Repoint every `§N` citation** at the practice that replaced it.
       Keep a **pack-retirement map** — one table, pack section to practice
-      slug and source — in the *individual or team source that owns the
+      slug and source — in the *individual or shared source that owns the
       pack's successor rules*, not here: which rules a given pack became is
       a fact about one person's or one team's sources, and this document
       cannot know it. Write the map once and every later repo's migration
@@ -599,7 +599,7 @@ widening what sessions may run
    `process/PRECEDENT_MIGRATION.md` is **yours to write** — a short record
    of what this migration moved where, which pack section became which
    practice — and it is the one file where the old names may stay in full.
-   — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
+   — then run `python3 process/upstream/tools/precedent_check.py --only retired-words` (the terms) and `... --only migration-scrubs-vocabulary` (a leftover pack), and don't call this step done until both pass. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
    just one file — reach for this only for a *materialized*, regenerated
@@ -615,9 +615,9 @@ widening what sessions may run
    not disabled** (the workflow that vendored the second tree; the
    consuming repo's own `bestpractice-upstream-sync.yml` is a different
    file, retired too — see below. There is nothing left to vendor-and-sync for the
-   team/individual sources — they resolve live). Keeping the sibling
+   shared/individual sources — they resolve live). Keeping the sibling
    clones themselves fresh becomes a session-start concern (a best-effort
-   `git pull --ff-only` for the team clone; the individual clone's own
+   `git pull --ff-only` for the shared-set clone; the individual clone's own
    bootstrap script does the same for itself), not a scheduled GitHub
    Actions job.
 
@@ -729,7 +729,7 @@ widening what sessions may run
    four. **Don't hand-curate a subset and call it a stopgap**: that was only
    ever necessary because nothing connected the resolver's output to a
    generated view; now something does, so there's nothing to approximate by
-   hand. The temptation to inline the team/individual catalogues the way the
+   hand. The temptation to inline the shared/individual catalogues the way the
    old pack was inlined in full still applies just as much as it always did
    — resist it; the generated block *is* the non-duplicated form.
 
@@ -837,7 +837,7 @@ widening what sessions may run
    circled back, leaves the check permanently silent (`NotApplicable`
    forever looks identical to "correctly scrubbed," from outside) with no
    later step catching the gap. Run `python3 process/upstream/tools/precedent_check.py
-   --only migration-scrubs-vocabulary` here, as part of *this* validation
+   --only retired-words` and `--only migration-scrubs-vocabulary` here, as part of *this* validation
    pass, and do not consider the migration finished until it passes —
    the same requirement step 5 already states, restated at the one point
    in this pattern that claims the migration is actually validated.
@@ -922,7 +922,7 @@ each a real thing step 5/6 found on real repos rather than a hypothetical:
   predated [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)
   itself. Add the pack's name and any retired secret name to `terms` if
   they aren't there yet, then run
-  `python3 tools/precedent_check.py --only migration-scrubs-vocabulary`
+  `python3 tools/precedent_check.py --only retired-words`
   and don't call the upgrade done until it passes.
 
 None of this is a second migration — the three-source model is already in
@@ -1155,7 +1155,7 @@ rediscover them:
    own hand-authored documents, but a *materialized* directory (this
    repo's own `practices/`, filled in by `tools/precedent_materialize.py`
    on every `precedent_sync_views.py` run) holds *other* repos' own
-   content — including, in the migrating repo's case, a team-source
+   content — including, in the migrating repo's case, a shared-source
    practice file's own `approved_by` frontmatter citing **its own**
    provenance ("migrated from RepoPersonalPreferences...", true of that
    *source's* history, unrelated to the migrating repo's). The migration
