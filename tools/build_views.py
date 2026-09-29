@@ -236,8 +236,25 @@ def derived_occasion_cap(root, sources=None):
 
 def occasion_cap(root):
     """-> (cap, why): this repository's own occasion_index_tokens when its
-    registry declares one (a decision it took), else the derived sum, else
-    the single fallback."""
+    registry declares one (a decision it took), else the sum of the
+    allowances of the sources whose practices THIS block carries, else the
+    single fallback.
+
+    THE SUM COVERS WHAT THE BLOCK CARRIES, NOTHING ELSE. The first version
+    (2026-09-29, same day) summed every declared source. A practice set
+    declares universal and defers it -- its tracked block carries its own
+    catalogue only -- so its cap was universal's allowance, a number about
+    a catalogue the block does not hold, and its own catalogue counted for
+    nothing. Where universal was cloned beside it that was a large, loose
+    cap and nothing showed; in GitHub's test, with no clone, universal
+    measured 0 and a freshly bootstrapped set was refused at a 0-token cap.
+    So: the sources sources_for_tracked_block() keeps, plus this repo's own
+    catalogue when the repo is itself a source that none of them already is.
+
+    A SOURCE REPO THAT DECLARES NO ALLOWANCE YET keeps the old single
+    fallback (practice: vendor-rollout-disclosed, question 3): a set made
+    before allowances existed, or by a bootstrap that does not write one,
+    builds as it always did."""
     f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
     try:
         explicit = json.loads(f.read_text(encoding='utf-8')).get('occasion_index_tokens')
@@ -245,10 +262,38 @@ def occasion_cap(root):
         explicit = None
     if isinstance(explicit, int):
         return explicit, 'occasion_index_tokens in tools/session_load_budgets.json'
-    cap, why = derived_occasion_cap(root)
-    if cap is not None:
-        return cap, f'the sum of its sources\' allowances: {why}'
-    return OCCASION_INDEX_BUDGET_TOKENS, f'the fallback ({why})'
+    return block_occasion_cap(root)
+
+
+def block_occasion_cap(root):
+    """-> (cap, why) from the sources this repo's block carries, as
+    occasion_cap() describes; the part of it no registry overrides."""
+    root = pathlib.Path(root)
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+        carried, _deferred, _notes = sources_for_tracked_block(
+            root, _pr.load_config(str(root)))
+    except (Exception, SystemExit) as e:                    # noqa: BLE001
+        return (OCCASION_INDEX_BUDGET_TOKENS,
+                f'the fallback (the declared sources could not be read: {e})')
+    total, parts = 0, []
+    if (root / 'precedent-source.json').is_file() and not any(
+            _same_repository(s['path'], root) for s in carried):
+        own = own_occasion_allowance(root)
+        if own is None:
+            return (OCCASION_INDEX_BUDGET_TOKENS,
+                    'the fallback (this source declares no '
+                    'occasion_share_tokens in precedent-source.json yet)')
+        total, parts = own, [f'this source {own}']
+    if carried:
+        cap, why = derived_occasion_cap(root, carried)
+        if cap is not None:
+            total += cap
+            parts.append(why)
+    if not parts:
+        return OCCASION_INDEX_BUDGET_TOKENS, 'the fallback (no sources declared)'
+    return total, f"the sum of its sources' allowances: {' + '.join(parts)}"
 
 
 class OccasionIndexBudgetExceeded(Exception):
