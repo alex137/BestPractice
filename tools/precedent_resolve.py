@@ -517,6 +517,24 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
                 'message': (f"{user_cfg_path} exists and declares no "
                             f"individual source. No individual practices are "
                             f"in force, and that is a definite answer.")}
+    # No evidence anywhere that this person has an individual set (no token,
+    # base URL, repo name or clone): nothing could have fetched one, so a
+    # missing set is a definite "none" where it would otherwise be unknown.
+    # The reasoning, and the one case it gives up, are in
+    # precedent_source_credentials.individual_signals. A tree vendored before
+    # that module existed keeps the old, uncertain answer.
+    try:
+        from precedent_source_credentials import individual_signals
+    except ImportError:
+        individual_signals = None
+    if (heal in ('no-hook', 'attempted') and individual_signals is not None
+            and not individual_signals()):
+        return {'certain': True, 'code': 'no-individual-signal',
+                'message': ("nothing in this environment points to an "
+                            "individual set (no token, base URL, repo name "
+                            "or clone), so no individual practices are in "
+                            "force; set PRECEDENT_INDIVIDUAL_REPO if you have "
+                            "one")}
     if heal == 'no-hook':
         return {'certain': False, 'code': 'no-bootstrap-hook',
                 'message': (
