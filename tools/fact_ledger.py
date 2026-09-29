@@ -13,7 +13,10 @@ depend on:
     outside that closure (loaded by file path, or by a computed name), each
     with a content hash -- recorded by an audit hook in the process that did
     the work, so nothing is declared by hand;
-  * the hash of the result.
+  * the hash of the result;
+  * for a unit that runs local git queries against a repository, that
+    repository's state (kind "g": HEAD, refs, and the working tree by
+    content).
 
 A unit whose fact holds on all three is not run. Facts verify themselves --
 every line says what it depends on and the gate re-hashes it -- so the
@@ -63,8 +66,16 @@ def _fact_ledger_reads():
         if not full.startswith(root):
             return
         rel = full[len(root):]
-        if rel.endswith((".py", ".pyc")) or any(x in rel for x in skip) or (kind, rel) in seen:
+        if rel.endswith(".pyc") or any(x in rel for x in skip) or (kind, rel) in seen:
             return
+        if rel.endswith(".py"):
+            # the import system reading code is the fingerprint's business;
+            # anything else reading a .py file reads it as data
+            f = _sys._getframe(2)
+            while f is not None:
+                if "importlib" in f.f_code.co_filename:
+                    return
+                f = f.f_back
         seen.add((kind, rel))
         with open(out, "a") as f:
             f.write(kind + "\t" + rel + "\n")
@@ -135,6 +146,7 @@ class Ledger:
         self._rk = None
         self._keys = {}
         self._covered = {}
+        self._repo = {}
         if path:
             self.load()
 
@@ -164,8 +176,34 @@ class Ledger:
             return None
         return sorted({tuple(ln.split("\t", 1)) for ln in lines if "\t" in ln})
 
+    def repo_state(self, path):
+        """The state a local git query can see in the repository at `path`:
+        HEAD, every ref, the working tree against HEAD (tracked changes and
+        untracked files, by content). Computed once per ledger -- a run does
+        not change it -- so a unit that runs git against a checkout it did
+        not make can still hold a fact, re-run when any of that moves."""
+        key = str(path)
+        if key not in self._repo:
+            import subprocess
+
+            def git(*a):
+                r = subprocess.run(["git", "-C", key, *a], capture_output=True)
+                return r.stdout if r.returncode == 0 else b"?"
+            h = hashlib.sha256()
+            for part in (git("rev-parse", "HEAD"), git("for-each-ref", "--format=%(refname) %(objectname)"),
+                         git("diff", "HEAD", "--binary"), git("status", "--porcelain=v1", "-uall", "-z")):
+                h.update(part + b"\0")
+            for name in git("ls-files", "--others", "--exclude-standard", "-z").split(b"\0"):
+                f = Path(key) / name.decode(errors="replace")
+                if name and f.is_file():
+                    h.update(name + b"\0" + f.read_bytes())
+            self._repo[key] = h.hexdigest()[:16]
+        return self._repo[key]
+
     def read_sig(self, kind, rel):
         p = self.root / rel
+        if kind == "g":
+            return self.repo_state(p)
         try:
             if kind == "d":
                 return sha("\n".join(sorted(x.name for x in p.iterdir())))
@@ -233,7 +271,8 @@ class Ledger:
         output it recorded are all what they are now."""
         return (f.get("code") == code and (out is None or f.get("out") == sha(out))
                 and f.get("reads") is not None
-                and all(self.read_sig(kind, rel) == s for kind, rel, s in f["reads"]))
+                and all(rel in self.ignore or self.read_sig(kind, rel) == s
+                        for kind, rel, s in f["reads"]))
 
     def find(self, scope, name, code, out=None):
         """The holding fact for (scope, name), or None."""

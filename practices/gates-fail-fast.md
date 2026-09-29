@@ -61,3 +61,10 @@ reports; the fixed push then waited another ten. The same day a document
 gate that emitted blocks in a thread pool reported two crashes — each in
 its emitter's first second — fourteen minutes later apiece, when the
 slowest solve beside them finished.
+
+## Install
+Sort the gate's checks into a cheap list and a slow list; run the cheap
+list first and skip the slow one after a failure, behind an override
+that runs everything. Start each concurrent unit in its own process
+group, and on the first failure kill every other group and exit naming
+the failure.

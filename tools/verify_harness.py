@@ -588,6 +588,284 @@ def _install_fixture_error_guard():
         globals()[name] = _wrap(name, globals()[name])
 
 
+# -------------------------------------------------------------------------
+# The check ledger (practice gate-ledger). A check that passed is not re-run
+# while everything it could depend on is unchanged: the code it can reach
+# (tools/reach_key.py over this file), the arguments main() hands it, the
+# environment variables that steer the suite, and every file it or its
+# Python children read (an audit hook here, and the fact_ledger hook in the
+# children). Its verdicts are replayed from the ledger instead.
+#
+# A local git query against a checkout the check did not make records that
+# repository's state (HEAD, refs, the working tree by content) as a read, so
+# it re-runs when any of that moves. Where a check's dependencies cannot be
+# recorded it gets no fact and runs every time: a git command whose answer
+# is a remote's (fetch, push, clone, ls-remote), a Python child started with
+# an environment that drops the reads hook or that skips it (-I, -E), a
+# check that raised or failed. The ledger is local
+# (.cache/verify_harness/, gitignored) and never used under CI or with
+# --full / PRECEDENT_CHECK_LEDGER=0: CI stays the authority, the ledger only
+# makes the second local run after a small fix cheap.
+_LEDGER_STATE = {'unit': None, 'depth': 0}
+_GIT_REMOTE = {'fetch', 'pull', 'push', 'clone', 'ls-remote', 'submodule'}
+
+
+def _ledger_enabled():
+    return not (os.environ.get('CI') or os.environ.get('PRECEDENT_CHECK_LEDGER') == '0'
+                or '--full' in sys.argv[1:] or os.environ.get('PRECEDENT_CHECK_ONLY')
+                or os.environ.get('PRECEDENT_CHECK_SKIP'))
+
+
+def _ledger_env_sig():
+    keys = sorted(k for k in os.environ
+                  if k.startswith(('PRECEDENT_', 'BESTPRACTICE_', 'GIT_')) and k != 'PRECEDENT_CHECK_LEDGER')
+    return hashlib.sha256(repr([(k, os.environ[k]) for k in keys] + [sys.version]).encode()).hexdigest()[:16]
+
+
+def _ledger_arg_sig(args, kwargs, memo={}):
+    parts = []
+    for a in list(args) + sorted(kwargs.items()):
+        k = id(a)
+        if k not in memo:
+            try:
+                memo[k] = (a, hashlib.sha256(repr(a).encode()).hexdigest()[:16])
+            except Exception:
+                memo[k] = (a, None)
+        parts.append(memo[k][1])
+    return None if None in parts else hashlib.sha256('|'.join(parts).encode()).hexdigest()[:16]
+
+
+def _ledger_hook():
+    """The in-process half of the reads record: files opened for reading
+    under this checkout or beside it, directories listed outside the import
+    system, and the children a check starts."""
+    import tempfile
+    root = str(ROOT) + os.sep
+    near = str(ROOT.parent) + os.sep
+    home = os.path.expanduser('~') + os.sep
+    tmp = os.path.realpath(tempfile.gettempdir()) + os.sep
+    skip = (os.sep + '.git' + os.sep, os.sep + '.cache' + os.sep, '__pycache__')
+    busy = [False]
+
+    def note(kind, path):
+        unit = _LEDGER_STATE['unit']
+        try:
+            full = os.path.realpath(os.fsdecode(path))
+        except Exception:
+            return
+        if full.startswith(tmp) or any(x in full for x in skip) or full.endswith('.pyc'):
+            return
+        if full.endswith('.py'):
+            # read by the import system: the fingerprint's business; read by
+            # anything else (a check scanning a tool's source): data
+            f = sys._getframe(2)
+            while f is not None:
+                if 'importlib' in f.f_code.co_filename:
+                    return
+                f = f.f_back
+        if full.startswith(root):
+            unit['reads'].add((kind, full[len(root):]))
+        elif full.startswith((near, home)):
+            unit['reads'].add((kind, full))
+
+    def hook(event, args):
+        if busy[0] or _LEDGER_STATE['unit'] is None:
+            return
+        busy[0] = True
+        try:
+            if event == 'open' and args and args[0] is not None and not isinstance(args[0], int):
+                mode, flags = args[1], (args[2] if len(args) > 2 else 0)
+                if (isinstance(mode, str) and any(c in mode for c in 'wax') and '+' not in mode) \
+                        or (not isinstance(mode, str) and flags & 3):
+                    return
+                if os.path.isfile(args[0]):
+                    note('f', args[0])
+            elif event in ('os.listdir', 'os.scandir') and args:
+                f = sys._getframe(1)
+                while f is not None:
+                    if 'importlib' in f.f_code.co_filename:
+                        return
+                    f = f.f_back
+                note('d', args[0] if args[0] is not None else '.')
+            elif event == 'subprocess.Popen':
+                unit = _LEDGER_STATE['unit']
+                executable, argv, cwd, env = args
+                argv = [os.fsdecode(a) for a in (argv if isinstance(argv, (list, tuple)) else [argv])]
+                prog = os.path.basename(os.fsdecode(executable or (argv[0] if argv else '')))
+                where = os.path.realpath(os.fsdecode(cwd) if cwd else os.getcwd()) + os.sep
+                if prog == 'git':
+                    # which repository, and which subcommand: -C sets the
+                    # first, the first bare word after the options is the second
+                    repo, sub, i = where, None, 1
+                    while i < len(argv):
+                        a = argv[i]
+                        if a == '-C' and i + 1 < len(argv):
+                            repo = os.path.realpath(os.path.join(repo, argv[i + 1])) + os.sep
+                            i += 2
+                            continue
+                        if a in ('-c', '--git-dir', '--work-tree', '--namespace') and i + 1 < len(argv):
+                            i += 2
+                            continue
+                        if a.startswith('-'):
+                            i += 1
+                            continue
+                        sub = a
+                        break
+                    if repo.startswith(tmp):
+                        pass                        # a fixture the check made itself
+                    elif sub in _GIT_REMOTE:
+                        # a clone or fetch from a directory on this machine
+                        # reads that repository's state; from a URL or a
+                        # remote name, the answer is the remote's
+                        rest = argv[argv.index(sub) + 1:]
+                        srcs = [a[len('file://'):] if a.startswith('file://') else a
+                                for a in rest if not a.startswith('-')]
+                        local = [os.path.realpath(os.path.join(repo, a)) for a in srcs
+                                 if os.path.isdir(os.path.join(repo, a))
+                                 and os.path.exists(os.path.join(repo, a, '.git'))]
+                        local = [d for d in local if not (d + os.sep).startswith(tmp)]
+                        if sub in ('clone',) and local:
+                            for d in local:
+                                if (d + os.sep).startswith(root):
+                                    unit['reads'].add(('g', os.path.relpath(d, str(ROOT))))
+                                elif (d + os.sep).startswith((near, home)):
+                                    unit['reads'].add(('g', d))
+                                else:
+                                    _LEDGER_STATE['unit']['opaque'] = f'git {sub} from {d}'
+                        elif not (sub == 'clone' and srcs and all(
+                                (os.path.realpath(os.path.join(repo, a)) + os.sep).startswith(tmp)
+                                for a in srcs[:1])):
+                            _LEDGER_STATE['unit']['opaque'] = f'git {sub} (its answer is the remote\'s)'
+                    elif sub == 'config' and '--global' in argv:
+                        note('f', os.path.expanduser('~/.gitconfig'))
+                    else:
+                        # a local query: its answer is the repository's state
+                        top = repo.rstrip(os.sep)
+                        r = subprocess.run(['git', '-C', top, 'rev-parse', '--show-toplevel'],
+                                           capture_output=True, text=True)
+                        top = os.path.realpath(r.stdout.strip()) if r.returncode == 0 else top
+                        full = top + os.sep
+                        if full.startswith(root) or top + os.sep == root:
+                            unit['reads'].add(('g', os.path.relpath(top, str(ROOT))))
+                        elif full.startswith((near, home)):
+                            unit['reads'].add(('g', top))
+                        else:
+                            _LEDGER_STATE['unit']['opaque'] = f'git in {top}'
+                elif prog.startswith('python') and env is not None \
+                        and dict(env).get('FACT_LEDGER_READS') != os.environ.get('FACT_LEDGER_READS'):
+                    _LEDGER_STATE['unit']['opaque'] = 'a Python child without the reads hook'
+                if prog.startswith('python'):
+                    _LEDGER_STATE['unit']['py'] += 1
+                for a in argv:
+                    if a.startswith(os.sep) and os.path.isfile(a):
+                        note('f', a)
+                    elif os.path.isfile(os.path.join(where, a)):
+                        note('f', os.path.join(where, a))
+        finally:
+            busy[0] = False
+    sys.addaudithook(hook)
+
+
+def _install_check_ledger():
+    if not _ledger_enabled():
+        return
+    import tempfile
+    spec = importlib.util.spec_from_file_location('_vh_fact_ledger', ROOT / 'tools' / 'fact_ledger.py')
+    fl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fl)
+    (ROOT / '.cache' / 'verify_harness').mkdir(parents=True, exist_ok=True)
+    led = fl.Ledger(ROOT, '.cache/verify_harness/ledger.jsonl', reach_dirs=['tools'])
+    led.begin()
+    env_sig = _ledger_env_sig()
+    reads_dir = pathlib.Path(tempfile.mkdtemp(prefix='vh_ledger_'))
+    hook_env = led.hook_env(reads_dir / 'unused')
+    os.environ['PYTHONPATH'] = hook_env['PYTHONPATH']
+    os.environ['FACT_LEDGER_ROOT'] = str(ROOT)
+    _ledger_hook()
+    script = str(pathlib.Path(__file__).resolve().relative_to(ROOT))
+    names = sorted(n for n, v in list(globals().items())
+                   if n.startswith('check_') and callable(v))
+    stats = {'held': 0, 'ran': 0, 'untracked': 0}
+
+    def _wrap(name, fn):
+        def wrapper(*args, **kwargs):
+            if _LEDGER_STATE['depth']:
+                return fn(*args, **kwargs)
+            arg_sig = _ledger_arg_sig(args, kwargs)
+            code = led.code_key(script, [name], f'{env_sig}|{arg_sig}'.encode())
+            f = None if arg_sig is None else next(
+                (x for x in led.facts.get(('verify_harness', name), [])
+                 if led.holds(x, code)), None)
+            if f is not None:
+                stats['held'] += 1
+                for kind, n2, shown in f['verdicts']:
+                    (PASSED if kind == 'pass' else NA).append((n2, shown))
+                    print(f"{'PASS' if kind == 'pass' else 'N/A: '}: {n2} (ledger)")
+                return tuple(f['ret']) if f['ret'] is not None else None
+            unit = {'reads': set(), 'opaque': None, 'py': 0}
+            reads_file = reads_dir / f'{name}.reads'
+            before = (len(PASSED), len(FAILED), len(NA))
+            mods = set(sys.modules)
+            _LEDGER_STATE.update(unit=unit, depth=1)
+            os.environ['FACT_LEDGER_READS'] = str(reads_file)
+            ok = False
+            try:
+                ret = fn(*args, **kwargs)
+                ok = True
+                return ret
+            finally:
+                _LEDGER_STATE.update(unit=None, depth=0)
+                os.environ.pop('FACT_LEDGER_READS', None)
+                stats['ran'] += 1
+                ret_ok = not ok or ret is None or (
+                    isinstance(ret, tuple) and len(ret) == 3 and ret[0] is True
+                    and all(isinstance(x, str) for x in ret[1:]))
+                clean = ok and ret_ok and len(FAILED) == before[1] and arg_sig is not None
+                child = []
+                if reads_file.exists():
+                    lines = reads_file.read_text().splitlines()
+                    child = [tuple(ln.split('\t', 1)) for ln in lines if '\t' in ln]
+                    # a child that never reached exit leaves #active without #done
+                    if lines.count('#active') != lines.count('#done'):
+                        unit['opaque'] = unit['opaque'] or 'a Python child that did not exit cleanly'
+                    reads_file.unlink()
+                else:
+                    lines = []
+                # a Python child that never loaded the hook (-I, -E, -S) left no record
+                if lines.count('#active') < unit['py']:
+                    unit['opaque'] = unit['opaque'] or 'a Python child that did not load the reads hook'
+                if clean and unit['opaque'] is None:
+                    new_mods = [m for m in set(sys.modules) - mods
+                                if getattr(sys.modules[m], '__file__', None)]
+                    reads = set(unit['reads']) | set(child)
+                    for m in new_mods:
+                        full = os.path.realpath(sys.modules[m].__file__)
+                        if full.startswith(str(ROOT) + os.sep) and full.endswith('.py'):
+                            reads.add(('m', full[len(str(ROOT)) + 1:]))
+                    verdicts = [('pass', n2, shown) for n2, shown in PASSED[before[0]:]] + \
+                               [('na', n2, why) for n2, why in NA[before[2]:]]
+                    led.put(led.make('verify_harness', name, script, code, '', sorted(reads),
+                                     verdicts=verdicts, ret=list(ret) if isinstance(ret, tuple) else None))
+                elif clean:
+                    stats['untracked'] += 1
+                    print(f"  (no ledger fact for {name}: {unit['opaque']})", file=sys.stderr)
+        return wrapper
+
+    for name in names:
+        globals()[name] = _wrap(name, globals()[name])
+
+    import atexit
+
+    def _save():
+        led.end()
+        led.save()
+        shutil.rmtree(reads_dir, ignore_errors=True)
+        print(f"[check ledger] {stats['held']} check(s) held from the ledger, {stats['ran']} run "
+              f"({stats['untracked']} passing with no fact: see the ledger note in verify_harness.py); "
+              f"--full or PRECEDENT_CHECK_LEDGER=0 runs everything", file=sys.stderr)
+    atexit.register(_save)
+
+
 def _install_check_timing():
     if os.environ.get('PRECEDENT_NO_CHECK_TIMING'):
         return
@@ -29344,7 +29622,8 @@ def check_doc_sync_ledger():
     Built in a scratch repository with one script and one document; the
     script counts its own emits in a file the hook does not track (a write,
     not a read)."""
-    name = 'doc_sync skips an unchanged block and re-emits one whose code, data or text moved'
+    name = ('doc_sync skips an unchanged block (and one whose self-check alone changed) and '
+            're-emits one whose code, data or text moved')
     engine = ROOT / 'tools' / 'doc_sync.py'
     rk = ROOT / 'tools' / 'reach_key.py'
     if not engine.is_file() or not rk.is_file():
@@ -29370,11 +29649,15 @@ def check_doc_sync_ledger():
             'def emit_table():\n'
             '    open(__file__.rsplit("/", 1)[0] + "/emits.log", "a").write("x")\n'
             '    return f"| v |\\n|---|\\n| {value()} |"\n'
+            'def self_check():\n'
+            '    return value() == 14\n'
             'EMITTERS = {"table": emit_table}\n'
             'if __name__ == "__main__":\n'
             '    if len(sys.argv) == 3 and sys.argv[1] == "--emit":\n'
             '        print(EMITTERS[sys.argv[2]]())\n'
             '        sys.exit(0)\n'
+            '    if len(sys.argv) == 2 and sys.argv[1] == "--self-check":\n'
+            '        sys.exit(0 if self_check() else 1)\n'
         )
         (d / 'model.py').write_text(model)
         (d / 'doc.md').write_text('# Doc\n\n<!--gen:table-->\n<!--/gen:table-->\n\nNumbers by: model.py\n')
@@ -29406,6 +29689,10 @@ def check_doc_sync_ledger():
             ('an unchanged tree', lambda: None, False, 0),
             ('a function the emit never calls', lambda: (d / 'model.py').write_text(
                 (d / 'model.py').read_text().replace('return 1', 'return 2')), False, 0),
+            # the dispatch branch an --emit run cannot take (a self-check, a
+            # smoke mode) is left out of the block's fingerprint
+            ('the self-check the emit never runs', lambda: (d / 'model.py').write_text(
+                (d / 'model.py').read_text().replace('value() == 14', 'value() >= 14')), False, 0),
             ('a function the emit calls (same output)', lambda: (d / 'model.py').write_text(
                 (d / 'model.py').read_text().replace('* 2\n', '* 2 + 0\n')), True, 0),
             ('a data file the emit read', lambda: (d / 'data.txt').write_text('8\n'), True, 1),
@@ -43953,6 +44240,7 @@ def check_filtered_check_does_not_break_the_unpack_family():
 def main():
     _install_check_filter()
     _install_fixture_error_guard()
+    _install_check_ledger()
     _install_check_timing()
     _print_checkout_banner()
     _report_missing_doc_packages('PREFLIGHT')

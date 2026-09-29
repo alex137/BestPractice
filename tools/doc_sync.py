@@ -114,6 +114,48 @@ DOC_GLOB = "**/*.md"          # a pattern, or a list of patterns (e.g. slides ge
 SKIP_DIRS = ("process/upstream/",)
 
 
+def _committable_files():
+    """-> the repo-relative paths git would commit here (tracked, plus
+    untracked and not ignored), or None when git cannot say.
+
+    The orphan-sentinel scan used to take ROOT.glob(DOC_GLOB) whole, so it
+    walked ignored trees too -- and an ignored tree can hold a full copy of
+    this repo. Found 2026-09-28: `.claude/worktrees/` (gitignored, where
+    parallel agent sessions keep their own checkouts) put every worktree's
+    spec/LOADER.md in front of the scan, and each registered block there
+    read as an unregistered orphan in the main checkout. What is not going
+    to be committed is not this repo's document."""
+    try:
+        r = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z",
+                            "--cached", "--others", "--exclude-standard"],
+                           capture_output=True, text=True)
+    except OSError:
+        return None
+    if r.returncode != 0:
+        return None
+    return {f for f in r.stdout.split("\0") if f}
+
+
+def sentinel_blocks():
+    """-> {(document, block name)} for every column-0 `<!--gen:NAME-->`
+    sentinel in a DOC_GLOB document this repo would commit, minus SKIP_DIRS.
+    Without git (a bare copy of the tree) the glob stands alone, as before."""
+    committable = _committable_files()
+    found = set()
+    globs = [DOC_GLOB] if isinstance(DOC_GLOB, str) else list(DOC_GLOB)   # one pattern or several
+    for path in sorted({p for g in globs for p in ROOT.glob(g)}):
+        rel = path.relative_to(ROOT).as_posix()
+        if any(rel.startswith(d) for d in SKIP_DIRS):
+            continue
+        if committable is not None and rel not in committable:
+            continue
+        for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
+                              strip_fenced_code(path.read_text(errors="ignore")),
+                              re.M):
+            found.add((rel, mm.group(1)))
+    return found
+
+
 def strip_fenced_code(text):
     """Blank out fenced code blocks, keeping line numbering.
 
@@ -292,7 +334,16 @@ def _led():
                                                       Path(__file__).resolve().parent / "fact_ledger.py")
         fl = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(fl)
-        _LED = fl.Ledger(ROOT, LEDGER, REACH_DIRS, LEDGER_IGNORE)
+        # the gate's own files: a batch emit runs inside this module, which
+        # would otherwise count as a read of every block it emits
+        here = Path(__file__).resolve().parent
+        own = set()
+        for f in (Path(__file__).resolve(), here / "fact_ledger.py", here / "reach_key.py"):
+            try:
+                own.add(str(f.relative_to(Path(ROOT).resolve())))
+            except ValueError:
+                pass
+        _LED = fl.Ledger(ROOT, LEDGER, REACH_DIRS, set(LEDGER_IGNORE) | own)
         _LED.sha = fl.sha
     return _LED
 
@@ -313,6 +364,93 @@ def _reach_engine():
     return _led().reach_engine()
 
 
+def _argv_test(node, argv):
+    """True/False when `node` is decidable from `argv` alone, else None.
+    Understands len(sys.argv) compared with a constant or a tuple of them,
+    sys.argv[i] compared with a string, "s" in sys.argv, and not/and/or."""
+    import ast
+
+    def is_argv(n):
+        return (isinstance(n, ast.Attribute) and n.attr == "argv"
+                and isinstance(n.value, ast.Name) and n.value.id == "sys")
+
+    def value(n):
+        if isinstance(n, ast.Constant):
+            return True, n.value
+        if isinstance(n, ast.Tuple) and all(isinstance(e, ast.Constant) for e in n.elts):
+            return True, tuple(e.value for e in n.elts)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "len" \
+                and len(n.args) == 1 and is_argv(n.args[0]):
+            return True, len(argv)
+        if isinstance(n, ast.Subscript) and is_argv(n.value) and isinstance(n.slice, ast.Constant) \
+                and isinstance(n.slice.value, int):
+            i = n.slice.value
+            return (True, argv[i]) if -len(argv) <= i < len(argv) else (False, None)
+        if is_argv(n):
+            return True, tuple(argv)
+        return False, None
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        v = _argv_test(node.operand, argv)
+        return None if v is None else not v
+    if isinstance(node, ast.BoolOp):
+        vs = [_argv_test(v, argv) for v in node.values]
+        if isinstance(node.op, ast.And):
+            return False if False in vs else (None if None in vs else True)
+        return True if True in vs else (None if None in vs else False)
+    if isinstance(node, ast.Compare) and len(node.ops) == 1:
+        (ok1, a), (ok2, b) = value(node.left), value(node.comparators[0])
+        if not (ok1 and ok2):
+            return None
+        op = node.ops[0]
+        try:
+            if isinstance(op, ast.Eq):
+                return a == b
+            if isinstance(op, ast.NotEq):
+                return a != b
+            if isinstance(op, ast.In):
+                return a in b
+            if isinstance(op, ast.NotIn):
+                return a not in b
+        except TypeError:
+            return None
+    return None
+
+
+def _exits(stmts):
+    """The statement list ends the run (sys.exit / raise SystemExit)."""
+    import ast
+    if not stmts:
+        return False
+    last = stmts[-1]
+    if isinstance(last, ast.Raise):
+        return True
+    return (isinstance(last, ast.Expr) and isinstance(last.value, ast.Call)
+            and isinstance(last.value.func, ast.Attribute) and last.value.func.attr == "exit"
+            and isinstance(last.value.func.value, ast.Name) and last.value.func.value.id == "sys")
+
+
+def _taken(stmts, argv):
+    """The statements of a `__main__` body a run with `argv` can execute:
+    an `if` decidable on argv takes one side, and a taken side that exits
+    ends the list. Anything undecidable is kept whole."""
+    import ast
+    out = []
+    for st in stmts:
+        if isinstance(st, ast.If):
+            v = _argv_test(st.test, argv)
+            if v is None:
+                out.append(st)
+                continue
+            side = st.body if v else st.orelse
+            out.extend(_taken(side, argv))
+            if _exits(side):
+                return out
+            continue
+        out.append(st)
+    return out
+
+
 _TREES = {}
 
 
@@ -327,8 +465,15 @@ def _block_entries(script, name):
         tree = _TREES[script] = ast.parse((ROOT / script).read_text())
     guards = [st for st in tree.body if isinstance(st, ast.If) and isinstance(st.test, ast.Compare)
               and isinstance(st.test.left, ast.Name) and st.test.left.id == "__name__"]
-    names = {n.id for g in guards for n in ast.walk(g) if isinstance(n, ast.Name)}
-    extra = "".join(ast.dump(g) for g in guards)
+    # only the statements an `--emit NAME` run can take: a branch whose test
+    # is decidable on that argv and false (the self-check, a smoke mode) is
+    # left out, so editing what only it calls re-runs no block
+    names, extra = set(), ""
+    for g in guards:
+        taken = _taken(g.body, ["SCRIPT", "--emit", name])
+        whole = taken == g.body                 # nothing left out: keyed as it always was
+        names |= {n.id for t in ([g] if whole else taken) for n in ast.walk(t) if isinstance(n, ast.Name)}
+        extra += ast.dump(g) if whole else "".join(ast.dump(t) for t in taken)
     table = [st for st in tree.body if isinstance(st, ast.Assign) and len(st.targets) == 1
              and isinstance(st.targets[0], ast.Name) and st.targets[0].id == "EMITTERS"
              and isinstance(st.value, ast.Dict)]
@@ -790,16 +935,7 @@ def main():
     # in a live document.) DOC_GLOB is the set of documents to scan for
     # sentinels; set it to wherever this repo keeps prose.
     registered = {(d, n) for d, n, _ in PAIRS}
-    found = set()
-    globs = [DOC_GLOB] if isinstance(DOC_GLOB, str) else list(DOC_GLOB)   # one pattern or several
-    for path in sorted({p for g in globs for p in ROOT.glob(g)}):
-        rel = str(path.relative_to(ROOT))
-        if any(rel.startswith(d) for d in SKIP_DIRS):
-            continue
-        for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
-                              strip_fenced_code(path.read_text(errors="ignore")),
-                              re.M):
-            found.add((rel, mm.group(1)))
+    found = sentinel_blocks()
     for doc, name in sorted(found - registered):
         print(f"[doc_sync] FAIL  {doc}: <!--gen:{name}--> is not in PAIRS — "
               "an unregistered block is never checked and its numbers rot "

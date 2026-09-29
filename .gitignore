@@ -28,3 +28,6 @@ evals/routing/prompts/
 # own worktree. Scratch space, never work to commit; without this the stop
 # hook refuses to end the turn over "untracked files" (2026-09-28).
 .claude/worktrees/
+
+# The local check ledger (tools/verify_harness.py): per-machine, never tracked
+.cache/

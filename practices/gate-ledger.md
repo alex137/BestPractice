@@ -66,6 +66,21 @@ listed by the host as not counting.
 free (a script's list of the figures it owns, read by importing it) can
 run the script's whole solve on import; it gets a fact of its own.
 
+**A unit whose dependencies cannot be recorded gets no fact.** A test
+harness is the hard case: its checks start git against real
+checkouts (the answer is repository state, not files), start children
+with environments of their own, and build fixtures in scratch
+directories. So such a ledger records reads in-process and in its Python
+children, treats anything under the temporary directory as the check's
+own making, records a local git query as a read of that repository's
+state (HEAD, refs, the working tree by content), and gives no fact to a
+check whose answer is a remote's (a fetch), that started a Python child
+without the reads hook, or that failed. Those run every time; the rest
+are replayed. **A source file read as text is data**: only the import
+system's reads of code are left to the fingerprint. **Keep that
+ledger local and let CI run everything**: the ledger makes the second
+local run after a small fix cheap, and CI stays the authority.
+
 **The ledger is not a licence to skip the gate.** It makes the bare
 gate cheap enough to run every time; a `--full` switch ignores it for
 the rare case of distrust.
@@ -97,3 +112,12 @@ counting the import system's directory listings; the fix was to ignore
 listings made by the import machinery. Measured afterwards: three
 hundred and fifty-one blocks checked in twenty-two seconds on an
 unchanged tree, and every block re-emitted identically on a cold run.
+
+## Install
+Give each gate that re-runs work to compare its output a ledger file
+(merged by union when committed, or local and ignored when the gate's
+authority lives in CI), a fact per unit recorded only on a clean pass,
+and a `--full` switch. Record reads with an audit hook in the process
+that did the work, never by declaration. The shared engine is
+`tools/fact_ledger.py`; the document gate, the model audit and the
+harness in this repository use it.

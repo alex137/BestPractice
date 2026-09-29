@@ -108,14 +108,6 @@ turned out to have keys that had never covered anything below their own key
 function, because the marker that trims the presentation tail was matched
 as bare text, so their memos had gone stale unnoticed.
 
-## Install
-Memoize the solve under a source-content key with a bypass switch; add a
-progress line with an estimate to anything over a minute; run heavy gates
-sequentially; record measured durations, dated, in the run instructions;
-export the pattern to any other heavy model the moment it appears.
-A memo on a container's disk dies with the container: to share it across
-sessions, see [shared-result-cache](shared-result-cache.md).
-
 The key and the split came three weeks later, from one pricing edit that
 cost two hours. A rate constant moved; the fingerprint then covered the
 whole record class, so it re-keyed a sizing sweep of five hundred variants
@@ -129,3 +121,11 @@ measurement showed the rebuild exact in any order and after any other
 work, and the solve's own figure dependent on what its worker had sized
 before — the old memo's last digits had depended on how the pool
 scheduled the variants.
+
+## Install
+Memoize the solve under a source-content key with a bypass switch; add a
+progress line with an estimate to anything over a minute; run heavy gates
+sequentially; record measured durations, dated, in the run instructions;
+export the pattern to any other heavy model the moment it appears.
+A memo on a container's disk dies with the container: to share it across
+sessions, see [shared-result-cache](shared-result-cache.md).

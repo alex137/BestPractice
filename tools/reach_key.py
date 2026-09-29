@@ -32,7 +32,12 @@ Where it cannot follow, it widens rather than narrows:
   `.get`/`.pop`/`.setdefault`), or uses `exec`, `eval`, `__import__` or
   `importlib`, has its whole module hashed; copying a namespace whole
   (`module.__dict__.update(globals())`, the fork-pool registration idiom)
-  is not a lookup;
+  is not a lookup, and neither is a module-level load by path
+  (`importlib.util.spec_from_file_location(name, HERE / "engine.py")`,
+  the host-shim idiom): that hashes the file it loads whole and follows
+  the loader name by name, so a name added to a shim re-keys nothing that
+  never reads it (a path its string constants do not spell falls back to
+  hashing the loader whole);
 * a `getattr`/`hasattr`/`setattr` with a non-literal name on anything but
   a module, or an `operator.attrgetter`/`methodcaller` with a non-literal
   name, hashes every method of every reached class;
@@ -296,12 +301,24 @@ def _refs_record(R, m, node, dynamic):
     attribute names used, and whether an attribute is looked up by a
     computed name."""
     work, whole, attrs, widen = [], set(), set(), [False]
+    loads, loaded = _path_loads(R, m, node)
+    whole |= loaded
+    local = _locals(node)            # a name bound in a function is local throughout it
+    lazy = _lazy_imports(R, m, node)  # `import x as q` inside the function: q is module x
 
     def attr_ref(chain):
         """Follow base.a1.a2... through module aliases; queue the first
         non-module attribute, or hash a module reached as a bare value."""
-        mod = R.module_alias(m, chain[0])
+        if chain[0] in lazy:
+            mod = lazy[chain[0]]
+            if isinstance(mod, tuple):           # `from x import name`, then name.attr
+                work.append(mod)
+                return
+        else:
+            mod = None if chain[0] in local else R.module_alias(m, chain[0])
         if not mod:
+            if chain[0] in local:
+                return
             if chain[0] in m.defs or chain[0] in m.assigns or chain[0] in m.imports:
                 work.append((m.path, chain[0]))
             return
@@ -368,6 +385,15 @@ def _refs_record(R, m, node, dynamic):
             if isinstance(n, ast.Attribute) and isinstance(c, ast.Attribute):
                 c._parent_attr = n
     for n in ast.walk(node):
+        if isinstance(n, ast.Name) and id(n) not in consumed and n.id in lazy:
+            target = lazy[n.id]
+            if isinstance(target, tuple):
+                work.append(target)
+            else:
+                whole.add(target)            # the lazily imported module used as a bare value
+            continue
+        if isinstance(n, ast.Name) and id(n) not in consumed and n.id in local:
+            continue
         if isinstance(n, ast.Name) and id(n) not in consumed:
             modp = R.module_alias(m, n.id)
             if modp:
@@ -377,9 +403,111 @@ def _refs_record(R, m, node, dynamic):
         elif dynamic and isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
                 and n.func.id in _DYNAMIC_CALLS and lookup(n):
             whole.add(m.path)
-        elif isinstance(n, ast.Name) and n.id == "importlib":
+        elif isinstance(n, ast.Name) and n.id == "importlib" and id(n) not in loads:
             whole.add(m.path)
     return work, whole, attrs, widen[0]
+
+
+def _locals(node):
+    """The names local to a function: its parameters and every name it
+    binds (assignment, loop target, `with ... as`, `except ... as`,
+    nested def or class), less those it declares global or nonlocal. A
+    name bound by an import inside the function is left out: it is a
+    module, and the resolver follows it as one. Python makes such a name local throughout the function, so
+    a local that happens to share a module alias's name (`bp = dict(...)`
+    beside `import battery_pod as bp`) is not the module. Nested functions
+    and comprehensions keep their own scopes and are not counted here."""
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return frozenset()
+    names, declared = set(), set()
+    a = node.args
+    for arg in a.posonlyargs + a.args + a.kwonlyargs + [x for x in (a.vararg, a.kwarg) if x]:
+        names.add(arg.arg)
+    body = node.body if isinstance(node.body, list) else [node.body]
+    stack = list(body)
+    while stack:
+        n = stack.pop()
+        if isinstance(n, (ast.Global, ast.Nonlocal)):
+            declared.update(n.names)
+        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(n.name)
+            stack.extend(n.decorator_list)
+            continue                  # its body is its own scope
+        elif isinstance(n, (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            continue
+        elif isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
+            names.add(n.id)
+        elif isinstance(n, ast.ExceptHandler) and n.name:
+            names.add(n.name)
+        elif isinstance(n, ast.NamedExpr) and isinstance(n.target, ast.Name):
+            names.add(n.target.id)
+        stack.extend(ast.iter_child_nodes(n))
+    return frozenset(names - declared)
+
+
+def _lazy_imports(R, m, node):
+    """Imports inside a function: local name -> the repository module it
+    binds (`import x as q`), or -> (module, name) for `from x import name`.
+    Module-level imports are the resolver's; these would otherwise not be
+    followed at all, and a solve that imports a model lazily would not
+    re-key when that model changed."""
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return {}
+    out = {}
+    for n in ast.walk(node):
+        if IO_MARK in m.lines[n.lineno - 1] if hasattr(n, "lineno") and n.lineno <= len(m.lines) else False:
+            continue
+        if isinstance(n, ast.Import):
+            for a in n.names:
+                p = R.find(a.name.split(".")[0] if not a.asname else a.name, m.path.parent)
+                if p:
+                    out[a.asname or a.name.split(".")[0]] = p
+        elif isinstance(n, ast.ImportFrom) and n.module and not n.level:
+            p = R.find(n.module.split(".")[0], m.path.parent)
+            if p:
+                for a in n.names:
+                    sub = R.find(a.name, p.parent) if R.load(p) and a.name not in R.load(p).defs \
+                        and a.name not in R.load(p).assigns else None
+                    out[a.asname or a.name] = sub if sub else (p, a.name)
+    return out
+
+
+def _path_loads(R, m, node):
+    """A module-level statement that loads a repository file by path
+    (`importlib.util.spec_from_file_location(name, ROOT / "a" / "b.py")`,
+    or `module_from_spec` on such a spec) is a load, not a lookup: it can
+    run only the file it names. Returns (the importlib Name nodes it
+    accounts for, the files to hash whole). A path that cannot be resolved
+    from its string constants is left to the caller, who hashes the module
+    whole as before."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+        return set(), set()
+    names, files = set(), set()
+    for n in ast.walk(node):
+        if not (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr in ("spec_from_file_location", "module_from_spec")):
+            continue
+        base = n.func.value
+        while isinstance(base, ast.Attribute):
+            base = base.value
+        if not (isinstance(base, ast.Name) and base.id == "importlib"):
+            continue
+        if n.func.attr == "spec_from_file_location":
+            if len(n.args) < 2:
+                continue
+            parts = [c.value for c in sorted(
+                (c for c in ast.walk(n.args[1]) if isinstance(c, ast.Constant) and isinstance(c.value, str)),
+                key=lambda c: (c.lineno, c.col_offset))]              # source order, not walk order
+            if not parts or not parts[-1].endswith(".py"):
+                continue
+            rel = Path(*[q for part in parts for q in part.split("/") if q])
+            bases = ([R.root] if R.root else []) + list(m.path.parents)
+            hit = next((b / rel for b in bases if (b / rel).is_file()), None)
+            if hit is None:
+                continue
+            files.add(hit.resolve())
+        names.add(id(base))
+    return names, files
 
 
 def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, stop=(), files=None):
@@ -626,6 +754,43 @@ def self_check():
             if moved != should:
                 fails.append(f"class, {what}: the key {'moved' if moved else 'held'}, it should have "
                              f"{'moved' if should else 'held'}")
+    with tempfile.TemporaryDirectory() as td:
+        # a local that shares a module alias's name is the local, not the
+        # module: an edit to the module's unreached code holds the key, and
+        # a lazy import inside a function is still followed
+        d = Path(td)
+        (d / "pod.py").write_text("def mass():\n    return 3\ndef price():\n    return 9\n")
+        solver = ("import pod as bp\n"
+                  "def solve(x):\n    bp = {'m': x}\n    return bp['m']\n"
+                  "def lazy():\n    import pod as q\n    return q.mass()\n")
+        (d / "solver.py").write_text(solver)
+        a = reach_key(d / "solver.py", ["solve"], [str(d)], root=d)
+        b = reach_key(d / "solver.py", ["lazy"], [str(d)], root=d)
+        (d / "pod.py").write_text("def mass():\n    return 4\ndef price():\n    return 9\n")
+        if reach_key(d / "solver.py", ["solve"], [str(d)], root=d) != a:
+            fails.append("a local named like a module alias hashed the module")
+        if reach_key(d / "solver.py", ["lazy"], [str(d)], root=d) == b:
+            fails.append("a lazy import inside a function was not followed")
+    with tempfile.TemporaryDirectory() as td:
+        # a shim that loads its engine by path: the shim is followed name by
+        # name and the engine hashed whole, so a new name in the shim that
+        # the solve never reads leaves the key alone
+        d = Path(td)
+        (d / "eng").mkdir()
+        (d / "eng" / "fmt_engine.py").write_text("class Qty:\n    def __call__(self, v):\n        return str(v)\n")
+        shim = ('import importlib.util\nfrom pathlib import Path\nHERE = Path(__file__).resolve().parent\n'
+                '_spec = importlib.util.spec_from_file_location("fe", HERE / "eng" / "fmt_engine.py")\n'
+                'engine = importlib.util.module_from_spec(_spec)\n_spec.loader.exec_module(engine)\n'
+                'KW = engine.Qty()\n')
+        (d / "fmt.py").write_text(shim)
+        (d / "solver.py").write_text("import fmt\ndef solve(x):\n    return fmt.KW(x)\n")
+        a = reach_key(d / "solver.py", ["solve"], [str(d)], root=d)
+        (d / "fmt.py").write_text(shim + "NEW = engine.Qty()\n")
+        if reach_key(d / "solver.py", ["solve"], [str(d)], root=d) != a:
+            fails.append("load by path: a name added to the loader, never read, moved the key")
+        (d / "eng" / "fmt_engine.py").write_text("class Qty:\n    def __call__(self, v):\n        return repr(v)\n")
+        if reach_key(d / "solver.py", ["solve"], [str(d)], root=d) == a:
+            fails.append("load by path: an edit to the loaded file held the key")
     return fails
 
 
