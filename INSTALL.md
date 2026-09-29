@@ -179,7 +179,7 @@ not this section.
 
    The installer also writes `"base_branch"` (the repository's default
    branch) and `"landing_branch": "pre-staging"`; write both by hand too,
-   or a hand install lands `Go update` on a different branch than a tool
+   or a hand install lands Booked (`Go update`) on a different branch than a tool
    install ([tier-branch](practices/tier-branch.md)).
 
    Two optional keys are worth setting in the same file, because both

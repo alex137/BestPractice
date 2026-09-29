@@ -3,16 +3,16 @@ slug:              todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-f
 kind:              manual
 domain:            vendoring
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan -- the cap every consumer's merge check enforces is a number nobody chose for them"
+decision:          "derive it: each source declares occasion_share_tokens in its precedent-source.json, and a consumer's cap is their sum plus a repo-local allowance"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-09-26
-closed:            null
+closed:            2026-09-29
 ---
 ## What
 
@@ -67,3 +67,21 @@ go into the `_occasion_index_fallback_comment` in
 [tools/session_load_budgets.json](../tools/session_load_budgets.json), and
 the literal in [tools/build_views.py](../tools/build_views.py) is changed
 to match if it has to be.
+
+## Resolution
+
+**Closed 2026-09-29: derived** (Morgan, strength: decided): *"give each
+practice set its own allowance, the way universal now has one, and set each
+repo's cap to the sum of the allowances for the sets it uses ... Approved,
+please implement that."* Each source declares `occasion_share_tokens` in
+its own `precedent-source.json` (universal 2,800, and each of the four sets
+its measured share plus about 20%), and `tools/build_views.py` refuses to
+build a source over it. A repository with no `occasion_index_tokens` of its
+own is capped at the sum of its declared sources' allowances plus
+`repo_local_occasion_tokens` (400 by default). The 4,000 literal is left
+only for a source that declares no allowance yet, and the
+`_occasion_index_fallback_comment` in
+[tools/session_load_budgets.json](../tools/session_load_budgets.json) says
+so. It came up because a consumer declaring all four sets measured about
+4,050 against the old 4,000 after the universal share was capped.
+

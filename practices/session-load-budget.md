@@ -79,6 +79,14 @@ hard build cap — [tools/build_views.py](https://github.com/alex137/BestPractic
 generate a resident block over it, so the trade is forced at the moment
 somebody promotes a practice. A surface `ceiling` is a review trigger: it
 fails the check, and what it asks for is a reduction pass, not a deletion.
+**The occasion index is capped where it grows** (Morgan, 2026-09-29,
+strength: decided). Each practice source declares its own share of every
+consumer's index as `occasion_share_tokens` in its `precedent-source.json`,
+and `build_views.py` refuses to build that source over it. A repository
+with no `occasion_index_tokens` of its own is capped at the sum of its
+declared sources' shares plus `repo_local_occasion_tokens` for its own
+`local/` practices, so a set that grows is refused in the set, not in every
+repository that uses it.
 `section_review_tokens` is neither — it is the size at which
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)'s SESSION LOAD
 section flags one `##` section as worth splitting.

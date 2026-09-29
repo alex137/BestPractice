@@ -1,17 +1,17 @@
 ---
 slug:        go-update
-title:       "\"Go update\", \"Approved\" and \"Book it\" (stage 3, Booked) -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
+title:       "\"Booked\" (stage 3; also \"Go update\", \"Approved\", \"Book it\") -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-08, when it moved up from the individual set."
-occasion:    "a message says \"Go update\", \"Approved\", \"Book it\", \"Booked\" or \"Promote 3\", or plainly authorizes a merge"
+occasion:    "a message says \"Booked\", \"Go update\", \"Approved\", \"Book it\" or \"Promote 3\", or plainly authorizes a merge"
 gates:       ["merge"]
 gates_why:   "Its whole subject is what happens at a merge."
-index_clause: "\"Go update\"/\"Approved\"/\"Book it\" (stage 3): push; high-risk: PR and merge"
+index_clause: "\"Booked\" (stage 3; also \"Go update\", \"Approved\"): push; high-risk: PR and merge"
 checked_by:  null
-defines:     ["Go update", "Approved", "Book", "Book it", "Booked", "Shared Save"]
-command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to.", "Book it": "The same as **Go update** (also just **Book**): save the work and land it on pre-staging, the shared save, so it won't be lost -- step 3, Booked, of the five-stage ladder.", "Booked": "Stage 3 (Promote 3), the same as **Go update**: move this session's work from its feature branch to the landing branch (pre-staging, for anyone who uses the three tiers), where it won't be lost.", "Shared Save": "The same as **Booked**."}
+defines:     ["Booked", "Go update", "Approved", "Book", "Book it", "Shared Save"]
+command:     {"Booked": "Stage 3 (Promote 3): save the work, land it on your landing branch on GitHub (pre-staging, for anyone who uses the three tiers) where it won't be lost, and tell you which branch it went to.", "Go update": "The same as **Booked** -- its older name, and it still works.", "Approved": "The same as **Booked**.", "Book it": "The same as **Booked** (also just **Book**).", "Shared Save": "The same as **Booked**."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -58,16 +58,18 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
 strength:    decided
 ---
 ## Rule
-**"Book", "Book it", "Booked", "Shared Save" and "Promote 3" mean the same
-as `Go update`**: land the work on the landing branch -- pre-staging, the
-shared save, for anyone who uses the three tiers. This file is stage 3,
+**"Booked" is this step's name. "Go update", "Approved", "Book", "Book it",
+"Shared Save" and "Promote 3" all mean the same thing**: land the work on
+the landing branch -- pre-staging, the shared save, for anyone who uses the
+three tiers. Say "Booked" when talking about the step; "Go update" is its
+older name and keeps working. This file is stage 3,
 **Booked**, of the five-stage ladder ([promote](promote.md), and
 [spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)):
 the step that moves a session's work off its feature branch to somewhere it
 won't be lost. When it is asked for by a stage word, it is read back as a
 stage first (*"Now Promote 3: Booked, the Shared Save -- moving
 `claude/<topic>-<random>` into pre-staging (BestPractice)"*). For anyone
-not using the ladder, `Go update` behaves exactly as below, word for word.
+not using the ladder, Booked (`Go update`) behaves exactly as below, word for word.
 Read any of these words for what the message means in the conversation it
 arrives in, not as a string to match: "book it if there's anything to
 book; if not, promote", said after a day of landing and promoting, asks
@@ -574,6 +576,14 @@ update`. `practices/go-merge.md` stays behind as `status: deduplicated`,
 `in_force_at: go-update` -- the same shape `merge-authorization-keyword`
 was left in when this practice replaced it -- so links in the practice sets
 and in already-vendored copies keep resolving.
+
+**2026-09-29: Booked leads.** Morgan asked for "Booked" to be the name
+listed first, with "Go update" as its synonym -- "and not just in the vocab,
+but that's how you should talk about it." The `command:` object now opens
+with Booked, so Vocabulary prints Booked with "Go update" trailing as a
+synonym, and a session names the step Booked. The slug stays `go-update`:
+renaming it would break links in every consuming repo for a name no reader
+sees.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat

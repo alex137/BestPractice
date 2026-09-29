@@ -127,6 +127,7 @@ not it is read.
 | The pre-fork single-file catalogue — **superseded, frozen at 53 practices since 2026-08-31**; kept for its prose and its numbering | [PRACTICES.md](PRACTICES.md) |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Canonical names, generated (phase 2) | [GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field |
+| Every file a tool writes, what writes it, and what to edit instead | [tools/generated_files.json](tools/generated_files.json); each file also opens with its own `generated_by:` label, and `python3 tools/precedent_check.py --only generated-files-registered` checks the two agree |
 | The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |
 | Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
@@ -139,6 +140,8 @@ not it is read.
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](documentation/METHOD.md) |
 | Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](documentation/MOBILE.md) |
 | A brainstormed chat bridge — reaching a Claude session by voice, Telegram as proof of concept and WhatsApp as destination — **speculative: nobody decided to build it, and no claim in it came from a primary source** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |
+| Telegram access with limited, content-only permissions — short replies linking to the full answer on GitHub, the four ways to connect it, and how a Telegram user is tied to one repository or several — **speculative: nobody decided to build it**; builds on the chat-bridge document above | [spec/SPECULATIVE_TELEGRAM_ACCESS.md](spec/SPECULATIVE_TELEGRAM_ACCESS.md) |
+| The Telegram chat bridge itself — a local test build: voice notes in, a few sentences and a link out, content-only for everyone; how to set it up, how its three locks work | [bridge/SETUP.md](bridge/SETUP.md), [bridge/README.md](bridge/README.md) — tests: `python3 -m unittest discover -s bridge/tests` |
 | The ten ideas underneath Precedent on one page — work through an assistant, the repository is the memory, practices, proposal and approval, routing, enforcement, four levels, three permission levels, the standing phrases, privacy — each linked into both guides | [documentation/TEN_THINGS.md](documentation/TEN_THINGS.md) |
 | Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) |

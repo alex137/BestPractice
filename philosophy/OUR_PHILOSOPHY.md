@@ -158,11 +158,21 @@ when it exists. So the record keeps it: an approval is marked
 ([`decision-strength`](../practices/decision-strength.md)), and every
 exception carries its reason.
 
+<a id="cloud-first"></a>
+
+**11. Cloud-first: the work follows the person, not the machine.** People
+start something on a laptop, check on it from a phone, and pick it up
+again somewhere else. That only works when the work lives in the cloud
+rather than on one computer. A local development setup suits developers,
+who would build one anyway; for almost everyone else it is a wall they
+never get past
+([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)).
+
 ## Humans Should Do What Humans Do Best
 
 <a id="humans-do-what-humans-do-best"></a>
 
-**11. Humans should do what humans do best.** Machines produce; people
+**12. Humans should do what humans do best.** Machines produce; people
 bring judgment, relationships, instinct: reading a room, sensing what a
 client meant but didn't say, pushing someone harder when the moment
 calls for it. Optimizing a person to act like a fast, tireless model
