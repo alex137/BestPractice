@@ -40828,6 +40828,20 @@ def check_very_deep_check_bootstrap_drift():
                       out and all(m.startswith('note') for m in out)
                       and 'README.md' in out[0], repr(out)))
 
+        # The seeded session-load budgets are measured from the set's
+        # rendered session file, which differs between generations, and are
+        # the set's own once written: a difference is a note, never a
+        # FINDING (2026-09-29, a Promote refused over exactly this).
+        dest, src = fresh('budgets')
+        budgets = dest / 'tools' / 'session_load_budgets.json'
+        budgets.write_text(budgets.read_text(encoding='utf-8').replace(
+            'Ceiling is current', 'Ceiling, reviewed by hand, is current'),
+            encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('changed session-load budgets are a note, not a FINDING',
+                      out and all(m.startswith('note') for m in out)
+                      and 'session_load_budgets.json' in ' '.join(out), repr(out)))
+
         # A vendored engine file edited in place: the remedy is upstream, and
         # refreshing over it would destroy the edit. Named per file, because
         # which file was hand-edited is the whole content of the finding.

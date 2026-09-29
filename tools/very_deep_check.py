@@ -4437,7 +4437,17 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # would report a deliberate decision as drift every run
             # (practice: control-asserts-which-failure -- a check that fires
             # on the wrong thing teaches people to skim it).
-            if rel in owned or rel.endswith('settings.json'):
+            # tools/session_load_budgets.json is seeded by MEASURING the set's
+            # rendered .precedent/SESSION_PRACTICES.md -- skipped above
+            # because it differs between any two generations by construction
+            # -- so the budgets inherit that difference; and once written
+            # they are the set's own, with ceilings reviewed by hand
+            # (practice: session-load-budget). A difference is a note. Found
+            # 2026-09-29: a Promote's full check reported a set generated
+            # seconds earlier as drifted here, after the sibling sources the
+            # render reads had been refreshed mid-run.
+            if (rel in owned or rel.endswith('settings.json')
+                    or rel == os.path.join('tools', 'session_load_budgets.json')):
                 notes.append(rel)
                 continue
             eng_name = pathlib.Path(rel).name
