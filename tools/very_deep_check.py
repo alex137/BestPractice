@@ -8063,6 +8063,20 @@ def _main(box):
                       f"push or link it. Add rows for unlanded branches you "
                       f"recommend deleting with --recommend FILE.json "
                       f"(python3 tools/precedent_review_page.py --help).\n")
+                # Part 3 of the page (Morgan, 2026-09-29): pairs that read
+                # alike, which only the session can judge -- wording also
+                # matches rules that do different jobs.
+                _pairs = _rp.similar_pairs(data['sources'])
+                print(f"MAY OVERLAP -- {len(_pairs)} practice pair(s) read "
+                      f"alike (same slug in two sources, alike across "
+                      f"sources, alike within one). Judge EACH: merge them "
+                      f"(say where) or keep both (say why), then rewrite "
+                      f"the page with --verdicts FILE.json.")
+                for _p in _pairs:
+                    print(f"  {_p['score']:.2f} {_p['kind']:17} "
+                          f"{_p['a']['slug']} ({_p['a']['source']})  ~  "
+                          f"{_p['b']['slug']} ({_p['b']['source']})")
+                print()
             except (Exception, SystemExit) as exc:          # noqa: BLE001
                 print(f"REVIEW PAGE: NOT written ({type(exc).__name__}: "
                       f"{exc}) -- run python3 tools/precedent_review_page.py "

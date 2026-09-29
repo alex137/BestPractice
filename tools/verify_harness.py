@@ -32604,6 +32604,71 @@ def check_loader_block_covers_every_declared_source():
               f'{len(leaked)} leaked: {", ".join(sorted(leaked)[:6])}')
 
 
+def check_review_page_lists_practices_that_may_overlap():
+    """The review page's third part lists practice pairs that read alike --
+    across sources and within one -- with the session's verdict beside each
+    (Morgan, 2026-09-29, strength: decided). Discriminating cases: the same
+    slug in two sources is listed whatever its score; two differently named
+    rules saying the same thing in different sources are listed; an
+    unrelated pair is not; and a verdict passed in is shown beside its pair
+    while an unjudged one says so."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_review_page as rp
+    PRACTICE = ('---\nslug: {slug}\ntitle: "{title}"\ntier: on-demand\n'
+                'severity: advisory\napplies_to: ["**"]\n'
+                'occasion: "{occ}"\ngates: []\nindex_clause: "{occ}"\n'
+                'checked_by: null\ndefines: []\nstatus: active\n'
+                'in_force_at: null\nsupersedes: []\noverrides: null\n'
+                'added: null\napproved_by: "fixture"\n---\n## Rule\n{rule}\n')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='overlap-'))
+    cases = []
+    try:
+        def put(src, slug, title, occ, rule):
+            d = tmp / src / 'practices'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f'{slug}.md').write_text(PRACTICE.format(
+                slug=slug, title=title, occ=occ, rule=rule), encoding='utf-8')
+        twin = ('Name the spreadsheet column after the quarterly invoice '
+                'ledger reconciliation total, never a vague heading.')
+        put('uni', 'ledger-column-names', 'Ledger columns', 'naming a ledger column', twin)
+        put('shr', 'invoice-heading-words', 'Invoice headings', 'naming a ledger column', twin)
+        put('uni', 'same-rule', 'Same', 'a thing happens', 'Harbour pilots board early.')
+        put('shr', 'same-rule', 'Same', 'a thing happens', 'Harbour pilots board early.')
+        put('uni', 'weather-log', 'Weather', 'logging rain', 'Record barometric pressure hourly at the lighthouse.')
+        put('shr', 'recipe-salt', 'Salt', 'seasoning soup', 'Taste the broth before adding coarse kosher salt.')
+        sources = [{'name': 'uni', 'level': 'universal', 'path': str(tmp / 'uni')},
+                   {'name': 'shr', 'level': 'shared', 'path': str(tmp / 'shr')}]
+        pairs = rp.similar_pairs(sources)
+        keys = {rp._pair_key(p): p['kind'] for p in pairs}
+        k_same = frozenset(('uni:same-rule', 'shr:same-rule'))
+        k_twin = frozenset(('uni:ledger-column-names', 'shr:invoice-heading-words'))
+        k_none = frozenset(('uni:weather-log', 'shr:recipe-salt'))
+        cases.append(('the same slug in two sources is listed as such',
+                      keys.get(k_same) == 'same slug', repr(keys)))
+        cases.append(('two rules saying the same thing in different sources '
+                      'are listed', keys.get(k_twin) == 'different sources',
+                      repr(keys)))
+        cases.append(('an unrelated pair is not listed', k_none not in keys,
+                      repr(keys)))
+        by_source = [{'name': 'uni', 'level': 'universal', 'slug': None,
+                      'prefix': '', 'practices': []},
+                     {'name': 'shr', 'level': 'shared', 'slug': None,
+                      'prefix': '', 'practices': []}]
+        page = rp.render(by_source, [], pairs=pairs, verdicts=[
+            {'a': 'uni:same-rule', 'b': 'shr:same-rule',
+             'verdict': 'ZZVERDICTZZ keep the universal copy'}])
+        cases.append(('a verdict is shown beside its pair, and an unjudged '
+                      'pair says so', 'ZZVERDICTZZ' in page
+                      and 'Not judged yet.' in page, page[-800:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the review page lists practices that may overlap '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_review_page_carries_every_source_and_is_never_committed():
     """The very deep check hands the person one session-only page: every
     branch they can delete, with a link each, and every active practice by
@@ -44504,6 +44569,7 @@ def main():
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
     check_review_page_carries_every_source_and_is_never_committed()
+    check_review_page_lists_practices_that_may_overlap()
     check_branch_report_keeps_private_names_out_of_a_public_tree()
     check_very_deep_check_reads_live_and_names_landing_work()
     check_very_deep_check_blocked_on_and_net_empty_branches()

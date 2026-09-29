@@ -92,11 +92,19 @@ one pull request is two whole minutes for however little work. Added
 item 7.
 
 **It ends with a review page for the person, shown in the session only.**
-Every run writes one page with two lists: **every branch the person can
+Every run writes one page with three lists: **every branch the person can
 delete**, in this checkout and every source, each with a link that opens
-GitHub's branch list filtered to it; and **every active practice, by
+GitHub's branch list filtered to it; **every active practice, by
 source**: universal first, then this repo's own, then the individual set,
-then each shared set, each with its own one-line `index_clause`.
+then each shared set, each with its own one-line `index_clause`; and
+**practices that may overlap** -- pairs whose wording reads alike, the same
+slug in two sources, two rules alike across sources, or two alike within
+one. A script finds the pairs and prints them in the run's MAY OVERLAP
+lines; **the session judges every pair** -- merge them, and into which
+source, or keep both and why -- and rewrites the page with `--verdicts`, so
+each verdict sits beside its pair. Wording alone also matches rules that do
+different jobs, which is why no pair is a finding until it is judged, and
+why a pair judged different stays on the page with its reason.
 [tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
 writes it under `.precedent/`, which git ignores, and the run's PRACTICE
 CATALOGUE section calls it. Add the unlanded branches you judged safe to
@@ -2551,6 +2559,7 @@ it landed and still unreviewed.
 - **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
 - **Replaced 2026-09-28, Morgan (strength: decided, "Go update")**: the practice catalogue is no longer committed anywhere. Every run writes a session-only review page instead (`tools/precedent_review_page.py`): the branches the person can delete, with a link each, and every active practice by source, private sets included, published in the session and never linked from a repository.
 - **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
+- **Extended 2026-09-29, Morgan (strength: decided)**, with the review page's third list, practices that may overlap, after asking whether the check looked for redundant or very similar practices in different repos and in the same one. Nothing did mechanically: the within-source scan caught a duplicate `defines:` term or a sibling override, and pass 3's placement read asked the question by hand. The script proposes pairs; the session judges them.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
