@@ -46,7 +46,7 @@ because a person's own set may coin a command and a session that listed only
 the universal ones would be confidently wrong about their own vocabulary.
 Where a source did not resolve this session, that is NAMED rather than
 silently dropped (practice: fail-gracefully): "I could not read your team
-set" is a different answer from "your team set defines no commands".
+set" is a different answer from "your shared set defines no commands".
 """
 import argparse
 import json

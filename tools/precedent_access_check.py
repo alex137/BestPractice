@@ -10,7 +10,7 @@ practice set, it migrated twelve repositories, catalogued their violations,
 and built a seven-commit patch for `alex137/BestPractice` -- which it then
 could not push, because a session holding one owner's repositories is refused
 another owner's. It sat blocked for four days on `root session at
-alex137/BestPractice to land the team-set declaration in precedent.json`,
+alex137/BestPractice to land the shared-set declaration in precedent.json`,
 having spent about a hundred dollars reaching a branch nobody could land.
 Nothing had lied to it. It simply never asked, and there was no cheap moment
 at which asking was the obvious thing to do.

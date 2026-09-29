@@ -23,7 +23,7 @@
 # people's names where the association is the sensitive part, internal
 # hostnames and ticket prefixes. The structural layer (built into every
 # consuming project's leak gate) already covers shapes — email addresses,
-# home directories, individual- and team-level paths — so there is no need
+# home directories, individual- and shared-level paths — so there is no need
 # to restate those here.
 #
 # WRITING THE PATTERNS. Prefer `\b…\b` so a term does not match inside an

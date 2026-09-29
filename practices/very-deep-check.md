@@ -194,7 +194,7 @@ failure, attach or clone the missing source (this harness's own
 repo-attachment mechanism, or a plain `git clone`) and re-run — never re-run
 with `--allow-missing-sources` to make the failure go away; that flag is for
 the rare case where proceeding without the source is the actual intent (a
-repo that deliberately has no team set yet).
+repo that deliberately has no shared set yet).
 
 **The passes are ordered by what a miss costs, and that order governs fixing
 too.** A from-scratch install or a migration that strands an adopter is a
@@ -458,7 +458,7 @@ method"). Build the fixtures.
   session-built fixtures found five.
 - **A real from-scratch install.** A scratch repository with nothing in it,
   installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §0 against `main`
-  alone — no team set, no individual set, none of the sibling clones this
+  alone — no shared set, no individual set, none of the sibling clones this
   session happens to have — following the documents exactly as written,
   without leaning on what this session already knows. Then run the deep
   check on the result. Anything the session had to work out that the
@@ -531,7 +531,7 @@ method"). Build the fixtures.
   let it pass on the fixtures alone — that is precisely the state that held
   while these seven defects were live.
 - **The empty neighbourhood.** A brand-new person with no individual set; a
-  team with no team set yet; a consumer whose sources are declared but
+  team with no shared set yet; a consumer whose sources are declared but
   unreachable, as they are in every continuous integration (CI) checkout.
   Each degradation path should degrade with a named reason — never pass
   silently on a scan that never ran, and never fail on something the adopter
@@ -866,7 +866,7 @@ confidently.
     everywhere, has never fired **and** forbids something no longer
     structurally possible — the only retirement candidate of the three; and a
     check firing repeatedly on one root cause, which asks for a fix to the
-    tooling rather than more enforcement of the rule. *(Found: a team source
+    tooling rather than more enforcement of the rule. *(Found: a shared source
     at 12 passed and 42 skipped, every skip the same cause — each check is
     keyed to a `practices/<slug>.md` the set does not carry, because a source
     set's `practices/` holds its own level only and it resolves no source that
@@ -1424,9 +1424,9 @@ first so this pass spends its attention on what they cannot see.
 - **Whether each practice's SOURCE is still right.** A different axis from
   the bullet above — not resident-versus-on-demand within one catalogue, but
   *which* catalogue a practice's slug lives in at all, across every source in
-  scope: universal, each team set, and the individual set. Read every
+  scope: universal, each shared set, and the individual set. Read every
   practice's occasion and title against the charter each source states for
-  itself (a team set's own subject line — "how a session works alongside the
+  itself (a shared set's own subject line — "how a session works alongside the
   person," "the craft of writing for a human reader," the maintaining team's
   own repo mechanics — and universal's implicit one, *everyone, always*), and
   ask: does this rule's actual subject match the source it is filed under, or
@@ -1436,17 +1436,17 @@ first so this pass spends its attention on what they cannot see.
   (an individual practice written in the first person for something any team
   would want — `"another window of mine"` for a collision any multi-session
   user hits); two sources independently authoring the same rule because
-  neither one resolves the other (a team set that declares no sources of its
+  neither one resolves the other (a shared set that declares no sources of its
   own re-deriving something universal already says, invisible to
   `no-duplication` because the two copies never sit in the same file to
   compare); and a rule that is topically a subject-team's own material,
-  landed in universal or in a different team set anyway, discoverable only
+  landed in universal or in a different shared set anyway, discoverable only
   by reading its prose against the destination's stated charter rather than
   its slug. **No script does this yet** — a source's charter is a sentence
   of prose, not a property `applies_to` or `scope` can encode, so this stays
   a judgment read, the same honest limit TIER PLACEMENT states for itself.
   *(2026-09-23: a session asked to do exactly this read, once, by hand,
-  across precedent-individual and the three team sets against universal,
+  across precedent-individual and the three shared sets against universal,
   found instances of all three shapes on the first pass — five practices
   filed in precedent-individual that were general mechanisms in personal
   wording, two universal practices squarely inside working-style's own
@@ -1454,7 +1454,7 @@ first so this pass spends its attention on what they cannot see.
   both universal's `local/practices/` and repo-maintenance, because
   repo-maintenance resolves no sources of its own and never saw the
   universal copy to compare against. The same session's reading also found
-  `small-calls` and `push-back` sitting active in both a team set and
+  `small-calls` and `push-back` sitting active in both a shared set and
   universal for three days after a 2026-09-19 move landed only its first
   half — a duplication this bullet would have caught on the next run rather
   than waiting for someone to notice by hand.)* Added 2026-09-23 (Morgan,
@@ -1556,7 +1556,7 @@ first so this pass spends its attention on what they cannot see.
   half, which nothing detects at all — two practices in one catalogue whose
   Rules pull opposite ways. The occasion for adding it was real: on
   2026-09-07 two sessions landed `fail-gracefully` and `bold-key-phrases`
-  into both team sets on the same day, each doing the obviously right
+  into both shared sets on the same day, each doing the obviously right
   thing, and the collision surfaced only because this check happened to
   resolve all four sources by hand.
 - **Anything else the read turns up** — if something is wrong and none of the

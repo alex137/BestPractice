@@ -2160,7 +2160,7 @@ def _check_coverage(repo_dir, timeout=300):
     output at a time, by hand, with the comparison held in a session's
     head. This is the enumeration.
 
-    THE SHAPE THE ANSWER TAKES IS THE FINDING. A team source measured
+    THE SHAPE THE ANSWER TAKES IS THE FINDING. A shared source measured
     2026-09-12 ran 12 checks and skipped 42, and **every one of the 42 had
     the same cause** -- each check is keyed to a `practices/<slug>.md` the
     set does not carry, because a source set's practices/ holds its own
@@ -3947,7 +3947,7 @@ def _tracked_files(repo_dir):
     question could not be answered.
 
     UNTRACKED IS NOT DRIFT, and this exists because the first run of the
-    extended checks reported that all three team sets carry a
+    extended checks reported that all three shared sets carry a
     `.claude/settings.local.json` the skeleton does not ship. True, and not a
     template gap: the file is untracked in all three, written by the harness
     into whatever container the set happens to be cloned in. A check that
@@ -4043,11 +4043,11 @@ def _convergent_drift(collect, sources=None):
     Raised by Morgan on 2026-09-13: "I think the level files like
     precedent-individual and precedent-team-* get out of sync with the
     original templates in important ways very quickly." Measured the same day
-    before it was built: across the three resolved team sets there was no
+    before it was built: across the three resolved shared sets there was no
     shared line-level change in any skeleton-owned file -- zero -- so this
     lands against a clean baseline and its first real finding will be a real
     one. What the measurement DID show is the shape being right: all three
-    team sets carry a `freshness-guard.sh` byte-identical to each other and
+    shared sets carry a `freshness-guard.sh` byte-identical to each other and
     different from the generator, reported until now as three unrelated
     findings.
 
@@ -4256,7 +4256,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         except Exception:                                         # noqa: BLE001
             pass
         if not approvers:
-            # bootstrap() refuses a team set with no approver, and refusing
+            # bootstrap() refuses a shared set with no approver, and refusing
             # to run the check at all over a seed value that never reaches
             # a compared file (approvers.json is skeleton-owned) would be
             # the guard costing more than it protects.
@@ -7906,7 +7906,7 @@ def _main(box):
     # it, and nothing afterwards asked whether it came out the right shape.
     # CONFLICTING PRACTICES WITHIN ONE SOURCE (practice: very-deep-check,
     # pass 3). Requested by Morgan 2026-09-07, after two sessions landed the
-    # same practice into both team sets on the same day.
+    # same practice into both shared sets on the same day.
     #
     # The CROSS-source half is already a hard refusal -- precedent_resolve
     # raises on two same-level sources defining one slug -- so this is the

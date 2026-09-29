@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """precedent_bootstrap_source.py — give a brand-new adopter with NO
-individual or team practice repo yet a real, working one in one command.
+individual or shared practice repo yet a real, working one in one command.
 
 THE GAP THIS CLOSES. Every source in PRACTICE_ENGINE_PLAN.md's three-source
 model (universal/team/individual) has always assumed the team or individual
@@ -421,7 +421,7 @@ def ensure_universal_source(dest):
     A SIBLING PATH, not a `~` one, and that is the measured answer rather
     than the tidy-looking one. `$HOME` is /root on some containers and
     /home/user on others, and an individual set is cloned under $HOME while
-    the team sets and the consuming repo sit side by side -- so `~/BestPractice`
+    the shared sets and the consuming repo sit side by side -- so `~/BestPractice`
     names nothing on the very container where the sets actually live. The
     relative sibling is correct everywhere because the clone step creates it
     there: precedent_source_bootstrap.sources_from_repo() clones a declared
@@ -1171,7 +1171,7 @@ def _malformed(level, path):
                                'the person whose set this is how technical '
                                'their replies should be and write their '
                                'answer in, in their own words; until then a '
-                               'team-level default may decide it for them')
+                               'shared-level default may decide it for them')
 
         f = path / 'config.json.sample'
         if f.is_file():
@@ -1648,8 +1648,8 @@ def write_session_hook(consuming_project, name, repo_url, force=False):
 
 
 def write_repo_config(repo_config_dir, name, dest, force=False):
-    """Merge the team source into PATH/precedent.json -- a shared,
-    tracked file, per INSTALL.md step 9's 'if yes to a team source' shape.
+    """Merge the shared source into PATH/precedent.json -- a shared,
+    tracked file, per INSTALL.md step 9's 'if yes to a shared source' shape.
     `path` is written relative to the config file's own directory, since
     that's how every existing team/repo-local entry in this repo's own
     precedent.json is written."""
@@ -1698,7 +1698,7 @@ def _infer_level(path):
     """-> 'shared' | 'individual' | None, read off the set itself.
 
     Asking the operator for --level on a set that already exists is asking
-    them to restate something the directory already says: a team set carries
+    them to restate something the directory already says: a shared set carries
     approvers.json (build_codeowners.py refuses one without it), an
     individual set carries an identity or a config naming its owner. Guessing
     wrong is cheap to notice and never destructive -- verify() only reads.

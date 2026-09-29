@@ -190,7 +190,7 @@ def head_commit():
 
 def declared_paths():
     """Where the sources in force here actually live, per the configs that
-    decide it -- this repo's own precedent.json for team sources, and the
+    decide it -- this repo's own precedent.json for shared sources, and the
     user-level config for the individual one.
 
     Siblings alone are not enough, and finding that out is what added this.

@@ -247,10 +247,10 @@ def land(candidate_path, level, repo_path, approved_by, against,
               f"only to you, is already in force, and nobody else approved "
               f"or needs to.")
     elif level == 'shared':
-        print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
+        print(f"DISCLOSE TO THE HUMAN: this is now part of the SHARED "
               f"practice set at {repo_path}, approved by "
               f"{approved_by!r}. It is already in force for "
-              f"everyone on that team.")
+              f"everyone who uses that set.")
     else:  # universal
         print("DISCLOSE TO THE HUMAN: this is a DRAFT ONLY, not yet in "
               "force for anyone. Stage 4's universal approval is a PR to "

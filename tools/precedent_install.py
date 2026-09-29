@@ -40,7 +40,7 @@ run in the project's own sessions from then on.
 IT INSTALLS TWO GITHUB ACTIONS WORKFLOWS BY DEFAULT, since 2026-09-25:
 leak-gate.yml and light-check.yml -- one light check on a pull request into
 main, and a leak gate that never runs in a private repository. An individual
-or team source whose identity.json declares `"github_ci_workflows":
+or shared source whose identity.json declares `"github_ci_workflows":
 "disabled"` switches both off (the old key `ci_workflows` is still read).
 From 2026-09-15 to 2026-09-25 nothing declared meant disabled. The tool names
 the reason in its output and in the project's own GETTING_STARTED.md. See
@@ -286,7 +286,7 @@ def _ci_paragraph_off():
     return (
         "- **No GitHub Actions workflow was installed.** Precedent's CI\n"
         "  workflows were switched off for this install by the `github_ci_workflows`\n"
-        "  setting of the individual or team source it resolves — GitHub Actions\n"
+        "  setting of the individual or shared source it resolves — GitHub Actions\n"
         "  minutes are metered per private repository and billed in whole-minute\n"
         "  increments per JOB. Turn them on by\n"
         "  declaring `\"github_ci_workflows\": \"enabled\"` in the individual or team\n"
@@ -629,7 +629,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
                              f'engine is already vendored here. This is an '
                              f'UPDATE, not an install: INSTALL.md §2. Pass '
                              f'--force to reinstall over it anyway.')
-    # A team set that is not on disk makes the sync refuse AFTER everything
+    # A shared set that is not on disk makes the sync refuse AFTER everything
     # else is written, and the engine it just seeded makes a re-run refuse
     # as "already installed" -- so check before writing anything.
     for name, tp in teams:
