@@ -104,7 +104,7 @@ their next `Update Vendors` will actually carry it.
 
 **Doing the root fix follows the authorization already in force.** The
 command licenses making the root fix. It does not add a push or a merge
-authorization of its own. When `Go update` or an equivalent covers the
+authorization of its own. When Booked (`Go update`) or an equivalent covers the
 work, the root fix lands with it. When nothing does, commit it and say it
 is ready to land.
 

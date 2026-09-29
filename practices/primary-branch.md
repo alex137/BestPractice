@@ -37,7 +37,7 @@ Absent a declaration, it is whichever branch the repository's own routine
 work is actually developed and committed against -- never a configured
 default chosen just because it is configured that way.
 
-**Under the branch tiers it is the branch this person's `Go update` lands
+**Under the branch tiers it is the branch this person's Booked (`Go update`) lands
 on** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
 `python3 tools/precedent_branches.py --landing` names it: the person's own
 `landing_branch` (identity.json) if set, else the repository's

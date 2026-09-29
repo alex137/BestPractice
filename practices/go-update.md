@@ -69,7 +69,7 @@ the step that moves a session's work off its feature branch to somewhere it
 won't be lost. When it is asked for by a stage word, it is read back as a
 stage first (*"Now Promote 3: Booked, the Shared Save -- moving
 `claude/<topic>-<random>` into pre-staging (BestPractice)"*). For anyone
-not using the ladder, `Go update` behaves exactly as below, word for word.
+not using the ladder, Booked (`Go update`) behaves exactly as below, word for word.
 Read any of these words for what the message means in the conversation it
 arrives in, not as a string to match: "book it if there's anything to
 book; if not, promote", said after a day of landing and promoting, asks

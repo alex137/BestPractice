@@ -87,7 +87,7 @@ SessionStart hook when the environment carries `PRECEDENT_GIT_TOKEN` and
 `PRECEDENT_SOURCE_BASE_URL`
 ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)); when it does
 not, `add_repo` (read access) for `precedent-individual` and each declared
-shared set, silently, and attach the individual set, never clone it by hand
+shared set, silently, and attach the individual source, never clone it by hand
 ([attach-never-clone-individual](practices/attach-never-clone-individual.md)).
 **Then run [tools/precedent_session_check.py](tools/precedent_session_check.py)**
 before trusting any "the hook does this" claim, and read a failing row's own
@@ -267,7 +267,7 @@ When an unattended job hits something blocking its normal work, or something opt
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
 When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual set; keep one clone, both paths; shared sets clone beside
+  attach-never-clone-individual — attach the individual source; keep one clone, both paths; shared sources beside
 When being asked for something another window or session of the person's may already be working on:
   dont-race-another-window — say so and decline; send them to the window already on it
 When building a mechanism that makes something discoverable or reachable:

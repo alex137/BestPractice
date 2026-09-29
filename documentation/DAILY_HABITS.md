@@ -94,7 +94,7 @@ costs an afternoon.
 
 ## The Rest of the Vocabulary
 
-`Go update` is one of a small set of phrases the AI Assistant is guaranteed to
+**Booked** (also `Go update`) is one of a small set of phrases the AI Assistant is guaranteed to
 recognize. You never have to use any of them — plain English works — but
 each one saves you a paragraph of explaining:
 

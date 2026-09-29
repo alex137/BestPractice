@@ -174,7 +174,7 @@ absorbed it. Absent that, the default text says so directly:
 > **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go update" in
 > this session before merging.**
 
-When the person says `Prompt Please` together with `Go update` (or
+When the person says `Prompt Please` together with Booked (`Go update`) (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
 authorization travels with the prompt, bounded exactly as
 [go-update](go-update.md) already bound it (and `session-text` bound it

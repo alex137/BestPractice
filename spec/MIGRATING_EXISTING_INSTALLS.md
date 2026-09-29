@@ -787,7 +787,7 @@ widening what sessions may run
    declines it in `precedent.json`'s `declined_adapters` with the reason
    (`hooks-on-disk-are-reachable`). **Declining it gives up one thing a
    consumer still needs**: it was, until 2026-09-26, the only session-start
-   step that cloned the shared sets `precedent.json` declares. The
+   step that cloned the shared sources `precedent.json` declares. The
    template's `tools/bootstrap.sh` carries that step now ("Clone every
    shared practice set"). A consumer with an edited `tools/bootstrap.sh`
    must carry that block itself, or declare in `source_clone_elsewhere`
