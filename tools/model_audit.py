@@ -60,6 +60,8 @@ ignores everything else.
 
 import argparse
 import io
+import os
+import tempfile
 import pathlib
 import importlib.util
 import sys
@@ -264,6 +266,155 @@ def check_constants_register():
     return fails
 
 
+# ---------------------------------------------------------------------------
+# The ledger (fact_ledger.py, beside this file). With LEDGER set, each model
+# is audited in a process of its own under the reads hook, and a clean
+# audit records a fact: the fingerprint of the code its self_check() and
+# check_anchors() reach, the files they read, and the result. A model whose
+# fact holds is not run again -- the audit of an unchanged tree takes the
+# time to fingerprint it, not the time to re-solve every model. Models run
+# in parallel (MODEL_AUDIT_JOBS, default the CPU count); a failing audit is
+# never recorded, so it runs every time until it passes. Hosts set LEDGER
+# (repo-relative, `merge=union`), REACH_DIRS and LEDGER_IGNORE as for
+# doc_sync.
+LEDGER = None
+REACH_DIRS = ()
+LEDGER_IGNORE = ()
+
+
+def _run_one(path, out):
+    """The child of a ledger run: one model's self-check and anchors."""
+    import json
+    res = {"failures": [], "passes": [], "has_sc": False, "has_an": False, "error": None}
+    mod, err = load(path)
+    if err:
+        res["error"] = err
+    else:
+        res["has_sc"] = callable(getattr(mod, "self_check", None))
+        res["has_an"] = callable(getattr(mod, "check_anchors", None))
+        if res["has_sc"]:
+            try:
+                res["failures"] += [f"[self_check] {{rel}}: {f}" for f in (mod.self_check() or [])]
+            except Exception:
+                res["failures"].append(f"[self_check] {{rel}} raised:\n{traceback.format_exc(limit=2)}")
+        if res["has_an"]:
+            try:
+                passes, fails = mod.check_anchors()
+                res["passes"] = [str(p) for p in passes]
+                res["failures"] += [f"[anchor] {{rel}}: {f}" for f in fails]
+            except Exception:
+                res["failures"].append(f"[anchors] {{rel}} raised:\n{traceback.format_exc(limit=2)}")
+    json.dump(res, open(out, "w"))
+
+
+def _ledger():
+    spec = importlib.util.spec_from_file_location("_model_audit_fact_ledger", Path(__file__).resolve().parent / "fact_ledger.py")
+    fl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fl)
+    return fl.Ledger(ROOT, LEDGER, REACH_DIRS, LEDGER_IGNORE)
+
+
+def _audit_entries(path):
+    import ast
+    top = ast.parse(path.read_text()).body
+    names = set()
+    for st in top:
+        # defined here, assigned, or imported from another module: the key
+        # follows the name wherever it is bound
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(st.name)
+        elif isinstance(st, (ast.Import, ast.ImportFrom)):
+            names.update(a.asname or a.name for a in st.names)
+        elif isinstance(st, ast.Assign):
+            names.update(t.id for t in st.targets if isinstance(t, ast.Name))
+    ents = [n for n in ("self_check", "check_anchors") if n in names]
+    # no self-check the key can name: every name the script binds stands
+    # in, so the key is never empty
+    return ents or sorted(names)
+
+
+def audit_with_ledger(scripts, full=False, verbose=False):
+    """(failures, warnings, checked, anchors_ok) for `scripts`, each audited
+    in its own process unless its fact holds."""
+    import concurrent.futures
+    import json
+    import subprocess
+    import time
+    led = _ledger()
+    failures, warnings, checked, anchors_ok = [], [], 0, 0
+    todo, held = [], 0
+    t0 = time.time()
+    led.begin()
+    try:
+        for rel in scripts:
+            path = ROOT / rel
+            if not path.exists():
+                path = HERE.parent / pathlib.PurePath(rel).name
+            if not path.exists():
+                failures.append(f"MISSING: {rel} listed in INSTRUMENTED but absent from both {ROOT} and {HERE.parent}")
+                continue
+            prel = str(path.resolve().relative_to(ROOT.resolve())) if ROOT.resolve() in path.resolve().parents else rel
+            code = led.code_key(prel, _audit_entries(path), b"model-audit")
+            f = None if full else led.find("#audit", prel, code)
+            if f is not None:
+                held += 1
+                res = f["result"]
+                if res["has_sc"] or res["has_an"]:
+                    checked += 1
+                    anchors_ok += len(res["passes"])
+                else:
+                    warnings.append(f"{rel}: no self_check() or ANCHORS — it consumes a quantity it "
+                                    "does not own; assert the property or the recited figure")
+                continue
+            todo.append((rel, prel, path, code))
+    finally:
+        led.end()
+    print(f"model_audit: ledger: {held} of {held + len(todo)} script(s) unchanged since their last clean "
+          f"audit ({time.time() - t0:.1f} s); auditing {len(todo)}", flush=True)
+
+    def one(item):
+        rel, prel, path, code = item
+        fd, out = tempfile.mkstemp(suffix=".json"); os.close(fd)
+        fd, reads = tempfile.mkstemp(suffix=".reads"); os.close(fd)
+        try:
+            t = time.time()
+            r = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--_one", str(path), out],
+                               capture_output=True, text=True, env=led.hook_env(reads), cwd=str(ROOT))
+            try:
+                res = json.load(open(out))
+            except (OSError, ValueError):
+                res = {"failures": [], "passes": [], "has_sc": False, "has_an": False,
+                       "error": f"the audit process exited {r.returncode}:\n{r.stderr[-2000:]}"}
+            return rel, prel, code, res, led.parse_reads(reads), time.time() - t
+        finally:
+            os.unlink(out)
+            os.unlink(reads)
+    jobs = int(os.environ.get("MODEL_AUDIT_JOBS", "0") or 0) or os.cpu_count() or 1
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
+        for rel, prel, code, res, reads, took in ex.map(one, todo):
+            done += 1
+            print(f"model_audit: [{done}/{len(todo)}] {rel} ({took:.0f} s)", flush=True)
+            if res["error"]:
+                failures.append(f"IMPORT FAILED: {rel}\n{res['error']}")
+                continue
+            res["failures"] = [x.replace("{rel}", rel) for x in res["failures"]]
+            if not (res["has_sc"] or res["has_an"]):
+                warnings.append(f"{rel}: no self_check() or ANCHORS — it consumes a quantity it "
+                                "does not own; assert the property or the recited figure")
+            else:
+                checked += 1
+                anchors_ok += len(res["passes"])
+            if verbose:
+                for p in res["passes"]:
+                    print(f"  ok  {rel}: {p}")
+            failures.extend(res["failures"])
+            if not res["failures"] and reads is not None:
+                led.put(led.make("#audit", prel, prel, code, json.dumps(res, sort_keys=True), reads, result=res))
+    led.save()
+    return failures, warnings, checked, anchors_ok
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true")
@@ -271,6 +422,7 @@ def main():
     ap.add_argument("--changed", nargs="?", const="", default=None, metavar="BASE",
                     help="audit only the scripts whose import closure changed against "
                          "BASE (default BASE_REF); the full run stays the merge gate")
+    ap.add_argument("--full", action="store_true", help="ignore the ledger and audit every script")
     args = ap.parse_args()
 
     failures, warnings, checked, anchors_ok = [], [], 0, 0
@@ -283,6 +435,12 @@ def main():
         if not scripts:
             print("model_audit OK: no instrumented script imports changed code.")
             return 0
+
+    if LEDGER and not args.list:
+        f2, w2, checked, anchors_ok = audit_with_ledger(scripts, full=args.full, verbose=args.verbose)
+        failures.extend(f2)
+        warnings.extend(w2)
+        scripts = []
 
     for rel in scripts:
         # Two layouts. In the classic vendoring install this file sits at
@@ -366,4 +524,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 4 and sys.argv[1] == "--_one":
+        _run_one(Path(sys.argv[2]), sys.argv[3])
+        sys.exit(0)
     sys.exit(main())

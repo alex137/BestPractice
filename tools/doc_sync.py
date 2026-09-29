@@ -25,6 +25,20 @@ the numbers live in the script; the document is a render target.
 
 The sentinels are HTML comments, which render as nothing on hosted markdown.
 
+THE LEDGER (host knob LEDGER). Re-running every emitter to see whether its
+block still matches is the gate's whole cost, and most of it is spent
+proving that nothing changed. With a ledger, each block carries a fact:
+the fingerprint of the code its emitter can reach (reach_key.py, the same
+engine that keys memos), the hashes of the files the emit actually read
+(recorded by an audit hook in the emit process), and the hash of what it
+printed. A block whose fact still holds on all three is skipped without
+running anything; only the rest are emitted. Facts verify themselves, so
+the ledger merges by union and a stale or foreign line costs one re-emit,
+never a skipped block. An emit whose reads could not be recorded gets no
+fact and always runs. `--full` ignores the ledger.
+
+    python3 tools/doc_sync.py --full    # emit every block regardless
+
 Beyond the drift gate, this tool enforces two things a generated block alone
 cannot: a provenance footer naming the scripts that feed each document, and
 the practice-33 RESTATEMENT check -- a figure a script declares it owns
@@ -182,6 +196,80 @@ class OwnedFiguresUnavailable(Exception):
     """A script's owned_figures() could not be read -- never a silent pass."""
 
 
+_OWNED_CHILD = r"""
+import importlib.util, json, sys, io, contextlib
+path, out = sys.argv[1], sys.argv[2]
+sys.path.insert(0, __import__("os").path.dirname(path))
+spec = importlib.util.spec_from_file_location("_of_child", path)
+mod = importlib.util.module_from_spec(spec)
+with contextlib.redirect_stdout(io.StringIO()):
+    spec.loader.exec_module(mod)
+    figs = [[label, list(forms)] for label, forms in mod.owned_figures()]
+json.dump(figs, open(out, "w"))
+"""
+
+
+def owned_figures_cached(script, ledger):
+    """owned_figures() through the ledger: a script whose fingerprint and
+    recorded reads still hold is not imported at all (declaring figures can
+    cost a model's whole solve). Otherwise it runs in a child process that
+    records its reads, and the answer is kept as a fact."""
+    import json
+    import os
+    import tempfile
+    if not LEDGER:
+        return owned_figures(script)
+    if not _binds_owned(script):
+        return []
+    code = _led().code_key(script, ["owned_figures"], b"owned")
+    for f in ledger.get(("#owned", script), []):
+        if not FULL and f.get("code") == code and f.get("figures") is not None \
+                and _led().reads_hold(f):
+            return [(lab, forms) for lab, forms in f["figures"]]
+    fd, out = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    fd, reads = tempfile.mkstemp(suffix=".reads")
+    os.close(fd)
+    try:
+        r = subprocess.run([sys.executable, "-c", _OWNED_CHILD, str(ROOT / script), out],
+                           capture_output=True, text=True, env=_hook_env(reads))
+        if r.returncode != 0:
+            raise OwnedFiguresUnavailable(f"{script}.owned_figures() could not be read: "
+                                          f"{r.stderr.strip().splitlines()[-1] if r.stderr.strip() else r.returncode}")
+        figs = json.load(open(out))
+        rd = _parse_reads(reads)
+    finally:
+        os.unlink(out)
+        os.unlink(reads)
+    if rd is not None:
+        ledger[("#owned", script)] = [_led().make("#owned", script, script, code, json.dumps(figs), rd,
+                                                  figures=figs)]
+    return [(lab, forms) for lab, forms in figs]
+
+
+def _binds_owned(script):
+    """Whether a script can define owned_figures at all (a script that never
+    binds the name has nothing to declare, and is not imported)."""
+    import ast
+    try:
+        top = ast.parse((ROOT / script).read_text()).body
+    except SyntaxError:
+        return True
+    for st in top:
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if st.name == "owned_figures":
+                return True
+        elif isinstance(st, (ast.Import, ast.ImportFrom)):
+            if any((a.asname or a.name.split(".")[0]) in ("owned_figures", "*") for a in st.names):
+                return True
+        elif any(isinstance(x, ast.Name) and x.id == "owned_figures" and isinstance(x.ctx, ast.Store)
+                 for x in ast.walk(st)) or any(isinstance(x, ast.Call) and isinstance(x.func, ast.Name)
+                                                and x.func.id in ("globals", "exec", "setattr")
+                                                for x in ast.walk(st)):
+            return True
+    return False
+
+
 def owned_figures(script):
     """Figures a script declares it owns, as (label, [rendered forms]).
 
@@ -223,15 +311,286 @@ def owned_figures(script):
             f"{script}.owned_figures() raised: {type(e).__name__}: {e}") from e
 
 
+# ---------------------------------------------------------------------------
+# The ledger (see the module docstring). Hosts set LEDGER to a repo-relative
+# path (mark it `merge=union` in .gitattributes) and REACH_DIRS to the
+# directories a bare `import name` in a script may resolve to after the
+# script's own directory -- the same list the host's memo keys use. An import
+# the fingerprint cannot resolve is not followed, so a missing directory
+# here is a block skipped on stale code; list every directory models import
+# from.
+LEDGER = None
+REACH_DIRS = ()
+# Modules whose loading a fact does not count, because their only effect is
+# to fetch or store a result (a memo loader, a shared-cache client, the key
+# engine it calls): an edit to one never changes a number a block prints.
+# Repo-relative paths; the host lists them.
+LEDGER_IGNORE = ()
+FULL = False                      # --full: ignore the ledger for this run
+READS = {}                        # (script, name) -> recorded reads, or None when untracked
+_LED = None
+
+
+def _led():
+    """The shared fact ledger (fact_ledger.py, beside this file), built from
+    the host's knobs on first use."""
+    global _LED
+    if _LED is None:
+        spec = importlib.util.spec_from_file_location("_doc_sync_fact_ledger",
+                                                      Path(__file__).resolve().parent / "fact_ledger.py")
+        fl = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fl)
+        # the gate's own files: a batch emit runs inside this module, which
+        # would otherwise count as a read of every block it emits
+        here = Path(__file__).resolve().parent
+        own = set()
+        for f in (Path(__file__).resolve(), here / "fact_ledger.py", here / "content_record.py",
+                  here / "reach_key.py"):
+            try:
+                own.add(str(f.relative_to(Path(ROOT).resolve())))
+            except ValueError:
+                pass
+        _LED = fl.Ledger(ROOT, LEDGER, REACH_DIRS, set(LEDGER_IGNORE) | own)
+        _LED.sha = fl.sha
+    return _LED
+
+
+def _hook_env(reads_file):
+    # the gate's own file loads model scripts (the batch child reads and
+    # compiles them): its reads of code are code, not data
+    return _led().hook_env(reads_file, loaders=[Path(__file__).resolve()])
+
+
+def _parse_reads(reads_file):
+    return _led().parse_reads(reads_file)
+
+
+def _sha(text):
+    return _led().sha(text)
+
+
+def _reach_engine():
+    return _led().reach_engine()
+
+
+def _argv_test(node, argv):
+    """True/False when `node` is decidable from `argv` alone, else None.
+    Understands len(sys.argv) compared with a constant or a tuple of them,
+    sys.argv[i] compared with a string, "s" in sys.argv, and not/and/or."""
+    import ast
+
+    def is_argv(n):
+        return (isinstance(n, ast.Attribute) and n.attr == "argv"
+                and isinstance(n.value, ast.Name) and n.value.id == "sys")
+
+    def value(n):
+        if isinstance(n, ast.Constant):
+            return True, n.value
+        if isinstance(n, ast.Tuple) and all(isinstance(e, ast.Constant) for e in n.elts):
+            return True, tuple(e.value for e in n.elts)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "len" \
+                and len(n.args) == 1 and is_argv(n.args[0]):
+            return True, len(argv)
+        if isinstance(n, ast.Subscript) and is_argv(n.value) and isinstance(n.slice, ast.Constant) \
+                and isinstance(n.slice.value, int):
+            i = n.slice.value
+            return (True, argv[i]) if -len(argv) <= i < len(argv) else (False, None)
+        if is_argv(n):
+            return True, tuple(argv)
+        return False, None
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        v = _argv_test(node.operand, argv)
+        return None if v is None else not v
+    if isinstance(node, ast.BoolOp):
+        vs = [_argv_test(v, argv) for v in node.values]
+        if isinstance(node.op, ast.And):
+            return False if False in vs else (None if None in vs else True)
+        return True if True in vs else (None if None in vs else False)
+    if isinstance(node, ast.Compare) and len(node.ops) == 1:
+        (ok1, a), (ok2, b) = value(node.left), value(node.comparators[0])
+        if not (ok1 and ok2):
+            return None
+        op = node.ops[0]
+        try:
+            if isinstance(op, ast.Eq):
+                return a == b
+            if isinstance(op, ast.NotEq):
+                return a != b
+            if isinstance(op, ast.In):
+                return a in b
+            if isinstance(op, ast.NotIn):
+                return a not in b
+        except TypeError:
+            return None
+    return None
+
+
+def _exits(stmts):
+    """The statement list ends the run (sys.exit / raise SystemExit)."""
+    import ast
+    if not stmts:
+        return False
+    last = stmts[-1]
+    if isinstance(last, ast.Raise):
+        return True
+    return (isinstance(last, ast.Expr) and isinstance(last.value, ast.Call)
+            and isinstance(last.value.func, ast.Attribute) and last.value.func.attr == "exit"
+            and isinstance(last.value.func.value, ast.Name) and last.value.func.value.id == "sys")
+
+
+def _taken(stmts, argv):
+    """The statements of a `__main__` body a run with `argv` can execute:
+    an `if` decidable on argv takes one side, and a taken side that exits
+    ends the list. Anything undecidable is kept whole."""
+    import ast
+    out = []
+    for st in stmts:
+        if isinstance(st, ast.If):
+            v = _argv_test(st.test, argv)
+            if v is None:
+                out.append(st)
+                continue
+            side = st.body if v else st.orelse
+            out.extend(_taken(side, argv))
+            if _exits(side):
+                return out
+            continue
+        out.append(st)
+    return out
+
+
+_TREES = {}
+
+
+def _block_entries(script, name):
+    """What the emit of one block can run: the names the script's
+    `__main__` block uses, with an EMITTERS table narrowed to the block's
+    own entry (when the table is a plain dict literal nothing else edits),
+    and the hashed text of the dispatch itself."""
+    import ast
+    tree = _TREES.get(script)
+    if tree is None:
+        tree = _TREES[script] = ast.parse((ROOT / script).read_text())
+    guards = [st for st in tree.body if isinstance(st, ast.If) and isinstance(st.test, ast.Compare)
+              and isinstance(st.test.left, ast.Name) and st.test.left.id == "__name__"]
+    # only the statements an `--emit NAME` run can take: a branch whose test
+    # is decidable on that argv and false (the self-check, a smoke mode) is
+    # left out, so editing what only it calls re-runs no block
+    names, extra = set(), ""
+    for g in guards:
+        taken = _taken(g.body, ["SCRIPT", "--emit", name])
+        whole = taken == g.body                 # nothing left out: keyed as it always was
+        names |= {n.id for t in ([g] if whole else taken) for n in ast.walk(t) if isinstance(n, ast.Name)}
+        extra += ast.dump(g) if whole else "".join(ast.dump(t) for t in taken)
+    table = [st for st in tree.body if isinstance(st, ast.Assign) and len(st.targets) == 1
+             and isinstance(st.targets[0], ast.Name) and st.targets[0].id == "EMITTERS"
+             and isinstance(st.value, ast.Dict)]
+    # the table narrows a block's key only when nothing but its literal
+    # definition binds it: any other use outside the dispatch (an update,
+    # `EMITTERS |= ...`, an item assignment, a helper that takes it) may
+    # rebind an entry, so the whole dispatch is kept
+    inside = {id(n) for st in table + guards for n in ast.walk(st)}
+    edited = any(isinstance(n, ast.Name) and n.id == "EMITTERS" and id(n) not in inside
+                 for n in ast.walk(tree))
+    if "EMITTERS" in names and len(table) == 1 and not edited:
+        d = table[0].value
+        vals = [v for k, v in zip(d.keys, d.values) if isinstance(k, ast.Constant) and k.value == name]
+        if len(vals) == 1 and all(isinstance(k, ast.Constant) for k in d.keys):
+            names.discard("EMITTERS")
+            names |= {n.id for n in ast.walk(vals[0]) if isinstance(n, ast.Name)}
+            extra += ast.dump(vals[0])
+    return sorted(names), extra
+
+
+def block_code_key(script, name):
+    """The fingerprint of the code one block's emit can reach."""
+    entries, extra = _block_entries(script, name)
+    return _led().code_key(script, entries, extra.encode())
+
+
+def load_ledger():
+    """(doc, block) -> [facts]."""
+    return _led().facts if LEDGER else {}
+
+
+def save_ledger(ledger):
+    _led().facts = ledger
+    _led().save()
+
+
+def fact_holds(f, code, have):
+    return _led().holds(f, code, have)
+
+
+def make_fact(doc, name, script, code, want, reads):
+    return _led().make(doc, name, script, code, want, reads)
+
+
 def block_re(name):
     return re.compile(
         rf"(<!--gen:{re.escape(name)}-->\n)(.*?)(<!--/gen:{re.escape(name)}-->)",
         re.S)
 
 
+# FAIL FAST. Emits run concurrently, and a pool waits for every running
+# task before it lets an exception out, so a script that crashed in its
+# first second was reported only when the slowest solve beside it finished
+# -- fourteen minutes, twice in one session. Every emit is its own process
+# group; the first failure stops the rest and the gate exits at once.
+_PROCS = set()
+_ABORTED = []
+import threading as _threading
+_PROCS_LOCK = _threading.Lock()
+
+
+def _run(argv, env=None):
+    if _ABORTED:
+        # a failure already stopped the gate: a queued emit never starts
+        return subprocess.CompletedProcess(argv, -9, "", "skipped: the gate stopped at an earlier failure")
+    with _PROCS_LOCK:
+        if _ABORTED:
+            return subprocess.CompletedProcess(argv, -9, "", "skipped: the gate stopped at an earlier failure")
+        p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                             env=env, start_new_session=True)
+        _PROCS.add(p)
+    try:
+        out, err = p.communicate()
+    finally:
+        _PROCS.discard(p)
+    return subprocess.CompletedProcess(argv, p.returncode, out, err)
+
+
+def _abort_all():
+    import os
+    import signal
+    with _PROCS_LOCK:
+        _ABORTED.append(True)
+        procs = list(_PROCS)
+    for p in procs:
+        if p.poll() is not None:
+            continue                    # finished: its group id may be reused
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+
+
 def emit(script, name):
-    r = subprocess.run([sys.executable, str(ROOT / script), "--emit", name],
-                       capture_output=True, text=True)
+    import os
+    import tempfile
+    env = None
+    if LEDGER:
+        fd, reads = tempfile.mkstemp(suffix=".reads")
+        os.close(fd)
+        env = _hook_env(reads)
+    try:
+        r = _run([sys.executable, str(ROOT / script), "--emit", name], env=env)
+        if LEDGER:
+            READS[(script, name)] = _parse_reads(reads)
+    finally:
+        if LEDGER:
+            os.unlink(reads)
     if r.returncode != 0:
         sys.exit(f"[doc_sync] FAIL: {script} --emit {name} exited "
                  f"{r.returncode}:\n{r.stderr}")
@@ -259,15 +618,21 @@ def emit_batch(script, names):
     import tempfile
     fd, out = tempfile.mkstemp(suffix=".json")
     os.close(fd)
+    fd, reads = tempfile.mkstemp(suffix=".reads")
+    os.close(fd)
     try:
-        r = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--_emit-batch",
-                            str(ROOT / script), out, *names], capture_output=True, text=True)
+        r = _run([sys.executable, str(Path(__file__).resolve()), "--_emit-batch",
+                  str(ROOT / script), out, *names], env=_hook_env(reads) if LEDGER else None)
         if r.returncode != 0:
             sys.exit(f"[doc_sync] FAIL: {script} (one process, {len(names)} blocks) exited "
                      f"{r.returncode}:\n{r.stderr}")
         res = json.load(open(out))
+        if LEDGER:                          # one process: its reads are every block's
+            rd = _parse_reads(reads)
+            READS.update({(script, n): rd for n in names})
     finally:
         os.unlink(out)
+        os.unlink(reads)
     return {n: res[n].rstrip("\n") + "\n" for n in names}
 
 
@@ -347,11 +712,23 @@ def emit_all(pairs, jobs=None):
         for fn, args in tasks:
             out.update(collect(fn, args, fn(*args)))
         return out
-    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=jobs)
+    try:
         futs = {ex.submit(fn, *args): (fn, args) for fn, args in tasks}
         for f in concurrent.futures.as_completed(futs):
             fn, args = futs[f]
-            out.update(collect(fn, args, f.result()))
+            try:
+                res = f.result()
+            except BaseException:
+                if not _ABORTED:            # the first failure: stop every other emit now
+                    running = len(_PROCS)
+                    _abort_all()
+                    print(f"[doc_sync] stopping {running} other emit(s): {args[0]} failed",
+                          file=sys.stderr)
+                raise
+            out.update(collect(fn, args, res))
+    finally:
+        ex.shutdown(wait=True, cancel_futures=True)
     return out
 
 
@@ -371,7 +748,11 @@ def main():
                     help="emit every block of SCRIPT per block and in one process and "
                          "report any that differ: the check a script passes before it "
                          "joins BATCH_MODELS")
+    ap.add_argument("--full", action="store_true",
+                    help="ignore the ledger and emit every selected block (facts are still recorded)")
     args = ap.parse_args()
+    global FULL
+    FULL = args.full
     if args.verify_batch:
         names = [n for _, n, s in PAIRS if s == args.verify_batch]
         if not names:
@@ -412,8 +793,41 @@ def main():
         PAIRS[:] = []
         pairs = []
 
-    wants = emit_all([(d, n, s) for d, n, s in pairs if (ROOT / d).is_file()])
+    # the ledger: a block whose fact still holds is not emitted at all
+    ledger = load_ledger() if LEDGER else {}
+    codes, held = {}, set()
+    if LEDGER:
+        import time
+        t0 = time.time()
+        rk = _reach_engine()
+        if hasattr(rk, "begin_session"):     # no file changes while the keys are taken
+            rk.begin_session()
+        for doc, name, script in pairs:
+            path = ROOT / doc
+            if not path.is_file() or not (ROOT / script).is_file():
+                continue
+            m = block_re(name).search(path.read_text())
+            if not m:
+                continue
+            try:
+                codes[(doc, name)] = block_code_key(script, name)
+            except (SyntaxError, OSError) as e:
+                print(f"[doc_sync] note  {script}: no fingerprint ({type(e).__name__}); its blocks emit")
+                continue
+            if not FULL and any(fact_holds(f, codes[(doc, name)], m.group(2))
+                                for f in ledger.get((doc, name), [])):
+                held.add((doc, name))
+        if hasattr(rk, "end_session"):
+            rk.end_session()
+        print(f"[doc_sync] ledger: {len(held)} of {len(pairs)} block(s) unchanged since their "
+              f"last check ({time.time() - t0:.1f} s); emitting {len(pairs) - len(held)}"
+              + (" (--full)" if FULL else ""), file=sys.stderr)
+    recorded = False
+    wants = emit_all([(d, n, s) for d, n, s in pairs if (ROOT / d).is_file() and (d, n) not in held])
     for doc, name, script in pairs:
+        if (doc, name) in held:
+            print(f"[doc_sync] OK    {doc} [{name}] (ledger)")
+            continue
         path = ROOT / doc
         # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
         # document renamed or deleted without updating it leaves an entry
@@ -433,12 +847,23 @@ def main():
             continue
         want = wants[(script, name)]
         have = m.group(2)
+        verified = False
         if have == want:
             print(f"[doc_sync] OK    {doc} [{name}]")
+            verified = True
         elif args.write:
             path.write_text(text[:m.start(2)] + want + text[m.end(2):])
             print(f"[doc_sync] WROTE {doc} [{name}]")
-        else:
+            verified = True
+        if verified and LEDGER and (doc, name) in codes:
+            reads = READS.get((script, name))
+            if reads is not None:
+                ledger[(doc, name)] = [make_fact(doc, name, script, codes[(doc, name)], want, reads)]
+                recorded = True
+            else:
+                print(f"[doc_sync] note  {doc} [{name}]: its reads were not recorded, so it "
+                      "gets no ledger fact and emits every run")
+        if not verified:
             print(f"[doc_sync] DRIFT {doc} [{name}] -- document block != "
                   "script output. Fix the script (numbers live there), then "
                   "run doc_sync.py --write.")
@@ -448,6 +873,9 @@ def main():
                     lineterm="", n=1):
                 print("    " + line)
             fail = True
+
+    if recorded:
+        save_ledger(ledger)
 
     # Footer check: every registered document must end with a "Numbers by:"
     # footer naming each script that feeds it, so a reader always knows
@@ -493,7 +921,7 @@ def main():
         # solve) every other model wired to the same document
         for script in sorted({s for d, n, s in pairs if d == doc}):
             try:
-                declared = owned_figures(script)
+                declared = owned_figures_cached(script, ledger)
             except OwnedFiguresUnavailable as e:
                 print(f"[doc_sync] FAIL  {doc}: {e} — the restatement scan for "
                       "this document examined nothing, which is not a pass")
@@ -510,6 +938,9 @@ def main():
                                   "line <!--owned-ok--> if the restatement is "
                                   "deliberate")
                             fail = True
+
+    if LEDGER and any(k[0] == "#owned" for k in ledger):
+        save_ledger(ledger)
 
     # Registry-consistency check: PAIRS is a hand-maintained JOIN over two facts
     # that already declare themselves -- the sentinel in the document and the
