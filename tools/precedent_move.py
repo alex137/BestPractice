@@ -99,7 +99,7 @@ UNIVERSAL AS THE SOURCE duplicates, never deduplicates, on landing.
 exactly as any other landing, but the universal copy stays `status: active`
 -- it is NOT marked deduplicated, and `in_force_at` is not touched. This is
 structural, not caution: universal is the one level every Precedent
-consumer resolves, and a team or individual set is not, so a universal
+consumer resolves, and a shared or individual set is not, so a universal
 practice deduplicated to point at one leaves the rule genuinely in force
 nowhere for any consumer that never declared that destination -- most of
 them. [tools/precedent_sync_views.py](precedent_sync_views.py) reports an unresolvable `in_force_at` on
@@ -169,7 +169,7 @@ def _check_team_approver(repo, name, removing=False):
     """A shared set's own approvers.json must list `name`. Landing in a team
     set needs one of them; so does REMOVING a practice from one, since that
     changes what the whole team is bound by (spec/MOVING_PRACTICES.md, step
-    2, "Team"). Until 2026-09-28 only the landing was checked: a team copy
+    2, "Team"). Until 2026-09-28 only the landing was checked: a shared-set copy
     was deduplicated on the destination's approval alone, and `--dedupe-only`
     asked for no name at all."""
     f = pathlib.Path(repo) / 'approvers.json'

@@ -26,15 +26,15 @@ THAN A CONVENIENCE.
   their own personal practices and neither seeing the other's. That falls out
   of where the declaration lives; it is not a rule anyone has to remember.
 
-PRECEDENCE is team > repo-local > individual > universal, by slug (changed
-2026-09-03 from the phase-3 individual > team > universal order — see
+PRECEDENCE is shared > repo-local > individual > universal, by slug (changed
+2026-09-03 from the phase-3 individual > shared > universal order — see
 spec/SOURCES.md for the reasoning). A team's rules bind everyone in it, so
 they are the strongest -- closest to actual law for that group. Universal
 covers every Precedent user in the world, so by design it is the lowest
 common denominator and the weakest. An individual's own practices sit in
 between: more binding than a rule meant for the whole world, less binding
 than what a person's own team requires of them. Repo-local sits alongside
-that same ladder, between individual and team, since it speaks to the actual
+that same ladder, between individual and shared, since it speaks to the actual
 working reality of one specific repo rather than a person's general style --
 but nothing here is fixed forever: any practice at any level can still be
 reordered relative to one slug via `overrides:`, or protected from every
@@ -289,7 +289,7 @@ def _self_heal_stale_render(repo_root):
 # HIGHEST PRECEDENCE FIRST -- read this tuple left to right as strongest to
 # weakest. (Changed 2026-09-03: this used to be listed lowest-first, weakest
 # to strongest, which reads backwards to an English speaker scanning a
-# left-to-right list -- team > repo-local > individual > universal is the
+# left-to-right list -- shared > repo-local > individual > universal is the
 # actual precedence order, matching how it is written and spoken everywhere
 # else in this codebase and its docs.)
 #

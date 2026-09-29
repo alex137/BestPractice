@@ -102,7 +102,7 @@ the AI carrying the translation keeps thinking real, not thinned
 **6. Protocols, rules, and preferences get generated automatically.**
 The AI Assistant surfaces the pattern behind a request every time,
 unprompted ([`explain-the-why`](#explain-the-why)); turning it into a
-standing rule is still a human call. This repo's team and individual
+standing rule is still a human call. This repo's shared and individual
 practice sources run that mechanism continuously
 ([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction)),
 making [`decisions-carry-their-situation`](#decisions-carry-their-situation)

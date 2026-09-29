@@ -4,6 +4,7 @@ title:       A migration scrubs the old system's vocabulary immediately, not on 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment (migrating off an old system) rather than a place -- reachable only through the occasion index, since no gate exists for a moment this rare. Decided: follow-up session, 2026-09-03."
 occasion:    "migrating a repo onto Precedent from an old system"
 gates:       []
 index_clause: "scrub the old vocabulary in the same session, unasked"

@@ -8,7 +8,7 @@ labels: precedent-candidate
 <!--
 This is Stage 2 of PRACTICE_ENGINE_PLAN.md's creation pipeline
 (https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate),
-for the UNIVERSAL level specifically. Individual and team candidates are
+for the UNIVERSAL level specifically. Individual and shared-set candidates are
 files in their own private repos' candidates/ directories -- see
 spec/CANDIDATE_FORMAT.md
 (https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md)

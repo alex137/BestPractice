@@ -142,7 +142,7 @@ def _self_referential_sources(sources, out_dir):
 # `../spec/ATTENTION_CEILING.md` are real paths in Precedent and absent
 # from every repo that installs it. So every consuming repo was shipping
 # ~60 practice files whose internal links 404 -- and the practice files are
-# the product. precedent-team-repo-maintenance' own light check had already had
+# the product. precedent-shared-repo-maintenance' own light check had already had
 # to exempt materialized practices/ from its broken-link scan to stay
 # green, which is the workaround this replaces.
 #
@@ -235,7 +235,7 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
     and the answer was always no: materialize() empties tools/checks/
     before it writes practices/ and only fills it afterwards. So the link
     got "placed" as an absolute URL into the source repository, which for
-    a team or individual source is a PRIVATE repository, replacing a
+    a shared or individual source is a PRIVATE repository, replacing a
     relative link that would have worked perfectly once the run finished.
     Observed in a real four-source consumer, 2026-09-06. Asking the plan
     instead of the disk also makes a dry run and a real run agree by

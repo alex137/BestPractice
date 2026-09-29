@@ -4,6 +4,7 @@ title:       "Layered practice packs: a domain layer between generic and repo-lo
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "PRACTICES.md", "precedent.json"]
+applies_to_why: "Deciding where a new rule belongs happens where rules and the source declaration live. Decided: phase 4 routing pass."
 occasion:    "deciding where a new rule belongs"
 gates:       []
 index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"

@@ -21,7 +21,7 @@
 # HERE and not THERE reaches one harness out of four. That is not
 # hypothetical: until 2026-09-21 this hook ran seven things and the script
 # ran three, and the difference included .precedent/SESSION_PRACTICES.md --
-# every team and individual practice in force, which AGENTS.md's Standing
+# every shared and individual practice in force, which AGENTS.md's Standing
 # instruction tells every session to read and which no non-Claude session
 # had ever been given. Adding a step here? Add it there, or write the
 # reason it cannot travel into templates/harness/PARALLELS.md, which is
@@ -274,7 +274,7 @@ if [ -n "$_ident_script" ]; then
   # record/GOTCHAS.md#g40). An individual set does not have to be a sibling of
   # the primary repo -- `~/.config/precedent/config.json` puts it wherever it
   # was cloned, which on this container is `$HOME/precedent-individual` while
-  # the primary repo and every team clone sit under a different parent. The
+  # the primary repo and every shared-set clone sit under a different parent. The
   # glob below then covers all of those and misses the individual set, so the
   # one repo this block reads the identity FROM was the one repo it never
   # applied it TO. The script is idempotent, so naming a path twice (when the
@@ -308,7 +308,7 @@ fi
 # repositories and built a seven-commit patch for THIS repo that it could not
 # push, because a session holding one owner's repositories is refused
 # another's. It sat blocked four days on "root session at alex137/BestPractice
-# to land the team-set declaration in precedent.json", having spent about a
+# to land the shared-set declaration in precedent.json", having spent about a
 # hundred dollars to reach a branch nobody could land. The rule was right; the
 # MOMENT was missing, and the session least likely to stop and read a practice
 # file is the one already deep enough in the work for this to cost the most.

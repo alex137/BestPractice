@@ -4,8 +4,10 @@ title:       "\"Archive\" authorizes archiving the session meant, right now"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate. Decided: 2026-09-16, when it moved up from the individual set."
 occasion:    "a message says \"Archive\" standing alone, about a session"
 gates:       ["reply"]
+gates_why:   "The obligation lands in the reply: resolve the session, archive it, and say so, that same turn."
 index_clause: "\"Archive\" alone means archive the session meant (default: this one) now"
 checked_by:  null
 defines:     ["Archive"]

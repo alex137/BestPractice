@@ -4,6 +4,7 @@ title:       Section order follows the reader's frequency, not the writer's deri
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "ordering sections in a document"
 gates:       []
 index_clause: "order sections by how often the reader needs them"

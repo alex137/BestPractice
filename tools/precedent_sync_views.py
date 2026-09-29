@@ -224,7 +224,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # rewritten to match. Exit 0, one warning line, a committable diff that
     # looks like a deliberate removal.
     #
-    # This is the CI state by definition: a private team or individual
+    # This is the CI state by definition: a private shared or individual
     # source is unreachable in every continuous-integration checkout, which
     # is exactly where an automated sync would run unattended.
     #

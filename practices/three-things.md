@@ -4,8 +4,10 @@ title:       "\"Three Things\" asks for the three most important things to know 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate. Decided: 2026-09-08, when the practice landed at universal."
 occasion:    "a person says \"Three Things\", or plainly asks for this shape of answer"
 gates:       ["reply"]
+gates_why:   "The whole obligation is the shape of one reply: three items, a bold phrase and at most two sentences each, and nothing around them."
 index_clause: "the three that matter now, one bold phrase and two lines each"
 checked_by:  null
 defines:     ["Three Things"]

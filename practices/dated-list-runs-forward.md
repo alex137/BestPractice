@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["practices/*.md", "local/practices/*.md", "decisions/*.md"]
+applies_to_why: "The path IS the distinguishing condition: these are the files that carry a marked dated list, and the practice has nothing to say about any other file. Mirrors applies_to exactly. Decided: 2026-09-23, with the practice."
 occasion:    "a document carries a list of dated entries that will be added to over time"
 gates:       []
 index_clause: "a dated list runs oldest first; new entries append and carry a real date"

@@ -13,7 +13,7 @@ nothing can load is not in force; it is filed.
 WHY THE COMMITTED VIEWS CANNOT SIMPLY BE MADE MULTI-SOURCE, which is the
 obvious fix and is wrong here. BestPractice is PUBLIC. AGENTS.md's generated
 block carries each practice's Rule text and index clause, so rendering the
-resolved set into it would publish private team and individual practice
+resolved set into it would publish private shared and individual practice
 content -- precisely what tools/leak_gate.py exists to prevent, and it would
 do so on the very commit that added the feature.
 

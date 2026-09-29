@@ -18,12 +18,12 @@ repository it lives in (spec/SOURCES.md):
                           else's permission.
   team               ->  a dated file in <repo path>/candidates/*.md BY
                           DEFAULT, same as individual -- but pass --as-issue
-                          to draft a GitHub Issue on that team repo instead.
+                          to draft a GitHub Issue on that shared-set repo instead.
                           WHICH ONE TO USE IS ABOUT AUTHORITY, NOT ACCESS
                           (2026-09-02, added after a real dependent-repo
                           session worked through this): if whoever is
                           raising this is already a listed approver in the
-                          team repo's approvers.json, their own say-so is
+                          shared-set repo's approvers.json, their own say-so is
                           the approval PRACTICE_ENGINE_PLAN.md already
                           describes ("for a small team ... the session
                           commits it directly") -- promote and land it now,
@@ -57,7 +57,7 @@ Usage:
       [--recurrence N] [--cost-if-once TEXT] [--tier resident|on-demand]
       [--checked-by PATH] [--applies-to GLOB[,GLOB...]] [--occasion TEXT]
       [--gates NAME[,NAME...]]
-  precedent_candidate.py create --level team --path REPO --as-issue true
+  precedent_candidate.py create --level shared --path REPO --as-issue true
       [--github-repo OWNER/REPO] [--out FILE] [same required/optional flags
       as above except --path's candidates/ dir is not written to]
   precedent_candidate.py create --level universal
@@ -176,7 +176,7 @@ def _detect_github_repo(path):
 
 
 def _approver_names(path):
-    """Every name/github-handle approvers.json lists for the team repo at
+    """Every name/github-handle approvers.json lists for the shared-set repo at
     `path`, or an empty set if it has none / isn't parseable -- a missing or
     broken approvers.json is not this function's problem to raise, only
     precedent_land.py's when it actually tries to land against it."""
@@ -404,8 +404,8 @@ def cmd_create(args):
               f"nothing is watching this candidates/ directory for a new "
               f"file -- this proposal will very likely sit unseen. Say so, "
               f"and suggest --as-issue true instead so an approver actually "
-              f"gets notified (spec/CANDIDATE_FORMAT.md#which-one-for-team-"
-              f"file-or-issue).")
+              f"gets notified (spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-"
+              f"set-file-or-issue).")
     return 0
 
 

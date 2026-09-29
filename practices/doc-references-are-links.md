@@ -4,6 +4,7 @@ title:       Document references are links; approximation is ≈
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "writing or editing a document"
 gates:       []
 index_clause: "reference repo files as relative links; use \u2248, never ~"

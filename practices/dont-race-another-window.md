@@ -4,6 +4,7 @@ title:       Don't race a window that is already on it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "The occasion is a REQUEST that collides with work another of the person's windows has in flight -- the start of a turn, before any file is touched, so no glob can reach it and no gate fires early enough. Reached through the occasion index. Decided: 2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance."
 occasion:    "being asked for something another window or session of the person's may already be working on"
 gates:       []
 index_clause: "say so and decline; send them to the window already on it"

@@ -4,8 +4,10 @@ title:       "A session's title names what makes it different, not its category"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A moment -- creating or renaming a session -- and the title lives on the session service, not in any tree. No file path reaches it. Routed by the `reply` gate. Decided: 2026-09-17, when the practice landed."
 occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
+gates_why:   "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
 index_clause: "title by the differentiator, at creation or once known; never the task alone"
 index_required: true
 checked_by:  null

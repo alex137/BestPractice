@@ -32,8 +32,10 @@ tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
 scope:       any-adopter        # any-adopter | engine-dev -- see "scope" section
 applies_to:  ["**"]             # path globs
+applies_to_why: "why these globs, or why **"   # required on an on-demand practice; see below
 occasion:    "prose trigger"
 gates:       []                  # named moments -- see below
+gates_why:   null             # OPTIONAL -- why this moment
 index_clause: "the one line the occasion index shows"   # 80 characters at most; see below
 index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
@@ -593,6 +595,33 @@ carrying a status this engine does not recognize — a typo, or a newer
 engine's vocabulary — is therefore **not** loaded, and is reported by the
 harness. Failing the other way would load a rule nobody here can vouch for.
 
+## `applies_to_why` and `gates_why` -- the routing reason, in the practice itself
+
+**Every on-demand practice says why its `applies_to` is what it is**, in
+`applies_to_why`: the path that identifies its distinguishing condition, or
+why it stays at `**` and which channel reaches it instead (the occasion
+index, a gate, a check). `gates_why`, optional, says why the practice fires
+at the moment it names. `precedent_check.py --only routing-reason` refuses
+an on-demand practice with no `applies_to_why`, file by file, so the refusal
+comes at `pre-staging`.
+
+**Until 2026-09-29 these reasons lived in a second file**,
+`tools/routing_scope.json`, which had to list every practice by hand. That
+list caused the failure its test existed to catch: a new practice arrived
+without an entry, and a deleted one left an entry behind that nothing
+noticed. By then the file's copy of `gates` had also drifted from the
+practice files on fourteen practices, because nothing compared them. Moving
+the reason into the practice removed the second copy, so there is nothing
+left to keep in step (Morgan, 2026-09-29: prevent what caused it, not only
+check for it later; practice: [upstream-fix](../practices/upstream-fix.md)).
+`tools/routing_scope.json` keeps only the closed gate vocabulary.
+
+A glob is justified only where the path identifies the practice's
+**distinguishing** condition, not merely a necessary one: "a rule is being
+written" is necessary for `volatile-rules-carry-dates` and not
+distinguishing; "a new rule is being written" is distinguishing for
+`cite-the-incident`.
+
 ## `gates` (Phase 4)
 
 Not in the plan's frontmatter example, and load-bearing for the channel the
@@ -608,8 +637,8 @@ gates:       ["merge"]
 **Why a moment cannot be a glob, which is the whole argument for the field.**
 Phase 4's routing pass gave a narrower `applies_to` to every on-demand
 practice with a genuine path locus and recorded the reason for every one that
-kept `**` ([tools/routing_scope.json](../tools/routing_scope.json)). Twenty-six
-kept it, and the most common reason was the same: **the practice fires at a
+kept `**` (then in `tools/routing_scope.json`; since 2026-09-29 in each
+practice's own `applies_to_why`, below). Twenty-six kept it, and the most common reason was the same: **the practice fires at a
 moment, not in a place.** `merge-runbook` fires when merging.
 `mistakes-become-rules` fires when a review turns up a defect. No glob reaches
 either, however well written, and the plan forbids widening the occasion index
@@ -679,7 +708,7 @@ your own, treat 2 as "skipped", not "failed".
 
 ### Its test runs in somebody else's repository
 
-A team or individual check ships with a two-direction test,
+A shared or individual check ships with a two-direction test,
 `tools/checks/tests/test_<name>.sh`, and the test is materialized along with
 the script: **it runs in every consuming repository, against that
 repository's tree, not only in the source that wrote it.** Whatever it
@@ -986,7 +1015,7 @@ the *existing* catalogue and every existing citation into it are numeric.
 This field is the join key that lets [`tools/verify_harness.py`](../tools/verify_harness.py)'s citation
 check, and eventually a real migration tool, resolve `practice 20` to
 `mistakes-become-rules`. It is a phase-1/migration-bridging field, not part
-of the practice's own identity — a promoted team or individual practice
+of the practice's own identity — a promoted shared or individual practice
 minted fresh, with no BestPractice-numbered ancestor, simply won't have one.
 
 It stays mandatory for the 52 practices converted from BestPractice's
@@ -1047,7 +1076,7 @@ must be both declared and actually findable there.
   see [spec/LOADER.md](LOADER.md) for which six and why. `severity` is
   still `default` for all 52 at phase 2. `severity`'s only real job
   (Severity, Not Ranking) is resolving conflicts between sources at
-  different precedence, which does not arise until team and individual
+  different precedence, which does not arise until shared and individual
   sources exist (phase 3) — so `default` for everything is not a
   placeholder guess, it is the correct value until there is a second source
   to conflict with.

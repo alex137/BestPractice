@@ -34,7 +34,7 @@ tool (personal pack fail-gracefully, generalized): a bad slug in an occasion
 index entry should be loud, not a silent empty read.
 
 WHEN practices/ IS A tools/precedent_materialize.py-PRODUCED SNAPSHOT (a
-consumer repo resolving universal/team/individual/repo-local together,
+consumer repo resolving universal/shared/individual/repo-local together,
 signalled by that directory's own MANIFEST.json -- never true for a source
 repo's own hand-authored practices/): a slug whose declared source is not
 reachable THIS session gets a trailing note naming that, on the READ side
@@ -63,7 +63,7 @@ _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 # `_ENGINE_DIR.parent` is the wrong answer for exactly one layout: an engine
 # copy vendored inside a consuming repo at process/upstream/tools/. There ROOT
 # lands on the VENDORED tree, whose practices/ is the universal catalogue
-# alone, so every team and individual practice reads as absent -- silently,
+# alone, so every shared and individual practice reads as absent -- silently,
 # which is the one failure mode this project exists to prevent. Reproduced
 # 2026-09-14 in a real consumer: `precedent_show.py default-register` answered
 # "unknown slug", for a shared practice that repo has in force.
@@ -161,7 +161,7 @@ def _not_in_force_banner(fm, slug):
 def _materialize_manifest(root):
     """`root`'s MANIFEST.json if practices/ there is a
     tools/precedent_materialize.py-produced snapshot (a consumer/installing
-    repo resolving universal/team/individual/repo-local together) -- None
+    repo resolving universal/shared/individual/repo-local together) -- None
     for a source repo's own hand-authored practices/, which never has one.
     Same detection this codebase already uses elsewhere for the identical
     question (a consumer repo's tools/checks/check_light_check.py's

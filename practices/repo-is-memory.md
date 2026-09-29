@@ -4,8 +4,10 @@ title:       The repo is the memory; sessions are ephemeral
 tier:        resident
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Resident; its applies_to is not this file's business. Decided: phase 4 routing pass."
 occasion:    "starting any session cold"
 gates:       ["reply"]
+gates_why:   "A turn ending is when knowledge either got committed or was lost."
 index_required: false
 checked_by:  null
 defines:     []

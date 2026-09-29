@@ -4,8 +4,10 @@ title:       "\"Produce\" is stage 5: move staging into main -- production"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A phrase in a MESSAGE (\"Produce\", \"Promote 5\") -- stage 5, a Promote with the step named, like promote's entry. Routed by the `merge` gate. Decided: 2026-09-29, when the practice landed."
 occasion:    "a person says \"Produce\", \"Make live\" or \"Promote 5\""
 gates:       ["merge"]
+gates_why:   "Debut and Produce are merges between branch tiers -- the moment that gate exists for, as for promote."
 index_clause: "stage 5: Promote staging into main (production); read strictly"
 checked_by:  null
 defines:     ["Produce", "Make live", "production"]

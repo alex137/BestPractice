@@ -4,6 +4,7 @@ title:       One word separator per directory, and never two for the same kind
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Every directory that holds files, which is every path -- the rule is about a directory's contents as a set, so no narrower glob describes it. Enforced tree-scope instead of routed. Decided: 2026-09-08, when the practice landed."
 occasion:    "adding a file beside others of its kind"
 gates:       []
 index_clause: "one word separator per directory and kind; never both - and _"
@@ -39,6 +40,12 @@ settles it:**
 which one determined each.** An exemption nobody can name a reason for is
 the inconsistency this rule exists to stop, wearing a justification.
 
+**When a person asks for a name that breaks the directory's convention, say
+so before creating it**: one sentence naming the convention, with a link to
+this practice, and the name that would fit. If they still want theirs, use
+it and record the exemption then, with their words as the reason. Never
+rename silently, and never exempt silently.
+
 ## Detail
 **The rule is per directory, not per repository, because that is where the
 cost lands.** A reader scanning one folder sees one list; a repository-wide
@@ -50,15 +57,20 @@ applies in the same commit, and a file other repositories vendor or link to
 should usually be left alone and the *new* files brought into line instead.
 Consistency going forward beats a rename sweep that breaks inbound links.
 
-**Some names are not yours to choose, and that is a standing exemption
-rather than a judgment call.** A file whose name must MIRROR something
-outside the directory — the file it is pasted into, an external tool's
-expected name, a name other repositories vendor verbatim — has no freedom to
-be consistent with its neighbours, and forcing it costs the correspondence
-that made the name useful. Exempt the directory with that as the reason and
-move on; it is a better answer than a rename that breaks inbound links
-across repositories, and a much better one than a mixed directory nobody has
-explained. **Say which external name each side follows**, so the next reader
+**Some names are not yours to choose, and the first question is whether
+the check can be taught that, rather than exempted from it.** A file whose
+name must MIRROR something outside the directory — the file it is pasted
+into, an external tool's expected name, a name other repositories vendor
+verbatim — has no freedom to be consistent with its neighbours, and forcing
+it costs the correspondence that made the name useful. **Where an engine
+tool fixes the name, declare it in that tool** as a module-level `*_NAME`
+constant: the check reads those, so every repository stops counting the
+name at once, and no exemption is needed anywhere. A year-month-day date inside a
+stem is already ignored for the same reason. **Only when the check cannot
+learn it**, exempt the directory with that as the reason, and a `root_fix`
+saying why ([upstream-fix](upstream-fix.md)): a better answer than a rename
+that breaks inbound links across repositories, and a much better one than a
+mixed directory nobody has explained. **Say which external name each side follows**, so the next reader
 can tell this from an unexplained mess — that is the whole difference
 between an exemption and a shrug. (Raised 2026-09-08 by a dependent voice
 repository whose `templates/` mixed both separators because each file's name
@@ -141,6 +153,16 @@ belong to whoever produced them — and takes an exemption list in
 
 **The reason is mandatory**, the same discipline `not_binding` already uses:
 an exemption nobody argued for is the silence this check replaces.
+
+**Names a tool fixes are collected, not listed.** Every module-level
+constant named `*_NAME`, `*_FILENAME` or `*_MANIFEST` in the engine's
+`tools/` whose value is a file name (`CONFIG_NAME = 'reply_check.json'`) is
+skipped. Until 2026-09-29 that was a hand-kept set holding only
+`precedent-source.json`, so a set carrying `reply_check.json` beside
+`very-deep-check-decisions.json` was refused for a clash no one in it could
+fix, and exempted its whole root to get past it. The exemption hid the
+cause; the fix was to teach the check (Morgan, 2026-09-29, strength:
+decided: an exemption is a root-fix opportunity).
 
 What the check cannot see, and a reader should: a directory that is
 internally consistent and wrong for its kind (a `practices/` full of

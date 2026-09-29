@@ -4,8 +4,10 @@ title:       Every reply links the files it touched
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Left at `**` on purpose: the artifact is a chat reply, which the tree does not hold, so no path identifies the occasion. The `reply` gate is the channel. Was `null` here while the practice was resident; it became a real answer when the 2026-09-21 reduction pass demoted it. Decided: phase 4 routing pass; re-stated 2026-09-21 when it was demoted out of the resident block."
 occasion:    "ending a reply that created, modified or deleted files"
 gates:       ["reply"]
+gates_why:   "Its occasion is the reply itself."
 index_clause: "a reply that touched files ends with a linked Files touched list"
 index_required: false
 checked_by:  null

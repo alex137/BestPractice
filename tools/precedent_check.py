@@ -385,10 +385,10 @@ def register_materialized_checks():
 
     WHY THIS EXISTS. Until this ran, nothing anywhere invoked those
     scripts. `precedent_materialize.py` copied them in, `precedent_land.py`
-    refused to land a team or individual practice without one, and
+    refused to land a shared or individual practice without one, and
     `spec/PRIVATE_ENFORCEMENT_BRIEF.md` told a private set how to write
     them -- and then a consuming repo held fourteen real, tested check
-    scripts (nine in precedent-team-repo-maintenance, five in
+    scripts (nine in precedent-shared-repo-maintenance, five in
     precedent-individual, as of 2026-09-06) that no command ever ran. The
     enforced channel was live for the universal catalogue and hollow for
     exactly the sources an adopting team writes for itself.
@@ -1916,7 +1916,39 @@ def _separator_foreign():
 
 # Filenames fixed by the engine, identical in every Precedent repository,
 # and therefore never a repository's own separator choice.
-ENGINE_FIXED_FILENAMES = frozenset({'precedent-source.json'})
+#
+# READ FROM THE TOOLS, NOT LISTED HERE (2026-09-29). This was a hand-kept
+# set holding only precedent-source.json, so every other name a tool fixes
+# -- reply_check.json, very-deep-check-decisions.json -- read as the
+# repository's own choice, and a set carrying two of them was refused for a
+# clash no one in it could fix. The individual set exempted its root instead,
+# which hid the cause. Now a tool that fixes a file name declares it as a
+# module-level constant named *_NAME, *_FILENAME or *_MANIFEST, and this
+# set is collected from those declarations, so a new fixed name is covered
+# the day its tool declares it (practice: upstream-fix).
+_FIXED_NAME_RE = re.compile(
+    r"""^[A-Z][A-Z0-9_]*(?:NAME|MANIFEST)\s*=\s*['"]([A-Za-z0-9._-]+\.[A-Za-z]+)['"]""",
+    re.M)
+
+
+def _engine_fixed_filenames():
+    names = set()
+    for f in sorted(pathlib.Path(__file__).resolve().parent.glob('*.py')):
+        try:
+            names.update(_FIXED_NAME_RE.findall(f.read_text(encoding='utf-8')))
+        except OSError:
+            continue
+    return frozenset(names)
+
+
+ENGINE_FIXED_FILENAMES = _engine_fixed_filenames()
+
+
+# An ISO date inside a file name (report_2026-09-19.md) carries hyphens
+# because ISO 8601 puts them there, not because anyone chose "-" as the
+# separator. Counting them made a directory with one consistent convention
+# read as mixed (a dated report or audit carries its date in its name).
+_ISO_DATE_RE = re.compile(r'\d{4}-\d{2}-\d{2}')
 
 
 @check('filename-separator', 'tree',
@@ -1964,7 +1996,7 @@ def _filename_separator(ctx):
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not
         # chosen here.
-        stem = path.name.split('.')[0]
+        stem = _ISO_DATE_RE.sub('', path.name.split('.')[0])
         key = (str(path.parent), path.suffix)
         if '-' in stem:
             groups[key]['-'].append(path.name)
@@ -1983,9 +2015,13 @@ def _filename_separator(ctx):
             f'{dirname}/' if dirname != '.' else '.',
             f'{len(seen["-"])} file(s) use "-" ({kebab}) and '
             f'{len(seen["_"])} use "_" ({snake}) for the same kind '
-            f'(*{ext}) in one directory -- pick one, or exempt the group in '
-            f'precedent.json with the reason each name was determined '
-            f'elsewhere'))
+            f'(*{ext}) in one directory -- first fix the cause: rename the '
+            f'newer file to match its directory, or, when a tool fixes the '
+            f'name, declare it in that tool as a *_NAME constant so no '
+            f'repository counts it again. Exempt the group in precedent.json '
+            f'only when neither is possible, with the reason each name was '
+            f'determined elsewhere and a root_fix saying why the cause '
+            f'cannot be fixed (practice: upstream-fix)'))
     return out
 
 
@@ -2649,7 +2685,7 @@ def _practice_is_reachable(ctx):
 
     # THE FIFTH CHANNEL, and why it is judged structurally rather than by
     # looking for the file. In a repo declaring `visibility: public`, the
-    # tracked loader block deliberately omits the team and individual
+    # tracked loader block deliberately omits the shared and individual
     # levels -- their text may not be committed -- and
     # tools/precedent_session_practices.py renders exactly that complement
     # into .precedent/SESSION_PRACTICES.md at session start, which
@@ -7055,6 +7091,169 @@ def _two_check_levels(ctx):
     return []
 
 
+@check('routing-reason', 'tree',
+       'every active on-demand practice in the engine\'s own catalogue says '
+       'why its applies_to is what it is, in its own applies_to_why field',
+       'whether the reason is a GOOD one, or whether the globs match it -- '
+       'only that a reason was written down where the practice is. A source '
+       'set or consumer is not held to it: the field is optional there, '
+       'since the second file that made it necessary only ever existed here.',
+       practice_backed=False)
+def _routing_reason(ctx):
+    # WHY THE REASON LIVES IN THE PRACTICE (2026-09-29). It used to live in
+    # tools/routing_scope.json, one entry per practice, and a harness test
+    # failed when a practice had none. The second list was the cause of the
+    # failure it tested for: five new practices arrived without entries, the
+    # test caught them only at staging, and a deleted practice would have
+    # left its entry behind with nothing to notice. The list's own copy of
+    # `gates` had already drifted on fourteen practices. Morgan, 2026-09-29:
+    # prevent what caused it, not only check for it later. With the reason
+    # in the file, a practice cannot arrive or leave without it, and this
+    # check pins its finding to that one file, so pre-staging runs it
+    # (practice: upstream-fix).
+    #
+    # The engine's origin only: it vendors no engine into itself, so it has
+    # no ENGINE_MANIFEST.json, and it carries the harness the old test
+    # lived in.
+    if _engine_manifest() or not (ctx.root / 'tools' / 'verify_harness.py').is_file():
+        raise NotApplicable('not the engine\'s own repository -- '
+                            'applies_to_why is optional here')
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    out = []
+    for f in sorted(practices_dir.glob('*.md')):
+        try:
+            fm, _sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        if (fm.get('tier') or '').strip() != 'on-demand':
+            continue
+        if (fm.get('status', 'active') or 'active').strip().strip('"') != 'active':
+            continue
+        why = (fm.get('applies_to_why') or '').strip().strip('"').strip()
+        if not why:
+            out.append(Finding(
+                str(f.relative_to(ctx.root)),
+                'has no applies_to_why -- add one line under applies_to '
+                'saying why these globs identify the practice\'s occasion, '
+                'or why it stays at "**" and which channel reaches it '
+                '(the occasion index, a gate, a check). '
+                'See spec/PRACTICE_FORMAT.md, "applies_to_why".'))
+    return out
+
+
+@check('retired-words', 'tree',
+       'no live Markdown uses a word tools/our_language.json has retired; '
+       'each finding names the replacement',
+       'history, on purpose: todo/, decisions/, gotchas/, record/, evals/, a '
+       'document whose frontmatter says kind: record or a finished status, '
+       'a practice\'s ## Story, approved_by, text in quotation marks, and a '
+       'line that says it is about the retirement itself. It reads Markdown '
+       'only -- code comments and messages were cleaned by hand when the '
+       'word was retired, and are not held to it. A consumer repository is '
+       'not held to it either: the words are this engine\'s own.',
+       practice_backed=False)
+def _retired_words(ctx):
+    # practice: rename-updates-links ("a term ... renamed or retired, every
+    # place that still uses the old name ... is updated"). WHY THIS IS A
+    # REGISTRY AND NOT A CHECK PER WORD (2026-09-29): "team set" was retired
+    # by searching for that one phrase, so "team source", "team repo",
+    # `--level team` and a code path that only read level "team" all
+    # survived it, and the last one hid a real bug. Morgan asked for the old
+    # word cleaned up everywhere and for the cause fixed rather than a check
+    # added after it (practice: upstream-fix). Retiring the next word is one
+    # entry in our_language.json's `retired` list.
+    if _engine_manifest().get('kind') == 'consumer':
+        raise NotApplicable('a consumer repository -- the retired words are '
+                            'the engine\'s own vocabulary, not this repo\'s')
+    try:
+        import our_language as _ol
+    except ImportError:
+        raise NotApplicable('tools/our_language.py is not in this engine')
+    if not _ol.REGISTRY.is_file():
+        raise NotApplicable('tools/our_language.json is not in this engine')
+    return [Finding(f'{rel}:{n}',
+                    f'uses {word!r}, retired -- say {repl!r} instead '
+                    f'(tools/our_language.json lists what replaced it; a '
+                    f'quotation or a record of the past keeps the old word)')
+            for rel, n, word, repl, _line in _ol.retired_uses(ctx.root)]
+
+
+def _exemption_lists(cfg):
+    """{key: [entry, ...]} for every exemption list precedent.json declares:
+    each `*_exempt` key, and `not_binding`."""
+    out = {}
+    for k, v in (cfg or {}).items():
+        if k.startswith('_') or not isinstance(v, list):
+            continue
+        if k.endswith('_exempt') or k == 'not_binding':
+            out[k] = v
+    return out
+
+
+def _entry_identity(entry):
+    # An entry is the same entry when everything but its root_fix is the
+    # same, so adding a root_fix to an old entry never makes it "new".
+    if isinstance(entry, dict):
+        entry = {k: v for k, v in entry.items() if k != 'root_fix'}
+    return json.dumps(entry, sort_keys=True)
+
+
+@check('upstream-fix', 'tree',
+       'every exemption-list entry in precedent.json that is new against the '
+       'base branch carries a root_fix: what was fixed instead, or why the '
+       'check cannot learn the case',
+       'whether the root_fix is TRUE, or whether a root fix was really out of '
+       'reach -- only that the question was answered in writing. Entries '
+       'already on the base branch are left alone until someone touches '
+       'them, and an exemption declared anywhere but precedent.json is not '
+       'seen.')
+def _exemption_names_its_root_fix(ctx):
+    # practice: upstream-fix, point 6. Morgan, 2026-09-29: "whenever we need
+    # to add an 'exemption' of any sort anywhere, we always use that as an
+    # example of a root fix opportunity." The same day a set exempted its
+    # whole root from filename-separator when the check only needed to learn
+    # two names engine tools fix -- the exemption hid the cause.
+    path = ctx.root / 'precedent.json'
+    try:
+        now = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('no readable precedent.json')
+    lists = _exemption_lists(now)
+    if not any(lists.values()):
+        return []
+    base = _published_default_branch()
+    if not base:
+        raise NotApplicable('no base branch to compare against, so no entry '
+                            'can be told apart as new')
+    shown = _git('show', f'{base}:precedent.json')
+    try:
+        before = _exemption_lists(json.loads(shown.stdout)) if shown.returncode == 0 else {}
+    except ValueError:
+        before = {}
+    out = []
+    for key, entries in lists.items():
+        old = {_entry_identity(e) for e in before.get(key, [])}
+        for e in entries:
+            if _entry_identity(e) in old:
+                continue
+            fix = e.get('root_fix') if isinstance(e, dict) else None
+            if isinstance(fix, str) and fix.strip():
+                continue
+            label = (e.get('path') or e.get('slug') or e.get('name') or '?') \
+                if isinstance(e, dict) else str(e)
+            out.append(Finding(
+                'precedent.json',
+                f'{key} gains an entry for {label!r} with no root_fix -- an '
+                f'exemption is a sign the cause has not been fixed. First '
+                f'ask why the check is wrong about this case and teach it if '
+                f'it can learn (then drop the entry). If it cannot, or not in '
+                f'this session, add "root_fix": saying which, and hand the '
+                f'root fix off (practice: upstream-fix)'))
+    return out
+
+
 @check('routing-audit', 'tree',
        'tools/routing_audit.py exists, and tools/routing_audit_state.json '
        '(if present) has no rotation entry for a practice that is not '
@@ -7657,7 +7856,7 @@ def _code_cites_practice(ctx):
             # A slug some IN-FORCE practice declares it overrides is
             # superseded, not missing. In a consuming repo a higher-precedence
             # source can replace a universal practice under a different name
-            # -- precedent-team-repo-maintenance' `rule-links` overrides the
+            # -- precedent-shared-repo-maintenance' `rule-links` overrides the
             # universal `doc-references-are-links` -- and the overridden slug
             # then resolves to no file at all. The universal engine code that
             # cites it is still correct about why it exists; the rule simply
@@ -7903,7 +8102,7 @@ def _migration_scrubs_vocabulary(ctx):
                 f'is the pre-migration practice-pack mechanism, in a repo '
                 f'that has already migrated to the Precedent loader'
                 + (f' (its tree is still at {tree}/)' if tree else '')
-                + '. A pack\'s rules live in a team or individual source '
+                + '. A pack\'s rules live in a shared or individual source '
                   'now, so the tree is a second, unsynced copy of rules '
                   'nobody reads. Retire it through the audit rather than by '
                   'hand: `python3 tools/precedent_decommission.py '

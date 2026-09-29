@@ -4,8 +4,10 @@ title:       The practice-export loop (how this repo propagates)
 tier:        on-demand
 severity:    default
 applies_to:  ["PRACTICES.md", "practices/**", "templates/**", "tools/**", "process/upstream/**"]
+applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "merging a branch that improved a generic practice"
 gates:       ["merge"]
+gates_why:   "The export gate fires before a thread ends; a merge is where that is checked."
 index_clause: "vendor upstream as tracked files; check improvements back in"
 index_required: false
 checked_by:  "tools/precedent_check.py"

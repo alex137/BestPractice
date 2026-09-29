@@ -4,6 +4,7 @@ title:       "Model choice follows the task's shape, not a default"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Both halves are choices about a session's own running -- which model it is created with, and when it is compacted -- and neither touches the tree at all. There is no path whose editing means the choice was made badly, because the choice is made before or between edits rather than in one. Reached through the occasion index alone. Decided: 2026-09-12, when the practice landed."
 occasion:    "creating, renaming or retagging a session"
 gates:       []
 index_clause: "pick the model for the job -- reading runs small, judgment doesn't"

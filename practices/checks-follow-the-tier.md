@@ -4,6 +4,7 @@ title:       "Checks follow the tier: pre-staging judges the change, staging jud
 tier:        on-demand
 severity:    default
 applies_to:  ["tools/precedent_push_check.py", "tools/precedent_merge_check.py", "tools/precedent_branches.py"]
+applies_to_why: "It governs which branch tier a check runs at, so it binds the three files that decide that: the push check, the merge gate and the tier resolver. Editing any of them is the moment a check's tier is set. Decided: 2026-09-27, when the practice landed."
 occasion:    "adding a check, or deciding which branch tier a check runs at"
 gates:       []
 index_clause: "pre-staging: fast, changed files only; staging: every file; main: plus GitHub"

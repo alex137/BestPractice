@@ -1,5 +1,5 @@
 ---
-title:         Cross-Repo Drift Brief — precedent-individual and precedent-team-writing
+title:         Cross-Repo Drift Brief — precedent-individual and precedent-shared-writing
 kind:          brief
 status:        open
 opened:        2026-09-19
@@ -7,12 +7,12 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       What a BestPractice-rooted session found and fixed for the 2026-09-16 todo/gotcha migration's dropped archive item and the practice-links-travel engine gap that let a misattributed link ship unnoticed, and what it found but could not fix directly — that same link in precedent-individual and stale-anchor prose in precedent-team-writing — because both repos are outside its access.
+summary:       What a BestPractice-rooted session found and fixed for the 2026-09-16 todo/gotcha migration's dropped archive item and the practice-links-travel engine gap that let a misattributed link ship unnoticed, and what it found but could not fix directly — that same link in precedent-individual and stale-anchor prose in precedent-shared-writing — because both repos are outside its access.
 ---
-# Cross-Repo Drift Brief — precedent-individual and precedent-team-writing
+# Cross-Repo Drift Brief — precedent-individual and precedent-shared-writing
 
 Written for a session that will be rooted in `precedent-individual` and
-`precedent-team-writing` (Morgan's own private practice sets), picking up
+`precedent-shared-writing` (Morgan's own private practice sets), picking up
 where a BestPractice-rooted session had to stop. Assume no prior context.
 
 ## Background
@@ -26,12 +26,12 @@ and/or contribute their own layer of practices:
   `themorgan` on the evidence in this repo's own
   [`record/stale_branches.md`](https://github.com/alex137/BestPractice/blob/staging/record/stale_branches.md)
   and [`AGENTS.md`](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)).
-- `precedent-team-writing` — a shared team practice set, "the craft of
+- `precedent-shared-writing` — a shared shared-set practice set, "the craft of
   writing and formatting prose for a human reader" (private, same owner).
-- `precedent-team-repo-maintenance` — a shared team practice set, "how to
+- `precedent-shared-repo-maintenance` — a shared shared-set practice set, "how to
   run and maintain a repository that vendors this practice layer" (private,
   same owner). Referred to below as **the pack repo**.
-- `precedent-team-working-style` — a shared team practice set (private,
+- `precedent-shared-working-style` — a shared shared-set practice set (private,
   same owner), not implicated in what follows.
 
 A BestPractice-rooted session cannot write to any of these — this
@@ -43,7 +43,7 @@ hook) as practice *sources*, not as work trees this session may push from.
 
 An earlier session, also rooted in BestPractice, ran an "engine refresh"
 and reported: 4 pre-existing violations in `precedent-individual`
-("4 practices no longer resolve") and 21 in `precedent-team-writing`
+("4 practices no longer resolve") and 21 in `precedent-shared-writing`
 ("21 stale internal TODO.md anchors baked into its materialized practice
 text"), said both predate its own work, and said neither is fixable from
 inside BestPractice. It filed that as a TODO item and stopped there.
@@ -57,7 +57,7 @@ genuinely gone.
 **The exact "4" and "21" counts could not be reproduced from BestPractice.**
 Running `precedent_resolve.py --strict` and `precedent_check.py
 --full-sweep` natively inside both `precedent-individual` and
-`precedent-team-writing` (as they stand today, with their own currently
+`precedent-shared-writing` (as they stand today, with their own currently
 vendored copy of the engine) comes back clean — 0 violated in both. The
 most likely explanation is that the "engine refresh" session was running a
 newer version of `tools/precedent_check.py` than either repo has vendored
@@ -73,7 +73,7 @@ by direct inspection**, independent of the check tooling:
 
 ### 1. BestPractice's own gap — found and fixed here
 
-`precedent-team-writing/TODO.md` (its item 4,
+`precedent-shared-writing/TODO.md` (its item 4,
 `todo-gotcha-stale-reference-exempted`) names a stale link to
 `https://github.com/alex137/BestPractice/blob/staging/TODO.md`,
 anchored on `source-checks-adopt-engine-helpers`,
@@ -100,11 +100,11 @@ had no row in the migration map and no file under `todo/` or
   the missing `source-checks-adopt-engine-helpers` row.
 - [`todo/CLOSED.md`](https://github.com/alex137/BestPractice/blob/staging/todo/CLOSED.md) — regenerated.
 
-**This closes the "blocked-on" for `precedent-team-writing`'s item 4.** A
+**This closes the "blocked-on" for `precedent-shared-writing`'s item 4.** A
 session rooted there can now repoint its stale link to
 [`todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md`](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md)
 and drop the `not_binding` exemption for that finding in
-`precedent-team-writing/precedent.json` (it may still need to stay
+`precedent-shared-writing/precedent.json` (it may still need to stay
 exempted for the file's other flagged string, the instructional
 `` `TODO.md` `` + `` `#slug` `` placeholder near the top of that same `TODO.md` — that
 one was never a real link and needs no fix, only a judgment call about
@@ -123,7 +123,7 @@ its own gate — see
 
 `private-repo-scrub.md` has never existed in BestPractice (confirmed: no
 commit in this repo's full history ever touched that path). It exists in
-**the pack repo**, `precedent-team-repo-maintenance/practices/private-repo-scrub.md`
+**the pack repo**, `precedent-shared-repo-maintenance/practices/private-repo-scrub.md`
 — confirmed on disk, and confirmed a second way: this BestPractice
 session's own `.precedent/SESSION_PRACTICES.md` (generated at session
 start from the sources this account's config declares) resolves
@@ -134,7 +134,7 @@ rule this link breaks: *"From a PRIVATE source, drop the link markup and
 keep the backticked path — an absolute URL would publish the private
 repository's name into every consumer that materializes the practice...
 Nothing downstream will repair that one, and nothing downstream should."*
-`precedent-team-repo-maintenance` is a private source, so the correct form
+`precedent-shared-repo-maintenance` is a private source, so the correct form
 is not a link into BestPractice (wrong repo) and not a link into the pack
 repo either (would leak that repo's name into anything that materializes
 this file) — it is the bare backticked slug.
@@ -156,10 +156,10 @@ turned up only this one broken case among six URL-style links total,
 before the search had to stop for lack of write access to verify further
 against a possibly newer engine.
 
-### 3. `precedent-team-writing` — stale migration-era prose (part of the "21")
+### 3. `precedent-shared-writing` — stale migration-era prose (part of the "21")
 
-Seventeen files under `precedent-team-writing/practices/` — every practice
-moved there from `precedent-team-repo-maintenance` in the 2026-09-09
+Seventeen files under `precedent-shared-writing/practices/` — every practice
+moved there from `precedent-shared-repo-maintenance` in the 2026-09-09
 subject split — carry an identical closing sentence in their "Moved to..."
 provenance note:
 
@@ -180,14 +180,14 @@ link — `precedent_check.py`'s `todo-gotcha-stale-reference` check would not
 flag it, and did not when tested. Whether this is part of what the other
 session counted as "21 stale internal TODO.md anchors," and whether the
 sentence is even still accurate as written (it depends on claims about
-`precedent-team-repo-maintenance`'s own TODO.md history that this session
+`precedent-shared-repo-maintenance`'s own TODO.md history that this session
 did not verify), is unresolved. **This needs a read of each file's full
 context and a decision about whether the sentence should be reworded,
 not a mechanical find-and-replace** — flagging it here rather than
 guessing at a fix.
 
 The same phrase also appears in three files in
-`precedent-team-working-style/practices/` (`small-calls.md`,
+`precedent-shared-working-style/practices/` (`small-calls.md`,
 `nonblocking-questions.md`, `quiet-checks.md`) and two in BestPractice's
 own `practices/` (`push-back.md`, `small-calls.md` — these are the
 deduplication stubs left behind by the same split, and are BestPractice's
@@ -226,7 +226,7 @@ on the exact finding text) still pass unchanged — 216 passed, 0 failed on
 the full suite.
 
 **This still needs "Update Vendors" to actually reach `precedent-individual`,
-`precedent-team-writing`, and the other two sets** — pushing the fix here
+`precedent-shared-writing`, and the other two sets** — pushing the fix here
 does not patch their already-vendored copies of `tools/precedent_check.py`
 by itself. Once a session in each of them runs that sequence, re-running
 `precedent_check.py --full-sweep` there should surface the rest of the "4"
@@ -234,7 +234,7 @@ and "21" that this fix, plus the pack-repo check for anything that looks
 missing, is now positioned to actually catch.
 
 **What this does not fix:** the check still trusts an absolute URL into
-any *other* private source (a team set that isn't the universal one)
+any *other* private source (a shared set that isn't the universal one)
 without verifying it — it only extended coverage to the universal source,
 which was the concrete gap this incident exposed and the one every repo
 can safely resolve locally without a wider design change. It also does not
@@ -250,10 +250,10 @@ since neither is blocking anything right now.
   (`my-identity-is-not-private.md`) and to re-run `precedent_check.py
   --full-sweep` / `precedent_resolve.py --strict` there with a freshly
   vendored engine, to find the other three of the "4."
-- **`precedent-team-writing`** — write access, to repoint the now-resolvable
+- **`precedent-shared-writing`** — write access, to repoint the now-resolvable
   link in its `TODO.md` item 4, decide on and fix the 17 stale-prose files
   in item 3, and re-run its own full check to find the rest of the "21."
-- **`precedent-team-repo-maintenance`** — read access is enough; it is only
+- **`precedent-shared-repo-maintenance`** — read access is enough; it is only
   needed as a reference, to confirm where a practice like
   `private-repo-scrub` actually lives before assuming it is simply missing.
 
@@ -264,7 +264,7 @@ since neither is blocking anything right now.
    "4" count, then `precedent_check.py --full-sweep` and
    `precedent_resolve.py --strict`; fix whatever else those surface, checking
    the pack repo before concluding anything is genuinely missing.
-2. In `precedent-team-writing`: repoint `TODO.md` item 4's link to
+2. In `precedent-shared-writing`: repoint `TODO.md` item 4's link to
    BestPractice's restored archive file (URL above) and reconsider its
    `not_binding` exemption in `precedent.json`; decide on and fix the 17
    files in item 3; run "Update Vendors" and its own full check for the

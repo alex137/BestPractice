@@ -13575,41 +13575,246 @@ def check_checks_read_what_their_rules_name():
             '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
-def check_routing_scope(files):
-    """Every on-demand practice's applies_to agrees with tools/routing_scope.json,
-    and every entry carries a reason.
+def check_routing_reason_lives_in_the_practice():
+    """precedent_check.py's routing-reason check, both states planted.
 
-    The point is not that a second file holds the same globs -- that would be a
-    restatement with nothing gating it, which is the failure `docs-track-models`
-    describes. The point is that the REASON is recorded per practice, including
-    for the 24 that deliberately stay at `**`. A practice left unrouted by
-    omission and one left unrouted on purpose look identical in the practice
-    file; they do not here.
+    Replaced check_routing_scope on 2026-09-29. That test compared
+    practices/*.md with a second, hand-kept list in tools/routing_scope.json
+    and failed when a practice had no entry -- which is how five new
+    practices were caught, at staging, and why a deleted practice's entry
+    could outlive it unnoticed. The reason now lives in the practice's own
+    applies_to_why, so there is no second list to fall out of step (practice:
+    upstream-fix), and the check reads one file at a time, so pre-staging
+    runs it. The list is gone from routing_scope.json; asserted here so it
+    does not grow back.
     """
-    scope_path = ROOT / 'tools' / 'routing_scope.json'
-    if not scope_path.exists():
-        not_applicable('routing scope is recorded with a reason per practice',
-                       'tools/routing_scope.json does not exist')
-        return
-    scope = json.loads(scope_path.read_text(encoding='utf-8'))['practices']
-    problems = []
-    for slug, (fm, _s, _f) in sorted(files.items()):
-        row = scope.get(slug)
-        if fm.get('tier') != 'on-demand':
-            continue
-        if row is None:
-            problems.append(f"{slug}: no entry in routing_scope.json -- a practice "
-                            f"whose routing nobody decided")
-            continue
-        want, got = row.get('globs'), json.loads(fm.get('applies_to', '[]'))
-        if want != got:
-            problems.append(f"{slug}: applies_to is {got} but routing_scope.json "
-                            f"says {want}")
-        if not (row.get('why') or '').strip():
-            problems.append(f"{slug}: no reason recorded for its scope")
-    check('routing scope agrees with the practice files, with a reason for every '
-          'one (including every practice deliberately left at `**`)',
-          not problems, '; '.join(problems[:6]))
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def practice(slug, why=None, tier='on-demand', status='active'):
+        lines = [f'slug:        {slug}', f'tier:        {tier}',
+                 'applies_to:  ["**"]']
+        if why is not None:
+            lines.append(f'applies_to_why: "{why}"')
+        lines.append(f'status:      {status}')
+        return '---\n' + '\n'.join(lines) + '\n---\n## Rule\nA rule.\n'
+
+    def judge(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-routing-reason-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in pc._routing_reason(pc.Ctx(paths=['x'])))
+        except pc.NotApplicable as e:
+            return f'NOT APPLICABLE: {e}'
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    engine = {'tools/verify_harness.py': '# the engine origin\n'}
+    cases = []
+    out = judge({**engine, 'practices/a.md': practice('a'),
+                 'practices/b.md': practice('b', why='A moment; the reply gate.')})
+    cases.append(('an on-demand practice with no applies_to_why is refused, '
+                  'by file, with the fix named',
+                  'practices/a.md' in out and 'has no applies_to_why' in out
+                  and 'practices/b.md' not in out, out))
+    out = judge({**engine, 'practices/b.md': practice('b', why='Named path.'),
+                 'practices/r.md': practice('r', tier='resident'),
+                 'practices/old.md': practice('old', status='retired')})
+    cases.append(('with a reason, and for resident or retired practices, it '
+                  'stays quiet', out == '', out))
+    out = judge({'practices/a.md': practice('a')})
+    cases.append(('outside the engine origin it does not apply (the field '
+                  'is optional in a set or consumer)',
+                  out.startswith('NOT APPLICABLE'), out))
+    scope = json.loads((ROOT / 'tools' / 'routing_scope.json')
+                       .read_text(encoding='utf-8'))
+    cases.append(('tools/routing_scope.json carries no per-practice list',
+                  'practices' not in scope, sorted(scope)))
+    missing = [f.name for f in sorted((ROOT / 'practices').glob('*.md'))
+               if re.search(r'^tier:\s*on-demand', f.read_text(encoding='utf-8'), re.M)
+               and re.search(r'^status:\s*active', f.read_text(encoding='utf-8'), re.M)
+               and not re.search(r'^applies_to_why:\s*\S', f.read_text(encoding='utf-8'), re.M)]
+    cases.append(('every active on-demand practice here has applies_to_why',
+                  not missing, missing[:6]))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('the routing reason lives in each practice (applies_to_why), and '
+          'the check for it refuses a missing one and stays quiet otherwise',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_filename_separator_knows_names_it_did_not_choose():
+    """Two names the separator check used to count as a directory's own
+    choice, each planted beside a name using the other separator.
+
+    - A file name a TOOL fixes (reply_check.json, read by
+      precedent_reply_check.CONFIG_NAME, beside the very deep check's
+      very-deep-check-decisions.json): the check now collects every
+      *_NAME / *_FILENAME / *_MANIFEST constant from the engine's tools, so a
+      set holding both is clean without an exemption. Before 2026-09-29 the
+      list was hand-kept and held one name, and the individual set exempted
+      its whole root to get past it.
+    - An ISO date in a stem (REPORT_2026-09-19.md beside NOTES_X.md): the
+      date's hyphens are ISO 8601's, not a separator anybody chose.
+    Plus the loud half: a genuinely mixed pair still fails, and the message
+    leads with fixing the cause, the exemption last.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def judge(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-separator-'))
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in pc._filename_separator(pc.Ctx(paths=['x'])))
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+    fixed = pc.ENGINE_FIXED_FILENAMES
+    cases.append(('the fixed names are read from the tools, not listed by hand',
+                  {'reply_check.json', 'very-deep-check-decisions.json',
+                   'close_detect.json', 'precedent-source.json'} <= fixed,
+                  sorted(fixed)))
+    out = judge({'reply_check.json': '[]\n',
+                 'very-deep-check-decisions.json': '{}\n'})
+    cases.append(('two tool-fixed names with different separators are clean',
+                  out == '', out))
+    out = judge({'spec/REPORT_2026-09-19.md': '# r\n',
+                 'spec/NOTES_X.md': '# n\n'})
+    cases.append(('an ISO date inside a stem is not a "-" separator',
+                  out == '', out))
+    out = judge({'notes/a-b.md': '# a\n', 'notes/c_d.md': '# c\n'})
+    cases.append(('a genuinely mixed directory still fails, leading with '
+                  'the root fix', 'first fix the cause' in out
+                  and out.index('first fix the cause') < out.index('Exempt'), out))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('filename-separator does not count names a tool fixes or an ISO '
+          'date, and still refuses a real mix, root fix first',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_new_exemption_needs_a_root_fix():
+    """precedent_check.py's upstream-fix check (point 6: a new exemption is
+    a sign the root fix has not been made), with every state planted in a
+    throwaway repository whose base branch it owns: an entry already on the
+    base branch passes bare; a new entry without root_fix is refused, naming
+    the list and the entry; a new entry with one passes; and adding a
+    root_fix to an old entry does not make it new.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def cfg(entries):
+        return json.dumps({'base_branch': 'staging',
+                           'filename_separator_exempt': entries}, indent=1) + '\n'
+    old_entry = {'path': 'templates', 'ext': '.template', 'reason': 'named by GitHub'}
+
+    def judge(now_entries):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-root-fix-'))
+        g = lambda *a: subprocess.run(['git', '-C', str(d), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q')
+        g('config', 'user.email', 'fixture@example.invalid')
+        g('config', 'user.name', 'fixture')
+        (d / 'precedent.json').write_text(cfg([old_entry]), encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-q', '-m', 'base')
+        g('update-ref', 'refs/remotes/origin/staging', 'HEAD')
+        (d / 'precedent.json').write_text(cfg(now_entries), encoding='utf-8')
+        old = pc.ROOT
+        pc.ROOT = d
+        try:
+            return '; '.join(str(f) for f in
+                             pc._exemption_names_its_root_fix(pc.Ctx(paths=['x'])))
+        except pc.NotApplicable as e:
+            return f'NOT APPLICABLE: {e}'
+        finally:
+            pc.ROOT = old
+            shutil.rmtree(d, ignore_errors=True)
+
+    new_bare = {'path': '.', 'ext': '.json', 'reason': 'named by tools'}
+    cases = []
+    out = judge([old_entry])
+    cases.append(('an entry already on the base branch passes without root_fix',
+                  out == '', out))
+    out = judge([old_entry, new_bare])
+    cases.append(('a new entry without root_fix is refused, naming the list '
+                  'and the entry', "filename_separator_exempt gains an entry "
+                  "for '.' with no root_fix" in out, out))
+    out = judge([old_entry, {**new_bare, 'root_fix': 'the check cannot see '
+                             'which tool reads the file; handed off'}])
+    cases.append(('a new entry that says its root_fix passes', out == '', out))
+    out = judge([{**old_entry, 'root_fix': 'added later'}])
+    cases.append(('a root_fix added to an old entry does not make it new',
+                  out == '', out))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('a new exemption entry must say its root_fix; old ones are left '
+          'alone (upstream-fix, point 6)',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_retired_words_are_found_and_history_is_left():
+    """tools/our_language.py's retired-word scan (precedent_check.py's
+    retired-words check), each state planted: live text is refused and names
+    the replacement; history keeps the old word -- a ## Story, a quotation
+    over several lines, a todo/ file, a document whose frontmatter says it is
+    closed, a line about the retirement itself; and a frontmatter value
+    (an index clause) is live even though it is in quotation marks, which is
+    how disclose-landing's "named team" slipped the first version of this
+    scan. Built 2026-09-29, when "team set" had been retired by searching
+    for one phrase and "team source", `--level team` and a code path that
+    read only level "team" all survived.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import our_language as ol
+    retired = ol.load_retired()
+    cases = []
+
+    def hits(rel, text):
+        return ol.retired_uses_in(rel, text, retired)
+
+    out = hits('documentation/X.md', 'Declare the team source in precedent.json.\n')
+    cases.append(('live prose using a retired phrase is found, with its '
+                  'replacement', len(out) == 1 and out[0][2] == 'shared', out))
+    practice = ('---\nslug: x\napplies_to:  ["**"]\n'
+                'index_clause: "say where -- individual, named team, or universal"\n'
+                'status:      active\n---\n## Rule\nA rule.\n'
+                '## Story\nIt began in a team set.\n')
+    out = hits('practices/x.md', practice)
+    cases.append(('a quoted frontmatter value is live (and ["**"] opens no '
+                  'quotation); the ## Story is left alone',
+                  [n for n, *_ in out] == [4], out))
+    quote = ('He said: *"move it out of the individual and\nteam repos, '
+             'please"* and it moved.\n')
+    cases.append(('a quotation over two lines keeps its words',
+                  hits('spec/Y.md', quote) == [], hits('spec/Y.md', quote)))
+    cases.append(('a todo/ item is history',
+                  hits('todo/todo-x.md', 'the team set\n') == [], ''))
+    closed = '---\nkind:          brief\nstatus:        closed\n---\nthe team set\n'
+    cases.append(('a document whose frontmatter says closed is history',
+                  hits('spec/Z.md', closed) == [], ''))
+    cases.append(('a line about the retirement itself keeps the old word',
+                  hits('documentation/W.md', 'The old spelling, `--level team`, '
+                       'still works.\n') == [], ''))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('retired words are found in live text and left alone in history',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
 def check_routing_audit_coverage():
@@ -35477,16 +35682,31 @@ def check_source_credentials():
         (home_empty / '.config' / 'precedent' / 'config.json').write_text(
             '{"format_version": 1}\n', encoding='utf-8')
 
-        def write_cfg(team_path):
+        def write_cfg(team_path, level='team', name='precedent-team-fixture'):
             sources = [{'level': 'universal', 'name': 'precedent', 'path': '.'},
                        {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
             if team_path is not None:
-                sources.insert(1, {'level': 'team', 'name': 'precedent-team-fixture',
+                sources.insert(1, {'level': level, 'name': name,
                                    'path': team_path})
             (repo / 'precedent.json').write_text(
                 json.dumps({'format_version': 1, 'sources': sources}), encoding='utf-8')
 
+        # A set declared the CURRENT way, "level": "shared", and missing.
+        # Until 2026-09-29 only the old spelling "team" was read here, so this
+        # set was skipped and never reported missing -- the retired word hid
+        # the bug. Both spellings must be reported.
+        write_cfg('../precedent-shared-fixture', level='shared',
+                  name='precedent-shared-fixture')
+        why = psc.unresolved_private_sources(repo, env={'HOME': str(home_empty)})
+        cases.append(('a missing set declared as level "shared" is reported '
+                      'missing, by name, as a shared set',
+                      any(lv == 'shared' and n == 'precedent-shared-fixture'
+                          for lv, n, _ in why), str(why)))
         write_cfg('../precedent-team-fixture')
+        why = psc.unresolved_private_sources(repo, env={'HOME': str(home_empty)})
+        cases.append(('...and one declared with the old spelling "team" still is',
+                      any(n == 'precedent-team-fixture' for _, n, _ in why),
+                      str(why)))
         env_no_token = {'HOME': str(home_empty)}
         verdict, message = psc.assess(repo, env=env_no_token)
         cases.append(('an unresolved private source with no token reads as '
@@ -44028,7 +44248,10 @@ def main():
           *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
     check('checks read what their rules name', *check_checks_read_what_their_rules_name())
-    check_routing_scope(files)
+    check_routing_reason_lives_in_the_practice()
+    check_filename_separator_knows_names_it_did_not_choose()
+    check_new_exemption_needs_a_root_fix()
+    check_retired_words_are_found_and_history_is_left()
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()

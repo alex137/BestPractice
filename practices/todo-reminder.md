@@ -4,6 +4,7 @@ title:       "\"Todo reminder\" writes the item and marks it to be raised"
 tier:        on-demand
 severity:    default
 applies_to:  ["todo/todo-*.md"]
+applies_to_why: "The command writes into an open-item file under todo/ and nowhere else, post the 2026-09-16 todo/gotcha migration. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the item file. Decided: 2026-09-13."
 occasion:    "a person says \"Todo reminder\", or asks to be reminded of something"
 gates:       ["reply"]
 index_clause: "write it with disposition ask and remind_on; never a trigger"

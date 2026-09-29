@@ -4,6 +4,7 @@ title:       A search across every clone or every file waits for the person's sa
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. What the rule governs is the decision to start a search whose reach is every clone or every file -- a choice made before any file is opened, leaving nothing in the tree. Reached through the occasion index, which lists it. Decided: 2026-09-28, when the practice landed."
 occasion:    "about to search or scan every clone, every repo or every file for something"
 gates:       []
 index_clause: "never sweep every clone unasked; fix the known source, ask for an example"

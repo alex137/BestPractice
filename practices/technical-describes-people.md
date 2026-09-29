@@ -4,6 +4,7 @@ title:       Technical and non-technical describe people, never projects or repo
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No locus. The label can land on any path -- a template directory, a spec filename, a tool -- and the rule fires when somebody NAMES a thing, which the path channel cannot anticipate from the file being edited. Reached through the occasion index and its own tree-scope check. Decided: 2026-09-10, when the practice landed. Check: tree-scope check in tools/precedent_check.py reads every tracked path"
 occasion:    "naming or scoping something around a person's skill level"
 gates:       []
 index_clause: "a skill level describes a person, never a project, repo or file"

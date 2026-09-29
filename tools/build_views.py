@@ -36,7 +36,7 @@ Run:
       # write (or check) only AGENTS.md's loader block. MAP.md and
       # GLOSSARY.md's content is specific to how THIS repo is laid out
       # (render_map_md()'s TOOLS_DESCRIPTIONS table, its "this repo is
-      # BestPractice itself" prose); a team or individual source repo
+      # BestPractice itself" prose); a shared or individual source repo
       # vendoring this same file for its own practices/ catalogue wants
       # the resident-block/occasion-index mechanism, not those two.
   python3 tools/build_views.py --repo DIR [--agents-only] [--check]
@@ -1034,7 +1034,7 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
         # left alone rather than guessed at. The destination not existing
         # means the rewrite would invent a path; the destination sitting
         # outside the repository means the practice file lives in a source
-        # clone somewhere else on this disk (a team or individual set), where
+        # clone somewhere else on this disk (a shared or individual set), where
         # no relative link reaches it, an absolute one would name a private
         # repository, and a machine-specific `../../../home/...` would be
         # wrong for every other reader.
@@ -1315,7 +1315,7 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     # conditional on `source_levels` being absent. When source_levels IS
     # given, this block was rendered from an already-resolved multi-source
     # set (a consuming repo's precedent_sync_views.py run over
-    # precedent_materialize.py's output), so the team and individual
+    # precedent_materialize.py's output), so the shared and individual
     # practices are right here and a pointer elsewhere would be noise
     # pointing at a duplicate. When it is absent, this is a SINGLE-source
     # render -- this repo's own case -- and the other declared sources
@@ -1501,7 +1501,7 @@ def sources_for_tracked_block(root, declared):
     different reasons with the same remedy:
 
     1. PUBLISHING SOMEONE'S PRIVATE TEXT. A public repo's tracked block is a
-       publication, so a team or individual source's clauses cannot be
+       publication, so a shared or individual source's clauses cannot be
        rendered into it. This is the original rule and repo_is_public()
        carries its full reasoning.
 
@@ -1894,7 +1894,7 @@ def _render_withdrawn(withdrawn):
             # THE SUCCESSOR USUALLY LIVES IN ANOTHER SOURCE, and linking it
             # as if it were local writes a broken relative link into a
             # generated file. `in_force_at:` names a slug, not a source, and
-            # deduplication is precisely the case where a team or individual
+            # deduplication is precisely the case where a shared or individual
             # rule was dropped because a UNIVERSAL one already said it -- so
             # the successor is in a different repo by definition, more often
             # than not.
@@ -2085,13 +2085,13 @@ TOOLS_DESCRIPTIONS = {
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
     'precedent_update.py': "Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)",
     'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",
-    'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
+    'precedent_resolve.py': "Resolves the universal, shared and individual sources into one set, by precedence",
     'precedent_run_session_hooks.py': "Runs each repo's own SessionStart hooks for a session opened in the folder above them",
     'precedent_identity.py': "Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing",
     'precedent_decommission.py': "Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it",
     'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
-    'precedent_session_practices.py': "Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
+    'precedent_session_practices.py': "Writes the shared/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
     'precedent_access_check.py': "Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after",
     'precedent_session_check.py': "Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did",
     'precedent_beta_watermark_check.py': "Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert",

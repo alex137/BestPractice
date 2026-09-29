@@ -33,6 +33,20 @@ means a project's folder of files, kept on GitHub.
 Assistant uses. Numbers by: our_language.py. To change a word, change
 [tools/our_language.json](../tools/our_language.json), never this page.*
 
+## Words We No Longer Use
+
+When a word is retired, it is replaced everywhere it is still used to mean
+the thing, and a check keeps it from coming back. A quotation or a record
+of the past keeps the old word.
+
+<!--gen:retired-->
+| Retired word | Say instead | Since |
+|---|---|---|
+| team (as a level) | **shared** | 2026-09-18 |
+<!--/gen:retired-->
+
+*Built from the same list. Numbers by: our_language.py.*
+
 For the phrases you can say to your AI Assistant -- "Go update", "Three
 Things" and the rest -- see [How to Use This Day to
 Day](DAILY_HABITS.md), or just say **"Vocabulary"**. For every term the

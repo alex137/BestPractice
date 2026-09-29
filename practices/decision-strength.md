@@ -4,6 +4,7 @@ title:       A recorded approval says how firmly it was given
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md", "local/practices/*.md", "decisions/*.md"]
+applies_to_why: "The mark is written into the frontmatter of a practice file or a decision record, so those paths ARE the distinguishing condition: a file that records someone's approval. The reply gate carries the other half -- citing a past approval back to them -- which no glob reaches. Decided: 2026-09-09."
 occasion:    "recording that someone approved a practice or a decision, or citing their past approval back to them"
 gates:       ["reply"]
 index_clause: "record `decided` or `assented`; unmarked means unknown, never \"you decided this\""

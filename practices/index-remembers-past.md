@@ -4,6 +4,7 @@ title:       A document does not remember its past; the index does
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Fires on the relationship between two documents, which a path cannot see. Decided: phase 4 routing pass."
 occasion:    "a document replaces or is replaced by an earlier one"
 gates:       []
 index_clause: "put the lineage in the index, not in either document"

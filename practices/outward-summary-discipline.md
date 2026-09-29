@@ -4,6 +4,7 @@ title:       "Outward-facing summaries: a claims-to-source table, honest aggrega
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "No path identifies an outward-facing summary. Decided: phase 4 routing pass."
 occasion:    "writing an outward-facing summary of claims"
 gates:       []
 index_clause: "claims-to-source table, honest sums, a recorded adversarial pass"
