@@ -5752,7 +5752,82 @@ def _referenced_repos(repo_dir):
     return found
 
 
-def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
+# RENAMED REPOSITORIES, and what the run does about them (Morgan,
+# 2026-09-29, strength: decided). Every audit that asks GitHub about a
+# repository records here when the answer comes back under a different full
+# name: {(old owner, old name): "new owner/new name"}. fix_repo_renames()
+# then repoints each clone's remote and rewrites every CURRENT reference in
+# every repo in force, in the working tree for the session to review and
+# commit. Before, a rename was reported and left to whoever read the line,
+# and only names in always-loaded instructions files were ever asked about.
+RENAMED = {}
+PRIVATE_RENAMED = set()
+
+
+def _dir_is_public(repo_dir):
+    """True unless the repository says it is private. Unknown counts as
+    public: a private repository's new name is never written where we cannot
+    tell who reads it."""
+    f = pathlib.Path(repo_dir) / 'precedent-source.json'
+    try:
+        return json.loads(f.read_text(encoding='utf-8')).get('visibility') != 'private'
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
+def fix_repo_renames(renamed, repo_dirs, private=frozenset(), out=None):
+    """Repoint remotes and rewrite current references for each rename.
+
+    -> [(repo_dir, what changed)]. History is left as written, by the same
+    rules the retired-words check uses (our_language.is_history and its
+    line rules: todo/, decisions/, gotchas/, record/, evals/, a record or
+    finished document, a practice's ## Story, approved_by, quotations, and
+    a line that says it is about a rename). A NEW name that is private is
+    never written into a repository that may be public: that reference is
+    listed for the session to reword in general terms instead."""
+    import our_language as ol
+    out = out if out is not None else sys.stdout
+    changed = []
+    for d in repo_dirs:
+        d = pathlib.Path(d)
+        rc, url, _e = _run_git(d, 'remote', 'get-url', 'origin')
+        for (o, n), new in renamed.items():
+            pat = re.compile(r'(?<![\w.-])' + re.escape(f'{o}/{n}')
+                             + r'(?=\.git\b|[^\w-]|$)', re.I)
+            if rc == 0 and pat.search(url or ''):
+                _run_git(d, 'remote', 'set-url', 'origin', pat.sub(new, url.strip()))
+                changed.append((str(d), f'origin remote repointed to {new}'))
+        public = _dir_is_public(d)
+        for rel, text in _tracked_text_files(d):
+            if ol.is_history(rel, text):
+                continue
+            new_text, edits = text, 0
+            for (o, n), new in renamed.items():
+                pats = [re.compile(r'(?<![\w.-])' + re.escape(f'{o}/{n}')
+                                   + r'(?![\w-])', re.I)]
+                hits = ol.retired_uses_in(rel, new_text, [(f'{o}/{n}', new, pats)])
+                if not hits:
+                    continue
+                if public and new in private:
+                    changed.append((str(d), f'{rel}: names {o}/{n}, now the '
+                                            f'PRIVATE {new} -- NOT rewritten; '
+                                            f'reword it in general terms'))
+                    continue
+                lines = new_text.split('\n')
+                for ln, *_rest in hits:
+                    lines[ln - 1] = pats[0].sub(new, lines[ln - 1])
+                    edits += 1
+                new_text = '\n'.join(lines)
+            if edits:
+                (d / rel).write_text(new_text, encoding='utf-8')
+                changed.append((str(d), f'{rel}: {edits} line(s) rewritten'))
+    for d, what in changed:
+        print(f'  RENAME FIX {d}: {what}', file=out)
+    return changed
+
+
+def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
+                          also=()):
     """-> (findings, notes). Findings are real; notes are what could not run.
 
     A repository this PUBLIC tree names, which is PRIVATE, is a finding
@@ -5887,6 +5962,16 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
                 unreachable.setdefault(str(msg), []).append(f'{owner}/{name}')
             continue
         checked += 1        # only now is the visibility actually KNOWN
+        _canon = str(data.get('full_name') or '')
+        if _canon and _canon.lower() != f'{owner}/{name}'.lower():
+            RENAMED[(owner, name)] = _canon
+            if data.get('private'):
+                PRIVATE_RENAMED.add(_canon)
+            findings.append(
+                f'{owner}/{name} is named in this tree ({len(set(files))} '
+                f'file(s), e.g. {", ".join(sorted(set(files))[:3])}) and the '
+                f'API answers {_canon} -- it has been RENAMED. The run '
+                f'rewrites the current references (see RENAME FIX).')
         if data.get('private'):
             why = allowed.get(f'{owner}/{name}'.lower())
             if why:
@@ -5927,6 +6012,29 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
                 f'blocklist. A stale entry costs real content: it forces hits '
                 f'clearable only by deleting text about a public repository. '
                 f'Re-check and remove the entry, recording the evidence.')
+
+    # THE OTHER REPOS IN FORCE are asked only whether a name they carry has
+    # been RENAMED -- never about visibility, which is this public tree's
+    # question: a private set naming a private repository is not a leak.
+    # A name this tree already asked about is not asked twice.
+    for extra in also:
+        for (owner, name), files in sorted(_referenced_repos(extra).items()):
+            if (owner, name) in refs:
+                continue
+            data, err = _api_json(f'repos/{owner}/{name}')
+            if err or not isinstance(data, dict) or 'full_name' not in data:
+                continue
+            _canon = str(data.get('full_name') or '')
+            if _canon.lower() != f'{owner}/{name}'.lower():
+                RENAMED[(owner, name)] = _canon
+                if data.get('private'):
+                    PRIVATE_RENAMED.add(_canon)
+                findings.append(
+                    f'{owner}/{name} is named in {pathlib.Path(extra).name} '
+                    f'({", ".join(sorted(set(files))[:3])}) and the API answers '
+                    f'{_canon} -- it has been RENAMED. The run rewrites the '
+                    f'current references (see RENAME FIX).')
+            refs[(owner, name)] = files
 
     for why, names in sorted(unreachable.items()):
         notes.append(
@@ -6336,6 +6444,7 @@ def instruction_file_repo_refs_audit(repo_root, sources=(), missing=(),
         checked += 1
         canonical = str(data.get('full_name') or '')
         if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+            RENAMED[(owner, name)] = canonical
             findings.append(
                 f'{owner}/{name} is named in {seen} and the API answers '
                 f'{canonical} -- it has been RENAMED. The old name keeps '
@@ -6469,6 +6578,7 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
                 f'as archived: it reads and does not accept work.')
         canonical = str(data.get('full_name') or '')
         if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+            RENAMED[(owner, name)] = canonical
             findings.append(
                 f'{label} is declared or cloned as {owner}/{name} and the '
                 f'API answers {canonical} -- it has been RENAMED, and every '
@@ -9197,11 +9307,24 @@ def _main(box):
             _bl = str(leak_gate.resolve_blocklist_path()[0] or '') or None
         except Exception:                                        # noqa: BLE001
             _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
-        _vf, _vn = repo_visibility_audit(repo_root, _bl)
+        _tops = []
+        for _s in data['sources']:
+            _rc, _top, _e = _run_git(pathlib.Path(_s['path']), 'rev-parse',
+                                     '--show-toplevel')
+            _top = (_top or '').strip()
+            if _rc == 0 and _top and pathlib.Path(_top).resolve() != \
+                    pathlib.Path(repo_root).resolve() and _top not in _tops:
+                _tops.append(_top)
+        _vf, _vn = repo_visibility_audit(repo_root, _bl, also=_tops)
         for f in _vf:
             print(f'  FINDING: {f}')
         for n in _vn:
             print(f'  note: {n}')
+        if RENAMED:
+            fix_repo_renames(RENAMED, [repo_root, *_tops], PRIVATE_RENAMED)
+            print('  Review the rewritten files and commit them in each repo; '
+                  'history (Story sections, records, quotations) keeps the '
+                  'old name on purpose.')
         # The offline half: names nothing has typed YET. These are
         # recommendations for the person, not findings against the tree --
         # this is the one place they are raised (practice: very-deep-check;

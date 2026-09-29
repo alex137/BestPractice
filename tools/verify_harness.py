@@ -32604,6 +32604,71 @@ def check_loader_block_covers_every_declared_source():
               f'{len(leaked)} leaked: {", ".join(sorted(leaked)[:6])}')
 
 
+def check_very_deep_check_fixes_a_renamed_repository():
+    """When GitHub answers a named repository under a new full name, the very
+    deep check repoints the clone's remote and rewrites every CURRENT
+    reference, leaving history as written (Morgan, 2026-09-29, strength:
+    decided). Discriminating cases: a live line changes; a practice's
+    ## Story, a todo/ record and a line about the rename keep the old name;
+    the origin remote follows; and a new name that is private is not written
+    into a public repository."""
+    import io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='rename-fix-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='f', GIT_AUTHOR_EMAIL='f@invalid',
+               GIT_COMMITTER_NAME='f', GIT_COMMITTER_EMAIL='f@invalid')
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(tmp), *a], env=env,
+                              capture_output=True, text=True).stdout.strip()
+    cases = []
+    try:
+        git('init', '-q')
+        (tmp / 'practices').mkdir()
+        (tmp / 'todo').mkdir()
+        (tmp / 'README.md').write_text(
+            'Clone https://github.com/acme/old-tool to start.\n'
+            'It was renamed from acme/old-tool in 2026.\n', encoding='utf-8')
+        (tmp / 'practices' / 'x.md').write_text(
+            '---\nslug: x\nstatus: active\n---\n## Rule\nUse acme/old-tool.\n\n'
+            '## Story\nWe first used acme/old-tool.\n', encoding='utf-8')
+        (tmp / 'todo' / 'todo-x.md').write_text('acme/old-tool was slow.\n',
+                                                encoding='utf-8')
+        (tmp / 'NOTES.md').write_text('See acme/secret-old.\n', encoding='utf-8')
+        git('add', '-A'); git('commit', '-q', '-m', 'x')
+        git('remote', 'add', 'origin', 'https://github.com/acme/old-tool.git')
+        vdc.fix_repo_renames({('acme', 'old-tool'): 'acme/new-tool',
+                              ('acme', 'secret-old'): 'acme/secret-new'},
+                             [tmp], private={'acme/secret-new'},
+                             out=io.StringIO())
+        readme = (tmp / 'README.md').read_text(encoding='utf-8')
+        prac = (tmp / 'practices' / 'x.md').read_text(encoding='utf-8')
+        cases.append(('a live reference is rewritten',
+                      'github.com/acme/new-tool to start' in readme, readme))
+        cases.append(('a line about the rename keeps the old name',
+                      'renamed from acme/old-tool' in readme, readme))
+        cases.append(('the Rule changes and the Story keeps its history',
+                      'Use acme/new-tool.' in prac
+                      and 'first used acme/old-tool' in prac, prac))
+        cases.append(('a todo record is left as written',
+                      'acme/old-tool' in (tmp / 'todo' / 'todo-x.md').read_text(),
+                      'todo rewritten'))
+        cases.append(('the origin remote follows the rename',
+                      git('remote', 'get-url', 'origin')
+                      == 'https://github.com/acme/new-tool.git',
+                      git('remote', 'get-url', 'origin')))
+        cases.append(('a private new name is not written into a public repo',
+                      'acme/secret-old' in (tmp / 'NOTES.md').read_text(),
+                      (tmp / 'NOTES.md').read_text()))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check fixes a renamed repository '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:300]}" for n, d in bad))
+
+
 def check_review_page_lists_practices_that_may_overlap():
     """The review page's third part lists practice pairs that read alike --
     across sources and within one -- with the session's verdict beside each
@@ -44570,6 +44635,7 @@ def main():
     check_loader_block_covers_every_declared_source()
     check_review_page_carries_every_source_and_is_never_committed()
     check_review_page_lists_practices_that_may_overlap()
+    check_very_deep_check_fixes_a_renamed_repository()
     check_branch_report_keeps_private_names_out_of_a_public_tree()
     check_very_deep_check_reads_live_and_names_landing_work()
     check_very_deep_check_blocked_on_and_net_empty_branches()

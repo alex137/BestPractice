@@ -1174,6 +1174,19 @@ first so this pass spends its attention on what they cannot see.
   section's output; do not re-read the file looking for what it already
   answered.
 
+  **A rename is fixed in the run, not only reported** (Morgan, 2026-09-29,
+  strength: decided). The repository-visibility audit already asks GitHub
+  about every repository named anywhere in this checkout's tracked text; it
+  now also asks about the names in every source's own tree, and any answer
+  under a different full name -- from that audit, this one, or the
+  repos-in-force audit -- goes to `fix_repo_renames()`, which repoints the
+  clone's `origin` and rewrites every current reference in every repo in
+  force, in the working tree, for the session to review and commit. History
+  keeps the old name by the retired-words rules (a `## Story`, a record, a
+  quotation, a line about the rename), and a new name that is private is
+  never written into a repository that may be public: that reference is
+  listed for rewording in general terms instead.
+
   **The other three questions are the read, and they are meant to produce
   deletions.** A rule nobody has needed for a month, a paragraph that
   restates a practice the loader now carries, a sentence whose precision
@@ -2560,6 +2573,7 @@ it landed and still unreviewed.
 - **Replaced 2026-09-28, Morgan (strength: decided, "Go update")**: the practice catalogue is no longer committed anywhere. Every run writes a session-only review page instead (`tools/precedent_review_page.py`): the branches the person can delete, with a link each, and every active practice by source, private sets included, published in the session and never linked from a repository.
 - **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
 - **Extended 2026-09-29, Morgan (strength: decided)**, with the review page's third list, practices that may overlap, after asking whether the check looked for redundant or very similar practices in different repos and in the same one. Nothing did mechanically: the within-source scan caught a duplicate `defines:` term or a sibling override, and pass 3's placement read asked the question by hand. The script proposes pairs; the session judges them.
+- **Extended 2026-09-29, Morgan (strength: decided)**, so a renamed repository is found wherever it is named -- every tracked file in this checkout and in every source, not only the always-loaded instructions files -- and fixed in the run: the clone's remote repointed and every current reference rewritten, history left as written. Asked as a question first ("does Very Deep Check do a check to see if any called repos are redirected ... add that to VDC if it doesn't"); it reported renames in two places and fixed none.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
