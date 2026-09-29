@@ -55,6 +55,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import generated_blocks  # noqa: E402
+
 
 def find_root(start):
     p = Path(start).resolve()
@@ -911,7 +914,7 @@ def main():
     # A legitimate restatement is marked with <!--owned-ok--> on the line.
     for doc, scripts in docs.items():
         text = (ROOT / doc).read_text()
-        outside = re.sub(r"<!--gen:.*?<!--/gen:[\w-]+-->", "", text, flags=re.S)
+        outside = generated_blocks.blank(text)
         # the scripts of the SELECTED pairs: a bare run selects every pair, so
         # the pre-merge gate scans exactly what it did; an --only run checks
         # the figures of the scripts it regenerated and does not import (and

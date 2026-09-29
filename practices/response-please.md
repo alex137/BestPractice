@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE the person is about to paste -- no file path reaches it, same reasoning as prompt-please's own entry above. Reached through the occasion index and the reply gate. Decided: 2026-09-22, when the practice was written; landed 2026-09-28."
-occasion:    "the person is about to paste, or has just pasted, a message from another session and wants it read, evaluated, and turned into a decision"
+occasion:    "a person says \"Response Please\", or pastes another session's message to be weighed"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the key points, the recommendation, and the write-up either appear there or they do not."
 index_clause: "\"Response Please\" -- key points, your call, then a Prompt Please write-up"

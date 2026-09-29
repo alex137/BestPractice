@@ -89,8 +89,8 @@ command:     {"Go update": "Save the work, publish it, and tell you where it wen
 an object mapping each trigger phrase to the plain sentence a person who is
 not a developer reads ([readers-vocabulary](readers-vocabulary.md) governs
 that sentence -- it is written for them, not for a session). Two phrases for
-one command are two entries in one object, never two practices: `Go update`
-and `Approved` are one rule with two triggers.
+one command are two entries in one object, never two practices: `Booked`,
+`Go update` and `Approved` are one rule with several triggers.
 
 **Alphabetical, always.** Every other order -- by date coined, by how often
 it is used, by how important someone thinks it is -- is a judgment that goes

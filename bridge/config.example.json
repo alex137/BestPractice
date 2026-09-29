@@ -1,0 +1,49 @@
+{
+  "bot_token_env": "CHATBRIDGE_TELEGRAM_TOKEN",
+  "state_dir": "~/.local/state/chatbridge",
+
+  "claude": {
+    "command": "claude",
+    "model": null,
+    "max_turns": 40,
+    "timeout_seconds": 900,
+    "restricted": true
+  },
+
+  "transcription": {
+    "backend": "openai",
+    "api_key_env": "OPENAI_API_KEY",
+    "base_url": "https://api.openai.com/v1",
+    "model": "whisper-1",
+    "language": "en"
+  },
+
+  "reply": {
+    "max_sentences": 3,
+    "max_chars": 450,
+    "batch_seconds": 4,
+    "echo_transcript": true
+  },
+
+  "repos": {
+    "notes": {
+      "clone_url": "https://github.com/YOUR-ACCOUNT/YOUR-REPO.git",
+      "web_url": "https://github.com/YOUR-ACCOUNT/YOUR-REPO",
+      "landing_branch": "main",
+      "push_work_branch": true,
+      "content_extensions": [".md", ".markdown"],
+      "extra_owned_paths": []
+    }
+  },
+
+  "people": {
+    "me": {
+      "name": "YOUR FIRST NAME",
+      "repos": ["notes"],
+      "can_land": true,
+      "read_only": false,
+      "git_name": "YOUR NAME",
+      "git_email": "YOUR-GITHUB-EMAIL"
+    }
+  }
+}

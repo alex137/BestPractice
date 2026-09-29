@@ -194,12 +194,26 @@ SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
 # same tree in four repositories, and the bot-authored merge commits it had
 # just made went out unjudged; one of those repositories' own full sweep
 # failed on its staging afterwards (practice: durable-fix).
-HISTORY_CHECKS = {'commit_author', 'commit_dates'}
+HISTORY_CHECKS = {'commit_author', 'commit_dates', 'session_trailer'}
+# session_trailer (2026-09-29): a repository that declares the shared set
+# carrying check_session_trailer.py gets it materialized beside the other
+# two, and it judges only the commits origin does not have yet -- what this
+# push carries. Before, it ran only inside a full sweep, walked the whole
+# history, and refused a consumer's Promote over one old commit on main;
+# at pre-staging, --changed-files-only dropped its findings (they name no
+# file), so nothing judged a commit at Booked at all.
+# A check a practice SET ships reaches a repository on the set's own
+# schedule, which is not the engine's (practice: vendor-rollout-disclosed,
+# question 3). An engine that runs one at every push must not run a copy
+# older than the push-time behaviour: {name: text only the new copy has}.
+PUSH_TIME_SINCE = {'session_trailer': '--all-history'}
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/checks/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
     ('commit_dates', ['{engine}/checks/check_buenos_aires_dates.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
+    ('session_trailer', ['{engine}/checks/check_session_trailer.py'],
+     'nothing -- the trailer was judged only inside a full sweep'),
 )
 # Every workflow file is the engine's own untouched copy or carries the
 # person's approval pinned to its content (practice: ci-workflow-approved).
@@ -208,7 +222,8 @@ CI_WORKFLOWS_CHECK = (
                      'ci-workflow-approved'],
     'no workflow -- the check that keeps workflows from being added unasked')
 # Entries a repo may simply not have: skipped with a note, never a failure.
-OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'light_check'}
+OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
+            'light_check'}
 # The BASIC tier: what a push to pre-staging or any other working branch
 # runs. Everything else in a kind's list is FULL-only. The leak gate is
 # here because a push IS publication in a public repository, and cannot
@@ -219,7 +234,7 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'light_check'}
 # check, and its secret scan wants every push (practice: ci-workflow-approved;
 # Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
-                'ci_workflows', 'light_check'}
+                'session_trailer', 'ci_workflows', 'light_check'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
 # consumer session could not push its claude/* branch: commit_author refused
@@ -993,6 +1008,15 @@ def run(root, checks, landed=None, reported=None):
             print(f'[{i}/{len(checks)}] {name}: EXEMPT -- this repo declares '
                   f'{slug} not binding in precedent.json: '
                   f'{not_binding()[slug]}', flush=True)
+            continue
+        if (name in PUSH_TIME_SINCE and script.is_file() and
+                PUSH_TIME_SINCE[name] not in script.read_text(encoding='utf-8',
+                                                              errors='ignore')):
+            print(f'[{i}/{len(checks)}] {name}: not run at push time -- this '
+                  f'repo\'s copy of {argv[1]} predates judging only what a push '
+                  f'carries, and would read the whole history; it still runs in '
+                  f'the full sweep, as it did before, until the set that ships '
+                  f'it is updated here', flush=True)
             continue
         if not script.is_file():
             # A check whose tool this repo does not carry cannot be run, and

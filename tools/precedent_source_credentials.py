@@ -178,11 +178,17 @@ def individual_signals(env=None):
     env = os.environ if env is None else env
     found = [name for name in INDIVIDUAL_SIGNAL_ENVS
              if (env.get(name) or '').strip()]
-    homes = {pathlib.Path(env.get('HOME') or '~').expanduser()}
-    # A hosted session clones under /home/user while $HOME is /root. Looked
-    # at only for the real environment: a caller passing its own env (a test
-    # fixture) gets an answer from that env alone.
-    if real:
+    home = pathlib.Path(env.get('HOME') or '~').expanduser()
+    homes = {home}
+    # A hosted session clones under /home/user while $HOME is /root, so
+    # /home/user is looked at only in that layout, and only for the real
+    # environment: a caller passing its own env gets an answer from that env
+    # alone. A process given some other $HOME -- a test that points $HOME at
+    # an empty directory to mean "this person has nothing" -- is not told
+    # about a clone sitting in the machine's /home/user. Until 2026-09-29 it
+    # was, and the harness's no-signal case failed in every hosted session
+    # that had the individual set cloned.
+    if real and home == pathlib.Path('/root'):
         homes.add(pathlib.Path('/home/user'))
     for home in sorted(homes):
         clone = home / 'precedent-individual'

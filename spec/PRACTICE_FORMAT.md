@@ -846,8 +846,8 @@ command:     {"Go merge": "Save the work, publish it, and tell you where it went
 
 An object mapping **each trigger phrase** to **the plain sentence a person
 who is not a developer reads**. Two phrases for one command are two entries
-in one object, never two practices: `Go merge` and `Approved` are one rule
-with two triggers, and splitting them would be the same rule maintained
+in one object, never two practices: `Booked`, `Go update` and `Approved`
+are one rule with several triggers, and splitting them would be the same rule maintained
 twice.
 
 It is a registry, not decoration.

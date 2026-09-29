@@ -32,11 +32,11 @@ is an index entry: load the practice (`python3 tools/precedent_show.py
 SLUG`) before acting on one**, and the long form each used to carry here is
 in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 
-- **"Go update"** / **"Approved"** / **"Book it"** ([go-update](practices/go-update.md)) —
+- **"Booked"** / **"Go update"** / **"Approved"** / **"Book it"** ([go-update](practices/go-update.md)) —
   land it on the landing branch: a direct push by default, the full pull
   request chain for a high-risk change, and confirm `origin` carries it.
 - **"Promote N"** and the stage words ([promote](practices/promote.md)) —
-  the five stages: Consider, Act, Booked (= Go update), Debut, Produce.
+  the five stages: Consider, Act, Booked (also "Go update"), Debut, Produce.
   Read each back before it runs; optional, unless a person's own set
   requires it.
 - **"Push directly to [branch]"** ([push-directly](practices/push-directly.md))
@@ -87,7 +87,7 @@ SessionStart hook when the environment carries `PRECEDENT_GIT_TOKEN` and
 `PRECEDENT_SOURCE_BASE_URL`
 ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)); when it does
 not, `add_repo` (read access) for `precedent-individual` and each declared
-shared set, silently, and attach the individual set, never clone it by hand
+shared set, silently, and attach the individual source, never clone it by hand
 ([attach-never-clone-individual](practices/attach-never-clone-individual.md)).
 **Then run [tools/precedent_session_check.py](tools/precedent_session_check.py)**
 before trusting any "the hook does this" claim, and read a failing row's own
@@ -202,9 +202,9 @@ When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
-When a message says "Go update", "Approved", "Book it", "Booked" or "Promote 3", or plainly authorizes a merge:
-  go-update — "Go update"/"Approved"/"Book it" (stage 3): push; high-risk: PR and merge
-When a message says "Promote", "Promote N" or "Graduate", or asks to move pre-staging into staging or staging into main:
+When a message says "Booked", "Go update", "Approved", "Book it" or "Promote 3", or plainly authorizes a merge:
+  go-update — "Booked" (stage 3; also "Go update", "Approved"): push; high-risk: PR and merge
+When a message says "Promote", "Promote N" or "Graduate", or asks to move work up a tier:
   promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
   push-directly — no PR; with no branch named, the branch already in play
@@ -230,12 +230,14 @@ When a person says "My options", or asks to see a decision's options or hand the
   my-options — every option, plainer, your pick -- or a paste-ready handoff
 When a person says "Plan it", or Consider picks a middle-sized plan:
   plan-it — a written plan in the session, as one paste-ready prompt for a second opinion
-When a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs:
+When a person says "Primary branch", or asks which branch is trunk:
   primary-branch — trunk: the branch regular work pushes to and PRs target
 When a person says "Produce", "Make live" or "Promote 5":
   produce — stage 5: Promote staging into main (production); read strictly
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
+When a person says "Response Please", or pastes another session's message to be weighed:
+  response-please — "Response Please" -- key points, your call, then a Prompt Please write-up
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
@@ -244,13 +246,13 @@ When a person says "Tier branch", or asks which branches are the tiers:
   tier-branch — pre-staging, staging or main -- plus staging's old name and Promote's lock
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — write it with disposition ask and remind_on; never a trigger
-When a person says "Upstream fix", or asks whether a change fixes the root cause; or a session fixing a problem, adding a check for one, or adding an exemption:
+When a person says "Upstream fix" or asks if a fix reaches the cause, or a fix, check or exemption is being added:
   upstream-fix — fix the cause, not just add a check; a new exemption means look again
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
-When a person says "Write it up" or "Spec it out", or asks for a write-up of the issue being worked:
+When a person says "Write it up" or "Spec it out", or asks for a write-up:
   write-it-up — "Write it up": commit a full report of issue and fix, then link it
 When a second implementation of the same mechanism turns up, or a full practice audit runs:
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
@@ -267,7 +269,7 @@ When an unattended job hits something blocking its normal work, or something opt
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
 When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual set; keep one clone, both paths; shared sets clone beside
+  attach-never-clone-individual — attach the individual source; keep one clone, both paths; shared sources beside
 When being asked for something another window or session of the person's may already be working on:
   dont-race-another-window — say so and decline; send them to the window already on it
 When building a mechanism that makes something discoverable or reachable:
@@ -279,7 +281,7 @@ When building a variant of an existing thing:
 When checking whether practices that should have fired for recent work did:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When committing a shipped practice, hook, template or engine file, before push or merge:
-  vendor-rollout-disclosed — say whether shipped content must reach consumers, and whether it will
+  vendor-rollout-disclosed — say whether shipped content must reach consumers, if it will, how it migrates
 When committing anything:
   session-trailer — a Session: <url> trailer on every commit
 When committing anything that touches the vendored/public tree:
@@ -298,7 +300,7 @@ When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
 When finishing substantial work, before the merge capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
-When handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session:
+When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:
   shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
@@ -332,14 +334,12 @@ When setting up a project a session works in, or a session reporting that its ch
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
-When starting slow, costly or external work from a snapshot of trunk that another session could start too:
+When starting slow, costly or external work another session could also start:
   lease-in-flight-work — lease work in flight on a branch; the starting tool checks the board first
 When starting work another session may have done, or opening a PR:
   base-branch-is-the-record — read the base branch before starting and before the PR
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
-When the person is about to paste, or has just pasted, a message from another session and wants it read, evaluated, and turned into a decision:
-  response-please — "Response Please" -- key points, your call, then a Prompt Please write-up
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When work touches an open item's subject, or a branch merges:
@@ -436,7 +436,7 @@ place — nothing is ever deleted, and nothing moves.
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
 - **Work lands on your landing branch, never `main`** (the opening
-  paragraph; `python3 tools/precedent_branches.py --landing`). `Go update`
+  paragraph; `python3 tools/precedent_branches.py --landing`). Booked (`Go update`)
   decides whether that is a direct push or a pull request.
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
   §4). Reviewing one, you are the **second scrub line**: the contributing
@@ -470,7 +470,7 @@ place — nothing is ever deleted, and nothing moves.
   gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md)):
   a push to `staging` or `main` runs the deep check; a
   push to any other branch runs the basic tier -- the lint, the leak gate
-  and the commit-author checks, seconds -- unless the person's
+  and the commit author, date and trailer checks, seconds -- unless the person's
   `branch_push_checks` says `full`. A push or pull request into
   `pre-staging` also checks the files it changes, and nothing more, in
   seconds ([checks-follow-the-tier](practices/checks-follow-the-tier.md)). A pull request merged through GitHub

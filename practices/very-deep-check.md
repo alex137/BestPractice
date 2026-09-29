@@ -92,11 +92,22 @@ one pull request is two whole minutes for however little work. Added
 item 7.
 
 **It ends with a review page for the person, shown in the session only.**
-Every run writes one page with two lists: **every branch the person can
+Every run writes one page with three lists: **every branch the person can
 delete**, in this checkout and every source, each with a link that opens
-GitHub's branch list filtered to it; and **every active practice, by
+GitHub's branch list filtered to it; **every active practice, by
 source**: universal first, then this repo's own, then the individual set,
-then each shared set, each with its own one-line `index_clause`.
+then each shared set, each with its own one-line `index_clause`; and
+**practices that may overlap** -- pairs whose wording reads alike, the same
+slug in two sources, two rules alike across sources, or two alike within
+one. A script finds the pairs and prints them in the run's MAY OVERLAP
+lines; **the session judges every pair** -- merge them, and into which
+source, or keep both and why -- and rewrites the page with `--verdicts`, so
+each verdict sits beside its pair. Wording alone also matches rules that do
+different jobs, which is why no pair is a finding until it is judged, and
+why a pair judged different stays on the page with its reason. The same
+section prints GENERATED FILES: tracked files a tool may write that
+[tools/generated_files.json](https://github.com/alex137/BestPractice/blob/staging/tools/generated_files.json)
+does not list, for the session to list or to say why each is not generated.
 [tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
 writes it under `.precedent/`, which git ignores, and the run's PRACTICE
 CATALOGUE section calls it. Add the unlanded branches you judged safe to
@@ -121,7 +132,7 @@ version people are actually running, which is `main`: in every repo in
 force, the run reads a working branch cut from `origin/main` (cut one if
 the harness checked out something else). It changes nothing there
 directly. Every fix is committed on that working branch and lands the
-ordinary way, `Go update` onto the person's landing branch and a Promote
+ordinary way, Booked (`Go update`) onto the person's landing branch and a Promote
 from there, never pushed to `main`. **Reading `main` alone would re-find
 what is already fixed and waiting to be promoted**, so the tool's
 `LIVE VERSUS LANDING` section names, per repo, the files the landing
@@ -1165,6 +1176,19 @@ first so this pass spends its attention on what they cannot see.
   through a redirect that lasts only until somebody takes it. Read that
   section's output; do not re-read the file looking for what it already
   answered.
+
+  **A rename is fixed in the run, not only reported** (Morgan, 2026-09-29,
+  strength: decided). The repository-visibility audit already asks GitHub
+  about every repository named anywhere in this checkout's tracked text; it
+  now also asks about the names in every source's own tree, and any answer
+  under a different full name -- from that audit, this one, or the
+  repos-in-force audit -- goes to `fix_repo_renames()`, which repoints the
+  clone's `origin` and rewrites every current reference in every repo in
+  force, in the working tree, for the session to review and commit. History
+  keeps the old name by the retired-words rules (a `## Story`, a record, a
+  quotation, a line about the rename), and a new name that is private is
+  never written into a repository that may be public: that reference is
+  listed for rewording in general terms instead.
 
   **The other three questions are the read, and they are meant to produce
   deletions.** A rule nobody has needed for a month, a paragraph that
@@ -2551,6 +2575,9 @@ it landed and still unreviewed.
 - **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
 - **Replaced 2026-09-28, Morgan (strength: decided, "Go update")**: the practice catalogue is no longer committed anywhere. Every run writes a session-only review page instead (`tools/precedent_review_page.py`): the branches the person can delete, with a link each, and every active practice by source, private sets included, published in the session and never linked from a repository.
 - **Extended 2026-09-28, Morgan (strength: decided, "Go update, fix all four. Note that it needs to never never offer to delete pre-staging nor staging.")**, for the pre-staging -> staging -> main tiers: the branch sweep never offers a tier branch for deletion, the drift scan asks of every tier pair, the endgame rehearsal covers the Promote into staging as well as the one into main, and pass 1's move rehearsal reads the mentions a move now fixes. Asked first as a question ("does anything in very deep check need to be changed due to our new pre-staging -> staging -> main approach?"); the four fixes were the session's proposal, which he chose to take whole.
+- **Extended 2026-09-29, Morgan (strength: decided)**, with the review page's third list, practices that may overlap, after asking whether the check looked for redundant or very similar practices in different repos and in the same one. Nothing did mechanically: the within-source scan caught a duplicate `defines:` term or a sibling override, and pass 3's placement read asked the question by hand. The script proposes pairs; the session judges them.
+- **Extended 2026-09-29, Morgan (strength: decided)**, so a renamed repository is found wherever it is named -- every tracked file in this checkout and in every source, not only the always-loaded instructions files -- and fixed in the run: the clone's remote repointed and every current reference rewritten, history left as written. Asked as a question first ("does Very Deep Check do a check to see if any called repos are redirected ... add that to VDC if it doesn't"); it reported renames in two places and fixed none.
+- **Extended 2026-09-29, Morgan (strength: decided)**, with the GENERATED FILES lines: the reverse search for a file a tool writes that the new list of generated files does not name. Asked as a question ("does bestpractice maintain a list of all files that are auto-generated ... Is this checked in VDC and/or should it be?"); there was no single list, and todo/TODO.md had gone out of date with nothing checking it.
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's

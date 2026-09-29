@@ -117,7 +117,8 @@ leak, or be the only copy of — provided the formats and accounts are yours
 ([`open-formats-you-own`](REASONS_WHY.md#open-formats-you-own)). A new person is one
 repository access away from working, not a day of installing things, which
 is what [`groups-not-individuals`](OUR_PHILOSOPHY.md#groups-not-individuals) needs to be
-true.
+true, and what lets the work move with the person from a laptop to a phone
+([`cloud-first`](OUR_PHILOSOPHY.md#cloud-first)).
 
 ## Workflow & Cost Sensitivity
 

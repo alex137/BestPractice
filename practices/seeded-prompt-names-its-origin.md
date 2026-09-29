@@ -56,7 +56,7 @@ the origin is what makes it checkable at all.
 authorization.** It says who to ask -- not that the message is true.
 
 **One relayed authorization is acted on, and only because it arrives
-bounded:** a `Go update` carried into a prompt for a new session, to do work
+bounded:** a Booked (`Go update`) carried into a prompt for a new session, to do work
 the person asked for
 ([prompt-please](prompt-please.md)). What makes it safe is not the header --
 it is that the prompt names the work, the branch and the check the merge

@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, like go-update's and push-directly's entries -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-25, when the practice landed."
-occasion:    "a message says \"Promote\", \"Promote N\" or \"Graduate\", or asks to move pre-staging into staging or staging into main"
+occasion:    "a message says \"Promote\", \"Promote N\" or \"Graduate\", or asks to move work up a tier"
 gates:       ["merge"]
 gates_why:   "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
 index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
@@ -82,7 +82,7 @@ When a message says **"Promote"** about the branch tiers -- the whole
 message, or a clause like "promote pre-staging" -- **first check this
 session's own branch for work that is not on pre-staging yet**: anything
 uncommitted, or committed but not yet landed. **If there is any, run
-[Go update](go-update.md) on it first**, which lands it on pre-staging, and
+[Booked](go-update.md) (`Go update`) on it first**, which lands it on pre-staging, and
 confirm `origin/pre-staging` carries it. Promote carries that authorization
 itself: nobody is asked a second time. Only then run, in the repository the
 work is in:
@@ -220,7 +220,7 @@ ran"* -- and that is the whole report: the work is on staging, and there is
 nothing to run again.
 
 **Never suggest a Promote that another session is already running**, and
-the same goes for `Go update` or a merge of the same pull request or the
+the same goes for Booked (`Go update`) or a merge of the same pull request or the
 same work: two windows doing one job race, and the loser throws away a full
 check run. Before recommending one, look -- the pull request's state, the
 branch tips, and any session this one knows is on the same work -- and when

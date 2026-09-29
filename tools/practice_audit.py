@@ -99,6 +99,8 @@ Run:  python3 process/upstream/tools/practice_audit.py                    # gate
 import hashlib, json, pathlib, re, subprocess, sys
 
 HERE = pathlib.Path(__file__).resolve()
+sys.path.insert(0, str(HERE.parent))
+import generated_blocks  # noqa: E402
 _top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=HERE.parent,
                       capture_output=True, text=True).stdout.strip()
 ROOT = pathlib.Path(_top) if _top else HERE.parents[3]
@@ -419,20 +421,15 @@ def prose_declines(root):
         f = root / name
         if not f.is_file():
             continue
-        inside = False
-        for i, line in enumerate(f.read_text(encoding='utf-8', errors='replace').splitlines(), 1):
-            if LOADER_MARKER in line:
-                inside = True
-                continue
-            if inside and '<!-- END GENERATED' in line:
-                inside = False
-                continue
-            if not inside and any(p.search(line) for p in PROSE_DECLINE_PATTERNS):
+        lines = f.read_text(encoding='utf-8', errors='replace').splitlines()
+        for i, (line, generated) in enumerate(
+                zip(lines, generated_blocks.mask(lines)), 1):
+            if not generated and any(p.search(line) for p in PROSE_DECLINE_PATTERNS):
                 hits.append((name, i, line.strip()[:110]))
     return hits
 
 
-LOADER_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
+LOADER_MARKER = generated_blocks.LOADER_BEGIN
 MIGRATION_DOC = ('https://github.com/alex137/BestPractice/blob/staging/'
                  'spec/MIGRATING_EXISTING_INSTALLS.md')
 
