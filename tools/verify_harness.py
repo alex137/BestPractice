@@ -7136,6 +7136,707 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+class _LocalEditsFixture:
+    """Consumer-shaped fixtures for tools/precedent_local_edits.py, shared by
+    the checks below (practice: fixture-owns-its-state): HOME, the user
+    config and git identity are the fixture's own, so no private source of
+    this container resolves into it.
+
+    An "upstream change" is a commit object written into ROOT's object store
+    on top of the commit a consumer was seeded from -- built with a scratch
+    index, so no ref, index or file of ROOT moves -- and handed to
+    precedent_update.py as --from-ref."""
+
+    def __init__(self, prefix):
+        import tempfile
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix=prefix))
+        (self.tmp / 'home').mkdir()
+        self.env = {**os.environ, 'HOME': str(self.tmp / 'home'),
+                    'PRECEDENT_USER_CONFIG': str(self.tmp / 'no-user-config.json'),
+                    'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+                    'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+        self.env.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+        self.env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+
+    def sh(self, *argv, cwd, data=None):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=self.env,
+                           capture_output=True, input=data)
+        return r.returncode, (r.stdout + r.stderr).decode(errors='replace')
+
+    def git(self, cwd, *argv):
+        return self.sh('git', '-C', str(cwd), *argv, cwd=cwd)[1].strip()
+
+    def consumer(self, name, precedent_extra=None):
+        repo = self.tmp / name
+        repo.mkdir()
+        self.sh('git', 'init', '-q', '-b', 'main', cwd=repo)
+        cfg = {'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+               'sources': [{'level': 'universal', 'name': 'precedent',
+                            'path': str(ROOT)}]}
+        cfg.update(precedent_extra or {})
+        (repo / 'precedent.json').write_text(json.dumps(cfg) + '\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+        self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+                'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        self.sh('git', 'add', '-A', cwd=repo)
+        self.sh('git', 'commit', '-qm', 'installed', cwd=repo)
+        bare = self.tmp / f'{name}.git'
+        self.sh('git', 'clone', '-q', '--bare', str(repo), str(bare), cwd=self.tmp)
+        self.sh('git', 'remote', 'add', 'origin', str(bare), cwd=repo)
+        self.sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo
+
+    def seeded_from(self, repo):
+        return json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json')
+                          .read_text(encoding='utf-8'))['source_commit']
+
+    def upstream(self, base, changes):
+        """-> a commit on top of `base` whose files `changes` replaces."""
+        idx = self.tmp / 'scratch-index'
+        e = {**self.env, 'GIT_INDEX_FILE': str(idx)}
+        run = lambda *a, data=None: subprocess.run(
+            ['git', '-C', str(ROOT), *a], env=e, capture_output=True, input=data)
+        run('read-tree', base)
+        for rel, data in changes.items():
+            oid = run('hash-object', '-w', '--stdin', data=data).stdout.decode().strip()
+            run('update-index', '--add', '--cacheinfo', f'100644,{oid},{rel}')
+        tree = run('write-tree').stdout.decode().strip()
+        idx.unlink()
+        return run('commit-tree', tree, '-p', base, '-m',
+                   'fixture upstream change').stdout.decode().strip()
+
+    def update(self, repo, ref):
+        return self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                       '--repo', str(repo), '--from-ref', ref, '--skip-check', cwd=repo)
+
+    def commit(self, repo, message):
+        self.sh('git', 'add', '-A', cwd=repo)
+        self.sh('git', 'commit', '-qm', message, cwd=repo)
+        return self.git(repo, 'log', '-1', '--format=%h')
+
+    def close(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+def _insert(data, text, at=3):
+    lines = data.decode().splitlines(True)
+    return ''.join(lines[:at] + [text] + lines[at:]).encode()
+
+
+def _replace_line(data, text, at=3):
+    lines = data.decode().splitlines(True)
+    return ''.join(lines[:at] + [text] + lines[at + 1:]).encode()
+
+
+def _section(out, title):
+    """The lines of the LOCAL EDITS group titled `title`, joined."""
+    block = out.split('LOCAL EDITS', 1)[-1] if 'LOCAL EDITS' in out else ''
+    got, keep = [], False
+    for line in block.splitlines():
+        if line.startswith('  ') and not line.startswith('    '):
+            keep = line.strip().startswith(title)
+            continue
+        if keep and line.startswith('    - '):
+            got.append(line.strip())
+        elif not line.startswith('    '):
+            keep = False
+    return '\n'.join(got)
+
+
+def check_update_vendors_resolves_local_edits():
+    """Update Vendors resolves a committed local edit to a vendored engine
+    file instead of refusing over it (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md,
+    2026-09-29), by comparing BASE (vendored from), LOCAL (committed here)
+    and NEW (upstream now). One consumer holds one edited file per rule, so
+    one update run shows every rule; separate runs cover a merge whose check
+    fails, an uncommitted edit, a refresh that fails after the swap, and a
+    journal a killed run left behind.
+
+    Negative control (practice: control-asserts-which-failure), measured
+    2026-09-29 against precedent_update.py and checkin.py as they were on
+    pre-staging at c1dd37f5: every rule case fails -- the refresh refuses
+    ("hand-edited since the last seed/refresh") and no LOCAL EDITS section
+    is printed; the refresh-fails case passes there only because nothing was
+    ever swapped, and the journal case fails because nothing replays one."""
+    import hashlib
+    fx = _LocalEditsFixture('precedent-local-edits-')
+    cases = []
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    try:
+        # --- one run, every rule ---------------------------------------------
+        repo = fx.consumer('rules')
+        seeded = fx.seeded_from(repo)
+        t = repo / 'tools'
+        base = {n: (t / n).read_bytes() for n in (
+            'precedent_paths.py', 'precedent_show.py', 'precedent_gate.py',
+            'build_views.py', 'precedent_resolve.py', 'precedent_branches.py')}
+        local = {
+            'precedent_paths.py': _insert(base['precedent_paths.py'], '# rule 1: a local fix\n'),
+            'precedent_show.py': _insert(base['precedent_show.py'], '# rule 2: a local fix\n'),
+            'precedent_gate.py': _replace_line(base['precedent_gate.py'], '# rule 3: the local line\n'),
+            'build_views.py': _insert(base['build_views.py'], '# the same fix on both sides\n'),
+            'precedent_resolve.py': _insert(base['precedent_resolve.py'], '# kept on purpose\n'),
+            'precedent_branches.py': _insert(base['precedent_branches.py'], '# kept, pin now stale\n'),
+        }
+        new = {
+            'precedent_show.py': base['precedent_show.py'] + b'\n# upstream: rule 2\n',
+            'precedent_gate.py': _replace_line(base['precedent_gate.py'], '# rule 3: the upstream line\n'),
+            'build_views.py': local['build_views.py'],
+            'precedent_resolve.py': base['precedent_resolve.py'] + b'\n# upstream: kept\n',
+            'precedent_branches.py': base['precedent_branches.py'] + b'\n# upstream: stale\n',
+        }
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['kept_template_divergences'] = {
+            'tools/precedent_resolve.py': {
+                'reason': 'this repo resolves sources its own way',
+                'template_sha256': sha(new['precedent_resolve.py'])},
+            'tools/precedent_branches.py': {
+                'reason': 'this repo names its branches its own way',
+                'template_sha256': sha(base['precedent_branches.py'])}}
+        (repo / 'precedent.json').write_text(json.dumps(cfg) + '\n', encoding='utf-8')
+        for n, data in local.items():
+            (t / n).write_bytes(data)
+        c_local = fx.commit(repo, 'local fixes to received engine files')
+        ref = fx.upstream(seeded, {f'tools/{n}': d for n, d in new.items()})
+        rc, out = fx.update(repo, ref)
+        got = {n: (t / n).read_bytes() for n in local}
+        cases.append(('the update resolves every committed edit and does not fail '
+                      'on one', rc != 2 and 'hand-edited since the last seed' not in out
+                      and 'LOCAL EDITS' in out, out[-2500:]))
+        cases.append(('rule 1: upstream did not change it -- the local edit stays, '
+                      'reported with the send command',
+                      got['precedent_paths.py'] == local['precedent_paths.py']
+                      and 'tools/precedent_paths.py' in _section(out, 'Still your local edit')
+                      and 'precedent_local_edits.py send' in _section(out, 'Still your local edit'),
+                      _section(out, 'Still your local edit') or out[-1500:]))
+        cases.append(('rule 2: a clean merge keeps both changes, and says which '
+                      'checks ran', b'# rule 2: a local fix' in got['precedent_show.py']
+                      and b'# upstream: rule 2' in got['precedent_show.py']
+                      and 'tools/precedent_show.py' in _section(out, 'Merged')
+                      and 'compiles' in _section(out, 'Merged'),
+                      _section(out, 'Merged') or out[-1500:]))
+        cases.append(('rule 3: a conflict takes upstream\'s version and names the '
+                      'commit holding the local one',
+                      got['precedent_gate.py'] == new['precedent_gate.py']
+                      and 'tools/precedent_gate.py' in _section(out, "Upstream's version taken")
+                      and c_local in _section(out, "Upstream's version taken")
+                      and 'same lines' in _section(out, "Upstream's version taken"),
+                      _section(out, "Upstream's version taken") or out[-1500:]))
+        cases.append(('upstream already carrying the change: the file matches '
+                      'upstream, reported as nothing lost',
+                      got['build_views.py'] == new['build_views.py']
+                      and 'tools/build_views.py' in _section(out, 'Upstream now carries'),
+                      _section(out, 'Upstream now carries') or out[-1500:]))
+        cases.append(('rule 4: a file kept on purpose is never replaced, and its '
+                      'reason is said',
+                      got['precedent_resolve.py'] == local['precedent_resolve.py']
+                      and 'resolves sources its own way' in _section(out, 'Kept on purpose'),
+                      _section(out, 'Kept on purpose') or out[-1500:]))
+        left = out.split('LEFT FOR YOU', 1)[-1] if 'LEFT FOR YOU' in out else ''
+        cases.append(('rule 4 with a stale pin: still never replaced, and left for '
+                      'the person with the hash to record',
+                      got['precedent_branches.py'] == local['precedent_branches.py']
+                      and 'tools/precedent_branches.py' in left
+                      and sha(new['precedent_branches.py']) in left, left[-1500:]))
+
+        # --- rule 2 whose check fails: every merged file back to NEW ---------
+        repo = fx.consumer('failing-check')
+        seeded = fx.seeded_from(repo)
+        f = repo / 'tools' / 'precedent_show.py'
+        b = f.read_bytes()
+        f.write_bytes(_insert(b, '# rule 2: a local fix\n'))
+        tests = repo / 'tools' / 'checks' / 'tests' / 'run_all.sh'
+        tests.parent.mkdir(parents=True, exist_ok=True)
+        tests.write_text('#!/usr/bin/env bash\n'
+                         'if grep -q "local fix" tools/precedent_show.py && '
+                         'grep -q "upstream: rule 2" tools/precedent_show.py; then\n'
+                         '  echo "the merged file breaks a fixture test"; exit 1\nfi\n',
+                         encoding='utf-8')
+        fx.commit(repo, 'a local fix, and a test the merge will fail')
+        up = b + b'\n# upstream: rule 2\n'
+        rc, out = fx.update(repo, fx.upstream(seeded, {'tools/precedent_show.py': up}))
+        taken = _section(out, "Upstream's version taken")
+        cases.append(('rule 2 whose check fails falls back to upstream\'s version '
+                      'and names the failed check', f.read_bytes() == up
+                      and 'tools/precedent_show.py' in taken and 'run_all.sh' in taken
+                      and 'merged cleanly as text' in taken, taken or out[-1500:]))
+
+        # --- an uncommitted edit: nothing written -----------------------------
+        repo = fx.consumer('uncommitted')
+        seeded = fx.seeded_from(repo)
+        f = repo / 'tools' / 'precedent_paths.py'
+        edited = _insert(f.read_bytes(), '# not committed\n')
+        f.write_bytes(edited)
+        manifest = (repo / 'tools' / 'ENGINE_MANIFEST.json').read_bytes()
+        rc, out = fx.update(repo, fx.upstream(seeded, {
+            'tools/precedent_paths.py': f.read_bytes() + b'\n# upstream\n'}))
+        cases.append(('an uncommitted edit stops the update with nothing written',
+                      rc == 1 and 'not committed' in out
+                      and 'tools/precedent_paths.py' in out.split('LEFT FOR YOU', 1)[-1]
+                      and f.read_bytes() == edited
+                      and (repo / 'tools' / 'ENGINE_MANIFEST.json').read_bytes() == manifest,
+                      out[-1500:]))
+
+        # --- the refresh fails after the swap: LOCAL back, byte for byte ------
+        repo = fx.consumer('refresh-fails',
+                           {'engine_paths': {'README.md': 'tools/precedent_gate.py'}})
+        seeded = fx.seeded_from(repo)
+        f = repo / 'tools' / 'precedent_show.py'
+        edited = _insert(f.read_bytes(), '# a local fix\n')
+        f.write_bytes(edited)
+        fx.commit(repo, 'a local fix')
+        rc, out = fx.update(repo, fx.upstream(seeded, {
+            'tools/precedent_show.py': f.read_bytes() + b'\n# upstream\n'}))
+        journal = pathlib.Path(fx.git(repo, 'rev-parse', '--absolute-git-dir')) / \
+            'precedent-local-edits'
+        cases.append(('a refresh that fails after the swap puts the local edit back '
+                      'byte for byte, and leaves no journal',
+                      rc == 2 and 'this engine already vendors this path' in out
+                      and f.read_bytes() == edited and not journal.exists(),
+                      out[-1500:]))
+
+        # --- a journal a killed run left: replayed first ---------------------
+        repo = fx.consumer('killed')
+        seeded = fx.seeded_from(repo)
+        f = repo / 'tools' / 'precedent_show.py'
+        edited = _insert(f.read_bytes(), '# a local fix\n')
+        f.write_bytes(edited)
+        fx.commit(repo, 'a local fix')
+        rc, out = fx.sh(sys.executable, '-c', (
+            'import os, pathlib, sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_local_edits as le\n'
+            f'repo = pathlib.Path({str(repo)!r})\n'
+            'edits, _ = le.engine_edits(repo)\n'
+            'le.Swap(repo, edits).__enter__()\n'
+            'os._exit(9)\n'), cwd=repo)
+        journal = pathlib.Path(fx.git(repo, 'rev-parse', '--absolute-git-dir')) / \
+            'precedent-local-edits'
+        swapped = f.read_bytes() != edited and journal.is_dir()
+        rc, out = fx.update(repo, seeded)
+        cases.append(('a journal left by a killed run is replayed first: the local '
+                      'edit is back, and said', swapped
+                      and 'put back your local tools/precedent_show.py' in out
+                      and f.read_bytes() == edited and not journal.exists(),
+                      out[-1500:]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_resolves_a_catalogue_edit():
+    """The same resolution for process/upstream/, a pre-2026-09-14 install's
+    mirrored catalogue: a committed, pushed local edit to a vendored
+    practice, where upstream changed the same file elsewhere, is merged, and
+    `record` passes because its carry check skips exactly the file being
+    resolved (checkin.py record --resolving).
+
+    BASE is a commit object on top of origin/<source branch> whose copy of
+    one practice lacks upstream's last line, so NEW (what checkin.py update
+    mirrors) differs from BASE in exactly that file.
+
+    Negative control, measured 2026-09-29: with pre-staging's c1dd37f5
+    precedent_update.py the update refuses ("the vendored tree has local
+    changes"); with --resolving removed from the record call, record is held
+    by the carry check ("lines to lose")."""
+    import precedent_vendor_engine as _pve
+    branch = _pve.SOURCE_BRANCH
+    head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--verify', '--quiet',
+                           f'origin/{branch}'], capture_output=True, text=True).stdout.strip()
+    if not head:
+        not_applicable('Update Vendors resolves a local edit in process/upstream/',
+                       f'this clone has no origin/{branch} for the catalogue to mirror')
+        return
+    fx = _LocalEditsFixture('precedent-local-edits-cat-')
+    cases = []
+    try:
+        repo = fx.consumer('catalogue')
+        seeded = fx.seeded_from(repo)
+        practice = 'practices/verify-postcondition.md'
+        upstream_text = subprocess.run(['git', '-C', str(ROOT), 'show',
+                                        f'{head}:{practice}'], capture_output=True).stdout
+        lines = upstream_text.decode().rstrip('\n').splitlines(True)
+        base_text = ''.join(lines[:-1]).encode()
+        base_commit = fx.upstream(head, {practice: base_text})
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': head}, 'entries': []}, indent=2) + '\n',
+            encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', cwd=repo)
+        m = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        m['upstream']['commit'] = base_commit
+        (repo / 'process' / 'manifest.json').write_text(json.dumps(m, indent=2) + '\n',
+                                                        encoding='utf-8')
+        f = repo / 'process' / 'upstream' / practice
+        local = _insert(base_text, 'A line this repo added to fix a local bug.\n', at=16)
+        f.write_bytes(local)
+        fx.commit(repo, 'a local fix to a vendored practice')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        rc, out = fx.update(repo, seeded)
+        got = f.read_bytes()
+        rec = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        cases.append(('a committed local edit in process/upstream/ is merged with '
+                      'upstream\'s change, not refused',
+                      'refused' not in out.split('catalogue', 1)[-1][:200]
+                      and b'A line this repo added' in got
+                      and got.rstrip(b'\n').endswith(lines[-1].rstrip('\n').encode())
+                      and f'process/upstream/{practice}' in _section(out, 'Merged'),
+                      out[-2500:]))
+        cases.append(('...and record passes, its carry check skipping only that file',
+                      'catalogue record' in out and 'held' not in out
+                      and rec['upstream']['commit'] == head, out[-1500:]))
+    finally:
+        fx.close()
+    # Records its own verdict, so the not-applicable path above is said as
+    # such and never counted as a pass.
+    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'Update Vendors resolves a committed local edit in process/upstream/ '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_send_carries_a_local_edit_upstream():
+    """tools/precedent_local_edits.py send turns a consumer's committed edit
+    to a received engine file into a branch in the owner's clone, merged
+    three ways onto the owner's landing branch, scrubbed on both sides, and
+    pushed -- never a pull request, never a merge
+    (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md, part one, 2026-09-29).
+
+    The owner is a full local clone of this repo whose origin is a bare
+    repository in the fixture, so the push leaves nothing on the machine's
+    real remotes. Its commits are authored as whoever this checkout's own
+    identity resolves to, as a real clone's would be, so its basic tier
+    judges the branch as it judges any other push.
+
+    Negative control, measured 2026-09-29: with send's three-way merge
+    replaced by a plain copy of the local file, the "not reverted" case
+    fails; with consumer_scrub() returning nothing, the private-word case
+    pushes the branch and fails (the owner's gate has never heard of the
+    word -- which is the whole point of scrubbing on the consumer's side);
+    the file did not exist before, so every case fails without it."""
+    fx = _LocalEditsFixture('precedent-send-')
+    cases = []
+    tool = [sys.executable, str(ROOT / 'tools' / 'precedent_local_edits.py')]
+    try:
+        import precedent_identity
+        who = precedent_identity.declared_identity(ROOT) or {}
+    except Exception:                           # noqa: BLE001
+        who = {}
+    ident = {k: v for k, v in (
+        ('GIT_AUTHOR_NAME', who.get('name')), ('GIT_AUTHOR_EMAIL', who.get('email')),
+        ('GIT_COMMITTER_NAME', who.get('name')), ('GIT_COMMITTER_EMAIL', who.get('email'))) if v}
+    try:
+        repo = fx.consumer('secret-client-repo')
+        seeded = fx.seeded_from(repo)
+        f = repo / 'tools' / 'precedent_show.py'
+        base = f.read_bytes()
+
+        # The owner: its landing branch has moved on since the consumer
+        # vendored, with a change to the same file.
+        fx.env.update(ident)
+        owner, bare = fx.tmp / 'owner', fx.tmp / 'owner.git'
+        fx.sh('git', 'clone', '-q', '--no-local', str(ROOT), str(owner), cwd=fx.tmp)
+        landing = fx.sh(sys.executable, 'tools/precedent_branches.py', '--landing',
+                        cwd=owner)[1].split()[0]
+        fx.sh('git', 'checkout', '-q', '-B', landing, seeded, cwd=owner)
+        (owner / 'tools' / 'precedent_show.py').write_bytes(
+            base + b'\n# upstream moved on since vendoring\n')
+        fx.sh('git', 'commit', '-qam', 'upstream moved on', cwd=owner)
+        fx.sh('git', 'clone', '-q', '--bare', str(owner), str(bare), cwd=fx.tmp)
+        fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=owner)
+        heads_before = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+
+        def send(consumer, why):
+            return fx.sh(*tool, 'send', '--repo', str(consumer), '--owner-clone',
+                         str(owner), '--why', why, cwd=consumer)
+
+        def new_branches():
+            now = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+            # Only send's own branches: the owner's basic tier also shares its
+            # check receipts on a branch of their own, which is not this.
+            return [b for b in (l.split('\t')[1][len('refs/heads/'):]
+                                for l in now.splitlines()
+                                if l not in heads_before.splitlines())
+                    if b.startswith('local-edit/')]
+
+        # No edits: nothing happens, and it says so.
+        rc, out = send(repo, 'nothing')
+        cases.append(('a consumer with no edits does nothing and says so',
+                      rc == 0 and 'nothing to send' in out and not new_branches(),
+                      out[-800:]))
+
+        # A leak-gate word in the edit: refused before anything is pushed.
+        # base64, as this file's other probes are: the harness is itself
+        # scanned by the gate, so the word cannot appear in it literally.
+        import base64
+        word = base64.b64decode('c2hpdA==').decode()
+        f.write_bytes(_insert(base, f'# this {word} is a local fix\n'))
+        fx.commit(repo, 'a local fix with a word the gate refuses')
+        rc, out = send(repo, 'it crashed')
+        leftover = fx.git(owner, 'branch', '--list', 'local-edit/*')
+        cases.append(('an edit carrying a leak-gate word is refused before '
+                      'anything is pushed, and no branch is left behind',
+                      rc == 2 and 'REFUSED before anything left this machine' in out
+                      and not new_branches() and not leftover, out[-1500:]))
+
+        # A word only THIS repo's own scrub list knows -- the owner's gate
+        # has never heard of it, so only the consumer's side can stop it.
+        (repo / 'process').mkdir(exist_ok=True)
+        (repo / 'process' / 'scrub_blocklist.txt').write_text(
+            'zanzibar-codename\n', encoding='utf-8')
+        f.write_bytes(_insert(base, '# works around the zanzibar-codename import\n'))
+        fx.commit(repo, 'a local fix naming a private word')
+        rc, out = send(repo, 'it crashed')
+        cases.append(('a word only this repo\'s scrub list knows is refused by '
+                      'this repo\'s side, before anything is pushed',
+                      rc == 2 and 'the scrub on this repo\'s side found' in out
+                      and 'zanzibar-codename' in out and not new_branches(),
+                      out[-1500:]))
+
+        # The real case.
+        f.write_bytes(_insert(base, '# a local fix for an empty slug\n'))
+        fx.commit(repo, 'fix the show tool on an empty slug')
+        rc, out = send(repo, 'precedent_show.py crashed on an empty slug')
+        made = new_branches()
+        branch = made[0] if len(made) == 1 else ''
+        sent = fx.sh('git', '--git-dir', str(bare), 'show',
+                     f'{branch}:tools/precedent_show.py', cwd=fx.tmp)[1] if branch else ''
+        cases.append(('the branch appears upstream carrying the local change',
+                      rc == 0 and branch.startswith('local-edit/')
+                      and '# a local fix for an empty slug' in sent,
+                      (out + '\n' + '\n'.join(made))[-2000:]))
+        cases.append(('...merged onto the landing branch, so upstream\'s change '
+                      'since vendoring is kept, not reverted',
+                      '# upstream moved on since vendoring' in sent, sent[-400:]))
+        cases.append(('...on a branch whose name does not carry the consumer\'s '
+                      'name', bool(branch) and 'secret' not in branch
+                      and 'client' not in branch, branch))
+        cases.append(('...with a paste-ready prompt that asks for a test that '
+                      'fails without the fix, and no merge or pull request',
+                      'Paste into:' in out and 'a test that fails without the fix' in out
+                      and 'No pull request' in out, out[-2000:]))
+        cases.append(('...and the consumer\'s edit left in place, said so',
+                      b'# a local fix for an empty slug' in f.read_bytes()
+                      and 'Your local edit stays in place' in out, out[-800:]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_resolves_hook_and_engine_path_edits():
+    """The resolution covers every file the engine manifest records a hash
+    for, not only tools/: a hook it vendored into .claude/hooks/ and a path
+    precedent.json declares under engine_paths -- the same drift and the
+    same refusal before 2026-09-29. (Raised by the parallel session that
+    built the same resolution; CI workflows stay out, per
+    ci-workflow-approved.) The hook case is a real install
+    (precedent_install.py), which records its hooks by hash; hooks a
+    source's adapter writes are that source's, and not the engine's to
+    resolve.
+
+    Negative control, measured 2026-09-29: with engine_edits() reading only
+    _local_drift, as it did the first day, both edits stop the refresh
+    ("hand-edited since the last seed/refresh") and neither case passes."""
+    fx = _LocalEditsFixture('precedent-local-edits-hooks-')
+    cases = []
+    try:
+        # A declared engine path.
+        repo = fx.consumer('paths', {'engine_paths': {'SETUP.md': 'docs/SETUP.md'}})
+        seeded = fx.seeded_from(repo)
+        fx.update(repo, seeded)             # writes and records the path
+        fx.commit(repo, 'declared path installed')
+        s = repo / 'docs' / 'SETUP.md'
+        sb = s.read_bytes() if s.is_file() else b''
+        s.write_bytes(_insert(sb, 'A line this repo added.\n', at=2))
+        fx.commit(repo, 'a local fix to a declared path')
+        rc, out = fx.update(repo, fx.upstream(seeded, {
+            'SETUP.md': sb + b'\nUpstream added this line.\n'}))
+        sn = s.read_bytes()
+        cases.append(('a committed edit to a path declared under engine_paths is '
+                      'merged, not refused', bool(sb)
+                      and 'hand-edited since the last seed' not in out
+                      and b'A line this repo added.' in sn
+                      and b'Upstream added this line.' in sn
+                      and 'docs/SETUP.md' in _section(out, 'Merged'),
+                      (_section(out, 'Merged') or out)[-2000:]))
+
+        # A hook, in a real install.
+        proj = fx.tmp / 'installed'
+        fx.sh('git', 'init', '-q', '-b', 'main', str(proj), cwd=fx.tmp)
+        (proj / 'README.md').write_text('# Notes\n', encoding='utf-8')
+        fx.commit(proj, 'before')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'), str(proj),
+              '--project-name', 'Notes', cwd=ROOT)
+        fx.commit(proj, 'installed')
+        fx.sh('git', 'clone', '-q', '--bare', str(proj), str(fx.tmp / 'installed.git'),
+              cwd=fx.tmp)
+        fx.sh('git', 'remote', 'add', 'origin', str(fx.tmp / 'installed.git'), cwd=proj)
+        fx.sh('git', 'fetch', '-q', 'origin', cwd=proj)
+        m = json.loads((proj / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        hook = next((n for n in sorted(m.get('hooks_sha256') or {})
+                     if n.endswith('.sh')), None)
+        cases.append(('the install records a hook by hash', bool(hook),
+                      sorted(m.get('hooks_sha256') or {})))
+        if hook:
+            h = proj / '.claude' / 'hooks' / hook
+            hb = h.read_bytes()
+            h.write_bytes(_insert(hb, '# a local fix to this hook\n'))
+            fx.commit(proj, 'a local fix to a hook')
+            rc, out = fx.update(proj, fx.upstream(m['source_commit'], {
+                f'templates/harness/claude-code/hooks/{hook}': hb + b'\n# upstream: hook\n'}))
+            hn = h.read_bytes()
+            cases.append(('a committed edit to a vendored hook is merged, not refused',
+                          'hand-edited since the last seed' not in out
+                          and b'# a local fix to this hook' in hn
+                          and b'# upstream: hook' in hn
+                          and f'.claude/hooks/{hook}' in _section(out, 'Merged'),
+                          (_section(out, 'Merged') or out)[-2000:]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_section0_catalogue_resolves_a_committed_edit():
+    """A section 0 install's universal catalogue resolves a committed local
+    edit when its own CATALOGUE_SYNC.json names the commit it was synced
+    from -- that commit is BASE -- instead of refusing. Without that record
+    there is no one BASE to merge with, and the existing cases in
+    check_update_vendors_updates_a_section_0_catalogue and
+    check_update_vendors_trusts_the_catalogues_own_sync_commit still expect
+    the refusal (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md).
+
+    Negative control, measured 2026-09-29: against vendor_universal_catalogue
+    before this, both cases are refused ("carry local edits")."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    fx = _LocalEditsFixture('precedent-section0-edit-')
+    env = _section0_fixture_env()
+    cases = []
+    try:
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        base = subprocess.run(['git', '-C', str(ROOT), 'show',
+                               f'{head}:practices/go-update.md'],
+                              capture_output=True).stdout
+        lines = base.decode().splitlines(True)
+        after = next(i for i, l in enumerate(lines) if i and l.strip() == '---') + 2
+        record = json.dumps({'source_commit': head}).encode()
+
+        # Merge: this repo added a line near the top, upstream one at the end.
+        rev = fx.upstream(head, {'practices/go-update.md': base + b'\nUpstream: end.\n'})
+        d = _section0_repo(fx.tmp, {
+            'practices/go-update.md': _insert(base, 'Mine: near the top.\n', at=after),
+            'CATALOGUE_SYNC.json': record}, env)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
+        f = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        got = f.read_bytes()
+        cases.append(('a committed edit merges with upstream\'s change, not refused',
+                      ok is True and not rep.left and b'Mine: near the top.' in got
+                      and b'Upstream: end.' in got
+                      and any(o == 'merged' for o, _r, _t in rep.edits),
+                      (rep.left, rep.edits, rep.steps)))
+
+        # Conflict: both changed the same line.
+        rev = fx.upstream(head, {'practices/go-update.md':
+                                 _replace_line(base, 'Upstream: this line.\n', at=after)})
+        d = _section0_repo(fx.tmp, {
+            'practices/go-update.md': _replace_line(base, 'Mine: this line.\n', at=after),
+            'CATALOGUE_SYNC.json': record}, env)
+        rep = pu.Report()
+        ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
+        f = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        took = [t for o, _r, t in rep.edits if o == 'took-upstream']
+        cases.append(('a conflict takes upstream\'s version and names the commit '
+                      'holding this repo\'s', ok is True and not rep.left
+                      and b'Upstream: this line.' in f.read_bytes()
+                      and took and 'git show' in took[0], (rep.left, rep.edits)))
+    except (OSError, subprocess.CalledProcessError, StopIteration) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_merge_is_judged_by_the_landing_check():
+    """A merge the rules made is judged by the repo's own landing-tier check
+    at Update Vendors' step 5, not only by its own compile and test run
+    (precedent_update.check_with_merge_fallback, 2026-09-29): red with the
+    merge in place and green without it, upstream's version stands and the
+    report says why; red either way, the merge is put back, since it was
+    not the cause. The check itself is stubbed here, so each branch is
+    decided by the file's content alone.
+
+    Negative control, measured 2026-09-29: with step 5 calling
+    judged_as_committed() directly, as it did before, the merged file is
+    never taken back and the first case fails."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-merge-judged-'))
+    cases = []
+    real = pu.judged_as_committed
+    try:
+        repo = tmp / 'r'
+        repo.mkdir()
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        f = repo / 'tools' / 'x.py'
+        f.parent.mkdir()
+        f.write_text('mine = 1\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'local edit')
+        merged, new = b'mine = 1\nMERGED = 1\n', b'theirs = 1\n'
+
+        def run(red_when):
+            f.write_bytes(merged)
+            rep = pu.Report()
+            rep.edits = [(pu.le.MERGED, 'tools/x.py', 'merged')]
+            rep.merges = {'tools/x.py': (merged, new)}
+            pu.judged_as_committed = lambda _r, _a: (
+                (1, 'red') if red_when(f.read_bytes()) else (0, 'green'))
+            rc, _out = pu.check_with_merge_fallback(repo, rep, [], 'check for pre-staging')
+            return rc, rep
+
+        rc, rep = run(lambda data: b'MERGED' in data)
+        cases.append(('red with the merge and green without: upstream\'s version '
+                      'stands, reported as rule 3 with the reason',
+                      rc == 0 and f.read_bytes() == new
+                      and rep.edits[0][0] == pu.le.TOOK_UPSTREAM
+                      and 'failed with the merge in place' in rep.edits[0][2],
+                      (rc, f.read_bytes(), rep.edits)))
+        rc, rep = run(lambda data: True)
+        cases.append(('red either way: the merge is put back and the failure '
+                      'reported on it', rc == 1 and f.read_bytes() == merged
+                      and rep.edits[0][0] == pu.le.MERGED
+                      and any('not the cause' in o for _n, o in rep.steps),
+                      (rc, f.read_bytes(), rep.steps)))
+    finally:
+        pu.judged_as_committed = real
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_judges_the_committed_tree():
     """precedent_update's deep check judges the staged update as it will be
     committed, then leaves the index and working tree exactly as it found
@@ -7729,9 +8430,16 @@ def check_update_vendors_updates_a_section_0_catalogue():
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'edited'], env=env, check=True)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, last)
-        cases.append(('a COMMITTED local edit is refused and named under Left for you',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)
-                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')))
+        # Since 2026-09-29 a committed edit is resolved, not refused, when
+        # the catalogue's own record names BASE -- as it does here: the replace
+        # above wrote it and the commit took it. Upstream has not changed the
+        # file since, so rule 1 keeps the edit and lists it
+        # (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md).
+        cases.append(('a COMMITTED local edit is kept, not refused, when upstream '
+                      'has not changed the file since the recorded sync',
+                      ok is True and not rep.left
+                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')
+                      and [o for o, _r, _t in rep.edits] == ['still-local']))
 
         d = repo_with([{'level': 'universal', 'name': 'precedent',
                         'path': '../precedent'}], stale=False)
@@ -32491,6 +33199,10 @@ def check_checkin_update_never_mutates_the_clone():
         # shape that never ships.
         shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
                      consumer / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
+        # push hands its work to send (2026-09-29); the real vendored tree
+        # carries both, since the mirror brings the whole tools/ at once.
+        shutil.copy2(ROOT / 'tools' / 'precedent_local_edits.py',
+                     consumer / 'process' / 'upstream' / 'tools' / 'precedent_local_edits.py')
 
         def clone_state():
             return tuple(g(*a).stdout.strip() for a in (
@@ -32607,6 +33319,9 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
         'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
                                     ).read_text(encoding='utf-8'),
+        # push hands the work to send (2026-09-29), from the same directory.
+        'tools/precedent_local_edits.py': (ROOT / 'tools' / 'precedent_local_edits.py'
+                                           ).read_text(encoding='utf-8'),
         # push() runs the vendored scrub first; this fixture is about the
         # mirror, so the scrub is a stub that passes.
         'tools/practice_audit.py': 'raise SystemExit(0)\n',
@@ -32678,22 +33393,25 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
                       'HEAD on another branch', recorded == landed,
                       f'recorded={recorded} landed={landed}'))
 
-        # push: upstream stops vendoring retired.txt. The tracked file must
-        # still go; the three stray files must not.
+        # push: this repo drops retired.txt. Since 2026-09-29 push hands the
+        # work to precedent_local_edits.py send, which builds a branch in a
+        # worktree of its own -- so the clone's working tree, tracked files
+        # and stray files alike, is never touched, whatever happens next.
         _git(clone, 'checkout', '-q', 'main')
         (vend / 'retired.txt').unlink()
         rc, out = run('push')
-        cases.append(('push still deletes a tracked file the vendored tree '
-                      'dropped', rc == 0 and 'checkin push OK' in out
-                      and not (clone / 'retired.txt').exists(), out))
+        cases.append(('push hands the work to send, which asks what went wrong '
+                      'before doing anything', rc == 2
+                      and 'precedent_local_edits send REFUSED: --why is required' in out,
+                      out))
         survived = [rel for rel, text in stray.items()
                     if (clone / rel).is_file()
                     and (clone / rel).read_text(encoding='utf-8') == text]
-        cases.append(('push leaves every file git does not track in the clone '
-                      'untouched', len(survived) == len(stray),
+        cases.append(('push leaves the clone\'s working tree untouched: every '
+                      'file git does not track, and the tracked file this repo '
+                      'dropped', len(survived) == len(stray)
+                      and (clone / 'retired.txt').is_file(),
                       f'survived={survived}\n{out}'))
-        cases.append(('and says it left them alone',
-                      'left 3 file(s) git does not track' in out, out))
 
     failed = [f'{n}: {d[:400]}' for n, ok, d in cases if not ok]
     check(f'checkin.py ignores files git does not track in the source clone '
@@ -45780,6 +46498,17 @@ def main():
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
+    check('Update Vendors resolves a committed local edit to an engine file by rule',
+          *check_update_vendors_resolves_local_edits())
+    check('send carries a committed local edit upstream as a scrubbed branch',
+          *check_send_carries_a_local_edit_upstream())
+    check('Update Vendors resolves a committed edit to a vendored hook or declared path',
+          *check_update_vendors_resolves_hook_and_engine_path_edits())
+    check('a section 0 catalogue resolves a committed edit against its own sync record',
+          *check_section0_catalogue_resolves_a_committed_edit())
+    check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
+          *check_merge_is_judged_by_the_landing_check())
+    check_update_vendors_resolves_a_catalogue_edit()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
     check('the leak gate sees the main clone\'s private siblings from a worktree',
