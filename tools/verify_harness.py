@@ -24857,6 +24857,92 @@ def check_session_check_never_calls_an_unfetched_clone_current():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_check_adopts_a_detached_start():
+    """A cloud session starts detached and moves onto its branch: not a jump.
+
+    Found 2026-09-30 on a dependent repo's cloud session: the stamp recorded
+    `HEAD` (git's name for a detached checkout), the harness then moved the
+    session onto its assigned branch, and the row failed on every prompt for
+    the life of the session. A warning that fires every time is one nobody
+    reads, which is how the real jump it exists for would slip past.
+
+    The rule under test: a detached start adopts the branch it moves onto
+    when that branch carries the start commit, and still fails when it does
+    not; a move between named branches still fails. Driven against a
+    throwaway repository, never this checkout (practice:
+    fixture-owns-its-state)."""
+    import subprocess
+    import tempfile
+    import precedent_session_check as psc
+
+    cases = []
+    with tempfile.TemporaryDirectory() as t:
+        repo = pathlib.Path(t)
+
+        def git(*args):
+            p = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True)
+            return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+        def commit(msg):
+            (repo / 'f').write_text(msg)
+            git('add', 'f')
+            git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', msg)
+
+        git('init', '-q', '-b', 'main')
+        commit('one')
+        stamp = repo / '.git' / 'precedent-session-branch'
+
+        def row():
+            r = psc._session_branch_row(stamp, git)
+            return (r[1], r[2]) if r else ('MISSING', '')
+
+        # Detached start: the first run records HEAD and the commit.
+        _, c1, _ = git('rev-parse', 'HEAD')
+        git('checkout', '-q', '--detach')
+        ok, detail = row()
+        cases.append(('the first run records a baseline', ok is None, detail))
+        cases.append(('the stamp carries the start commit',
+                      c1 in stamp.read_text(), stamp.read_text()))
+
+        # The harness moves the session onto its branch: passes, and adopts.
+        git('checkout', '-q', '-b', 'claude/work')
+        ok, detail = row()
+        cases.append(('a detached start moving onto a branch that carries it passes',
+                      ok is True, detail))
+        cases.append(('the branch becomes the new baseline',
+                      stamp.read_text().split()[0] == 'claude/work',
+                      stamp.read_text()))
+        ok, detail = row()
+        cases.append(('and stays green on the next run', ok is True, detail))
+
+        # A later jump between named branches is still the finding it was.
+        git('checkout', '-q', 'main')
+        ok, detail = row()
+        cases.append(('a move between named branches still fails',
+                      ok is False and 'claude/work' in detail, detail))
+
+        # A detached start whose commit the new branch lacks still fails.
+        git('checkout', '-q', '--detach', 'claude/work')
+        commit('made while detached')
+        _, c2, _ = git('rev-parse', 'HEAD')
+        stamp.write_text(f'HEAD\n{c2}\n')
+        git('checkout', '-q', 'main')
+        ok, detail = row()
+        cases.append(('a branch that strands the detached commit still fails',
+                      ok is False and c2[:12] in detail, detail))
+
+        # An older one-line stamp recording HEAD is adopted, not failed.
+        stamp.write_text('HEAD\n')
+        ok, detail = row()
+        cases.append(('an older one-line detached stamp is adopted',
+                      ok is True, detail))
+
+    bad = [(n, d) for n, good, d in cases if not good]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_check_reports_a_source_cloned_twice():
     """Two clones of one practice source is the quietest failure there is.
 
@@ -48051,6 +48137,8 @@ def main():
           *check_a_consumer_may_declare_a_ci_workflow_its_own())
     check('the reply check names every predicate it cannot evaluate',
           *check_reply_check_names_what_it_cannot_evaluate())
+    check('the session check adopts a detached start the branch carries',
+          *check_session_check_adopts_a_detached_start())
     check('the session check reports a source cloned twice on one disk',
           *check_session_check_reports_a_source_cloned_twice())
     check('the session check never calls an unfetched source clone current',
