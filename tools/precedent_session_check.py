@@ -474,10 +474,11 @@ def checks(offline=False):
     # The value below is read off the directories actually present here,
     # which is the only way it can be right; the warning is what stops it
     # being copied somewhere it is not.
-    suggestion = ('Set it to (computed from the clones on THIS disk -- never '
-                  'paste a value from another container, even a known-good '
-                  'one, because which copy of a source is the live one '
-                  'differs per machine): PRECEDENT_FRESHNESS_ALSO='
+    suggestion = ('Set it to (each set anchored where it lives -- a shared set '
+                  'beside the project, the individual set in $HOME -- so one '
+                  'value holds in every repo of the environment; in a shell '
+                  'script, single-quote it so nothing expands early): '
+                  'PRECEDENT_FRESHNESS_ALSO='
                   + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
     if raw is None:
         out.append((name, None,
@@ -671,7 +672,7 @@ def checks(offline=False):
             if universal:
                 universal_behind.append(real)
             else:
-                set_behind.append(real)
+                set_behind.append(str(pathlib.Path(real).resolve()))
         elif verdict == 'unverified':
             unverified.append(f'{shown} ({phrase})')
     if behind:
@@ -1032,8 +1033,18 @@ def _attachable_sources():
                         encoding='utf-8')).get('base_branch') or 'main'
                 except (OSError, ValueError):
                     pass
+            # ANCHORED WHERE EACH KIND OF SET LIVES, never an absolute path
+            # (2026-09-30). A shared set sits beside the project because
+            # every repo declares it as ../<name>, so it is written
+            # $CLAUDE_PROJECT_DIR/../<name>; the individual set lives in
+            # $HOME, so ~/<name>. One value is then right in every repo and
+            # on every container. The absolute paths this used to print
+            # were right only on the disk they came from, and sessions kept
+            # flipping the variable between two of them.
             shown = str(d)
-            if home and shown.startswith(home + '/'):
+            if d.parent.resolve() == ROOT.parent.resolve():
+                shown = f'$CLAUDE_PROJECT_DIR/../{d.name}'
+            elif home and shown.startswith(home + '/'):
                 shown = '~' + shown[len(home):]
             found.append((shown, base))
     return found

@@ -305,7 +305,8 @@ def received_owners(root):
     """-> {path or prefix: owner} for everything `root` received from
     somewhere else and must not edit: materialized practices and checks of
     other sources (MANIFEST.json, owner = the source that wrote each), the
-    vendored engine (tools/ENGINE_MANIFEST.json, owner = the engine), and
+    vendored engine (tools/ENGINE_MANIFEST.json, owner = the engine: its
+    tools/ files, its hooks and its declared engine_paths), and
     mirrored upstream trees (a prefix ending in "/", owner = that tree).
 
     THE ONE ANSWER to "did this repo write this file?" -- precedent_check.py's
@@ -335,6 +336,19 @@ def received_owners(root):
             encoding='utf-8'))
         for f in (em.get('files') or []):
             owners[f'tools/{f}'] = 'the vendored engine'
+        # The engine writes more than tools/, and records each (2026-09-30:
+        # a consumer's push check asked it to repoint a line in two vendored
+        # hooks, which the next refresh would overwrite). `hook_files` are
+        # bare names under .claude/hooks/; `engine_paths` maps a local,
+        # repo-relative path to its upstream one, hand edits refused as drift.
+        # `ci_workflow_files` is left out ON PURPOSE: a refresh overwrites
+        # those too, but a workflow is also the subject of
+        # ci-workflow-approved, which does not judge received files, so
+        # counting them here would silence the gate on a hand-edited one.
+        for name in (em.get('hook_files') or []):
+            owners[f'.claude/hooks/{name}'] = 'the vendored engine'
+        for local in (em.get('engine_paths') or {}):
+            owners[local] = 'the vendored engine'
     except (ValueError, OSError, AttributeError):
         pass
     try:
