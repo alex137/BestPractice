@@ -1,0 +1,85 @@
+---
+checked_through: 2026-09-29
+---
+# What's new
+
+A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## 2026-09-29
+
+**Precedent now offers five named stages for taking work from first idea to production, each one read back before it runs.**
+
+- A short page now explains the project's own words, and it's generated from one list so it can't fall out of date (documentation/OUR_LANGUAGE.md, built by tools/our_language.py from tools/our_language.json).
+- A test build lets you send a voice note or a message to a chat bot and get a few sentences and a link back, and the bot may only change content, never the machinery (the Telegram chat bridge under bridge/, which can transcribe voice on the same machine with an open-source Whisper model).
+- The philosophy page gained an idea about working in the cloud: your work follows you from laptop to phone only when it lives there (idea 11, "Cloud-first", in philosophy/OUR_PHILOSOPHY.md).
+- Checks got faster by running the cheap ones first and skipping the slow ones once something has already failed (precedent_push_check.py now runs the harness last; a new doc_sync ledger measured 58 seconds cold and 6 seconds warm on 192 blocks).
+
+## 2026-09-28
+
+**For the first time, the project's most thorough self-check read every practice against the repositories it governs, and fixed what it found.**
+
+- The instructions every session reads first got much shorter (the opening of AGENTS.md went from about 3,460 tokens to about 980, with the long form moved to spec/AGENTS_COMMANDS_IN_FULL.md).
+- Four general rules moved into the set every project gets, since nothing in them was specific to maintaining practice sets (dont-race-another-window, fresh-before-write, session-trailer and automation-issues moved into the universal set).
+- A session that opens in a folder holding several projects now runs each project's startup steps, which it used to skip entirely (tools/precedent_run_session_hooks.py; run by hand the first time, it ran 25 hooks across six repositories).
+
+## 2026-09-27
+
+**Bringing a project that uses Precedent up to date now takes one command instead of a long checklist.**
+
+- A session updating a project no longer works through the steps by hand: one tool does everything that needs no judgment and ends with a short list of what's left for the person (tools/precedent_update.py takes over the twelve-step vendor-update runbook and finishes with DONE, LEFT FOR YOU or FAILED).
+- Checks now match how far along the work is: quick checks on only the changed files when work first lands, the full suite one step up, and GitHub's test on the way to production (the new checks-follow-the-tier practice; a push into pre-staging runs the practice checks with --changed-files-only, which takes about ten seconds).
+- Sessions working side by side can now claim a piece of work so two don't start it at once, and share the results of slow calculations instead of each redoing them (tools/lease_board.py and tools/result_cache.py; in testing, a second session waited 8 seconds and picked up the first one's result).
+
+## 2026-09-26
+
+**Every project that uses Precedent now takes its updates from the production branch.**
+
+- Projects pull their updates from the finished branch instead of the one still being tested, each switching over at its next update (SOURCE_BRANCH now reads main in precedent_vendor_engine.py and precedent_refresh_sources.py).
+- Promote now works out by itself which step to take and says so up front (precedent_branches.py --promote opens with "Now promoting from X to Y"; a lock left behind by a crashed window now frees after 15 minutes instead of 45).
+- The list of situations every session reads at startup got shorter, leaving room for projects to add their own (the universal occasion index went from about 2,375 tokens to about 1,961).
+- A rule that needs a helper file now says so, and the file travels with it to every project (a new `ships:` field in practice frontmatter, delivered by precedent_materialize.py).
+
+## 2026-09-25
+
+**Work now climbs three steps, from a quick-check branch to a fully checked one to production, and a new Promote command moves it up.**
+
+- Everyday work lands on a branch that only gets fast checks, and a Promote moves a whole batch up to the fully checked branch and from there to production (spec/BRANCH_TIERS_PLAN.md: pre-staging, staging and main; the old precedent-beta-v01 branch was renamed staging, and a lock, precedent-promote-lock, stops two windows promoting at once).
+- The checks that used to run on GitHub's paid machines now run in the session before every push, and a push to a working branch takes seconds (tools/precedent_push_check.py behind the push-check-gate.sh hook; the deep-check.yml workflow no longer starts on its own).
+- A GitHub automation file can no longer be added or edited quietly: each one has to match a recorded, dated go-ahead for its exact content (precedent_check.py compares each file's sha256 against the entry in precedent.json; this came after a project's light-check.yml billed a minute on every merge for four days).
+- Commits carry the person's own timezone wherever they work, and a project's timezone is only a fallback (precedent_time.py checks the person's zone before the `TZ` environment variable and the repo's fallback_timezone).
+
+## 2026-09-24
+
+**The old way of installing Precedent is retired, and any project still on it now gets flagged.**
+
+- The old install copied the rules into a project but never switched them on, so it is no longer offered, and a project still using it fails its checks until it moves over (INSTALL.md §1 is now reference only, and practice_audit.py check 5 fails a repo that vendors process/upstream/practices/ without a generated loader block). The next update also deletes that install's leftover GitHub jobs, such as bestpractice-upstream-sync.yml.
+- A private project can now run GitHub's automatic checks at most once every few hours instead of on every push, to save paid minutes (a `ci_every_hours` setting makes commit-identity.sh add `[skip ci]` to commits; the default, 0, keeps a run on every push, and a personal `ci_on_branches` switch can turn runs off on working branches).
+- A session has to follow a rule as it reads today, not an older copy it happens to find, and can be asked whether a fix removes the cause or only patches the symptom (two new practices, current-rule-governs.md and upstream-fix.md, the second behind the "Upstream fix" command).
+- The project's statement on AI governance now says individual conversations with an AI assistant stay private, and only what was learned from them gets shared (item 21 in philosophy/AI_GOVERNANCE_TO_COCREATE.md, with a matching line in the README).
+
+## 2026-09-21
+
+**Precedent now spends far less on GitHub's paid automated checks, mostly by checking work before it is committed.**
+
+- The formatting check on documents now runs in the session before a commit is allowed, instead of a second time on GitHub afterward (`.claude/hooks/doc-lint-gate.sh` refuses a commit whose Markdown fails `doc_lint.py`; the retired workflow had billed about 350 minutes over 19 days in one repository).
+- The practice sets stopped running automated checks on GitHub at all, and the checks that projects still run got cheaper (the `source-sets-run-no-ci` practice, after four sets turned out to be 127 of 143 billed minutes in one day; the CI templates went to one job per workflow, so a run bills 1 minute instead of up to 3).
+- A project that uses Precedent now finds out on its own when it has fallen behind the latest version (`tools/precedent_engine_freshness.py` runs at session start and before a push or merge; when measured, 18 of 22 installed projects had never taken an update).
+- The instructions every session reads first got shorter, with nothing thrown away (the always-loaded block went from about 2,200 tokens to about 1,430 against a 2,000 cap, by moving two practices to on-demand and trimming the three longest rules).
+
+## 2026-09-20
+
+**The project's to-do list and its catalogue of known traps were split up so each item has a file of its own.**
+
+- Every open item and every recorded trap now lives in its own file instead of one long list, and a follow-up check found items the move had lost and put them back (105 items from `TODO.md` plus 44 live and 33 retired gotchas moved into `todo/` and `gotchas/`, and `TODO.md` shrank by about 7,200 lines to a redirect stub; 54 of 161 items had gone missing, and `tools/todo_migrate.py` now refuses to finish if any item drops).
+- The front page was rewritten to open with the everyday problems Precedent solves rather than a definition and a feature list (`README.md`, rebuilt around three named frustrations, with a new "Get Up and Running!" section).
+- Standing commands now respond to what a message is asking for, not only to an exact phrase, and the session says its reading out loud when that reading is a judgment call (`go-merge`, `weak-yes` and `decision-strength` read intent; `chief-of-staff`, `full-practice-audit` and `very-deep-check` stay on the literal words).
+- Sessions running on other AI coding tools get the same setup Claude Code sessions get (Codex and Gemini CLI adapters wired through `tools/bootstrap.sh` and a new `GEMINI.md`, plus a new Grok Build adapter under `templates/harness/grok-build/`).
+
+## 2026-09-14
+
+**BestPractice became Precedent, and a session now loads only the rules that fit the task at hand.**
+
+- The rulebook was broken up into one file per rule, and only a handful are read every time; the rest come in when they apply (the single 140-kilobyte `PRACTICES.md` became 116 files under `practices/`, with 10 always loaded at about 950 tokens and the others reached through an occasion index, `precedent_paths.py` for the file being edited, and `precedent_gate.py` at moments like a merge).
+- A project can now stack its own team's rules and one person's rules on top of the shared ones, and pick up engine fixes without copying files by hand (sources are declared in `precedent.json`, and `precedent_vendor_engine.py` installs and refreshes the engine in a project that uses Precedent).
+- There are new plain-language guides for people who don't write code, plus a set of essays on why the project works the way it does (`documentation/` gained `WHY_PRECEDENT.md`, `FOR_EVERYONE_ELSE.md` and `DAILY_HABITS.md`; `philosophy/` holds essays such as `CORE_PILLARS.md` and `OUR_PHILOSOPHY.md`).
+- The project can now test whether its rules actually fire when they should, by replaying made-up scenarios against them (a four-phase practice simulation under `evals/simulation`, alongside routing tests in `evals/routing`; the tools folder grew from 7 Python scripts to 56).
