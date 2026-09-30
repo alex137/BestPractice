@@ -14440,6 +14440,75 @@ print(json.dumps(out))
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
+def check_promote_records_its_upstream_review():
+    """practice: upstream-review. Debut's review lists only what the batch's
+    commits do not already record, and writes the new items into the
+    Promote's own merge commit -- keeping it a merge -- so Produce skips
+    them; Produce lists and records nothing. The module's own self-check
+    covers fingerprinting and extraction."""
+    import tempfile
+    bad, cases = [], []
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_upstream_review.py'),
+                        '--self-check'], capture_output=True, text=True)
+    if r.returncode != 0 or 'self-check: ok' not in r.stdout:
+        bad.append('self-check: ' + (r.stdout + r.stderr).strip()[-300:])
+    cases.append('module self-check')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+        import precedent_upstream_review as ur
+    finally:
+        sys.path.pop(0)
+    env = dict(os.environ, GIT_AUTHOR_NAME='x', GIT_AUTHOR_EMAIL='x@example.invalid',
+               GIT_COMMITTER_NAME='x', GIT_COMMITTER_EMAIL='x@example.invalid',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    saved_env = pb._merge_env
+    pb._merge_env = lambda root=None: env
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            def g(*a):
+                return subprocess.run(['git', '-C', tmp, *a], capture_output=True,
+                                      text=True, check=True, env=env).stdout.strip()
+            g('init', '-q', '-b', 'staging')
+            g('commit', '-q', '--allow-empty', '-m', 'base')
+            stip = g('rev-parse', 'HEAD')
+            g('checkout', '-q', '-b', 'pre-staging')
+            one = ur.extract('WARN: one')
+            g('commit', '-q', '--allow-empty', '-m',
+              'work\n\n' + '\n'.join(ur.trailer_lines(one)))
+            ptip = g('rev-parse', 'HEAD')
+            g('checkout', '-q', 'staging')
+            g('merge', '--no-ff', '-q', '-m', 'Promote pre-staging into staging (1 commit(s))', ptip)
+            said = []
+            out = 'WARN: one\nall passed\nWARN: two at /tmp/precedent-branches-abc/tree'
+            lines = pb._upstream_review(tmp, pathlib.Path(tmp), 'debut', out,
+                                        f'{stip}..{ptip}', said.append)
+            text = '\n'.join(lines)
+            two = ur.extract('WARN: two at /tmp/other/tree')[0][0]
+            cases.append('debut lists only the new item')
+            if f'[{two}]' not in text or '1 already reviewed' not in text:
+                bad.append(f'debut review did not list the new item and skip the old: {text!r}')
+            if f'[{one[0][0]}]' in text:
+                bad.append('debut listed an item the batch already records')
+            cases.append('debut records the new item in its merge commit')
+            msg = g('log', '-1', '--format=%B')
+            if f'Upstream-seen: {two}' not in msg or 'Upstream-seen: ' + one[0][0] in msg:
+                bad.append(f'the Promote commit did not record exactly the new item: {msg!r}')
+            if len(g('log', '-1', '--format=%P').split()) != 2:
+                bad.append('recording the review turned the Promote merge into a non-merge')
+            head = g('rev-parse', 'HEAD')
+            cases.append('produce lists and records nothing already recorded')
+            lines = pb._upstream_review(tmp, pathlib.Path(tmp), 'produce',
+                                        'WARN: two at /tmp/x/tree', f'{stip}..HEAD', said.append)
+            if 'Nothing new' not in '\n'.join(lines):
+                bad.append(f'produce re-listed what debut recorded: {lines!r}')
+            if g('rev-parse', 'HEAD') != head:
+                bad.append('produce rewrote a commit')
+    finally:
+        pb._merge_env = saved_env
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_no_conflict_markers_in_shipped_tools():
     """No file that runs ships with a merge conflict marker in it (practice
     vendor-update-runbook: a port between a vendored copy and its upstream is
@@ -47981,6 +48050,8 @@ def main():
           *check_update_with_source_stamps_that_sources_manifest())
     check('the branch store and the lease board and result cache on it',
           *check_branch_store_and_its_callers())
+    check('a Promote lists and records only the upstream review items that are new',
+          *check_promote_records_its_upstream_review())
     check('no file that runs ships with a merge conflict marker',
           *check_no_conflict_markers_in_shipped_tools())
     check_routing_reason_lives_in_the_practice()

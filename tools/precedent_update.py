@@ -98,6 +98,12 @@ sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
 import precedent_local_edits as le  # noqa: E402
+import precedent_upstream_review as ur  # noqa: E402
+
+# Everything the steps' commands printed, for the upstream review at the end
+# (practice: upstream-review): a warning a step met and passed over is read
+# from here, not from the session's scrollback.
+OUTPUTS = []
 
 DONE, LEFT, FAILED = 0, 1, 2
 
@@ -738,6 +744,7 @@ class Report:
         self.asks = []    # (what, question) -- for the person, not this repo
         self.edits = []   # (outcome, rel, text) -- precedent_local_edits.resolve()
         self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
+        self.repo = None  # the consuming repo, for the upstream review
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -793,6 +800,28 @@ class Report:
             for line in lines:
                 print(f"  {line}")
 
+    def _upstream_review(self):
+        # What the update met, less what this branch's commits already
+        # record, with the lines for the commit that lands it (practice:
+        # upstream-review). A local edit still local or merged is an item
+        # too: it is exactly the fix that belongs upstream. One kept on
+        # purpose is a recorded divergence, not a candidate. Printed on DONE
+        # only -- a LEFT or FAILED update has not finished, and runs again.
+        if self.repo is None:
+            return
+        extra = [f'local edit {outcome}: {rel} -- {text}'
+                 for outcome, rel, text in self.edits
+                 if outcome in (le.STILL_LOCAL, le.MERGED)]
+        try:
+            new, old = ur.review(self.repo, 'update', '\n'.join(OUTPUTS), extra)
+        except Exception as exc:                               # noqa: BLE001
+            print(f"\nNOTE: the upstream review could not be prepared ({exc}); "
+                  f"review this run's warnings by hand (practice: upstream-review).")
+            return
+        print()
+        for line in ur.report('update', new, old, 'commit'):
+            print(line)
+
     def close(self, failed=None):
         if self.loud:
             self._banner()
@@ -830,6 +859,7 @@ class Report:
             if self.loud:
                 self._banner()
             return LEFT
+        self._upstream_review()
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
                   "question(s) above, review the staged diff, commit, then run "
@@ -843,6 +873,7 @@ class Report:
 def run(argv, cwd):
     r = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True,
                        env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+    OUTPUTS.append(r.stdout + r.stderr)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -1240,6 +1271,7 @@ def tiers_step(repo, rep):
 
 def update(repo, skip_check=False, ref=None):
     rep = Report()
+    rep.repo = repo
     elsewhere = source_is_its_own_clone()
     if elsewhere:
         return rep.close(f"this copy of precedent_update.py sits in {SOURCE}, "

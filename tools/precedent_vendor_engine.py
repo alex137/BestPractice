@@ -646,6 +646,11 @@ ENGINE_FILES = [
     # tier of the push check a push to each one gets. precedent_push_check.py
     # asks it whenever the push gate names the push; every kind pushes.
     'precedent_branches.py',
+    # The upstream review a Promote prints and records in its own commit
+    # (added 2026-09-30, practice: upstream-review). precedent_branches.py
+    # imports it beside itself and says so when it is missing, so every kind
+    # that promotes needs it.
+    'precedent_upstream_review.py',
     # The merge gate's engine: the push check, run on the merge GitHub would
     # make, before a session merges a pull request through GitHub -- a push
     # no local hook sees. merge-check-gate.sh calls it; every kind merges.

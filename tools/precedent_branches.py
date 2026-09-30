@@ -1479,6 +1479,7 @@ def _promote_to_main(root, say=print):
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL)
         took = time.monotonic() - t0
+        review = _upstream_review(root, wt, 'produce', out, f'{mtip}..{stip}', say) if ok else []
     if not ok:
         say(f'PROMOTE REFUSED: the full check failed on {staging} merged into '
             f'{MAIN}, so nothing was pushed. The batch was:\n  '
@@ -1506,6 +1507,8 @@ def _promote_to_main(root, say=print):
         f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
         f'and merge it with a merge commit once that says PASSED. Never open '
         f'it from {staging} itself.')
+    for line in review:
+        say(line)
     return PROMOTE_MAIN_NOT_MOVED
 
 
@@ -1538,6 +1541,7 @@ def _promote_unlocked(root, say=print):
                 f'The batch was:\n  ' + '\n  '.join(batch) + f'\n\n{out}\n\n'
                 f'Fix it on {PRE_STAGING} and Promote again.')
             return 1
+        review = _upstream_review(root, wt, 'debut', out, f'{stip}..{ptip}', say)
         p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{staging}')
         if p.returncode != 0:
             # Most often another window promoted the same batch while this
@@ -1570,7 +1574,41 @@ def _promote_unlocked(root, say=print):
     say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
         f'({new[:12]}):\n  ' + '\n  '.join(batch))
     _mirror_legacy(root, staging, new, say)
+    for line in review:
+        say(line)
     return 0
+
+
+def _upstream_review(root, wt, stage, out, batch_range, say):
+    """-> the upstream review's lines for this Promote (practice:
+    upstream-review): what the full check printed, less what the batch's own
+    commits already record as reviewed at an earlier stage. For Debut the new
+    items are also written into the Promote's merge commit in `wt`, still
+    unpushed, as Upstream-seen lines, so Produce skips them. Produce is the
+    last stage and records nothing -- main is moved by a pull request, not
+    by this commit. Never refuses a Promote: without the module, or on any
+    error, it says so and the Promote goes on."""
+    ur = _sibling('precedent_upstream_review')
+    if ur is None:
+        return ['NOTE: no precedent_upstream_review.py beside this script, so '
+                'the upstream review was not prepared; review the check output '
+                'above by hand (practice: upstream-review).']
+    try:
+        new, old = ur.review(root, stage, out, rev_range=batch_range)
+        recording = None
+        if new and stage == 'debut':
+            msg = _git(wt, 'log', '-1', '--format=%B') or ''
+            msg = msg.rstrip() + '\n\n' + '\n'.join(ur.trailer_lines(new)) + '\n'
+            a = _run(wt, 'commit', '--amend', '-q', '-m', msg, env=_merge_env(root))
+            recording = 'written' if a.returncode == 0 else None
+            if a.returncode != 0:
+                say(f'NOTE: could not record the upstream review in the Promote '
+                    f'commit ({a.stderr.strip()[:160]}); Produce will list these '
+                    f'items again.')
+        return ur.report(stage, new, old, recording)
+    except Exception as exc:                                   # noqa: BLE001
+        return [f'NOTE: the upstream review could not be prepared ({exc}); '
+                f'review the check output above by hand (practice: upstream-review).']
 
 
 def _mirror_legacy(root, staging, new, say):

@@ -98,6 +98,8 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | Upstream fix | [upstream-fix](practices/upstream-fix.md) |
+| Upstream review | [upstream-review](practices/upstream-review.md) |
+| Upstream-seen | [upstream-review](practices/upstream-review.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |
