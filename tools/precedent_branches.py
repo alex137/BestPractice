@@ -786,19 +786,40 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True):
         return 'unknown', err
     pulls = gh.call(f'repos/{slug}/commits/{sha}/pulls', cache=False)[0] \
         if via_pulls else []
+    heads = {sha: None}
     for pr in pulls if isinstance(pulls, list) else []:
         head = (pr.get('head') or {}).get('sha')
         if (pr.get('base') or {}).get('ref') == MAIN and head and head != sha:
+            heads[head] = f'pull request #{pr.get("number")}'
             more, _err = _runs_on(gh, slug, head)
-            runs = runs + [dict(r, _via=f'pull request #{pr.get("number")}')
-                           for r in more or []]
+            runs = runs + [dict(r, _via=heads[head]) for r in more or []]
     wanted = {p for p, _ in tests}
-    newest = {}
-    for r in runs:
-        path = r.get('path')
-        if path in wanted and (path not in newest or (r.get('created_at') or '')
-                               > (newest[path].get('created_at') or '')):
-            newest[path] = r
+
+    def _newest(runs):
+        newest = {}
+        for r in runs:
+            path = r.get('path')
+            if path in wanted and (path not in newest or (r.get('created_at') or '')
+                                   > (newest[path].get('created_at') or '')):
+                newest[path] = r
+        return newest
+    newest = _newest(runs)
+    if wanted - set(newest):
+        # GitHub's run list FILTERED by head_sha can leave out a run that is
+        # already going: on 2026-09-30 a Produce's test started seconds
+        # after its pull request opened, and the filtered list stayed empty
+        # for the whole seven-minute wait, so this said "never ran" and
+        # "Do not merge" while it ran; a second wait found it done. The
+        # unfiltered list of recent runs has it at once, so one more call,
+        # only when something is missing, reads that and matches the
+        # commit (or its pull request's head) itself.
+        recent, _err = gh.call(f'repos/{slug}/actions/runs?per_page=50', cache=False)
+        extra = [dict(r, _via=heads[r.get('head_sha')]) if heads.get(r.get('head_sha'))
+                 else r
+                 for r in ((recent or {}).get('workflow_runs') or []
+                           if isinstance(recent, dict) else [])
+                 if r.get('head_sha') in heads]
+        newest = _newest(runs + extra)
     missing = sorted(wanted - set(newest))
     bad = sorted(p for p, r in newest.items() if r.get('status') == 'completed'
                  and r.get('conclusion') != 'success')
