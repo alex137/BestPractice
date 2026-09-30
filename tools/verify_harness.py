@@ -13823,6 +13823,29 @@ def check_precedent_check_fires():
         case('ci-workflow-approved', _plant_ci_workflow_unapproved,
              setup=_setup_ci_workflow_approved)
 
+        # budget-within-approval (2026-09-30). The plant replays the
+        # 2026-09-29 incident's SHAPE: the registry field is untouched and
+        # the engine computes a bigger number. A check that read the field
+        # (the first attempt at this) passes this plant; this one must not.
+        case('budget-within-approval', lambda repo: rewrite(
+            repo, 'tools/build_views.py', lambda t: t.replace(
+                "    v = row.get('ceiling')\n    return v if isinstance(v, int) else default",
+                "    v = row.get('ceiling')\n    return v + 1000 if isinstance(v, int) else default", 1)))
+
+        # session-file-allowances-fit (2026-09-30). Switched on by a
+        # hard_ceiling; the plant declares one the file's own fixed
+        # allowance already exceeds, so the sum cannot fit whatever sources
+        # resolve in the fixture.
+        def _plant_allowances_over(repo):
+            rewrite(repo, 'tools/session_load_budgets.json', lambda t: t.replace(
+                '"approved_budgets": {',
+                '"approved_budgets": {\n    "surfaces/.precedent/SESSION_PRACTICES.md/hard_ceiling": '
+                '{"max": 10, "strength": "baseline", "approved_by": "fixture 2026-09-30"},', 1)
+                .replace('".precedent/SESSION_PRACTICES.md": {',
+                         '".precedent/SESSION_PRACTICES.md": {\n      "hard_ceiling": 10, "fixed_allowance": 50,', 1))
+
+        case('session-file-allowances-fit', _plant_allowances_over)
+
         # shipped-template-carries-its-script (2026-09-21). The check reads
         # THIS repo's templates/github-actions/ against the REAL
         # CI_WORKFLOW_TEMPLATES/KINDS imported from tools/ -- so the fixture
@@ -37339,6 +37362,207 @@ def check_todo_index_check_survives_midnight():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_budget_approvals_see_computed_raises():
+    """The budgets in force stay within the person's approvals, however a
+    number got bigger, and the session-start file's hard ceiling is enforced
+    as a sum of its sources' declared numbers (practice: session-load-budget;
+    control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-29): a session made precedent-individual's
+    session-file ceiling a computed sum and the number in force went from
+    5,200 to 6,200 with the `ceiling` field unchanged; Morgan had not been
+    asked. The first fix compared registry FIELDS with a base commit, and
+    could see neither a computed raise nor anything on a direct push or a
+    Promote, where the base is HEAD. Each case below asserts the check's own
+    words, so a case that fails for another reason reads as a failure.
+
+    The fixture owns its tree (fixture-owns-its-state): a copy of this repo
+    with no .git, no sibling sources and no user config."""
+    import tempfile
+    import importlib
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp) / 'fixture'
+        shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
+            '.git', '__pycache__', '*.pyc', 'prompts'))
+        reg_p = repo / 'tools' / 'session_load_budgets.json'
+        bv_p = repo / 'tools' / 'build_views.py'
+        src_p = repo / 'precedent-source.json'
+        pristine = {p: p.read_text(encoding='utf-8') for p in (reg_p, bv_p, src_p)}
+
+        def reset():
+            for p, t in pristine.items():
+                p.write_text(t, encoding='utf-8')
+
+        def edit_reg(fn):
+            d = json.loads(reg_p.read_text(encoding='utf-8'))
+            fn(d)
+            reg_p.write_text(json.dumps(d, indent=2), encoding='utf-8')
+
+        def run():
+            env = dict(os.environ,
+                       PRECEDENT_USER_CONFIG=str(repo / '.no-user-config.json'))
+            r = subprocess.run([sys.executable, str(repo / 'tools' / 'precedent_check.py'),
+                                '--only', 'budget-within-approval'],
+                               capture_output=True, text=True, cwd=str(repo), env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('this tree, as committed, is within its approvals',
+                      rc == 0 and '1 passed' in out, out[-400:]))
+
+        edit_reg(lambda d: d['surfaces']['AGENTS.md'].update(ceiling=9000))
+        rc, out = run()
+        cases.append(('a raised ceiling field is refused, naming the number '
+                      'and the approval it exceeds',
+                      rc != 0 and 'surfaces/AGENTS.md is 9,000 in force, above '
+                      'the 7,650' in out, out[-600:]))
+        reset()
+
+        bv_p.write_text(pristine[bv_p].replace(
+            "    v = row.get('ceiling')\n    return v if isinstance(v, int) else default",
+            "    v = row.get('ceiling')\n    return v + 1000 if isinstance(v, int) else default", 1),
+            encoding='utf-8')
+        rc, out = run()
+        cases.append(('a COMPUTED raise with every field unchanged is refused '
+                      '(the 2026-09-29 incident)',
+                      rc != 0 and 'surfaces/.precedent/SESSION_PRACTICES.md is '
+                      '5,000 in force, above the 4,000' in out, out[-600:]))
+        reset()
+
+        src_p.write_text(json.dumps({k: v for k, v in json.loads(
+            pristine[src_p]).items() if k != 'occasion_share_tokens'}),
+            encoding='utf-8')
+        rc, out = run()
+        cases.append(('a removed allowance reads as uncapped and is refused',
+                      rc != 0 and 'occasion_share_tokens is uncapped in force'
+                      in out, out[-600:]))
+        reset()
+
+        edit_reg(lambda d: d['surfaces']['AGENTS.md'].update(target=5000))
+        rc, out = run()
+        cases.append(('a new target nobody approved is refused',
+                      rc != 0 and 'surfaces/AGENTS.md/target is 5000 in force '
+                      'and has no entry in approved_budgets' in out, out[-600:]))
+        reset()
+
+        def raise_with(words, strength):
+            def fn(d):
+                d['surfaces']['AGENTS.md']['ceiling'] = 9000
+                d['approved_budgets']['surfaces/AGENTS.md'] = {
+                    'max': 9000, 'strength': strength,
+                    'approved_by': f'Fixture Person, 2026-09-30: {words}'}
+            return fn
+
+        edit_reg(raise_with('"yes, raise it to 9,000"', 'decided'))
+        rc, out = run()
+        cases.append(('a raise carrying the person\'s quoted words passes',
+                      rc == 0 and '1 passed' in out, out[-600:]))
+        reset()
+
+        edit_reg(raise_with('said yes', 'decided'))
+        rc, out = run()
+        cases.append(('a "decided" approval with no quoted words is refused',
+                      rc != 0 and "approved_by quotes nobody's words" in out,
+                      out[-600:]))
+        reset()
+
+        edit_reg(lambda d: d.pop('approved_budgets'))
+        rc, out = run()
+        cases.append(('with no approvals list and no main to compare, the '
+                      'check says it is not checking, never passes',
+                      'SKIPPED' in out and 'a raise here is not checked' in out,
+                      out[-600:]))
+        reset()
+
+        # --- the hard ceiling as a sum, in a consumer's shape ------------
+        sys.path.insert(0, str(ROOT / 'tools'))
+        pc = importlib.import_module('precedent_check')
+        bv = importlib.import_module('build_views')
+        pr = importlib.import_module('precedent_resolve')
+        consumer = pathlib.Path(tmp) / 'consumer'
+        (consumer / 'tools').mkdir(parents=True)
+
+        def source(name, share, resident):
+            d = pathlib.Path(tmp) / name
+            (d / 'tools').mkdir(parents=True, exist_ok=True)
+            (d / 'precedent-source.json').write_text(json.dumps(
+                {'name': name, 'occasion_share_tokens': share}), encoding='utf-8')
+            rb = {} if resident is None else {'resident_block_tokens': resident}
+            (d / 'tools' / 'session_load_budgets.json').write_text(
+                json.dumps(rb), encoding='utf-8')
+            return {'name': name, 'path': str(d), 'level': 'shared'}
+
+        def fit(entry, srcs):
+            (consumer / 'tools' / 'session_load_budgets.json').write_text(
+                json.dumps({'surfaces': {'.precedent/SESSION_PRACTICES.md': entry}}),
+                encoding='utf-8')
+            saved = (pc.ROOT, bv.sources_for_tracked_block, pr.load_config)
+            pc.ROOT = consumer
+            bv.sources_for_tracked_block = lambda root, cfg: ([], srcs, [])
+            pr.load_config = lambda root, *a, **k: []
+            try:
+                return pc._session_file_allowances_fit(None)
+            except pc.NotApplicable as e:
+                return f'N/A {e}'
+            finally:
+                pc.ROOT, bv.sources_for_tracked_block, pr.load_config = saved
+
+        small = [source('u', 1800, 900), source('w', 150, 200)]
+        got = fit({'hard_ceiling': 4400, 'fixed_allowance': 300}, small)
+        cases.append(('sources whose numbers add up under the hard ceiling pass',
+                      got == [], repr(got)))
+        big = [source('u2', 2800, 2000), source('w2', 550, 425)]
+        got = fit({'hard_ceiling': 4400, 'fixed_allowance': 300}, big)
+        cases.append(('sources whose numbers add up over it are refused, with '
+                      'the parts listed',
+                      len(got) == 1 and "allowances add up to 6,075" in got[0].detail
+                      and 'u2 2,800+2,000' in got[0].detail, repr(got)))
+        got = fit({'hard_ceiling': 4400, 'fixed_allowance': 300},
+                  small + [source('r', 450, None)])
+        cases.append(('a source with no resident cap means the sum cannot be '
+                      'shown, and does not pass',
+                      len(got) == 1 and 'r (no resident_block_tokens)' in got[0].detail,
+                      repr(got)))
+        got = fit({'target': 4000}, big)
+        cases.append(('with no hard_ceiling declared, it is not switched on',
+                      isinstance(got, str) and 'declares no hard_ceiling' in got,
+                      repr(got)))
+
+        # --- D: the once-per-session warning ------------------------------
+        psp = importlib.import_module('precedent_session_practices')
+        (consumer / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+            {'surfaces': {'.precedent/SESSION_PRACTICES.md': {'target': 50}}}),
+            encoding='utf-8')
+        text = '<!-- x -->\n\n# Practices\n\n' + 'word ' * 100
+        warned = psp._with_target_warning(consumer, text)
+        cases.append(('the session-start file opens with the warning under its '
+                      'title when over target',
+                      'SESSION LOAD OVER TARGET' in warned
+                      and warned.index('# Practices') < warned.index('OVER TARGET'),
+                      warned[:200]))
+        short = '<!-- x -->\n\n# Practices\n\nshort\n'
+        cases.append(('and carries none when under it',
+                      psp._with_target_warning(consumer, short) == short,
+                      psp._with_target_warning(consumer, short)))
+
+        # --- F: the trend tool names the repository it measured ----------
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'session_load_trend.py'),
+                            '--root', str(repo)], capture_output=True, text=True,
+                           cwd=str(repo))
+        cases.append(('session_load_trend.py --root measures that repository '
+                      'and names it',
+                      r.returncode == 0 and 'SESSION LOAD -- fixture' in r.stdout
+                      and f'at {repo.resolve()}' in r.stdout
+                      and 'WRONG REPO' not in r.stderr,
+                      r.stdout[:300] + r.stderr[-300:]))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'budgets in force stay within the person\'s approvals, and the '
+          f'session file\'s hard ceiling is a sum that must fit '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_headroom_notice_watches_the_resident_block():
     """headroom_notice() also speaks when the generated resident block is
     near its own allocation, not only when a whole file nears its ceiling
@@ -46976,6 +47200,7 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
+    check_budget_approvals_see_computed_raises()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
     check_push_check_skips_a_set_check_older_than_push_time_judging()

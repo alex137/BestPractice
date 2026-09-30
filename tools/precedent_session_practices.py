@@ -282,14 +282,44 @@ def render(extra, levels, notes, repo=None):
             f'> **Over budget: this block is ~{e.tokens} tokens against a '
             f'declared ceiling of {e.budget}.** It is written anyway, because '
             f'a session bound by practices it was never shown is worse than a '
-            f'long file. Raise the `{OUT_DIR}/{OUT_NAME}` ceiling in '
-            f'`tools/session_load_budgets.json` if this is the size it should '
-            f'be, or demote a resident practice in the source it came from --'
-            f' but do NOT raise `resident_block_tokens`, which is a different '
-            f'surface.', '']
+            f'long file. Tell the person, and bring it down: demote or trim a '
+            f'resident practice in the source it came from. Never raise any '
+            f'ceiling to clear this without the person\'s own words for that '
+            f'raise (practice: session-load-budget).', '']
     head += [block, '']
     head += _how_to_read_one(extra, levels, _repo)
     return '\n'.join(head)
+
+
+def _with_target_warning(repo, text):
+    """-> `text` with a warning under its title when the file is over the
+    `target` its registry entry declares, else `text` unchanged.
+
+    code-cites-practice: session-load-budget
+
+    This file is loaded into every session, so the warning is too: over
+    target, every session is told to bring it down (Morgan, 2026-09-29,
+    strength: decided).
+    """
+    try:
+        reg = json.loads((pathlib.Path(repo) / 'tools' /
+                          'session_load_budgets.json').read_text(encoding='utf-8'))
+        target = (reg.get('surfaces') or {}).get(f'{OUT_DIR}/{OUT_NAME}', {}).get('target')
+    except (OSError, ValueError, AttributeError):
+        return text
+    if not isinstance(target, int):
+        return text
+    n = bv._approx_tokens(text)
+    lines = text.split('\n')
+    at = next((i for i, l in enumerate(lines) if l.startswith('# ')), None)
+    if n <= target or at is None:
+        return text
+    warning = (f'> **SESSION LOAD OVER TARGET: this file is ~{n:,} tokens, over '
+               f'its {target:,}-token target.** Say so to the person in your '
+               f'first reply and offer a Reduction pass (practice: '
+               f'reduction-pass). Never raise the target or the ceiling '
+               f'without their own words for it.')
+    return '\n'.join(lines[:at + 1] + ['', warning] + lines[at + 1:])
 
 
 def _how_to_read_one(extra, levels, repo):
@@ -372,6 +402,7 @@ def main():
               f'written; {n_bad} source(s) unresolved.')
         return 0
 
+    text = _with_target_warning(repo, text)
     out_dir = pathlib.Path(repo) / OUT_DIR
     try:
         out_dir.mkdir(exist_ok=True)

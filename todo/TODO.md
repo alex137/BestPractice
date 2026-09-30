@@ -149,6 +149,7 @@ as_of: 2026-09-30
 | [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 2d | ask | a Promote of BestPractice pre-staging to staging: precedent-individual's link ch… |
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 1d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
 | [`todo-2026-09-29-source-checks-adopt-generated-blocks`](todo-2026-09-29-source-checks-adopt-generated-blocks.md) | Move the practice sets' own checks onto `generated_blocks.py`, the engine's one answer to "is this line inside a generat | 1d | wait | generated_blocks.py reaching main, then each practice set's engine refresh |
+| [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 0d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
 
 ## Decisions (the Person's Call)
 

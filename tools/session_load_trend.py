@@ -359,12 +359,21 @@ def main():
                          'a "Reduction pass" report needs, measured rather '
                          'than typed (practice: reduction-pass)')
     ap.add_argument('--json', action='store_true', help='machine-readable')
+    ap.add_argument('--root', metavar='DIR',
+                    help='the repository to measure (default: the one this '
+                         'script lives in)')
     args = ap.parse_args()
 
+    # --root measures another repository (2026-09-30): ROOT otherwise comes
+    # from __file__, so this could only ever read the repo it was copied
+    # into. With --root the reader named it, so there is nothing to warn of.
+    global ROOT
+    if args.root:
+        ROOT = pathlib.Path(args.root).resolve()
     # Before anything else, including the no-registry exit: a run from inside
     # another repo is the one case where every figure below is right and
     # none of them is the answer (precedent_which_repo.py).
-    w = _which_repo()
+    w = None if args.root else _which_repo()
     if w is not None:
         w.warn_if_elsewhere(ROOT, 'session_load_trend.py')
 
