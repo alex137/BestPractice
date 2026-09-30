@@ -409,23 +409,23 @@ BASE_URL_CONFIG_KEY = 'source_base_url'
 
 def token_account(env=None, timeout=10):
     """-> the login of the GitHub account the session's token belongs to, or
-    ''. The token is this module's own (PRECEDENT_GIT_TOKEN) first, then the
-    harness's; with none, the call goes out bare, which a credential-injecting
-    proxy still answers. Never raises."""
-    import urllib.request
+    ''. Asked through github_budget.call, the engine's one counted route to
+    the GitHub API, which uses this module's own token choice; with none, the
+    call goes out bare, which a credential-injecting proxy still answers.
+    PRECEDENT_GITHUB_USER_URL, when set, is read instead -- a test fixture,
+    the same override commit-identity.sh reads. Never raises."""
     env = os.environ if env is None else env
-    url = (env.get(GITHUB_USER_URL_ENV) or '').strip() or 'https://api.github.com/user'
-    req = urllib.request.Request(url, headers={'Accept': 'application/vnd.github+json',
-                                               'User-Agent': 'precedent'})
-    if url.startswith('https://'):
-        for name in (TOKEN_ENV,) + INHERITED_ENVS:
-            tok = (env.get(name) or '').strip()
-            if tok:
-                req.add_header('Authorization', f'Bearer {tok}')
-                break
+    override = (env.get(GITHUB_USER_URL_ENV) or '').strip()
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            login = json.load(r).get('login')
+        if override:
+            import urllib.request
+            with urllib.request.urlopen(override, timeout=timeout) as r:
+                data = json.load(r)
+        else:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import github_budget
+            data, _err = github_budget.call('user', timeout=timeout)
+        login = (data or {}).get('login')
     except Exception:                                       # noqa: BLE001
         return ''
     return login if isinstance(login, str) and re.fullmatch(r'[A-Za-z0-9-]+', login) else ''
