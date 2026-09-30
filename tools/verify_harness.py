@@ -17637,6 +17637,46 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
              git(work, 'show', '--name-only', '--format=', 'HEAD')),
         ]
 
+        # --- level with origin/<branch> but on ANOTHER branch: no commit
+        #     there, and its head does not move (2026-09-30: a resumed
+        #     session on a merged feature branch got the watermark commit)
+        git(work, 'checkout', '-q', '-b', 'claude/merged-feature')
+        before_feature = git(work, 'rev-parse', 'HEAD')
+        baseline = landed()
+        land('c-feature', THEIRS)
+        status4, lines4, alert4 = run()
+        cases += [
+            ('_is_quiet says no on another branch level with origin',
+             pbw._is_quiet(work, branch) is False, 'said yes'),
+            ('the alert is still delivered from the other branch',
+             status4 == 'alert' and alert4 is not None, f'{status4}'),
+            ('and the other branch gets no watermark commit',
+             'watermark' not in git(work, 'log', '-1', '--format=%s'),
+             git(work, 'log', '-1', '--format=%s')),
+            ('and its head is only where the fast-forward put it',
+             git(work, 'rev-parse', 'HEAD') == git(work, 'rev-parse', f'origin/{branch}')
+             and landed() == baseline,
+             f'{landed()} vs {baseline}'),
+        ]
+        git(work, 'checkout', '-q', branch)
+        git(work, 'merge', '-q', '--ff-only', f'origin/{branch}')
+
+        # --- a push that fails leaves no commit behind
+        wm = pbw._watermark_path(work)
+        head_before = git(work, 'rev-parse', 'HEAD')
+        wm.write_text(wm.read_text(encoding='utf-8') + ' ', encoding='utf-8')
+        git(work, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
+        said = pbw._commit_and_push(work, wm, 'Advance watermark (harness)', False, branch)
+        git(work, 'remote', 'set-url', 'origin', reachable)
+        cases += [
+            ('a failed push takes its commit back',
+             git(work, 'rev-parse', 'HEAD') == head_before and 'taken back' in said,
+             said),
+            ('and leaves the checkout clean',
+             git(work, 'status', '--porcelain') == '',
+             git(work, 'status', '--porcelain')),
+        ]
+
         # --- a repo that ignores nothing gets no note, and is told so
         bare_work = tmp / 'bare-work'
         git(tmp, 'clone', '-q', str(origin), str(bare_work))
