@@ -11264,6 +11264,28 @@ def _reverse_marked_dated_list(text):
     return head + '<!--dated-list-->' + '\n'.join(lines)
 
 
+def _failing_findings(out, cap=40):
+    """-> the VIOLATION/ERROR blocks of a precedent_check.py run -- each
+    finding line and the indented lines under it -- capped at `cap` lines,
+    or the run's last lines when it printed none."""
+    keep, inside = [], False
+    for line in out.splitlines():
+        if re.match(r'\s*(VIOLATION|ERROR|FAIL)\b', line):
+            inside = True
+            keep.append(line.strip())
+        elif inside and line.strip() == 'the rule:':
+            inside = False                  # the rule's text is not a finding
+        elif inside and line.startswith((' ', '\t')) and line.strip():
+            keep.append('  ' + line.strip())
+        else:
+            inside = False
+    if not keep:
+        keep = [l for l in out.splitlines() if l.strip()][-8:]
+    if len(keep) > cap:
+        keep = keep[:cap] + [f'... and {len(keep) - cap} more line(s)']
+    return '\n' + '\n'.join(keep)
+
+
 def check_precedent_check_fires():
     """The enforced channel's own behaviour, as stated cases against throwaway
     repositories -- one planted violation per enforced practice.
@@ -11367,10 +11389,16 @@ def check_precedent_check_fires():
 
         # --- the baseline must be clean, or every case below is meaningless
         base = fresh('baseline')
-        rc, out = subprocess.run(
+        _r = subprocess.run(
             [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            capture_output=True, text=True, cwd=str(base)).returncode, ''
-        cases.append(('an unplanted copy of this tree passes every check', rc == 0))
+            capture_output=True, text=True, cwd=str(base))
+        rc = _r.returncode
+        # On a failure, the failing checks' own findings go into the detail:
+        # a bare rc said only the slug of this case, and under --as-ci
+        # --isolated (UTC) finding that todo/TODO.md had drifted took a
+        # manual rebuild of the fixture (2026-09-30).
+        cases.append(('an unplanted copy of this tree passes every check', rc == 0,
+                      '' if rc == 0 else _failing_findings(_r.stdout + _r.stderr)))
 
         # --- one planted violation per enforced practice --------------------
         planted = {}
