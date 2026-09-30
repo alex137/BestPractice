@@ -457,7 +457,7 @@ def checks(offline=False):
     # is what says so out loud when it still is not
     # (practice: checkable-gets-checked).
     raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
-    name = 'PRECEDENT_FRESHNESS_ALSO names repositories that are there'
+    name = 'PRECEDENT_FRESHNESS_ALSO, if set, names repositories that are there'
     want = _attachable_sources()
     # COMPUTED FOR THIS DISK, and that sentence is load-bearing.
     #
@@ -481,11 +481,13 @@ def checks(offline=False):
                   'PRECEDENT_FRESHNESS_ALSO='
                   + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
     if raw is None:
-        out.append((name, None,
-                    'not set, so every repository this session merely has '
-                    'ATTACHED goes unchecked -- their own hooks never fire. '
-                    'That is a real gap, not a clean result. '
-                    + suggestion))
+        # Not a gap any more (2026-09-30): the freshness guard checks every
+        # practice set this repo and this person declare, from the
+        # resolver's own paths. The variable is only for extra repositories.
+        out.append((name, True,
+                    'not set, which is fine: the freshness guard checks every '
+                    'practice set this repo and you declare on its own. Set it '
+                    'only for a repository nothing declares'))
     else:
         bad = []
         for entry in (e.strip() for e in raw.split(';')):

@@ -635,6 +635,78 @@ def _main_checkout(repo_root):
     return common_p.resolve().parent
 
 
+def _declared_path(repo_root, raw):
+    """-> the directory a declared source `path` names, resolved the one way
+    every reader resolves it: variables and ~ expanded, a relative path taken
+    from the repo root, and -- in a linked worktree where it is not there --
+    from the main checkout instead."""
+    entry_path = pathlib.Path(os.path.expandvars(str(raw))).expanduser()
+    relative = not entry_path.is_absolute()
+    entry_path = (entry_path if not relative else repo_root / entry_path).resolve()
+    if relative and not entry_path.exists():
+        main = _main_checkout(repo_root)
+        if main is not None and (main / raw).exists():
+            entry_path = (main / raw).resolve()
+    return entry_path
+
+
+def declared_source_paths(repo, user_config=None):
+    """-> [(path, level, name, note)] for every practice source this repo and
+    this person DECLARE, at the paths load_config() resolves -- without
+    load_config()'s self-heal, validation or anything else that can clone,
+    fetch or write. For a hook that must be fast and never change the disk:
+    the freshness guard checks exactly the clones the loader reads, so a
+    stale second copy elsewhere cannot pass for the live one (2026-09-30).
+
+    `note` is '' for a clone that is there, or why it cannot be checked (not
+    cloned yet, no user config): the caller says so in one line and never
+    blocks on it. The repo itself and its repo-local source are left out:
+    they are this checkout, which is checked as the project."""
+    repo_root = pathlib.Path(repo).resolve()
+    out = []
+    try:
+        cfg = json.loads((repo_root / REPO_CONFIG).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        if not isinstance(entry, dict) or not entry.get('path'):
+            continue
+        level = normalize_level(entry.get('level'))
+        if level in ('repo-local', 'individual'):
+            continue
+        path = _declared_path(repo_root, entry['path'])
+        if path == repo_root:
+            continue
+        note = '' if (path / '.git').exists() else 'not cloned here yet'
+        out.append((str(path), level, entry.get('name') or level, note))
+    user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
+        os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
+    try:
+        ind = json.loads(user_cfg_path.read_text(encoding='utf-8')).get('individual')
+    except (OSError, ValueError, AttributeError):
+        ind = None
+        out.append(('', 'individual', DEFAULT_INDIVIDUAL_NAME,
+                    f'no readable {user_cfg_path}, so the individual set is not known here'))
+    if isinstance(ind, dict) and ind.get('path'):
+        path = pathlib.Path(ind['path']).expanduser().resolve()
+        if path != repo_root:
+            note = '' if (path / '.git').exists() else 'not cloned here yet'
+            out.append((str(path), 'individual',
+                        ind.get('name') or DEFAULT_INDIVIDUAL_NAME, note))
+    return out
+
+
+def _base_branch_of(path):
+    """-> the branch a source clone is checked against: its own precedent.json
+    base_branch, else main."""
+    try:
+        base = json.loads((pathlib.Path(path) / REPO_CONFIG).read_text(
+            encoding='utf-8')).get('base_branch')
+    except (OSError, ValueError, AttributeError):
+        base = None
+    return base if isinstance(base, str) and base.strip() else 'main'
+
+
 def load_config(repo, user_config=None):
     """-> list of {level, name, path}, lowest precedence first.
 
@@ -733,15 +805,7 @@ def load_config(repo, user_config=None):
             # spelled out". An already-relative path is unaffected: expansion
             # is a no-op on it, and the join still happens against repo_root.
             # practice: durable-fix
-            entry_path = pathlib.Path(
-                os.path.expandvars(str(entry['path']))).expanduser()
-            relative = not entry_path.is_absolute()
-            entry_path = (entry_path if not relative
-                          else repo_root / entry_path).resolve()
-            if relative and not entry_path.exists():
-                main = _main_checkout(repo_root)
-                if main is not None and (main / entry['path']).exists():
-                    entry_path = (main / entry['path']).resolve()
+            entry_path = _declared_path(repo_root, entry['path'])
             # practice: session-bootstrap -- a universal source declared but
             # not yet on disk (never cloned, because the SessionStart hook
             # that clones it never ran for this session -- see
@@ -1365,7 +1429,8 @@ def _report(res, sources, out=sys.stdout):
 
 def main():
     args = sys.argv[1:]
-    known = {'--json', '--repo', '--explain', '--strict', '--user-config'}
+    known = {'--json', '--repo', '--explain', '--strict', '--user-config',
+             '--declared-paths'}
     repo, explain, user_config = str(ROOT), None, None
     for flag, target in (('--repo', 'repo'), ('--explain', 'explain'),
                          ('--user-config', 'user_config')):
@@ -1385,6 +1450,14 @@ def main():
     if unknown:
         sys.exit(f"precedent resolve FAIL: unknown option(s) {', '.join(unknown)} -- "
                  f"known options are {', '.join(sorted(known))}.")
+    if '--declared-paths' in args:
+        # One line per declared source: path, base branch, level, name, and
+        # why it cannot be checked ('' when it can). Never clones, fetches or
+        # writes -- the freshness guard runs this on every session.
+        for path, level, name, note in declared_source_paths(repo, user_config):
+            base = _base_branch_of(path) if path and not note else ''
+            print('\t'.join((path, base, level, name, note)))
+        return 0
 
     try:
         sources = load_config(repo, user_config)

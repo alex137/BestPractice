@@ -2254,6 +2254,93 @@ def check_session_check_suggests_anchored_also_list():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_freshness_guard_checks_declared_sets():
+    """The freshness guard checks every practice set a repo declares, with
+    PRECEDENT_FRESHNESS_ALSO unset, and a declared set warns, never blocks
+    (2026-09-30, agreed with a consumer session).
+
+    Sessions kept rewriting the variable between two absolute forms and each
+    rewrite broke half of it; everything it named was already declared. A
+    throwaway project whose precedent.json declares ../set, with the engine's
+    precedent_resolve.py beside it, and a set clone that falls behind its
+    own origin. Both guard copies. CONTROL: the same stale set, not
+    declared, goes unnoticed, so the finding comes from the declaration."""
+    import tempfile
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
+    env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
+    cases = []
+
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], env=env0,
+                              capture_output=True, text=True)
+
+    for guard in guards:
+        tag = guard.relative_to(ROOT).as_posix()
+        with tempfile.TemporaryDirectory() as td:
+            w = pathlib.Path(td)
+            (w / 'sentinels').mkdir()
+
+            def make(name):
+                bare, seed, clone = w / f'{name}.git', w / f'{name}-seed', w / name
+                subprocess.run(['git', 'init', '-q', '--bare', str(bare)], env=env0)
+                subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)], env=env0)
+                git(seed, 'remote', 'add', 'origin', str(bare))
+                (seed / 'f').write_text('a\n')
+                git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
+                git(seed, 'push', '-q', 'origin', 'main')
+                subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare), str(clone)],
+                               env=env0, capture_output=True)
+                return seed, clone
+
+            proj_seed, proj = make('proj')
+            set_seed, setc = make('set')
+            # The whole engine, as a consumer has it: the resolver imports
+            # its neighbours.
+            (proj / 'tools').mkdir()
+            for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+                shutil.copy(f, proj / 'tools' / f.name)
+            (set_seed / 'f').write_text('a\nb\n')
+            git(set_seed, 'commit', '-qam', 'b'); git(set_seed, 'push', '-q', 'origin', 'main')
+
+            def run(mode, session, declared):
+                (proj / 'precedent.json').write_text(json.dumps({'sources': (
+                    [{'level': 'shared', 'name': 'set', 'path': '../set'}] if declared else [])}))
+                env = dict(env0, TMPDIR=str(w / 'sentinels'), CLAUDE_PROJECT_DIR=str(proj),
+                           PRECEDENT_USER_CONFIG=str(w / 'no-user-config.json'))
+                r = subprocess.run(['bash', str(guard), mode, 'main'],
+                                   input=json.dumps({'session_id': session, 'tool_name': 'Write',
+                                                     'tool_input': {'command': ''}}),
+                                   env=env, capture_output=True, text=True, cwd=str(proj))
+                return r.returncode, r.stderr
+
+            rc, err = run('pre-write', 'undeclared', declared=False)
+            cases.append((f'{tag}: CONTROL: an undeclared stale set goes unnoticed (rc={rc})',
+                          rc == 0 and str(setc) not in err))
+            tip = git(set_seed, 'rev-parse', 'HEAD').stdout.strip()
+            rc, err = run('pre-write', 'declared-clean', declared=True)
+            head = git(setc, 'rev-parse', 'HEAD').stdout.strip()
+            cases.append((f'{tag}: a clean declared set behind its origin is brought '
+                          f'current with the variable unset, and never blocks (rc={rc})',
+                          rc == 0 and 'declared practice set' in err and head == tip))
+            git(setc, 'reset', '-q', '--hard', 'HEAD~1')
+            (setc / 'f').write_text('local edit\n')
+            rc, err = run('pre-write', 'declared-dirty', declared=True)
+            cases.append((f'{tag}: a dirty declared set behind its origin WARNS and does '
+                          f'not block (rc={rc})',
+                          rc == 0 and 'WARN: freshness-guard: declared practice set' in err))
+            git(setc, 'checkout', '-q', '--', 'f')
+            rc, err = run('session-start', 'declared-start', declared=True)
+            cases.append((f'{tag}: session start names the declared set it checks (rc={rc})',
+                          rc == 0 and 'also checking declared practice set' in err))
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard checks declared practice sets without the variable '
+          f'({len(cases)} stated cases, both copies)', not failed, '; '.join(failed))
+
+
 def check_loader_caps_unmeasured_without_a_declared_source():
     """loader-within-caps says COULD NOT VERIFY, never a violation and never a
     pass, where a declared source is not on disk (2026-09-30).
@@ -25122,9 +25209,13 @@ def check_session_check_reports_a_dead_also_list_entry():
 
         del os.environ['PRECEDENT_FRESHNESS_ALSO']
         ok, detail = row()
-        cases.append((f'unset is undetermined rather than a pass -- every '
-                      f'attached repo goes unchecked (ok={ok!r})',
-                      ok is None and 'not set' in detail))
+        # Since 2026-09-30 the guard checks every DECLARED set without the
+        # variable, so unset is fine; the row says the variable is only for
+        # repositories nothing declares.
+        cases.append((f'unset is fine now -- the guard checks declared sets '
+                      f'itself (ok={ok!r})',
+                      ok is True and 'not set' in detail
+                      and 'declare' in detail))
 
         # With nothing attachable there is nothing to suggest, and the row
         # must still be red and still name the dead path -- the finding is
@@ -49333,6 +49424,7 @@ def main():
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
+    check_freshness_guard_checks_declared_sets()
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
