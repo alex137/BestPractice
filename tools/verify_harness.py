@@ -2141,6 +2141,70 @@ def check_leak_gate_refresh_declines_a_dirty_clone():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_freshness_reads_a_private_source_through_its_clone():
+    """A live source clone whose only credential is its own local
+    credential.helper is reported current or behind, never NOT VERIFIED.
+
+    Found 2026-09-30: upstream_tip() ran `git ls-remote <url>` from outside
+    the clone, where a private source's credential does not reach, so every
+    session printed "NOT VERIFIED ... could not reach". The same ls-remote
+    against `origin` inside the clone succeeds. Git is stubbed to answer
+    exactly that way: the bare URL refused, `origin` answered only from the
+    clone. CONTROL: with no clone to ask from, the same row is NOT VERIFIED,
+    so the verdict comes from asking inside the clone. Also: a behind live
+    clone's remedy is the refresh, never a bare pull (engine output a
+    refresh leaves there makes that pull refuse)."""
+    import contextlib, io, tempfile
+    import precedent_engine_freshness as pef
+    cases = []
+    url = 'https://github.com/example/private-set.git'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='freshness-private-'))
+    clone = str(tmp / 'private-set')
+    saved = (pef._git, pef.collect_targets)
+
+    def fake_git(*args, cwd=None, timeout=25):
+        if args[:3] == ('remote', 'get-url', 'origin') and cwd == clone:
+            return 0, url
+        if args[:2] == ('ls-remote', 'origin') and cwd == clone:
+            return 0, 'abc123\trefs/heads/main'
+        if args[:1] == ('ls-remote',):
+            return 128, ''      # no credential out here
+        return saved[0](*args, cwd=cwd, timeout=timeout)
+
+    def run(recorded, path):
+        row = {'label': 'set (shared) live clone', 'kind': 'live', 'url': url,
+               'branch': 'main', 'recorded': recorded}
+        if path:
+            row['path'] = path
+        pef.collect_targets = lambda root='.': [row]
+        buf = io.StringIO()
+        pef.report(str(tmp), out=buf)
+        return buf.getvalue()
+
+    try:
+        pef._git = fake_git
+        out = run('abc123', clone)
+        cases.append(('a current private clone reads current, not NOT VERIFIED',
+                      'current' in out and 'NOT VERIFIED' not in out, out))
+        out = run('old999', clone)
+        cases.append(('a behind private clone reads BEHIND, not NOT VERIFIED',
+                      'BEHIND UPSTREAM' in out and 'NOT VERIFIED' not in out, out))
+        cases.append(('...and its remedy is the refresh, never a bare pull',
+                      'precedent_refresh_sources.py --apply --path' in out
+                      and 'pull --ff-only' not in out, out))
+        out = run('abc123', None)
+        cases.append(('CONTROL: with no clone to ask from, the same row is NOT VERIFIED',
+                      'NOT VERIFIED' in out, out))
+    finally:
+        pef._git, pef.collect_targets = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the freshness notice reads a private source through its own clone '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_freshness_covers_every_declared_source():
     """precedent_engine_freshness reports one row per way a DECLARED source
     is reached -- the engine manifest, a vendored tree's manifest, a live
@@ -2253,9 +2317,12 @@ def check_freshness_covers_every_declared_source():
              'BEHIND UPSTREAM: precedent (universal) vendored at process/upstream' in after),
             ('the shared set\'s vendored code reads BEHIND',
              'BEHIND UPSTREAM: set (shared) vendored at process/set' in after),
-            ('the shared set\'s live clone reads BEHIND and says how to fetch it',
+            ('the shared set\'s live clone reads BEHIND and names the refresh '
+             'that brings it current, never a bare pull (engine output a '
+             'refresh leaves there makes that pull refuse, 2026-09-30)',
              'BEHIND UPSTREAM: set (shared) live clone at' in after
-             and f'git -C {set_clone} pull --ff-only' in after),
+             and f'--apply --path {set_clone}' in after
+             and 'pull --ff-only' not in after),
             ('the notice names Update Vendors once',
              after.count('"Update Vendors"') == 1),
             ('an unreachable upstream is NOT VERIFIED, not current',
@@ -32237,8 +32304,9 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
         rc, out = run()
         cases.append(('CONTROL: a dirty clone behind its origin is left where it is',
                       g(clone, 'rev-parse', 'HEAD') != tip, out[-400:]))
-        cases.append(('...and the run says why, pointing at a pull',
-                      'uncommitted changes' in out and 'pull --ff-only' in out, out[-400:]))
+        cases.append(('...and the run says why, pointing at a re-run',
+                      'uncommitted changes of its own' in out and '--apply' in out,
+                      out[-400:]))
         (clone / 'scratch.txt').unlink()
 
         rc, out = run()
@@ -32246,6 +32314,26 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
                       g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
         cases.append(('...and the line names what it compared',
                       'its own origin/main' in out and 'engine current' in out, out[-400:]))
+
+        # Engine output a refresh left uncommitted is not a person's work:
+        # the clone is still brought current, and the engine written again
+        # (2026-09-30: every clone carries it, and a bare pull refused).
+        (seed / 'practices.md').write_text('one\ntwo\nthree\n', encoding='utf-8')
+        g(seed, 'commit', '-qam', 'three'); g(seed, 'push', '-q', 'origin', 'main')
+        tip = g(seed, 'rev-parse', 'HEAD')
+        (clone / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"kind": "source", "source_commit": "fixture-tip", "x": 1}', encoding='utf-8')
+        applied = []
+        saved['classify_dirt'] = prs.classify_dirt
+        saved['apply_to'] = prs.apply_to
+        prs.classify_dirt = lambda repo: (
+            (['tools/ENGINE_MANIFEST.json'] if g(repo, 'status', '--porcelain') else []), [])
+        prs.apply_to = lambda e, commit=False: (applied.append(e['repo']), [])[1]
+        rc, out = run()
+        cases.append(('a clone carrying only engine output is still brought current',
+                      g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
+        cases.append(('...and its engine is written again over the new tree',
+                      len(applied) == 1, f'{applied} {out[-300:]}'))
     finally:
         for n, f in saved.items():
             setattr(prs, n, f)
@@ -48952,6 +49040,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_freshness_reads_a_private_source_through_its_clone()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()

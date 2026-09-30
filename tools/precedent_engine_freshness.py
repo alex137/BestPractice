@@ -101,11 +101,49 @@ def read_manifest(root):
     return _read_json(f)
 
 
-def upstream_tip(repo_url, branch):
+def upstream_tip(repo_url, branch, clone=None):
+    """-> the commit `branch` names at `repo_url`, or None.
+
+    Asked from INSIDE `clone`, against its `origin`, when there is a clone
+    whose origin is that URL: a private source's credential is a
+    credential.helper in that clone's own .git/config, so the bare URL run
+    from anywhere else fails ("could not read Username ... terminal
+    prompts disabled"), and every session printed NOT VERIFIED for a
+    source it could have read (2026-09-30). The bare URL only when there
+    is no such clone."""
+    if clone:
+        rc, origin = _git('remote', 'get-url', 'origin', cwd=clone)
+        if rc == 0 and origin and origin == repo_url:
+            rc, out = _git('ls-remote', 'origin', f'refs/heads/{branch}', cwd=clone)
+            if rc == 0 and out:
+                return out.split()[0]
     rc, out = _git('ls-remote', repo_url, f'refs/heads/{branch}')
     if rc != 0 or not out:
         return None
     return out.split()[0]
+
+
+def refresh_remedy(root, clone):
+    """-> the command that brings a practice-set clone current, as a person
+    or session can run it from `root`.
+
+    Never a bare `git -C <clone> pull --ff-only`: the session-start refresh
+    leaves engine output uncommitted in every source clone, so that pull
+    refuses ("Your local changes ... would be overwritten") -- it did on
+    all four attached sources (2026-09-30). precedent_refresh_sources.py
+    --apply discards that engine output and fast-forwards. It lives only in
+    a BestPractice clone, so this names the copy that exists: this repo's
+    own, a BestPractice clone beside it, or else says where to run it."""
+    root = pathlib.Path(root).resolve()
+    here = pathlib.Path(__file__).resolve().parent / 'precedent_refresh_sources.py'
+    for tool in (root / 'tools' / 'precedent_refresh_sources.py',
+                 root.parent / 'BestPractice' / 'tools' / 'precedent_refresh_sources.py',
+                 here):
+        if tool.is_file():
+            shown = (tool.relative_to(root) if tool.is_relative_to(root) else tool)
+            return f'python3 {shown} --apply --path {clone}'
+    return (f'from a BestPractice clone: python3 tools/precedent_refresh_sources.py '
+            f'--apply --path {clone}')
 
 
 # --------------------------------------------------------------------------
@@ -401,8 +439,8 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
                       f"{row['problem']}", file=out)
             continue
         key = (row['url'], row['branch'])
-        if key not in tips:
-            tips[key] = upstream_tip(*key)
+        if key not in tips or (tips[key] is None and row.get('path')):
+            tips[key] = upstream_tip(*key, clone=row.get('path'))
         tip = tips[key]
         if tip is None:
             unverified += 1
@@ -426,11 +464,11 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
               f"{row['url']} {row['branch']} is now at {tip[:12]}.", file=out)
         if row['kind'] == 'live':
             print(f"  Its practices load from that clone as it stands, so "
-                  f"until it is pulled this session runs on stale rules. The "
-                  f"session-start refresh fast-forwards a clean clone, so this "
-                  f"one could not be (uncommitted changes, another branch, or "
-                  f"commits of its own): git -C {row['path']} pull --ff-only",
-                  file=out)
+                  f"until it is brought current this session runs on stale "
+                  f"rules. The session-start refresh fast-forwards a clone it "
+                  f"can, so this one has changes of its own, another branch "
+                  f"or commits of its own, or the refresh has not run: "
+                  f"{refresh_remedy(root, row['path'])}", file=out)
         if row['kind'] == 'engine' and with_files:
             _engine_detail(root, row, tip, out)
     if engine_behind:

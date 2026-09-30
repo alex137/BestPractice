@@ -1062,16 +1062,27 @@ def main(argv):
             want = _declared_base_branch(e['repo']) or _default_branch(e['repo'])
             if not want:
                 continue
+            # Engine output a refresh left uncommitted is not a person's
+            # work: make_current discards it and fast-forwards, and the
+            # refresh below writes it again over the new tree. Only a
+            # person's own changes stop it (2026-09-30: the session-start
+            # refresh leaves engine output in every clone, so refusing on
+            # any dirt would have refused every clone).
             engine_dirt, other_dirt = classify_dirt(e['repo'])
-            if engine_dirt or other_dirt:
+            if other_dirt:
                 print(f"         clone not brought up to its own origin/{want}: "
-                      f"uncommitted changes present -- commit or stash there, "
-                      f"then `git pull --ff-only`")
+                      f"uncommitted changes of its own "
+                      f"({', '.join(other_dirt[:3])}"
+                      f"{'...' if len(other_dirt) > 3 else ''}) -- commit or "
+                      f"stash there, then re-run this with --apply")
                 continue
             ok_cur, note = make_current(e['repo'], want)
             if note != 'already current':
                 print(f"         clone vs its own origin/{want}: "
                       f"{note if ok_cur else 'NOT brought current -- ' + note}")
+            if ok_cur and engine_dirt:
+                e['stale'] = True           # its engine output was discarded
+                stale.append(e)
 
     hookbad = [e for e in found if _repairable(e)]
     if not stale and not hookbad:

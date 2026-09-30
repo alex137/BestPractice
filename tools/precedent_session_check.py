@@ -653,6 +653,7 @@ def checks(offline=False):
     # its budget check were built from two-day-old universal text.
     name = 'each practice source clone is current with its own origin'
     behind, unverified, universal_behind, seen = [], [], [], set()
+    set_behind = []
     targets = [(shown, None, False) for shown, _base in _attachable_sources()]
     targets += [(path, branch, branch is not None)
                 for path, branch in _declared_source_clones()]
@@ -669,6 +670,8 @@ def checks(offline=False):
             behind.append(f'{shown} is {phrase}')
             if universal:
                 universal_behind.append(real)
+            else:
+                set_behind.append(real)
         elif verdict == 'unverified':
             unverified.append(f'{shown} ({phrase})')
     if behind:
@@ -677,13 +680,22 @@ def checks(offline=False):
                      f'-- fast-forward only, so it refuses rather than '
                      f'discard a commit of its own there.'
                      for u in universal_behind)
+        # The command that exists from here: precedent_refresh_sources.py
+        # ships only in a BestPractice clone, not to a consumer or a set
+        # (2026-09-30), so the remedy names the copy it can find.
+        try:
+            import precedent_engine_freshness as _pef
+            run = '; '.join(f'`{_pef.refresh_remedy(ROOT, c)}`' for c in set_behind)
+        except Exception:                                    # noqa: BLE001
+            run = ''
+        run = run or '`python3 tools/precedent_refresh_sources.py --apply`'
         out.append((name, False, '; '.join(behind) + '. The catalogue in '
                     'force is read from these working trees and nothing '
                     'fetches first, so the practices this session is '
-                    'following may be the older ones. Run '
-                    '`python3 tools/precedent_refresh_sources.py --apply`, '
-                    'which now brings each clone current before refreshing '
-                    'it and refuses to report success when it cannot.' + ff))
+                    'following may be the older ones. Run ' + run + ', '
+                    'which brings each clone current (discarding only the '
+                    'engine output a refresh left there) and refuses to '
+                    'report success when it cannot.' + ff))
     elif unverified:
         out.append((name, None, 'could not compare: ' + '; '.join(unverified)
                     + '. This is UNMEASURED, not clean -- a clone compared '
