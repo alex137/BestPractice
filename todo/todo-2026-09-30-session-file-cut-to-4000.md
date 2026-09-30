@@ -34,6 +34,10 @@ closed:            null
   `fixed_allowance` on the session file's registry entry, which switches on
   `precedent_check.py --only session-file-allowances-fit`. Each lowered or
   added number goes into that repo's `approved_budgets` with his words.
+  Also held: `"block_commits": true` on that entry, which makes the
+  commit-time hook refuse commits in precedent-individual while the file is
+  over its hard ceiling (Morgan asked for the block on 2026-09-29; the
+  mechanism landed 2026-09-30, switched off).
 
   **The allowances alone cannot fit 4,400, and that is part of the
   brainstorm.** The hard ceiling is enforced as a sum: each carried source's

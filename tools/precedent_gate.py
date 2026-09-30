@@ -328,6 +328,50 @@ def _refresh_remote_branch(repo, branch):
     return r.returncode == 0
 
 
+def _over_target(root, siblings=True):
+    """-> ["<repo>: <file> is N tokens, over its T-token target"] for this
+    checkout and every sibling practice-set clone whose registry declares a
+    `target` the file is over.
+
+    code-cites-practice: session-load-budget
+
+    Printed with the reply gate's requirements so The Boildown says it in
+    every reply until the file is back under (Morgan, 2026-09-29: "at the
+    4000 level, you get warnings, with every session to bring it down",
+    strength: decided). Siblings too, because the file that is over is
+    usually a practice set's, and the session doing the work is rarely
+    rooted there.
+    """
+    try:
+        import session_load_trend as _slt
+    except Exception:                                         # noqa: BLE001
+        return []
+    roots = [pathlib.Path(root)]
+    for parent in ({pathlib.Path(root).parent, pathlib.Path.home()}
+                   if siblings else ()):
+        try:
+            entries = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in entries:
+            if d.name.startswith('precedent-') and (d / '.git').exists() \
+                    and d.resolve() not in {r.resolve() for r in roots}:
+                roots.append(d)
+    out = []
+    for repo in roots:
+        name = 'this checkout' if repo == roots[0] else repo.name
+        try:
+            rows = _slt.over_target(repo)
+        except Exception:                                     # noqa: BLE001
+            rows = []
+        for rel, n, target, ceiling in rows:
+            hard = (f', hard ceiling {ceiling:,}' if isinstance(ceiling, int)
+                    else '')
+            out.append(f'{name}: {rel} is {n:,} tokens, over its {target:,}-'
+                       f'token target{hard}')
+    return out
+
+
 def _unlanded_work(root, siblings=True):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into -- and only where those
@@ -1028,6 +1072,16 @@ def main():
             print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
                   f"recommend merging it -- do not close a turn leaving this "
                   f"unsaid (practice: the-boildown).")
+    if gate == 'reply':
+        try:
+            _over = _over_target(root)
+        except Exception:                                     # noqa: BLE001
+            _over = []
+        for _line in _over:
+            print(f"- SESSION LOAD OVER TARGET: {_line}. The Boildown MUST say "
+                  f"so in one line and recommend a Reduction pass. Never "
+                  f"raise the target or the ceiling without the person's own "
+                  f"words for it (practice: session-load-budget).")
     if '--brief' in flags:
         print(f"\nFull text: `python3 tools/precedent_gate.py {gate}`.")
     return 0

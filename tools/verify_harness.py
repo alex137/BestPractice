@@ -37563,6 +37563,94 @@ def check_budget_approvals_see_computed_raises():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_session_load_hard_ceiling_blocks_commits():
+    """Over its `hard_ceiling`, with `block_commits` set, the commit-time hook
+    refuses the commit, and a commit that shrinks the file still goes
+    through; over its `target`, the reply gate asks for a Boildown line
+    (practice: session-load-budget; control-asserts-which-failure).
+
+    THE REQUEST (Morgan, 2026-09-29, strength: decided): "The target should
+    be 4000 or less but at the 4000 level, you get warnings, with every
+    session to bring it down, and it doesn't let you commit, it blocks you,
+    if it is above 4400." The hook case runs the REAL
+    .claude/hooks/doc-lint-gate.sh against a fixture, so a hook that lost
+    its session-load section fails here by exiting 0.
+
+    The fixture owns its tree (fixture-owns-its-state)."""
+    import tempfile
+    import importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    slt = importlib.import_module('session_load_trend')
+    gate = importlib.import_module('precedent_gate')
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp) / 'fixture'
+        (repo / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'session_load_trend.py', repo / 'tools')
+        shutil.copy(ROOT / 'tools' / 'build_views.py', repo / 'tools')
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+        for k, v in (('user.name', 'Fixture'), ('user.email', 'f@example.com')):
+            subprocess.run(['git', '-C', str(repo), 'config', k, v], check=True)
+        agents = repo / 'AGENTS.md'
+        agents.write_text('word ' * 200, encoding='utf-8')     # ~260 tokens
+
+        def registry(block):
+            entry = {'ceiling': 100000, 'hard_ceiling': 100, 'target': 50}
+            if block:
+                entry['block_commits'] = True
+            (repo / 'tools' / 'session_load_budgets.json').write_text(
+                json.dumps({'headroom_floor_pct': 5,
+                            'surfaces': {'AGENTS.md': entry}}), encoding='utf-8')
+
+        registry(True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'base'], check=True)
+
+        rows = slt.over_target(repo)
+        cases.append(('a file over its target is listed with its target and '
+                      'ceiling', rows and rows[0][0] == 'AGENTS.md'
+                      and rows[0][2] == 50 and rows[0][3] == 100, repr(rows)))
+        lines = gate._over_target(repo, siblings=False)
+        cases.append(('the reply gate reports it for The Boildown',
+                      lines and 'over its 50-token target' in lines[0]
+                      and 'hard ceiling 100' in lines[0], repr(lines)))
+
+        rc, why = slt.commit_gate(repo)
+        cases.append(('over the ceiling with block_commits, the commit is '
+                      'refused in the gate\'s own words',
+                      rc == 2 and 'COMMIT REFUSED' in why
+                      and 'hard ceiling of 100' in why, f'{rc} {why!r}'))
+
+        hook = ROOT / '.claude' / 'hooks' / 'doc-lint-gate.sh'
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
+        r = subprocess.run(['bash', str(hook)], input=json.dumps(
+            {'tool_input': {'command': 'git commit -m change'}}),
+            capture_output=True, text=True, env=env)
+        cases.append(('the real commit-time hook refuses the commit',
+                      r.returncode == 2 and 'COMMIT REFUSED' in r.stderr,
+                      f'rc={r.returncode} {r.stderr[-300:]!r}'))
+
+        agents.write_text('word ' * 150, encoding='utf-8')     # smaller, still over
+        subprocess.run(['git', '-C', str(repo), 'add', 'AGENTS.md'], check=True)
+        rc, why = slt.commit_gate(repo)
+        cases.append(('a commit that shrinks the file is let through even '
+                      'while it is still over', rc == 0, f'{rc} {why!r}'))
+        subprocess.run(['git', '-C', str(repo), 'reset', '-q', 'HEAD', '--',
+                        'AGENTS.md'], check=True)
+        agents.write_text('word ' * 200, encoding='utf-8')
+
+        registry(False)
+        rc, why = slt.commit_gate(repo)
+        cases.append(('without block_commits the ceiling does not block a '
+                      'commit (it stays a push-time finding)',
+                      rc == 0, f'{rc} {why!r}'))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an always-loaded file over its hard ceiling blocks commits, and '
+          f'over its target is reported each reply ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_headroom_notice_watches_the_resident_block():
     """headroom_notice() also speaks when the generated resident block is
     near its own allocation, not only when a whole file nears its ceiling
@@ -47200,6 +47288,7 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
+    check_session_load_hard_ceiling_blocks_commits()
     check_budget_approvals_see_computed_raises()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
