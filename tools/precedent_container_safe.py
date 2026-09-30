@@ -59,6 +59,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -214,6 +215,23 @@ def _base(args):
     return first.rsplit('/', 1)[-1].lstrip('-')
 
 
+# A HOOK IS NOT THE SESSION'S WORK (2026-09-30). The harness runs a hook
+# for the same event as a child of the agent too, so a hook firing beside
+# this check -- freshness-guard.sh on the same prompt as the reply gate --
+# read as a command the session left running and forbade the archive line;
+# it had exited seconds later. Every adapter in templates/harness/ runs its
+# hooks from a `.claude/hooks/` directory (Gemini CLI and Codex through
+# `bash .claude/hooks/...`), and none wraps a hook the way an agent wraps
+# its own tool command (`eval '...'`). A shell counts as a hook only when
+# both hold, so a hook script the session started by hand, in its own tool
+# shell, is still listed.
+_HOOK_SCRIPT = re.compile(r'(?:^|[\s/"\'}])\.claude/hooks/[\w.-]+\.sh\b')
+
+
+def _is_hook(args):
+    return "eval '" not in args and bool(_HOOK_SCRIPT.search(args))
+
+
 def _shown(args):
     """The command a person would recognise: the text a tool shell `eval`s,
     without the wrapper every such shell carries around it."""
@@ -243,7 +261,8 @@ def still_running(rows=None, me=None, agent_names=None):
         return []
     return [{'pid': pid, 'elapsed': e, 'command': _shown(a)}
             for pid, ppid, e, a in rows
-            if ppid == agent and pid not in ancestors and _base(a) in SHELLS]
+            if ppid == agent and pid not in ancestors and _base(a) in SHELLS
+            and not _is_hook(a)]
 
 
 def label(repo):

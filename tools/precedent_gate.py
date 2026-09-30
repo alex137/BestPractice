@@ -154,10 +154,19 @@ PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'team', 'individual'))
 
 
 def resolved_gate_practices(root, gate):
-    """-> (entries, notes, unresolved_level). Every IN-FORCE practice
-    registered to `gate` in any source this repo resolves -- team,
+    """-> (entries, notes, unresolved_level, replaced). Every IN-FORCE
+    practice registered to `gate` in any source this repo resolves -- team,
     individual and repo-local as well as universal -- as (slug, level,
     source_name, path) tuples.
+
+    `replaced` is {slug: the practice that replaced it} for every practice
+    resolution took out of force through another practice's `overrides:`.
+    The caller seeds its list from this repo's own practices/, which still
+    holds the replaced file, so without this the replaced rule was listed
+    as "level unknown -- this source did not resolve" beside the rule that
+    replaced it (2026-09-30: session-title-names-the-difference, overridden
+    by an individual set's session-title-abbreviates-repo, on every reply
+    gate in this repository).
 
     `unresolved_level` is what the CALLER should assume for a practice that
     sits in this repo's own `practices/` and is registered to `gate`, but
@@ -211,12 +220,12 @@ def resolved_gate_practices(root, gate):
         import precedent_resolve as pr
     except ImportError:
         return [], ['precedent_resolve.py is not vendored beside this script, '
-                    'so only this repo\'s own practices/ is below.'], 'universal'
+                    'so only this repo\'s own practices/ is below.'], 'universal', {}
     try:
         sources = pr.load_config(root)
     except Exception as e:                                   # noqa: BLE001
         return [], [f'the declared sources could not be read ({e}), so '
-                    f'only this repo\'s own practices/ is below.'], 'universal'
+                    f'only this repo\'s own practices/ is below.'], 'universal', {}
     # See this function's own docstring: the ONE signal available here for
     # what this repo's own unresolved practices/ files actually are.
     unresolved_level = (
@@ -226,7 +235,7 @@ def resolved_gate_practices(root, gate):
         res = pr.resolve(sources)
     except Exception as e:                                   # noqa: BLE001
         return [], [f'the declared sources could not be resolved ({e}), so '
-                    f'only this repo\'s own practices/ is below.'], unresolved_level
+                    f'only this repo\'s own practices/ is below.'], unresolved_level, {}
 
     for m in res.get('missing', []):
         notes.append(
@@ -244,7 +253,9 @@ def resolved_gate_practices(root, gate):
         if gate in gates:
             entries.append((slug, practice['level'], practice.get('source', ''),
                             pathlib.Path(practice['file'])))
-    return entries, notes, unresolved_level
+    replaced = {d['slug']: d['by'].get('slug', '')
+                for d in res.get('shadowed', []) if d.get('slug')}
+    return entries, notes, unresolved_level, replaced
 
 
 def _branches_module():
@@ -823,9 +834,12 @@ def main():
     # `unresolved_level` hardcoded, an unresolved individual or shared source
     # printed its own practices as `(universal)`, which is wrong in a way
     # nothing downstream could catch.
-    entries, source_notes, unresolved_level = resolved_gate_practices(root, gate)
+    entries, source_notes, unresolved_level, replaced = \
+        resolved_gate_practices(root, gate)
+    # A file here that resolution replaced is not in force, and listing it
+    # as "did not resolve" said the opposite of what happened.
     registered = {s: (unresolved_level, '', practices_dir / f'{s}.md')
-                  for s in by_gate.get(gate, [])}
+                  for s in by_gate.get(gate, []) if s not in replaced}
     for slug, level, name, path in entries:
         registered[slug] = (level, name, path)
     slugs = sorted(registered)

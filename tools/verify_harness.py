@@ -17340,6 +17340,74 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_gate_drops_a_practice_another_source_replaced():
+    """precedent_gate.py seeds its list from this repo's own practices/, then
+    lays resolution over it. A universal practice that an individual set
+    replaces through `overrides:` is still a file here, and resolution no
+    longer carries it, so it was listed as "level unknown -- this source did
+    not resolve" on every reply gate, beside the rule that replaced it
+    (2026-09-30). Planted: a universal catalogue with one reply-gate
+    practice, and an individual set whose practice overrides it.
+    Discriminating cases: the replacing practice is listed at its level; the
+    replaced one is not listed at all; and with no override, the universal
+    one is listed as before (the control)."""
+    import shutil, subprocess, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='gate-override-'))
+    cases = []
+    try:
+        repo, ind = tmp / 'repo', tmp / 'mine'
+        shutil.copytree(ROOT / 'tools', repo / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        (repo / 'practices').mkdir()
+        (ind / 'practices').mkdir(parents=True)
+        base = (ROOT / 'practices' / 'session-title-names-the-difference.md'
+                ).read_text(encoding='utf-8')
+        (repo / 'practices' / 'fixture-replaced.md').write_text(
+            base.replace('slug:        session-title-names-the-difference',
+                         'slug:        fixture-replaced'), encoding='utf-8')
+        mine = (base.replace('slug:        session-title-names-the-difference',
+                             'slug:        fixture-replacing'))
+        (ind / 'practices' / 'fixture-replacing.md').write_text(
+            mine, encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'fixture-mine', 'path': str(ind)}}), encoding='utf-8')
+
+        def gate():
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_gate.py'),
+                 'reply'], capture_output=True, text=True, cwd=str(repo),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(cfg),
+                     'HOME': str(tmp)})
+            return r.stdout + r.stderr
+
+        out = gate()
+        cases.append(('with no override, both are listed (the control)',
+                      '### fixture-replaced (' in out and
+                      '### fixture-replacing (individual/fixture-mine)' in out,
+                      out[-400:]))
+        (ind / 'practices' / 'fixture-replacing.md').write_text(
+            mine.replace('overrides:   null', 'overrides:   fixture-replaced'),
+            encoding='utf-8')
+        out = gate()
+        cases.append(('the replacing practice is listed at its own level',
+                      '### fixture-replacing (individual/fixture-mine)' in out,
+                      out[-400:]))
+        cases.append(('THE CASE THIS EXISTS FOR: the replaced practice is not '
+                      'listed, and nothing claims a source did not resolve',
+                      '### fixture-replaced' not in out and
+                      'did not resolve' not in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the gate drops a practice another source replaced '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_container_check_lists_commands_still_running():
     """tools/precedent_container_safe.py lists every shell the session's
     agent started that is still running (2026-09-28: two wait loops ran five
@@ -17375,6 +17443,28 @@ def check_container_check_lists_commands_still_running():
     cases.append(("the agent's own non-shell children and another terminal "
                   'are never listed', all(r['pid'] not in (400, 500) for r in got),
                   repr(got)))
+    # A hook the harness fired for the same event is the agent's child too,
+    # and is not the session's work (2026-09-30: freshness-guard.sh beside
+    # the reply gate forbade the archive line). A real background command,
+    # and a hook script the session itself ran in its own tool shell, still
+    # are.
+    hooks = rows + [
+        (600, 100, '00:00:02', '/bin/sh -c $CLAUDE_PROJECT_DIR/.claude/hooks/'
+                               'freshness-guard.sh user-prompt staging'),
+        (601, 100, '00:00:01', '/bin/bash -c cd "${GEMINI_PROJECT_DIR:-.}" && '
+                               'bash .claude/hooks/stop-git-check.sh'),
+        (602, 100, '00:10:00', "/bin/bash -c source /root/.claude/shell-snapshots/"
+                               "s.sh && eval 'sleep 600' < /dev/null && pwd -P"),
+        (603, 100, '00:05:00', "/bin/bash -c source /root/.claude/shell-snapshots/"
+                               "s.sh && eval 'bash .claude/hooks/push-check-gate.sh "
+                               "&' < /dev/null && pwd -P"),
+    ]
+    got_h = [r['pid'] for r in pcs.still_running(hooks, me=301)]
+    cases.append(('a hook fired beside the check, in any adapter\'s form, is '
+                  'not listed', not {600, 601} & set(got_h), repr(got_h)))
+    cases.append(('...while a real `sleep 600`, and a hook script the session '
+                  'ran itself, still are', {200, 602, 603} <= set(got_h),
+                  repr(got_h)))
     human = [(1, 0, '1:00', '/sbin/init'), (10, 1, '1:00', 'tmux'),
              (11, 10, '1:00', '-zsh'), (12, 11, '0:01', 'python3 x.py'),
              (13, 10, '1:00', '-zsh')]
@@ -17986,10 +18076,12 @@ def check_close_detection_fires_only_when_all_conditions_hold():
             path = tmp / name
             lines = []
             for kind, payload in turns:
-                if kind == 'user':
+                if kind in ('user', 'summary'):
                     rec = {'type': 'user', 'timestamp': '2026-09-14T12:00:00Z',
                            'message': {'role': 'user',
                                        'content': [{'type': 'text', 'text': payload}]}}
+                    if kind == 'summary':
+                        rec['isCompactSummary'] = True
                 elif kind == 'tool':
                     rec = {'type': 'assistant', 'timestamp': '2026-09-14T12:00:00Z',
                            'message': {'content': [
@@ -18099,6 +18191,22 @@ def check_close_detection_fires_only_when_all_conditions_hold():
         cases.append(("a hook's own injected rule text is not mistaken for "
                       'something the person said', r7.returncode == 0,
                       r7.stderr[:200]))
+
+        # The summary a /compact writes comes back as a `user` record too,
+        # flagged isCompactSummary, and restates the session's standing rules
+        # in the phrasing the detector looks for (2026-09-30: five signals in
+        # one session, none of them typed by the person).
+        compacted = [('summary', 'Never push to main. Pick up the last task '
+                      'as if the break never happened.'),
+                     ('tool', MERGED), ('assistant', CLOSE)]
+        r7b = run(transcript('compacted.jsonl', compacted))
+        cases.append(("a compaction summary is not mistaken for something the "
+                      'person said', r7b.returncode == 0, r7b.stderr[:200]))
+        # Control: the same words, typed by the person, still fire.
+        r7c = run(transcript('typed.jsonl', [('user', compacted[0][1])] +
+                             compacted[1:]))
+        cases.append(('...while the same words typed by the person still fire',
+                      r7c.returncode == 2, f'exit {r7c.returncode}'))
 
         # A gate that blocks the same reply twice is a loop.
         r8 = subprocess.run(
@@ -47500,6 +47608,7 @@ def main():
     check_compaction_offer_fires_on_context_growth()
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
+    check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()
     check('the archive line is refused when the container holds '
           'only-copy work',
