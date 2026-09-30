@@ -7145,7 +7145,10 @@ PINNED_PERMALINK_RE = re.compile(
        'each of which is overwritten by its own next sync. It also says '
        'nothing about a file the decommissioning registry exempts -- the record OF a deletion naming what went is not a reference left behind '
        'by one -- or about a path inside a permalink pinned to a 40-hex '
-       'commit, which cites the file as it was and cannot go stale.')
+       'commit, which cites the file as it was and cannot go stale. Nor '
+       'about history, which names a path as it was: a generated view (its '
+       'source is read), a closed todo item, a `## Story` section, or a '
+       'record file precedent.json declares in `record_paths`.')
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -7189,6 +7192,7 @@ def _rename_updates_links(ctx):
         withheld = _withheld
 
     _retired_exempt = _decommissioning_record_exemptions()
+    _records = _declared_record_paths()
 
     old_paths = []
     for line in r.stdout.splitlines():
@@ -7240,6 +7244,8 @@ def _rename_updates_links(ctx):
                 # the registry and were being flagged for doing their job.
                 # See _decommissioning_record_exemptions() for the incident.
                 continue
+            if any(_exempt_matches(rel, e) for e in _records):
+                continue      # a declared record: it names what was, then
             f = ROOT / rel
             if not f.is_file():
                 continue
@@ -7247,9 +7253,14 @@ def _rename_updates_links(ctx):
                 text = f.read_text(encoding='utf-8', errors='ignore')
             except OSError:
                 continue
+            if _is_history(rel, text):
+                continue      # a generated view, or a closed todo item
             lines = text.splitlines()
+            in_story = _story_mask(lines) if rel.endswith('.md') else [False] * len(lines)
             for i, (line, in_generated) in enumerate(
                     zip(lines, generated_blocks.mask(lines)), 1):
+                if in_story[i - 1]:
+                    continue  # a Story section: what happened, named as it was
                 # The loader block is rewritten wholesale by build_views.py
                 # from the practice sources, so a reference inside it is the
                 # sources' to fix, exactly like the materialized files it is
@@ -8554,6 +8565,61 @@ RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'
 # would fail on its own planted fixtures every time it runs against a copy
 # of this repo -- the one file excluded, mechanically, not a content carve-out.
 RETIRED_VOCAB_SKIP_FILES = {'tools/verify_harness.py'}
+
+
+# DATED RECORDS NAME THE PATH AS IT WAS (2026-09-30, a consumer's promote).
+# rename-updates-links asks every mention of a deleted or renamed path to be
+# repointed, which is right for a live document and wrong for history: a
+# closed todo item, a gotcha's Story, a migration record or a dated audit
+# names the old path because that was the path when it was written, and a
+# really deleted path has nowhere to be repointed to. Four kinds are left
+# alone, agreed with that consumer's session. Open items and live documents,
+# a gotcha's Symptom and Fix included, are still read.
+TODO_CLOSED_STATUSES = ('done', 'dropped')
+
+
+def _declared_record_paths():
+    """-> precedent.json's `record_paths` entries ({"path", "reason"}), as
+    path strings; an entry ending in "/" covers a directory. A whole record
+    file names paths as they were -- a migration record, a dated audit --
+    and is declared, with its reason, rather than folded into the
+    decommissioning registry's exempt_files, which is for records OF a
+    decommissioning."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for e in (cfg.get('record_paths') if isinstance(cfg, dict) else None) or []:
+        path = e.get('path') if isinstance(e, dict) else e
+        if isinstance(path, str) and path.strip():
+            out.append(path.strip())
+    return out
+
+
+def _is_history(rel, text):
+    """-> True for a whole file that is not live text: a generated view (its
+    source is read instead, and the fix belongs there), or a todo item whose
+    status is closed."""
+    if rel.endswith('.md') and _generated_label(rel, text):
+        return True
+    if rel.startswith('todo/') and rel.endswith('.md'):
+        m = re.match(r'---\n(.*?)\n---', text, re.S)
+        st = re.search(r'^status:\s*"?(\w+)', m.group(1), re.M) if m else None
+        if st and st.group(1) in TODO_CLOSED_STATUSES:
+            return True
+    return False
+
+
+def _story_mask(lines):
+    """-> one bool per line: True inside a `## Story` section, heading
+    included, up to the next level-2 heading."""
+    out, inside = [], False
+    for line in lines:
+        if line.startswith('## '):
+            inside = line.strip().lower() == '## story'
+        out.append(inside)
+    return out
 
 
 def _exempt_matches(rel, exempt_entry):
