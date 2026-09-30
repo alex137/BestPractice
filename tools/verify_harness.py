@@ -27325,6 +27325,12 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         env.pop('PRECEDENT_ALLOW_ANY_AUTHOR', None)
         env.pop('PRECEDENT_COMMIT_EMAIL', None)
         env.pop('PRECEDENT_COMMIT_TZ', None)
+        env.pop('CCR_SESSION_ACCOUNT_EMAIL', None)
+        # The GitHub lookup is pinned to a fixture, never the network: under
+        # a proxy that injects credentials the real call succeeds and names
+        # the real person, which would decide the "guessed" case below for
+        # whoever happens to run the harness (practice: fixture-owns-its-state).
+        env['PRECEDENT_GITHUB_USER_URL'] = (tmp / 'no-such-github.json').as_uri()
         ZONE = 'America/Argentina/Buenos_Aires'
 
         def g(*a, cwd=None):
@@ -27442,6 +27448,55 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
                       g('config', '--global', 'user.email').stdout.strip()
                       == 'noreply@anthropic.com'))
         cases.append(('and the hook still exits 0', r.returncode == 0))
+
+        # THE AUTHENTICATED ACCOUNT (Alex, 2026-09-30: "Or at least have a
+        # unique identifier for me"). The GitHub account the session is
+        # logged in as, WITH its numeric id, is one person -- not a guess --
+        # so it earns the global identity and the global backstop, and a
+        # repository attached later commits as that person. It does NOT earn
+        # the exact-author refusal: a different author there still passes.
+        gh_ok = tmp / 'github-user.json'
+        gh_ok.write_text('{"login":"octo","id":42,"name":"Octo Cat"}',
+                         encoding='utf-8')
+        authd = tmp / 'authd'
+        authd.mkdir()
+        g('init', '-q', str(authd))
+        r = subprocess.run(['bash', str(script)], capture_output=True, text=True,
+                           env=dict(env, CLAUDE_PROJECT_DIR=str(authd),
+                                    PRECEDENT_GITHUB_USER_URL=gh_ok.as_uri()),
+                           timeout=180)
+        cases.append(('an AUTHENTICATED account is written globally',
+                      g('config', '--global', 'user.email').stdout.strip()
+                      == '42+octo@users.noreply.github.com'))
+        cases.append(('and its global backstop is installed',
+                      bool(g('config', '--global', 'core.hooksPath').stdout.strip())))
+        other = tmp / 'attached-after-authd'
+        other.mkdir()
+        g('init', '-q', str(other))
+        g('config', 'user.name', 'Someone Else', cwd=other)
+        g('config', 'user.email', 'else@example.com', cwd=other)
+        (other / 'f').write_text('x', encoding='utf-8')
+        g('add', 'f', cwd=other)
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'else'], cwd=str(other),
+                           capture_output=True, text=True, env=env, timeout=120)
+        cases.append(('but a different author is not refused on it',
+                      r.returncode == 0))
+
+        # An answer with no numeric id is still a guess.
+        g('config', '--global', '--unset', 'core.hooksPath')
+        g('config', '--global', 'user.email', 'noreply@anthropic.com')
+        gh_noid = tmp / 'github-user-noid.json'
+        gh_noid.write_text('{"login":"octo","name":"Octo Cat"}', encoding='utf-8')
+        noid = tmp / 'noid'
+        noid.mkdir()
+        g('init', '-q', str(noid))
+        subprocess.run(['bash', str(script)], capture_output=True, text=True,
+                       env=dict(env, CLAUDE_PROJECT_DIR=str(noid),
+                                PRECEDENT_GITHUB_USER_URL=gh_noid.as_uri()),
+                       timeout=180)
+        cases.append(('an account answer with no id is not written globally',
+                      g('config', '--global', 'user.email').stdout.strip()
+                      == 'noreply@anthropic.com'))
 
     failed = [n for n, ok in cases if not ok]
     check(f'the commit identity reaches a repo attached after the hook ran '
