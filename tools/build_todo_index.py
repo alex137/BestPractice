@@ -45,6 +45,35 @@ GENERATED_HEADER = (
     '---'
 )
 
+
+def _todo_header(as_of):
+    """TODO.md's header: GENERATED_HEADER plus the date its ages and due
+    reminders were computed on.
+
+    code-cites-practice: generated-files-registered
+
+    WHY `as_of`. The Age column and the Due Reminders section are relative
+    to a day, so a committed TODO.md went out of date at every midnight
+    and read one day older in a zone already past it. --as-ci --isolated
+    runs under TZ=UTC, and on 2026-09-29 at 22:00 in Buenos Aires it was
+    already the 30th there: every age came out one day greater and the
+    deep check refused a push that had not touched todo/ at all. --check
+    now rebuilds against the date the file records, so it tests that the
+    file matches its items, not that someone regenerated it since midnight
+    (practice: timestamps-carry-offset).
+    """
+    return GENERATED_HEADER[:-len('---')] + f'as_of: {as_of}\n---'
+
+
+def recorded_as_of(path):
+    """-> the `as_of:` date a generated TODO.md records, or None."""
+    try:
+        head = path.read_text(encoding='utf-8').split('\n---', 1)[0]
+    except OSError:
+        return None
+    m = re.search(r'^as_of:\s*(\d{4}-\d{2}-\d{2})\s*$', head, re.M)
+    return m.group(1) if m else None
+
 FM_FIELD_RE = re.compile(r'^([a-z_]+):\s*(.*)$')
 
 KIND_LABELS = {
@@ -169,7 +198,7 @@ def _h(text):
 
 def render_todo_md(items, today):
     open_items = [it for it in items if it.get('status', 'open') == 'open']
-    lines = [GENERATED_HEADER, '', f'# {_h("TODO — open items")}', '']
+    lines = [_todo_header(today), '', f'# {_h("TODO — open items")}', '']
 
     for kind in KIND_ORDER:
         rows = [it for it in open_items if it.get('kind') == kind]
@@ -273,6 +302,10 @@ def main(argv):
     todo_dir = repo / 'todo'
     items = load_items(todo_dir)
     today = precedent_time.today(repo)
+    if check:
+        # Rebuild against the day the committed file was computed on, so an
+        # age that grew overnight is not drift (_todo_header says why).
+        today = recorded_as_of(todo_dir / 'TODO.md') or today
 
     outputs = {
         todo_dir / 'TODO.md': render_todo_md(items, today),
