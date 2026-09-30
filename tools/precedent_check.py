@@ -9909,6 +9909,13 @@ def run(slugs, ctx, scopes, exempt=None):
 def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
+    # A run from inside a different repo reads THIS repo, silently -- say so
+    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    try:
+        import precedent_which_repo
+        precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
+    except Exception:                                        # noqa: BLE001
+        pass
     # Before --list/--explain/--only read CHECKS, so a source-supplied
     # check script is a first-class member of all three.
     register_materialized_checks()

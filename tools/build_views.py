@@ -2265,6 +2265,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_beta_watermark_check.py': "Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert",
     'routing_reasons.py': "Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md",
     'our_language.py': "Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)",
+    'precedent_which_repo.py': "Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory",
     'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",
@@ -2418,6 +2419,15 @@ def main():
         repo = argv[i + 1]
         argv = argv[:i] + argv[i + 2:]
     root = pathlib.Path(repo).resolve() if repo else ROOT
+    # A run from inside a different repo reads THIS repo, silently -- say so
+    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    if repo is None:
+        try:
+            import precedent_which_repo
+            precedent_which_repo.warn_if_elsewhere(ROOT, 'build_views.py',
+                                                   repo_flag=True)
+        except Exception:                                    # noqa: BLE001
+            pass
     practices_dir = root / 'practices'
     agents_md = root / 'AGENTS.md'
     map_md = root / 'MAP.md'
