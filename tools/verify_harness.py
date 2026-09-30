@@ -24825,7 +24825,7 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
 
     def run(runs, expected=('Deep check', 'Leak gate')):
         pciv._fetch_runs = lambda slug, sha: (runs, '')
-        pciv.expected_workflows = lambda root, branch='': set(expected)
+        pciv.expected_workflows = lambda root, branch='', base='': set(expected)
         return pciv.verdict('.')
 
     saved_expected = pciv.expected_workflows
@@ -24905,6 +24905,19 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
         on_main = pciv.expected_workflows(str(tmp), 'main')
         cases.append(('push scoped to main IS expected on main',
                       'Commented' in on_main, str(sorted(on_main))))
+        # A pull_request trigger scoped to main is not expected on a pull
+        # request into pre-staging (2026-09-30: the merge gate said "CI DID
+        # NOT RUN" for deep-check.yml on every one), and is into main.
+        (wf / 'mainonly.yml').write_text(
+            'name: MainOnly\non:\n  pull_request:\n    branches: [main]\n'
+            '    types: [opened]\n\n  push:\n    branches: [main]\n\njobs: {}\n')
+        into_pre = pciv.expected_workflows(str(tmp), 'claude/feature', 'pre-staging')
+        cases.append(('a main-only pull_request is not expected into pre-staging',
+                      'MainOnly' not in into_pre and 'Real' in into_pre,
+                      str(sorted(into_pre))))
+        into_main = pciv.expected_workflows(str(tmp), 'to-main-x', 'main')
+        cases.append(('and is expected into main',
+                      'MainOnly' in into_main, str(sorted(into_main))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
