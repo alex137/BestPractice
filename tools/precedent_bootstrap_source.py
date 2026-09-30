@@ -1376,31 +1376,13 @@ def _write_session_load_budget(dest):
         f = dest / rel
         if not f.is_file():
             continue
-        text = f.read_text(encoding='utf-8')
-        measured = bv._approx_tokens(text)
+        measured = bv._approx_tokens(f.read_text(encoding='utf-8'))
         ceiling = ((int(measured * 1.2) + 49) // 50) * 50 if measured else 50
         surfaces[rel] = {
             'ceiling': ceiling,
             '_note': f'{measured} tokens measured at bootstrap ({today}). '
                      f'Ceiling is current + ~20%.',
         }
-        if rel == '.precedent/SESSION_PRACTICES.md':
-            # The session-start file is other sources' text, so its ceiling
-            # is derived from their allowances (build_views.surface_ceiling;
-            # practice: reduction-pass, step 5). Only the part that is not
-            # the occasion index gets a fixed allowance, measured + ~20%;
-            # `ceiling` above stays as the fallback.
-            index = text.split('## Occasion index', 1)
-            index = index[1].split('```')[1] if len(index) == 2 \
-                and index[1].count('```') >= 2 else ''
-            rest = max(measured - bv._approx_tokens(index), 0)
-            surfaces[rel]['derived_from_sources'] = {
-                'fixed_allowance': ((int(rest * 1.2) + 49) // 50) * 50 or 50}
-            surfaces[rel]['_note'] += (
-                ' The ceiling in force is derived: the occasion allowances '
-                'of the sources this file carries, plus fixed_allowance for '
-                'the rest of it; `ceiling` is the fallback where the '
-                'sources cannot be read.')
     path = dest / 'tools' / 'session_load_budgets.json'
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({
@@ -1410,9 +1392,9 @@ def _write_session_load_budget(dest):
             "BestPractice's own value; each surface's ceiling is measured "
             'plus ~20% headroom, the convention every hand-written entry '
             'in that repo already uses. .precedent/SESSION_PRACTICES.md '
-            'is regenerated at every session start from the sources this '
-            'set declares, so its ceiling is derived from their allowances '
-            '(derived_from_sources) rather than measured here. A ceiling is a '
+            'is regenerated at every session start and grows with the '
+            'universal catalogue, so re-measure it when it trips rather '
+            'than reading the trip as this set growing. A ceiling is a '
             'watermark, not an endorsement: review and reduce, never '
             'just raise, when it is crossed for real.',
         ],

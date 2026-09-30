@@ -88,19 +88,6 @@ def approx_tokens(text):
         return int(len(text.split()) * 1.3)
 
 
-def surface_ceiling(root, rel, entry):
-    """-> the ceiling for one surface, or None: build_views.surface_ceiling(),
-    the one reader of the registry's ceilings, so a derived ceiling reads the
-    same here as in the check (practice: registry-source-of-truth). Falls back
-    to the entry's own `ceiling` without the engine."""
-    try:
-        import build_views
-        return build_views.surface_ceiling(root, rel, entry)[0]
-    except Exception:
-        c = (entry or {}).get('ceiling')
-        return c if isinstance(c, int) else None
-
-
 def _git(*args):
     """stdout and the return code, never stdout alone.
 
@@ -221,7 +208,7 @@ def _ledger(ref, reg, as_json):
             if f.is_file() else 0
         blob, brc = _git('show', f'{sha}:{rel}')
         before = approx_tokens(blob) if brc == 0 else None
-        ceiling = surface_ceiling(ROOT, rel, surfaces.get(rel))
+        ceiling = (surfaces.get(rel) or {}).get('ceiling')
         rows.append((rel, before, after, ceiling))
 
     if as_json:
@@ -287,7 +274,7 @@ def headroom_notice(root=None, floor_pct=None):
         if not f.is_file():
             continue
         entry = surfaces.get(rel) or {}
-        ceiling = surface_ceiling(base, rel, entry)
+        ceiling = entry.get('ceiling')
         if not isinstance(ceiling, int) or ceiling <= 0:
             continue
         n = approx_tokens(f.read_text(encoding='utf-8', errors='replace'))
@@ -363,7 +350,7 @@ def main():
         now = approx_tokens(text)
         hand, gen = split_generated(text)
         entry = surfaces.get(rel) or {}
-        ceiling = surface_ceiling(ROOT, rel, entry)
+        ceiling = entry.get('ceiling')
         total_now += now
         if isinstance(ceiling, int):
             total_ceiling += ceiling
