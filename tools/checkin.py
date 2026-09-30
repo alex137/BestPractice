@@ -1421,6 +1421,18 @@ def _upstream_deleted_lines(clone, bases, rel, tip='HEAD'):
     return out
 
 
+def _upstream_ever_wrote(clone, rel, tip='HEAD'):
+    """-> every line any upstream version of `rel` up to `tip` carried: the
+    lines each commit in its history added. A shallow clone's boundary
+    commit shows its whole file as added, so the oldest version the clone
+    holds counts too."""
+    rc, log = _git_rc(clone, 'log', '-p', '--format=', '--no-renames', tip, '--', rel)
+    if rc != 0:
+        return set()
+    return {l[1:] for l in log.splitlines()
+            if l.startswith('+') and not l.startswith('+++')}
+
+
 def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=()):
     """No pending vendored addition may vanish across a check-in cycle.
 
@@ -1463,6 +1475,14 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     which an upstream commit between one of those and the landed HEAD
     deleted is reported as upstream's deletion and not counted. A line
     upstream never wrote still fails the check, exactly as before.
+
+    (3) A LINE ANY EARLIER UPSTREAM VERSION OF THE FILE CARRIED IS
+    UPSTREAM'S TOO (2026-09-30, a real consumer: 75 vendored files
+    byte-identical to upstream versions OLDER than every stamp, because
+    earlier syncs never refreshed them). No stamp reaches back to those
+    versions, so (1) and (2) cannot see them; the file's own history can.
+    Recording with --accept-loss did not end it either: the next run reads
+    the base branch again, which does not hold the sync yet.
 
     THE LANDED SIDE IS READ FROM `landed_root`, the committed tree record()
     extracted at `tip`, never from the clone's working tree -- for the same
@@ -1526,7 +1546,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     names = _dep_git('ls-tree', '-r', '--name-only', f'origin/{dep_branch}', prefix).split()
     landed_all = None
     lost = []
-    upstream_deleted = 0
+    upstream_deleted = upstream_older = 0
     for name in names:
         rel = name[len(prefix) + 1:]
         if rel in resolving:
@@ -1559,12 +1579,20 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
             upstream_deleted += len(missing & deleted_upstream)
             missing -= deleted_upstream
         if missing:
+            older = missing & _upstream_ever_wrote(clone, rel, tip)
+            upstream_older += len(older)
+            missing -= older
+        if missing:
             lost.append((rel, sorted(missing)))
     if upstream_deleted:
         print(f"carry check: {upstream_deleted} line(s) the committed tree has and the "
               f"landed tree lacks were deleted by upstream itself (git log between "
               f"{', '.join(b[:12] for b in bases)} and the clone's HEAD) -- upstream's "
               f"own deletions, not a loss; not counted.")
+    if upstream_older:
+        print(f"carry check: {upstream_older} line(s) the committed tree has and the "
+              f"landed tree lacks are in an earlier upstream version of the same file "
+              f"-- a copy earlier syncs never refreshed, not local work; not counted.")
     if not lost:
         return
     for rel, lines in lost:

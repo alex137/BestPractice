@@ -2488,6 +2488,13 @@ def check_practice_audit_declined():
                     json.loads(manifest.read_text(encoding='utf-8'))['entries']}
 
         rc_fresh, out_fresh = run()
+        # Called from the SOURCE clone's module, as precedent_update.py
+        # --repo does through checkin.py: the tree is the consumer's.
+        spec = importlib.util.spec_from_file_location(
+            'source_practice_audit', ROOT / 'tools' / 'practice_audit.py')
+        source_audit = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(source_audit)
+        from_source = source_audit.stale_declines(manifest)
         # Upstream moves on: the declined file is deduplicated into a successor.
         old.write_text('---\nslug: old-rule\nstatus: deduplicated\nin_force_at: new-rule\n'
                        '---\n## Rule\nnarrow\n', encoding='utf-8')
@@ -2520,6 +2527,8 @@ def check_practice_audit_declined():
         cases = [
             ('a decline made against the current upstream file passes',
              rc_fresh == 0 and 'declined OK' in out_fresh),
+            ('run from the source clone, a consumer decline reads the consumer tree',
+             from_source == []),
             ('the upstream file changing since the decline FAILS',
              rc_moved == 1 and 'DECLINED: [upstream:old-rule]' in out_moved),
             ('and the failure names where the rule lives now and what replaced it',
@@ -26775,13 +26784,15 @@ def check_carry_check_never_counts_upstream_deletions():
     it wrote the commit by hand -- the fourth consumer update in a row to
     step around the guard, which is how a guard stops guarding.
 
-    Three stated cases, each run through the consumer's own vendored copy
+    Four stated cases, each run through the consumer's own vendored copy
     (see check_update_refuses_while_a_branch_is_pinned for why), and each
     reading the message rather than the exit code alone:
       * the incident: committed tree one sync behind the manifest;
       * a stale committed stamp, so only upstream's own deletion history can
         explain the line -- the second of the two mechanisms;
-      * a real local line upstream never wrote: still refused, still named.
+      * a real local line upstream never wrote: still refused, still named;
+      * a copy older than every stamp, never refreshed: the file's own
+        upstream history says the line is upstream's.
     """
     import tempfile, json as _json, shutil as _shutil
     src = ROOT / 'tools' / 'checkin.py'
@@ -26908,6 +26919,17 @@ def check_carry_check_never_counts_upstream_deletions():
                       'a local line upstream never had' in out
                       and 'gamma line three' not in out
                       and 'beta line two' not in out))
+
+        # 4. A copy never refreshed: the committed tree is upstream's A,
+        #    but every stamp names C, so "beta" (deleted at B) is in no
+        #    base and in no deletion after one. Only the file's own history
+        #    says upstream wrote it (2026-09-30, a real consumer, 75 files).
+        rc, out = _record(_consumer(base / 'four', clone, sha['A'], sha['C'],
+                                    sha['C']), clone)
+        cases.append(('a copy older than every stamp records cleanly',
+                      rc == 0 and 'checkin record OK' in out and 'beta' not in out))
+        cases.append(('and says the lines are an earlier upstream version',
+                      'earlier upstream version' in out))
 
     failed = [n for n, ok in cases if not ok]
     check(f'checkin.py record never counts upstream\'s own deletions as lost '

@@ -121,6 +121,16 @@ A Promote that resolves to staging into main is the named go-ahead
 [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)
 asks for, since Morgan asked for exactly this; nobody is asked again.
 
+**When Claude Code's own safety check stops that move, say so and ask for
+"Produce".** Its auto mode can refuse `--promote --to main` as a
+production deploy (`[Production Deploy]`), because a bare "Promote" does
+not name that exact action. The reply says in one line that **Claude
+Code's safety check stopped it, not this repository's rules**, and asks
+for **"Produce"** (or "Promote 5"). **Never work around the check** --
+another command, the GitHub API, or a settings edit of the session's own.
+The one durable fix is an `autoMode.allow` entry only the person can add
+([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md)).
+
 **Never recommend a Promote that another window is already running.**
 When a Promote finds the lock held, or the reply gate reports one under way,
 no reply suggests promoting that repository again -- not as a next step,

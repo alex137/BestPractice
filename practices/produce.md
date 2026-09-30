@@ -37,6 +37,12 @@ It fires only when the message is plainly asking for this step; where the
 reading is a genuine judgment call, say it out loud and confirm before
 anything moves.
 
+**If Claude Code's own safety check refuses it anyway, stop.** Say in one
+line that Claude Code's auto mode stopped the move, not this repository's
+rules, and ask for it again in words that name the move ("Produce: staging
+into main"). Never route around the check; the durable fix is the person's
+([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md)).
+
 ## Why
 The last step needs a word that is a verb like the others and has the "go
 live" feel without "launch", which is common in tech and usually means
