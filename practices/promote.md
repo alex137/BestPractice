@@ -157,7 +157,11 @@ The command does the whole promotion, and a session adds nothing to it:
    or main (`hold_for_landing`; Alex, 2026-09-30: *"Do all three recs"*,
    strength: decided), so a Promote and a landing never move a tier under
    each other's check: whichever finds it held waits, and a claim naming
-   "landing pull request #N" is a landing, not a Promote.
+   "landing pull request #N" is a landing, not a Promote. The gate frees
+   the lock when its check ends, a few seconds before GitHub merges, so it
+   checks again after the merge: when the tier moved in those seconds and
+   what landed fails, it reverts the merge, putting the tier back to the
+   tree the other window landed.
 1. **Copies down what reached staging or main by another route** -- a
    direct push to staging, a workflow's bot commit on main, an edit made on
    GitHub's website -- **once it has had its own tier's checks.** Staging's

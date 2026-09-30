@@ -21122,6 +21122,7 @@ def check_merge_check_gate():
                       'pre-staging, so the lock branch is not touched',
                       lock_log() == before))
         git(work, 'push', '-q', 'origin', 'ps:pre-staging')
+
         # Another window holds main still (a Promote, or its own landing):
         # a fresh claim on the lock branch, made the way Promote makes one.
         empty = git(work, 'hash-object', '-t', 'tree', '/dev/null').stdout.strip()
@@ -21138,6 +21139,87 @@ def check_merge_check_gate():
         cases.append(('...and the other window\'s claim is left as it was',
                       git(bare, 'rev-parse', 'precedent-promote-lock').stdout.strip()
                       == claim))
+        # Free the claim above, as its holder would, before landing more.
+        git(work, 'push', '-q', 'origin', git(work, 'commit-tree', empty, '-p', claim,
+            '-m', 'free [skip ci]').stdout.strip() + ':refs/heads/precedent-promote-lock')
+        # AFTER THE MERGE (PostToolUse). GitHub's merge is simulated by
+        # pushing a merge commit to main; the hook is handed its sha the way
+        # the merge tool answers.
+        def landed(number, sha):
+            p = subprocess.run(
+                ['bash', str(hook)], text=True, capture_output=True, timeout=300,
+                input=_json.dumps({'hook_event_name': 'PostToolUse',
+                                   'tool_name': 'mcp__github__merge_pull_request',
+                                   'tool_input': {'owner': 'alex', 'repo': 'proj',
+                                                  'pullNumber': number},
+                                   'tool_response': _json.dumps({'sha': sha, 'merged': True}),
+                                   'cwd': str(work)}),
+                env=dict(env, CLAUDE_PROJECT_DIR=str(work)))
+            return p.stdout, p.stdout + p.stderr
+
+        def tip(ref):
+            return git(bare, 'rev-parse', ref).stdout.strip()
+
+        # 12: nothing moves between the check and the merge.
+        pull(12, 'main', '')
+        denied, out = mcp(12)
+        merge12 = git(work, 'rev-parse', 'merge12').stdout.strip()
+        git(work, 'push', '-q', 'origin', 'merge12:main')
+        stdout, out = landed(12, merge12)
+        cases.append(('after a merge where nothing moved, what landed is the tree '
+                      'the gate passed: its pass is reused and nothing is said',
+                      not denied and not stdout.strip() and 'as checked' in out))
+        # 13: main moves in the gap to a commit that makes the merge fail.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'head13', 'origin/main')
+        (work / 'pr13.txt').write_text('pr13', encoding='utf-8')
+        git(work, 'add', 'pr13.txt')
+        git(work, 'commit', '-q', '-m', 'pr 13')
+        git(work, 'push', '-q', 'origin', 'head13:refs/pull/13/head')
+        git(work, 'checkout', '-q', '-B', 'gap', 'origin/main')
+        (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'another window lands in the gap')
+        git(work, 'push', '-q', 'origin', 'gap:main')
+        git(work, 'checkout', '-q', '-B', 'merge13', 'gap')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'merge 13', 'head13')
+        merge13 = git(work, 'rev-parse', 'merge13').stdout.strip()
+        git(work, 'push', '-q', 'origin', 'merge13:main')
+        git(work, 'checkout', '-q', 'main')
+        stdout, out = landed(13, merge13)
+        after = tip('main')
+        cases.append(('after a merge where main moved in the gap and what landed '
+                      'fails its full check, the session is told',
+                      '"block"' in stdout and 'MOVED' in out and 'FAILED' in out))
+        cases.append(('...and main is put back to the tree the other window '
+                      'landed, by a new commit on top of the merge',
+                      after != merge13
+                      and git(bare, 'rev-parse', 'main^{tree}').stdout
+                      == git(work, 'rev-parse', 'gap^{tree}').stdout
+                      and git(bare, 'rev-parse', 'main^').stdout.strip() == merge13))
+        cases.append(('...while the pull request\'s own branch keeps the work',
+                      tip('refs/pull/13/head') == git(work, 'rev-parse', 'head13').stdout.strip()))
+        # The same failure, with main moved on again: never reverted over it.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'later', 'origin/main')
+        (work / 'later.txt').write_text('later', encoding='utf-8')
+        git(work, 'add', 'later.txt')
+        git(work, 'commit', '-q', '-m', 'yet another landing')
+        git(work, 'push', '-q', 'origin', 'later:main')
+        git(work, 'checkout', '-q', 'main')
+        moved_on = tip('main')
+        stdout, out = landed(13, merge13)
+        cases.append(('a base that moved on past the merge is reported, never '
+                      'reverted over', tip('main') == moved_on and 'NOT reverted' in out))
+        stdout, out = subprocess.run(
+            ['bash', str(hook)], text=True, capture_output=True, timeout=60,
+            input=_json.dumps({'hook_event_name': 'PostToolUse',
+                               'tool_name': 'mcp__github__merge_pull_request',
+                               'tool_input': {'owner': 'alex', 'repo': 'proj',
+                                              'pullNumber': 13},
+                               'tool_response': 'failed to merge pull request',
+                               'cwd': str(work)}),
+            env=dict(env, CLAUDE_PROJECT_DIR=str(work))).stdout, ''
+        cases.append(('a merge that did not happen is left alone', not stdout.strip()))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         refs = git(work, 'for-each-ref', 'refs/precedent-merge-check').stdout.strip()
         cases.append(('no worktree and no fetched pull request ref is left '
