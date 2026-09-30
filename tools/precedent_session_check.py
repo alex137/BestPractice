@@ -81,10 +81,11 @@ def _identity_is_declared():
     Mirrors that hook's `declared` flag: an explicit PRECEDENT_COMMIT_EMAIL,
     this repo's own identity.json (it IS somebody's individual source), or the
     individual practice source's identity.json. An identity merely INFERRED
-    from an existing git config, the session account or the authenticated
-    GitHub account is NOT a declaration and does not install the global
-    backstop -- which is the whole reason the backstop row needs to tell the
-    two apart before naming a remedy.
+    from an existing git config or the session account is NOT a declaration
+    and does not install the global backstop; the authenticated GitHub
+    account does, but only when its lookup succeeds, which this cannot see --
+    so the backstop row uses this to name a remedy only once the backstop is
+    already missing.
     """
     if os.environ.get('PRECEDENT_COMMIT_EMAIL'):
         return True
@@ -268,13 +269,12 @@ def checks(offline=False):
     #
     # WHY THIS ROW NAMES ITS OWN REMEDY INSTEAD OF LEANING ON --apply.
     # commit-identity.sh installs the backstop only when somebody DECLARED an
-    # identity (`_install_global_backstop`'s first line is
-    # `[ "$declared" -eq 1 ] || return 0`). Where the hook merely INFERRED one
-    # -- from an existing git config, the session account, the authenticated
-    # GitHub account -- it deliberately installs nothing. So on a session with
-    # no reachable individual source, which is most of them while that source
-    # is a private repo, `--apply` re-runs the hook, the hook declines again,
-    # and the row stays FAIL forever.
+    # identity, or when the identity is the GitHub account the session is
+    # AUTHENTICATED as, numeric id included (since 2026-09-30). Where the hook
+    # merely INFERRED one -- from an existing git config or the session
+    # account -- it deliberately installs nothing. So when the GitHub lookup
+    # fails and no individual source is reachable, `--apply` re-runs the hook,
+    # the hook declines again, and the row stays FAIL.
     #
     # 2026-09-09, the incident: a session was told by another session that
     # `--apply` repairs this. It ran it, watched the row stay red, and spent
@@ -291,10 +291,11 @@ def checks(offline=False):
         if not _identity_is_declared():
             detail += (
                 '. --apply CANNOT fix this: the backstop installs only for a '
-                'DECLARED identity, and nothing here declares one (no '
-                'PRECEDENT_COMMIT_EMAIL, no identity.json in this repo, no '
-                'individual practice source carrying one). Declare one and '
-                're-run the hook:\n'
+                'DECLARED identity or the GitHub account the session is '
+                'authenticated as, and here the account lookup found no id and '
+                'nothing declares one (no PRECEDENT_COMMIT_EMAIL, no '
+                'identity.json in this repo, no individual practice source '
+                'carrying one). Declare one and re-run the hook:\n'
                 '       PRECEDENT_COMMIT_NAME="<you>" '
                 'PRECEDENT_COMMIT_EMAIL="<you@example.com>" bash '
                 '.claude/hooks/commit-identity.sh\n'
