@@ -2257,6 +2257,10 @@ def check_whats_new_log_mechanics():
         got = [d.isoformat() for d, _ in days]
         cases.append(('the first run lists only the days main changed, the log\'s own '
                       'commit left out', got == ['2026-09-05', '2026-09-08'], str(got)))
+        _tz, _t, back = pwn.missing_days(repo, today=today, since=_dt.date(2026, 8, 1))
+        got_back = [d.isoformat() for d, _ in back]
+        cases.append(('--since backfills a first run from the day it names',
+                      got_back == ['2026-08-01', '2026-09-05', '2026-09-08'], str(got_back)))
         added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
         cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
                       str(added)))
