@@ -132,7 +132,7 @@ override case rather than the only one.
   distinction, which still holds for every other requirement.
 - **Deep check in each repository it touches**, per that repository's own
   rules. Here that is the five-gate suite
-  [AGENTS.md](../AGENTS.md) names under "Two check levels", and `0 failed` /
+  [AGENTS_COMMANDS_IN_FULL.md](AGENTS_COMMANDS_IN_FULL.md#two-check-levels) names under "Two check levels", and `0 failed` /
   `0 violated` is what matters — never a passed count.
 - **Base branch is `precedent-beta-v01`**, never `main`.
 

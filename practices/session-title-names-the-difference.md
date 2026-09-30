@@ -8,7 +8,7 @@ applies_to_why: "A moment -- creating or renaming a session -- and the title liv
 occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
 gates_why:   "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
-index_clause: "title by the differentiator, at creation or once known; never the task alone"
+index_clause: "title by the differentiator; never the task alone, never an open sibling's title"
 index_required: true
 checked_by:  null
 defines:     []
@@ -18,21 +18,36 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-17"
-approved_by: "Morgan, 2026-09-17 -- \"This is great, I love it, let's implement this please\"; strength: decided"
+approved_by: "Morgan, 2026-09-17 -- \"This is great, I love it, let's implement this please\"; strength: decided. Check against open sibling titles added 2026-09-29, Morgan -- \"Please Act, and build this solution\" after two of his sessions came out with the same title; strength: decided"
 ---
 ## Rule
 **A session's title is `<repo>: <differentiator>`** — a short tag for the
 repository the session writes to, then the one thing that makes this session
 unlike any other session doing the same kind of work: a PR number, a commit,
-a branch name, a file, a named blocker. Never the task category alone —
-"vendor update," "commit identity," "vendoring exclusion mechanism" are
+a branch name, a file, a named blocker. Never the task category alone.
+
+**Before setting a title, read the titles of the person's other open
+sessions** (on Claude Code, `list_sessions`) **and make sure yours matches
+none of them on the same repo.** A match means the differentiator is not
+sharp enough yet. A title the client already chose gets the same check
+before you keep it.
+
+Set it at creation, and re-set it the moment a sharper differentiator
+becomes known.
+
+## Detail
+"Vendor update," "commit identity," "vendoring exclusion mechanism" are
 categories, not identities, and a fleet listing with several of them side by
 side cannot tell you which one you're looking for.
 
-Set the title this way at creation (`create_session`'s `title`), and
-re-set it with `set_session_title` the moment the differentiator becomes
-known mid-session — a session opened before its PR number existed does not
+**At creation** is `create_session`'s `title`; **mid-session** is
+`set_session_title` — a session opened before its PR number existed does not
 stay generically named once the PR does.
+
+**Why the client's title needs the check too:** a web client titles a
+session from its first message, so two sessions opened with similar first
+messages get the same title, and each looks fine on its own. On a match,
+reach for the branch, the PR, the file, or the specific failure.
 
 **A session touching several repos at once names the outcome repo**, or
 says plainly how many (`5-repo commit-identity sync`) when there isn't one
@@ -54,6 +69,14 @@ one shared label apiece. Demonstrated on ten live sessions in chat first,
 each given a proposed `<repo>: <differentiator>` name; Morgan approved
 implementing it once he saw the renamed list side by side with the
 originals.
+
+On 2026-09-29 two sessions on the same repo, opened under two hours
+apart, both carried "Precedent check engine fixes" until Morgan put "MAIN"
+in one and "ONCE LIVE" in the other by hand. Neither session had looked at
+the other's title, because nothing told it to: the rule said the
+differentiator should be unlike any other session's, and gave no step for
+finding out what the others said. The check-the-open-sessions step was added
+that day.
 
 ## Install
 Nothing mechanical checks this: a title lives on the session service, not in

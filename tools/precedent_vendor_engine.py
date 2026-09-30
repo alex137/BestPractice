@@ -614,6 +614,12 @@ ENGINE_FILES = [
     'generated_blocks.py',
     'full_practice_audit.py',
     'session_load_trend.py',
+    # The "you are reading a different repo than the one you are standing
+    # in" warning (added 2026-09-29). session_load_trend.py, precedent_check.py,
+    # build_views.py, precedent_show.py and precedent_push_check.py import it
+    # lazily, so a tree without it only loses the warning -- but every kind
+    # runs those tools, so every kind gets it.
+    'precedent_which_repo.py',
     'todo_progress.py',
     # The SessionStart self-heal: "did this repo's own hooks actually run,
     # and repair it by hand if not" (added 2026-09-08, in BestPractice only
@@ -5696,9 +5702,13 @@ def refresh(clone, force=False, ref=None):
                 print(f"  {name}: {why}")
             sys.exit("precedent_vendor_engine FAIL: a vendored engine, hook or CI "
                      "workflow file was hand-edited since the last seed/refresh -- "
-                     "refreshing would silently discard that edit. Move the edit "
-                     "upstream into BestPractice instead (this engine has no local "
-                     "variance by design), or pass --force to overwrite anyway -- "
+                     "refreshing would silently discard that edit. Run Update "
+                     "Vendors instead (python3 ../BestPractice/tools/"
+                     "precedent_update.py --repo .), which resolves a committed "
+                     "edit to an engine file in tools/ itself and says what it "
+                     "did; send the edit upstream with python3 ../BestPractice/"
+                     "tools/precedent_local_edits.py send --repo . --why \"...\"; "
+                     "or pass --force to overwrite anyway -- "
                      "after reviewing each file above per vendor-update-runbook's "
                      "conflicted-file review, since --force keeps none of it.\n"
                      "       A CI WORKFLOW THIS REPO MEANS TO KEEP is a third "

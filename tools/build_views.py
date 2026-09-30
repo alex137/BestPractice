@@ -296,6 +296,53 @@ def block_occasion_cap(root):
     return total, f"the sum of its sources' allowances: {' + '.join(parts)}"
 
 
+def effective_budgets(root):
+    """-> {key: tokens or None} for every budget in force in `root`, each read
+    through the SAME function that enforces it -- never from the JSON field
+    alone. None means uncapped.
+
+    code-cites-practice: session-load-budget
+
+    WHY (2026-09-29). A session made precedent-individual's session-file
+    ceiling a computed sum, and the number in force went from 5,200 to 6,200
+    while the `ceiling` field in the registry never moved. A check reading
+    that field would have passed it. Reading the number the engine actually
+    uses means a new formula, a new fallback, a newly declared source or a
+    removed allowance all show up here exactly as an edited number does.
+    precedent_check.py's budget-within-approval compares this against the
+    person's approvals. A new place the engine takes a budget from belongs
+    in this function, or that check cannot see it.
+
+    Keys: resident_block_tokens; occasion_index (this repo's occasion cap,
+    left out when the sources it sums cannot be read here, since a fallback
+    measured in CI is not the cap in force); occasion_share_tokens (this
+    repo's allowance in its consumers, when it is a source); and per surface
+    surfaces/<name> (its ceiling), surfaces/<name>/target and
+    surfaces/<name>/hard_ceiling."""
+    root = pathlib.Path(root)
+    out = {'resident_block_tokens': RESIDENT_BUDGET_TOKENS}
+    cap, why = occasion_cap(root)
+    if 'could not be read' not in why:
+        out['occasion_index'] = cap
+    if (root / 'precedent-source.json').is_file():
+        out['occasion_share_tokens'] = own_occasion_allowance(root)
+    f = _ENGINE_DIR / 'session_load_budgets.json'
+    try:
+        surfaces = json.loads(f.read_text(encoding='utf-8')).get('surfaces') or {}
+    except (OSError, ValueError, AttributeError):
+        surfaces = {}
+    for name, row in sorted(surfaces.items()):
+        if name.startswith('_') or not isinstance(row, dict):
+            continue
+        v = surface_budget(name, None)
+        if isinstance(v, int):
+            out[f'surfaces/{name}'] = v
+        for k in ('target', 'hard_ceiling'):
+            if isinstance(row.get(k), int):
+                out[f'surfaces/{name}/{k}'] = row[k]
+    return out
+
+
 class OccasionIndexBudgetExceeded(Exception):
     """The generated occasion index is over its declared ceiling.
 
@@ -2250,6 +2297,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_practice_refs.py': "Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
+    'precedent_local_edits.py': "A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, merged, or replaced by upstream's with the commit that holds them named -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)",
     'precedent_update.py': "Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)",
     'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",
     'precedent_resolve.py': "Resolves the universal, shared and individual sources into one set, by precedence",
@@ -2264,6 +2312,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_beta_watermark_check.py': "Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert",
     'routing_reasons.py': "Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md",
     'our_language.py': "Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)",
+    'precedent_which_repo.py': "Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory",
     'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",
@@ -2417,6 +2466,15 @@ def main():
         repo = argv[i + 1]
         argv = argv[:i] + argv[i + 2:]
     root = pathlib.Path(repo).resolve() if repo else ROOT
+    # A run from inside a different repo reads THIS repo, silently -- say so
+    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    if repo is None:
+        try:
+            import precedent_which_repo
+            precedent_which_repo.warn_if_elsewhere(ROOT, 'build_views.py',
+                                                   repo_flag=True)
+        except Exception:                                    # noqa: BLE001
+            pass
     practices_dir = root / 'practices'
     agents_md = root / 'AGENTS.md'
     map_md = root / 'MAP.md'

@@ -6002,6 +6002,11 @@ def _vocabulary_reaches_the_consumer(ctx):
             'the consumer, by design (spec/ONE_COMMAND_UPDATE_PLAN.md): a '
             'vendored copy would be the stale one, sitting in the tree it '
             'is updating',
+        'precedent_local_edits.py':
+            'runs from the BestPractice clone against the consumer, as '
+            'precedent_update.py does and for the same reason, and '
+            'precedent_update.py imports it from there '
+            '(spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)',
     }
     NEVER_VENDORED = set(UPSTREAM_ONLY)
 
@@ -9327,6 +9332,209 @@ def duplicated_resident_text(root, text, corpus=None):
     return out
 
 
+# --- budgets in force stay within what the person approved -----------------
+#
+# WHY (2026-09-29). A session changed how precedent-individual's session-file
+# ceiling was COMPUTED, and the number in force went from 5,200 to 6,200 with
+# nobody asked; the `ceiling` field did not move. Morgan: "I REALLY DON'T like
+# that you raised it without asking me." A first attempt compared registry
+# fields with the change's base; it could not see a computed raise, and on a
+# direct push or a Promote the base was HEAD itself, so it compared nothing.
+#
+# So this compares the budgets IN FORCE -- build_views.effective_budgets(),
+# which reads each one through the function that enforces it -- with an
+# approvals list in the registry, and needs no base: it gives the same answer
+# at commit, push, merge, CI and Promote, whoever merged what.
+_BUDGET_REGISTRY = 'tools/session_load_budgets.json'
+_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline')
+
+
+def _budget_approval_problem(entry):
+    """-> why an approved_budgets entry is not a usable approval, or None."""
+    if not isinstance(entry, dict) or not isinstance(entry.get('max'), int):
+        return 'has no integer "max"'
+    who = str(entry.get('approved_by') or '')
+    strength = entry.get('strength')
+    if strength not in _BUDGET_STRENGTHS:
+        return (f'has strength {strength!r}; it must be one of '
+                f'{", ".join(_BUDGET_STRENGTHS)}')
+    if not _APPROVAL_DATE.search(who):
+        return 'has an approved_by with no YYYY-MM-DD date'
+    if strength != 'baseline' and not _APPROVAL_QUOTE.search(who):
+        return ('is marked decided/assented but approved_by quotes nobody\'s '
+                'words')
+    return None
+
+
+@check('budget-within-approval', 'tree',
+       'every session-load budget in force -- the resident cap, the occasion '
+       "cap, this source's occasion_share_tokens, and each surface's ceiling, "
+       'target and hard_ceiling, as build_views.effective_budgets() computes '
+       'them -- is at or under the "max" the person approved for it in '
+       "approved_budgets in tools/session_load_budgets.json, and main's "
+       'approvals list has not been removed',
+       'whether the approval is genuine: it requires a date and, above a '
+       'baseline, quoted words, and cannot tell real words from invented '
+       'ones. It sees only the budgets effective_budgets() knows about, so a '
+       'new place the engine takes a number from must be added there. A '
+       'lowered budget leaves its approval where it was, so lower the "max" '
+       'in the same change or a later re-raise to the old value passes.',
+       practice_backed=False,
+       selects_on=(_BUDGET_REGISTRY, 'precedent-source.json',
+                   'precedent.json', 'tools/build_views.py'))
+def _budget_within_approval(ctx):
+    reg = _session_load_budgets()
+    if reg is None:
+        raise NotApplicable('this repo has no tools/session_load_budgets.json')
+    approved = reg.get('approved_budgets')
+    if not isinstance(approved, dict):
+        main = _git('show', f'origin/main:{_BUDGET_REGISTRY}')
+        try:
+            had = main.returncode == 0 and isinstance(
+                json.loads(main.stdout).get('approved_budgets'), dict)
+        except ValueError:
+            had = False
+        if had:
+            return [Finding(_BUDGET_REGISTRY,
+                            'approved_budgets is gone, but origin/main has one. '
+                            'Removing the list switches this check off, which '
+                            'loosens every budget at once: put it back '
+                            '(practice: session-load-budget)')]
+        raise NotApplicable(
+            'no approved_budgets in tools/session_load_budgets.json, so a '
+            'raise here is not checked. Seed it with the values in force as '
+            '"strength": "baseline", after checking none of them is a raise '
+            'nobody approved (practice: session-load-budget)')
+    try:
+        import build_views as _bv
+        now = _bv.effective_budgets(ROOT)
+    except Exception as e:                               # noqa: BLE001
+        # practice: fail-gracefully -- a check that cannot read its input
+        # says so loudly; it never passes quietly.
+        return [Finding(_BUDGET_REGISTRY,
+                        f'could not compute the budgets in force ({e}), so '
+                        'no raise can be ruled out')]
+    out = []
+    for key, entry in sorted(approved.items()):
+        if key.startswith('_'):
+            continue
+        bad = _budget_approval_problem(entry)
+        if bad:
+            out.append(Finding(_BUDGET_REGISTRY,
+                               f'approved_budgets["{key}"] {bad}'))
+    for key, value in sorted(now.items()):
+        entry = approved.get(key)
+        if not isinstance(entry, dict) or not isinstance(entry.get('max'), int):
+            if not isinstance(entry, dict):
+                out.append(Finding(
+                    _BUDGET_REGISTRY,
+                    f'{key} is {value if value is not None else "uncapped"} '
+                    f'in force and has no entry in approved_budgets. A budget '
+                    f'nobody approved is the finding: show the person the '
+                    f'number and ask, then record their words '
+                    f'(practice: session-load-budget)'))
+            continue
+        if value is None or value > entry['max']:
+            shown = 'uncapped' if value is None else f'{value:,}'
+            out.append(Finding(
+                _BUDGET_REGISTRY,
+                f'{key} is {shown} in force, above the {entry["max"]:,} the '
+                f'person approved ({entry.get("approved_by")}). Only the '
+                f'person raises a budget. Show them the number before and '
+                f'after, in their terms, and ask; only with their own words '
+                f'for THIS raise, set approved_budgets["{key}"] to '
+                f'{{"max": {value if value is not None else "N"}, '
+                f'"approved_by": "<Name>, <YYYY-MM-DD>: \\"<their words>\\"", '
+                f'"strength": "decided"}}. Otherwise undo the change that '
+                f'raised it (practice: session-load-budget)'))
+    return out
+
+
+# --- the session-start file fits its hard ceiling by construction -----------
+#
+# Morgan, 2026-09-29 (strength: decided): "The target should be 4000 or less
+# but at the 4000 level, you get warnings, with every session to bring it
+# down, and it doesn't let you commit, it blocks you, if it is above 4400."
+# On 2026-09-30 he took the proposal to enforce the 4,400 where the growth is
+# made, rather than by refusing every commit in the repo that loads the file
+# ("Act! I liked all of A to F", strength: assented): that file is
+# rebuilt each session from OTHER repositories, and its measured size moves
+# with whichever branch their clones are on. So the hard ceiling is a sum that
+# must fit: each carried source's occasion allowance and resident cap -- which
+# that source's own build already refuses to exceed -- plus this file's own
+# fixed_allowance for its prose. If the sum fits, the file cannot exceed it.
+_SESSION_FILE = '.precedent/SESSION_PRACTICES.md'
+
+
+def _source_resident_cap(path):
+    f = pathlib.Path(path) / 'tools' / 'session_load_budgets.json'
+    try:
+        v = json.loads(f.read_text(encoding='utf-8')).get('resident_block_tokens')
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if isinstance(v, int) else None
+
+
+@check('session-file-allowances-fit', 'tree',
+       'where tools/session_load_budgets.json gives the session-start file a '
+       'hard_ceiling, the sources it carries fit under it by their declared '
+       'numbers: each one\'s occasion_share_tokens plus its resident cap, plus '
+       'the entry\'s fixed_allowance, is at or under the hard_ceiling',
+       'the measured size. It proves the parts fit by their allowances, and '
+       "each source's own build is what holds the source to them. It needs "
+       'the sources on disk; where they are not, it says so and does not pass.',
+       practice_backed=False,
+       selects_on=(_BUDGET_REGISTRY, 'precedent.json'))
+def _session_file_allowances_fit(ctx):
+    reg = _session_load_budgets() or {}
+    row = (reg.get('surfaces') or {}).get(_SESSION_FILE) or {}
+    hard = row.get('hard_ceiling')
+    if not isinstance(hard, int):
+        raise NotApplicable(f'{_SESSION_FILE} declares no hard_ceiling')
+    fixed = row.get('fixed_allowance')
+    if not isinstance(fixed, int):
+        return [Finding(_BUDGET_REGISTRY,
+                        f'{_SESSION_FILE} declares hard_ceiling {hard:,} but no '
+                        'fixed_allowance for its own prose, so the sum cannot '
+                        'be checked')]
+    try:
+        import build_views as _bv
+        import precedent_resolve as _pr
+        _carried, deferred, _notes = _bv.sources_for_tracked_block(
+            ROOT, _pr.load_config(str(ROOT)))
+    except (Exception, SystemExit) as e:                 # noqa: BLE001
+        return [Finding(_BUDGET_REGISTRY,
+                        f'could not read the declared sources ({e}), so the '
+                        f'{hard:,}-token hard ceiling cannot be shown to hold')]
+    total, parts, missing = fixed, [f'fixed_allowance {fixed:,}'], []
+    for src in deferred:
+        name = src.get('name') or src.get('path')
+        try:
+            m = _pr.read_source_manifest(src['path']) or {}
+        except Exception:                                # noqa: BLE001
+            m = {}
+        share = m.get('occasion_share_tokens')
+        res = _source_resident_cap(src['path'])
+        if not isinstance(share, int) or res is None:
+            missing.append(f'{name} ({"no occasion_share_tokens" if not isinstance(share, int) else "no resident_block_tokens"})')
+            continue
+        total += share + res
+        parts.append(f'{name} {share:,}+{res:,}')
+    if missing:
+        return [Finding(_BUDGET_REGISTRY,
+                        f'{_SESSION_FILE}: cannot show the {hard:,}-token hard '
+                        f'ceiling holds, because these carried sources declare '
+                        f'no number for it: {"; ".join(missing)}')]
+    if total > hard:
+        return [Finding(_BUDGET_REGISTRY,
+                        f'{_SESSION_FILE}: its sources\' allowances add up to '
+                        f'{total:,} ({" + ".join(parts)}), over its '
+                        f'{hard:,}-token hard ceiling. Lower an allowance or a '
+                        f'resident cap in the source it belongs to, with the '
+                        f'person choosing which (practice: session-load-budget)')]
+    return []
+
+
 def _session_load_budgets():
     """-> the one registry of always-loaded ceilings, or None if absent.
 
@@ -9904,6 +10112,13 @@ def run(slugs, ctx, scopes, exempt=None):
 def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
+    # A run from inside a different repo reads THIS repo, silently -- say so
+    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    try:
+        import precedent_which_repo
+        precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_check.py')
+    except Exception:                                        # noqa: BLE001
+        pass
     # Before --list/--explain/--only read CHECKS, so a source-supplied
     # check script is a first-class member of all three.
     register_materialized_checks()
