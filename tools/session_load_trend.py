@@ -109,6 +109,20 @@ RESIDENT_HEADING = re.compile(
     r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
 
 
+def as_measured(rel, text):
+    """`text` as a cap measures it: the session-start file without the
+    over-target warning its generator writes, since that warning exists
+    only because the file is over and must not count toward the ceiling
+    (precedent_session_practices.without_target_warning)."""
+    if rel != '.precedent/SESSION_PRACTICES.md':
+        return text
+    try:
+        import precedent_session_practices
+        return precedent_session_practices.without_target_warning(text)
+    except Exception:                                         # noqa: BLE001
+        return text
+
+
 def approx_tokens(text):
     """build_views.py's own estimator, so every figure here is comparable to
     the ones in the registry and in the check. Falls back to the same formula
@@ -236,7 +250,7 @@ def _ledger(ref, reg, as_json):
     rows = []
     for rel in SURFACES:
         f = ROOT / rel
-        after = approx_tokens(f.read_text(encoding='utf-8', errors='replace')) \
+        after = approx_tokens(as_measured(rel, f.read_text(encoding='utf-8', errors='replace'))) \
             if f.is_file() else 0
         blob, brc = _git('show', f'{sha}:{rel}')
         before = approx_tokens(blob) if brc == 0 else None
@@ -312,7 +326,7 @@ def over_target(root=None):
         f = base / rel
         if not isinstance(target, int) or not f.is_file():
             continue
-        n = approx_tokens(f.read_text(encoding='utf-8', errors='replace'))
+        n = approx_tokens(as_measured(rel, f.read_text(encoding='utf-8', errors='replace')))
         if n > target:
             out.append((rel, n, target, entry.get('hard_ceiling', entry.get('ceiling'))))
     return out
@@ -350,7 +364,7 @@ def headroom_notice(root=None, floor_pct=None):
         ceiling = entry.get('ceiling')
         if not isinstance(ceiling, int) or ceiling <= 0:
             continue
-        n = approx_tokens(f.read_text(encoding='utf-8', errors='replace'))
+        n = approx_tokens(as_measured(rel, f.read_text(encoding='utf-8', errors='replace')))
         pct = 100.0 * (ceiling - n) / ceiling
         if pct <= floor_pct:
             tight.append((rel, n, ceiling, ceiling - n, pct))
@@ -436,7 +450,7 @@ def main():
         f = ROOT / rel
         if not f.is_file():
             continue
-        text = f.read_text(encoding='utf-8', errors='replace')
+        text = as_measured(rel, f.read_text(encoding='utf-8', errors='replace'))
         now = approx_tokens(text)
         hand, gen = split_generated(text)
         entry = surfaces.get(rel) or {}

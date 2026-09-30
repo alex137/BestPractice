@@ -4,13 +4,14 @@ title:       "\"Primary branch\" names trunk -- the one shared branch regular wo
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same reasoning as go-update and push-directly's own entries. Reached through the occasion index; it declares no gate because it defines a word rather than governing a workflow moment. Decided: 2026-09-22, when the practice landed."
-occasion:    "a person says \"Primary branch\", or asks which branch is trunk"
-gates:       []
+applies_to_why: "A word, not an action -- no file path reaches it. Since 2026-09-30 it is out of the occasion index (Morgan: a definition with nothing to do; its meaning is in Our language) and reached through the merge gate, the moment the branch a pull request targets is decided. Decided: 2026-09-30."
+occasion:    null
+gates:       ["merge"]
+gates_why:   "A merge is where the branch work targets is decided."
 index_clause: "trunk: the branch regular work pushes to and PRs target"
 checked_by:  null
 defines:     ["Primary branch"]
-command:     {"Primary branch": "Trunk -- the one shared branch regular work pushes to and pull requests target, as this repository declares it (usually main)."}
+command:     null
 status:      active
 in_force_at: null
 supersedes:  []
@@ -26,8 +27,8 @@ strength:    decided
 **"Primary branch" is this repo's own word for trunk** -- the one shared
 branch regular work pushes to and pull requests target, whatever any one
 repository happens to call it. Saying it does not itself trigger an action:
-[go-update](go-update.md) and [push-directly](push-directly.md) already
-resolve a bare instruction to this branch by default. This practice exists
+[go-update](go-update.md) already resolves a bare instruction to this
+branch by default. This practice exists
 so the word has a definition a session -- and a person -- can look up,
 rather than one only ever spelled out inline inside those two.
 
@@ -69,7 +70,7 @@ fresh in every conversation.
 
 ## Story
 Coined 2026-09-22: asked what word developers use for the branch
-[push-directly](push-directly.md) already calls "the primary branch," told
+push-directly (retired 2026-09-30) already called "the primary branch," told
 it was "trunk" in general developer usage, Morgan asked for the two to be
 tied together in the project's own vocabulary rather than left as a private
 mapping I'd have to re-derive each time.

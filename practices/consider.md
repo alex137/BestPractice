@@ -9,7 +9,7 @@ occasion:    "a person says \"Consider\" or \"Promote 1\", or asks to plan befor
 gates:       []
 index_clause: "stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up"
 checked_by:  null
-defines:     ["Consider", "One-line plan"]
+defines:     ["Consider", "One-line plan", "Plan it"]
 command:     {"Consider": "Stage 1 (Promote 1): decide how much planning the work needs and do that much -- a one-line plan for a small change, a Brainstorm, a Plan it, or a full Write it up -- and say which.", "Plan": "The same as **Consider**."}
 status:      active
 in_force_at: null
@@ -28,7 +28,7 @@ first:
 |---|---|---|
 | **One-line plan** | One sentence in the reply: what will change and where. Then straight to [Act](act.md). | Tiny changes -- a typo, a link, a one-line fix. Most work. |
 | **Brainstorm** | Think it through in the session and write nothing ([brainstorm-holds-commits](brainstorm-holds-commits.md)). | The idea itself is still open. |
-| **Plan it** | A written plan in the session, handed back as one paste-ready prompt ([plan-it](plan-it.md)). | Real work, clear enough to build in this session. |
+| **Plan it** | A written plan in the session, handed back as one paste-ready prompt (Detail, below). | Real work, clear enough to build in this session. |
 | **Write it up** / **Spec it out** | A full report committed to the repository ([write-it-up](write-it-up.md)). | A detailed plan is needed: big or cross-session work, or anything someone else will pick up. |
 
 **The session picks the size itself, without asking** -- from the context,
@@ -40,6 +40,28 @@ corrected in one word.
 **The one-line plan is the usual answer.** A bigger plan than the work
 needs is the failure this stage exists to avoid as much as no plan at all:
 a document nobody needed is cost, not care.
+
+## Detail
+**Plan it, in full** (folded in from plan-it, 2026-09-30: it is this stage's middle size, and Morgan asked that it be recognized as one of Consider's sizes rather than kept as its own trigger).
+
+**"Plan it" is the middle-sized plan** of Consider: more than
+a [Brainstorm](brainstorm-holds-commits.md), far less than a
+[Write it up](write-it-up.md). It is written in the session, never saved to
+the repository -- work that spans sessions is Write it up's job -- and it
+always contains:
+
+1. **The steps**, numbered, in the order they will be done.
+2. **The risks**: what could go wrong, and what each step could break.
+3. **What "done" looks like**, concretely enough to check.
+4. **What is out of scope**, so nobody builds it by accident.
+
+**It is handed back as one paste-ready prompt**, so getting a second
+session's opinion is one copy and one paste. The block follows
+[fence-block-for-paste](fence-block-for-paste.md): it says where to paste
+it -- a new session, the repository to root it in, what to attach -- opens
+by naming the session that wrote it
+([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)), and
+asks the receiving session to critique the plan, not to carry it out.
 
 ## Why
 Planning was optional and invisible: a session either started building or

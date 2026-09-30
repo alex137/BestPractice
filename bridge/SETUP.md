@@ -65,19 +65,29 @@ About 2 minutes, in Telegram on your phone:
 run in.** It holds the bot token and needs network access your other
 sessions shouldn't have.
 
-At claude.ai/code, open the cloud environment menu in a session's title
-bar, create a new environment (name it `chat bridge`), and set:
+At claude.ai/code, click the cloud icon showing the current environment's
+name (in the row just above the message box). That opens the environment
+list. Choose **Add cloud environment**, name it `chat bridge`, and set:
 
-**Network access.** Keep the default access level and add these to the
-allowed domains:
+**Network access.** In the same window, open the **Network access**
+dropdown. It starts on **Trusted**, which has nowhere to add a site of
+your own, so:
 
-- `api.telegram.org`: the bot talks to Telegram here;
-- `huggingface.co`: the Whisper model downloads from here the first time
-  on each machine.
+1. **Choose Custom.** An **Allowed domains** box appears.
+2. **Type these two into the box, one per line:**
+   - `api.telegram.org`: the bot talks to Telegram here;
+   - `huggingface.co`: the Whisper model downloads from here the first
+     time on each machine.
+3. **Tick "Also include default list of common package managers".** The
+   start-up script installs the voice-transcription package from the
+   Python package index, one of the sites on that default list. Leave the
+   box unticked and the install fails.
 
 If a start-up check later says another host was refused (the model's
 download host may be a second one), add that too. The check names it
-exactly.
+exactly. To get back to these settings later, open the same environment
+list, hover over `chat bridge`, and click the gear icon on its right;
+change the box and save.
 
 **Environment variables.** Paste this into the environment variables box,
 then replace the parts in capitals. The box takes one `NAME=value` per line.

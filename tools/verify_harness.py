@@ -778,6 +778,11 @@ def check_reachability(files):
     for stem, (fm, sections, f) in files.items():
         if fm.get('tier') != 'on-demand':
             continue
+        # A practice not in force (deduplicated into another, or retired)
+        # binds nothing, so there is nothing for a session to reach: its
+        # text lives in the practice it names, or nowhere by decision.
+        if (fm.get('status') or 'active').strip().strip('"') != 'active':
+            continue
         checked_by = fm.get('checked_by', 'null')
         applies_to = fm.get('applies_to', '[]')
         occasion = fm.get('occasion', '""')
@@ -6275,6 +6280,32 @@ CI_SHARDS = (
 )
 
 
+# The line prefixes that start a verdict (check() and not_applicable()); a
+# FAIL's text runs until the next one.
+_VERDICT_STARTS = ('PASS:', 'FAIL:', 'N/A:')
+
+
+def _fail_blocks(stdout, cap=40):
+    """-> [[line, ...]] each FAIL: verdict with the lines of its failure text
+    that follow it, up to the next verdict, at most `cap` lines each.
+    A failure text that runs over several lines kept only its first until
+    2026-09-30: "an update that deletes a vendored file upstream dropped
+    ends DONE" failed once in a full run, with its cause cut off, then
+    passed four times in a row and the cause was never found."""
+    blocks, cur = [], None
+    for line in stdout.splitlines():
+        if line.startswith(_VERDICT_STARTS):
+            cur = [line] if line.startswith('FAIL:') else None
+            if cur is not None:
+                blocks.append(cur)
+        elif cur is not None:
+            if len(cur) < cap:
+                cur.append(line)
+            elif len(cur) == cap:
+                cur.append('... (cut at 40 lines)')
+    return blocks
+
+
 def _shard_failure_detail(proc, tail_lines=20):
     """-> [str] what a failed shard says about WHY: every `FAIL:` verdict it
     printed, then the last `tail_lines` lines of its stderr. Until
@@ -6283,10 +6314,11 @@ def _shard_failure_detail(proc, tail_lines=20):
     the shard before its first verdict -- meant rerunning four minutes of
     suite to find out."""
     out = []
-    fails = [l for l in (proc.stdout or '').splitlines() if l.startswith('FAIL:')]
+    fails = _fail_blocks(proc.stdout or '')
     if fails:
         out.append(f'  {len(fails)} failing case(s):')
-        out += [f'    {l}' for l in fails]
+        for block in fails:
+            out += [f'    {l}' for l in block]
     err = [l for l in (proc.stderr or '').splitlines() if l.strip()]
     if err:
         out.append(f'  last {min(tail_lines, len(err))} line(s) of its stderr:')
@@ -8219,6 +8251,54 @@ def check_changed_files_only_judges_the_change():
         rc, out = files_check(start)
         cases.append(('a changed practice whose views were not regenerated is refused, '
                       'and passes once they are', stale_ok and rc == 0, out[-400:]))
+        # todo-2026-09-29-pre-staging-tier-skips-doc-sync: a new practice
+        # moves the counts doc_sync keeps, so it is refused at this push,
+        # not first at the Debut.
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        src = practice.read_text(encoding='utf-8')
+        (wt / 'practices' / 'zz-fixture-new-rule.md').write_text(
+            re.sub(r'^slug:(\s+)\S+', r'slug:\1zz-fixture-new-rule', src,
+                   count=1, flags=re.M), encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/build_views.py'], cwd=wt,
+                       capture_output=True, text=True, env=env)
+        git('add', '-A')
+        git('commit', '-qm', 'a new practice, views rebuilt, counts not')
+        rc, out = files_check(start)
+        refused = rc == 1 and 'doc_sync.py --write' in out
+        subprocess.run([sys.executable, 'tools/doc_sync.py', '--write'], cwd=wt,
+                       capture_output=True, text=True, env=env)
+        git('commit', '-qam', 'regenerate the counts')
+        rc, out = files_check(start)
+        cases.append(('a new practice whose generated counts were not '
+                      'regenerated is refused at this push, and passes once '
+                      'they are', refused and rc == 0, out[-400:]))
+        # A size cap warns on the way into pre-staging and refuses at the
+        # Debut (Morgan, 2026-09-30, strength: decided). The resident cap is
+        # lowered under what the block holds.
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        reg = wt / 'tools' / 'session_load_budgets.json'
+        data = json.loads(reg.read_text(encoding='utf-8'))
+        data['resident_block_tokens'] = 100
+        reg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        bv = subprocess.run([sys.executable, 'tools/build_views.py'], cwd=wt,
+                            capture_output=True, text=True, env=env)
+        cases.append(('over its cap, build_views still writes the block, and '
+                      'warns that staging will refuse it',
+                      bv.returncode == 0 and 'build_views WARNING' in bv.stderr
+                      and 'before it can go to staging' in bv.stderr,
+                      (bv.stdout + bv.stderr)[-400:]))
+        git('commit', '-qam', 'a block over its resident cap')
+        rc, out = run_check(start)
+        cases.append(('the pre-staging check lets it through with a warning '
+                      'naming the staging refusal',
+                      rc == 0 and 'over a size cap. Allowed onto pre-staging' in out,
+                      out[-600:]))
+        full = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                               '--only', 'loader-within-caps'], cwd=wt,
+                              capture_output=True, text=True, env=env)
+        cases.append(('...and the full check refuses it',
+                      full.returncode == 1 and 'VIOLATION' in full.stdout,
+                      (full.stdout + full.stderr)[-400:]))
         start = git('rev-parse', 'HEAD').stdout.strip()
         (wt / 'zz_fixture.json').write_text('{"a": 1,}\n', encoding='utf-8')
         git('add', 'zz_fixture.json')
@@ -12761,6 +12841,13 @@ def check_precedent_check_fires():
             subprocess.run(['git', '-C', str(repo), 'add', 'zzz-newplace'],
                            capture_output=True)
         case('vendoring-decided', _plant_undecided_file)
+
+        def _plant_small_resident_cap(repo):
+            reg = repo / 'tools' / 'session_load_budgets.json'
+            data = json.loads(reg.read_text(encoding='utf-8'))
+            data['resident_block_tokens'] = 100
+            reg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        case('loader-within-caps', _plant_small_resident_cap)
         _gf = planted['generated-files-registered'][1]
         cases.append(('generated-files-registered: the planted violation names '
                       'the stale index and the unlisted generated file, and '
@@ -15153,6 +15240,107 @@ def check_every_file_is_decided_by_a_vendoring_rule():
     check('every file is decided by a vendoring rule: ships or stays, and a '
           'new place is undecided until someone writes the rule',
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_show_loads_a_practice_from_a_declared_source():
+    """precedent_show.py finds a practice that lives in a shared or an
+    individual source the repo declares, labels its level as the gates do,
+    and still fails loudly on a slug no source has (2026-09-30: the merge
+    gate listed shared and individual practices by name, and this tool
+    answered "unknown slug" for each). Fixture sources only, built here;
+    never the real private sets."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-sources-'))
+    cases = []
+    try:
+        def practice(d, slug, rule):
+            (d / 'practices').mkdir(parents=True, exist_ok=True)
+            (d / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug:        {slug}\ntitle:       {slug}\n'
+                f'tier:        on-demand\nstatus:      active\n---\n'
+                f'## Rule\n{rule}\n', encoding='utf-8')
+        repo, shared, ind = tmp / 'repo', tmp / 'zzz-shared', tmp / 'zzz-individual'
+        practice(repo, 'zzz-own-rule', 'The repo\'s own rule.')
+        practice(shared, 'zzz-shared-rule', 'The shared set says this.')
+        practice(ind, 'zzz-individual-rule', 'The individual set says this.')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'},
+                {'level': 'shared', 'name': 'zzz-shared',
+                 'path': '../zzz-shared'}]}), encoding='utf-8')
+        cfg = tmp / 'user.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'zzz-individual', 'path': str(ind)}}), encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_USER_CONFIG=str(cfg))
+
+        def show(*slugs):
+            r = subprocess.run([sys.executable,
+                                str(ROOT / 'tools' / 'precedent_show.py'),
+                                '--repo', str(repo), *slugs],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = show('zzz-shared-rule', 'zzz-individual-rule')
+        cases.append(('a shared and an individual practice both load, each '
+                      'labelled with its level',
+                      rc == 0 and '### zzz-shared-rule (shared)' in out
+                      and 'The shared set says this.' in out
+                      and '### zzz-individual-rule (individual)' in out
+                      and 'The individual set says this.' in out, out[-500:]))
+        rc, out = show('zzz-own-rule')
+        cases.append(("the repo's own practice still loads unlabelled",
+                      rc == 0 and '### zzz-own-rule\n' in out, out[-300:]))
+        rc, out = show('zzz-no-such-rule')
+        cases.append(('a slug no source has still fails, by name',
+                      rc != 0 and 'zzz-no-such-rule' in out, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('precedent_show.py loads a practice from a declared shared or '
+          'individual source', not bad,
+          '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_session_file_warning_does_not_count_against_its_ceiling():
+    """The over-target warning precedent_session_practices.py writes into
+    .precedent/SESSION_PRACTICES.md is left out when the file is measured
+    against its ceiling, by precedent_check.py and session_load_trend.py
+    alike, and nothing else is. precedent-individual, 2026-09-30: 5,155
+    tokens without the warning, 5,211 with it, against a 5,200 ceiling, so
+    every Promote refused on a file only the warning pushed over."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    import precedent_session_practices as psp
+    import precedent_check as pc
+    import session_load_trend as slt
+    rel = '.precedent/SESSION_PRACTICES.md'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-session-warning-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        body = '# Practices in force here\n\n' + 'A rule a session reads. ' * 60 + '\n'
+        n = bv._approx_tokens(body)
+        (tmp / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+            {'surfaces': {rel: {'target': n // 2, 'ceiling': n + 5}}}),
+            encoding='utf-8')
+        written = psp._with_target_warning(tmp, body)
+        cases.append(('over target, the file carries the warning',
+                      psp.TARGET_WARNING_MARK in written, written[:200]))
+        cases.append(('and the warning alone takes it over its ceiling',
+                      bv._approx_tokens(written) > n + 5,
+                      bv._approx_tokens(written)))
+        for name, measure in (('precedent_check', pc._as_measured),
+                              ('session_load_trend', slt.as_measured)):
+            got = measure(rel, written)
+            cases.append((f'{name} measures it without the warning, exactly '
+                          f'the content', got == body, got[:200]))
+            cases.append((f'{name} leaves every other surface as it is',
+                          measure('AGENTS.md', written) == written, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n_, det) for n_, ok, det in cases if not ok]
+    check('the session file\'s over-target warning never counts against its '
+          'ceiling', not bad, '; '.join(f'{n_}: {det!r}' for n_, det in bad))
 
 
 def check_routing_audit_coverage():
@@ -18346,6 +18534,31 @@ def check_close_detection_fires_only_when_all_conditions_hold():
         cases.append(('...while the same words typed by the person still fire',
                       r7c.returncode == 2, f'exit {r7c.returncode}'))
 
+        # A prompt another session seeded, and a pasted block, are that
+        # session's words (2026-09-29: three signals from a pasted handoff,
+        # reported as "the person said").
+        rule = 'Never open a pull request, never merge.'
+        seeded = [('user', 'Review this. Sent automatically by the session '
+                   '"x" (session_1) -- https://claude.ai/code/session_1. '
+                   'Nobody typed this.\n\n' + rule),
+                  ('tool', MERGED), ('assistant', CLOSE)]
+        r7d = run(transcript('seeded.jsonl', seeded))
+        cases.append(("a prompt another session seeded is not mistaken for "
+                      'something the person said', r7d.returncode == 0,
+                      r7d.stderr[:200]))
+        pasted = [('user', 'Thoughts on this?\n<pasted_content id="p1">\n'
+                   + rule + '\n</pasted_content id="p1">'),
+                  ('tool', MERGED), ('assistant', CLOSE)]
+        r7e = run(transcript('pasted.jsonl', pasted))
+        cases.append(('nor is text pasted in a <pasted_content> block',
+                      r7e.returncode == 0, r7e.stderr[:200]))
+        typed_around = [('user', rule + '\n<pasted_content id="p2">\nsome '
+                         'notes\n</pasted_content id="p2">'),
+                        ('tool', MERGED), ('assistant', CLOSE)]
+        r7f = run(transcript('typed-around.jsonl', typed_around))
+        cases.append(("...while the person's own words beside a paste still "
+                      'fire', r7f.returncode == 2, f'exit {r7f.returncode}'))
+
         # A gate that blocks the same reply twice is a loop.
         r8 = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
@@ -21477,6 +21690,28 @@ def check_commit_identity_ci_cadence():
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_hooks_share_one_quote_blanking_block():
+    """Every hook that asks "does this command run X" carries the same
+    quote-blanking block, byte for byte (2026-09-30). They ship one by one,
+    so they cannot import it; a fix to one copy only would bring back the
+    quoted-pipe misread in the others."""
+    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    names = ['push-check-gate.sh', 'commit-identity-push-gate.sh',
+             'doc-lint-gate.sh', 'merge-check-gate.sh']
+    blocks = {}
+    for n in names:
+        text = (hooks / n).read_text(encoding='utf-8')
+        a = text.find('# THE COMMAND WITH ITS QUOTED TEXT BLANKED')
+        b = text.find('[[ -n "$bare" ]] || bare="$cmd"', a)
+        blocks[n] = text[a:b] if a >= 0 and b > a else None
+    missing = [n for n, v in blocks.items() if v is None]
+    distinct = {v for v in blocks.values() if v is not None}
+    check('every command-reading hook carries the one quote-blanking block',
+          not missing and len(distinct) == 1,
+          f'missing in {missing}' if missing else
+          f'{len(distinct)} different copies')
+
+
 def check_push_check_gate():
     """Everything CI used to run on a push now runs before it, locally
     (Morgan, 2026-09-25: "the same list of everything we used to run (just
@@ -21621,6 +21856,24 @@ def check_push_check_gate():
         denied, _ = gate('echo "then run git push" > notes.txt')
         cases.append(('`git push` quoted inside another command is not a push',
                       not denied))
+        # todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command,
+        # verbatim: the `|` inside the grep pattern is not a pipe.
+        denied, _ = gate('cd /home/user/BestPractice && sed -n 1,80p '
+                         'tools/checkin.py; echo ----; grep -n "^def \\|'
+                         'REFUSES\\|upstream.commit\\|scrub\\|leak_gate\\|'
+                         'git push\\|def main" tools/checkin.py | head -90')
+        cases.append(('a quoted grep pattern holding `\\|git push` is not a '
+                      'push', not denied))
+        denied, _ = gate("git commit -m 'a | git push; in a message' -q")
+        cases.append(('nor is one inside a single-quoted message', not denied))
+        denied, _ = gate('cat <<EOF > notes.txt\ngit push origin main\nEOF')
+        cases.append(('nor one on a heredoc line', not denied))
+        denied, _ = gate('git status; git push origin main')
+        cases.append(('a real push after `;` is still a push', denied))
+        denied, _ = gate('echo ok | git push origin main')
+        cases.append(('and after `|`', denied))
+        denied, _ = gate('echo "a | b" && git push origin main')
+        cases.append(('and after `&&`, behind a quoted pipe', denied))
         denied, _ = gate(f'git -C {work} push origin main', cwd=elsewhere,
                          project=elsewhere)
         cases.append(('`git -C <repo> push` from another project checks the '
@@ -24853,6 +25106,92 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_check_adopts_a_detached_start():
+    """A cloud session starts detached and moves onto its branch: not a jump.
+
+    Found 2026-09-30 on a dependent repo's cloud session: the stamp recorded
+    `HEAD` (git's name for a detached checkout), the harness then moved the
+    session onto its assigned branch, and the row failed on every prompt for
+    the life of the session. A warning that fires every time is one nobody
+    reads, which is how the real jump it exists for would slip past.
+
+    The rule under test: a detached start adopts the branch it moves onto
+    when that branch carries the start commit, and still fails when it does
+    not; a move between named branches still fails. Driven against a
+    throwaway repository, never this checkout (practice:
+    fixture-owns-its-state)."""
+    import subprocess
+    import tempfile
+    import precedent_session_check as psc
+
+    cases = []
+    with tempfile.TemporaryDirectory() as t:
+        repo = pathlib.Path(t)
+
+        def git(*args):
+            p = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True)
+            return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+        def commit(msg):
+            (repo / 'f').write_text(msg)
+            git('add', 'f')
+            git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', msg)
+
+        git('init', '-q', '-b', 'main')
+        commit('one')
+        stamp = repo / '.git' / 'precedent-session-branch'
+
+        def row():
+            r = psc._session_branch_row(stamp, git)
+            return (r[1], r[2]) if r else ('MISSING', '')
+
+        # Detached start: the first run records HEAD and the commit.
+        _, c1, _ = git('rev-parse', 'HEAD')
+        git('checkout', '-q', '--detach')
+        ok, detail = row()
+        cases.append(('the first run records a baseline', ok is None, detail))
+        cases.append(('the stamp carries the start commit',
+                      c1 in stamp.read_text(), stamp.read_text()))
+
+        # The harness moves the session onto its branch: passes, and adopts.
+        git('checkout', '-q', '-b', 'claude/work')
+        ok, detail = row()
+        cases.append(('a detached start moving onto a branch that carries it passes',
+                      ok is True, detail))
+        cases.append(('the branch becomes the new baseline',
+                      stamp.read_text().split()[0] == 'claude/work',
+                      stamp.read_text()))
+        ok, detail = row()
+        cases.append(('and stays green on the next run', ok is True, detail))
+
+        # A later jump between named branches is still the finding it was.
+        git('checkout', '-q', 'main')
+        ok, detail = row()
+        cases.append(('a move between named branches still fails',
+                      ok is False and 'claude/work' in detail, detail))
+
+        # A detached start whose commit the new branch lacks still fails.
+        git('checkout', '-q', '--detach', 'claude/work')
+        commit('made while detached')
+        _, c2, _ = git('rev-parse', 'HEAD')
+        stamp.write_text(f'HEAD\n{c2}\n')
+        git('checkout', '-q', 'main')
+        ok, detail = row()
+        cases.append(('a branch that strands the detached commit still fails',
+                      ok is False and c2[:12] in detail, detail))
+
+        # An older one-line stamp recording HEAD is adopted, not failed.
+        stamp.write_text('HEAD\n')
+        ok, detail = row()
+        cases.append(('an older one-line detached stamp is adopted',
+                      ok is True, detail))
+
+    bad = [(n, d) for n, good, d in cases if not good]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -37907,20 +38246,35 @@ def check_universal_occasion_share_is_capped():
     cases.append((f'the real share (~{share}) fits the declared allowance ({allowed})',
                   allowed is not None and 0 < share <= allowed,
                   f'share {share}, allowance {allowed}'))
-    real, argv = bv.own_occasion_allowance, sys.argv
+    # Over its allowance, --check warns and --budgets refuses: a size cap
+    # warns on the way into pre-staging and refuses at the full check
+    # (Morgan, 2026-09-30, strength: decided).
+    real, argv, strict = bv.own_occasion_allowance, sys.argv, bv.STRICT_BUDGETS
     bv.own_occasion_allowance = lambda root: 10
-    sys.argv = ['build_views.py', '--check']
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), \
-                contextlib.redirect_stderr(io.StringIO()):
-            bv.main()
-        refused, why = False, 'build_views --check returned'
-    except SystemExit as e:
-        refused = "source's share" in str(e.code)
-        why = str(e.code)[:300]
-    finally:
-        bv.own_occasion_allowance, sys.argv = real, argv
-    cases.append(('a share over its allowance refuses the build', refused, why))
+    for flag in ('--check', '--budgets'):
+        sys.argv = ['build_views.py', flag]
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                bv.main()
+            refused, why = False, f'build_views {flag} returned'
+        except SystemExit as e:
+            refused = "source's share" in str(e.code)
+            why = str(e.code)[:300]
+        finally:
+            bv.own_occasion_allowance, sys.argv = real, argv
+            bv.STRICT_BUDGETS = strict
+            bv.own_occasion_allowance = lambda root: 10
+        if flag == '--check':
+            cases.append(('a share over its allowance warns at --check, and '
+                          'does not refuse', not refused
+                          and "source's share" in err.getvalue(),
+                          why + ' | ' + err.getvalue()[-300:]))
+        else:
+            cases.append(('...and --budgets, the full check\'s, refuses it',
+                          refused, why))
+    bv.own_occasion_allowance = real
     d = pathlib.Path(tempfile.mkdtemp())
     try:
         for name, level, share_ in (('uni', 'universal', 2000),
@@ -43061,6 +43415,20 @@ def check_as_ci_says_why_a_shard_failed():
     lines = out.splitlines()
     cases.append(('only the last 20 lines of stderr',
                   '    noise 10' not in lines and '    noise 11' in lines))
+    multi = subprocess.CompletedProcess(
+        args=[], returncode=1, stderr='',
+        stdout=('PASS: a\nFAIL: the long one -- first line\n'
+                'the cause, on line two\nand line three\nPASS: b\n'
+                'FAIL: the huge one\n' + '\n'.join(f'row {i}' for i in range(100))
+                + '\nN/A:  c -- skipped\n'))
+    out = '\n'.join(_shard_failure_detail(multi))
+    cases.append(("a multi-line failure keeps every line of its text, and "
+                  "nothing of the next verdict's",
+                  'the cause, on line two' in out and 'and line three' in out
+                  and 'PASS: b' not in out))
+    cases.append(('a very long one is cut at 40 lines, and says so',
+                  'row 38' in out and 'row 39' not in out
+                  and 'cut at 40 lines' in out and 'N/A:' not in out))
     empty = subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr='')
     cases.append(('a shard that said nothing is said to have said nothing',
                   'no FAIL: line' in '\n'.join(_shard_failure_detail(empty))))
@@ -48051,6 +48419,8 @@ def main():
           *check_a_consumer_may_declare_a_ci_workflow_its_own())
     check('the reply check names every predicate it cannot evaluate',
           *check_reply_check_names_what_it_cannot_evaluate())
+    check('the session check adopts a detached start the branch carries',
+          *check_session_check_adopts_a_detached_start())
     check('the session check reports a source cloned twice on one disk',
           *check_session_check_reports_a_source_cloned_twice())
     check('the session check never calls an unfetched source clone current',
@@ -48105,6 +48475,8 @@ def main():
     check_very_deep_check_finds_a_second_list_of_practices()
     check_very_deep_check_finds_vendored_surplus()
     check_every_file_is_decided_by_a_vendoring_rule()
+    check_show_loads_a_practice_from_a_declared_source()
+    check_session_file_warning_does_not_count_against_its_ceiling()
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
@@ -48149,6 +48521,7 @@ def main():
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
     check_push_check_gate()
+    check_hooks_share_one_quote_blanking_block()
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
