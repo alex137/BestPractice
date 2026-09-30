@@ -99,6 +99,59 @@ def _identity_is_declared():
     return (pathlib.Path(path).expanduser() / 'identity.json').exists()
 
 
+def _session_branch_row(stamp, git):
+    """The "still on the branch it started on" row, or None when HEAD cannot
+    be read. The stamp is two lines, the branch and the commit the session
+    started on (an older one-line stamp carries the branch alone).
+
+    A session that STARTED DETACHED (`HEAD`) and is now on a named branch has
+    made the move every cloud session makes: it adopts the branch as its
+    start and passes, provided the commit it started on is in that branch's
+    history -- work made detached is then carried, not stranded. A detached
+    start whose commit is NOT in the branch it moved to is still a finding,
+    and so is any move between two named branches or back to detached."""
+    rc, cur, _ = git('rev-parse', '--abbrev-ref', 'HEAD')
+    if rc != 0 or not cur:
+        return None
+    name = 'this session is still on the branch it started on'
+    _, sha, _ = git('rev-parse', 'HEAD')
+
+    def write():
+        try:
+            stamp.write_text(f'{cur}\n{sha}\n')
+        except OSError:
+            pass
+
+    if not stamp.is_file():
+        write()
+        return (name, None, f'first run this session -- recorded {cur!r} as '
+                            f'the baseline to compare against later')
+    lines = stamp.read_text().split()
+    started = lines[0] if lines else ''
+    start_sha = lines[1] if len(lines) > 1 else ''
+    if started == cur:
+        return (name, True, '')
+    if started == 'HEAD' and cur != 'HEAD':
+        carried = (not start_sha
+                   or git('merge-base', '--is-ancestor', start_sha, 'HEAD')[0] == 0)
+        if carried:
+            write()
+            return (name, True, f'started detached at '
+                                f'{start_sha[:12] or "an unrecorded commit"} and '
+                                f'moved onto {cur!r}, which carries it -- the '
+                                f'normal first step; {cur!r} is now the baseline')
+        return (name, False,
+                f'started detached at {start_sha[:12]}, now on {cur!r}, which '
+                f'does NOT contain that commit. Anything committed while '
+                f'detached is reachable only from `git reflog` -- check it '
+                f'before it is garbage-collected')
+    return (name, False,
+            f'started on {started!r}, now on {cur!r}. Work committed before '
+            f'the move is on {started!r} and is NOT lost -- `git checkout '
+            f'{started}` and check `git reflog` for anything after it. Work '
+            f'done SINCE the move is on the wrong branch')
+
+
 def checks(offline=False):
     """-> [(name, ok, detail)]. Each is a guarantee a SessionStart hook is
     supposed to have established, tested by its EFFECT rather than by
@@ -312,28 +365,17 @@ def checks(offline=False):
     #    a move on a run AFTER the one that recorded the baseline, so run
     #    this check as close to session start as possible when rooted above
     #    every repo you touch.
-    stamp = ROOT / '.git' / 'precedent-session-branch'
-    rc, cur, _ = _git('rev-parse', '--abbrev-ref', 'HEAD')
-    if rc == 0 and cur:
-        if stamp.is_file():
-            started = stamp.read_text().strip()
-            ok = (started == cur)
-            out.append(('this session is still on the branch it started on',
-                        ok,
-                        '' if ok else
-                        f'started on {started!r}, now on {cur!r}. Work '
-                        f'committed before the move is on {started!r} and is '
-                        f'NOT lost -- `git checkout {started}` and check '
-                        f'`git reflog` for anything after it. Work done SINCE '
-                        f'the move is on the wrong branch'))
-        else:
-            try:
-                stamp.write_text(cur + '\n')
-            except OSError:
-                pass
-            out.append(('this session is still on the branch it started on',
-                        None, f'first run this session -- recorded {cur!r} as '
-                              f'the baseline to compare against later'))
+    #
+    #    A FALSE ALARM ON EVERY CLOUD SESSION, 2026-09-30. A cloud session is
+    #    cloned onto a bare commit (detached HEAD, which git names `HEAD`) and
+    #    then moved onto the branch the harness assigns it. The stamp recorded
+    #    `HEAD`, so that expected first move failed this row on every prompt
+    #    for the life of the session, which teaches everyone to skim past it
+    #    -- including the day it catches a real jump. The stamp now carries
+    #    the commit too; see _session_branch_row.
+    row = _session_branch_row(ROOT / '.git' / 'precedent-session-branch', _git)
+    if row:
+        out.append(row)
 
     # 8. Freshness. Reported, never repaired here: discarding work is worse
     #    than a stale tree, so this only ever tells (practice: fail-gracefully).
