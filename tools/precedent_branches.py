@@ -1166,10 +1166,12 @@ def _lock_push(root, parent, subject, body):
     return p.returncode == 0, commit, p.stderr.strip()
 
 
-def _lock_claim(root, say):
+def _lock_claim(root, say, what=None):
     """-> ('held', commit) when this window now holds the lock; ('busy',
     reason) when another does; ('none', reason) when the lock could not be
-    used at all, and the Promote goes ahead without it, as before."""
+    used at all, and the Promote goes ahead without it, as before. `what`
+    names a holder other than a Promote -- the merge gate's landing check
+    (hold_for_landing) -- in the claim's subject."""
     tip, subject, at = _lock_state(root)
     age = time.time() - at if at else None
     if tip and subject.startswith('held by') and age is not None \
@@ -1178,10 +1180,10 @@ def _lock_claim(root, say):
     stale = ' (taking over a claim older than %d min)' % (LOCK_STALE_SECONDS // 60) \
         if tip and subject.startswith('held by') else ''
     ok, commit, err = _lock_push(
-        root, tip, f'held by {_lock_holder_name()}',
-        'A Promote is running. tools/precedent_branches.py releases this when '
-        f'it ends; a claim older than {LOCK_STALE_SECONDS // 60} minutes may be '
-        f'taken over.{stale}')
+        root, tip, f'held by {_lock_holder_name()}' + (f' ({what})' if what else ''),
+        f'{"A Promote" if not what else what[0].upper() + what[1:]} is running. '
+        'tools/precedent_branches.py releases this when it ends; a claim older '
+        f'than {LOCK_STALE_SECONDS // 60} minutes may be taken over.{stale}')
     if ok:
         return 'held', commit
     if any(w in err for w in ('non-fast-forward', 'fetch first', 'rejected')):
@@ -1200,6 +1202,29 @@ def _lock_release(root, held, say):
         say(f'NOTE: could not release {LOCK_BRANCH} ({err[:160]}); it frees '
             f'itself after {LOCK_STALE_SECONDS // 60} minutes.')
 
+
+
+def hold_for_landing(root, what):
+    """-> (state, info) as _lock_claim: the Promote lock, taken by the merge
+    gate while it checks a pull request into a fully checked branch.
+
+    WHY (2026-09-30). The merge gate judges the exact merge GitHub would
+    make, so any move of the base while its check runs makes the pass stale
+    and the check runs again. One landing into staging ran its full check
+    five times in an afternoon, twice only because other windows promoted
+    into staging while it ran. Taking the lock Promote already takes holds
+    both kinds of move still: a Promote finds it held and does nothing, and
+    another landing's merge gate refuses at once instead of starting a check
+    that would be out of date before it finished. The gate frees it as soon
+    as the check ends; the merge follows within seconds, so a move in that
+    gap is the one window left open."""
+    return _lock_claim(root, print, what=what)
+
+
+def release_hold(root, held):
+    """Free a hold_for_landing claim; a failure only says so (the claim
+    frees itself after LOCK_STALE_SECONDS)."""
+    _lock_release(root, held, print)
 
 def _new_commits(root, since, tip):
     """The commits on `tip` that `since` lacks and that change a file, one

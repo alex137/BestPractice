@@ -6296,14 +6296,54 @@ def _shard_failure_detail(proc, tail_lines=20):
     return out
 
 
-def run_as_ci():
-    """-> exit status. Run this suite the two ways CI runs it, in sequence.
+def _as_ci_runs(jobs, names=None):
+    """-> [(label, env_extra)]: the processes `--as-ci` starts side by side.
 
-    NOT the same work twice: the shards PARTITION the suite, so the pair
-    costs about what one full run costs, plus a second interpreter start.
-    Measured 2026-09-22 in this tree: 4m01s for --as-ci against ~4m20s for
-    one plain run. What it buys is the filter path, which is the half a
-    local run has never executed.
+    CI_SHARDS as they are, except that the one shard run by SKIP (CI's
+    "rest") is cut into enough parts to fill `jobs` processes. Each part
+    still runs by PRECEDENT_CHECK_SKIP -- the shard's own filter path, the
+    half a plain local run never executes -- skipping the heavy check and
+    every name the other parts take. Names are dealt round-robin in sorted
+    order, so every check runs in exactly one process.
+
+    Safe to split because no check calls another and none takes another's
+    result (both verified over the whole file, 2026-09-30): a check sees the
+    same arguments in a part as in the whole shard."""
+    if names is None:
+        names = sorted(n for n, v in globals().items()
+                       if n.startswith('check_') and callable(v))
+    skip_shards = [s for s in CI_SHARDS if 'PRECEDENT_CHECK_SKIP' in s[1]]
+    parts = max(1, jobs - (len(CI_SHARDS) - len(skip_shards)))
+    if len(skip_shards) != 1 or parts == 1:
+        return list(CI_SHARDS)
+    label, env_extra = skip_shards[0]
+    base_skip = set(env_extra['PRECEDENT_CHECK_SKIP'].split(','))
+    rest = [n for n in names if n not in base_skip]
+    dealt = [rest[i::parts] for i in range(parts)]
+    out = []
+    for s in CI_SHARDS:
+        if s is not skip_shards[0]:
+            out.append(s)
+            continue
+        for i, mine in enumerate(dealt):
+            others = [n for n in rest if n not in set(mine)]
+            out.append((f'{label} (part {i + 1} of {parts}, {len(mine)} checks)',
+                        {**env_extra, 'PRECEDENT_CHECK_SKIP':
+                         ','.join(sorted(base_skip) + others)}))
+    return out
+
+
+def run_as_ci():
+    """-> exit status. Run this suite the two ways CI runs it, side by side.
+
+    NOT the same work twice: the shards PARTITION the suite. Until
+    2026-09-30 they ran one after the other, and the rest shard ran its
+    three hundred-odd checks on one core, so a four-core session paid
+    about sixteen minutes, mostly waiting (a landing check ran five times
+    in one afternoon). Now every shard starts at once, and the rest shard
+    is dealt into parts to fill PRECEDENT_AS_CI_JOBS processes (default:
+    the machine's cores, at most four) -- _as_ci_runs() says how.
+    PRECEDENT_AS_CI_JOBS=1 is the old serial run.
 
     IT REPRODUCES CI'S COMMAND SHAPE, NOT CI'S ENVIRONMENT, and the
     difference is worth stating because over-promising here would repeat
@@ -6313,8 +6353,17 @@ def run_as_ci():
     needs something only CI has, would fail here for the same reason.
     Green under --as-ci means the shard SHAPE is not what breaks; it does
     not mean CI will be green."""
-    failed = []
-    for label, env_extra in CI_SHARDS:
+    import tempfile
+    try:
+        jobs = int(os.environ.get('PRECEDENT_AS_CI_JOBS') or 0)
+    except ValueError:
+        jobs = 0
+    jobs = jobs or min(4, os.cpu_count() or 1)
+    runs = _as_ci_runs(jobs)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-as-ci-'))
+    started = []
+    t0 = time.monotonic()
+    for i, (label, env_extra) in enumerate(runs):
         env = dict(os.environ)
         # Each shard gets a clean slate of BOTH variables, so a session that
         # already has one exported does not silently skew a shard.
@@ -6322,24 +6371,49 @@ def run_as_ci():
         env.pop('PRECEDENT_CHECK_SKIP', None)
         env.pop('PRECEDENT_HARNESS_ALL', None)
         env.update(env_extra)
+        # Files, not pipes: a shard that fills a pipe nobody reads yet stalls.
+        out, err = open(tmp / f'{i}.out', 'w+'), open(tmp / f'{i}.err', 'w+')
+        proc = subprocess.Popen([sys.executable, str(pathlib.Path(__file__))],
+                                env=env, stdout=out, stderr=err, text=True)
+        started.append((label, proc, out, err))
+    print(f'--as-ci: {len(started)} shard process(es) started side by side',
+          flush=True)
+    while True:
+        running = [p for _l, p, _o, _e in started if p.poll() is None]
+        if not running:
+            break
+        try:
+            running[0].wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            print(f'  -- {len(started) - len(running)} of {len(started)} shard '
+                  f'process(es) done, {time.monotonic() - t0:.0f}s elapsed',
+                  flush=True)
+    failed = []
+    for label, proc, out, err in started:
+        out.seek(0)
+        err.seek(0)
+        done = subprocess.CompletedProcess(proc.args, proc.returncode,
+                                           out.read(), err.read())
+        out.close()
+        err.close()
         print(f'\n=== shard: {label} ===', flush=True)
-        proc = subprocess.run([sys.executable, str(pathlib.Path(__file__))],
-                              env=env, capture_output=True, text=True)
-        tail = [l for l in (proc.stdout or '').splitlines()
+        tail = [l for l in done.stdout.splitlines()
                 if 'passed,' in l or l.startswith('  - ')]
         for line in tail[-12:]:
             print(line)
-        if proc.returncode != 0:
+        if done.returncode != 0:
             failed.append(label)
-            print(f'  SHARD FAILED (exit {proc.returncode})')
-            for line in _shard_failure_detail(proc):
+            print(f'  SHARD FAILED (exit {done.returncode})')
+            for line in _shard_failure_detail(done):
                 print(line)
+    shutil.rmtree(tmp, ignore_errors=True)
+    wall = time.monotonic() - t0
     if failed:
-        print(f'\n--as-ci: {len(failed)} of {len(CI_SHARDS)} shard(s) '
-              f'failed: {"; ".join(failed)}')
+        print(f'\n--as-ci: {len(failed)} of {len(started)} shard process(es) '
+              f'failed in {wall:.0f}s: {"; ".join(failed)}')
         return 1
-    print(f'\n--as-ci: all {len(CI_SHARDS)} shard(s) green -- this is what '
-          f'CI will run.')
+    print(f'\n--as-ci: all {len(started)} shard process(es) green in '
+          f'{wall:.0f}s -- this is what CI will run.')
     return 0
 
 
@@ -6993,6 +7067,13 @@ def check_update_vendors_is_one_command():
             checkin = [sys.executable, str(ROOT / 'tools' / 'checkin.py')]
             sh(*checkin, 'update', str(ROOT), '--repo', str(repo), '--force', cwd=repo)
             m = json.loads((repo / 'process' / 'manifest.json').read_text())
+            # The commit the mirror actually copied, never `head` above:
+            # update fetches origin/<branch> in ROOT first, so when main has
+            # moved since this clone's last fetch the two differ, the
+            # recorded commit no longer matches the vendored tree, and the
+            # run below stops on a "local change" it never planted
+            # (2026-09-29, while other windows were promoting into main).
+            m['upstream']['commit'] = m['upstream'].get('synced_from', head.strip())
             m['upstream']['branch'] = 'precedent-beta-v01'   # the retired pin
             (repo / 'process' / 'manifest.json').write_text(
                 json.dumps(m, indent=2) + '\n', encoding='utf-8')
@@ -21752,6 +21833,13 @@ def check_merge_check_gate():
         git(work, 'add', 'fb.txt')
         git(work, 'commit', '-q', '-m', 'fb')
         git(work, 'push', '-q', 'origin', 'fb')
+        # The tiers exist here, so a landing into main holds it still: a
+        # pre-staging of its own, at no other branch's commit.
+        git(work, 'checkout', '-q', '-b', 'ps', 'main')
+        (work / 'ps.txt').write_text('ps', encoding='utf-8')
+        git(work, 'add', 'ps.txt')
+        git(work, 'commit', '-q', '-m', 'ps')
+        git(work, 'push', '-q', 'origin', 'ps:pre-staging')
 
         def pull(number, base, fail):
             """Publish pull request `number` into `base` whose head plants
@@ -21798,9 +21886,17 @@ def check_merge_check_gate():
                       'failing full-only check refuses the merge',
                       denied and 'merge check REFUSED' in out
                       and 'precedent_check' in out))
+        lock_log = lambda: git(bare, 'log', '--format=%s', 'precedent-promote-lock').stdout
+        held_log = lock_log()
+        cases.append(('...main was held still while that check ran: the gate '
+                      'claimed the Promote lock for the landing and freed it '
+                      'after', 'landing pull request #7 into' in held_log
+                      and held_log.splitlines()[0] == 'free [skip ci]'))
         denied, out = mcp(8)
         cases.append(('a pull request into a working branch gets the basic '
                       'check, so the same failure is let through', not denied))
+        cases.append(('...and holds nothing still, since a working branch is '
+                      'not a tier anyone else lands on', lock_log() == held_log))
         denied, out = mcp(9)
         cases.append(('the basic check still refuses a failing leak gate',
                       denied and 'leak_gate' in out))
@@ -21825,6 +21921,111 @@ def check_merge_check_gate():
         denied, out = mcp(7, owner='nobody')
         cases.append(('no checkout of the repository: let through, and said',
                       not denied and 'NOTE: merge-check-gate' in out))
+        git(work, 'push', '-q', 'origin', ':pre-staging')
+        before = lock_log()
+        mcp(7)
+        cases.append(('a repository without the tiers holds nothing still: no '
+                      'pre-staging, so the lock branch is not touched',
+                      lock_log() == before))
+        git(work, 'push', '-q', 'origin', 'ps:pre-staging')
+
+        # Another window holds main still (a Promote, or its own landing):
+        # a fresh claim on the lock branch, made the way Promote makes one.
+        empty = git(work, 'hash-object', '-t', 'tree', '/dev/null').stdout.strip()
+        tip = git(bare, 'rev-parse', 'precedent-promote-lock').stdout.strip()
+        claim = git(work, 'commit-tree', empty, '-p', tip, '-m',
+                    'held by another window [skip ci]').stdout.strip()
+        git(work, 'push', '-q', 'origin', f'{claim}:refs/heads/precedent-promote-lock')
+        denied, out = mcp(7)
+        cases.append(('while another window holds main, a merge into it is '
+                      'refused at once, naming the holder, and no check starts',
+                      denied and 'held by another window' in out
+                      and 'out of date' in out
+                      and 'precedent_push_check:' not in out))
+        cases.append(('...and the other window\'s claim is left as it was',
+                      git(bare, 'rev-parse', 'precedent-promote-lock').stdout.strip()
+                      == claim))
+        # Free the claim above, as its holder would, before landing more.
+        git(work, 'push', '-q', 'origin', git(work, 'commit-tree', empty, '-p', claim,
+            '-m', 'free [skip ci]').stdout.strip() + ':refs/heads/precedent-promote-lock')
+        # AFTER THE MERGE (PostToolUse). GitHub's merge is simulated by
+        # pushing a merge commit to main; the hook is handed its sha the way
+        # the merge tool answers.
+        def landed(number, sha):
+            p = subprocess.run(
+                ['bash', str(hook)], text=True, capture_output=True, timeout=300,
+                input=_json.dumps({'hook_event_name': 'PostToolUse',
+                                   'tool_name': 'mcp__github__merge_pull_request',
+                                   'tool_input': {'owner': 'alex', 'repo': 'proj',
+                                                  'pullNumber': number},
+                                   'tool_response': _json.dumps({'sha': sha, 'merged': True}),
+                                   'cwd': str(work)}),
+                env=dict(env, CLAUDE_PROJECT_DIR=str(work)))
+            return p.stdout, p.stdout + p.stderr
+
+        def tip(ref):
+            return git(bare, 'rev-parse', ref).stdout.strip()
+
+        # 12: nothing moves between the check and the merge.
+        pull(12, 'main', '')
+        denied, out = mcp(12)
+        merge12 = git(work, 'rev-parse', 'merge12').stdout.strip()
+        git(work, 'push', '-q', 'origin', 'merge12:main')
+        stdout, out = landed(12, merge12)
+        cases.append(('after a merge where nothing moved, what landed is the tree '
+                      'the gate passed: its pass is reused and nothing is said',
+                      not denied and not stdout.strip() and 'as checked' in out))
+        # 13: main moves in the gap to a commit that makes the merge fail.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'head13', 'origin/main')
+        (work / 'pr13.txt').write_text('pr13', encoding='utf-8')
+        git(work, 'add', 'pr13.txt')
+        git(work, 'commit', '-q', '-m', 'pr 13')
+        git(work, 'push', '-q', 'origin', 'head13:refs/pull/13/head')
+        git(work, 'checkout', '-q', '-B', 'gap', 'origin/main')
+        (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'another window lands in the gap')
+        git(work, 'push', '-q', 'origin', 'gap:main')
+        git(work, 'checkout', '-q', '-B', 'merge13', 'gap')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'merge 13', 'head13')
+        merge13 = git(work, 'rev-parse', 'merge13').stdout.strip()
+        git(work, 'push', '-q', 'origin', 'merge13:main')
+        git(work, 'checkout', '-q', 'main')
+        stdout, out = landed(13, merge13)
+        after = tip('main')
+        cases.append(('after a merge where main moved in the gap and what landed '
+                      'fails its full check, the session is told',
+                      '"block"' in stdout and 'MOVED' in out and 'FAILED' in out))
+        cases.append(('...and main is put back to the tree the other window '
+                      'landed, by a new commit on top of the merge',
+                      after != merge13
+                      and git(bare, 'rev-parse', 'main^{tree}').stdout
+                      == git(work, 'rev-parse', 'gap^{tree}').stdout
+                      and git(bare, 'rev-parse', 'main^').stdout.strip() == merge13))
+        cases.append(('...while the pull request\'s own branch keeps the work',
+                      tip('refs/pull/13/head') == git(work, 'rev-parse', 'head13').stdout.strip()))
+        # The same failure, with main moved on again: never reverted over it.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'later', 'origin/main')
+        (work / 'later.txt').write_text('later', encoding='utf-8')
+        git(work, 'add', 'later.txt')
+        git(work, 'commit', '-q', '-m', 'yet another landing')
+        git(work, 'push', '-q', 'origin', 'later:main')
+        git(work, 'checkout', '-q', 'main')
+        moved_on = tip('main')
+        stdout, out = landed(13, merge13)
+        cases.append(('a base that moved on past the merge is reported, never '
+                      'reverted over', tip('main') == moved_on and 'NOT reverted' in out))
+        stdout, out = subprocess.run(
+            ['bash', str(hook)], text=True, capture_output=True, timeout=60,
+            input=_json.dumps({'hook_event_name': 'PostToolUse',
+                               'tool_name': 'mcp__github__merge_pull_request',
+                               'tool_input': {'owner': 'alex', 'repo': 'proj',
+                                              'pullNumber': 13},
+                               'tool_response': 'failed to merge pull request',
+                               'cwd': str(work)}),
+            env=dict(env, CLAUDE_PROJECT_DIR=str(work))).stdout, ''
+        cases.append(('a merge that did not happen is left alone', not stdout.strip()))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         refs = git(work, 'for-each-ref', 'refs/precedent-merge-check').stdout.strip()
         cases.append(('no worktree and no fetched pull request ref is left '
@@ -42147,6 +42348,47 @@ def check_codeowners_stamp_hashes_only_the_registry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_as_ci_parts_partition_the_suite():
+    """`--as-ci` runs its shards side by side and deals CI's rest shard into
+    parts (_as_ci_runs). Whatever the job count, every check must run in
+    exactly one process, the heavy shard must be CI's own, and every part
+    must still go by PRECEDENT_CHECK_SKIP -- the filter path CI's rest
+    shard takes.
+
+    WHY. 2026-09-30: the serial run cost a landing check about sixteen
+    minutes on a four-core session. A split that dropped or doubled a check
+    would be faster and wrong, and nothing else would notice."""
+    cases = []
+    names = sorted(n for n, v in globals().items()
+                   if n.startswith('check_') and callable(v))
+
+    def covered(env_extra):
+        if 'PRECEDENT_CHECK_ONLY' in env_extra:
+            return set(env_extra['PRECEDENT_CHECK_ONLY'].split(','))
+        return set(names) - set(env_extra.get('PRECEDENT_CHECK_SKIP', '').split(','))
+
+    for jobs in (1, 2, 3, 4, 7):
+        runs = _as_ci_runs(jobs, names)
+        seen = collections.Counter(n for _l, e in runs for n in covered(e))
+        doubled = sorted(n for n, c in seen.items() if c > 1)
+        missing = sorted(set(names) - set(seen))
+        cases.append((f'{jobs} job(s): every check runs exactly once',
+                      not doubled and not missing,
+                      f'doubled {doubled[:3]} missing {missing[:3]}'))
+        heavy = [e for _l, e in runs if 'PRECEDENT_CHECK_ONLY' in e]
+        cases.append((f'{jobs} job(s): the heavy shard is the one CI runs',
+                      heavy == [e for _l, e in CI_SHARDS if 'PRECEDENT_CHECK_ONLY' in e],
+                      str(heavy)[:200]))
+        cases.append((f'{jobs} job(s): every other part runs by SKIP',
+                      all('PRECEDENT_CHECK_SKIP' in e for _l, e in runs
+                          if 'PRECEDENT_CHECK_ONLY' not in e), ''))
+        cases.append((f'{jobs} job(s): {max(jobs, len(CI_SHARDS))} process(es)',
+                      len(runs) == max(jobs, len(CI_SHARDS)), str(len(runs))))
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--as-ci parts partition the suite ({len(cases)} stated cases)',
+          not failed, '; '.join(f'{n}: {d}' for n, d in failed))
+
+
 def check_as_ci_says_why_a_shard_failed():
     """`--as-ci` prints, for a failed shard, its FAIL: lines and the tail of
     its stderr -- not just `SHARD FAILED (exit 1)`.
@@ -47399,6 +47641,7 @@ def main():
     check_bootstrapped_shared_set_carries_current_codeowners()
     check_codeowners_stamp_hashes_only_the_registry()
     check_as_ci_says_why_a_shard_failed()
+    check_as_ci_parts_partition_the_suite()
     check_move_fixes_mentions_of_the_moved_practice()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()

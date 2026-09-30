@@ -642,6 +642,17 @@ def _install_session_hooks(dest, base_branch='main'):
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/workflow-write-gate.sh'},
                     ],
                 }],
+                # THE MERGE CHECK AFTER THE MERGE (2026-09-30): the same hook
+                # on the merge commit, since the base can move between the
+                # check and the merge. Same entry as HOOK_WIRING's.
+                'PostToolUse': [{
+                    'matcher': 'Bash|mcp__.*__merge_pull_request',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/merge-check-gate.sh',
+                         'timeout': 900},
+                    ],
+                }],
             },
         }
         settings.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
