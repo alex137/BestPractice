@@ -16,8 +16,8 @@
   "branch": "staging",
   "seen_by": {
     "morgan-f": {
-      "sha": "e1a729d1790ddd88a88e18291dd47f7f686d12dd",
-      "recorded": "2026-09-29",
+      "sha": "81d605ba4c2d576b2c9b9c3fdd8f95cc9474cb74",
+      "recorded": "2026-09-30",
       "note": "auto-advanced by precedent_beta_watermark_check.py"
     }
   }
