@@ -441,6 +441,8 @@ _NOT_VENDORED_ROOT_PATHS = frozenset(pathlib.Path(n) for n in NOT_VENDORED_ROOT_
 # `python3 tools/checkin.py rules` prints the decision for each file added
 # since the landing branch (practice: vendor-rollout-disclosed, question 5).
 VENDORING_RULES = (
+    ('WHATS_NEW.md', False,
+     "a project's own news log; each project writes its own (practice: whats-new)"),
     # Exceptions inside a shipped folder come first.
     ('templates/harness/LEDGER.md', False,
      "this repo's change log for the harness adapters"),

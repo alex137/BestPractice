@@ -575,6 +575,9 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # "What's new?" works in every project, so the log's mechanics ship
+    # (practice: whats-new); each project's own log never does.
+    'precedent_whats_new.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
     # command a session cannot carry out is worse than one that does not

@@ -2205,6 +2205,93 @@ def check_freshness_reads_a_private_source_through_its_clone():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_whats_new_log_mechanics():
+    """tools/precedent_whats_new.py, the mechanics behind "What's new?"
+    (practice: whats-new, 2026-09-30).
+
+    A throwaway repository with main's history on chosen days (UTC, the
+    repo's declared zone): a day with a change, an empty day, a day whose
+    only commit touches the log itself, and a day that adds a document.
+    Stated cases: the first run lists exactly the two real days, newest
+    document named; --mark covers them and a second run lists none; a day
+    that has not finished cannot be marked; the later of this checkout's
+    log and main's is read; an entry naming an approval is flagged; the
+    log never ships to another project."""
+    import datetime as _dt, tempfile
+    import precedent_whats_new as pwn
+    import checkin as _ck
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='whats-new-'))
+    today = _dt.date(2026, 9, 10)
+    try:
+        origin, repo = tmp / 'origin.git', tmp / 'repo'
+
+        def g(cwd, *a, when=None):
+            env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                       GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+            if when:
+                env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = when
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        def commit(rel, text, msg, when):
+            p = repo / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, encoding='utf-8')
+            g(repo, 'add', '-A'); g(repo, 'commit', '-qm', msg, when=when)
+
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        g(tmp, 'init', '-q', '-b', 'main', str(repo))
+        g(repo, 'remote', 'add', 'origin', str(origin))
+        (repo / 'precedent.json').write_text('{"fallback_timezone": "UTC"}\n',
+                                             encoding='utf-8')
+        commit('a.txt', '0', 'before the window', '2026-08-01T12:00:00Z')
+        commit('a.txt', '1', 'Faster start-up', '2026-09-05T12:00:00Z')
+        # 2026-09-06: nothing.
+        commit('WHATS_NEW.md', '# What\'s new\n', 'Log only', '2026-09-07T12:00:00Z')
+        commit('docs/PHILOSOPHY.md', 'why\n', 'A new philosophy note', '2026-09-08T12:00:00Z')
+        g(repo, 'push', '-q', 'origin', 'main')
+        g(repo, 'fetch', '-q', 'origin')
+
+        _tz, through, days = pwn.missing_days(repo, today=today)
+        got = [d.isoformat() for d, _ in days]
+        cases.append(('the first run lists only the days main changed, the log\'s own '
+                      'commit left out', got == ['2026-09-05', '2026-09-08'], str(got)))
+        added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
+        cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
+                      str(added)))
+        ok, msg = pwn.mark(repo, _dt.date(2026, 9, 8), today=today)
+        _tz, through, days = pwn.missing_days(repo, today=today)
+        cases.append(('--mark covers them, and a second run lists none',
+                      ok and through == _dt.date(2026, 9, 8) and days == [],
+                      f'{msg} {through} {days}'))
+        ok, msg = pwn.mark(repo, today, today=today)
+        cases.append(('a day that has not finished cannot be marked', not ok, msg))
+        # main's log is ahead of this checkout's: the later one is read.
+        (repo / 'WHATS_NEW.md').write_text('---\nchecked_through: 2026-09-09\n---\n',
+                                           encoding='utf-8')
+        g(repo, 'commit', '-qam', 'log', when='2026-09-10T01:00:00Z')
+        g(repo, 'push', '-q', 'origin', 'main'); g(repo, 'fetch', '-q', 'origin')
+        g(repo, 'reset', '-q', '--hard', 'HEAD~1')
+        _text, later = pwn.read_state(repo)
+        cases.append(('the later of this checkout\'s log and main\'s is read',
+                      later == _dt.date(2026, 9, 9), str(later)))
+        hits = pwn.approval_lines('---\nchecked_through: 2026-09-09\n---\n'
+                                  '## 2026-09-09\n- Faster start-up (approved by M)\n'
+                                  '- Shorter instructions (about 800 tokens)\n')
+        cases.append(('an entry naming an approval is flagged, and only it',
+                      [n for n, _ in hits] == [5], str(hits)))
+        rule = _ck.vendoring_rule('WHATS_NEW.md')
+        cases.append(('a project\'s log never ships to another project',
+                      bool(rule) and rule[1] is False, str(rule)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the What\'s new log lists the days it lacks, and only those '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_freshness_covers_every_declared_source():
     """precedent_engine_freshness reports one row per way a DECLARED source
     is reached -- the engine manifest, a vendored tree's manifest, a live
@@ -49052,6 +49139,7 @@ def main():
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_freshness_reads_a_private_source_through_its_clone()
+    check_whats_new_log_mechanics()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()

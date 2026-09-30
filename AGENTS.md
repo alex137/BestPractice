@@ -105,7 +105,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 167 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 168 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -205,6 +205,8 @@ When a message says "Update Vendors", or an upstream update is taken into a vend
   vendor-update-runbook — source clone first, both layers move separately, then merge
 When a model or comparison rests on an operating constant nobody decided:
   constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
+When a person asks "What's new?", or what has changed in the project lately:
+  whats-new — write any missing daily entries first, then link the log and show the newest
 When a person explicitly asks for a "very deep check":
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person explicitly asks for a full practice audit:
