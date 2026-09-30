@@ -16,7 +16,12 @@ in_force_at: null
 supersedes:  ["next-steps-after-commit", "merged-session-offers-a-practice", "handoff-is-pasteable", "closing-items-are-this-thread", "asks-stand-alone", "archive-a-finished-session"]
 overrides:   null
 added:       "2026-09-15"
-approved_by: "extended 2026-09-29, Morgan (strength: decided): unlanded and
+approved_by: "extended 2026-09-29, Morgan (strength: decided): the first
+  bullet of every Boildown names the branch the work is on and the stage it
+  finished -- \"the first bullet point should be the work of this session is
+  now on colon and then the name of the branch ... I think there is no
+  exception\";
+  extended 2026-09-29, Morgan (strength: decided): unlanded and
   unpromoted work is reported only for the branch or flow this session
   worked on, unless the session is blocked on other work -- \"only tell me
   about that promotions that I need to do *ONLY* regarding the branch/flow
@@ -67,6 +72,29 @@ strength:    decided
 **Every reply ends with a real markdown heading, `## The Boildown`, and nothing else may claim that heading.** Not "Next Steps", not a bold lead-in -- a bold line is exactly what the rest of a reply is already full of, and it does not survive being skimmed. This applies to every reply, not only one that made a commit: the point is a place the person can always look, not a report on what just happened.
 
 **Under it, a bullet list, one line per item wherever the content allows it.** There are two shapes, and the second is the first with seven items added before the close.
+
+### The first line, always: where the work is and which stage it finished
+
+**The first bullet under the heading, in every reply, says which branch this session's work is on now and which of the five stages it has finished.** No exception: a reply that only planned or only answered a question still carries it. It comes before item 1 and keeps the numbering below as it is, so every "item 3" or "item 12" written elsewhere still points where it did.
+
+The shape, one line:
+
+- **The work of this session is now on:** `pre-staging` in BestPractice (you have finished step 3 of 5, Booked)
+
+**The branch is whatever it really is**: a local branch not pushed yet, a feature branch, `pre-staging`, `staging` or `main`, with the repository named. **The stage is read from where the work is, not from what was asked**:
+
+| Where the work is | What the parenthesis says |
+|---|---|
+| Nothing written yet: a plan was said, or a question answered | no branch yet (you have finished step 1 of 5, Consider) |
+| A local branch, not pushed | you are in step 2 of 5, Act -- not pushed yet |
+| A feature branch, pushed | you have finished step 2 of 5, Act |
+| The person's landing branch (`pre-staging`, or `staging` for someone who lands there) | you have finished step 3 of 5, Booked |
+| `staging`, promoted from `pre-staging` | you have finished step 4 of 5, Debut |
+| `main` | you have finished step 5 of 5, Produce |
+
+A stage still under way says "you are in", not "you have finished": a pull request open into the landing branch but not merged is in step 3, and the line names the feature branch the work is actually on. Work spread over several branches or repositories names each, on the same line while it fits. The step goes before the word here, which answers [stage-word-carries-its-step](stage-word-carries-its-step.md) for the reply's first stage word.
+
+**Why it leads.** Every other item reads differently depending on where the work stands -- a next step, a blocker, an unlanded branch -- and the person kept having to work that out from the rest of the reply. One fixed first line answers it before anything else is read. The reply gate refuses a Boildown whose first bullet does not open with "The work of this session is now on", the same way it refuses a missing heading. Morgan, 2026-09-29 (strength: decided): *"after you say the boil down, the first bullet point should be the work of this session is now on colon and then the name of the branch, regardless of whether it's a local branch, pre-staging, staging, main, and then after that, put the parentheses for the name of the stage we're at"* -- and, on exceptions: *"I think there is no exception. Even if there's planning, then there's no branch. But just say you have finished the stage, consider, stage one of five."*
 
 ### Every reply: five items, in this order
 
@@ -193,6 +221,8 @@ Authorized in full: *"Let's go - go merge, do it, go update."*
 **2026-09-28: the compact offer was never surfaced, so it never fired.** A session in this repository ran from about 80,000 tokens to about 783,000, and ran out of context, without saying one compact sentence. The offer had been owed since about 180,000. Two things combined. Since 2026-09-17 the requirement has been advisory, and the stop hook drops an unmet advisory requirement without telling anyone. Meanwhile the turn-start print told sessions to add the line only when "the stop hook is the thing that knows" it was owed, and to leave it out otherwise. So the one channel that knew said nothing, and the one that spoke said to wait for it. Morgan: *"we went from one extreme to the other ... you have not told me ever to compact this session. But it's still useful when a session is worthy of being compacted to tell me. Can you please fix and update that rule?"* The turn-start gate now works out from the transcript whether the offer is owed and says so. The negative sentence is gone, because he asked to be told only when to compact. Items 11 and the owed-offer paragraph now describe one sentence, not two. Authorized: *"Go update."* strength: decided.
 
 **2026-09-29: another repository's unpromoted work stopped reaching the Boildown.** The reply gate scanned every sibling `precedent-*` clone and printed a Promote line for each one whose pre-staging was ahead of its staging. Those batches were almost always other sessions' work in the practice sources, and a session here closed with a line about them at the end of nearly every reply. Morgan: *"it is now telling me in the end of so many sessions that there are commits that are not yet promoted in *OTHER* repos, and it is confusing me."* Refined in the same session to the tighter rule: only the branch or flow this session worked on, in any repository, this one included. The gate now reports a batch only when its commits carry this session's own trailer; the rest is left to the one case a scan cannot see, a session that is actually blocked on that work.
+
+**2026-09-29, later: the first line says where the work is.** Morgan, to avoid confusion over where a session's work stood, asked for a fixed opening bullet naming the branch and the stage it finished, with no exception for a reply that only planned. It sits before item 1 rather than becoming a new item 1, so the numbers other files cite stay put. The step-before-word form ("step 2 of 5, Act") follows the step vocabulary [stage-word-carries-its-step](stage-word-carries-its-step.md) already uses, where he said "stage two of five". A blocking check backs it, `require_first_item_under_heading` in `reply_check.json`, because a line meant to be in every reply is exactly the kind a session drops when the rest feels finished. strength: decided.
 
 ## Install
 Enforced the same way `next-steps-after-commit` and `session-spend-follows-the-task` were, with one change since 2026-09-17: `reply_check.json` declares the required heading pattern (still blocking) and the two fixed sentence-pairs (archive, compact -- now `advisory: true`, each its own entry), and [tools/precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py) refuses a reply missing the heading via the Stop hook, same as before, but only NAMES an unmet advisory sentence rather than refusing over it -- `violations()` still detects it, `main()` no longer lets it into the blocking set. `close_detect.json` declares this practice's slug and the archive-ready phrase for [tools/precedent_close_detect.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_close_detect.py), which still gates the practice-idea bullet on real evidence from the session's own transcript rather than on the occasion alone. Neither script needed changing for the original consolidation -- only the JSON declarations moved, from the two practices this absorbs to this one; [tools/precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py) itself changed only for the 2026-09-17 advisory split.
