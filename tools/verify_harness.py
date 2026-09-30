@@ -15866,10 +15866,17 @@ def check_gate_channel():
                   f"declared with no practice: {unused}" if unused else ''))
 
     # the command itself, run as a subprocess -- the channel as a caller uses it
+    # A practice another resolved source replaces (`overrides:`) is not in
+    # force and is rightly left out -- present only where that source
+    # resolves, as a person's individual set does beside this checkout.
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as _pg
     for g in sorted(vocab):
         r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), g],
                            capture_output=True, text=True, cwd=str(ROOT))
-        ok = r.returncode == 0 and all(s in r.stdout for s in by_gate[g])
+        replaced = _pg.resolved_gate_practices(str(ROOT), g)[3]
+        ok = r.returncode == 0 and all(s in r.stdout for s in by_gate[g]
+                                       if s not in replaced)
         cases.append((f'`precedent_gate.py {g}` returns every practice registered to it', ok,
                       (r.stdout + r.stderr).strip()[:120] if not ok else ''))
 
