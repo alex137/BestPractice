@@ -2254,6 +2254,58 @@ def check_session_check_suggests_anchored_also_list():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_loader_caps_unmeasured_without_a_declared_source():
+    """loader-within-caps says COULD NOT VERIFY, never a violation and never a
+    pass, where a declared source is not on disk (2026-09-30).
+
+    A consumer's GitHub test runs on a bare checkout, with none of the
+    sibling practice sets it declares. `build_views.py --budgets` only reads,
+    but it fell through to the refusal meant for WRITING a block from an
+    incomplete set, so the test failed on every private consumer that
+    declares a shared set. Nothing caught it here: BestPractice is public,
+    so its own loader block leaves every private source out and never needs
+    one on disk. A throwaway private consumer, run through the real tools."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='caps-unmeasured-'))
+    try:
+        c = tmp / 'consumer'
+        (c / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, c / 'tools' / f.name)
+        shutil.copytree(ROOT / 'practices', c / 'up' / 'practices')
+        (c / 'precedent.json').write_text(json.dumps({'visibility': 'private', 'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'up'},
+            {'level': 'shared', 'name': 'precedent-shared-missing',
+             'path': '../precedent-shared-missing'}]}), encoding='utf-8')
+        (c / 'AGENTS.md').write_text('# Notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                     '<!-- END GENERATED -->\n', encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        subprocess.run(['git', 'init', '-q'], cwd=c, env=env)
+        subprocess.run(['git', 'add', '-A'], cwd=c, env=env)
+        subprocess.run(['git', 'commit', '-qm', 'x'], cwd=c, env=env)
+        r = subprocess.run([sys.executable, 'tools/build_views.py', '--budgets',
+                            '--agents-only'], cwd=c, capture_output=True, text=True,
+                           timeout=300)
+        cases.append(('--budgets only reads: exit 0 and says it measured nothing',
+                      r.returncode == 0 and 'budgets NOT VERIFIED' in r.stdout,
+                      (r.stdout + r.stderr)[-300:]))
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'loader-within-caps'], cwd=c, capture_output=True,
+                           text=True, timeout=300)
+        out = r.stdout + r.stderr
+        cases.append(('loader-within-caps is not violated', '0 violated' in out, out[-400:]))
+        cases.append(('...and says COULD NOT VERIFY, not a pass',
+                      'COULD NOT VERIFY  loader-within-caps' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'loader-within-caps cannot verify without a declared source, and says so '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_received_hooks_and_moved_engine_files():
     """A consumer's vendored hooks count as received, and a mirrored engine
     file that lives on in its own tools/ is moved, not gone (2026-09-30).
@@ -49280,6 +49332,7 @@ def main():
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()
+    check_loader_caps_unmeasured_without_a_declared_source()
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()

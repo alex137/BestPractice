@@ -1926,6 +1926,7 @@ def loader_practices(root, own_practices):
 # Set by `--budgets`: a cap overrun exits non-zero instead of writing with
 # a warning. The full check's loader-within-caps runs it; nothing else does.
 STRICT_BUDGETS = False
+BUDGETS_NOT_VERIFIED = 'build_views --budgets NOT VERIFIED'
 
 
 def _over_cap_warning(msg):
@@ -2555,6 +2556,15 @@ def main():
         # Exit 0: not verified is not a failure, and not a pass either --
         # the reason is already on stderr, in those words.
         if check:
+            return 0
+        # --budgets only reads, so it is --check's case, not a refused write
+        # (2026-09-30: a consumer's GitHub test runs on a bare checkout with
+        # no sibling practice sets, and failed loader-within-caps on the
+        # write refusal below). It says it measured nothing, in words
+        # precedent_check.py turns into COULD NOT VERIFY, never a pass.
+        if STRICT_BUDGETS:
+            print(BUDGETS_NOT_VERIFIED + ": a declared source is not "
+                  "reachable here, so the loader block's caps were not measured")
             return 0
         sys.exit("build_views FAIL: refusing to WRITE a loader block from an "
                  "incomplete source set -- that would silently drop every "
