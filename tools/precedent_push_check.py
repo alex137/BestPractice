@@ -580,6 +580,24 @@ def _promote_only_refusal(root, argv):
 # and was caught only by the next Promote's full check. The practice checks
 # take seconds; the test suite, which is what makes the full check slow,
 # still waits for staging.
+# What a step prints when a session-load size cap is exceeded but not
+# refused: precedent_check.py's pre-staging WARNING, build_views.py's.
+SIZE_CAP_WARNINGS = ('over a size cap. Allowed onto pre-staging',
+                     'build_views WARNING:')
+CAP_WARNED = []           # the steps that printed one, this run
+
+
+def _cap_warning_last():
+    """Say it last, where the push gate's short tail of a pass shows it:
+    a size cap is over, allowed onto pre-staging, refused at the Debut
+    (Morgan, 2026-09-30: warn on pre-staging, no change for staging)."""
+    if CAP_WARNED:
+        print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
+              f'above). Allowed onto pre-staging; the Debut into staging '
+              f'refuses it, so bring it under first (a Reduction pass). Tell '
+              f'the person.')
+
+
 CHANGED_PRACTICE_CHECK = ('changed_practice',
                           'the practice checks, on the files this push changes')
 
@@ -1152,6 +1170,9 @@ def run(root, checks, landed=None, reported=None):
             print(f'      FAILED in {took:.0f}s although it exited 0: {why}',
                   flush=True)
             continue
+        if p.returncode == 0 and any(m in p.stdout + p.stderr
+                                     for m in SIZE_CAP_WARNINGS):
+            CAP_WARNED.append(name)
         if p.returncode == 0:
             marker, note = STAND_DOWNS.get(name, (None, None))
             if marker and marker in p.stdout + p.stderr:
@@ -1382,6 +1403,7 @@ def main(argv):
               f'to a working branch; {", ".join(reported)} found only what is '
               f'already on origin\'s tier branches (above). NOT recorded as a '
               f'pass, since a push to a tier branch judges those findings.')
+        _cap_warning_last()
         return 0
     if tree and path:
         rec = {'tree': tree, 'checks': signature(checks), 'kind': kind,
@@ -1396,6 +1418,7 @@ def main(argv):
               f'working tree with uncommitted changes -- NOT recorded, since '
               f'the push sends the commit, not these edits. Commit, then run '
               f'it again or let the push gate do it.')
+    _cap_warning_last()
     return 0
 
 

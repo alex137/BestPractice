@@ -1923,6 +1923,20 @@ def loader_practices(root, own_practices):
     return practices, levels
 
 
+# Set by `--budgets`: a cap overrun exits non-zero instead of writing with
+# a warning. The full check's loader-within-caps runs it; nothing else does.
+STRICT_BUDGETS = False
+
+
+def _over_cap_warning(msg):
+    """Say that a loader cap is exceeded, and that it is allowed onto
+    pre-staging but not staging (see render_agents_md)."""
+    print(f"build_views WARNING: {msg} Written anyway: this may land on "
+          f"pre-staging, but it must be brought under the cap before it "
+          f"can go to staging -- the full check at the Debut refuses it "
+          f"(loader-within-caps). Tell the person.", file=sys.stderr)
+
+
 def render_agents_md(practices, agents_md=None, source_levels=None,
                      defers_sources=False, occasion_budget=None):
     """-> (text, stats), where stats is (resident_tokens, n_resident,
@@ -1942,22 +1956,41 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     # always this engine's own ROOT: `--repo DIR` renders another repo's
     # AGENTS.md, and a resident Rule's sibling citation has to be repointed
     # for that repo's root, not this one's.
-    # THIS caller is the gate, so over budget still exits here, with the
-    # identical message it printed before ResidentBudgetExceeded existed --
-    # the tracked block not being regenerated is exactly the outcome wanted.
-    # Every other caller catches the exception instead (see its docstring).
-    try:
-        block, tokens, n_resident = build_loader_block(
-            practices, source_levels=source_levels,
-            defers_sources=defers_sources, block_dir=agents_md.parent,
-            occasion_budget_tokens=(occasion_budget if occasion_budget
-                                    is not None else OCCASION_INDEX_BUDGET_TOKENS))
-    except OccasionIndexBudgetExceeded as e:
-        sys.exit(f"build_views FAIL: {e}")
-    except ResidentBudgetExceeded as e:
-        sys.exit(f"build_views FAIL: resident block is ~{e.tokens} tokens, "
-                 f"over the {e.budget}-token hard cap -- demote or "
-                 f"retire a resident practice before adding another.")
+    # OVER A CAP, THE BLOCK IS STILL WRITTEN, with a warning (Morgan,
+    # 2026-09-30, strength: decided: "remove that limit for pre-staging and
+    # instead just have it give the session user a warning, including
+    # telling the user that it needs to be fixed before it can get onto
+    # staging; but no change for the rules for staging"). This used to exit
+    # here, so the block could not be regenerated, and the pre-staging
+    # check then refused the push as "views not regenerated": branch after
+    # branch stopped short of pre-staging on the same cap. The refusal now
+    # belongs to the full check, which runs at the Debut: its
+    # loader-within-caps check runs `build_views.py --budgets`, which is
+    # the one caller still stopped here (STRICT_BUDGETS).
+    resident_budget = None
+    occ_budget = (occasion_budget if occasion_budget is not None
+                  else OCCASION_INDEX_BUDGET_TOKENS)
+    while True:
+        try:
+            block, tokens, n_resident = build_loader_block(
+                practices, source_levels=source_levels,
+                defers_sources=defers_sources, block_dir=agents_md.parent,
+                budget_tokens=resident_budget, occasion_budget_tokens=occ_budget)
+            break
+        except OccasionIndexBudgetExceeded as e:
+            msg = str(e)
+            if STRICT_BUDGETS:
+                sys.exit(f"build_views FAIL: {msg}")
+            _over_cap_warning(msg)
+            occ_budget = e.tokens
+        except ResidentBudgetExceeded as e:
+            msg = (f"resident block is ~{e.tokens} tokens, over the "
+                   f"{e.budget}-token hard cap -- demote or retire a resident "
+                   f"practice before adding another.")
+            if STRICT_BUDGETS:
+                sys.exit(f"build_views FAIL: {msg}")
+            _over_cap_warning(msg)
+            resident_budget = e.tokens
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
@@ -2503,6 +2536,8 @@ def main():
     # wants only the loader-block mechanism, not BestPractice's own MAP/
     # GLOSSARY conventions.
     agents_only = '--agents-only' in argv
+    global STRICT_BUDGETS
+    STRICT_BUDGETS = '--budgets' in argv
     practices = load_practices(practices_dir)
     too_long = over_long_index_clauses(practices, root)
     if too_long:
@@ -2536,8 +2571,9 @@ def main():
     if _own is not None:
         share = occasion_share(practices)
         if share > _own:
-            sys.exit(
-                f"build_views FAIL: this source's share of every consumer's "
+            (sys.exit if STRICT_BUDGETS else _over_cap_warning)(
+                f"{'build_views FAIL: ' if STRICT_BUDGETS else ''}"
+                f"this source's share of every consumer's "
                 f"occasion index is ~{share} tokens, over its {_own}-token "
                 f"allowance (occasion_share_tokens in precedent-source.json). "
                 f"A consumer carries this share, with every other source it "
@@ -2546,6 +2582,10 @@ def main():
                 f"applies_to glob and drop its occasion:, or shorten the "
                 f"longest index_clause values; raising the allowance is the "
                 f"person's decision, with the reason recorded there.")
+    if STRICT_BUDGETS:
+        print("build_views --budgets OK: the resident block, the occasion "
+              "index and this source's occasion share are within their caps")
+        return 0
     targets = [(agents_md, new_agents)]
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()

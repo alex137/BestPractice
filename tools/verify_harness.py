@@ -8267,6 +8267,33 @@ def check_changed_files_only_judges_the_change():
         cases.append(('a new practice whose generated counts were not '
                       'regenerated is refused at this push, and passes once '
                       'they are', refused and rc == 0, out[-400:]))
+        # A size cap warns on the way into pre-staging and refuses at the
+        # Debut (Morgan, 2026-09-30, strength: decided). The resident cap is
+        # lowered under what the block holds.
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        reg = wt / 'tools' / 'session_load_budgets.json'
+        data = json.loads(reg.read_text(encoding='utf-8'))
+        data['resident_block_tokens'] = 100
+        reg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        bv = subprocess.run([sys.executable, 'tools/build_views.py'], cwd=wt,
+                            capture_output=True, text=True, env=env)
+        cases.append(('over its cap, build_views still writes the block, and '
+                      'warns that staging will refuse it',
+                      bv.returncode == 0 and 'build_views WARNING' in bv.stderr
+                      and 'before it can go to staging' in bv.stderr,
+                      (bv.stdout + bv.stderr)[-400:]))
+        git('commit', '-qam', 'a block over its resident cap')
+        rc, out = run_check(start)
+        cases.append(('the pre-staging check lets it through with a warning '
+                      'naming the staging refusal',
+                      rc == 0 and 'over a size cap. Allowed onto pre-staging' in out,
+                      out[-600:]))
+        full = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                               '--only', 'loader-within-caps'], cwd=wt,
+                              capture_output=True, text=True, env=env)
+        cases.append(('...and the full check refuses it',
+                      full.returncode == 1 and 'VIOLATION' in full.stdout,
+                      (full.stdout + full.stderr)[-400:]))
         start = git('rev-parse', 'HEAD').stdout.strip()
         (wt / 'zz_fixture.json').write_text('{"a": 1,}\n', encoding='utf-8')
         git('add', 'zz_fixture.json')
@@ -12809,6 +12836,13 @@ def check_precedent_check_fires():
             subprocess.run(['git', '-C', str(repo), 'add', 'zzz-newplace'],
                            capture_output=True)
         case('vendoring-decided', _plant_undecided_file)
+
+        def _plant_small_resident_cap(repo):
+            reg = repo / 'tools' / 'session_load_budgets.json'
+            data = json.loads(reg.read_text(encoding='utf-8'))
+            data['resident_block_tokens'] = 100
+            reg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        case('loader-within-caps', _plant_small_resident_cap)
         _gf = planted['generated-files-registered'][1]
         cases.append(('generated-files-registered: the planted violation names '
                       'the stale index and the unlisted generated file, and '
@@ -38121,20 +38155,35 @@ def check_universal_occasion_share_is_capped():
     cases.append((f'the real share (~{share}) fits the declared allowance ({allowed})',
                   allowed is not None and 0 < share <= allowed,
                   f'share {share}, allowance {allowed}'))
-    real, argv = bv.own_occasion_allowance, sys.argv
+    # Over its allowance, --check warns and --budgets refuses: a size cap
+    # warns on the way into pre-staging and refuses at the full check
+    # (Morgan, 2026-09-30, strength: decided).
+    real, argv, strict = bv.own_occasion_allowance, sys.argv, bv.STRICT_BUDGETS
     bv.own_occasion_allowance = lambda root: 10
-    sys.argv = ['build_views.py', '--check']
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), \
-                contextlib.redirect_stderr(io.StringIO()):
-            bv.main()
-        refused, why = False, 'build_views --check returned'
-    except SystemExit as e:
-        refused = "source's share" in str(e.code)
-        why = str(e.code)[:300]
-    finally:
-        bv.own_occasion_allowance, sys.argv = real, argv
-    cases.append(('a share over its allowance refuses the build', refused, why))
+    for flag in ('--check', '--budgets'):
+        sys.argv = ['build_views.py', flag]
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                bv.main()
+            refused, why = False, f'build_views {flag} returned'
+        except SystemExit as e:
+            refused = "source's share" in str(e.code)
+            why = str(e.code)[:300]
+        finally:
+            bv.own_occasion_allowance, sys.argv = real, argv
+            bv.STRICT_BUDGETS = strict
+            bv.own_occasion_allowance = lambda root: 10
+        if flag == '--check':
+            cases.append(('a share over its allowance warns at --check, and '
+                          'does not refuse', not refused
+                          and "source's share" in err.getvalue(),
+                          why + ' | ' + err.getvalue()[-300:]))
+        else:
+            cases.append(('...and --budgets, the full check\'s, refuses it',
+                          refused, why))
+    bv.own_occasion_allowance = real
     d = pathlib.Path(tempfile.mkdtemp())
     try:
         for name, level, share_ in (('uni', 'universal', 2000),

@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-11"
-approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very deep check reviews token cost across this repo and the repos it calls, and said the review and the reduction that follows it should be a rule"
+approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very deep check reviews token cost across this repo and the repos it calls, and said the review and the reduction that follows it should be a rule; caps warn on the way into pre-staging and refuse into staging, Morgan, 2026-09-30 (strength: decided)"
 ---
 ## Rule
 **Everything a session loads before it does any work carries a declared
@@ -59,11 +59,23 @@ formula, fallback or newly summed source that makes the number bigger is a
 raise even when no field changed. Never raise one to make a red check green,
 and say any change to a budget in that reply's Boildown.
 
+**A cap warns on the way into pre-staging and refuses on the way into
+staging.** Over a cap,
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
+still writes the block and prints a warning, and the pre-staging check
+reports the cap checks as warnings, so a branch can land. **Tell the person
+it must be brought under before it can go to staging:** the full check at
+the Debut refuses it (`loader-within-caps`, `session-load-budget`,
+`session-file-allowances-fit`), exactly as before. Morgan, 2026-09-30
+(strength: decided): *"remove that limit for pre-staging and instead just
+have it give the session user a warning, including telling the user that it
+needs to be fixed before it can get onto staging; but no change for the
+rules for staging."* A raised budget still needs the person's own words, on
+every tier.
+
 **When the resident cap refuses a new practice, the person picks what comes
-out.** [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
-exits non-zero rather than write an over-budget block, and its message says
-to demote or retire a resident practice — that is a session's cue to **ask**,
-not to choose. List the resident practices with what each costs and what
+out.** The refusal says to demote or retire a resident practice — that is a
+session's cue to **ask**, not to choose. List the resident practices with what each costs and what
 dropping it would let through, recommend one, and wait for an answer.
 Demoting a practice to `on-demand` to make room changes which rules fire in
 every session afterwards, decided by the session that wanted the room.
