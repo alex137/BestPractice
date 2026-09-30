@@ -44,6 +44,7 @@ Usage:
   precedent_detect.py reverted --repo PATH [--since REF]
   precedent_detect.py restated --against PATH[,PATH...]
 """
+import os
 import pathlib
 import re
 import subprocess
@@ -88,8 +89,26 @@ def instruction_hits(text):
     return hits
 
 
-def revert_hits(repo, since=None, since_date=None):
+def this_session_id():
+    """-> 'session_<id>' for this Claude Code Remote session, '' when the
+    harness does not say. The harness hands the id over as cse_<id>; its
+    public form, the one a commit's session trailer carries, is
+    session_<id> (practice: session-trailer)."""
+    raw = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID', '').strip()
+    if not raw:
+        return ''
+    return 'session_' + (raw[4:] if raw.startswith('cse_') else raw)
+
+
+def revert_hits(repo, since=None, since_date=None, session_id=None,
+                first_parent=False):
     """-> [(short_sha, subject), ...] for revert-shaped commits in `repo`.
+
+    `session_id` keeps only commits whose message carries it (the session
+    trailer), and `first_parent` leaves out what a merge brought in: a
+    session-scoped scan otherwise reports another session's revert that
+    arrived with a merge from pre-staging as this session's own
+    (2026-09-30).
 
     `since` is a git revision (REF..HEAD); `since_date` is anything
     `git log --since` accepts, which is what a session-scoped scan needs --
@@ -99,6 +118,8 @@ def revert_hits(repo, since=None, since_date=None):
     signal nobody gets (practice: fail-gracefully).
     """
     cmd = ['git', '-C', str(repo), 'log', '--format=%H%x00%s%x00%b%x01']
+    if first_parent:
+        cmd += ['--first-parent', '--no-merges']
     if since:
         cmd.append(f'{since}..HEAD')
     if since_date:
@@ -115,6 +136,8 @@ def revert_hits(repo, since=None, since_date=None):
             continue
         sha, _, rest = entry.partition('\x00')
         subject, _, body = rest.partition('\x00')
+        if session_id and session_id not in body:
+            continue
         if re.match(r'^revert\b', subject, re.I) or 'this reverts commit' in body.lower():
             hits.append((sha[:12], subject.strip()))
     return hits

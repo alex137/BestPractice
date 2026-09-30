@@ -70,17 +70,33 @@ def repo_slug(root):
     return f'{m.group(1)}/{m.group(2)}' if m else ''
 
 
-def expected_workflows(root, branch=''):
+def _branch_filter(block):
+    """-> the branch names a trigger block's inline `branches: [..]` lists,
+    or None when it has no such filter (every branch)."""
+    filt = re.search(r'branches:[ \t]*\[(.*?)\]', block or '')
+    if not filt:
+        return None
+    return [b.strip().strip('"\'') for b in filt.group(1).split(',') if b.strip()]
+
+
+def expected_workflows(root, branch='', base=''):
     """-> {workflow name} for every workflow that should produce a run for a
-    commit on `branch`.
+    commit on `branch`, merged by a pull request into `base`.
 
     Read off the tree rather than hardcoded, so adding a workflow is enough
     to make it expected and nothing has to remember to update a list
     (practice: registry-source-of-truth).
 
-    A workflow counts when its `on:` declares `pull_request:` (it fires for
-    any pull-request head), or declares `push:` whose branch filter this
-    branch satisfies -- an ABSENT filter meaning every branch. Both shapes
+    A workflow counts when its `on:` declares `pull_request:` whose branch
+    filter the pull request's `base` satisfies, or `push:` whose branch
+    filter this branch satisfies -- an ABSENT filter meaning every branch,
+    and an unknown `base` counting as a match (over-report, never miss).
+
+    THE BASE WAS IGNORED until 2026-09-30: any `pull_request:` counted, so
+    deep-check.yml (`pull_request: branches: [main]`) was expected on every
+    pull request into pre-staging, where it never fires, and the merge gate
+    said "CI DID NOT RUN" and advised a workflow_dispatch run that would
+    have spent Actions minutes for nothing. Both shapes
     are live in this repository: deep-check.yml is pull_request plus push on
     main, leak-gate.yml is push on every branch and no
     pull_request at all.
@@ -109,16 +125,20 @@ def expected_workflows(root, branch=''):
         # The `on:` block, to its first unindented key after it.
         on = re.search(r'^on:[ \t]*\n(.*?)(?=^\S)', text, re.S | re.M)
         body = on.group(1) if on else ''
-        wanted = bool(re.search(r'^\s*pull_request:', body, re.M))
+        pr = re.search(r'^\s*pull_request:[ \t]*\n?(.*?)(?=^\s{0,2}\w|\Z)',
+                       body, re.S | re.M)
+        wanted = False
+        if pr:
+            only = _branch_filter(pr.group(1))
+            wanted = only is None or not base or base in only
         push = re.search(r'^\s*push:[ \t]*\n(.*?)(?=^\s{0,2}\w|\Z)',
                          body, re.S | re.M)
         if push and not wanted:
-            filt = re.search(r'branches:[ \t]*\[(.*?)\]', push.group(1))
-            if not filt:
+            only = _branch_filter(push.group(1))
+            if only is None:
                 wanted = True
             elif branch:
-                wanted = branch in [b.strip().strip('"\'')
-                                    for b in filt.group(1).split(',')]
+                wanted = branch in only
         if wanted:
             names.add(name.group(1).strip().strip('"\''))
     return names
@@ -150,7 +170,25 @@ def _fetch_runs(slug, sha):
         return None, f'{type(e).__name__}: {e}'
 
 
-def verdict(root='.'):
+def merge_base_branch(root, branch):
+    """-> the branch a pull request from `branch` merges into, as this
+    repository's tiers make it: a Promote's to-main copy and staging go
+    into main, pre-staging into staging, anything else into the person's
+    landing branch. '' when that cannot be read."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branches as pb
+        staging = pb.staging_branch(root)
+        if branch.startswith('to-main-') or branch == staging:
+            return pb.MAIN
+        if branch == pb.PRE_STAGING:
+            return staging
+        return pb.landing_branch(root)[0]
+    except Exception:                                         # noqa: BLE001
+        return ''
+
+
+def verdict(root='.', base=None):
     """-> (state, [line, ...]). The lines are for a person; the state is for
     anything deciding on it."""
     slug = repo_slug(root)
@@ -170,7 +208,10 @@ def verdict(root='.'):
                          f'pushed, so nothing has run on it']
 
     ok_b, branch = _git(root, 'rev-parse', '--abbrev-ref', 'HEAD')
-    expected = expected_workflows(root, branch if ok_b else '')
+    branch = branch if ok_b else ''
+    if base is None:
+        base = merge_base_branch(root, branch)
+    expected = expected_workflows(root, branch, base)
     runs, err = _fetch_runs(slug, sha)
     if runs is None:
         return UNVERIFIED, [f'could not ask about {short}: {err}']
@@ -218,13 +259,13 @@ def verdict(root='.'):
     return VERIFIED, [f'{short}: every expected workflow ran and passed'] + lines
 
 
-def remind(root='.', prefix='precedent'):
+def remind(root='.', prefix='precedent', base=None):
     """-> a block to print, or '' when the commit is verified.
 
     Silent on success, like every other gate notice here: a reminder that
     speaks when there is nothing to say is one nobody reads."""
     try:
-        state, lines = verdict(root)
+        state, lines = verdict(root, base)
     except Exception as e:                                    # noqa: BLE001
         return (f'{prefix}: could not check whether CI ran on this commit '
                 f'({type(e).__name__}) -- treat it as UNVERIFIED')
@@ -255,7 +296,12 @@ def main():
         i = argv.index('--repo')
         if i + 1 < len(argv):
             root = argv[i + 1]
-    state, lines = verdict(root)
+    base = None
+    if '--base' in argv:
+        i = argv.index('--base')
+        if i + 1 < len(argv):
+            base = argv[i + 1]
+    state, lines = verdict(root, base)
     print(f'ci verified: {state.upper()}')
     for line in lines:
         print(line)

@@ -100,6 +100,33 @@ def _identity_is_declared():
     return (pathlib.Path(path).expanduser() / 'identity.json').exists()
 
 
+def _own_new_branch(git, cur, start_sha, stamp):
+    """-> True when `cur` is a branch this session made itself from where it
+    started (`git checkout -b`, stage 2, Act): the oldest entry in its
+    reflog is its creation, dated no earlier than the stamp, at a commit
+    that carries the start. A branch that existed before the session -- the
+    base branch HEAD was once moved onto mid-turn -- has an older reflog,
+    and still fails the row (2026-09-30)."""
+    if not start_sha:
+        return False
+    rc, log, _ = git('reflog', 'show', '--date=unix', '--format=%H %gd %gs',
+                     f'refs/heads/{cur}', '--')
+    lines = [l for l in (log or '').splitlines() if l.strip()]
+    if rc != 0 or not lines:
+        return False
+    sha, gd, *msg = lines[-1].split(' ', 2)
+    if not (msg and msg[0].startswith('branch: Created from')):
+        return False
+    try:
+        created = int(gd.rsplit('{', 1)[1].rstrip('}'))
+        if created < int(stamp.stat().st_mtime):
+            return False
+    except (IndexError, ValueError, OSError):
+        return False
+    return (git('merge-base', '--is-ancestor', start_sha, sha)[0] == 0
+            and git('merge-base', '--is-ancestor', start_sha, 'HEAD')[0] == 0)
+
+
 def _session_branch_row(stamp, git):
     """The "still on the branch it started on" row, or None when HEAD cannot
     be read. The stamp is two lines, the branch and the commit the session
@@ -110,7 +137,9 @@ def _session_branch_row(stamp, git):
     start and passes, provided the commit it started on is in that branch's
     history -- work made detached is then carried, not stranded. A detached
     start whose commit is NOT in the branch it moved to is still a finding,
-    and so is any move between two named branches or back to detached."""
+    and so is a move back to detached, or between two named branches --
+    except onto a branch this session created from where it started
+    (_own_new_branch), which is its own feature branch."""
     rc, cur, _ = git('rev-parse', '--abbrev-ref', 'HEAD')
     if rc != 0 or not cur:
         return None
@@ -146,6 +175,11 @@ def _session_branch_row(stamp, git):
                 f'does NOT contain that commit. Anything committed while '
                 f'detached is reachable only from `git reflog` -- check it '
                 f'before it is garbage-collected')
+    if started != 'HEAD' and cur != 'HEAD' and _own_new_branch(git, cur, start_sha, stamp):
+        write()
+        return (name, True, f'started on {started!r} and moved onto {cur!r}, a '
+                            f'branch this session created from where it started '
+                            f'-- its own feature branch; {cur!r} is now the baseline')
     return (name, False,
             f'started on {started!r}, now on {cur!r}. Work committed before '
             f'the move is on {started!r} and is NOT lost -- `git checkout '
@@ -619,6 +653,7 @@ def checks(offline=False):
     # its budget check were built from two-day-old universal text.
     name = 'each practice source clone is current with its own origin'
     behind, unverified, universal_behind, seen = [], [], [], set()
+    set_behind = []
     targets = [(shown, None, False) for shown, _base in _attachable_sources()]
     targets += [(path, branch, branch is not None)
                 for path, branch in _declared_source_clones()]
@@ -635,6 +670,8 @@ def checks(offline=False):
             behind.append(f'{shown} is {phrase}')
             if universal:
                 universal_behind.append(real)
+            else:
+                set_behind.append(real)
         elif verdict == 'unverified':
             unverified.append(f'{shown} ({phrase})')
     if behind:
@@ -643,13 +680,22 @@ def checks(offline=False):
                      f'-- fast-forward only, so it refuses rather than '
                      f'discard a commit of its own there.'
                      for u in universal_behind)
+        # The command that exists from here: precedent_refresh_sources.py
+        # ships only in a BestPractice clone, not to a consumer or a set
+        # (2026-09-30), so the remedy names the copy it can find.
+        try:
+            import precedent_engine_freshness as _pef
+            run = '; '.join(f'`{_pef.refresh_remedy(ROOT, c)}`' for c in set_behind)
+        except Exception:                                    # noqa: BLE001
+            run = ''
+        run = run or '`python3 tools/precedent_refresh_sources.py --apply`'
         out.append((name, False, '; '.join(behind) + '. The catalogue in '
                     'force is read from these working trees and nothing '
                     'fetches first, so the practices this session is '
-                    'following may be the older ones. Run '
-                    '`python3 tools/precedent_refresh_sources.py --apply`, '
-                    'which now brings each clone current before refreshing '
-                    'it and refuses to report success when it cannot.' + ff))
+                    'following may be the older ones. Run ' + run + ', '
+                    'which brings each clone current (discarding only the '
+                    'engine output a refresh left there) and refuses to '
+                    'report success when it cannot.' + ff))
     elif unverified:
         out.append((name, None, 'could not compare: ' + '; '.join(unverified)
                     + '. This is UNMEASURED, not clean -- a clone compared '

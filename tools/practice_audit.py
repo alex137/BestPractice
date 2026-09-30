@@ -235,7 +235,14 @@ def stale_declines(manifest_path):
     so at once, instead of one audit later."""
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     label = manifest_path.stem.replace('manifest_', '').replace('manifest', 'upstream') or 'upstream'
-    tree = ROOT / manifest.get('upstream', {}).get('vendored_at', 'process/upstream')
+    # The tree is the one beside the manifest, in the repo that owns it
+    # (<repo>/process/manifest*.json), never this module's own ROOT: run
+    # from the source clone by precedent_update.py --repo, ROOT is the
+    # source, and every consumer's declines read as gone (2026-09-30, a
+    # real consumer whose three declined files were all there, hashes
+    # matching).
+    tree = manifest_path.resolve().parents[1] / manifest.get('upstream', {}).get(
+        'vendored_at', 'process/upstream')
     out = []
     for e in manifest.get('entries', []):
         if e.get('status') != 'declined':

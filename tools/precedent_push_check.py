@@ -1422,8 +1422,41 @@ def main(argv):
     return 0
 
 
+# Every option main() reads. An option it does not know is refused rather
+# than ignored: a PR template naming a flag this file never had
+# (--changed-files-only) ran the full ~14-minute suite twice, silently
+# (2026-09-30).
+VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command')
+OPTIONAL_VALUE_OPTIONS = ('--changed-files-check',)
+FLAG_OPTIONS = ('--gate', '--list', '--help', '-h')
+
+
+def unknown_arguments(argv):
+    """-> the arguments in `argv` main() would not read, in order."""
+    out, i = [], 0
+    while i < len(argv):
+        a = argv[i]
+        if a in VALUE_OPTIONS:
+            i += 2
+            continue
+        if a in OPTIONAL_VALUE_OPTIONS:
+            i += 2 if i + 1 < len(argv) and not argv[i + 1].startswith('-') else 1
+            continue
+        if a not in FLAG_OPTIONS:
+            out.append(a)
+        i += 1
+    return out
+
+
 if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    unknown = unknown_arguments(sys.argv[1:])
+    if unknown:
+        print(f'precedent_push_check: unknown argument(s): {" ".join(unknown)}. '
+              f'It takes {", ".join(o + " VALUE" for o in VALUE_OPTIONS)}, '
+              f'--changed-files-check [REF], --gate and --list; --help says '
+              f'what each does. Nothing was run.', file=sys.stderr)
+        sys.exit(2)
     sys.exit(main(sys.argv[1:]))

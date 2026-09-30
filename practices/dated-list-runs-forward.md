@@ -50,6 +50,11 @@ state a list starts in — *"originally: pending review"* — where there is no
 date to give. After that, every entry has one.
 
 ## Detail
+**One exception: a news log runs newest first.** A project's "What's new"
+log is read for its latest entry, so it opens with it
+([whats-new](whats-new.md)). It carries no `<!--dated-list-->` sentinel,
+and each entry still carries its own date.
+
 **What the check enforces**, `python3 tools/precedent_check.py --only
 dated-list-runs-forward`: inside a marked block, the dates run
 non-decreasing, and no entry after the first dated one is missing a date.

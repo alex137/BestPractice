@@ -2141,6 +2141,157 @@ def check_leak_gate_refresh_declines_a_dirty_clone():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_freshness_reads_a_private_source_through_its_clone():
+    """A live source clone whose only credential is its own local
+    credential.helper is reported current or behind, never NOT VERIFIED.
+
+    Found 2026-09-30: upstream_tip() ran `git ls-remote <url>` from outside
+    the clone, where a private source's credential does not reach, so every
+    session printed "NOT VERIFIED ... could not reach". The same ls-remote
+    against `origin` inside the clone succeeds. Git is stubbed to answer
+    exactly that way: the bare URL refused, `origin` answered only from the
+    clone. CONTROL: with no clone to ask from, the same row is NOT VERIFIED,
+    so the verdict comes from asking inside the clone. Also: a behind live
+    clone's remedy is the refresh, never a bare pull (engine output a
+    refresh leaves there makes that pull refuse)."""
+    import contextlib, io, tempfile
+    import precedent_engine_freshness as pef
+    cases = []
+    url = 'https://github.com/example/private-set.git'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='freshness-private-'))
+    clone = str(tmp / 'private-set')
+    saved = (pef._git, pef.collect_targets)
+
+    def fake_git(*args, cwd=None, timeout=25):
+        if args[:3] == ('remote', 'get-url', 'origin') and cwd == clone:
+            return 0, url
+        if args[:2] == ('ls-remote', 'origin') and cwd == clone:
+            return 0, 'abc123\trefs/heads/main'
+        if args[:1] == ('ls-remote',):
+            return 128, ''      # no credential out here
+        return saved[0](*args, cwd=cwd, timeout=timeout)
+
+    def run(recorded, path):
+        row = {'label': 'set (shared) live clone', 'kind': 'live', 'url': url,
+               'branch': 'main', 'recorded': recorded}
+        if path:
+            row['path'] = path
+        pef.collect_targets = lambda root='.': [row]
+        buf = io.StringIO()
+        pef.report(str(tmp), out=buf)
+        return buf.getvalue()
+
+    try:
+        pef._git = fake_git
+        out = run('abc123', clone)
+        cases.append(('a current private clone reads current, not NOT VERIFIED',
+                      'current' in out and 'NOT VERIFIED' not in out, out))
+        out = run('old999', clone)
+        cases.append(('a behind private clone reads BEHIND, not NOT VERIFIED',
+                      'BEHIND UPSTREAM' in out and 'NOT VERIFIED' not in out, out))
+        cases.append(('...and its remedy is the refresh, never a bare pull',
+                      'precedent_refresh_sources.py --apply --path' in out
+                      and 'pull --ff-only' not in out, out))
+        out = run('abc123', None)
+        cases.append(('CONTROL: with no clone to ask from, the same row is NOT VERIFIED',
+                      'NOT VERIFIED' in out, out))
+    finally:
+        pef._git, pef.collect_targets = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the freshness notice reads a private source through its own clone '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_whats_new_log_mechanics():
+    """tools/precedent_whats_new.py, the mechanics behind "What's new?"
+    (practice: whats-new, 2026-09-30).
+
+    A throwaway repository with main's history on chosen days (UTC, the
+    repo's declared zone): a day with a change, an empty day, a day whose
+    only commit touches the log itself, and a day that adds a document.
+    Stated cases: the first run lists exactly the two real days, newest
+    document named; --mark covers them and a second run lists none; a day
+    that has not finished cannot be marked; the later of this checkout's
+    log and main's is read; an entry naming an approval is flagged; the
+    log never ships to another project."""
+    import datetime as _dt, tempfile
+    import precedent_whats_new as pwn
+    import checkin as _ck
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='whats-new-'))
+    today = _dt.date(2026, 9, 10)
+    try:
+        origin, repo = tmp / 'origin.git', tmp / 'repo'
+
+        def g(cwd, *a, when=None):
+            env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                       GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+            if when:
+                env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = when
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        def commit(rel, text, msg, when):
+            p = repo / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, encoding='utf-8')
+            g(repo, 'add', '-A'); g(repo, 'commit', '-qm', msg, when=when)
+
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        g(tmp, 'init', '-q', '-b', 'main', str(repo))
+        g(repo, 'remote', 'add', 'origin', str(origin))
+        (repo / 'precedent.json').write_text('{"fallback_timezone": "UTC"}\n',
+                                             encoding='utf-8')
+        commit('a.txt', '0', 'before the window', '2026-08-01T12:00:00Z')
+        commit('a.txt', '1', 'Faster start-up', '2026-09-05T12:00:00Z')
+        # 2026-09-06: nothing.
+        commit('WHATS_NEW.md', '# What\'s new\n', 'Log only', '2026-09-07T12:00:00Z')
+        commit('docs/PHILOSOPHY.md', 'why\n', 'A new philosophy note', '2026-09-08T12:00:00Z')
+        g(repo, 'push', '-q', 'origin', 'main')
+        g(repo, 'fetch', '-q', 'origin')
+
+        _tz, through, days = pwn.missing_days(repo, today=today)
+        got = [d.isoformat() for d, _ in days]
+        cases.append(('the first run lists only the days main changed, the log\'s own '
+                      'commit left out', got == ['2026-09-05', '2026-09-08'], str(got)))
+        added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
+        cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
+                      str(added)))
+        ok, msg = pwn.mark(repo, _dt.date(2026, 9, 8), today=today)
+        _tz, through, days = pwn.missing_days(repo, today=today)
+        cases.append(('--mark covers them, and a second run lists none',
+                      ok and through == _dt.date(2026, 9, 8) and days == [],
+                      f'{msg} {through} {days}'))
+        ok, msg = pwn.mark(repo, today, today=today)
+        cases.append(('a day that has not finished cannot be marked', not ok, msg))
+        # main's log is ahead of this checkout's: the later one is read.
+        (repo / 'WHATS_NEW.md').write_text('---\nchecked_through: 2026-09-09\n---\n',
+                                           encoding='utf-8')
+        g(repo, 'commit', '-qam', 'log', when='2026-09-10T01:00:00Z')
+        g(repo, 'push', '-q', 'origin', 'main'); g(repo, 'fetch', '-q', 'origin')
+        g(repo, 'reset', '-q', '--hard', 'HEAD~1')
+        _text, later = pwn.read_state(repo)
+        cases.append(('the later of this checkout\'s log and main\'s is read',
+                      later == _dt.date(2026, 9, 9), str(later)))
+        hits = pwn.approval_lines('---\nchecked_through: 2026-09-09\n---\n'
+                                  '## 2026-09-09\n- Faster start-up (approved by M)\n'
+                                  '- Shorter instructions (about 800 tokens)\n')
+        cases.append(('an entry naming an approval is flagged, and only it',
+                      [n for n, _ in hits] == [5], str(hits)))
+        rule = _ck.vendoring_rule('WHATS_NEW.md')
+        cases.append(('a project\'s log never ships to another project',
+                      bool(rule) and rule[1] is False, str(rule)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the What\'s new log lists the days it lacks, and only those '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_freshness_covers_every_declared_source():
     """precedent_engine_freshness reports one row per way a DECLARED source
     is reached -- the engine manifest, a vendored tree's manifest, a live
@@ -2253,9 +2404,12 @@ def check_freshness_covers_every_declared_source():
              'BEHIND UPSTREAM: precedent (universal) vendored at process/upstream' in after),
             ('the shared set\'s vendored code reads BEHIND',
              'BEHIND UPSTREAM: set (shared) vendored at process/set' in after),
-            ('the shared set\'s live clone reads BEHIND and says how to fetch it',
+            ('the shared set\'s live clone reads BEHIND and names the refresh '
+             'that brings it current, never a bare pull (engine output a '
+             'refresh leaves there makes that pull refuse, 2026-09-30)',
              'BEHIND UPSTREAM: set (shared) live clone at' in after
-             and f'git -C {set_clone} pull --ff-only' in after),
+             and f'--apply --path {set_clone}' in after
+             and 'pull --ff-only' not in after),
             ('the notice names Update Vendors once',
              after.count('"Update Vendors"') == 1),
             ('an unreachable upstream is NOT VERIFIED, not current',
@@ -2488,6 +2642,13 @@ def check_practice_audit_declined():
                     json.loads(manifest.read_text(encoding='utf-8'))['entries']}
 
         rc_fresh, out_fresh = run()
+        # Called from the SOURCE clone's module, as precedent_update.py
+        # --repo does through checkin.py: the tree is the consumer's.
+        spec = importlib.util.spec_from_file_location(
+            'source_practice_audit', ROOT / 'tools' / 'practice_audit.py')
+        source_audit = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(source_audit)
+        from_source = source_audit.stale_declines(manifest)
         # Upstream moves on: the declined file is deduplicated into a successor.
         old.write_text('---\nslug: old-rule\nstatus: deduplicated\nin_force_at: new-rule\n'
                        '---\n## Rule\nnarrow\n', encoding='utf-8')
@@ -2520,6 +2681,8 @@ def check_practice_audit_declined():
         cases = [
             ('a decline made against the current upstream file passes',
              rc_fresh == 0 and 'declined OK' in out_fresh),
+            ('run from the source clone, a consumer decline reads the consumer tree',
+             from_source == []),
             ('the upstream file changing since the decline FAILS',
              rc_moved == 1 and 'DECLINED: [upstream:old-rule]' in out_moved),
             ('and the failure names where the rule lives now and what replaced it',
@@ -11255,6 +11418,28 @@ def _reverse_marked_dated_list(text):
     return head + '<!--dated-list-->' + '\n'.join(lines)
 
 
+def _failing_findings(out, cap=40):
+    """-> the VIOLATION/ERROR blocks of a precedent_check.py run -- each
+    finding line and the indented lines under it -- capped at `cap` lines,
+    or the run's last lines when it printed none."""
+    keep, inside = [], False
+    for line in out.splitlines():
+        if re.match(r'\s*(VIOLATION|ERROR|FAIL)\b', line):
+            inside = True
+            keep.append(line.strip())
+        elif inside and line.strip() == 'the rule:':
+            inside = False                  # the rule's text is not a finding
+        elif inside and line.startswith((' ', '\t')) and line.strip():
+            keep.append('  ' + line.strip())
+        else:
+            inside = False
+    if not keep:
+        keep = [l for l in out.splitlines() if l.strip()][-8:]
+    if len(keep) > cap:
+        keep = keep[:cap] + [f'... and {len(keep) - cap} more line(s)']
+    return '\n' + '\n'.join(keep)
+
+
 def check_precedent_check_fires():
     """The enforced channel's own behaviour, as stated cases against throwaway
     repositories -- one planted violation per enforced practice.
@@ -11358,10 +11543,16 @@ def check_precedent_check_fires():
 
         # --- the baseline must be clean, or every case below is meaningless
         base = fresh('baseline')
-        rc, out = subprocess.run(
+        _r = subprocess.run(
             [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            capture_output=True, text=True, cwd=str(base)).returncode, ''
-        cases.append(('an unplanted copy of this tree passes every check', rc == 0))
+            capture_output=True, text=True, cwd=str(base))
+        rc = _r.returncode
+        # On a failure, the failing checks' own findings go into the detail:
+        # a bare rc said only the slug of this case, and under --as-ci
+        # --isolated (UTC) finding that todo/TODO.md had drifted took a
+        # manual rebuild of the fixture (2026-09-30).
+        cases.append(('an unplanted copy of this tree passes every check', rc == 0,
+                      '' if rc == 0 else _failing_findings(_r.stdout + _r.stderr)))
 
         # --- one planted violation per enforced practice --------------------
         planted = {}
@@ -17628,6 +17819,46 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
              git(work, 'show', '--name-only', '--format=', 'HEAD')),
         ]
 
+        # --- level with origin/<branch> but on ANOTHER branch: no commit
+        #     there, and its head does not move (2026-09-30: a resumed
+        #     session on a merged feature branch got the watermark commit)
+        git(work, 'checkout', '-q', '-b', 'claude/merged-feature')
+        before_feature = git(work, 'rev-parse', 'HEAD')
+        baseline = landed()
+        land('c-feature', THEIRS)
+        status4, lines4, alert4 = run()
+        cases += [
+            ('_is_quiet says no on another branch level with origin',
+             pbw._is_quiet(work, branch) is False, 'said yes'),
+            ('the alert is still delivered from the other branch',
+             status4 == 'alert' and alert4 is not None, f'{status4}'),
+            ('and the other branch gets no watermark commit',
+             'watermark' not in git(work, 'log', '-1', '--format=%s'),
+             git(work, 'log', '-1', '--format=%s')),
+            ('and its head is only where the fast-forward put it',
+             git(work, 'rev-parse', 'HEAD') == git(work, 'rev-parse', f'origin/{branch}')
+             and landed() == baseline,
+             f'{landed()} vs {baseline}'),
+        ]
+        git(work, 'checkout', '-q', branch)
+        git(work, 'merge', '-q', '--ff-only', f'origin/{branch}')
+
+        # --- a push that fails leaves no commit behind
+        wm = pbw._watermark_path(work)
+        head_before = git(work, 'rev-parse', 'HEAD')
+        wm.write_text(wm.read_text(encoding='utf-8') + ' ', encoding='utf-8')
+        git(work, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
+        said = pbw._commit_and_push(work, wm, 'Advance watermark (harness)', False, branch)
+        git(work, 'remote', 'set-url', 'origin', reachable)
+        cases += [
+            ('a failed push takes its commit back',
+             git(work, 'rev-parse', 'HEAD') == head_before and 'taken back' in said,
+             said),
+            ('and leaves the checkout clean',
+             git(work, 'status', '--porcelain') == '',
+             git(work, 'status', '--porcelain')),
+        ]
+
         # --- a repo that ignores nothing gets no note, and is told so
         bare_work = tmp / 'bare-work'
         git(tmp, 'clone', '-q', str(origin), str(bare_work))
@@ -18372,6 +18603,63 @@ def check_trivial_checkin_exempts_the_boildown_gate():
           f'({len(cases)} stated cases)',
           not bad_cases,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
+def check_close_detect_counts_only_this_sessions_reverts():
+    """The practice-candidate detector's revert signal is this session's own.
+
+    Found 2026-09-30: signals() took every revert reachable from HEAD since
+    the session started, so another session's revert, brought in by a merge
+    from pre-staging, was reported as "work this session undid". Now only a
+    commit carrying this session's trailer, on its own first-parent line,
+    counts. Driven against a throwaway repository (practice:
+    fixture-owns-its-state)."""
+    import tempfile
+    import precedent_close_detect as pcd
+    cases = []
+    saved = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID')
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env).stdout.strip()
+
+        def commit(f, text, msg):
+            (repo / f).write_text(text, encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', msg)
+
+        g('init', '-q', '-b', 'pre-staging')
+        commit('a', '1', 'base')
+        g('checkout', '-q', '-b', 'claude/mine')
+        g('checkout', '-q', 'pre-staging')
+        commit('b', '1', 'other work\n\nSession: https://claude.ai/code/session_OTHER')
+        g('revert', '--no-edit', 'HEAD')
+        g('commit', '-q', '--amend', '-m',
+          'Revert "other work"\n\nSession: https://claude.ai/code/session_OTHER')
+        g('checkout', '-q', 'claude/mine')
+        commit('c', '1', 'mine\n\nSession: https://claude.ai/code/session_ME')
+        g('merge', '-q', '--no-ff', '--no-edit', 'pre-staging')
+        records = [{'timestamp': '2000-01-01T00:00:00Z', 'type': 'user'}]
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_ME'
+        try:
+            before = [d for n, d in pcd.signals(records, repo) if n == 'reverted-or-corrected']
+            commit('c', '2', 'Revert my own change\n\nSession: https://claude.ai/code/session_ME')
+            after = [d for n, d in pcd.signals(records, repo) if n == 'reverted-or-corrected']
+        finally:
+            if saved is None:
+                os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+            else:
+                os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = saved
+        cases.append(('a revert merged in from another branch is not a signal',
+                      before == [], str(before)))
+        cases.append(("the session's own revert is",
+                      len(after) == 1 and 'Revert my own change' in after[0], str(after)))
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the close detector counts only this session\'s own reverts '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_close_detection_fires_only_when_all_conditions_hold():
@@ -24719,7 +25007,7 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
 
     def run(runs, expected=('Deep check', 'Leak gate')):
         pciv._fetch_runs = lambda slug, sha: (runs, '')
-        pciv.expected_workflows = lambda root, branch='': set(expected)
+        pciv.expected_workflows = lambda root, branch='', base='': set(expected)
         return pciv.verdict('.')
 
     saved_expected = pciv.expected_workflows
@@ -24799,6 +25087,19 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
         on_main = pciv.expected_workflows(str(tmp), 'main')
         cases.append(('push scoped to main IS expected on main',
                       'Commented' in on_main, str(sorted(on_main))))
+        # A pull_request trigger scoped to main is not expected on a pull
+        # request into pre-staging (2026-09-30: the merge gate said "CI DID
+        # NOT RUN" for deep-check.yml on every one), and is into main.
+        (wf / 'mainonly.yml').write_text(
+            'name: MainOnly\non:\n  pull_request:\n    branches: [main]\n'
+            '    types: [opened]\n\n  push:\n    branches: [main]\n\njobs: {}\n')
+        into_pre = pciv.expected_workflows(str(tmp), 'claude/feature', 'pre-staging')
+        cases.append(('a main-only pull_request is not expected into pre-staging',
+                      'MainOnly' not in into_pre and 'Real' in into_pre,
+                      str(sorted(into_pre))))
+        into_main = pciv.expected_workflows(str(tmp), 'to-main-x', 'main')
+        cases.append(('and is expected into main',
+                      'MainOnly' in into_main, str(sorted(into_main))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -25192,6 +25493,30 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('a move between named branches still fails',
                       ok is False and 'claude/work' in detail, detail))
+
+        # A named start, then the session's own new branch from it: passes.
+        import time as _time
+        git('checkout', '-q', 'main')
+        _, c_main, _ = git('rev-parse', 'HEAD')
+        stamp.write_text(f'main\n{c_main}\n')
+        os.utime(stamp, (_time.time() - 60, _time.time() - 60))
+        git('checkout', '-q', '-b', 'claude/own-feature')
+        ok, detail = row()
+        cases.append(("a named start moving onto the session's own new branch passes",
+                      ok is True and 'created' in detail, detail))
+        cases.append(('and that branch becomes the baseline',
+                      stamp.read_text().split()[0] == 'claude/own-feature',
+                      stamp.read_text()))
+
+        # A branch that existed before the stamp is still a jump.
+        git('branch', 'older-branch', 'main')
+        stamp.write_text(f'main\n{c_main}\n')
+        os.utime(stamp, (_time.time() + 60, _time.time() + 60))
+        git('checkout', '-q', 'older-branch')
+        ok, detail = row()
+        cases.append(('a move onto a branch that existed before the session still fails',
+                      ok is False and 'older-branch' in detail, detail))
+        git('checkout', '-q', 'main')
 
         # A detached start whose commit the new branch lacks still fails.
         git('checkout', '-q', '--detach', 'claude/work')
@@ -26775,13 +27100,15 @@ def check_carry_check_never_counts_upstream_deletions():
     it wrote the commit by hand -- the fourth consumer update in a row to
     step around the guard, which is how a guard stops guarding.
 
-    Three stated cases, each run through the consumer's own vendored copy
+    Four stated cases, each run through the consumer's own vendored copy
     (see check_update_refuses_while_a_branch_is_pinned for why), and each
     reading the message rather than the exit code alone:
       * the incident: committed tree one sync behind the manifest;
       * a stale committed stamp, so only upstream's own deletion history can
         explain the line -- the second of the two mechanisms;
-      * a real local line upstream never wrote: still refused, still named.
+      * a real local line upstream never wrote: still refused, still named;
+      * a copy older than every stamp, never refreshed: the file's own
+        upstream history says the line is upstream's.
     """
     import tempfile, json as _json, shutil as _shutil
     src = ROOT / 'tools' / 'checkin.py'
@@ -26908,6 +27235,17 @@ def check_carry_check_never_counts_upstream_deletions():
                       'a local line upstream never had' in out
                       and 'gamma line three' not in out
                       and 'beta line two' not in out))
+
+        # 4. A copy never refreshed: the committed tree is upstream's A,
+        #    but every stamp names C, so "beta" (deleted at B) is in no
+        #    base and in no deletion after one. Only the file's own history
+        #    says upstream wrote it (2026-09-30, a real consumer, 75 files).
+        rc, out = _record(_consumer(base / 'four', clone, sha['A'], sha['C'],
+                                    sha['C']), clone)
+        cases.append(('a copy older than every stamp records cleanly',
+                      rc == 0 and 'checkin record OK' in out and 'beta' not in out))
+        cases.append(('and says the lines are an earlier upstream version',
+                      'earlier upstream version' in out))
 
     failed = [n for n, ok in cases if not ok]
     check(f'checkin.py record never counts upstream\'s own deletions as lost '
@@ -31995,6 +32333,105 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_pulls_a_set_behind_its_own_origin():
+    """A practice-set clone behind its OWN origin is fast-forwarded at
+    session start even when its engine is current.
+
+    Found 2026-09-30: "stale" meant only "this set's engine is behind
+    BestPractice", and with no engine stale --apply returned "all current"
+    before any fast-forward, so a clone 13 commits behind its own main ran
+    a session on stale rules while the freshness notice said BEHIND for
+    the same clone. Real git, hermetic: a bare origin, the set's clone, one
+    commit pushed past it from elsewhere. CONTROL: the same clone with an
+    uncommitted edit is left where it is, and says why."""
+    import contextlib, io, json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-own-origin-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env).stdout.strip()
+
+    names = ('candidate_dirs', 'head_commit', 'ensure_source_credentials',
+             '_repairable', 'branch_state')
+    saved = {n: getattr(prs, n) for n in names}
+    try:
+        origin, seed, clone = tmp / 'origin.git', tmp / 'seed', tmp / 'set'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        g(tmp, 'clone', '-q', str(origin), str(seed))
+        (seed / 'tools').mkdir()
+        (seed / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'source', 'source_commit': 'fixture-tip'}), encoding='utf-8')
+        (seed / 'precedent.json').write_text('{"base_branch": "main"}\n', encoding='utf-8')
+        (seed / 'practices.md').write_text('one\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'one'); g(seed, 'push', '-q', 'origin', 'main')
+        g(tmp, 'clone', '-q', str(origin), str(clone))
+        (seed / 'practices.md').write_text('one\ntwo\n', encoding='utf-8')
+        g(seed, 'commit', '-qam', 'two'); g(seed, 'push', '-q', 'origin', 'main')
+        tip = g(seed, 'rev-parse', 'HEAD')
+
+        prs.candidate_dirs = lambda extra=(): [clone.resolve()]
+        prs.head_commit = lambda: ('fixture-tip', 'origin/fixture')
+        prs.ensure_source_credentials = lambda found: []
+        prs._repairable = lambda e: False
+        prs.branch_state = lambda repo: None
+
+        def run():
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = prs.main(['--apply'])
+            return rc, buf.getvalue()
+
+        # CONTROL first: dirty, so it must stay behind and say so.
+        (clone / 'scratch.txt').write_text('mine\n', encoding='utf-8')
+        rc, out = run()
+        cases.append(('CONTROL: a dirty clone behind its origin is left where it is',
+                      g(clone, 'rev-parse', 'HEAD') != tip, out[-400:]))
+        cases.append(('...and the run says why, pointing at a re-run',
+                      'uncommitted changes of its own' in out and '--apply' in out,
+                      out[-400:]))
+        (clone / 'scratch.txt').unlink()
+
+        rc, out = run()
+        cases.append(('engine current, clean clone behind its own origin: it ends current',
+                      g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
+        cases.append(('...and the line names what it compared',
+                      'its own origin/main' in out and 'engine current' in out, out[-400:]))
+
+        # Engine output a refresh left uncommitted is not a person's work:
+        # the clone is still brought current, and the engine written again
+        # (2026-09-30: every clone carries it, and a bare pull refused).
+        (seed / 'practices.md').write_text('one\ntwo\nthree\n', encoding='utf-8')
+        g(seed, 'commit', '-qam', 'three'); g(seed, 'push', '-q', 'origin', 'main')
+        tip = g(seed, 'rev-parse', 'HEAD')
+        (clone / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"kind": "source", "source_commit": "fixture-tip", "x": 1}', encoding='utf-8')
+        applied = []
+        saved['classify_dirt'] = prs.classify_dirt
+        saved['apply_to'] = prs.apply_to
+        prs.classify_dirt = lambda repo: (
+            (['tools/ENGINE_MANIFEST.json'] if g(repo, 'status', '--porcelain') else []), [])
+        prs.apply_to = lambda e, commit=False: (applied.append(e['repo']), [])[1]
+        rc, out = run()
+        cases.append(('a clone carrying only engine output is still brought current',
+                      g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
+        cases.append(('...and its engine is written again over the new tree',
+                      len(applied) == 1, f'{applied} {out[-300:]}'))
+    finally:
+        for n, f in saved.items():
+            setattr(prs, n, f)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session-start refresh pulls a set clone behind its own origin '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_refresh_sources_path_names_the_whole_target():
     """`--apply --path X` writes into X and nothing else. It used to ADD X to
     the scan, so refreshing one named set also rewrote every other set beside
@@ -32364,6 +32801,42 @@ def check_model_audit_ledger():
             if bool(rc) != bool(should_fail):
                 bad.append(f'{what}: the audit exited {rc}')
     check(name, not bad, '; '.join(bad))
+
+
+def check_push_check_refuses_an_unknown_option():
+    """precedent_push_check.py refuses an option it does not know, exit 2,
+    naming the ones it does -- and still takes every one it reads.
+
+    Found 2026-09-30: the pull request template named
+    `precedent_push_check.py --changed-files-only`, an option this file
+    never had. It was ignored silently and the full ~14-minute suite ran,
+    twice, where a seconds-long pre-staging check was meant."""
+    import precedent_push_check as ppc
+    t0 = time.time()
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_push_check.py'),
+                        '--changed-files-only'], capture_output=True, text=True,
+                       cwd=str(ROOT), timeout=60)
+    cases = [
+        ('an unknown option exits 2', r.returncode == 2, str(r.returncode)),
+        ('and names itself and the valid ones',
+         '--changed-files-only' in r.stderr and '--push-command' in r.stderr,
+         r.stderr[-300:]),
+        ('and runs nothing', time.time() - t0 < 30 and 'passed in' not in r.stdout,
+         r.stdout[-200:]),
+        ('the hook\'s own arguments are all known',
+         ppc.unknown_arguments(['--gate', '--push-command', 'origin pre-staging']) == [], ''),
+        ('--changed-files-check takes its REF, or none',
+         ppc.unknown_arguments(['--changed-files-check', 'origin/x', '--list']) == []
+         and ppc.unknown_arguments(['--changed-files-check', '--gate']) == [], ''),
+        ('the merge gate\'s arguments are all known',
+         ppc.unknown_arguments(['--gate', '--tier', 'full']) == []
+         and ppc.unknown_arguments(['--changed-since', 'origin/pre-staging']) == [], ''),
+        ('a stray positional is refused too',
+         ppc.unknown_arguments(['--gate', 'oops']) == ['oops'], ''),
+    ]
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'precedent_push_check.py refuses an unknown option ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
 
 
 def check_push_check_runs_cheap_checks_first():
@@ -36763,9 +37236,20 @@ def check_generated_blocks_both_styles():
         if named != {'tools/checks/check_hand.py'}:
             bad.append(f'checks-use-generated-blocks: want only check_hand.py '
                        f'named, got {sorted(named)}: {r.stdout[-300:]}')
+    # precedent_vendor_engine's AGENTS.md section parser (2026-09-30): it
+    # knew only the loader style, and an unclosed opener hid the rest.
+    pve = importlib.import_module('precedent_vendor_engine')
+    keys = [k for k, _a, _b in pve._md_sections(
+        '## A\n<!--gen:x-->\n## hidden\n<!--/gen:x-->\n## B\nb')]
+    if keys != ['## A', '## B']:
+        bad.append(f'AGENTS.md sections: a gen: block\'s heading counted: {keys}')
+    keys = [k for k, _a, _b in pve._md_sections(
+        '## A\n<!-- BEGIN GENERATED: precedent-loader -->\nx\n## B\nb')]
+    if keys != ['## A', '## B']:
+        bad.append(f'AGENTS.md sections: an unclosed opener hid what follows: {keys}')
     check(f'generated_blocks.py finds generated text in both marker styles, '
           f'closing marker required, and the scans use it '
-          f'({len(shapes) + 4} stated cases)',
+          f'({len(shapes) + 6} stated cases)',
           not bad, '; '.join(bad))
 
 
@@ -48573,6 +49057,7 @@ def main():
     check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
+    check_close_detect_counts_only_this_sessions_reverts()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
@@ -48652,9 +49137,13 @@ def main():
     check_retired_branch_name_does_not_ship()
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
+    check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_freshness_reads_a_private_source_through_its_clone()
+    check_whats_new_log_mechanics()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
+    check_push_check_refuses_an_unknown_option()
     check_reach_key_self_check()
     check_content_record_self_check()
     check_doc_sync_ledger()

@@ -297,10 +297,8 @@ def _this_session_id():
     harness does not say. The harness hands the id over as cse_<id>; its
     public form, the one a commit's session trailer carries, is session_<id>
     (practice: session-trailer)."""
-    raw = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID', '').strip()
-    if not raw:
-        return ''
-    return 'session_' + (raw[4:] if raw.startswith('cse_') else raw)
+    import precedent_detect
+    return precedent_detect.this_session_id()
 
 
 def _range_is_this_sessions(repo, rng, own, _git):
