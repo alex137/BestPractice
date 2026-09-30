@@ -80,6 +80,9 @@ as_of: 2026-09-29
 | [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 1d | wait |  |
 | [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 1d | wait |  |
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 1d | wait |  |
+| [`todo-2026-09-29-pre-staging-tier-skips-doc-sync`](todo-2026-09-29-pre-staging-tier-skips-doc-sync.md) | A new practice can land on pre-staging with stale generated counts, and only the Debut notices. | 0d | wait | out of scope for the session that found it (local edits to received files); file… |
+| [`todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command`](todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command.md) | `.claude/hooks/push-check-gate.sh` took a read-only grep for a `git push`, and ran a full check on it. | 0d | wait | out of scope for the session that found it (local edits to received files); file… |
+| [`todo-2026-09-29-received-practice-edits-are-overwritten`](todo-2026-09-29-received-practice-edits-are-overwritten.md) | A local edit to a practice or check a consumer received through `MANIFEST.json` is overwritten, silently, on every sync. | 0d | wait | no per-file record of what a sync wrote: MANIFEST.json names each received pract… |
 
 ## Verify Before External Use
 

@@ -59,22 +59,21 @@ had already needed it.
                             nearly mirrored an old tree; the tool pulls
                             fresh and guards the overwrite.)
 
-  push <upstream-clone> [--force]
-                            REFUSES if upstream's default branch has moved
-                            past what the vendored tree was mirrored from —
-                            the tree is then behind, and this mirror DELETES
-                            files it lacks, so it would revert upstream work
-                            (run `update` first). Then run the scrub/practice
-                            audit — it must
-                            pass, THIS is the gate that keeps proprietary
-                            content out of the public repo — then mirror the
-                            vendored tree into the clone's working tree
-                            (deleting files that no longer exist upstream,
-                            .git untouched). Committing, opening the PR, and
-                            merging remain deliberate manual steps: the PR
-                            review is the second scrub line.
+  push <upstream-clone> --why "what went wrong"
+                            Send this repo's committed changes to the
+                            vendored tree upstream, as a branch in the
+                            clone: tools/precedent_local_edits.py send
+                            merges each file three ways onto upstream's
+                            landing branch (so upstream work since the
+                            mirror is never reverted), runs this repo's
+                            scrub and upstream's leak gate and basic tier,
+                            commits, and pushes the branch -- never a pull
+                            request, never a merge -- then prints the prompt
+                            for the session that lands it. With --source,
+                            a shared set's code tree still takes the old
+                            mirror into the clone's working tree.
 
-  record <upstream-clone> [--note "..."]
+  record <upstream-clone> [--note "..."] [--resolving PATH ...]
                             After the upstream merge: pull the clone's
                             default branch, verify it is byte-identical to
                             the vendored tree (fail loudly if not — never
@@ -82,9 +81,12 @@ had already needed it.
                             write the clone's HEAD hash into
                             process/manifest.json upstream.commit. Commit
                             the manifest change in the dependent repo
-                            yourself.
+                            yourself. --resolving names a file (relative
+                            to the vendored tree) whose local edit Update
+                            Vendors is resolving itself; the carry check
+                            skips exactly those, and says how many.
 
-  fresh                     Clone-free staleness notice for session starts:
+  fresh                    Clone-free staleness notice for session starts:
                             one `git ls-remote` of the manifest's upstream
                             repo, compared to the recorded upstream.commit.
                             Prints one line only when upstream has moved;
@@ -460,6 +462,28 @@ def _diff(clone):
     modified = sorted(p for p in ours & theirs
                       if not filecmp.cmp(UPSTREAM / p, clone / p, shallow=False))
     return added, modified, deleted
+
+
+def local_changes(clone, recorded):
+    """-> sorted [Path] under the vendored tree that differ from the tree at
+    `recorded` in `clone` -- added, deleted or changed here since it was
+    mirrored -- or None when `recorded` is not in the clone.
+
+    THE ONE ANSWER to "what did this repo change in its mirror?": update()'s
+    guard refuses on it, and tools/precedent_local_edits.py resolves and
+    sends exactly these files (2026-09-29), so the two can never disagree
+    about what counts as a local edit."""
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+                         capture_output=True)
+    if tar.returncode != 0:
+        return None
+    with tempfile.TemporaryDirectory() as td:
+        tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+        base = pathlib.Path(td)
+        ours, theirs = _files(UPSTREAM), _files(base)
+        return sorted(ours ^ theirs) + sorted(
+            p for p in ours & theirs
+            if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
 
 
 def _manifest():
@@ -888,26 +912,20 @@ def update(clone, force=False, allow_pinned=False):
         if not recorded:
             sys.exit("checkin FAIL: no upstream.commit recorded in the manifest — "
                      "cannot tell local work from upstream drift; pass --force to mirror anyway")
-        tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
-                             capture_output=True)
-        if tar.returncode != 0:
+        drift = local_changes(clone, recorded)
+        if drift is None:
             sys.exit(f"checkin FAIL: recorded commit {recorded[:12]} not found in the clone — "
                      f"fetch it there, or pass --force")
-        with tempfile.TemporaryDirectory() as td:
-            tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
-            base = pathlib.Path(td)
-            ours, theirs = _files(UPSTREAM), _files(base)
-            drift = sorted(ours ^ theirs) + sorted(
-                p for p in ours & theirs
-                if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
         if drift:
             for p in drift:
                 print(f"  local change: {p}")
             sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
-                     "that is unexported work the mirror would clobber. Export it first "
-                     "(INSTALL.md §3/§4) or pass --force to overwrite -- but only after "
-                     "reviewing each file above: vendor-update-runbook's conflicted-file "
-                     "review decides whether the local change is kept, merged or dropped.")
+                     "that is unexported work the mirror would clobber. Update Vendors "
+                     "(tools/precedent_update.py, run from the BestPractice clone) resolves "
+                     "each committed change itself -- keeps it, merges it, or takes "
+                     "upstream's version and says so -- and "
+                     "tools/precedent_local_edits.py send carries one upstream. Or pass "
+                     "--force to overwrite -- but only after reviewing each file above.")
     # Mirrored from the SOURCE REF's tree, extracted to a scratch directory --
     # not from the clone's working tree, which this tool no longer moves and
     # which may sit on some entirely different branch.
@@ -935,7 +953,41 @@ def update(clone, force=False, allow_pinned=False):
     return 0
 
 
-def push(clone, force=False):
+def push(clone, why='', force=False):
+    """Send this repo's committed changes to its mirror upstream, as a branch
+    in `clone`: tools/precedent_local_edits.py send merges each changed file
+    three ways onto upstream's landing branch, so nothing upstream changed
+    since the mirror is reverted, scrubs it on this repo's side and on
+    upstream's, commits and pushes the branch, and prints the prompt for the
+    session that will land it. It never opens a pull request or merges.
+
+    Until 2026-09-29 this copied the whole vendored tree into the clone's
+    working tree and stopped there -- no branch, no commit, no merge -- and,
+    run with --repo from the source clone, its scrub ran the SOURCE clone's
+    practice_audit.py, which found no process/ there and passed as NOT
+    APPLICABLE. One tool now owns sending
+    (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md). --force is accepted and
+    changes nothing on this path: what it overrode was a guard against
+    reverting upstream work, which a three-way merge cannot do.
+
+    A shared set's code tree (--source) is outside that plan's first version,
+    so it keeps the old mirror below, with its scrub read from this repo."""
+    if CODE_DIRS is None:
+        sys.path.insert(0, str(HERE.parent))
+        try:
+            import precedent_local_edits
+        except ImportError:
+            sys.exit(f"checkin FAIL: push hands its work to "
+                     f"precedent_local_edits.py, which is not beside this copy "
+                     f"in {HERE.parent}. Run the BestPractice clone's own: "
+                     f"python3 ../BestPractice/tools/precedent_local_edits.py "
+                     f"send --repo . --why \"...\"")
+        return precedent_local_edits.send(ROOT, why, owner=clone,
+                                          layers=(precedent_local_edits.CATALOGUE,))
+    return _mirror_push(clone, force)
+
+
+def _mirror_push(clone, force=False):
     # Guard 1: the vendored tree must be CURRENT with upstream. This mirror
     # DELETES any file the vendored tree lacks, so pushing from a tree that is
     # behind silently reverts whatever upstream gained. Symmetric to update()'s
@@ -979,8 +1031,13 @@ def push(clone, force=False):
                 "are certain the vendored tree is the intended upstream state.")
 
     # Guard 2: the scrub gates every export of content toward the public repo.
-    audit = HERE.parent / 'practice_audit.py'
-    if subprocess.run([sys.executable, str(audit)]).returncode != 0:
+    # This repo's own copy, so the scrub reads this repo: practice_audit.py
+    # finds its root from where it sits, and the source clone's copy, run
+    # under --repo, audited the source clone instead (2026-09-29).
+    audit = next((a for a in (UPSTREAM / 'tools' / 'practice_audit.py',
+                              HERE.parent / 'practice_audit.py') if a.is_file()),
+                 HERE.parent / 'practice_audit.py')
+    if subprocess.run([sys.executable, str(audit)], cwd=str(ROOT)).returncode != 0:
         sys.exit("checkin FAIL: practice_audit (scrub) failed — nothing was copied")
     added, modified, deleted = _diff(clone)
     # Delete only what git tracks in the clone (practice:
@@ -1096,7 +1153,7 @@ def _upstream_deleted_lines(clone, bases, rel, tip='HEAD'):
     return out
 
 
-def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD'):
+def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=()):
     """No pending vendored addition may vanish across a check-in cycle.
 
     The failure this kills (2026-08-19, real): the vendored tree carried
@@ -1149,6 +1206,14 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD'):
     base = _manifest().get('upstream', {}).get('commit')
     if not base:
         return
+    # A file Update Vendors is resolving is not a loss either way: its local
+    # lines are kept, merged, or replaced by upstream's with the commit that
+    # holds them named (tools/precedent_local_edits.py, 2026-09-29). Only
+    # those files are skipped, and the count is said.
+    resolving = set(resolving)
+    if resolving:
+        print(f"carry check: {len(resolving)} file(s) skipped -- Update Vendors "
+              f"resolves each of this repo's local edits itself and reports it")
     _dep_git('fetch', 'origin')
 
     # -- the precondition, before a single line is compared ---------------
@@ -1196,6 +1261,8 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD'):
     upstream_deleted = 0
     for name in names:
         rel = name[len(prefix) + 1:]
+        if rel in resolving:
+            continue
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
         # rc is now consulted, and it can only mean one thing: every base
         # is present (asserted above and in _committed_tree_bases), so a
@@ -1248,7 +1315,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD'):
              "deliberate; nothing recorded.")
 
 
-def record(clone, note, accept_loss=False):
+def record(clone, note, accept_loss=False, resolving=()):
     # Neither a checkout nor a pull, for the same two reasons update() no
     # longer does either: the clone is a SOURCE the caller passed, not this
     # tool's to move (it silently relocated a session's checkout off
@@ -1271,7 +1338,7 @@ def record(clone, note, accept_loss=False):
     ref, head = _landed_commit(clone)
     with tempfile.TemporaryDirectory() as landed_dir:
         landed = _tree_at(clone, head, landed_dir)
-        _carry_check(clone, accept_loss, landed, head)
+        _carry_check(clone, accept_loss, landed, head, resolving)
         added, modified, deleted = _diff(landed)
     if added or modified or deleted:
         for p in added + modified + deleted:
@@ -1443,9 +1510,12 @@ def _main():
         return update(clone, force='--force' in args,
                      allow_pinned='--allow-pinned' in args)
     if args[0] == 'push':
-        return push(clone, force='--force' in args)
+        why = args[args.index('--why') + 1] if '--why' in args[:-1] else ''
+        return push(clone, why=why, force='--force' in args)
     note = args[args.index('--note') + 1] if '--note' in args else ''
-    return record(clone, note, accept_loss='--accept-loss' in sys.argv)
+    resolving = [args[i + 1] for i, a in enumerate(args[:-1]) if a == '--resolving']
+    return record(clone, note, accept_loss='--accept-loss' in sys.argv,
+                  resolving=resolving)
 
 
 if __name__ == '__main__':

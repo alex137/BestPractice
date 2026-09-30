@@ -23,15 +23,21 @@ needed it. Run from the source clone, every step is the current code: the
 engine refresh, the catalogue update (checkin.py --repo), the pin repoint.
 
 THE STEPS, with no question in between:
+  0. a journal an earlier run left when it was killed mid-swap is
+     replayed, so this repo's local edits are back before anything reads
+     the tree
   1. the source clone fetches the branch every install follows
   2. the engine refresh (the consumer's own copy, which replaces itself and
-     runs a second pass), then the catalogue-pin repoint and the renamed
+     runs a second pass), with each committed local edit to an engine file
+     resolved around it by precedent_local_edits.py -- kept, merged, or
+     replaced by upstream's with the commit holding it named -- then the catalogue-pin repoint and the renamed
      precedent-team-* -> precedent-shared-* sources from THIS copy; it
      stops if, with no --from-ref, the engine landed anywhere but the tip
      step 1 fetched, and leaves for you a run budget upstream gives a
      vendored tool that this repo's github_api_budgets.json lacks
   3. the catalogue: checkin.py update, then record, where the repo vendors
-     one under process/ (process/manifest.json); for a section 0 install,
+     one under process/ (process/manifest.json), its committed local
+     changes resolved the same way; for a section 0 install,
      its universal source's practices/ replaced wholesale (INSTALL.md
      section 2, step 0) and the commit recorded in CATALOGUE_SYNC.json
      beside it; and where there is neither, a line saying so
@@ -58,9 +64,11 @@ THE STEPS, with no question in between:
 
 THE REPORT, and the exit code a session acts on:
   0  DONE -- nothing is left. Commit, then run Go update's chain.
-  1  LEFT FOR YOU -- only the calls that belong to this repo: a hand-edited
-     file upstream also changed, a line a check-in would lose, a decline to
-     decide again. Each is named with the question. Work them under the
+  1  LEFT FOR YOU -- only the calls that belong to this repo: an
+     uncommitted edit to a received file, a kept-on-purpose file upstream
+     has since changed, a line a check-in would lose, a decline to decide
+     again. A committed local edit is no longer one of them: it is resolved,
+     and listed under LOCAL EDITS in every outcome. Each is named with the question. Work them under the
      conflicted-file review at the top of vendor-update-runbook, then run
      this again.
   2  FAILED -- a step could not run, or the deep check is red. Named, with
@@ -89,6 +97,7 @@ SOURCE = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
 import precedent_branches as pb  # noqa: E402
+import precedent_local_edits as le  # noqa: E402
 
 DONE, LEFT, FAILED = 0, 1, 2
 
@@ -661,50 +670,63 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
         for name, oid in sorted(_tree_blobs(repo, 'HEAD', f'{rel}/practices').items()):
             if incoming.get(name) != oid and not upstream(name, oid):
                 edited.append(f'{rel}/practices/{name}')
-    if edited:
+    # A committed local edit is resolved, not refused, when the catalogue's
+    # own sync record names the commit it came from -- that commit is BASE
+    # (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md). Judged only against
+    # upstream's history, there is no one BASE to merge with, so it stays a
+    # call for the person, as before.
+    swap_edits = []
+    if edited and recorded and _is_commit(recorded):
+        swap_edits = le.section0_edits(repo, SOURCE, edited, rel, recorded)
+    elif edited:
         for p in edited:
             rep.leave(p, f'differs from upstream at {basis} and at {rev[:12]}: a '
-                      f'local edit the wholesale replace would lose -- export it '
-                      f'upstream, or restore upstream\'s text, then run this again')
+                      f'local edit the wholesale replace would lose, and with no '
+                      f'{CATALOGUE_SYNC_NAME} naming the commit it was synced '
+                      f'from there is nothing to merge it with -- send it '
+                      f'upstream ({le.send_command(repo)}), or restore '
+                      f'upstream\'s text, then run this again')
         rep.step('catalogue', f'refused: {len(edited)} file(s) in {rel}/practices '
                  f'carry local edits')
         return None
-    arc = subprocess.run(['git', '-C', str(SOURCE), 'archive', '--format=tar',
-                          rev, 'practices'], capture_output=True)
-    if arc.returncode != 0 or not arc.stdout:
-        return (f'could not read practices/ at {rev[:12]} in {SOURCE}: '
-                f'{arc.stderr.decode(errors="replace").strip()[:200]}')
-    with tempfile.TemporaryDirectory() as td:
-        with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
-            try:
-                tf.extractall(td, filter='data')
-            except TypeError:   # a Python older than 3.11.4 has no filter
-                tf.extractall(td)
-        shutil.rmtree(target)
-        shutil.copytree(pathlib.Path(td) / 'practices', target)
-    (repo / rel / CATALOGUE_SYNC_NAME).write_text(json.dumps({
-        'source_commit': rev,
-        'written_by': 'tools/precedent_update.py (Update Vendors)',
-        'why': 'the upstream commit practices/ here was last replaced from; '
-               'the next update judges local edits against it'}, indent=2) + '\n',
-        encoding='utf-8')
-    # THE SOURCE'S OWN MANIFEST travels with its catalogue (2026-09-29). A
-    # consumer's occasion-index cap is the sum of what its sources declare
-    # in their precedent-source.json, and the vendored universal tree never
-    # carried that file, so universal's allowance was unreadable here.
-    shown = subprocess.run(['git', '-C', str(SOURCE), 'show',
-                            f'{rev}:precedent-source.json'],
-                           capture_output=True, text=True)
-    if shown.returncode == 0 and shown.stdout.strip():
-        (repo / rel / 'precedent-source.json').write_text(shown.stdout,
-                                                          encoding='utf-8')
-    n = sum(1 for _ in target.glob('*.md'))
-    note = (f'; local edits judged against {basis}' if not unread else
-            '; no record of the last sync here, so only uncommitted edits '
-            'were checked for')
-    rep.step('catalogue', f'{rel}/practices replaced from the source at '
-             f'{rev[:12]} ({n} practice files; INSTALL.md section 2, step 0){note}')
-    return True
+    with le.Swap(repo, swap_edits) as swap:
+        arc = subprocess.run(['git', '-C', str(SOURCE), 'archive', '--format=tar',
+                              rev, 'practices'], capture_output=True)
+        if arc.returncode != 0 or not arc.stdout:
+            return (f'could not read practices/ at {rev[:12]} in {SOURCE}: '
+                    f'{arc.stderr.decode(errors="replace").strip()[:200]}')
+        with tempfile.TemporaryDirectory() as td:
+            with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
+                try:
+                    tf.extractall(td, filter='data')
+                except TypeError:   # a Python older than 3.11.4 has no filter
+                    tf.extractall(td)
+            shutil.rmtree(target)
+            shutil.copytree(pathlib.Path(td) / 'practices', target)
+        (repo / rel / CATALOGUE_SYNC_NAME).write_text(json.dumps({
+            'source_commit': rev,
+            'written_by': 'tools/precedent_update.py (Update Vendors)',
+            'why': 'the upstream commit practices/ here was last replaced from; '
+                   'the next update judges local edits against it'}, indent=2) + '\n',
+            encoding='utf-8')
+        # THE SOURCE'S OWN MANIFEST travels with its catalogue (2026-09-29). A
+        # consumer's occasion-index cap is the sum of what its sources declare
+        # in their precedent-source.json, and the vendored universal tree never
+        # carried that file, so universal's allowance was unreadable here.
+        shown = subprocess.run(['git', '-C', str(SOURCE), 'show',
+                                f'{rev}:precedent-source.json'],
+                               capture_output=True, text=True)
+        if shown.returncode == 0 and shown.stdout.strip():
+            (repo / rel / 'precedent-source.json').write_text(shown.stdout,
+                                                              encoding='utf-8')
+        n = sum(1 for _ in target.glob('*.md'))
+        note = (f'; local edits judged against {basis}' if not unread else
+                '; no record of the last sync here, so only uncommitted edits '
+                'were checked for')
+        rep.step('catalogue', f'{rel}/practices replaced from the source at '
+                 f'{rev[:12]} ({n} practice files; INSTALL.md section 2, step 0){note}')
+        rep.add_edits(le.resolve(repo, swap), swap.merges)
+        return True
 
 
 class Report:
@@ -714,6 +736,8 @@ class Report:
         self.loud = []    # workflows left alone -- printed first and last
         self.details = {} # what -> lines printed under its Left-for-you item
         self.asks = []    # (what, question) -- for the person, not this repo
+        self.edits = []   # (outcome, rel, text) -- precedent_local_edits.resolve()
+        self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -747,12 +771,35 @@ class Report:
             print(f"  {line}")
         print(bar)
 
+    def add_edits(self, outcomes, merges=None):
+        """What precedent_local_edits.resolve() did. A file kept on purpose
+        that upstream has since changed is a call for the person, so it is
+        left for them; the rest are notes."""
+        for outcome, rel, text in outcomes:
+            if outcome == le.KEPT_STALE:
+                self.leave(rel, text)
+            else:
+                self.edits.append((outcome, rel, text))
+        self.merges.update(merges or {})
+
+    def _local_edits(self):
+        # Every received file this repo had changed, and what the update did
+        # with it, in every outcome -- a replaced local fix is never only in
+        # a step's scrollback (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md).
+        lines = le.report_lines(self.edits)
+        if lines:
+            print("\nLOCAL EDITS -- files this repo received and changed, and "
+                  "what the update did with each:")
+            for line in lines:
+                print(f"  {line}")
+
     def close(self, failed=None):
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
         for name, outcome in self.steps:
             print(f"  {name}: {outcome}")
+        self._local_edits()
         self._questions()
         if failed:
             # What the update left for the person is printed on a failure
@@ -1101,6 +1148,47 @@ def judged_as_committed(repo, argv):
                            capture_output=True)
 
 
+def _write_staged(repo, files):
+    """Write {rel: bytes} and stage exactly those paths."""
+    for rel, data in files.items():
+        (repo / rel).write_bytes(data)
+    subprocess.run(['git', '-C', str(repo), 'add', '--', *files],
+                   capture_output=True, text=True)
+
+
+def check_with_merge_fallback(repo, rep, argv, label):
+    """-> (rc, output) of the repo's own check, run as committed. A merge
+    made by precedent_local_edits.resolve() has passed its own compile and
+    test run; this is the repo's real gate. Red with a merged file in place:
+    every merge takes upstream's version and the check runs once more. Green
+    then, the merges were the cause and upstream's version stands (rule 3,
+    reported with the commit holding the local one); red either way, they
+    were not, and they are put back so the failure is reported on the tree
+    the rules made. (Suggested by the parallel session that built the same
+    resolution, 2026-09-29.)"""
+    rc, out = judged_as_committed(repo, argv)
+    if rc == 0 or not rep.merges:
+        return rc, out
+    _write_staged(repo, {rel: new for rel, (_m, new) in rep.merges.items()})
+    rc2, out2 = judged_as_committed(repo, argv)
+    if rc2 == 0:
+        why = (f'your edit and upstream\'s merged cleanly and passed their own '
+               f'checks, but this repo\'s {label} failed with the merge in place '
+               f'and passes without it')
+        rep.edits = [(le.TOOK_UPSTREAM, rel, le.took_upstream_text(repo, rel, why))
+                     if outcome == le.MERGED and rel in rep.merges
+                     else (outcome, rel, text) for outcome, rel, text in rep.edits]
+        rep.step('merges', f'{len(rep.merges)} merged file(s) took upstream\'s '
+                 f'version instead: the {label} failed with them and passes '
+                 f'without them')
+        rep.merges = {}
+        return rc2, out2
+    _write_staged(repo, {rel: merged for rel, (merged, _n) in rep.merges.items()})
+    rep.step('merges', f'kept: the {label} is red with or without the '
+             f'{len(rep.merges)} merged file(s), so they are not the cause')
+    return rc, out
+
+
 def tiers_step(repo, rep):
     """Make any missing branch tier on origin and report it on `rep` -- the
     update's step 4a, and the one thing a repository still to be migrated
@@ -1137,6 +1225,17 @@ def update(repo, skip_check=False, ref=None):
                          f"repository. Run the clone's own copy from the "
                          f"consuming repo: python3 ../BestPractice/tools/"
                          f"precedent_update.py --repo .")
+    # A run killed between swapping upstream's text in and putting this
+    # repo's edits back left a journal; replay it before anything else reads
+    # the tree (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md).
+    restored, stranded = le.recover(repo, SOURCE)
+    for rel in restored:
+        rep.step('local edits', f'put back your local {rel}, which an earlier '
+                 f'Update Vendors stopped mid-way had left replaced')
+    if stranded:
+        for rel, why in stranded:
+            rep.leave(rel, why)
+        return rep.close()
     before = dirty_paths(repo)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
@@ -1177,15 +1276,37 @@ def update(repo, skip_check=False, ref=None):
     argv = [sys.executable, str(engine_tool), 'refresh', str(SOURCE)]
     if ref:
         argv += ['--from-ref', ref]
-    rc, out = run(argv, repo)
+    # A committed edit to an engine file in tools/ is resolved here, not by
+    # the refresh: the repo's own old engine copy runs the refresh and
+    # refuses on a hand edit before it replaces itself. So upstream's text
+    # goes in for the refresh, and the rules run after it
+    # (precedent_local_edits.py). Anything uncommitted stops it untouched.
+    edits, unjudged = le.engine_edits(repo, SOURCE)
+    dirty = le.uncommitted(repo, edits)
+    if dirty:
+        for rel in dirty:
+            rep.leave(rel, 'a vendored file edited here and not committed. Commit '
+                      'it, and the next run keeps, merges or replaces it and says '
+                      'which; or undo the edit. Nothing was written')
+        rep.step('engine', 'refused: a vendored file has an uncommitted edit')
+        return rep.close()
+    unjudged = dict(unjudged)
+    with le.Swap(repo, [] if unjudged else edits) as swap:
+        rc, out = run(argv, repo)
+        if rc == 0:
+            rep.add_edits(le.resolve(repo, swap), swap.merges)
     if rc != 0:
         if 'hand-edited since the last seed/refresh' in out:
             for line in out.splitlines():
                 if line.startswith('  ') and ': ' in line and not line.startswith('    '):
                     name, why = line.strip().split(': ', 1)
-                    rep.leave(name, f"hand-edited here and shipped by upstream: {why}. "
-                              "Move the edit upstream, or refresh --force once "
-                              "you have decided it can go")
+                    rel = name if '/' in name else f'tools/{name}'
+                    reason = (f' Update Vendors resolves an edited engine file '
+                              f'itself, but not this one: {unjudged[rel]}.'
+                              if rel in unjudged else '')
+                    rep.leave(name, f"hand-edited here and shipped by upstream: {why}.{reason} "
+                              f"Send the edit upstream ({le.send_command(repo)}), "
+                              "or refresh --force once you have decided it can go")
             rep.step('engine', 'refused: a vendored file was edited here')
             return rep.close()
         return rep.close(f"the engine refresh failed:\n{tail(out)}")
@@ -1261,25 +1382,51 @@ def update(repo, skip_check=False, ref=None):
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():
         checkin = [sys.executable, str(SOURCE / 'tools' / 'checkin.py')]
-        rc, out = run(checkin + ['update', str(SOURCE), '--repo', str(repo)], repo)
-        for item in left_block(out):
-            rep.leave('a decline to decide again', item)
+        # The same resolution as the engine's, around the mirror and the
+        # record: upstream's text in, the layer updated, then the rules.
+        edits, unjudged = le.catalogue_edits(repo, SOURCE)
+        dirty = le.uncommitted(repo, edits)
+        if dirty:
+            for rel in dirty:
+                rep.leave(rel, 'changed here and not committed. Commit it, and '
+                          'the next run keeps, merges or replaces it and says '
+                          'which; or undo the change. Nothing was written')
+            rep.step('catalogue', 'refused: the vendored tree has an uncommitted change')
+            return rep.close()
+        swap = le.Swap(repo, [] if unjudged else edits)
+        with swap:
+            rc, out = run(checkin + ['update', str(SOURCE), '--repo', str(repo)], repo)
+            for item in left_block(out):
+                rep.leave('a decline to decide again', item)
+            if rc == 0:
+                rep.step('catalogue', next((l for l in out.splitlines()
+                                            if l.startswith('checkin update')),
+                                           'updated'))
+                resolving = []
+                for e in swap.edits:
+                    resolving += ['--resolving', e.upstream_rel]
+                rc2, out2 = run(checkin + ['record', str(SOURCE), '--repo', str(repo),
+                                           '--note', 'Update Vendors'] + resolving, repo)
+                if rc2 == 0:
+                    rep.add_edits(le.resolve(repo, swap), swap.merges)
         if rc != 0:
             changed = [l.strip()[len('local change: '):] for l in out.splitlines()
                        if l.strip().startswith('local change: ')]
             if changed:
+                for rel, why in unjudged:
+                    rep.leave(rel, why)
                 for p in changed:
                     rep.leave(f'process/upstream/{p}',
                               'changed here since the last sync, and a mirror '
-                              'would overwrite it -- export it, keep it as a '
-                              'manifest `diverged` entry, or let it go')
+                              'would overwrite it. Update Vendors resolves a '
+                              'committed change itself only while it can read '
+                              'what the file was mirrored from -- see above -- '
+                              f'so send it upstream ({le.send_command(repo)}) '
+                              'or let it go')
                 rep.step('catalogue', 'refused: the vendored tree has local changes')
                 return rep.close()
             return rep.close(f"checkin.py update failed:\n{tail(out)}")
-        rep.step('catalogue', next((l for l in out.splitlines()
-                                    if l.startswith('checkin update')), 'updated'))
-        rc, out = run(checkin + ['record', str(SOURCE), '--repo', str(repo),
-                                 '--note', 'Update Vendors'], repo)
+        rc, out = rc2, out2
         if rc != 0:
             lost = lost_files(out)
             if lost:
@@ -1463,7 +1610,7 @@ def update(repo, skip_check=False, ref=None):
         if stamped:
             rep.step('file headers', 'stamped before the check, as the commit '
                      'would: ' + ', '.join(stamped))
-        rc, out = judged_as_committed(repo, argv)
+        rc, out = check_with_merge_fallback(repo, rep, argv, label)
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out)}")
         rep.step(label, 'passed')

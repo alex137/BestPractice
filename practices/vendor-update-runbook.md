@@ -81,13 +81,34 @@ version conflict with what upstream now ships, and is it still needed?**
   upstream doesn't: keep it, and carry it into the new version rather than
   choosing one side wholesale.
 
+**A committed local edit to a received file is reviewed by the command
+itself** (since 2026-09-29,
+[spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)),
+for an engine file in `tools/`, a hook or declared engine path the engine
+manifest records, `process/upstream/`, and a section 0 catalogue that has its
+own `CATALOGUE_SYNC.json`. It compares the
+file as it was vendored, as this repo committed it, and as upstream has it
+now: an edit upstream has not touched stays; one that merges cleanly with
+upstream's change, and still compiles and passes this repo's own check
+tests and its landing-tier check, is merged; one upstream changed on the same lines is replaced by
+upstream's version, most likely the same bug fixed there, and the report
+names the commit holding the local one and how to bring it back. A file
+recorded under `kept_template_divergences` with a reason is never
+replaced. Every one is listed under **LOCAL EDITS** in the report, in every
+outcome, and the ones kept or merged are still local edits:
+`python3 ../BestPractice/tools/precedent_local_edits.py send --repo . --why "..."`
+carries them upstream as a branch. **An uncommitted edit still stops the
+update, with nothing written.** CI workflows are still refused as before,
+and go through the review below.
+
 **`--force`, `record-ci` and "take theirs" come after this review, never
 instead of it**; each one discards the local side in a single step. A
 difference kept on purpose is recorded so the next update does not ask
 again: a `diverged` or `declined` entry in `process/manifest.json` for a
 file of the vendored catalogue, a `kept_template_divergences` entry in
-`precedent.json` for `tools/bootstrap.sh` or an `AGENTS.md` section (step
-10(d) says how), a
+`precedent.json` for `tools/bootstrap.sh`, an `AGENTS.md` section (step
+10(d) says how), or a received file in `tools/` or `process/upstream/`
+(keyed by its path, `template_sha256` set to upstream's current sha256), a
 declared file under `local_ci_workflows` in a practice source's `precedent.json`, a repo-local
 practice with `overrides:`, or a hand-written rule worded as an exception
 to the practice it departs from. **The pull request lists every conflicted
@@ -739,12 +760,13 @@ comparison.
 
 **Never hand-edit a vendored file to resolve a merge.** The vendored tree
 is not this repo's to change: restore it to what the manifest records and
-re-run the refresh. A hand-edit is detected as drift and refused, and
-`--force` is the wrong answer to that refusal — it discards the guard
-rather than the edit.
+re-run the refresh. An uncommitted hand edit is refused, a hook or CI
+workflow edit is refused as drift, and `--force` is the wrong answer to
+either refusal — it discards the guard rather than the edit.
 
 **Port a change between a vendored copy and its upstream with a
-three-way merge, never a file copy.** Copying the consumer's file over
+three-way merge, never a file copy** — `precedent_local_edits.py send` does
+exactly this for the consumer-to-upstream direction. Copying the consumer's file over
 the upstream's deletes whatever the upstream gained since the last sync,
 and nothing reports it. The merge base is **the consumer's last-synced
 copy** — the upstream file the vendored one was taken from — not whatever
