@@ -36496,6 +36496,71 @@ def check_session_file_ceiling_derives_from_its_sources():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_todo_index_check_survives_midnight():
+    """build_todo_index.py --check rebuilds against the date the committed
+    TODO.md records, so an index built yesterday, or in a zone behind this
+    one, is not drift (practice: control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-29). --as-ci --isolated runs under TZ=UTC, already
+    the 30th while Buenos Aires was on the 29th: every Age cell came out one
+    day greater, generated-files-registered called todo/TODO.md out of date,
+    and the deep check refused a push that had not touched todo/. The
+    DISCRIMINATING CASE is the first: built in UTC-12, checked in UTC+14,
+    which are always on different dates. It fails on the code before
+    `as_of`. The second proves real drift is still caught.
+
+    The fixture owns its tree and its zone (fixture-owns-its-state)."""
+    import contextlib, importlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    todo = importlib.import_module('build_todo_index')
+    cases = []
+    keep = os.environ.get('PRECEDENT_COMMIT_TZ')
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        tdir = repo / 'todo'
+        tdir.mkdir()
+        item = tdir / 'todo-2026-09-01-an-item.md'
+        item.write_text('---\nslug: todo-2026-09-01-an-item\nstatus: open\n'
+                        'kind: analysis\nnoted: 2026-09-01\ndisposition: wait\n'
+                        '---\n\n## What\n\n**An item.**\n', encoding='utf-8')
+        out = io.StringIO()
+        try:
+            os.environ['PRECEDENT_COMMIT_TZ'] = 'Etc/GMT+12'      # UTC-12
+            todo.main(['--repo', str(repo)])
+            built = (tdir / 'TODO.md').read_text(encoding='utf-8')
+            os.environ['PRECEDENT_COMMIT_TZ'] = 'Etc/GMT-14'      # UTC+14
+            with contextlib.redirect_stdout(out):
+                rc = todo.main(['--repo', str(repo), '--check'])
+            said = out.getvalue()
+            cases.append(('THE DISCRIMINATING CASE: an index built in UTC-12 '
+                          'checks clean in UTC+14, a day later',
+                          rc == 0 and '0 drift' in said, f'rc={rc} {said!r}'))
+            cases.append(('the file records the date its ages were computed on',
+                          getattr(todo, 'recorded_as_of', lambda _p: None)(
+                              tdir / 'TODO.md') is not None
+                          and 'as_of:' in built, built[:300]))
+            item.write_text(item.read_text(encoding='utf-8')
+                            .replace('An item.', 'A renamed item.'),
+                            encoding='utf-8')
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = todo.main(['--repo', str(repo), '--check'])
+            said = out.getvalue()
+            cases.append(('POSITIVE CONTROL: an item changed after the build is '
+                          'still drift, named by the index\'s own message',
+                          rc == 1 and 'DRIFT in' in said and 'TODO.md' in said,
+                          f'rc={rc} {said!r}'))
+        finally:
+            if keep is None:
+                os.environ.pop('PRECEDENT_COMMIT_TZ', None)
+            else:
+                os.environ['PRECEDENT_COMMIT_TZ'] = keep
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the TODO index check does not go stale at midnight '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_headroom_notice_watches_the_resident_block():
     """headroom_notice() also speaks when the generated resident block is
     near its own allocation, not only when a whole file nears its ceiling
@@ -46119,6 +46184,7 @@ def main():
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_session_file_ceiling_derives_from_its_sources()
+    check_todo_index_check_survives_midnight()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
     check_push_check_skips_a_set_check_older_than_push_time_judging()
