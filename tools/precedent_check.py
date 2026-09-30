@@ -9592,9 +9592,17 @@ def _loader_within_caps(ctx):
     r = subprocess.run([sys.executable, str(builder), '--repo', str(ROOT),
                         '--budgets', '--agents-only'],
                        cwd=str(ROOT), capture_output=True, text=True)
+    out = r.stdout + r.stderr
     if r.returncode == 0:
+        # A source this repo declares is not on disk (a bare CI checkout has
+        # no sibling practice sets): the caps were not measured, which is
+        # neither a violation nor a pass (2026-09-30).
+        if 'budgets NOT VERIFIED' in out:
+            return [Unverified('AGENTS.md', 'the loader block\'s caps were not '
+                               'measured: a declared source is not reachable '
+                               'here, so the block cannot be built from it')]
         return []
-    why = [l for l in (r.stdout + r.stderr).splitlines() if 'FAIL' in l]
+    why = [l for l in out.splitlines() if 'FAIL' in l]
     return [Finding('AGENTS.md', (why[-1] if why else
                                   'build_views.py --budgets failed').strip())]
 

@@ -145,6 +145,14 @@ fi
 # Caught by verify_harness.py's existing assertion that this hook exits 0
 # when it cannot reach the individual set.
 _pbase="${PRECEDENT_SOURCE_BASE_URL:-}"
+# Unset, the engine works it out: the value kept in the user config, else the
+# account the token belongs to (precedent_source_credentials.py --base-url).
+if [ -z "$_pbase" ] && [ -z "${DEFAULT_REPO_URL:-}" ] && command -v python3 >/dev/null 2>&1; then
+  for _pc in "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_credentials.py" "${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_credentials.py"; do
+    if [ -f "$_pc" ]; then _pbase="$(python3 "$_pc" --base-url 2>/dev/null || true)"; break; fi
+  done
+  unset _pc
+fi
 if [ -z "${DEFAULT_REPO_URL:-}" ] && [ -n "$_pbase" ]; then
   DEFAULT_REPO_URL="${_pbase%/}/precedent-individual"
 fi
@@ -153,7 +161,7 @@ unset _pbase
 REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-${CFG_URL:-$DEFAULT_REPO_URL}}"
 
 if [ -z "$REPO_URL" ]; then
-  echo "individual-source bootstrap: no repository URL. Set PRECEDENT_SOURCE_BASE_URL in the environment (preferred -- it locates the shared sets too, and keeps the account out of every tracked file), or individual.repo_url in $CFG, or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
+  echo "individual-source bootstrap: no repository URL, and the account the token belongs to could not be read. Set PRECEDENT_GIT_TOKEN (the account it belongs to locates your sets), or PRECEDENT_SOURCE_BASE_URL for sets another account owns, or individual.repo_url in $CFG, or PRECEDENT_INDIVIDUAL_REPO (the full URL, which overrides the rest). Individual practices will not be in force this session; team and universal still resolve normally." >&2
   exit 0
 fi
 

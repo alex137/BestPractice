@@ -389,6 +389,76 @@ def _user_config_path(env=None):
     return pathlib.Path(home) / '.config' / 'precedent' / 'config.json'
 
 
+# WHERE THE PRIVATE SETS LIVE, WITHOUT A VARIABLE (2026-09-30).
+# A private set's clone URL is <base>/<name>, and the base is the account
+# that owns the sets. It is never written into precedent.json, since a public
+# repository must not name that account, so it came from
+# PRECEDENT_SOURCE_BASE_URL -- one more value a person had to set in every
+# environment. For most people the account that owns the sets is the account
+# the token belongs to, and GitHub will say which one that is. So, in order:
+# the variable (still an override, for sets an organization owns); the value
+# worked out before, kept in the user config (untracked, per machine); and
+# the token's account, asked once and then kept. Agreed with a consumer
+# session the same day, which asked for the caching so a failed lookup never
+# silently loses the individual set on a later start.
+BASE_URL_ENV = 'PRECEDENT_SOURCE_BASE_URL'
+# The same override commit-identity.sh reads, so one fixture drives both.
+GITHUB_USER_URL_ENV = 'PRECEDENT_GITHUB_USER_URL'
+BASE_URL_CONFIG_KEY = 'source_base_url'
+
+
+def token_account(env=None, timeout=10):
+    """-> the login of the GitHub account the session's token belongs to, or
+    ''. Asked through github_budget.call, the engine's one counted route to
+    the GitHub API, which uses this module's own token choice; with none, the
+    call goes out bare, which a credential-injecting proxy still answers.
+    PRECEDENT_GITHUB_USER_URL, when set, is read instead -- a test fixture,
+    the same override commit-identity.sh reads. Never raises."""
+    env = os.environ if env is None else env
+    override = (env.get(GITHUB_USER_URL_ENV) or '').strip()
+    try:
+        if override:
+            import urllib.request
+            with urllib.request.urlopen(override, timeout=timeout) as r:
+                data = json.load(r)
+        else:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import github_budget
+            data, _err = github_budget.call('user', timeout=timeout)
+        login = (data or {}).get('login')
+    except Exception:                                       # noqa: BLE001
+        return ''
+    return login if isinstance(login, str) and re.fullmatch(r'[A-Za-z0-9-]+', login) else ''
+
+
+def source_base_url(env=None, lookup=True):
+    """-> (base URL or '', where it came from). See the note above."""
+    env = os.environ if env is None else env
+    explicit = (env.get(BASE_URL_ENV) or '').strip().rstrip('/')
+    if explicit:
+        return explicit, BASE_URL_ENV
+    cfg_path = _user_config_path(env)
+    cfg = _read_json(cfg_path)
+    kept = cfg.get(BASE_URL_CONFIG_KEY) if isinstance(cfg, dict) else None
+    if isinstance(kept, str) and kept.strip():
+        return kept.strip().rstrip('/'), f'{cfg_path} ({BASE_URL_CONFIG_KEY})'
+    if not lookup:
+        return '', ''
+    login = token_account(env)
+    if not login:
+        return '', ''
+    base = f'https://github.com/{login}'
+    try:
+        data = cfg if isinstance(cfg, dict) else ({} if cfg is None else None)
+        if data is not None:
+            data[BASE_URL_CONFIG_KEY] = base
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
+            cfg_path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+    return base, f'the account the token belongs to ({login})'
+
+
 # THE THREE WAYS THERE IS NO INDIVIDUAL SOURCE, WHICH ARE NOT ONE WAY
 # (practice: cite-the-incident). _read_json returns None for a file that is
 # ABSENT and for one that is PRESENT AND MALFORMED, and `.get('individual')`
@@ -672,7 +742,15 @@ def main(argv=None):
     ap.add_argument('--check', action='store_true',
                     help='exit 1 when a private source is missing and no '
                          'credential is set')
+    ap.add_argument('--base-url', action='store_true',
+                    help='print where the private sets live (<base>/<name>): '
+                         'PRECEDENT_SOURCE_BASE_URL, else the value kept in '
+                         'the user config, else the token\'s account; empty '
+                         'when none is known')
     args = ap.parse_args(argv)
+    if args.base_url:
+        print(source_base_url()[0])
+        return 0
 
     verdict, message = assess(args.repo)
     print(f'source credentials: {verdict.upper()} -- {message}')
