@@ -144,6 +144,18 @@ for _var in CREDENTIAL_ENV_VARS:
 # this block.
 os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
 
+# THE SAME, FOR THE GITHUB ACCOUNT (2026-09-30). The account a session's
+# token belongs to now fills in the private sets' location and the commit
+# identity when nothing declares them, and a cloud container's proxy answers
+# api.github.com/user for ANY caller -- so a fixture meaning "nobody is known
+# here" was answered with the real person's account and walked off to clone
+# their real individual set. Every fixture starts with GitHub knowing nobody;
+# one that tests the account rung points PRECEDENT_GITHUB_USER_URL at its own
+# answer, as the commit-identity and base-URL checks do.
+import tempfile as _tempfile_for_env  # noqa: E402
+os.environ['PRECEDENT_GITHUB_USER_URL'] = (
+    pathlib.Path(_tempfile_for_env.gettempdir()) / 'harness-github-knows-nobody.json').as_uri()
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -2252,6 +2264,47 @@ def check_session_check_suggests_anchored_also_list():
     check(f'the session check suggests the also-list anchored, never absolute '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_source_base_url_defaults_to_the_token_account():
+    """Where the private sets live defaults to the account the token belongs
+    to, kept in the user config once worked out (2026-09-30, agreed with a
+    consumer session).
+
+    PRECEDENT_SOURCE_BASE_URL was one more value to set in every environment,
+    and for most people it named the token's own account. Stated cases, with
+    GitHub's answer from a fixture (the same PRECEDENT_GITHUB_USER_URL the
+    commit-identity hook reads) and a throwaway user config: the variable
+    still wins; unset, the account is used and kept; a later run with GitHub
+    unreachable still has it; with nothing known it is empty, never a guess."""
+    import tempfile
+    import precedent_source_credentials as psc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='base-url-'))
+    try:
+        gh = tmp / 'user.json'
+        gh.write_text('{"login": "octo", "id": 42}', encoding='utf-8')
+        cfg = tmp / 'config.json'
+        env = {'PRECEDENT_USER_CONFIG': str(cfg), 'PRECEDENT_GITHUB_USER_URL': gh.as_uri()}
+        got, _ = psc.source_base_url(dict(env, PRECEDENT_SOURCE_BASE_URL='https://example.com/org'))
+        cases.append(('the variable still wins', got == 'https://example.com/org', got))
+        got, where = psc.source_base_url(env)
+        cases.append(('unset, the token\'s account is used',
+                      got == 'https://github.com/octo', f'{got} {where}'))
+        kept = json.loads(cfg.read_text(encoding='utf-8')).get('source_base_url')
+        cases.append(('and kept in the user config', kept == 'https://github.com/octo', str(kept)))
+        got, where = psc.source_base_url(dict(env, PRECEDENT_GITHUB_USER_URL=(tmp / 'gone').as_uri()))
+        cases.append(('a later run with GitHub unreachable still has it',
+                      got == 'https://github.com/octo' and 'config' in where, f'{got} {where}'))
+        cfg.unlink()
+        got, _ = psc.source_base_url(dict(env, PRECEDENT_GITHUB_USER_URL=(tmp / 'gone').as_uri()))
+        cases.append(('with nothing known it is empty, never a guess', got == '', got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the private sets\' location defaults to the token\'s account '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
 def check_freshness_guard_checks_declared_sets():
@@ -28106,6 +28159,13 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('an AUTHENTICATED account is written globally',
                       g('config', '--global', 'user.email').stdout.strip()
                       == '42+octo@users.noreply.github.com'))
+        # Said in one line, because this rung runs only when no identity.json
+        # is on disk, which is when the commit-author check stands down
+        # (2026-09-30, agreed with a consumer session).
+        cases.append(('and the hook says the identity came from the account, '
+                      'not identity.json',
+                      'not from identity.json' in r.stderr
+                      and '42+octo@users.noreply.github.com' in r.stderr))
         cases.append(('and its global backstop is installed',
                       bool(g('config', '--global', 'core.hooksPath').stdout.strip())))
         other = tmp / 'attached-after-authd'
@@ -49425,6 +49485,7 @@ def main():
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
     check_freshness_guard_checks_declared_sets()
+    check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
