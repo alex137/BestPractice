@@ -23920,6 +23920,24 @@ def check_sync_copies_work_from_above_once_checked():
                 [dict(ok_run, conclusion='failure', html_url='U')]))
             cases.append(('a failed run reads "failed", with its link', st == 'failed'
                           and 'U' in why))
+
+            # 2026-09-30: the run list FILTERED by head_sha stayed empty for a
+            # whole wait while the test ran; the unfiltered list had it.
+            class LaggingGH(GH):
+                def call(self, path, cache=True):
+                    if 'head_sha=' in path:
+                        return {'workflow_runs': []}, None
+                    return super().call(path, cache)
+            going = dict(ok_run, status='in_progress', conclusion=None,
+                         head_sha='SHA')
+            st, why = pb.github_test_state(two, 'SHA', tests, LaggingGH([going]))
+            cases.append(('a run the filtered list leaves out, but the recent '
+                          'runs show on this commit, reads "running", not '
+                          '"none"', st == 'running'))
+            other = dict(ok_run, head_sha='SOMETHING-ELSE')
+            st, why = pb.github_test_state(two, 'SHA', tests, LaggingGH([other]))
+            cases.append(('...while a recent run on another commit does not '
+                          'count', st == 'none'))
             gh = GH([])
             pb.GITHUB_POLL_SECONDS = 0
             pb._remote_tip = lambda root, branch: 'SHA'
