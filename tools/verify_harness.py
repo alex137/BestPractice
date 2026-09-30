@@ -15155,6 +15155,64 @@ def check_every_file_is_decided_by_a_vendoring_rule():
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
+def check_show_loads_a_practice_from_a_declared_source():
+    """precedent_show.py finds a practice that lives in a shared or an
+    individual source the repo declares, labels its level as the gates do,
+    and still fails loudly on a slug no source has (2026-09-30: the merge
+    gate listed shared and individual practices by name, and this tool
+    answered "unknown slug" for each). Fixture sources only, built here;
+    never the real private sets."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-sources-'))
+    cases = []
+    try:
+        def practice(d, slug, rule):
+            (d / 'practices').mkdir(parents=True, exist_ok=True)
+            (d / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug:        {slug}\ntitle:       {slug}\n'
+                f'tier:        on-demand\nstatus:      active\n---\n'
+                f'## Rule\n{rule}\n', encoding='utf-8')
+        repo, shared, ind = tmp / 'repo', tmp / 'zzz-shared', tmp / 'zzz-individual'
+        practice(repo, 'zzz-own-rule', 'The repo\'s own rule.')
+        practice(shared, 'zzz-shared-rule', 'The shared set says this.')
+        practice(ind, 'zzz-individual-rule', 'The individual set says this.')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'},
+                {'level': 'shared', 'name': 'zzz-shared',
+                 'path': '../zzz-shared'}]}), encoding='utf-8')
+        cfg = tmp / 'user.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'zzz-individual', 'path': str(ind)}}), encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_USER_CONFIG=str(cfg))
+
+        def show(*slugs):
+            r = subprocess.run([sys.executable,
+                                str(ROOT / 'tools' / 'precedent_show.py'),
+                                '--repo', str(repo), *slugs],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = show('zzz-shared-rule', 'zzz-individual-rule')
+        cases.append(('a shared and an individual practice both load, each '
+                      'labelled with its level',
+                      rc == 0 and '### zzz-shared-rule (shared)' in out
+                      and 'The shared set says this.' in out
+                      and '### zzz-individual-rule (individual)' in out
+                      and 'The individual set says this.' in out, out[-500:]))
+        rc, out = show('zzz-own-rule')
+        cases.append(("the repo's own practice still loads unlabelled",
+                      rc == 0 and '### zzz-own-rule\n' in out, out[-300:]))
+        rc, out = show('zzz-no-such-rule')
+        cases.append(('a slug no source has still fails, by name',
+                      rc != 0 and 'zzz-no-such-rule' in out, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('precedent_show.py loads a practice from a declared shared or '
+          'individual source', not bad,
+          '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
 def check_routing_audit_coverage():
     """routing_audit.py's coverage() -- the mechanical half of the routing
     audit (practices/routing-audit.md) -- against real practices already in
@@ -48145,6 +48203,7 @@ def main():
     check_very_deep_check_finds_a_second_list_of_practices()
     check_very_deep_check_finds_vendored_surplus()
     check_every_file_is_decided_by_a_vendoring_rule()
+    check_show_loads_a_practice_from_a_declared_source()
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()

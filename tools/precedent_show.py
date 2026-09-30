@@ -226,6 +226,41 @@ def _source_unreachable_note(manifest, slug):
             f"NOT reachable this session; treat this content as possibly stale)")
 
 
+def _from_declared_sources(root, slugs):
+    """-> ({slug: (level, path)}, note) for each of `slugs` found in a source
+    `root` declares -- shared, individual or repo-local -- through the same
+    resolution the gates use (precedent_resolve), so the level printed is
+    the one the gate printed beside the name.
+
+    WHY (2026-09-30). The merge gate lists a shared or individual practice
+    by name, and AGENTS.md says to load a listed practice with this tool --
+    which read only root/practices/, so in a repo whose sources resolve as
+    sibling clones (BestPractice itself) it answered "unknown slug" for a
+    rule the session had just been told to follow. It prints to the
+    terminal only, like every other read here; nothing is written, so a
+    private set's text never reaches a tracked file.
+
+    Failure is never fatal: a note says why the sources were not asked."""
+    try:
+        import precedent_resolve as pr
+    except ImportError:
+        return {}, 'precedent_resolve.py is not beside this script'
+    try:
+        res = pr.resolve(pr.load_config(str(root)))
+    except Exception as e:                                    # noqa: BLE001
+        return {}, f'the declared sources could not be resolved ({e})'
+    found = {}
+    for slug in slugs:
+        practice = res.get('practices', {}).get(slug)
+        if practice and practice.get('file'):
+            found[slug] = (practice.get('level') or 'unknown level',
+                           pathlib.Path(practice['file']))
+    missed = [f"{m['level']}/{m['name']}" for m in res.get('missing', [])]
+    note = (f"{', '.join(missed)} did not resolve this session, so a practice "
+            f"of theirs cannot be shown") if missed else ''
+    return found, note
+
+
 def main():
     args = sys.argv[1:]
     repo = None
@@ -333,8 +368,27 @@ def main():
         out.append(block)
 
     if missing:
-        sys.exit(f"precedent show FAIL: unknown slug(s), no practices/*.md file for: "
-                 f"{', '.join(missing)}")
+        found, why = _from_declared_sources(root, missing)
+        for slug in list(missing):
+            if slug not in found:
+                continue
+            level, path = found[slug]
+            try:
+                _fm, sections = sp._read_practice_file(path)
+            except sp.PracticeFileError as e:
+                sys.exit(f"precedent show FAIL: {e}")
+            body = sections.get(section, '').strip()
+            block = (f"### {slug} ({level})\n"
+                     f"{body if body else '(no ' + section + ' recorded yet)'}")
+            banner = _not_in_force_banner(_fm, slug)
+            if banner:
+                block = f"### {slug} ({level})\n{banner}\n\n{body}"
+            out.append(block)
+            missing.remove(slug)
+    if missing:
+        sys.exit(f"precedent show FAIL: unknown slug(s), no practices/*.md file "
+                 f"for: {', '.join(missing)}, here or in any source this repo "
+                 f"declares{' -- ' + why if why else ''}")
 
     print('\n\n'.join(out))
     return 0
