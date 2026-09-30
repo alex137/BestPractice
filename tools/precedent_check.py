@@ -2240,6 +2240,30 @@ def _generated_files_registered(ctx):
     return out
 
 
+def _lives_on_in_own_engine(old):
+    """-> True when `old` is a mirrored tree's tools/<file> and the same
+    file lives on in this repo's own tools/.
+
+    The catalogue copy leaves tools/ out once a consumer's own engine carries
+    it (checkin._copy_carries_tools), so an Update Vendors that crosses that
+    change deletes process/upstream/tools/*. Nothing went missing: the file
+    is at tools/<same name>. The hooks and tools/bootstrap.sh name the
+    mirrored path as a guarded fallback, for an install whose own tools/
+    lacks the engine, and asking a consumer to repoint that fallback asked it
+    to edit template text (2026-09-30, a real consumer). A mirrored tools/
+    file with no copy in tools/ is still a disappearance, and still found."""
+    try:
+        import precedent_resolve as pr
+        prefixes = pr.mirrored_prefixes(ROOT) or ()
+    except Exception:                                     # noqa: BLE001
+        prefixes = ()
+    for p in set(prefixes) | {'process/upstream/'}:
+        p = p if p.endswith('/') else p + '/'
+        if old.startswith(p + 'tools/'):
+            return (ROOT / 'tools' / old[len(p) + len('tools/'):]).is_file()
+    return False
+
+
 def _withheld_from_manifest():
     """-> the practice files MANIFEST.json says are withheld from this public
     tree (published in a private source and deliberately kept out), or None
@@ -7192,6 +7216,8 @@ def _rename_updates_links(ctx):
                 continue
             if old in withheld:
                 continue      # withheld, not deleted -- see the note above
+            if _lives_on_in_own_engine(old):
+                continue      # moved to this repo's own tools/, not gone
             # A file the consuming repo RECEIVED cannot be repointed there:
             # a mirrored tree, the vendored engine and another source's
             # materialized files are copied wholesale, and an edit is

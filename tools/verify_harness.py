@@ -2205,6 +2205,141 @@ def check_freshness_reads_a_private_source_through_its_clone():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_session_check_suggests_anchored_also_list():
+    """The session check suggests PRECEDENT_FRESHNESS_ALSO anchored where
+    each kind of set lives, never as absolute paths (2026-09-30).
+
+    Sessions kept flipping the variable between /home/user/... and ~/...,
+    each flip breaking half of it, and the suggestion this row printed was
+    what restarted it: absolute paths read off one disk. A shared set beside
+    the project is written $CLAUDE_PROJECT_DIR/../<name>, as every repo
+    declares it; the individual set in $HOME is ~/<name>; and each form
+    expands back to the real directory."""
+    import tempfile
+    import precedent_session_check as psc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='anchored-also-'))
+    saved = (psc.ROOT, os.environ.get('HOME'), os.environ.get('CLAUDE_PROJECT_DIR'))
+    try:
+        home, work = tmp / 'home', tmp / 'work'
+        for d in (home / 'precedent-individual', work / 'precedent-shared-writing',
+                  work / 'project'):
+            (d / '.git').mkdir(parents=True)
+        psc.ROOT = (work / 'project').resolve()
+        os.environ['HOME'] = str(home.resolve())
+        os.environ['CLAUDE_PROJECT_DIR'] = str(psc.ROOT)
+        got = dict(psc._attachable_sources())
+        cases.append(('the individual set in $HOME is written ~/<name>',
+                      '~/precedent-individual' in got, str(got)))
+        cases.append(('a shared set beside the project is written '
+                      '$CLAUDE_PROJECT_DIR/../<name>',
+                      '$CLAUDE_PROJECT_DIR/../precedent-shared-writing' in got, str(got)))
+        cases.append(('no absolute path is suggested',
+                      not any(p.startswith('/') for p in got), str(got)))
+        back = pathlib.Path(psc._expand_source_path(
+            '$CLAUDE_PROJECT_DIR/../precedent-shared-writing')).resolve()
+        cases.append(('the anchored form expands to the real clone',
+                      back == (work / 'precedent-shared-writing').resolve(), str(back)))
+    finally:
+        psc.ROOT = saved[0]
+        for k, val in (('HOME', saved[1]), ('CLAUDE_PROJECT_DIR', saved[2])):
+            if val is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = val
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session check suggests the also-list anchored, never absolute '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_received_hooks_and_moved_engine_files():
+    """A consumer's vendored hooks count as received, and a mirrored engine
+    file that lives on in its own tools/ is moved, not gone (2026-09-30).
+
+    Found in a real consumer after an Update Vendors that crossed the
+    catalogue copy leaving tools/ out: the push check's rename-updates-links
+    asked it to repoint `process/upstream/tools/precedent_push_check.py` in
+    two vendored hooks (which the next refresh overwrites) and in its own
+    tools/bootstrap.sh (template text naming a guarded fallback). Nothing
+    caught it upstream because received_owners() was only ever tested on
+    tools/ files, and rename-updates-links only on this repo's own layout.
+
+    A throwaway consumer, run through precedent_check.py itself. CONTROL: a
+    README naming a mirrored tool that has NO copy in tools/ is still
+    reported, so the quiet cases come from the fix, not a blind check."""
+    import tempfile
+    import precedent_practice_refs as ppr
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='received-hooks-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in (ROOT / 'tools').glob('*.py'):
+            shutil.copy(f, repo / 'tools' / f.name)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'kind': 'consumer', 'files': ['precedent_push_check.py'],
+            'hook_files': ['push-check-gate.sh'],
+            'engine_paths': {'bootstrap/commit-identity.sh': 'x'},
+            'ci_workflow_files': ['.github/workflows/light-check.yml']}), encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': {'precedent': {
+            'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}}}),
+            encoding='utf-8')
+        up = repo / 'process' / 'upstream' / 'tools'
+        up.mkdir(parents=True)
+        (up.parent / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'rename-updates-links.md',
+                    up.parent / 'practices' / 'rename-updates-links.md')
+        (up / 'precedent_push_check.py').write_text('# mirrored\n', encoding='utf-8')
+        (up / 'gone_tool.py').write_text('# mirrored, no copy in tools/\n', encoding='utf-8')
+        fallback = ('for c in tools/precedent_push_check.py '
+                    'process/upstream/tools/precedent_push_check.py; do :; done\n')
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(fallback, encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(fallback, encoding='utf-8')
+        (repo / 'README.md').write_text('See process/upstream/tools/gone_tool.py.\n',
+                                        encoding='utf-8')
+        owners = ppr.received_owners(repo)
+        cases.append(('a vendored hook is received',
+                      ppr.received_owner('.claude/hooks/push-check-gate.sh', owners)
+                      == 'the vendored engine', str(owners.get('.claude/hooks/push-check-gate.sh'))))
+        cases.append(('a declared engine path is received',
+                      ppr.received_owner('bootstrap/commit-identity.sh', owners) is not None, ''))
+        cases.append(('a CI workflow is not, so ci-workflow-approved still judges it',
+                      ppr.received_owner('.github/workflows/light-check.yml', owners) is None, ''))
+        cases.append(('tools/bootstrap.sh stays the repo\'s own',
+                      ppr.received_owner('tools/bootstrap.sh', owners) is None, ''))
+
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'update-vendors')
+        g('rm', '-rq', 'process/upstream/tools'); g('commit', '-qm', 'the hop')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'rename-updates-links'], cwd=str(repo), capture_output=True,
+                           text=True, env=env, timeout=300)
+        out = r.stdout + r.stderr
+        cases.append(('the vendored hook\'s fallback is not a finding',
+                      '.claude/hooks/push-check-gate.sh' not in out, out[-500:]))
+        cases.append(('nor is tools/bootstrap.sh\'s, since tools/ carries the file',
+                      'tools/bootstrap.sh:' not in out, out[-500:]))
+        cases.append(('CONTROL: a mirrored tool with no copy in tools/ is still reported',
+                      'README.md:1' in out and 'gone_tool.py' in out, out[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'vendored hooks are received, and an engine file moved to tools/ '
+          f'is not gone ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_whats_new_log_mechanics():
     """tools/precedent_whats_new.py, the mechanics behind "What's new?"
     (practice: whats-new, 2026-09-30).
@@ -2257,6 +2392,10 @@ def check_whats_new_log_mechanics():
         got = [d.isoformat() for d, _ in days]
         cases.append(('the first run lists only the days main changed, the log\'s own '
                       'commit left out', got == ['2026-09-05', '2026-09-08'], str(got)))
+        _tz, _t, back = pwn.missing_days(repo, today=today, since=_dt.date(2026, 8, 1))
+        got_back = [d.isoformat() for d, _ in back]
+        cases.append(('--since backfills a first run from the day it names',
+                      got_back == ['2026-08-01', '2026-09-05', '2026-09-08'], str(got_back)))
         added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
         cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
                       str(added)))
@@ -49140,6 +49279,8 @@ def main():
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
+    check_received_hooks_and_moved_engine_files()
+    check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()

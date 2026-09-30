@@ -13,6 +13,9 @@ what was noteworthy, said plainly); this file does the mechanical half.
                                                     # with what changed on main that day
                                                     # (add --full for each commit's first
                                                     # paragraph; `git show SHA` for the rest)
+    python3 tools/precedent_whats_new.py --days --since YYYY-MM-DD
+                                                    # a first run's backfill: start there
+                                                    # instead of seven days back
     python3 tools/precedent_whats_new.py --today    # what has changed on main today so far
     python3 tools/precedent_whats_new.py --mark YYYY-MM-DD
                                                     # the log now covers every day through
@@ -200,16 +203,17 @@ def _prose(body):
     return text if len(text) <= BODY_CHARS else text[:BODY_CHARS].rstrip() + ' ...'
 
 
-def missing_days(root, today=None):
+def missing_days(root, today=None, since=None):
     """-> (tz name, checked_through, [(date, changes)]): every finished day
-    after checked_through (or the last FIRST_RUN_DAYS, with no log yet) on
-    which the production branch changed."""
+    after checked_through (or, with no log yet, from `since` or the last
+    FIRST_RUN_DAYS) on which the production branch changed. `since` is a
+    first run's backfill; once the log has a date, the log decides."""
     tz, name = repo_zone(root)
     today = today or datetime.datetime.now(tz).date()
     _text, through = read_state(root)
     ref = production_ref(root)
     first = (through + datetime.timedelta(days=1)) if through else \
-        today - datetime.timedelta(days=FIRST_RUN_DAYS)
+        (since or today - datetime.timedelta(days=FIRST_RUN_DAYS))
     out = []
     if ref is None:
         return name, through, out
@@ -310,7 +314,18 @@ def main(argv):
         _print_changes(ch, '--full' in argv)
         return 0
 
-    name, through, days = missing_days(root)
+    since = None
+    if '--since' in argv:
+        i = argv.index('--since')
+        try:
+            since = datetime.date.fromisoformat(argv[i + 1])
+        except (IndexError, ValueError):
+            print('precedent_whats_new: --since takes a date, YYYY-MM-DD', file=sys.stderr)
+            return 2
+    name, through, days = missing_days(root, since=since)
+    if since and through:
+        print(f'precedent_whats_new: --since applies only to a first run; {rel} '
+              f'already covers through {through}, so it starts after that.')
     if ref is None:
         print(f'precedent_whats_new: no {PRODUCTION} branch here, so there is '
               f'nothing to log.')
