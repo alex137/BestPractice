@@ -1041,9 +1041,42 @@ def main(argv):
                   f"{', '.join(h['unwired'])} — read that file yourself; "
                   f"this tool never rewrites one")
 
+    # EACH SET'S OWN CLONE, NOT JUST ITS ENGINE (2026-09-30). "Stale" above
+    # means only "this set's vendored engine is behind BestPractice", and a
+    # run that found none returned here without ever asking whether the
+    # clone was behind its OWN origin. A clone 13 commits behind its set's
+    # main was reported "ok" at every start while the freshness notice said
+    # BEHIND UPSTREAM for the same clone, and the session ran on stale
+    # rules. So with --apply, a clean clone on its own branch is
+    # fast-forwarded here, engine current or not (practice:
+    # fresh-before-write). A stale one is brought current by the refresh
+    # below; dirty or off-branch, it is said and left alone.
+    if '--apply' in argv:
+        asked_now = {pathlib.Path(x).expanduser().resolve() for x in extra}
+        for e in found:
+            if e['error'] or e['stale'] or not _may_write(e, asked_now):
+                continue
+            b = e.get('branch')
+            if b and b[0] != b[1]:
+                continue
+            want = _declared_base_branch(e['repo']) or _default_branch(e['repo'])
+            if not want:
+                continue
+            engine_dirt, other_dirt = classify_dirt(e['repo'])
+            if engine_dirt or other_dirt:
+                print(f"         clone not brought up to its own origin/{want}: "
+                      f"uncommitted changes present -- commit or stash there, "
+                      f"then `git pull --ff-only`")
+                continue
+            ok_cur, note = make_current(e['repo'], want)
+            if note != 'already current':
+                print(f"         clone vs its own origin/{want}: "
+                      f"{note if ok_cur else 'NOT brought current -- ' + note}")
+
     hookbad = [e for e in found if _repairable(e)]
     if not stale and not hookbad:
-        print(f"precedent_refresh_sources: {len(found)} attached source(s), all current.")
+        print(f"precedent_refresh_sources: {len(found)} attached source(s), "
+              f"every engine current with BestPractice {tip_ref}.")
         return 0
 
     if '--apply' not in argv:

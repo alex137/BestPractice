@@ -389,7 +389,7 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     """One row per way a declared source is reached. Returns 0 always."""
     rows = collect_targets(root)
     tips = {}
-    behind = unverified = current = 0
+    behind = unverified = current = engine_behind = 0
     unverified_sources = 0        # what --quiet reports: no engine row there
     for row in rows:              # to verify is not a source left unverified
         if row.get('problem'):
@@ -419,17 +419,24 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
                       f"{row['branch']} at {row['recorded'][:12]}", file=out)
             continue
         behind += 1
+        engine_behind += row['kind'] == 'engine'
         head = ('ENGINE BEHIND UPSTREAM' if row['kind'] == 'engine'
                 else 'BEHIND UPSTREAM')
         print(f"{head}: {row['label']} has {row['recorded'][:12]}; "
               f"{row['url']} {row['branch']} is now at {tip[:12]}.", file=out)
         if row['kind'] == 'live':
             print(f"  Its practices load from that clone as it stands, so "
-                  f"until it is fetched this session runs on stale rules: "
-                  f"git -C {row['path']} pull --ff-only", file=out)
+                  f"until it is pulled this session runs on stale rules. The "
+                  f"session-start refresh fast-forwards a clean clone, so this "
+                  f"one could not be (uncommitted changes, another branch, or "
+                  f"commits of its own): git -C {row['path']} pull --ff-only",
+                  file=out)
         if row['kind'] == 'engine' and with_files:
             _engine_detail(root, row, tip, out)
-    if behind:
+    if engine_behind:
+        # "Update Vendors" moves a vendored engine or catalogue; a live
+        # clone behind its own origin takes the pull named on its own line,
+        # and pointing it here sent sessions to the wrong fix (2026-09-30).
         print('  Nothing has been changed -- this is a notice. To take it: '
               '"Update Vendors" (practices/vendor-update-runbook.md).', file=out)
     if quiet and unverified_sources:

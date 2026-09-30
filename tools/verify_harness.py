@@ -32179,6 +32179,84 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_pulls_a_set_behind_its_own_origin():
+    """A practice-set clone behind its OWN origin is fast-forwarded at
+    session start even when its engine is current.
+
+    Found 2026-09-30: "stale" meant only "this set's engine is behind
+    BestPractice", and with no engine stale --apply returned "all current"
+    before any fast-forward, so a clone 13 commits behind its own main ran
+    a session on stale rules while the freshness notice said BEHIND for
+    the same clone. Real git, hermetic: a bare origin, the set's clone, one
+    commit pushed past it from elsewhere. CONTROL: the same clone with an
+    uncommitted edit is left where it is, and says why."""
+    import contextlib, io, json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-own-origin-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env).stdout.strip()
+
+    names = ('candidate_dirs', 'head_commit', 'ensure_source_credentials',
+             '_repairable', 'branch_state')
+    saved = {n: getattr(prs, n) for n in names}
+    try:
+        origin, seed, clone = tmp / 'origin.git', tmp / 'seed', tmp / 'set'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        g(tmp, 'clone', '-q', str(origin), str(seed))
+        (seed / 'tools').mkdir()
+        (seed / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'source', 'source_commit': 'fixture-tip'}), encoding='utf-8')
+        (seed / 'precedent.json').write_text('{"base_branch": "main"}\n', encoding='utf-8')
+        (seed / 'practices.md').write_text('one\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'one'); g(seed, 'push', '-q', 'origin', 'main')
+        g(tmp, 'clone', '-q', str(origin), str(clone))
+        (seed / 'practices.md').write_text('one\ntwo\n', encoding='utf-8')
+        g(seed, 'commit', '-qam', 'two'); g(seed, 'push', '-q', 'origin', 'main')
+        tip = g(seed, 'rev-parse', 'HEAD')
+
+        prs.candidate_dirs = lambda extra=(): [clone.resolve()]
+        prs.head_commit = lambda: ('fixture-tip', 'origin/fixture')
+        prs.ensure_source_credentials = lambda found: []
+        prs._repairable = lambda e: False
+        prs.branch_state = lambda repo: None
+
+        def run():
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = prs.main(['--apply'])
+            return rc, buf.getvalue()
+
+        # CONTROL first: dirty, so it must stay behind and say so.
+        (clone / 'scratch.txt').write_text('mine\n', encoding='utf-8')
+        rc, out = run()
+        cases.append(('CONTROL: a dirty clone behind its origin is left where it is',
+                      g(clone, 'rev-parse', 'HEAD') != tip, out[-400:]))
+        cases.append(('...and the run says why, pointing at a pull',
+                      'uncommitted changes' in out and 'pull --ff-only' in out, out[-400:]))
+        (clone / 'scratch.txt').unlink()
+
+        rc, out = run()
+        cases.append(('engine current, clean clone behind its own origin: it ends current',
+                      g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
+        cases.append(('...and the line names what it compared',
+                      'its own origin/main' in out and 'engine current' in out, out[-400:]))
+    finally:
+        for n, f in saved.items():
+            setattr(prs, n, f)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session-start refresh pulls a set clone behind its own origin '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_refresh_sources_path_names_the_whole_target():
     """`--apply --path X` writes into X and nothing else. It used to ADD X to
     the scan, so refreshing one named set also rewrote every other set beside
@@ -48873,6 +48951,7 @@ def main():
     check_retired_branch_name_does_not_ship()
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
+    check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
