@@ -215,3 +215,4 @@ as_of: 2026-09-30
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
 | [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 2026-09-28 |
+| [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 2026-09-30 |

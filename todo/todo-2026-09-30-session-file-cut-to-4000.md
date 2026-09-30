@@ -5,7 +5,7 @@ domain:            mechanism
 severity:          null
 status:            open
 disposition:       ask
-remind_on:         null
+remind_on:         2026-09-30
 blocked_on:        "Morgan: leave it above target for now and brainstorm another approach to the cut (2026-09-30)"
 batch:             null
 decision:          "target 4,000; hard ceiling 4,400; source occasion allowances universal 1,800, repo-maintenance 450, writing 150, working-style 150"
@@ -50,3 +50,13 @@ closed:            null
   fit, the resident caps have to come down to about 1,550 in total, against
   1,290 of resident rules measured in the file. Which cap each source gets
   is Morgan's call.
+
+- **Reminder for tonight, 2026-09-30 (Morgan: "Remind me tonight").**
+  A Reduction pass that day took the file from 5,155 to 4,836 tokens, as
+  the cap measures it (the over-target warning no longer counts): the
+  "Reading one of these in full" section was retired, and trigger phrases
+  nobody says left the occasion index. The rest of the gap is mostly
+  universal's situation entries ("When renaming, moving or deleting a file
+  others may link to", and the like). Cutting those decides which rules
+  stop firing in every session, so it waits on Morgan's word, practice by
+  practice.
