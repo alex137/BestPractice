@@ -468,6 +468,14 @@ says so, both from the vendored tree under `process/upstream/`.
    [tools/precedent_source_names.py](../tools/precedent_source_names.py);
    `UNVERIFIED` means the name was not checked, which is not the same as
    checked and current.
+   **In a hosted session, attach each source with access "push" before
+   this step**, public shared sets included. The session's proxy answers
+   GitHub's API only for attached repositories, and read access does not
+   attach a public one, because git can already read it. git follows a
+   rename silently, so it cannot answer this either. Reading practices
+   needs only read access; checking the name is the one reason for push
+   here (measured 2026-09-28 and 2026-09-30: every public set
+   `UNVERIFIED` until attached with push).
 
    **In a practice SET this step is not applicable, and that is different
    from skipped.** The tool reads a multi-source config a set does not

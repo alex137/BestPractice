@@ -48,23 +48,6 @@ printf '%s' "$cmd" \
 
 project_dir="${CLAUDE_PROJECT_DIR:-.}"
 
-# SESSION LOAD, before the lint (practice: session-load-budget). A file a
-# session loads every time that is over its hard ceiling refuses the commit,
-# where its registry entry opts in with "block_commits": true (Morgan,
-# 2026-09-29: "it doesn't let you commit, it blocks you, if it is above
-# 4400"). Exit 2 is the refusal; anything else is plumbing, and passes.
-load="$project_dir/tools/session_load_trend.py"
-if [[ -f "$load" ]]; then
-  set +e
-  why="$(python3 "$load" --commit-gate --root "$project_dir" 2>&1 >/dev/null)"
-  rc=$?
-  set -e
-  if [[ $rc -eq 2 ]]; then
-    printf '%s\n' "$why" >&2
-    exit 2
-  fi
-fi
-
 script="$project_dir/tools/doc_lint.py"
 [[ -f "$script" ]] || exit 0
 

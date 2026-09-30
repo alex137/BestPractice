@@ -2969,6 +2969,31 @@ def _retire_legacy_workflows(dest_root, manifest, kind, pd):
     return deleted, kept
 
 
+# Set by refresh() around its opening sweeps: a workflow judgment that
+# cannot import the engine yet is queued, and refresh() runs it again once
+# the engine files are written (_judge_deferred_workflows).
+_DEFER_WORKFLOW_JUDGMENT = False
+_DEFERRED_WORKFLOW_JUDGMENT = []
+
+
+def _judge_deferred_workflows():
+    """Run the workflow judgment _remove_unapproved_workflows deferred,
+    now that the engine it imports is whole. Its secrets are reported the
+    way retire_legacy_leftovers() reports them."""
+    global _DEFER_WORKFLOW_JUDGMENT
+    _DEFER_WORKFLOW_JUDGMENT = False
+    pending = list(_DEFERRED_WORKFLOW_JUDGMENT)
+    _DEFERRED_WORKFLOW_JUDGMENT.clear()
+    sys.modules.pop('precedent_check', None)
+    for dest_root, manifest, kind, pd in pending:
+        removed = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
+        for s in _orphaned_secrets(dest_root, removed, legacy=False):
+            _left(f'secret {s}', 'no remaining workflow reads it -- if it is '
+                                 'set on this repository, only you can delete '
+                                 'it (Settings -> Secrets and variables -> '
+                                 'Actions)')
+
+
 def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
     """In a kind whose CI converges (CI_CONVERGES_KINDS), remove every
     .github/workflows/*.yml or *.yaml that upstream does not ship to the
@@ -2994,11 +3019,22 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         sys.path.insert(0, str(ENGINE_DIR))
         import precedent_check as _pc
         approval_problem = _pc._approval_problem
-    except Exception:                                          # noqa: BLE001
-        _left('.github/workflows/', 'no approval could be judged, because '
-                                    'the vendored precedent_check.py did not '
-                                    'import -- no workflow was removed. '
-                                    'Refresh again once it does')
+    except Exception as e:                                     # noqa: BLE001
+        # ONE RUN, NOT TWO (2026-09-30, a consumer's update from 99941178).
+        # The second pass of a self-replacing refresh runs this at its top,
+        # when the first pass -- the OLD file list -- has already written
+        # the new precedent_check.py but not the module it now imports
+        # (generated_blocks.py). So refresh() defers the judgment to after
+        # its own write, where the engine is whole, instead of leaving it
+        # for a second Update Vendors.
+        if _DEFER_WORKFLOW_JUDGMENT:
+            _DEFERRED_WORKFLOW_JUDGMENT.append((dest_root, manifest, kind, pd))
+            return {}
+        _left('.github/workflows/', f'no approval could be judged, because '
+                                    f'the vendored precedent_check.py did not '
+                                    f'import ({type(e).__name__}: {e}) -- no '
+                                    f'workflow was removed. Refresh again '
+                                    f'once it does')
         return {}
     shipped = {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
     try:
@@ -4646,6 +4682,53 @@ def missing_markdown_blocks(local_section, template_section):
     return out
 
 
+# A KEPT SECTION IS PINNED TO WHAT IT CARRIES (2026-09-30). The pin was the
+# whole template section, so a consumer that recorded "we word this our own
+# way" was asked again when upstream reworded a block the section does not
+# carry at all: a placeholder rename inside one bullet the report itself
+# listed as missing brought a kept section back, and the consumer re-pinned
+# by hand for a change that could not touch its decision. Each block the
+# section lacks entirely now stands in the pin as one fixed line, so its
+# wording drops out and its presence stays in: a block upstream ADDS, which
+# the section does not carry yet, still changes the pin and is asked about.
+_NOT_CARRIED = '<a block this section does not carry>'
+
+
+def _carried_sha(section, lacks):
+    """The kept-divergence pin for one AGENTS.md section: its heading and
+    blocks, each block `lacks` reports wholly missing replaced by
+    _NOT_CARRIED. A block partly carried stays in whole."""
+    gone = {offset for offset, _t, how, _a in lacks if how == 'missing'}
+    parts = [section.split('\n', 1)[0].strip()]
+    parts += [_NOT_CARRIED if offset in gone else text
+              for offset, text in _md_blocks(section)]
+    return _sha_text('\n'.join(parts))
+
+
+def _narrow_kept_pin(dest_root, item, full_sha, carried_sha):
+    """An entry recorded before 2026-09-30 pins the whole section. When it
+    still matches, the decision covers exactly today's text, so it is
+    re-recorded against what the section carries -- the same decision,
+    narrowed -- and said once. Anything else is left as it is."""
+    if full_sha == carried_sha:
+        return
+    path = dest_root / 'precedent.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        entry = data[KEPT_DIVERGENCES_KEY][item]
+    except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
+        return
+    if not isinstance(entry, dict) or entry.get('template_sha256') != full_sha:
+        return
+    entry['template_sha256'] = carried_sha
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    print(f"PIN NARROWED: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
+          f"{item} now pins only the blocks the section carries "
+          f"(template_sha256 {carried_sha[:12]}...), so a change to a block "
+          f"it leaves out no longer asks again.")
+
+
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
@@ -4704,7 +4787,9 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
             continue
         item = f'{AGENTS_MD} {key}'
         what = f'{src_rel} section "{key}"'
-        template_sha = _sha_text(_instantiate(raw, subs))
+        section = _instantiate(raw, subs)
+        template_sha = _carried_sha(section, lacks)
+        _narrow_kept_pin(dest_root, item, _sha_text(section), template_sha)
         if _kept_divergence(dest_root, item, template_sha)[0] == 'kept':
             _report_kept(dest_root, item, what, template_sha)
             continue
@@ -5678,7 +5763,12 @@ def refresh(clone, force=False, ref=None):
     # recognised by content. Also before the drift check, so a hand-paused
     # copy that _remove_retired_ci_workflow_files just stopped tracking is
     # judged here rather than refused there. See LEGACY_CI_WORKFLOWS.
-    retire_legacy_leftovers(ROOT, manifest, kind)
+    global _DEFER_WORKFLOW_JUDGMENT
+    _DEFER_WORKFLOW_JUDGMENT = True
+    try:
+        retire_legacy_leftovers(ROOT, manifest, kind)
+    finally:
+        _DEFER_WORKFLOW_JUDGMENT = False
 
     # A declared engine path that would give one file two writers is refused
     # before anything else, --force or not: force discards an edit, it does
@@ -5871,6 +5961,7 @@ def refresh(clone, force=False, ref=None):
             _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             _warn_legacy_status_records(ROOT)
             _report_retired_branch_names(ROOT)
+            _judge_deferred_workflows()
             print_left_for_you()
             return 0
 
@@ -5949,6 +6040,9 @@ def refresh(clone, force=False, ref=None):
                                            engine_path_sources, manifest)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
+    # The engine is whole now, so a judgment that could not import it at the
+    # top of this pass runs here.
+    _judge_deferred_workflows()
     # The commit this repo was on BEFORE the refresh. A second pass reads a
     # manifest the first pass already rewrote, so it is handed the first
     # pass's answer: "(was e8a2bc67cc8d)" on a repo that had been at

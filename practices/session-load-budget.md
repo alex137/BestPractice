@@ -132,13 +132,12 @@ answers the same at commit, push, merge, CI and Promote, whoever merged
 what. A surface's `target` is where it is meant to live: over it, the
 session-start file opens with a warning, once per session, and the reply
 gate asks for one line in The Boildown in every reply. Its `hard_ceiling`
-is enforced where growth is made, and, where the entry also sets
-`"block_commits": true`, in the repo that loads the file too: the
-commit-time hook refuses a commit while the file is over it, except one
-that makes the file smaller (Morgan, 2026-09-29: "it doesn't let you
-commit, it blocks you, if it is above 4400"; strength: decided). Set
-`block_commits` only once the file is under its hard ceiling, or every
-commit there is refused until the cut lands elsewhere. `session-file-allowances-fit` requires each
+is enforced where growth is made, and only there: nothing refuses a commit
+in the repo that loads the file, because no commit there can make a file
+built from other repos smaller (a commit block for that was built
+2026-09-30 and retired the same day, never switched on; Morgan: "Since it's
+never used then let's retire it completely. Approved. Act."; strength:
+decided). `session-file-allowances-fit` requires each
 carried source's `occasion_share_tokens` plus its `resident_block_tokens`,
 plus the entry's `fixed_allowance`, to add up to at most the hard ceiling,
 and each source's own build refuses to grow past those numbers.
