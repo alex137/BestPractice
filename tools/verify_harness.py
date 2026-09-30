@@ -21477,6 +21477,28 @@ def check_commit_identity_ci_cadence():
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_hooks_share_one_quote_blanking_block():
+    """Every hook that asks "does this command run X" carries the same
+    quote-blanking block, byte for byte (2026-09-30). They ship one by one,
+    so they cannot import it; a fix to one copy only would bring back the
+    quoted-pipe misread in the others."""
+    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    names = ['push-check-gate.sh', 'commit-identity-push-gate.sh',
+             'doc-lint-gate.sh', 'merge-check-gate.sh']
+    blocks = {}
+    for n in names:
+        text = (hooks / n).read_text(encoding='utf-8')
+        a = text.find('# THE COMMAND WITH ITS QUOTED TEXT BLANKED')
+        b = text.find('[[ -n "$bare" ]] || bare="$cmd"', a)
+        blocks[n] = text[a:b] if a >= 0 and b > a else None
+    missing = [n for n, v in blocks.items() if v is None]
+    distinct = {v for v in blocks.values() if v is not None}
+    check('every command-reading hook carries the one quote-blanking block',
+          not missing and len(distinct) == 1,
+          f'missing in {missing}' if missing else
+          f'{len(distinct)} different copies')
+
+
 def check_push_check_gate():
     """Everything CI used to run on a push now runs before it, locally
     (Morgan, 2026-09-25: "the same list of everything we used to run (just
@@ -21621,6 +21643,24 @@ def check_push_check_gate():
         denied, _ = gate('echo "then run git push" > notes.txt')
         cases.append(('`git push` quoted inside another command is not a push',
                       not denied))
+        # todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command,
+        # verbatim: the `|` inside the grep pattern is not a pipe.
+        denied, _ = gate('cd /home/user/BestPractice && sed -n 1,80p '
+                         'tools/checkin.py; echo ----; grep -n "^def \\|'
+                         'REFUSES\\|upstream.commit\\|scrub\\|leak_gate\\|'
+                         'git push\\|def main" tools/checkin.py | head -90')
+        cases.append(('a quoted grep pattern holding `\\|git push` is not a '
+                      'push', not denied))
+        denied, _ = gate("git commit -m 'a | git push; in a message' -q")
+        cases.append(('nor is one inside a single-quoted message', not denied))
+        denied, _ = gate('cat <<EOF > notes.txt\ngit push origin main\nEOF')
+        cases.append(('nor one on a heredoc line', not denied))
+        denied, _ = gate('git status; git push origin main')
+        cases.append(('a real push after `;` is still a push', denied))
+        denied, _ = gate('echo ok | git push origin main')
+        cases.append(('and after `|`', denied))
+        denied, _ = gate('echo "a | b" && git push origin main')
+        cases.append(('and after `&&`, behind a quoted pipe', denied))
         denied, _ = gate(f'git -C {work} push origin main', cwd=elsewhere,
                          project=elsewhere)
         cases.append(('`git -C <repo> push` from another project checks the '
@@ -48149,6 +48189,7 @@ def main():
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
     check_push_check_gate()
+    check_hooks_share_one_quote_blanking_block()
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
