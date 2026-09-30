@@ -144,6 +144,18 @@ for _var in CREDENTIAL_ENV_VARS:
 # this block.
 os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
 
+# THE SAME, FOR THE GITHUB ACCOUNT (2026-09-30). The account a session's
+# token belongs to now fills in the private sets' location and the commit
+# identity when nothing declares them, and a cloud container's proxy answers
+# api.github.com/user for ANY caller -- so a fixture meaning "nobody is known
+# here" was answered with the real person's account and walked off to clone
+# their real individual set. Every fixture starts with GitHub knowing nobody;
+# one that tests the account rung points PRECEDENT_GITHUB_USER_URL at its own
+# answer, as the commit-identity and base-URL checks do.
+import tempfile as _tempfile_for_env  # noqa: E402
+os.environ['PRECEDENT_GITHUB_USER_URL'] = (
+    pathlib.Path(_tempfile_for_env.gettempdir()) / 'harness-github-knows-nobody.json').as_uri()
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -2252,6 +2264,134 @@ def check_session_check_suggests_anchored_also_list():
     check(f'the session check suggests the also-list anchored, never absolute '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_source_base_url_defaults_to_the_token_account():
+    """Where the private sets live defaults to the account the token belongs
+    to, kept in the user config once worked out (2026-09-30, agreed with a
+    consumer session).
+
+    PRECEDENT_SOURCE_BASE_URL was one more value to set in every environment,
+    and for most people it named the token's own account. Stated cases, with
+    GitHub's answer from a fixture (the same PRECEDENT_GITHUB_USER_URL the
+    commit-identity hook reads) and a throwaway user config: the variable
+    still wins; unset, the account is used and kept; a later run with GitHub
+    unreachable still has it; with nothing known it is empty, never a guess."""
+    import tempfile
+    import precedent_source_credentials as psc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='base-url-'))
+    try:
+        gh = tmp / 'user.json'
+        gh.write_text('{"login": "octo", "id": 42}', encoding='utf-8')
+        cfg = tmp / 'config.json'
+        env = {'PRECEDENT_USER_CONFIG': str(cfg), 'PRECEDENT_GITHUB_USER_URL': gh.as_uri()}
+        got, _ = psc.source_base_url(dict(env, PRECEDENT_SOURCE_BASE_URL='https://example.com/org'))
+        cases.append(('the variable still wins', got == 'https://example.com/org', got))
+        got, where = psc.source_base_url(env)
+        cases.append(('unset, the token\'s account is used',
+                      got == 'https://github.com/octo', f'{got} {where}'))
+        kept = json.loads(cfg.read_text(encoding='utf-8')).get('source_base_url')
+        cases.append(('and kept in the user config', kept == 'https://github.com/octo', str(kept)))
+        got, where = psc.source_base_url(dict(env, PRECEDENT_GITHUB_USER_URL=(tmp / 'gone').as_uri()))
+        cases.append(('a later run with GitHub unreachable still has it',
+                      got == 'https://github.com/octo' and 'config' in where, f'{got} {where}'))
+        cfg.unlink()
+        got, _ = psc.source_base_url(dict(env, PRECEDENT_GITHUB_USER_URL=(tmp / 'gone').as_uri()))
+        cases.append(('with nothing known it is empty, never a guess', got == '', got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the private sets\' location defaults to the token\'s account '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
+def check_freshness_guard_checks_declared_sets():
+    """The freshness guard checks every practice set a repo declares, with
+    PRECEDENT_FRESHNESS_ALSO unset, and a declared set warns, never blocks
+    (2026-09-30, agreed with a consumer session).
+
+    Sessions kept rewriting the variable between two absolute forms and each
+    rewrite broke half of it; everything it named was already declared. A
+    throwaway project whose precedent.json declares ../set, with the engine's
+    precedent_resolve.py beside it, and a set clone that falls behind its
+    own origin. Both guard copies. CONTROL: the same stale set, not
+    declared, goes unnoticed, so the finding comes from the declaration."""
+    import tempfile
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
+    env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
+    cases = []
+
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], env=env0,
+                              capture_output=True, text=True)
+
+    for guard in guards:
+        tag = guard.relative_to(ROOT).as_posix()
+        with tempfile.TemporaryDirectory() as td:
+            w = pathlib.Path(td)
+            (w / 'sentinels').mkdir()
+
+            def make(name):
+                bare, seed, clone = w / f'{name}.git', w / f'{name}-seed', w / name
+                subprocess.run(['git', 'init', '-q', '--bare', str(bare)], env=env0)
+                subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)], env=env0)
+                git(seed, 'remote', 'add', 'origin', str(bare))
+                (seed / 'f').write_text('a\n')
+                git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
+                git(seed, 'push', '-q', 'origin', 'main')
+                subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare), str(clone)],
+                               env=env0, capture_output=True)
+                return seed, clone
+
+            proj_seed, proj = make('proj')
+            set_seed, setc = make('set')
+            # The whole engine, as a consumer has it: the resolver imports
+            # its neighbours.
+            (proj / 'tools').mkdir()
+            for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+                shutil.copy(f, proj / 'tools' / f.name)
+            (set_seed / 'f').write_text('a\nb\n')
+            git(set_seed, 'commit', '-qam', 'b'); git(set_seed, 'push', '-q', 'origin', 'main')
+
+            def run(mode, session, declared):
+                (proj / 'precedent.json').write_text(json.dumps({'sources': (
+                    [{'level': 'shared', 'name': 'set', 'path': '../set'}] if declared else [])}))
+                env = dict(env0, TMPDIR=str(w / 'sentinels'), CLAUDE_PROJECT_DIR=str(proj),
+                           PRECEDENT_USER_CONFIG=str(w / 'no-user-config.json'))
+                r = subprocess.run(['bash', str(guard), mode, 'main'],
+                                   input=json.dumps({'session_id': session, 'tool_name': 'Write',
+                                                     'tool_input': {'command': ''}}),
+                                   env=env, capture_output=True, text=True, cwd=str(proj))
+                return r.returncode, r.stderr
+
+            rc, err = run('pre-write', 'undeclared', declared=False)
+            cases.append((f'{tag}: CONTROL: an undeclared stale set goes unnoticed (rc={rc})',
+                          rc == 0 and str(setc) not in err))
+            tip = git(set_seed, 'rev-parse', 'HEAD').stdout.strip()
+            rc, err = run('pre-write', 'declared-clean', declared=True)
+            head = git(setc, 'rev-parse', 'HEAD').stdout.strip()
+            cases.append((f'{tag}: a clean declared set behind its origin is brought '
+                          f'current with the variable unset, and never blocks (rc={rc})',
+                          rc == 0 and 'declared practice set' in err and head == tip))
+            git(setc, 'reset', '-q', '--hard', 'HEAD~1')
+            (setc / 'f').write_text('local edit\n')
+            rc, err = run('pre-write', 'declared-dirty', declared=True)
+            cases.append((f'{tag}: a dirty declared set behind its origin WARNS and does '
+                          f'not block (rc={rc})',
+                          rc == 0 and 'WARN: freshness-guard: declared practice set' in err))
+            git(setc, 'checkout', '-q', '--', 'f')
+            rc, err = run('session-start', 'declared-start', declared=True)
+            cases.append((f'{tag}: session start names the declared set it checks (rc={rc})',
+                          rc == 0 and 'also checking declared practice set' in err))
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard checks declared practice sets without the variable '
+          f'({len(cases)} stated cases, both copies)', not failed, '; '.join(failed))
 
 
 def check_loader_caps_unmeasured_without_a_declared_source():
@@ -25122,9 +25262,13 @@ def check_session_check_reports_a_dead_also_list_entry():
 
         del os.environ['PRECEDENT_FRESHNESS_ALSO']
         ok, detail = row()
-        cases.append((f'unset is undetermined rather than a pass -- every '
-                      f'attached repo goes unchecked (ok={ok!r})',
-                      ok is None and 'not set' in detail))
+        # Since 2026-09-30 the guard checks every DECLARED set without the
+        # variable, so unset is fine; the row says the variable is only for
+        # repositories nothing declares.
+        cases.append((f'unset is fine now -- the guard checks declared sets '
+                      f'itself (ok={ok!r})',
+                      ok is True and 'not set' in detail
+                      and 'declare' in detail))
 
         # With nothing attachable there is nothing to suggest, and the row
         # must still be red and still name the dead path -- the finding is
@@ -28015,6 +28159,13 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('an AUTHENTICATED account is written globally',
                       g('config', '--global', 'user.email').stdout.strip()
                       == '42+octo@users.noreply.github.com'))
+        # Said in one line, because this rung runs only when no identity.json
+        # is on disk, which is when the commit-author check stands down
+        # (2026-09-30, agreed with a consumer session).
+        cases.append(('and the hook says the identity came from the account, '
+                      'not identity.json',
+                      'not from identity.json' in r.stderr
+                      and '42+octo@users.noreply.github.com' in r.stderr))
         cases.append(('and its global backstop is installed',
                       bool(g('config', '--global', 'core.hooksPath').stdout.strip())))
         other = tmp / 'attached-after-authd'
@@ -49333,6 +49484,8 @@ def main():
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
+    check_freshness_guard_checks_declared_sets()
+    check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()

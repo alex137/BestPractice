@@ -289,6 +289,12 @@ print(uid if isinstance(uid, int) and uid > 0 else "")
       authenticated=1
       source="the GitHub account this session is authenticated as (id $gh_id)"
     fi
+    # SAID, because nothing else will say it (2026-09-30, agreed with a
+    # consumer session): this rung is reached only when no identity.json is
+    # on disk, and that is exactly when the commit-author check stands down
+    # -- so an account that hides its email would commit as a noreply
+    # address, silently. One line, never a block.
+    [ -n "$email" ] && echo "NOTE: commit-identity: identity from $source -- $name <$email> -- not from identity.json: no individual set is on disk here, so nothing checks commits against a declared author this session." >&2
   fi
 fi
 

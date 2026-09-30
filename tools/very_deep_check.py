@@ -6460,9 +6460,13 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
     for s in sources or ():
         _add(f"{s['level']} source {s['name']!r}", _origin_url(s['path']),
              s['path'])
-    base = (base_url if base_url is not None
-            else os.environ.get('PRECEDENT_SOURCE_BASE_URL', ''))
-    base = (base or '').strip().rstrip('/')
+    if base_url is None:
+        try:
+            from precedent_source_credentials import source_base_url
+            base_url = source_base_url(lookup=False)[0]
+        except Exception:                                   # noqa: BLE001
+            base_url = os.environ.get('PRECEDENT_SOURCE_BASE_URL', '')
+    base = (base_url or '').strip().rstrip('/')
     for m in missing or ():
         url = _origin_url(m['path']) if m.get('path') else ''
         if not url and base and m.get('name'):

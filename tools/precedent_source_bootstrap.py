@@ -757,8 +757,16 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     set that cannot be cloned degrades the session (practice:
     fail-gracefully), it does not stop startup."""
     repo_path = pathlib.Path(repo_path)
-    base = (base_url if base_url is not None
-            else os.environ.get(BASE_URL_ENV, '')).strip().rstrip('/')
+    if base_url is not None:
+        base = base_url.strip().rstrip('/')
+    else:
+        # The variable, else the value kept in the user config, else the
+        # token's account (precedent_source_credentials.source_base_url).
+        try:
+            from precedent_source_credentials import source_base_url
+            base = source_base_url()[0]
+        except Exception:                                   # noqa: BLE001
+            base = os.environ.get(BASE_URL_ENV, '').strip().rstrip('/')
     results = []
     try:
         cfg = json.loads((repo_path / 'precedent.json').read_text(encoding='utf-8'))
