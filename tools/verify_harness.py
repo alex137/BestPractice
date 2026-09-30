@@ -2205,6 +2205,55 @@ def check_freshness_reads_a_private_source_through_its_clone():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_session_check_suggests_anchored_also_list():
+    """The session check suggests PRECEDENT_FRESHNESS_ALSO anchored where
+    each kind of set lives, never as absolute paths (2026-09-30).
+
+    Sessions kept flipping the variable between /home/user/... and ~/...,
+    each flip breaking half of it, and the suggestion this row printed was
+    what restarted it: absolute paths read off one disk. A shared set beside
+    the project is written $CLAUDE_PROJECT_DIR/../<name>, as every repo
+    declares it; the individual set in $HOME is ~/<name>; and each form
+    expands back to the real directory."""
+    import tempfile
+    import precedent_session_check as psc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='anchored-also-'))
+    saved = (psc.ROOT, os.environ.get('HOME'), os.environ.get('CLAUDE_PROJECT_DIR'))
+    try:
+        home, work = tmp / 'home', tmp / 'work'
+        for d in (home / 'precedent-individual', work / 'precedent-shared-writing',
+                  work / 'project'):
+            (d / '.git').mkdir(parents=True)
+        psc.ROOT = (work / 'project').resolve()
+        os.environ['HOME'] = str(home.resolve())
+        os.environ['CLAUDE_PROJECT_DIR'] = str(psc.ROOT)
+        got = dict(psc._attachable_sources())
+        cases.append(('the individual set in $HOME is written ~/<name>',
+                      '~/precedent-individual' in got, str(got)))
+        cases.append(('a shared set beside the project is written '
+                      '$CLAUDE_PROJECT_DIR/../<name>',
+                      '$CLAUDE_PROJECT_DIR/../precedent-shared-writing' in got, str(got)))
+        cases.append(('no absolute path is suggested',
+                      not any(p.startswith('/') for p in got), str(got)))
+        back = pathlib.Path(psc._expand_source_path(
+            '$CLAUDE_PROJECT_DIR/../precedent-shared-writing')).resolve()
+        cases.append(('the anchored form expands to the real clone',
+                      back == (work / 'precedent-shared-writing').resolve(), str(back)))
+    finally:
+        psc.ROOT = saved[0]
+        for k, val in (('HOME', saved[1]), ('CLAUDE_PROJECT_DIR', saved[2])):
+            if val is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = val
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session check suggests the also-list anchored, never absolute '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_received_hooks_and_moved_engine_files():
     """A consumer's vendored hooks count as received, and a mirrored engine
     file that lives on in its own tools/ is moved, not gone (2026-09-30).
@@ -49231,6 +49280,7 @@ def main():
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()
+    check_session_check_suggests_anchored_also_list()
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
