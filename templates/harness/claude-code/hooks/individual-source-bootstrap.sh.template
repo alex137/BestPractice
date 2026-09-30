@@ -35,11 +35,12 @@
 # normally.
 set -uo pipefail
 
-ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
+# The repo's own vendored engine first; the catalogue copy's tools/ only
+# for an install that predates it (that copy leaves tools/ out once the
+# engine carries checkin.py, 2026-09-30).
+ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
 if [ ! -f "$ENGINE" ]; then
-  # Precedent checking itself, or a repo-root install with no
-  # process/upstream/ vendor tree of its own.
-  ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
+  ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
 fi
 
 # WHOSE individual set. An individual set belongs to ONE person, but this

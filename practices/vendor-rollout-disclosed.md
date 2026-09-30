@@ -17,15 +17,16 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented)"
+approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided)"
 strength:    assented
 ---
 ## Rule
 Before a commit that touches shipped content -- a file under `practices/`,
 `templates/`, `.claude/hooks/`, or one of the exact filenames in
 [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
-`ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- reaches the push or merge
-side of the chain, say four things out loud, not one:
+`ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- or that adds a file
+anywhere, reaches the push or merge side of the chain, say five things out
+loud, not one:
 
 1. **Does this need to reach the repos that vendor this one?** Most edits
    here do not -- a wording fix, a Story section filled in, a spec document,
@@ -61,6 +62,19 @@ side of the chain, say four things out loud, not one:
    received files, and the changed-files check asks a new check for its
    planted case; this question covers what those two cannot see. Run the
    check in that shape, or say why it cannot misread a received file.
+5. **Should each new file ship to consumers at all?** Run
+   `python3 tools/checkin.py rules`: it lists every file added since the
+   landing branch, whether it ships, and the rule in
+   [tools/checkin.py](../tools/checkin.py)'s `VENDORING_RULES` that says so.
+   **A file ships only if a consumer runs it, instantiates it, or its
+   people read it to adopt and use Precedent.** How this repo is built
+   stays here: plans, open items, decisions, reasoning, tests, run
+   records, environment traps, repo-local rules, its own settings and
+   instructions. For each SHIPS line, say whether that holds; when it does
+   not, add the rule that keeps it here. A file in a new place has no rule
+   yet, and the `vendoring-decided` check refuses it until one is written.
+   A doc of ours that a consumer's reader needs is linked on GitHub from a
+   shipped one, never shipped itself.
 
 **No answer is a promise.** This repo cannot make a consumer actually
 run `Update Vendors` -- what it can do, and must, is say plainly whether a
@@ -102,6 +116,15 @@ overwrites, which only the set could fix. Nothing had run it in a
 consumer's shape. The same batch moved the skip for received files into
 the check runner and taught the pre-staging check to ask a new check for
 its planted case; the question keeps the part no tool sees in view.
+
+**2026-09-30: the fifth question, whether a new file ships at all.** A
+consumer's copy of this repo held 543 files, among them the test suite,
+the environment traps and a second copy of the engine, because the copy
+took everything not on a list of exclusions. It became an allowlist that
+day. Morgan: *"make sure that \*every new file\* is evaluated to see if it
+should be vendored in or not, and you should determine the ruleset."* The
+ruleset is `VENDORING_RULES`, each rule with its reason and no catch-all,
+so a new kind of file is decided by a person rather than by default.
 
 ## Install
 No mechanical check, and this is a considered gap, not the first

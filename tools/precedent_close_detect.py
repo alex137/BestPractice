@@ -161,12 +161,24 @@ def person_messages(records):
     rule phrasing it looks for, and would fire on every session forever. Tool
     results are dropped by block type; hook and harness injections are
     dropped by their envelopes.
+
+    The summary a compaction writes is dropped by its record flag. Claude
+    Code stores it as a `type: user` record carrying `"isCompactSummary":
+    true`, and `"isMeta": true` marks the other records the harness writes
+    under the person's role. The summary is the model's own restatement of
+    the session, standing rules included, so read as the person's words it
+    raised five explicit-instruction signals in one real session after a
+    /compact (2026-09-30), one of them "Pick up the last task as if the
+    break never happened". Other harnesses mark neither, and are read as
+    before.
     """
     skip = ('<system-reminder>', '<command-name>', '<local-command',
             'UserPromptSubmit hook', 'SessionStart', 'Caveat: The messages below',
             '<wake ', '<event ', '<webhook-payload>')
     out = []
     for rec in records:
+        if rec.get('isCompactSummary') or rec.get('isMeta'):
+            continue              # the harness's words, not the person's
         for b in _blocks(rec, 'user'):
             if b.get('type') != 'text':
                 continue          # tool_result and friends are not the person

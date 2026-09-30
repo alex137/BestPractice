@@ -568,23 +568,45 @@ def checks(offline=False):
     # "Looks current" is only True when a fetch actually succeeded; otherwise
     # it is None, undetermined, which `failing_guarantees` deliberately does
     # not nag about. What it must never be again is True.
+    #
+    # EVERY CLONE A DECLARED SOURCE RESOLVES TO, the universal one included
+    # (2026-09-30). The row read only directories named precedent-*, so a
+    # practice set's ../BestPractice sat 224 commits behind its origin while
+    # the four sets reported current, and the set's session-start file and
+    # its budget check were built from two-day-old universal text.
     name = 'each practice source clone is current with its own origin'
-    behind, unverified = [], []
-    for shown, _base in _attachable_sources():
+    behind, unverified, universal_behind, seen = [], [], [], set()
+    targets = [(shown, None, False) for shown, _base in _attachable_sources()]
+    targets += [(path, branch, branch is not None)
+                for path, branch in _declared_source_clones()]
+    for shown, branch, universal in targets:
         real = _expand_source_path(shown)
-        verdict, phrase = _clone_behind(real, fetch=not offline)
+        key = str(pathlib.Path(real).resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        verdict, phrase = (_clone_behind(real, fetch=not offline)
+                           if branch is None else
+                           _clone_behind(real, fetch=not offline, branch=branch))
         if verdict == 'behind':
             behind.append(f'{shown} is {phrase}')
+            if universal:
+                universal_behind.append(real)
         elif verdict == 'unverified':
             unverified.append(f'{shown} ({phrase})')
     if behind:
+        ff = ''.join(f' For the universal catalogue at {u}: `git -C {u} fetch '
+                     f'origin main && git -C {u} merge --ff-only origin/main` '
+                     f'-- fast-forward only, so it refuses rather than '
+                     f'discard a commit of its own there.'
+                     for u in universal_behind)
         out.append((name, False, '; '.join(behind) + '. The catalogue in '
                     'force is read from these working trees and nothing '
                     'fetches first, so the practices this session is '
                     'following may be the older ones. Run '
                     '`python3 tools/precedent_refresh_sources.py --apply`, '
                     'which now brings each clone current before refreshing '
-                    'it and refuses to report success when it cannot.'))
+                    'it and refuses to report success when it cannot.' + ff))
     elif unverified:
         out.append((name, None, 'could not compare: ' + '; '.join(unverified)
                     + '. This is UNMEASURED, not clean -- a clone compared '
@@ -703,7 +725,7 @@ def _ci_cadence_row():
                         f'forces a run')
 
 
-def _clone_behind(path, fetch=True):
+def _clone_behind(path, fetch=True, branch=None):
     """-> (verdict, phrase), verdict one of 'current', 'behind',
     'unverified'.
 
@@ -722,13 +744,19 @@ def _clone_behind(path, fetch=True):
     make the answer safe to trust: a zero count then means "no difference
     against a ref nobody refreshed", which is 'unverified', never
     'current'. A NON-zero count is still 'behind' -- being behind an old
-    ref means being at least that far behind the real one."""
-    try:
-        cfg = json.loads((pathlib.Path(path) / 'precedent.json')
-                         .read_text(encoding='utf-8'))
-        branch = cfg.get('base_branch')
-    except Exception:
-        branch = None
+    ref means being at least that far behind the real one.
+
+    `branch`, when given, is the branch the caller reads this clone at,
+    and wins over the clone's own base_branch: a consumer reads the
+    universal catalogue at main whatever BestPractice declares for its own
+    work."""
+    if branch is None:
+        try:
+            cfg = json.loads((pathlib.Path(path) / 'precedent.json')
+                             .read_text(encoding='utf-8'))
+            branch = cfg.get('base_branch')
+        except Exception:
+            branch = None
     if not isinstance(branch, str) or not branch.strip():
         branch = 'main'
     fetched, why = False, 'not fetched -- offline path'
@@ -853,6 +881,31 @@ def _expand_source_path(path):
                          ('$CLAUDE_PROJECT_DIR', proj)):
         path = path.replace(token, value)
     return path
+
+
+def _declared_source_clones():
+    """-> [(path, branch)] for each clone this repo's precedent.json declares
+    as a source, other than this repo itself. `branch` is 'main' for the
+    universal source -- what every consumer reads it at -- and None for the
+    rest, which _clone_behind judges at their own base_branch. Read off the
+    config without resolving it: resolving can fetch a missing source, and
+    a check that says what is on disk must not change it."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for src in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        raw = isinstance(src, dict) and src.get('path')
+        if not isinstance(raw, str) or not raw:
+            continue
+        path = pathlib.Path(os.path.expandvars(raw)).expanduser()
+        path = (path if path.is_absolute() else ROOT / path).resolve()
+        if path == ROOT.resolve() or not (path / '.git').exists():
+            continue
+        out.append((str(path), 'main' if src.get('level') == 'universal'
+                    else None))
+    return out
 
 
 def _attachable_sources():

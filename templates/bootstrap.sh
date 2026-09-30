@@ -320,10 +320,15 @@ fi
 # compare against, which a fresh session has no reason to have. That one
 # stays a deliberate step -- INSTALL.md section 2, "Keep the vendored
 # engine current (consumer repos)".
-if [ -f process/upstream/tools/checkin.py ]; then
-  python3 process/upstream/tools/checkin.py fresh || \
-    echo "WARN: upstream freshness check failed - not verified" >&2
-fi
+# The repo's own tools/ first: the catalogue copy leaves tools/ out once
+# the vendored engine carries checkin.py (2026-09-30).
+for _ck in tools/checkin.py process/upstream/tools/checkin.py; do
+  if [ -f process/manifest.json ] && [ -f "$_ck" ]; then
+    python3 "$_ck" fresh || \
+      echo "WARN: upstream freshness check failed - not verified" >&2
+    break
+  fi
+done
 
 # IS THE VENDORED CATALOGUE IN FORCE AT ALL? (2026-09-23.) A classic
 # install -- process/upstream/ copied in, no loader over it -- vendors every
@@ -333,10 +338,13 @@ fi
 # to stdout on purpose, so the SessionStart hook puts it in front of the
 # session rather than only the terminal. Guarded on the flag, because an
 # older vendored audit without it would run the whole audit here instead.
-if [ -f process/upstream/tools/practice_audit.py ] && \
-   grep -q -- '--loader-notice' process/upstream/tools/practice_audit.py; then
-  python3 process/upstream/tools/practice_audit.py --loader-notice || true
-fi
+for _pa in tools/practice_audit.py process/upstream/tools/practice_audit.py; do
+  if [ -d process/upstream ] && [ -f "$_pa" ] && \
+     grep -q -- '--loader-notice' "$_pa"; then
+    python3 "$_pa" --loader-notice || true
+    break
+  fi
+done
 
 # EVERY SOURCE THIS REPO DECLARES, checked outward (2026-09-23). The line
 # above reads one manifest; this reads precedent.json and covers each

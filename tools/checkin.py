@@ -59,6 +59,12 @@ had already needed it.
                             nearly mirrored an old tree; the tool pulls
                             fresh and guards the overwrite.)
 
+  rules [REF]               In the repo that ships the copy: each file
+                            added since REF (default: the landing branch)
+                            and whether it ships to consumers, by the
+                            VENDORING_RULES rule that decides it. Exit 1
+                            if a file has no rule.
+
   push <upstream-clone> --why "what went wrong"
                             Send this repo's committed changes to the
                             vendored tree upstream, as a branch in the
@@ -102,7 +108,7 @@ Run:  python3 process/upstream/tools/checkin.py fresh
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
       python3 ../BestPractice/tools/checkin.py update ../BestPractice --repo .
 """
-import datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
+import collections, datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 # practice: one-formatter-per-quantity -- every moment in time this project
 # writes down comes from ONE module, in the person's zone, carrying its
@@ -402,6 +408,200 @@ NOT_VENDORED_ROOT_FILES = frozenset({'AGENTS.md', 'CLAUDE.md'})
 _NOT_VENDORED_ROOT_PATHS = frozenset(pathlib.Path(n) for n in NOT_VENDORED_ROOT_FILES)
 
 
+# THE COPY CARRIES WHAT A CONSUMER USES, NAMED (2026-09-30). Everything
+# outside NOT_VENDORED used to go, so a consumer's process/upstream/ held
+# 543 files: this repo's test suite (verify_harness.py, 2.6 MB), its own
+# environment-trap notes (gotchas/), its repo-local practices (local/), the
+# chat bridge, its own .claude/ and .github/ config, its MAP, index and
+# to-do stub, and a second copy of the engine the repo already vendors
+# into its own tools/. Morgan, 2026-09-30, asking what is normal: an
+# allowlist, the way a package names the files it publishes -- "Consumers
+# just want to use it not see our todo lists etc." ... "let's do. Act!".
+#
+# THE RULESET, and every file is decided by it (Morgan, 2026-09-30: "make
+# sure that *every new file* is evaluated to see if it should be vendored
+# in or not, and you should determine the ruleset"). The test:
+#
+#   SHIPS: what a consumer runs, instantiates, or its people read to adopt
+#          and use Precedent -- the catalogue, templates, adopter guides,
+#          the engine, and the settings files the engine reads from a
+#          universal source's directory.
+#   STAYS: how this repo is built -- its plans, open items, decisions,
+#          reasoning, tests, run records, environment traps, repo-local
+#          rules, its own settings and CI, its own sessions' instructions
+#          and index, and separate tools it also builds.
+#
+# A document that is ours but that a consumer's reader needs is linked on
+# GitHub from a shipped one, never shipped itself.
+#
+# First match wins; a path ending in '/' is a folder and everything in it.
+# There is no catch-all: a path no rule covers is UNDECIDED, is left out of
+# the copy, and fails precedent_check.py's `vendoring-decided` check in
+# this repo until somebody adds the rule that decides it.
+# `python3 tools/checkin.py rules` prints the decision for each file added
+# since the landing branch (practice: vendor-rollout-disclosed, question 5).
+VENDORING_RULES = (
+    # Exceptions inside a shipped folder come first.
+    ('templates/harness/LEDGER.md', False,
+     "this repo's change log for the harness adapters"),
+    ('tools/verify_harness.py', False,
+     "this repo's test suite (2.6 MB); a consumer never runs it"),
+    ('practices/', True, 'the catalogue: the loader reads every file'),
+    ('templates/', True,
+     'what a consumer instantiates at install, or when it makes a new repo'),
+    ('documentation/', True,
+     'guides written for the people who adopt and use Precedent'),
+    ('tools/', True,
+     "the engine -- in the copy only until the consumer's own tools/ has "
+     "one that includes checkin.py (_copy_carries_tools)"),
+    ('README.md', True, 'what Precedent is, for an adopter'),
+    ('INSTALL.md', True, 'the install and update runbook'),
+    ('SETUP.md', True, 'the guided setup, for a person who is not technical'),
+    ('GLOSSARY.md', True, "the catalogue's terms"),
+    ('PRACTICES.md', True, 'the catalogue, one page'),
+    ('precedent-source.json', True,
+     "the engine reads it from a universal source's directory"),
+    ('precedent.json', True,
+     "the engine reads it from a universal source's directory"),
+    ('reply_check.json', True,
+     "the reply check reads it from a universal source's directory"),
+    ('close_detect.json', True,
+     "close detection reads it from a universal source's directory"),
+    ('AGENTS.md', False, "this repo's own session instructions"),
+    ('CLAUDE.md', False, "this repo's own session instructions"),
+    ('GEMINI.md', False, "this repo's own session instructions"),
+    ('MAP.md', False, "this repo's own map"),
+    ('WHERE_THINGS_ARE.md', False, "this repo's own index"),
+    ('TODO.md', False, "this repo's to-do redirect stub"),
+    ('MANIFEST.json', False, "a materialization record: which sources' "
+                             "practices were copied into this repo"),
+    ('.claude/', False, "this repo's own Claude Code settings and hooks"),
+    ('.github/', False, "this repo's own GitHub settings and CI"),
+    ('.gitignore', False, "this repo's own ignore list"),
+    ('process/', False, "this repo's own process bookkeeping"),
+    ('spec/', False, 'plans and designs: how Precedent is built'),
+    ('todo/', False, "this repo's open items"),
+    ('decisions/', False, "this repo's decision records"),
+    ('philosophy/', False, 'the reasoning behind Precedent, for its builders'),
+    ('evals/', False, "this repo's evaluations"),
+    ('record/', False, "this repo's run records and ledgers"),
+    ('gotchas/', False, "traps this repo's own environment hit"),
+    ('local/', False, "this repo's own practices, by definition not a "
+                      "consumer's"),
+    ('bridge/', False, 'the chat bridge, a separate tool this repo builds'),
+    ('deck/', False, 'the deck builder, a separate tool this repo builds'),
+)
+
+
+def vendoring_rule(rel):
+    """-> (pattern, ships, why) deciding repo-relative path `rel`, or None
+    when no rule covers it (undecided)."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix()
+    for rule in VENDORING_RULES:
+        pat = rule[0]
+        if rel == pat or (pat.endswith('/') and rel.startswith(pat)):
+            return rule
+    return None
+
+
+def _copy_carries_tools(root=None):
+    """True while this repo (or `root`) still needs the mirror's tools/:
+    until its own tools/ holds a vendored engine that includes checkin.py,
+    some of its scripts can only run the mirror's copy. Once it does, tools/
+    stays home, so the repo keeps ONE copy of the engine (2026-09-30)."""
+    own = pathlib.Path(root or ROOT) / 'tools'
+    return not ((own / 'ENGINE_MANIFEST.json').is_file()
+                and (own / 'checkin.py').is_file())
+
+
+def _in_copy(rel, carries_tools=None):
+    """True when repo-relative path `rel` belongs in the catalogue copy.
+    `carries_tools` answers _copy_carries_tools() for a repo other than
+    this one (very_deep_check.py asks it of each consumer it reads).
+
+    A shared set's mirror (CODE_DIRS set by _bind_source) is its declared
+    code folders, not universal's catalogue, so VENDORING_RULES do not
+    apply to it: only NOT_VENDORED does, as before 2026-09-30, and _files()
+    narrows it to CODE_DIRS."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
+    if any(part in NOT_VENDORED for part in rel.parts):
+        return False
+    if CODE_DIRS is not None:
+        if pathlib.Path(rel) in _NOT_VENDORED_ROOT_PATHS:
+            return False
+        return any(rel.as_posix() == d or rel.as_posix().startswith(d + '/')
+                   for d in CODE_DIRS)
+    rule = vendoring_rule(rel)
+    if rule is None or not rule[1]:
+        return False
+    if carries_tools is None:
+        carries_tools = _copy_carries_tools()
+    return rel.parts[0] != 'tools' or carries_tools
+
+
+def rules_report(since=None):
+    """`checkin.py rules [REF]`: print, for each file added since REF (the
+    landing branch by default), whether it ships and the rule that says so.
+    -> the number of files no rule decides."""
+    if since is None:
+        try:
+            import precedent_branches as _pb
+            since = 'origin/' + _pb.landing_branch(str(ROOT))[0]
+        except Exception:                                     # noqa: BLE001
+            since = 'origin/main'
+    r = subprocess.run(['git', '-C', str(ROOT), 'diff', '--name-only',
+                        '--diff-filter=A', f'{since}...HEAD'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"checkin rules: could not diff against {since} -- "
+              f"{r.stderr.strip()}")
+        return 1
+    added = [l for l in r.stdout.splitlines() if l.strip()]
+    if not added:
+        print(f"checkin rules: no file added since {since}.")
+        return 0
+    try:
+        import precedent_vendor_engine as _pve
+        engine = set(_pve.CONSUMER_ENGINE_FILES)
+    except Exception:                                         # noqa: BLE001
+        engine = None
+    undecided = practices = 0
+    stays = collections.Counter()
+    print(f"checkin rules: {len(added)} file(s) added since {since}, and "
+          f"whether each ships to consumers:")
+    for rel in added:
+        rule = vendoring_rule(rel)
+        if rule is None:
+            undecided += 1
+            print(f"  UNDECIDED  {rel} -- no rule covers it: add one to "
+                  f"VENDORING_RULES")
+        elif rule[1] and rule[0] == 'tools/' and engine is not None:
+            # A consumer with its own engine takes tools/ from the engine
+            # list, not the copy, so that list is the real decision.
+            name = rel[len('tools/'):]
+            if name in engine:
+                print(f"  SHIPS      {rel} (on CONSUMER_ENGINE_FILES: every "
+                      f"consumer's tools/ gets it)")
+            else:
+                stays['tools/ (not on CONSUMER_ENGINE_FILES)'] += 1
+        elif rule[0] == 'practices/':
+            practices += 1          # the catalogue: shipping is its purpose
+        elif rule[1]:
+            print(f"  SHIPS      {rel} ({rule[0]}: {rule[2]})")
+        else:
+            stays[rule[0]] += 1
+    if practices:
+        print(f"  ships      {practices} practice file(s): the catalogue, "
+              f"which is what the copy is for")
+    for pat, n in sorted(stays.items()):
+        print(f"  stays      {n} under {pat}")
+    print("Judge each SHIPS line: does a consumer run it, instantiate it, or "
+          "read it to use Precedent?\n"
+          "If not, add a rule saying it stays "
+          "(practice: vendor-rollout-disclosed, question 5).")
+    return 1 if undecided else 0
+
+
 def not_vendored_share(base=None):
     """-> (excluded_files, total_files, excluded_bytes) for the tree at `base`.
 
@@ -419,7 +619,7 @@ def not_vendored_share(base=None):
             continue
         total += 1
         rel = p.relative_to(base)
-        if any(part in NOT_VENDORED for part in rel.parts) or rel in _NOT_VENDORED_ROOT_PATHS:
+        if not _in_copy(rel):
             excluded += 1
             try:
                 excluded_bytes += p.stat().st_size
@@ -440,8 +640,7 @@ def _files(base):
     files = {p.relative_to(base) for p in base.rglob('*')
              if p.is_file() and '.git' not in p.parts
              and '__pycache__' not in p.parts
-             and not any(part in NOT_VENDORED for part in p.parts)
-             and p.relative_to(base) not in _NOT_VENDORED_ROOT_PATHS
+             and _in_copy(p.relative_to(base))
              and p.suffix not in ('.pyc', '.pyo')}
     if CODE_DIRS is not None:
         # A shared set's mirror is its declared code directories and nothing
@@ -931,8 +1130,16 @@ def update(clone, force=False, allow_pinned=False):
     # which may sit on some entirely different branch.
     with tempfile.TemporaryDirectory() as srcdir:
         src = _tree_at(clone, src_ref, srcdir)
+        dropped, kept = _drop_what_the_copy_no_longer_carries(clone, src)
         vendored_only, differing, src_only = _diff(src)
         if not (vendored_only or differing or src_only):
+            if dropped:
+                _stamp_synced_from(src_ref)
+                print(f"checkin update OK: removed {len(dropped)} file(s) the "
+                      f"copy no longer carries ({branch} @ {src_ref[:12]}); "
+                      f"nothing else to mirror.")
+                _report_excluded_content()
+                return 0
             _stamp_synced_from(src_ref)
             print(f"checkin update: vendored tree already identical to "
                   f"{branch} @ {src_ref[:12]} — nothing to do.")
@@ -951,6 +1158,67 @@ def update(clone, force=False, allow_pinned=False):
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
     _report_excluded_content()
     return 0
+
+
+def _drop_what_the_copy_no_longer_carries(clone, src):
+    """Remove each file under the vendored tree that the copy no longer
+    carries (_in_copy), when it is byte-identical to upstream's copy -- the
+    tree being mirrored now, or the one recorded last time. -> (dropped,
+    kept), repo-relative. A file that differs from both holds this repo's
+    own edit, so it is left where it is and named (practice:
+    repair-cannot-discard-work); git history keeps every removed one.
+
+    WHY (2026-09-30). The copy became an allowlist, and once a consumer's
+    own engine carries checkin.py its tools/ stays home too. _diff() reads
+    both sides through _in_copy, so a file the copy stopped carrying is
+    invisible to it and would never be deleted: process/upstream/tools/,
+    gotchas/, local/ and the rest would sit there as stale second copies
+    forever -- the thing this change exists to end."""
+    if not UPSTREAM.is_dir():
+        return [], []
+    recorded = _manifest().get('upstream', {}).get('commit')
+    stale = sorted(p for p in UPSTREAM.rglob('*')
+                   if p.is_file() and '.git' not in p.parts
+                   and '__pycache__' not in p.parts
+                   and p.suffix not in ('.pyc', '.pyo')
+                   and not _in_copy(p.relative_to(UPSTREAM)))
+    if not stale:
+        return [], []
+    dropped, kept = [], []
+    with tempfile.TemporaryDirectory() as td:
+        base = None
+        if recorded:
+            tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+                                 capture_output=True)
+            if tar.returncode == 0:
+                tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+                base = pathlib.Path(td)
+        for p in stale:
+            rel = p.relative_to(UPSTREAM)
+            same = any(t is not None and (t / rel).is_file()
+                       and filecmp.cmp(p, t / rel, shallow=False)
+                       for t in (src, base))
+            if same:
+                p.unlink()
+                dropped.append(rel)
+            else:
+                kept.append(rel)
+    for d in sorted({p.parent for p in stale}, key=lambda d: -len(d.parts)):
+        try:
+            d.rmdir()             # only when now empty
+        except OSError:
+            pass
+    if dropped:
+        print(f"checkin update: removed {len(dropped)} file(s) the copy no "
+              f"longer carries (it holds what a consumer uses since "
+              f"2026-09-30, and this repo's own tools/ now holds the engine); "
+              f"each was upstream's text, unchanged here.")
+    for rel in kept:
+        print(f"NOTICE: {UPSTREAM.relative_to(ROOT) / rel} is no longer part "
+              f"of the copy, but differs from upstream's -- a local edit, "
+              f"left where it is. Carry what it holds somewhere this repo "
+              f"owns, then delete it.")
+    return dropped, kept
 
 
 def push(clone, why='', force=False):
@@ -1465,6 +1733,8 @@ def _main():
         args = args[:i] + args[i + 2:]
     if args and args[0] == 'fresh':
         return fresh()
+    if args and args[0] == 'rules':
+        return rules_report(args[1] if len(args) > 1 else None)
     if args and args[0] == 'not-vendored':
         # Measures the NOT_VENDORED share against the tree in front of you,
         # so no document or comment has to freeze the numbers. Reports which
