@@ -37277,6 +37277,49 @@ def check_push_check_skips_a_set_check_older_than_push_time_judging():
         shown = pu.tail(red)
         cases.append(('a red update report shows the finding, not the last '
                       'notices', 'commit 0123abcd' in shown, shown[-300:]))
+        # ...and the stand-in itself carries a Session: trailer, because the
+        # session-trailer check also runs inside precedent_check.py and in
+        # the set's own test, which judge the commit and not the variable
+        # above (2026-09-30, a consumer's update ended FAILED on it).
+        import subprocess
+        repo = tmp / 'standin-repo'
+        repo.mkdir()
+        git = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                        capture_output=True, text=True)
+        git('init', '-q')
+        git('config', 'user.name', 'Test')
+        git('config', 'user.email', 'test@example.com')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        git('add', 'a.txt')
+        git('commit', '-q', '-m', 'first\n\nSession: none available (test)')
+        before = git('rev-parse', 'HEAD').stdout.strip()
+        (repo / 'a.txt').write_text('two\n', encoding='utf-8')
+        git('add', 'a.txt')
+        judge = [sys.executable, '-c',
+                 'import re, subprocess, sys\n'
+                 'b = subprocess.run(["git", "log", "-1", "--format=%B"], '
+                 'capture_output=True, text=True).stdout\n'
+                 'print(b)\n'
+                 'sys.exit(0 if re.search(r"^(?:Session|Claude-Session):'
+                 '\\s+(\\S.*)$", b, re.M) else 1)\n']
+        saved = os.environ.pop('PRECEDENT_SESSION_URL', None)
+        try:
+            rc, out = pu.judged_as_committed(repo, judge)
+            cases.append(('the stand-in commit carries a Session: trailer',
+                          rc == 0 and pu.TEMP_COMMIT_MESSAGE in out, out[-300:]))
+            os.environ['PRECEDENT_SESSION_URL'] = 'https://example.test/s/1'
+            rc, out = pu.judged_as_committed(repo, judge)
+            cases.append(('a session that hands over its link gets it on the '
+                          'stand-in', 'Session: https://example.test/s/1' in out,
+                          out[-300:]))
+        finally:
+            os.environ.pop('PRECEDENT_SESSION_URL', None)
+            if saved is not None:
+                os.environ['PRECEDENT_SESSION_URL'] = saved
+        cases.append(('the stand-in is undone and the change stays staged',
+                      git('rev-parse', 'HEAD').stdout.strip() == before and
+                      git('diff', '--cached', '--name-only').stdout.strip()
+                      == 'a.txt', git('log', '--oneline').stdout))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]

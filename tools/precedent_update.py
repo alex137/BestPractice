@@ -1059,6 +1059,29 @@ TEMP_COMMIT_MESSAGE = ('precedent_update: the staged update, committed only so t
                        'deep check judges it as committed -- undone right after')
 
 
+def standin_message():
+    """-> the stand-in commit's whole message: TEMP_COMMIT_MESSAGE and a
+    `Session:` trailer.
+
+    WHY THE TRAILER (2026-09-30, a consumer's update). Without one, every
+    update in a repo that declares the session-trailer check ended FAILED on
+    "commit <stand-in>: no Session: trailer", however clean the tree. The
+    push check already let its own copy of that check stand aside for the
+    stand-in (precedent_push_check.py, STANDIN_COMMIT_ENV), but the same
+    check also runs as an enforced practice inside precedent_check.py, and
+    the set's own test runs it against the real history. Those judge the
+    commit, not the environment, so the commit now carries the line the real
+    one will. It is never pushed: judged_as_committed() undoes it.
+
+    PRECEDENT_SESSION_URL hands over a real link, the way
+    precedent_refresh_sources.py takes one; otherwise it is the practice's
+    own explicit opt-out form."""
+    url = (os.environ.get('PRECEDENT_SESSION_URL') or '').strip()
+    trailer = (f'Session: {url}' if url else
+               'Session: none available (tools/precedent_update.py stand-in)')
+    return f'{TEMP_COMMIT_MESSAGE}\n\n{trailer}\n'
+
+
 def stamp_headers(repo):
     """-> [path] whose version header the repo's own header check stamped.
 
@@ -1126,7 +1149,7 @@ def judged_as_committed(repo, argv):
     except Exception:                                          # noqa: BLE001
         pass
     c = subprocess.run(['git', '-C', str(repo), 'commit', '-q', '-m',
-                        TEMP_COMMIT_MESSAGE], capture_output=True, text=True,
+                        standin_message()], capture_output=True, text=True,
                        env=env)
     if c.returncode != 0:
         return c.returncode, ('the staged update could not be committed, so '
