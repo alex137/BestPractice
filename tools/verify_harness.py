@@ -38123,18 +38123,18 @@ def check_budget_approvals_see_computed_raises():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
-def check_session_load_hard_ceiling_blocks_commits():
-    """Over its `hard_ceiling`, with `block_commits` set, the commit-time hook
-    refuses the commit, and a commit that shrinks the file still goes
-    through; over its `target`, the reply gate asks for a Boildown line
-    (practice: session-load-budget; control-asserts-which-failure).
-
-    THE REQUEST (Morgan, 2026-09-29, strength: decided): "The target should
-    be 4000 or less but at the 4000 level, you get warnings, with every
-    session to bring it down, and it doesn't let you commit, it blocks you,
-    if it is above 4400." The hook case runs the REAL
-    .claude/hooks/doc-lint-gate.sh against a fixture, so a hook that lost
-    its session-load section fails here by exiting 0.
+def check_session_load_target_is_reported_each_reply():
+    """Over its `target`, an always-loaded file is reported for The Boildown
+    in every reply (practice: session-load-budget; Morgan, 2026-09-29: "at
+    the 4000 level, you get warnings, with every session to bring it
+    down"). Over its `hard_ceiling`, nothing refuses a commit in the repo
+    that loads the file: that block was retired on 2026-09-30, unused
+    (Morgan: "Since it's never used then let's retire it completely.
+    Approved. Act.", strength: decided), because the ceiling is enforced
+    where the file's text is written (session-file-allowances-fit). The
+    last case runs the REAL .claude/hooks/doc-lint-gate.sh against a
+    registry that still carries the old switch, so a hook that grew the
+    block back fails here.
 
     The fixture owns its tree (fixture-owns-its-state)."""
     import tempfile
@@ -38151,18 +38151,11 @@ def check_session_load_hard_ceiling_blocks_commits():
         subprocess.run(['git', 'init', '-q', str(repo)], check=True)
         for k, v in (('user.name', 'Fixture'), ('user.email', 'f@example.com')):
             subprocess.run(['git', '-C', str(repo), 'config', k, v], check=True)
-        agents = repo / 'AGENTS.md'
-        agents.write_text('word ' * 200, encoding='utf-8')     # ~260 tokens
-
-        def registry(block):
-            entry = {'ceiling': 100000, 'hard_ceiling': 100, 'target': 50}
-            if block:
-                entry['block_commits'] = True
-            (repo / 'tools' / 'session_load_budgets.json').write_text(
-                json.dumps({'headroom_floor_pct': 5,
-                            'surfaces': {'AGENTS.md': entry}}), encoding='utf-8')
-
-        registry(True)
+        (repo / 'AGENTS.md').write_text('word ' * 200, encoding='utf-8')
+        (repo / 'tools' / 'session_load_budgets.json').write_text(
+            json.dumps({'headroom_floor_pct': 5, 'surfaces': {'AGENTS.md': {
+                'ceiling': 100000, 'hard_ceiling': 100, 'target': 50,
+                'block_commits': True}}}), encoding='utf-8')
         subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True)
         subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'base'], check=True)
 
@@ -38175,39 +38168,21 @@ def check_session_load_hard_ceiling_blocks_commits():
                       lines and 'over its 50-token target' in lines[0]
                       and 'hard ceiling 100' in lines[0], repr(lines)))
 
-        rc, why = slt.commit_gate(repo)
-        cases.append(('over the ceiling with block_commits, the commit is '
-                      'refused in the gate\'s own words',
-                      rc == 2 and 'COMMIT REFUSED' in why
-                      and 'hard ceiling of 100' in why, f'{rc} {why!r}'))
-
         hook = ROOT / '.claude' / 'hooks' / 'doc-lint-gate.sh'
         env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
         r = subprocess.run(['bash', str(hook)], input=json.dumps(
             {'tool_input': {'command': 'git commit -m change'}}),
             capture_output=True, text=True, env=env)
-        cases.append(('the real commit-time hook refuses the commit',
-                      r.returncode == 2 and 'COMMIT REFUSED' in r.stderr,
+        cases.append(('over its hard ceiling, with the retired switch still '
+                      'in the registry, the real commit-time hook lets the '
+                      'commit through', r.returncode == 0
+                      and 'COMMIT REFUSED' not in r.stderr,
                       f'rc={r.returncode} {r.stderr[-300:]!r}'))
 
-        agents.write_text('word ' * 150, encoding='utf-8')     # smaller, still over
-        subprocess.run(['git', '-C', str(repo), 'add', 'AGENTS.md'], check=True)
-        rc, why = slt.commit_gate(repo)
-        cases.append(('a commit that shrinks the file is let through even '
-                      'while it is still over', rc == 0, f'{rc} {why!r}'))
-        subprocess.run(['git', '-C', str(repo), 'reset', '-q', 'HEAD', '--',
-                        'AGENTS.md'], check=True)
-        agents.write_text('word ' * 200, encoding='utf-8')
-
-        registry(False)
-        rc, why = slt.commit_gate(repo)
-        cases.append(('without block_commits the ceiling does not block a '
-                      'commit (it stays a push-time finding)',
-                      rc == 0, f'{rc} {why!r}'))
-
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'an always-loaded file over its hard ceiling blocks commits, and '
-          f'over its target is reported each reply ({len(cases)} stated cases)',
+    check(f'an always-loaded file over its target is reported each reply, '
+          f'and nothing refuses a commit over its hard ceiling '
+          f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
@@ -48028,7 +48003,7 @@ def main():
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
     check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
-    check_session_load_hard_ceiling_blocks_commits()
+    check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
