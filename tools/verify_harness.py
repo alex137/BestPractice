@@ -6275,6 +6275,32 @@ CI_SHARDS = (
 )
 
 
+# The line prefixes that start a verdict (check() and not_applicable()); a
+# FAIL's text runs until the next one.
+_VERDICT_STARTS = ('PASS:', 'FAIL:', 'N/A:')
+
+
+def _fail_blocks(stdout, cap=40):
+    """-> [[line, ...]] each FAIL: verdict with the lines of its failure text
+    that follow it, up to the next verdict, at most `cap` lines each.
+    A failure text that runs over several lines kept only its first until
+    2026-09-30: "an update that deletes a vendored file upstream dropped
+    ends DONE" failed once in a full run, with its cause cut off, then
+    passed four times in a row and the cause was never found."""
+    blocks, cur = [], None
+    for line in stdout.splitlines():
+        if line.startswith(_VERDICT_STARTS):
+            cur = [line] if line.startswith('FAIL:') else None
+            if cur is not None:
+                blocks.append(cur)
+        elif cur is not None:
+            if len(cur) < cap:
+                cur.append(line)
+            elif len(cur) == cap:
+                cur.append('... (cut at 40 lines)')
+    return blocks
+
+
 def _shard_failure_detail(proc, tail_lines=20):
     """-> [str] what a failed shard says about WHY: every `FAIL:` verdict it
     printed, then the last `tail_lines` lines of its stderr. Until
@@ -6283,10 +6309,11 @@ def _shard_failure_detail(proc, tail_lines=20):
     the shard before its first verdict -- meant rerunning four minutes of
     suite to find out."""
     out = []
-    fails = [l for l in (proc.stdout or '').splitlines() if l.startswith('FAIL:')]
+    fails = _fail_blocks(proc.stdout or '')
     if fails:
         out.append(f'  {len(fails)} failing case(s):')
-        out += [f'    {l}' for l in fails]
+        for block in fails:
+            out += [f'    {l}' for l in block]
     err = [l for l in (proc.stderr or '').splitlines() if l.strip()]
     if err:
         out.append(f'  last {min(tail_lines, len(err))} line(s) of its stderr:')
@@ -43205,6 +43232,20 @@ def check_as_ci_says_why_a_shard_failed():
     lines = out.splitlines()
     cases.append(('only the last 20 lines of stderr',
                   '    noise 10' not in lines and '    noise 11' in lines))
+    multi = subprocess.CompletedProcess(
+        args=[], returncode=1, stderr='',
+        stdout=('PASS: a\nFAIL: the long one -- first line\n'
+                'the cause, on line two\nand line three\nPASS: b\n'
+                'FAIL: the huge one\n' + '\n'.join(f'row {i}' for i in range(100))
+                + '\nN/A:  c -- skipped\n'))
+    out = '\n'.join(_shard_failure_detail(multi))
+    cases.append(("a multi-line failure keeps every line of its text, and "
+                  "nothing of the next verdict's",
+                  'the cause, on line two' in out and 'and line three' in out
+                  and 'PASS: b' not in out))
+    cases.append(('a very long one is cut at 40 lines, and says so',
+                  'row 38' in out and 'row 39' not in out
+                  and 'cut at 40 lines' in out and 'N/A:' not in out))
     empty = subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr='')
     cases.append(('a shard that said nothing is said to have said nothing',
                   'no FAIL: line' in '\n'.join(_shard_failure_detail(empty))))
