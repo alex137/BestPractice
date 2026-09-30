@@ -707,6 +707,18 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # the duplicate guard below, which is how a stray re-add gets caught.
     'doc_sync.py',
     'routing_audit.py',
+    # ONE COPY OF THE TOOLS (2026-09-30, Morgan: "All your suggestions ...
+    # let's do. Act!"). A consumer that mirrors the catalogue at
+    # process/upstream/ ran these three from the mirror's tools/, the only
+    # copy it had -- so the mirror carried all of BestPractice's tools/
+    # beside the engine this list vendors into the repo's own tools/: 57
+    # files twice, measured in a real consumer. Vendored here, the mirror
+    # can leave tools/ out once the repo's own copy is whole (checkin.py,
+    # _copy_carries_tools). precedent_local_edits.py comes with them because
+    # checkin.py imports it for `push`.
+    'checkin.py',
+    'practice_audit.py',
+    'precedent_local_edits.py',
     # Move tracked files or directories and repoint every reference in the
     # same change (rename-updates-links made mechanical; added 2026-09-17
     # from a consumer's repository reshape -- 366 files, 2,900 references,
@@ -4972,14 +4984,67 @@ def retired_branch_mentions(dest_root):
         sys.path.insert(0, str(ENGINE_DIR))
         import generated_blocks
         lines = text.splitlines()
-        for n, (line, generated) in enumerate(
-                zip(lines, generated_blocks.mask(lines)), 1):
-            if generated:
-                continue
+        hidden = generated_blocks.mask(lines)
+        for block in _prose_blocks(lines):
+            joined = '\n'.join(lines[i] for i in block)
+            starts, at = [], 0
+            for i in block:
+                starts.append(at)
+                at += len(lines[i]) + 1
             for old_re, new_re, old, new in names:
-                if re.search(old_re, line) and not re.search(new_re, line):
-                    out.append((rel, n, old, new))
+                for m in re.finditer(old_re, joined):
+                    k = max(j for j, st in enumerate(starts) if st <= m.start())
+                    n = block[k]
+                    if hidden[n]:
+                        continue
+                    said = _sentence_at(joined, m.start())
+                    if re.search(new_re, said) or _HISTORY_WORDS.search(said):
+                        continue
+                    if (rel, n + 1, old, new) not in out:
+                        out.append((rel, n + 1, old, new))
     return out
+
+
+# A MENTION IS JUDGED WITH ITS SENTENCE (2026-09-30). The check exempted a
+# line only when the new name was on that same line, so history that
+# wrapped -- "pinned to `precedent-beta-v01`, since renamed" with
+# "`staging`" on the next line -- was flagged, and a consumer reworded its
+# AGENTS.md to stop naming the old branch at all. So each mention is read
+# in its sentence, which may wrap; a list item and a table row each stand
+# alone. A sentence is history when it names the new name, or says so:
+# renamed, formerly, or a status like deduplicated or retired (a set's
+# MAP.md lists its withdrawn practices in rows that way).
+_HISTORY_WORDS = re.compile(
+    r'\b(?:since renamed|renamed|formerly|previously called|old name|'
+    r'retired|deduplicated|withdrawn|superseded)\b', re.I)
+_ITEM_START = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s|^\s*#|^\s*\|')
+
+
+def _prose_blocks(lines):
+    """-> [[line index, ...]]: runs of non-blank lines, where a list item,
+    a heading or a table row starts a block of its own."""
+    blocks, cur = [], []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            if cur:
+                blocks.append(cur)
+            cur = []
+            continue
+        if cur and (_ITEM_START.match(line) or lines[cur[-1]].lstrip().startswith('|')):
+            blocks.append(cur)
+            cur = []
+        cur.append(i)
+    if cur:
+        blocks.append(cur)
+    return blocks
+
+
+def _sentence_at(text, pos):
+    """The sentence of `text` around position `pos`."""
+    ends = [m.end() for m in re.finditer(r'[.!?](?=\s|$)', text)]
+    before = max([e for e in ends if e <= pos], default=0)
+    after = min([e for e in ends if e > pos], default=len(text))
+    return text[before:after]
 
 
 def _report_retired_branch_names(dest_root):

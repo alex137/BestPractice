@@ -402,6 +402,56 @@ NOT_VENDORED_ROOT_FILES = frozenset({'AGENTS.md', 'CLAUDE.md'})
 _NOT_VENDORED_ROOT_PATHS = frozenset(pathlib.Path(n) for n in NOT_VENDORED_ROOT_FILES)
 
 
+# THE COPY CARRIES WHAT A CONSUMER USES, NAMED (2026-09-30). Everything
+# outside NOT_VENDORED used to go, so a consumer's process/upstream/ held
+# 543 files: this repo's test suite (verify_harness.py, 2.6 MB), its own
+# environment-trap notes (gotchas/), its repo-local practices (local/), the
+# chat bridge, its own .claude/ and .github/ config, its MAP, index and
+# to-do stub, and a second copy of the engine the repo already vendors
+# into its own tools/. Morgan, 2026-09-30, asking what is normal: an
+# allowlist, the way a package names the files it publishes -- "Consumers
+# just want to use it not see our todo lists etc." ... "let's do. Act!".
+#
+# So the copy is an allowlist: the catalogue and what a consumer
+# instantiates or reads, plus the four files the engine reads from a
+# universal source's own directory (precedent-source.json, precedent.json,
+# reply_check.json, close_detect.json). NOT_VENDORED below still applies
+# inside it. Anything new at the top level of this repo stays home until
+# it is named here.
+VENDORED_DIRS = frozenset({'practices', 'templates', 'documentation', 'tools'})
+VENDORED_ROOT_FILES = frozenset({
+    'README.md', 'INSTALL.md', 'SETUP.md', 'GLOSSARY.md', 'PRACTICES.md',
+    'precedent-source.json', 'precedent.json', 'reply_check.json',
+    'close_detect.json'})
+# Inside an allowed directory, what is this repo's own and not a consumer's:
+# the harness change log (templates/harness/LEDGER.md) and the test suite.
+NOT_VENDORED_PATHS = frozenset({'templates/harness/LEDGER.md',
+                                'tools/verify_harness.py'})
+
+
+def _copy_carries_tools():
+    """True while this repo still needs the mirror's tools/: until its own
+    tools/ holds a vendored engine that includes checkin.py, some of its
+    scripts can only run the mirror's copy. Once it does, tools/ stays
+    home, so the repo keeps ONE copy of the engine (2026-09-30)."""
+    own = ROOT / 'tools'
+    return not ((own / 'ENGINE_MANIFEST.json').is_file()
+                and (own / 'checkin.py').is_file())
+
+
+def _in_copy(rel):
+    """True when repo-relative path `rel` belongs in the catalogue copy."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
+    if any(part in NOT_VENDORED for part in rel.parts):
+        return False
+    if len(rel.parts) == 1:
+        return rel.name in VENDORED_ROOT_FILES
+    top = rel.parts[0]
+    if top not in VENDORED_DIRS or str(rel) in NOT_VENDORED_PATHS:
+        return False
+    return top != 'tools' or _copy_carries_tools()
+
+
 def not_vendored_share(base=None):
     """-> (excluded_files, total_files, excluded_bytes) for the tree at `base`.
 
@@ -419,7 +469,7 @@ def not_vendored_share(base=None):
             continue
         total += 1
         rel = p.relative_to(base)
-        if any(part in NOT_VENDORED for part in rel.parts) or rel in _NOT_VENDORED_ROOT_PATHS:
+        if not _in_copy(rel):
             excluded += 1
             try:
                 excluded_bytes += p.stat().st_size
@@ -440,8 +490,7 @@ def _files(base):
     files = {p.relative_to(base) for p in base.rglob('*')
              if p.is_file() and '.git' not in p.parts
              and '__pycache__' not in p.parts
-             and not any(part in NOT_VENDORED for part in p.parts)
-             and p.relative_to(base) not in _NOT_VENDORED_ROOT_PATHS
+             and _in_copy(p.relative_to(base))
              and p.suffix not in ('.pyc', '.pyo')}
     if CODE_DIRS is not None:
         # A shared set's mirror is its declared code directories and nothing
@@ -931,8 +980,16 @@ def update(clone, force=False, allow_pinned=False):
     # which may sit on some entirely different branch.
     with tempfile.TemporaryDirectory() as srcdir:
         src = _tree_at(clone, src_ref, srcdir)
+        dropped, kept = _drop_what_the_copy_no_longer_carries(clone, src)
         vendored_only, differing, src_only = _diff(src)
         if not (vendored_only or differing or src_only):
+            if dropped:
+                _stamp_synced_from(src_ref)
+                print(f"checkin update OK: removed {len(dropped)} file(s) the "
+                      f"copy no longer carries ({branch} @ {src_ref[:12]}); "
+                      f"nothing else to mirror.")
+                _report_excluded_content()
+                return 0
             _stamp_synced_from(src_ref)
             print(f"checkin update: vendored tree already identical to "
                   f"{branch} @ {src_ref[:12]} — nothing to do.")
@@ -951,6 +1008,67 @@ def update(clone, force=False, allow_pinned=False):
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
     _report_excluded_content()
     return 0
+
+
+def _drop_what_the_copy_no_longer_carries(clone, src):
+    """Remove each file under the vendored tree that the copy no longer
+    carries (_in_copy), when it is byte-identical to upstream's copy -- the
+    tree being mirrored now, or the one recorded last time. -> (dropped,
+    kept), repo-relative. A file that differs from both holds this repo's
+    own edit, so it is left where it is and named (practice:
+    repair-cannot-discard-work); git history keeps every removed one.
+
+    WHY (2026-09-30). The copy became an allowlist, and once a consumer's
+    own engine carries checkin.py its tools/ stays home too. _diff() reads
+    both sides through _in_copy, so a file the copy stopped carrying is
+    invisible to it and would never be deleted: process/upstream/tools/,
+    gotchas/, local/ and the rest would sit there as stale second copies
+    forever -- the thing this change exists to end."""
+    if not UPSTREAM.is_dir():
+        return [], []
+    recorded = _manifest().get('upstream', {}).get('commit')
+    stale = sorted(p for p in UPSTREAM.rglob('*')
+                   if p.is_file() and '.git' not in p.parts
+                   and '__pycache__' not in p.parts
+                   and p.suffix not in ('.pyc', '.pyo')
+                   and not _in_copy(p.relative_to(UPSTREAM)))
+    if not stale:
+        return [], []
+    dropped, kept = [], []
+    with tempfile.TemporaryDirectory() as td:
+        base = None
+        if recorded:
+            tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+                                 capture_output=True)
+            if tar.returncode == 0:
+                tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+                base = pathlib.Path(td)
+        for p in stale:
+            rel = p.relative_to(UPSTREAM)
+            same = any(t is not None and (t / rel).is_file()
+                       and filecmp.cmp(p, t / rel, shallow=False)
+                       for t in (src, base))
+            if same:
+                p.unlink()
+                dropped.append(rel)
+            else:
+                kept.append(rel)
+    for d in sorted({p.parent for p in stale}, key=lambda d: -len(d.parts)):
+        try:
+            d.rmdir()             # only when now empty
+        except OSError:
+            pass
+    if dropped:
+        print(f"checkin update: removed {len(dropped)} file(s) the copy no "
+              f"longer carries (it holds what a consumer uses since "
+              f"2026-09-30, and this repo's own tools/ now holds the engine); "
+              f"each was upstream's text, unchanged here.")
+    for rel in kept:
+        print(f"NOTICE: {UPSTREAM.relative_to(ROOT) / rel} is no longer part "
+              f"of the copy, but differs from upstream's -- a local edit, "
+              f"left where it is. Carry what it holds somewhere this repo "
+              f"owns, then delete it.")
+    return dropped, kept
 
 
 def push(clone, why='', force=False):
