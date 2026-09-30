@@ -37149,9 +37149,20 @@ def check_generated_blocks_both_styles():
         if named != {'tools/checks/check_hand.py'}:
             bad.append(f'checks-use-generated-blocks: want only check_hand.py '
                        f'named, got {sorted(named)}: {r.stdout[-300:]}')
+    # precedent_vendor_engine's AGENTS.md section parser (2026-09-30): it
+    # knew only the loader style, and an unclosed opener hid the rest.
+    pve = importlib.import_module('precedent_vendor_engine')
+    keys = [k for k, _a, _b in pve._md_sections(
+        '## A\n<!--gen:x-->\n## hidden\n<!--/gen:x-->\n## B\nb')]
+    if keys != ['## A', '## B']:
+        bad.append(f'AGENTS.md sections: a gen: block\'s heading counted: {keys}')
+    keys = [k for k, _a, _b in pve._md_sections(
+        '## A\n<!-- BEGIN GENERATED: precedent-loader -->\nx\n## B\nb')]
+    if keys != ['## A', '## B']:
+        bad.append(f'AGENTS.md sections: an unclosed opener hid what follows: {keys}')
     check(f'generated_blocks.py finds generated text in both marker styles, '
           f'closing marker required, and the scans use it '
-          f'({len(shapes) + 4} stated cases)',
+          f'({len(shapes) + 6} stated cases)',
           not bad, '; '.join(bad))
 
 
