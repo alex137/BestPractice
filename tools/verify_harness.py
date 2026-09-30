@@ -15486,6 +15486,28 @@ def check_source_sets_can_learn_they_are_stale():
                 cases.append(('a set recording an older commit reports as STALE',
                               by.get('stale-set', {}).get('stale') is True,
                               str(by.get('stale-set'))))
+                # The two hashes are BestPractice's, so the report names
+                # BestPractice: beside a set's name, "origin/main is ..." read
+                # as the set's own main (2026-09-30).
+                import contextlib as _cl, io as _io
+                real_survey = prs.survey
+                prs.survey = lambda _extra: (tip, f'origin/{prs.SOURCE_BRANCH}',
+                                             found)
+                try:
+                    buf = _io.StringIO()
+                    with _cl.redirect_stdout(buf):
+                        prs.main([])
+                finally:
+                    prs.survey = real_survey
+                said = buf.getvalue()
+                lines = [l for l in said.splitlines()
+                         if l.strip().startswith(('STALE', 'ok'))
+                         and ('current-set' in l or 'stale-set' in l)]
+                cases.append(('each STALE and ok line names BestPractice as '
+                              'the repo whose commits it compares',
+                              len(lines) == 2 and all('BestPractice' in l
+                                                      for l in lines),
+                              said[-600:]))
             else:
                 cases.append(('the staleness fixtures could run (needs '
                               f'origin/{prs.SOURCE_BRANCH} fetched)', False,
@@ -24403,6 +24425,72 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
     bad = [(n, d) for n, ok_, d in cases if not ok_]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_check_covers_the_universal_clone():
+    """The source-clone freshness row read only directories named
+    precedent-*, so a practice set's ../BestPractice sat 224 commits behind
+    its origin while every set reported current (2026-09-30). Planted with
+    real git: a set declaring `../BestPractice`, whose clone is one commit
+    behind its origin's main, while the clone's own precedent.json declares
+    another base branch. Discriminating cases: the declared universal clone
+    is listed and judged at main, not at its own base_branch; the row
+    reports it behind with a fast-forward-only remedy; and the clone itself
+    is left exactly where it was."""
+    import shutil, subprocess, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='universal-clone-'))
+    saved_root, saved_att = psc.ROOT, psc._attachable_sources
+    cases = []
+    try:
+        def git(*a, cwd=tmp):
+            return subprocess.run(['git', '-c', 'user.name=T', '-c',
+                                   'user.email=t@t', *a], cwd=str(cwd),
+                                  capture_output=True, text=True)
+        up = tmp / 'up.git'
+        work = tmp / 'work'
+        git('init', '-q', '--bare', '-b', 'main', str(up))
+        git('clone', '-q', str(up), str(work))
+        (work / 'precedent.json').write_text(
+            json.dumps({'base_branch': 'staging'}), encoding='utf-8')
+        git('add', '-A', cwd=work)
+        git('commit', '-qm', 'one', cwd=work)
+        git('push', '-q', 'origin', 'HEAD:main', cwd=work)
+        clone = tmp / 'BestPractice'
+        git('clone', '-q', '-b', 'main', str(up), str(clone))
+        (work / 'x').write_text('two\n', encoding='utf-8')
+        git('add', '-A', cwd=work)
+        git('commit', '-qm', 'two', cwd=work)
+        git('push', '-q', 'origin', 'HEAD:main', cwd=work)
+        before = git('rev-parse', 'HEAD', cwd=clone).stdout.strip()
+        setdir = tmp / 'precedent-a-set'
+        setdir.mkdir()
+        (setdir / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent',
+             'path': '../BestPractice'}]}), encoding='utf-8')
+        psc.ROOT = setdir
+        psc._attachable_sources = lambda: []
+        declared = psc._declared_source_clones()
+        cases.append(('the declared universal clone is listed, judged at main',
+                      declared == [(str(clone.resolve()), 'main')],
+                      repr(declared)))
+        row = [r for r in psc.checks() if 'current with its own origin' in r[0]]
+        ok, detail = (row[0][1], str(row[0][2])) if row else ('MISSING', '')
+        cases.append(('THE CASE THIS EXISTS FOR: the row reports it behind, '
+                      'with a fast-forward-only remedy',
+                      ok is False and 'BestPractice' in detail
+                      and 'merge --ff-only origin/main' in detail, detail[:400]))
+        cases.append(('...and the clone is left where it was',
+                      git('rev-parse', 'HEAD', cwd=clone).stdout.strip() == before,
+                      ''))
+    finally:
+        psc.ROOT, psc._attachable_sources = saved_root, saved_att
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session check covers the universal clone a set declares '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
 
 
 def check_session_check_never_calls_an_unfetched_clone_current():
@@ -40290,6 +40378,71 @@ def check_stale_render_self_heals():
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_self_heal_skips_a_scratch_copy():
+    """precedent_resolve.py's source repairs cloned every declared source
+    beside ANY repository that resolved, including a test's `git clone
+    <path>` scratch copy in /tmp: precedent-shared-repo-maintenance's
+    trailer test then resolved the working-style set it set out to exclude,
+    and failed on untouched pre-staging (2026-09-30). Planted, with a stand-
+    in bootstrap tool that leaves a marker when it runs. Discriminating
+    cases: from a copy whose origin is another checkout on this disk, the
+    repair does not run; from a checkout whose origin is a remote, it still
+    does (the control); a file:// origin counts as a copy too."""
+    import shutil, subprocess, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='self-heal-scratch-'))
+    saved = os.environ.get('CLAUDE_CODE_REMOTE')
+    cases = []
+    try:
+        orig = tmp / 'orig'
+        (orig / 'tools').mkdir(parents=True)
+        (orig / 'tools' / 'precedent_source_bootstrap.py').write_text(
+            'import pathlib, sys\n'
+            'pathlib.Path(sys.argv[sys.argv.index("--sources-from") + 1]'
+            ').joinpath("HEALED").write_text("x")\n', encoding='utf-8')
+        git = lambda *a: subprocess.run(['git', *a], capture_output=True, text=True)
+        git('init', '-q', str(orig))
+        git('-C', str(orig), '-c', 'user.name=T', '-c', 'user.email=t@t',
+            'add', '-A')
+        git('-C', str(orig), '-c', 'user.name=T', '-c', 'user.email=t@t',
+            'commit', '-qm', 'x')
+        os.environ['CLAUDE_CODE_REMOTE'] = 'true'
+
+        copy = tmp / 'copy'
+        git('clone', '-q', str(orig), str(copy))
+        got = _pr._self_heal_universal_source(copy)
+        cases.append(('THE CASE THIS EXISTS FOR: from a copy of a checkout on '
+                      'this disk, the repair does not run',
+                      got == 'scratch-copy' and not (copy / 'HEALED').exists(),
+                      got))
+        fcopy = tmp / 'fcopy'
+        git('clone', '-q', f'file://{orig}', str(fcopy))
+        got = _pr._self_heal_universal_source(fcopy)
+        cases.append(('...and a file:// origin is a copy too',
+                      got == 'scratch-copy' and not (fcopy / 'HEALED').exists(),
+                      got))
+        cases.append(('...and the individual repair stands aside there too',
+                      _pr._self_heal_individual_source(copy) == 'scratch-copy',
+                      ''))
+        git('-C', str(copy), 'remote', 'set-url', 'origin',
+            'https://example.invalid/someone/some-set')
+        got = _pr._self_heal_universal_source(copy)
+        cases.append(('CONTROL: a checkout whose origin is a remote is still '
+                      'repaired', got == 'attempted' and (copy / 'HEALED').exists(),
+                      got))
+    finally:
+        if saved is None:
+            os.environ.pop('CLAUDE_CODE_REMOTE', None)
+        else:
+            os.environ['CLAUDE_CODE_REMOTE'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the source repairs skip a scratch copy of a checkout '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+
 def check_self_heal_universal_source_leaves_no_bytecode():
     """precedent_resolve.py's _self_heal_universal_source() runs
     tools/precedent_source_bootstrap.py AS A SUBPROCESS, inside the very
@@ -47672,6 +47825,7 @@ def main():
           *check_session_check_reports_a_source_cloned_twice())
     check('the session check never calls an unfetched source clone current',
           *check_session_check_never_calls_an_unfetched_clone_current())
+    check_session_check_covers_the_universal_clone()
     check('the merge gate sees a workflow that never ran on this commit',
           *check_merge_gate_sees_a_workflow_that_never_ran())
     check('a declared loss releases the archive line, and only then',
@@ -47853,6 +48007,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
     check_hosted_sessions_resolve_without_attaching_a_repo()
