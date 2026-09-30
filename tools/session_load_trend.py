@@ -68,6 +68,38 @@ def _today():
                      "(practice: timestamps-carry-offset). Re-vendor the "
                      "engine to fix it; the token figures are unaffected.")
 
+def _which_repo():
+    """The helper that names the measured repo, or None if not vendored here.
+
+    This script reads the repo it lives in, never the current directory --
+    on 2026-09-29 a session ran BestPractice's copy from inside
+    precedent-individual, got BestPractice's figures under a header that named
+    no repo, and reported a ceiling breach that did not exist
+    (gotchas/gotcha-2026-09-29-engine-tools-measure-their-own-repo-not-the-cwd.md).
+    Imported lazily for the same reason as precedent_time above: a partial
+    vendor must lose the label, not the tool (practice: fail-gracefully).
+    """
+    try:
+        import precedent_which_repo
+        return precedent_which_repo
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+def _repo():
+    """-> {'name', 'path', 'origin'} for the measured repo."""
+    w = _which_repo()
+    if w is not None:
+        try:
+            return w.describe(ROOT)
+        except Exception:                                    # noqa: BLE001
+            pass
+    return {'name': ROOT.name, 'path': str(ROOT), 'origin': None}
+
+
+def _repo_label(repo):
+    return f"{repo['name']} ({repo['origin']})" if repo['origin'] else repo['name']
+
 # The surfaces the ceiling check itself measures, kept in that order so the two
 # tools cannot disagree about what "always loaded" means.
 SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
@@ -211,14 +243,16 @@ def _ledger(ref, reg, as_json):
         ceiling = (surfaces.get(rel) or {}).get('ceiling')
         rows.append((rel, before, after, ceiling))
 
+    repo = _repo()
     if as_json:
-        print(json.dumps({'since': ref, 'sha': sha, 'surfaces': [
+        print(json.dumps({'repo': repo, 'since': ref, 'sha': sha, 'surfaces': [
             {'file': r, 'before': b, 'after': a, 'ceiling': c,
              'delta': (None if b is None else a - b)} for r, b, a, c in rows]},
             indent=2))
         return 0
 
-    print(f"REDUCTION LEDGER -- always-loaded surfaces, {ref} ({sha[:8]}) -> working tree\n")
+    print(f"REDUCTION LEDGER -- {_repo_label(repo)}")
+    print(f"  always-loaded surfaces, {ref} ({sha[:8]}) -> working tree\n")
     tb = ta = 0
     skipped = []
     for rel, before, after, ceiling in rows:
@@ -243,6 +277,96 @@ def _ledger(ref, reg, as_json):
     print("  to say, and so is what was considered and not done "
           "(practice: reduction-pass).")
     return 0
+
+
+def _registry_at(root):
+    f = pathlib.Path(root) / 'tools' / 'session_load_budgets.json'
+    try:
+        return json.loads(f.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return None
+
+
+def over_target(root=None):
+    """-> [(surface, tokens, target, ceiling)] for every always-loaded file
+    over the `target` its registry entry declares.
+
+    code-cites-practice: session-load-budget
+
+    A TARGET IS NOT A CEILING. The hard ceiling is the hard number (over it,
+    a commit is refused where the entry opts in with `block_commits`). The target is where the file is meant to live, and
+    being over it is reported in every session until someone brings it
+    down: the session-start file carries a warning at its top, and the
+    reply gate requires one line in The Boildown. Morgan, 2026-09-29:
+    "The target should be 4000 or less but at the 4000 level, you get
+    warnings, with every session to bring it down" (strength: decided).
+    """
+    base = pathlib.Path(root) if root else ROOT
+    reg = _registry_at(base)
+    if not reg:
+        return []
+    out = []
+    for rel in SURFACES:
+        entry = (reg.get('surfaces') or {}).get(rel) or {}
+        target = entry.get('target')
+        f = base / rel
+        if not isinstance(target, int) or not f.is_file():
+            continue
+        n = approx_tokens(f.read_text(encoding='utf-8', errors='replace'))
+        if n > target:
+            out.append((rel, n, target, entry.get('hard_ceiling', entry.get('ceiling'))))
+    return out
+
+
+def commit_gate(root=None):
+    """-> (0, '') to let a commit through, or (2, why) to refuse it.
+
+    code-cites-practice: session-load-budget
+
+    Refuses a `git commit` while an always-loaded file is over its hard
+    ceiling, for every registry entry that opts in with
+    `"block_commits": true` (Morgan, 2026-09-29: "it doesn't let you commit,
+    it blocks you, if it is above 4400", strength: decided). Opt-in per
+    entry, because switching it on while the file is already over refuses
+    every commit in that repo until the cut lands elsewhere.
+
+    A commit that shrinks the file is always let through, so the fix is
+    never the thing blocked: for a tracked file, when the staged copy is
+    smaller than HEAD's. The session-start file is untracked and rebuilt
+    from the sources every session, so it has no staged copy; its
+    reduction happens in the sources' own repos, which this does not
+    block.
+    """
+    base = pathlib.Path(root) if root else ROOT
+    reg = _registry_at(base)
+    if not reg:
+        return 0, ''
+    for rel in SURFACES:
+        entry = (reg.get('surfaces') or {}).get(rel) or {}
+        ceiling = entry.get('hard_ceiling', entry.get('ceiling'))
+        f = base / rel
+        if entry.get('block_commits') is not True or not isinstance(ceiling, int) \
+                or not f.is_file():
+            continue
+        n = approx_tokens(f.read_text(encoding='utf-8', errors='replace'))
+        if n <= ceiling:
+            continue
+        staged = subprocess.run(['git', '-C', str(base), 'show', f':{rel}'],
+                                capture_output=True, text=True)
+        head = subprocess.run(['git', '-C', str(base), 'show', f'HEAD:{rel}'],
+                              capture_output=True, text=True)
+        if staged.returncode == 0 and head.returncode == 0 and \
+                approx_tokens(staged.stdout) < approx_tokens(head.stdout):
+            continue
+        return 2, (f'session_load_trend: COMMIT REFUSED -- {rel} is {n:,} '
+                   f'tokens, over its hard ceiling of {ceiling:,} in '
+                   f'tools/session_load_budgets.json. Bring it down first: '
+                   f'run a Reduction pass (practice: reduction-pass). A '
+                   f'commit that makes this file smaller is always allowed. '
+                   f'Never raise the ceiling to get past this without the '
+                   f"person's own words for that raise (practice: "
+                   f'session-load-budget).')
+    return 0, ''
 
 
 def headroom_notice(root=None, floor_pct=None):
@@ -325,11 +449,38 @@ def main():
                          'a "Reduction pass" report needs, measured rather '
                          'than typed (practice: reduction-pass)')
     ap.add_argument('--json', action='store_true', help='machine-readable')
+    ap.add_argument('--commit-gate', action='store_true',
+                    help='exit 2, with the reason on stderr, when a file whose '
+                         'registry entry sets block_commits is over its hard '
+                         'ceiling (the commit-time hook calls this)')
+    ap.add_argument('--root', metavar='DIR',
+                    help='the repository to measure (default: the one this '
+                         'script lives in)')
     args = ap.parse_args()
+
+    # --root measures another repository (2026-09-30): ROOT otherwise comes
+    # from __file__, so this could only ever read the repo it was copied
+    # into. With --root the reader named it, so there is nothing to warn of.
+    global ROOT
+    if args.root:
+        ROOT = pathlib.Path(args.root).resolve()
+    if args.commit_gate:
+        # The commit-time hook's call: quiet unless it refuses.
+        rc, why = commit_gate(ROOT)
+        if why:
+            print(why, file=sys.stderr)
+        return rc
+    # Before anything else, including the no-registry exit: a run from inside
+    # another repo is the one case where every figure below is right and
+    # none of them is the answer (precedent_which_repo.py).
+    w = None if args.root else _which_repo()
+    if w is not None:
+        w.warn_if_elsewhere(ROOT, 'session_load_trend.py')
 
     reg = registry()
     if reg is None:
-        print('session_load_trend: no tools/session_load_budgets.json here.')
+        print(f'session_load_trend: no tools/session_load_budgets.json in '
+              f'{_repo_label(_repo())} at {ROOT}.')
         return 0
     if args.since:
         return _ledger(args.since, reg, args.json)
@@ -337,7 +488,7 @@ def main():
 
     # timestamps-carry-offset
     measured, zone_note = _today()
-    report = {'surfaces': {}, 'measured': measured}
+    report = {'repo': _repo(), 'surfaces': {}, 'measured': measured}
     if zone_note:
         report['zone_note'] = zone_note
     total_now = total_ceiling = 0
@@ -391,7 +542,8 @@ def main():
 
     if zone_note:
         print(f"NOTE: {zone_note}\n")
-    print(f"SESSION LOAD -- what every session pays before it does any work")
+    print(f"SESSION LOAD -- {_repo_label(report['repo'])}")
+    print(f"  what every session pays before it does any work, at {ROOT}")
     print(f"  measured {report['measured']}, "
           f"window {args.days}d, active practices: {report['active_practices']}")
     print()

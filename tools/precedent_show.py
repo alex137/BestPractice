@@ -236,6 +236,15 @@ def main():
         repo = args[i + 1]
         args = args[:i] + args[i + 2:]
     root = pathlib.Path(repo).resolve() if repo else ROOT
+    # A run from inside a different repo reads THIS repo, silently -- say so
+    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    if repo is None:
+        try:
+            import precedent_which_repo
+            precedent_which_repo.warn_if_elsewhere(ROOT, 'precedent_show.py',
+                                                   repo_flag=True)
+        except Exception:                                    # noqa: BLE001
+            pass
     practices_dir = root / 'practices'
 
     # The occasion index names this flag in its own footer, so a session that

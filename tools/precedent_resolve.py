@@ -565,6 +565,35 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
                         f"a definite answer; declare one there to change it.")}
 
 
+def _main_checkout(repo_root):
+    """-> the main checkout of `repo_root` when it is a LINKED git worktree,
+    else None.
+
+    A relative source path (`../precedent-shared-writing`) names a sibling
+    of the repository as it really lives. The engine checks a commit in a
+    throwaway worktree under the system temp directory -- the merge check,
+    Promote's batch, the push check's base -- and from there no sibling
+    exists: every declared set read as missing, and a practice in force in
+    the repository (a set's revert exemption, 2026-09-29) read as not in
+    force, so the merge check refused a pull request the checkout itself
+    passed. Git records where a worktree's main checkout is; a relative path
+    that does not resolve beside the worktree is resolved beside that."""
+    def rev(arg):
+        r = subprocess.run(['git', '-C', str(repo_root), 'rev-parse', arg],
+                           capture_output=True, text=True)
+        return r.stdout.strip() if r.returncode == 0 else ''
+    common, own = rev('--git-common-dir'), rev('--git-dir')
+    if not common or not own:
+        return None
+    common_p = pathlib.Path(common) if pathlib.Path(common).is_absolute() \
+        else repo_root / common
+    own_p = pathlib.Path(own) if pathlib.Path(own).is_absolute() \
+        else repo_root / own
+    if common_p.resolve() == own_p.resolve() or common_p.name != '.git':
+        return None
+    return common_p.resolve().parent
+
+
 def load_config(repo, user_config=None):
     """-> list of {level, name, path}, lowest precedence first.
 
@@ -665,8 +694,13 @@ def load_config(repo, user_config=None):
             # practice: durable-fix
             entry_path = pathlib.Path(
                 os.path.expandvars(str(entry['path']))).expanduser()
-            entry_path = (entry_path if entry_path.is_absolute()
+            relative = not entry_path.is_absolute()
+            entry_path = (entry_path if not relative
                           else repo_root / entry_path).resolve()
+            if relative and not entry_path.exists():
+                main = _main_checkout(repo_root)
+                if main is not None and (main / entry['path']).exists():
+                    entry_path = (main / entry['path']).resolve()
             # practice: session-bootstrap -- a universal source declared but
             # not yet on disk (never cloned, because the SessionStart hook
             # that clones it never ran for this session -- see

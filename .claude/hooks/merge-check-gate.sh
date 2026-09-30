@@ -17,6 +17,13 @@
 # the current branch's pull request and is checked fully because its base
 # is not named.
 #
+# AFTER THE MERGE TOO (PostToolUse, 2026-09-30). The check before a merge
+# judges GitHub's test merge, then frees the base, and GitHub merges seconds
+# later: a base that moved in that gap lands a merge nobody checked. Wired a
+# second time on PostToolUse, this runs precedent_merge_check.py --landed on
+# the merge commit itself -- instant when nothing moved (the pass is reused),
+# a full check when the base did, and a revert of the merge when that fails.
+#
 # FAIL-CLOSED ON A FINDING, FAIL-OPEN ON THE PLUMBING, as every gate here
 # (practice: fail-gracefully): no jq, python3 or git, no checkout of the
 # repository beside this project, no push check in it, a fetch that fails --
@@ -30,6 +37,7 @@ command -v python3 >/dev/null 2>&1 || exit 0
 command -v git >/dev/null 2>&1 || exit 0
 
 tool_name="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null || true)"
+event="$(printf '%s' "$input" | jq -r '.hook_event_name // empty' 2>/dev/null || true)"
 project_dir="${CLAUDE_PROJECT_DIR:-.}"
 cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
 here="${cwd:-$project_dir}"
@@ -82,6 +90,38 @@ for candidate in "$project_dir/tools/precedent_merge_check.py" \
 done
 if [[ -z "$engine" ]]; then
     echo "NOTE: merge-check-gate: this project carries no precedent_merge_check.py, so this merge was NOT checked." >&2
+    exit 0
+fi
+
+if [[ "$event" == "PostToolUse" ]]; then
+    [[ " ${args[*]} " == *" --number "* ]] || exit 0
+    # The merge commit, from the merge tool's own answer when it gives one;
+    # else the engine asks GitHub. No answer at all: nothing was merged.
+    sha="$(printf '%s' "$input" | jq -r '.tool_response | tostring' 2>/dev/null \
+      | grep -oE 'sha[^0-9a-f]{1,8}[0-9a-f]{40}' | head -n1 | grep -oE '[0-9a-f]{40}$' || true)"
+    if [[ "$tool_name" == mcp__* && -z "$sha" ]]; then
+        exit 0
+    fi
+    post_limit=()
+    command -v timeout >/dev/null 2>&1 && post_limit=(timeout 840)
+    set +e
+    out="$(${post_limit[@]+"${post_limit[@]}"} python3 "$engine" "${args[@]}" --landed "${sha:-unknown}" 2>&1)"
+    rc=$?
+    set -e
+    if printf '%s' "$out" | grep -q '^Traceback (most recent call last):'; then
+        rc=2
+        out="precedent_merge_check.py CRASHED after the merge, so what landed was NOT checked:
+$(printf '%s\n' "$out" | tail -n 30)"
+    fi
+    if [[ "$rc" == 0 ]] && ! printf '%s' "$out" | grep -q 'MOVED'; then
+        printf '%s\n' "$out" | tail -n 1 >&2
+        exit 0
+    fi
+    if [[ "$rc" == 1 ]]; then
+        printf '%s' "$out" | jq -Rs '{decision: "block", reason: ("What this merge landed failed its full check.\n\n" + .)}'
+    else
+        printf '%s' "$out" | jq -Rs '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: .}}'
+    fi
     exit 0
 fi
 
