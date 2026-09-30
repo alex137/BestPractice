@@ -39178,6 +39178,76 @@ def check_source_credentials_reach_clones_nothing_syncs():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_worktree_resolves_sources_beside_its_main_checkout():
+    """precedent_resolve.load_config() from a LINKED worktree under the temp
+    directory resolves a relative source path beside the main checkout when
+    it does not resolve beside the worktree (2026-09-29). The merge check,
+    Promote's batch and the push check's base all check a commit in such a
+    worktree; from there `../<set>` named nothing, a set's practice in force
+    in the repository read as not in force, and a consuming repo's merge
+    check refused a pull request its checkout passed. Stated cases, with the
+    control that a plain copy (not a worktree) gets no such fallback, and the
+    network self-heal switched off so the answer is the resolver's alone."""
+    import tempfile
+    base = pathlib.Path(tempfile.mkdtemp(prefix='wt-sources-'))
+    cases = []
+    try:
+        main, src = base / 'consumer', base / 'zzz-src'
+        (src / 'practices').mkdir(parents=True)
+        (src / 'practices' / 'zzz-rule.md').write_text(
+            '---\nslug: zzz-rule\nstatus: active\n---\n## Rule\nx\n', encoding='utf-8')
+        (src / 'precedent-source.json').write_text(
+            json.dumps({'name': 'zzz-src', 'level': 'shared'}), encoding='utf-8')
+        main.mkdir()
+        (main / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': [
+                {'level': 'shared', 'name': 'zzz-src', 'path': '../zzz-src'}]}),
+            encoding='utf-8')
+        g = ['git', '-c', 'user.name=h', '-c', 'user.email=h@example.com']
+        subprocess.run([*g, 'init', '-q', str(main)], capture_output=True)
+        subprocess.run([*g, '-C', str(main), 'add', '-A'], capture_output=True)
+        subprocess.run([*g, '-C', str(main), 'commit', '-qm', 'x'], capture_output=True)
+        far = pathlib.Path(tempfile.mkdtemp(prefix='wt-far-'))
+        wt = far / 'tree'
+        subprocess.run(['git', '-C', str(main), 'worktree', 'add', '-q', '--detach',
+                        str(wt), 'HEAD'], capture_output=True)
+        copy = far / 'copy'
+        shutil.copytree(main, copy)
+        env = {k: v for k, v in os.environ.items() if k != 'CLAUDE_CODE_REMOTE'}
+        env['PRECEDENT_USER_CONFIG'] = str(base / 'no-user-config.json')
+        probe = ('import sys, json; sys.path.insert(0, sys.argv[1]); '
+                 'import precedent_resolve as pr; '
+                 'print(json.dumps([s["path"] for s in pr.load_config(sys.argv[2])]))')
+
+        def paths(root):
+            r = subprocess.run([sys.executable, '-c', probe, str(ROOT / 'tools'),
+                                str(root)], capture_output=True, text=True, env=env)
+            try:
+                return json.loads(r.stdout.strip().splitlines()[-1])
+            except (ValueError, IndexError):
+                return r.stdout + r.stderr
+        want = str(src.resolve())
+        got = paths(wt)
+        cases.append(('a worktree under the temp directory resolves ../zzz-src '
+                      'beside its main checkout', isinstance(got, list)
+                      and want in got, got))
+        got = paths(main)
+        cases.append(('the main checkout resolves it as before',
+                      isinstance(got, list) and want in got, got))
+        got = paths(copy)
+        cases.append(('CONTROL: a plain copy is not a worktree and gets no '
+                      'fallback', isinstance(got, list) and want not in got, got))
+        subprocess.run(['git', '-C', str(main), 'worktree', 'remove', '--force',
+                        str(wt)], capture_output=True)
+        shutil.rmtree(far, ignore_errors=True)
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a worktree resolves relative sources beside its main checkout '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_individual_source_bootstrap_self_heals():
     """practices/session-bootstrap.md's Detail, tested rather than trusted
     -- and corrected 2026-09-06 after this check's own first version
@@ -47256,6 +47326,7 @@ def main():
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_frontmatter_field_order_fixer()
+    check_worktree_resolves_sources_beside_its_main_checkout()
     check_generated_blocks_both_styles()
     check_runner_drops_findings_on_received_files()
     check_refresh_wired_settings_is_not_lost_work()
