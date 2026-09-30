@@ -100,6 +100,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |
 | Weak yes | [weak-yes](practices/weak-yes.md) |
+| What's new | [whats-new](practices/whats-new.md) |
 | Write it up | [write-it-up](practices/write-it-up.md) |
 
 ## Engine vocabulary

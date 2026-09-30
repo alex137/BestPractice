@@ -575,6 +575,9 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # "What's new?" works in every project, so the log's mechanics ship
+    # (practice: whats-new); each project's own log never does.
+    'precedent_whats_new.py',
     # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
     # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
     # command a session cannot carry out is worse than one that does not
@@ -4400,6 +4403,29 @@ def _instantiate(text, subs):
     return text
 
 
+def _generated_lines(lines):
+    """-> (first lines of each generated block, one bool per line: inside
+    a block). generated_blocks.py when it can be imported, else the loader
+    style alone, as this parser read it before."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import generated_blocks
+        spans = generated_blocks.spans(lines)
+        inside = generated_blocks.mask(lines)
+        return {a for a, _b in spans}, inside
+    except ImportError:
+        starts, inside, on = set(), [False] * len(lines), False
+        for i, line in enumerate(lines):
+            t = line.strip()
+            if on:
+                inside[i] = True
+                on = not t.startswith(_GENERATED_END)
+            elif t.startswith(_GENERATED_BEGIN):
+                starts.add(i)
+                inside[i] = on = True
+        return starts, inside
+
+
 def _md_sections(text):
     """-> [(key, first, end)] for each `##`/`###` section of a markdown
     file, as 0-based line indexes into text.split('\\n'), `end` exclusive
@@ -4408,7 +4434,13 @@ def _md_sections(text):
     generated block and a `#` heading both end the section before them."""
     lines = text.split('\n')
     out, cur = [], None
-    fence = comment = generated = False
+    fence = comment = False
+    # Generated text is found by generated_blocks.py, both marker styles and
+    # a closing marker required, like every other reader here: this parser
+    # knew only the loader style, and an opener with no closer hid the rest
+    # of the file (2026-09-30). An older engine without the module falls
+    # back to that old reading rather than failing.
+    starts, inside = _generated_lines(lines)
 
     def close(end):
         if cur is None:
@@ -4419,13 +4451,11 @@ def _md_sections(text):
 
     for i, line in enumerate(lines):
         s = line.strip()
-        if generated:
-            if s.startswith(_GENERATED_END):
-                generated = False
-            continue
-        if s.startswith(_GENERATED_BEGIN):
+        if i in starts:
             close(i)
-            cur, generated = None, True
+            cur = None
+            continue
+        if inside[i]:
             continue
         if comment:
             if '-->' in s:

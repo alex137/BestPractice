@@ -398,6 +398,17 @@ on a hosted session an absent or empty config still reads as `MISSING` or
 `SET`, since the bootstrap writes that file only after a clone succeeds, so
 a clone that failed leaves exactly the same fingerprint.
 
+## Claude Code's Auto Mode and a Promote Into `main`
+
+Not a Precedent setting, and nothing breaks without it: in auto mode,
+Claude Code's own safety check stops a bare "Promote" into `main` as a
+production deploy, and "Produce" gets through. To let a plain "Promote"
+through too, add the allow rule in
+[CLOUD_SETUP.md](CLOUD_SETUP.md#let-a-promote-into-main-through-claude-codes-safety-check)
+to `~/.claude/settings.json` on your own computer, or to your
+organization's managed settings for cloud sessions. A session never adds
+it itself.
+
 ## Optional, and Each One an Escape Hatch
 
 | Setting | Where | Effect |
