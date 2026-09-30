@@ -44,7 +44,7 @@ messages:
   without fetching, reported the state as of whenever this clone last
   fetched. Fetch in the same command as the claim (`git fetch -q origin
   BRANCH && git branch -r --contains SHA`), or say how old the reading is
-  ([gotcha](../gotchas/gotcha-2026-09-30-an-unfetched-remote-ref-says-a-merge-never-happened.md)).
+  ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-30-an-unfetched-remote-ref-says-a-merge-never-happened.md)).
 
 ## Why
 Neither command malfunctioned. Both did exactly what they were literally asked
