@@ -71,6 +71,31 @@
   ],
   "resident_block_tokens": 2000,
   "section_review_tokens": 2500,
+  "_approved_budgets_comment": [
+    "The highest value the person has approved for each budget IN FORCE, as",
+    "tools/build_views.py's effective_budgets() computes it -- never the JSON",
+    "field alone, so a formula that raises a number shows up here too.",
+    "tools/precedent_check.py --only budget-within-approval fails when a budget",
+    "in force is above its max, or has no entry here. Practice:",
+    "session-load-budget.",
+    "",
+    "WHY (2026-09-29): a session made precedent-individual's session-file",
+    "ceiling a computed sum and the number in force went from 5,200 to 6,200;",
+    "nobody asked Morgan. 'I REALLY DON'T like that you raised it without",
+    "asking me.' ONLY THE PERSON RAISES A MAX: in their own words, for that",
+    "raise, quoted in approved_by with the date and strength decided or",
+    "assented. 'baseline' marks the values in force on 2026-09-30, when this",
+    "list began: recorded, not freshly approved. Lowering a budget? Lower its",
+    "max in the same change, or a later re-raise to the old value passes."
+  ],
+  "approved_budgets": {
+    "resident_block_tokens": {"max": 2000, "strength": "baseline", "approved_by": "baseline 2026-09-30: in force since phase 2"},
+    "occasion_index": {"max": 3600, "strength": "baseline", "approved_by": "baseline 2026-09-30: occasion_index_tokens, recorded above as Morgan's choice on 2026-09-14 (option D)"},
+    "occasion_share_tokens": {"max": 2800, "strength": "baseline", "approved_by": "baseline 2026-09-30: recorded in precedent-source.json as the universal share Morgan assented to on 2026-09-29"},
+    "surfaces/AGENTS.md": {"max": 7650, "strength": "baseline", "approved_by": "baseline 2026-09-30: set 2026-09-28 after the preamble cut Morgan asked for"},
+    "surfaces/CLAUDE.md": {"max": 200, "strength": "baseline", "approved_by": "baseline 2026-09-30"},
+    "surfaces/.precedent/SESSION_PRACTICES.md": {"max": 4000, "strength": "baseline", "approved_by": "baseline 2026-09-30"}
+  },
   "surfaces": {
     "AGENTS.md": {
       "ceiling": 7650,

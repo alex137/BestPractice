@@ -39,6 +39,12 @@ messages:
   context you are in.** Publishing by naming a branch publishes *that* branch,
   whether or not it is the one you have been working on. If it has not moved,
   the operation succeeds as a no-op and says so.
+- **A remote-tracking ref is a snapshot from the last fetch, not the
+  remote.** "It never reached pre-staging", read off `origin/pre-staging`
+  without fetching, reported the state as of whenever this clone last
+  fetched. Fetch in the same command as the claim (`git fetch -q origin
+  BRANCH && git branch -r --contains SHA`), or say how old the reading is
+  ([gotcha](../gotchas/gotcha-2026-09-30-an-unfetched-remote-ref-says-a-merge-never-happened.md)).
 
 ## Why
 Neither command malfunctioned. Both did exactly what they were literally asked

@@ -52,9 +52,12 @@ performs it.
 
 **A ceiling is a watermark, not an endorsement.** It is set at what the
 surface measured when it was last reviewed, so it ratchets down and never
-drifts up unnoticed. Raising one is a decision made on purpose, in a commit,
-with the reason written in the registry — never a way to make a red check
-green.
+drifts up unnoticed. **Only the person raises one**: show them the number
+before and after, ask, and record their own words for that raise in the
+registry's `approved_budgets`. That covers every budget *in force*, so a
+formula, fallback or newly summed source that makes the number bigger is a
+raise even when no field changed. Never raise one to make a red check green,
+and say any change to a budget in that reply's Boildown.
 
 **When the resident cap refuses a new practice, the person picks what comes
 out.** [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
@@ -116,6 +119,23 @@ where it was has to follow it.
 individual source over its ceiling is a finding to report to whoever owns it
 ([cross-source-rollout](https://github.com/alex137/BestPractice/blob/staging/practices/cross-source-rollout.md)), not an edit to make from
 here.
+
+**Approvals, targets and the hard ceiling (2026-09-30).**
+`approved_budgets` in the registry holds, per budget, the highest value the
+person approved: `max`, `approved_by` (their name, the date and their quoted
+words) and `strength`. `baseline` marks the values in force when the list
+began, recorded rather than freshly approved.
+`precedent_check.py --only budget-within-approval` reads each budget through
+`build_views.effective_budgets()`, the same functions that enforce it, and
+fails on any above its approval or with none. It needs no base commit, so it
+answers the same at commit, push, merge, CI and Promote, whoever merged
+what. A surface's `target` is where it is meant to live: over it, the
+session-start file opens with a warning, once per session. Its
+`hard_ceiling` is enforced where growth is made, not by refusing commits in
+the repo that loads the file. `session-file-allowances-fit` requires each
+carried source's `occasion_share_tokens` plus its `resident_block_tokens`,
+plus the entry's `fixed_allowance`, to add up to at most the hard ceiling,
+and each source's own build refuses to grow past those numbers.
 
 ## Why
 Nothing is wrong at any single commit. Every line in an always-loaded file

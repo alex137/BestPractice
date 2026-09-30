@@ -296,6 +296,53 @@ def block_occasion_cap(root):
     return total, f"the sum of its sources' allowances: {' + '.join(parts)}"
 
 
+def effective_budgets(root):
+    """-> {key: tokens or None} for every budget in force in `root`, each read
+    through the SAME function that enforces it -- never from the JSON field
+    alone. None means uncapped.
+
+    code-cites-practice: session-load-budget
+
+    WHY (2026-09-29). A session made precedent-individual's session-file
+    ceiling a computed sum, and the number in force went from 5,200 to 6,200
+    while the `ceiling` field in the registry never moved. A check reading
+    that field would have passed it. Reading the number the engine actually
+    uses means a new formula, a new fallback, a newly declared source or a
+    removed allowance all show up here exactly as an edited number does.
+    precedent_check.py's budget-within-approval compares this against the
+    person's approvals. A new place the engine takes a budget from belongs
+    in this function, or that check cannot see it.
+
+    Keys: resident_block_tokens; occasion_index (this repo's occasion cap,
+    left out when the sources it sums cannot be read here, since a fallback
+    measured in CI is not the cap in force); occasion_share_tokens (this
+    repo's allowance in its consumers, when it is a source); and per surface
+    surfaces/<name> (its ceiling), surfaces/<name>/target and
+    surfaces/<name>/hard_ceiling."""
+    root = pathlib.Path(root)
+    out = {'resident_block_tokens': RESIDENT_BUDGET_TOKENS}
+    cap, why = occasion_cap(root)
+    if 'could not be read' not in why:
+        out['occasion_index'] = cap
+    if (root / 'precedent-source.json').is_file():
+        out['occasion_share_tokens'] = own_occasion_allowance(root)
+    f = _ENGINE_DIR / 'session_load_budgets.json'
+    try:
+        surfaces = json.loads(f.read_text(encoding='utf-8')).get('surfaces') or {}
+    except (OSError, ValueError, AttributeError):
+        surfaces = {}
+    for name, row in sorted(surfaces.items()):
+        if name.startswith('_') or not isinstance(row, dict):
+            continue
+        v = surface_budget(name, None)
+        if isinstance(v, int):
+            out[f'surfaces/{name}'] = v
+        for k in ('target', 'hard_ceiling'):
+            if isinstance(row.get(k), int):
+                out[f'surfaces/{name}/{k}'] = row[k]
+    return out
+
+
 class OccasionIndexBudgetExceeded(Exception):
     """The generated occasion index is over its declared ceiling.
 

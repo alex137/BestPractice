@@ -282,6 +282,14 @@ merge still waiting on one word said in the other window -- that is the
 declaration's absence, not a failed relay, and the reply says which word and
 where.
 
+**A branch another session made is merged only once that session, or the
+person, has said it is finished.** Its existence on the remote is not that.
+On 2026-09-29 a session merged `claude/derived-session-ceiling-7qk2` into
+precedent-individual's pre-staging, and a Promote carried it to main: a
+ceiling raise its own session had held back because Morgan had rejected it.
+When the branch's status cannot be settled from its session or its pull
+request, ask before merging it.
+
 ## Detail
 "That was perfect. Go update", "Go update.", a lone line reading
 `GO UPDATE`, "go update it and tell me what broke", and "when the check

@@ -325,7 +325,29 @@ def main():
                          'a "Reduction pass" report needs, measured rather '
                          'than typed (practice: reduction-pass)')
     ap.add_argument('--json', action='store_true', help='machine-readable')
+    ap.add_argument('--root', metavar='DIR',
+                    help='the repository to measure (default: the one this '
+                         'script lives in)')
     args = ap.parse_args()
+
+    # WHICH REPO, said out loud (2026-09-29). A session ran this file from
+    # BestPractice while working in precedent-individual, read BestPractice's
+    # numbers as precedent-individual's, and told Morgan a file was under its
+    # ceiling when it was over. ROOT comes from __file__, and nothing in the
+    # output named it. So --root measures another repository, the report
+    # names the one it measured, and running it from inside a different
+    # repository without --root says so (practice: verify-postcondition).
+    global ROOT
+    if args.root:
+        ROOT = pathlib.Path(args.root).resolve()
+    here = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                          capture_output=True, text=True)
+    elsewhere = (not args.root and here.returncode == 0
+                 and pathlib.Path(here.stdout.strip()).resolve() != ROOT)
+    if elsewhere and not args.json:
+        print(f"NOTE: this measures {ROOT}, not {here.stdout.strip()}, where "
+              f"you are. Pass --root {here.stdout.strip()} to measure that "
+              f"one.\n")
 
     reg = registry()
     if reg is None:
@@ -337,7 +359,7 @@ def main():
 
     # timestamps-carry-offset
     measured, zone_note = _today()
-    report = {'surfaces': {}, 'measured': measured}
+    report = {'surfaces': {}, 'measured': measured, 'repository': str(ROOT)}
     if zone_note:
         report['zone_note'] = zone_note
     total_now = total_ceiling = 0
@@ -391,7 +413,8 @@ def main():
 
     if zone_note:
         print(f"NOTE: {zone_note}\n")
-    print(f"SESSION LOAD -- what every session pays before it does any work")
+    print(f"SESSION LOAD in {ROOT.name} ({ROOT}) -- what every session pays "
+          f"before it does any work")
     print(f"  measured {report['measured']}, "
           f"window {args.days}d, active practices: {report['active_practices']}")
     print()
