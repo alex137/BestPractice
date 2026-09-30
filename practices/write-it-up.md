@@ -5,12 +5,12 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, and unlike a gate-tied command its work (writing the report, committing it, pushing it) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-18, when the practice landed."
-occasion:    "a person says \"Write it up\" or \"Spec it out\", or asks for a write-up"
+occasion:    "a person says \"Write it up\", or asks for a write-up"
 gates:       []
 index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
 checked_by:  null
 defines:     ["Write it up", "Spec it out"]
-command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link.", "Spec it out": "The same as **Write it up** -- the largest plan size stage 1, Consider, can choose."}
+command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link. Also said as \"Spec it out\": the largest plan size stage 1, Consider, can choose."}
 status:      active
 in_force_at: null
 supersedes:  []

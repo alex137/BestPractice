@@ -580,6 +580,24 @@ def _promote_only_refusal(root, argv):
 # and was caught only by the next Promote's full check. The practice checks
 # take seconds; the test suite, which is what makes the full check slow,
 # still waits for staging.
+# What a step prints when a session-load size cap is exceeded but not
+# refused: precedent_check.py's pre-staging WARNING, build_views.py's.
+SIZE_CAP_WARNINGS = ('over a size cap. Allowed onto pre-staging',
+                     'build_views WARNING:')
+CAP_WARNED = []           # the steps that printed one, this run
+
+
+def _cap_warning_last():
+    """Say it last, where the push gate's short tail of a pass shows it:
+    a size cap is over, allowed onto pre-staging, refused at the Debut
+    (Morgan, 2026-09-30: warn on pre-staging, no change for staging)."""
+    if CAP_WARNED:
+        print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
+              f'above). Allowed onto pre-staging; the Debut into staging '
+              f'refuses it, so bring it under first (a Reduction pass). Tell '
+              f'the person.')
+
+
 CHANGED_PRACTICE_CHECK = ('changed_practice',
                           'the practice checks, on the files this push changes')
 
@@ -671,6 +689,20 @@ def _unplanted_checks(root):
     declared = set(_CASE_RE.findall(vh.read_text(encoding='utf-8',
                                                  errors='replace')))
     return sorted(registered - declared)
+
+
+def _front_matter_changed(root, since, rel):
+    """True when practice file `rel`'s front matter differs from `since`'s
+    copy (or it had none there)."""
+    def head(text):
+        parts = (text or '').split('\n---', 1)
+        return parts[0] if text.startswith('---') else ''
+    before = git(root, 'show', f'{since}:{rel}') or ''
+    try:
+        now = (root / rel).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return head(before) != head(now)
 
 
 def changed_files_check(root, since):
@@ -793,6 +825,29 @@ def changed_files_check(root, since):
                 f'changed, and the generated views were not regenerated with '
                 f'it -- run `python3 tools/build_views.py` and commit what it '
                 f'rewrites. ' + (r.stdout + r.stderr).strip().splitlines()[0][:300])
+    # THE GENERATED COUNTS FOLLOW A NEW PRACTICE (2026-09-29). doc_sync's
+    # blocks (the catalogue count in spec/LOADER.md, the enforced count,
+    # the routing table) move when a practice is added or its front matter
+    # changes, and only the full tier ran doc_sync -- so
+    # stage-word-carries-its-step landed on pre-staging with three stale
+    # blocks and the Debut was the first to notice
+    # (todo-2026-09-29-pre-staging-tier-skips-doc-sync). The drift gate,
+    # never --write; about half a second.
+    sync = root / 'tools' / 'doc_sync.py'
+    moved = [f for f in practice
+             if f in added or _front_matter_changed(root, since, f)]
+    if moved and sync.is_file():
+        r = subprocess.run([sys.executable, str(sync)], cwd=root,
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            stale = [l.strip() for l in (r.stdout + r.stderr).splitlines()
+                     if 'DRIFT' in l or 'STALE' in l or 'FAIL' in l][:4]
+            problems.append(
+                f'{moved[0]}{" and others" if len(moved) > 1 else ""} added or '
+                f'changed its front matter, and the generated blocks that '
+                f'count practices were not regenerated -- run `python3 '
+                f'tools/doc_sync.py --write` and commit what it rewrites. '
+                + ' | '.join(stale)[:400])
     for line in problems:
         print(f'  {line}')
     if tests:
@@ -1115,6 +1170,9 @@ def run(root, checks, landed=None, reported=None):
             print(f'      FAILED in {took:.0f}s although it exited 0: {why}',
                   flush=True)
             continue
+        if p.returncode == 0 and any(m in p.stdout + p.stderr
+                                     for m in SIZE_CAP_WARNINGS):
+            CAP_WARNED.append(name)
         if p.returncode == 0:
             marker, note = STAND_DOWNS.get(name, (None, None))
             if marker and marker in p.stdout + p.stderr:
@@ -1345,6 +1403,7 @@ def main(argv):
               f'to a working branch; {", ".join(reported)} found only what is '
               f'already on origin\'s tier branches (above). NOT recorded as a '
               f'pass, since a push to a tier branch judges those findings.')
+        _cap_warning_last()
         return 0
     if tree and path:
         rec = {'tree': tree, 'checks': signature(checks), 'kind': kind,
@@ -1359,6 +1418,7 @@ def main(argv):
               f'working tree with uncommitted changes -- NOT recorded, since '
               f'the push sends the commit, not these edits. Commit, then run '
               f'it again or let the push gate do it.')
+    _cap_warning_last()
     return 0
 
 

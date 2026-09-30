@@ -9278,6 +9278,19 @@ def load_exemptions():
 # code-cites-practice: session-load-budget
 SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
 
+
+def _as_measured(rel, text):
+    """`text` as a cap measures it: the session-start file without the
+    over-target warning its generator writes (precedent_session_practices.
+    without_target_warning), every other surface as it is."""
+    if rel != '.precedent/SESSION_PRACTICES.md':
+        return text
+    try:
+        import precedent_session_practices as _psp
+        return _psp.without_target_warning(text)
+    except Exception:                                         # noqa: BLE001
+        return text
+
 # --- duplicated always-loaded text (practice: session-load-budget) ---------
 #
 # The FIRST of that practice's three reduction moves is "delete what is
@@ -9515,6 +9528,51 @@ def _source_resident_cap(path):
     return v if isinstance(v, int) else None
 
 
+# The checks that hold a session-load size cap. On the way into pre-staging
+# (--changed-files-only) their findings WARN and do not refuse; the full
+# check, at the Debut into staging, refuses them as before. Morgan,
+# 2026-09-30, strength: decided: "remove that limit for pre-staging and
+# instead just have it give the session user a warning, including telling
+# the user that it needs to be fixed before it can get onto staging; but no
+# change for the rules for staging ... I want to get the many many branches
+# always merge quickly and easily into pre-staging (but big checks on
+# staging)". budget-within-approval is not one of them: raising a budget
+# still needs the person's words, on every tier.
+SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
+                             'session-file-allowances-fit'})
+
+
+@check('loader-within-caps', 'tree',
+       'the generated loader block is within its caps: the resident block, '
+       'the occasion index and this source\'s own occasion share, as '
+       '`build_views.py --budgets` measures them',
+       'anything outside the loader block -- the whole instructions file is '
+       'session-load-budget\'s. On the way into pre-staging a finding here '
+       'warns and does not refuse (SIZE_CAP_CHECKS); the full check refuses',
+       practice_backed=False,
+       selects_on=('practices/*.md', 'local/practices/*.md', 'AGENTS.md',
+                   _BUDGET_REGISTRY, 'precedent-source.json',
+                   'tools/build_views.py'))
+def _loader_within_caps(ctx):
+    # build_views.py writes an over-cap block with a warning since
+    # 2026-09-30, so a branch can reach pre-staging; this is where the cap
+    # is still held, at the tier that must hold it.
+    builder = _tool_path('tools/build_views.py')
+    if builder is None:
+        raise NotApplicable('tools/build_views.py is absent')
+    _n, instructions = _instructions_file()
+    if '<!-- BEGIN GENERATED: precedent-loader -->' not in instructions:
+        raise NotApplicable('no generated loader block here to measure')
+    r = subprocess.run([sys.executable, str(builder), '--repo', str(ROOT),
+                        '--budgets', '--agents-only'],
+                       cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode == 0:
+        return []
+    why = [l for l in (r.stdout + r.stderr).splitlines() if 'FAIL' in l]
+    return [Finding('AGENTS.md', (why[-1] if why else
+                                  'build_views.py --budgets failed').strip())]
+
+
 @check('session-file-allowances-fit', 'tree',
        'where tools/session_load_budgets.json gives the session-start file a '
        'hard_ceiling, the sources it carries fit under it by their declared '
@@ -9644,7 +9702,7 @@ def _session_load_budget(ctx):
         if not f.is_file():
             continue
         text = f.read_text(encoding='utf-8', errors='replace')
-        n = approx(text)
+        n = approx(_as_measured(rel, text))
         entry = surfaces.get(rel)
         if entry is None:
             out.append(Finding(rel, f'is loaded into every session '
@@ -10289,6 +10347,11 @@ def main():
     # they just don't fail the run.
     violated = [r for r in all_violated if not CHECKS[r[0]].get('advisory')]
     advisory = [r for r in all_violated if CHECKS[r[0]].get('advisory')]
+    # Size caps warn on the way into pre-staging (SIZE_CAP_CHECKS).
+    held_for_staging = []
+    if '--changed-files-only' in flags:
+        held_for_staging = [r for r in violated if r[0] in SIZE_CAP_CHECKS]
+        violated = [r for r in violated if r[0] not in SIZE_CAP_CHECKS]
 
     for slug, _st, findings, _why, _uv in violated:
         print(f'\nVIOLATION  {slug}')
@@ -10306,6 +10369,14 @@ def main():
         print('  the rule:')
         for line in rule_of(slug).splitlines():
             print(f'    {line}')
+
+    for slug, _st, findings, _why, _uv in held_for_staging:
+        print(f'\nWARNING    {slug} — over a size cap. Allowed onto '
+              f'pre-staging; the full check refuses it at the Debut, so it '
+              f'must be brought under the cap before this can go to staging. '
+              f'Tell the person (practice: reduction-pass).')
+        for f in findings:
+            print(f'    {f}')
 
     for slug, _st, _f, why, _uv in errored:
         print(f'\nERROR      {slug} — the check itself failed to run: {why}')
