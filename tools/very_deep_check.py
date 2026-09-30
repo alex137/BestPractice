@@ -715,67 +715,300 @@ def _second_practice_lists(repo_dir, threshold=0.8):
     return out
 
 
-def _vendored_exclusion_findings(repo_dir):
-    """-> [str] findings, or None if `repo_dir` is not a vendored consumer.
-
-    A vendored consumer is one with a process/upstream/ directory, or a
-    process/manifest.json declaring upstream.commit -- the same two signals
-    tools/checkin.py itself looks for. Reads NOT_VENDORED from checkin.py by
-    import, not a second copy, so the two can never disagree about what is
-    excluded (practice: registry-source-of-truth).
-
-    This is the audit-time half of the NOT_VENDORED mechanism fix
-    (practice: very-deep-check); checkin.py's own `update` prints the same
-    signal every time it runs, but only for a repo that actually runs
-    `update` again after a path is newly excluded. This check is what still
-    catches the other case -- a consumer that has not re-run `update` since,
-    or is vendoring from a pre-fix engine copy that never had the sweep at
-    all -- since a very deep check reads the tree as it sits, not as the
-    last `update` left it.
-    """
-    repo_dir = pathlib.Path(repo_dir)
-    upstream_dir = repo_dir / 'process' / 'upstream'
-    is_consumer = upstream_dir.is_dir()
-    if not is_consumer:
-        manifest_path = repo_dir / 'process' / 'manifest.json'
+def _tracked_blobs(repo_dir):
+    """-> {rel: (blob sha, size)} for every file git tracks in `repo_dir`,
+    read from the index in one call: the blob sha is a content hash, so two
+    paths with one sha hold the same bytes."""
+    r = subprocess.run(['git', '-C', str(repo_dir), 'ls-files', '-s', '-z'],
+                       capture_output=True, text=True)
+    out = {}
+    for rec in r.stdout.split('\0'):
+        if '\t' not in rec:
+            continue
+        meta, rel = rec.split('\t', 1)
+        parts = meta.split()
+        if len(parts) < 2 or parts[0] == '160000':      # a submodule
+            continue
         try:
-            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-            is_consumer = bool((manifest.get('upstream') or {}).get('commit'))
-        except Exception:                                        # noqa: BLE001
-            pass
-    if not is_consumer:
-        return None
+            size = (pathlib.Path(repo_dir) / rel).stat().st_size
+        except OSError:
+            continue
+        out[rel] = (parts[1], size)
+    return out
+
+
+# Below this size, identical content is boilerplate (an empty __init__.py,
+# a one-line .gitkeep), not a second copy of anything.
+_SURPLUS_MIN_BYTES = 200
+
+
+def _same_content_groups(blobs, paths):
+    """-> [[path, ...]] groups of two or more of `paths` holding one blob."""
+    by = collections.defaultdict(list)
+    for rel in paths:
+        sha, size = blobs[rel]
+        if size >= _SURPLUS_MIN_BYTES:
+            by[sha].append(rel)
+    return sorted(sorted(g) for g in by.values() if len(g) > 1)
+
+
+def _copy_location():
+    """-> the catalogue copy's folder in a consumer ('process/upstream/'),
+    read from checkin.py, the tool that writes it, rather than spelled out
+    here (verify_harness: no engine tool matches the mirror path by hand)."""
+    import checkin
+    return checkin.UPSTREAM.relative_to(checkin.ROOT).as_posix() + '/'
+
+
+def _shipped_to_a_consumer(repo_dir):
+    """-> {path in the consumer: (path here, route)}, or None when
+    `repo_dir` is not a repo that ships to consumers. The routes are the
+    two a consumer receives this repo by: the catalogue COPY checkin.py
+    mirrors into process/upstream/, and the ENGINE (tools/ and the hooks)
+    precedent_vendor_engine.py writes into the consumer's own tree. Both
+    lists are read from those two tools by import, never kept here.
+
+    The copy is computed for a consumer that already has its own engine,
+    which is every consumer after its first Update Vendors."""
+    root = pathlib.Path(repo_dir)
+    if (root / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        return None                         # a vendored engine: it receives
     try:
         import checkin
-        not_vendored = checkin.NOT_VENDORED
-        not_vendored_root = checkin._NOT_VENDORED_ROOT_PATHS
-    except Exception as exc:                                      # noqa: BLE001
-        return [f"could not read NOT_VENDORED from tools/checkin.py -- "
-                f"{type(exc).__name__}: {exc} -- so this repo's "
-                f"process/upstream/ was NOT checked against it"]
-    if not upstream_dir.is_dir():
-        return []              # manifest declares a consumer, tree not present locally
-    hits = {}          # name -> (file count, is a root file rather than a dir)
-    for p in upstream_dir.rglob('*'):
-        if not p.is_file() or '.git' in p.parts:
+        import precedent_vendor_engine as pve
+    except Exception:                                         # noqa: BLE001
+        return None
+    if not hasattr(checkin, 'VENDORING_RULES'):
+        return None
+    blobs = _tracked_blobs(root)
+    shipped = {}
+    copy_at = _copy_location()
+    for rel in blobs:
+        if checkin._in_copy(rel, carries_tools=False):
+            shipped[copy_at + rel] = (rel, 'copy')
+    for name in pve.CONSUMER_ENGINE_FILES:
+        rel = f'tools/{name}'
+        if rel in blobs:
+            shipped[rel] = (rel, 'engine')
+    hook_dir = getattr(pve, 'HOOK_SOURCE_DIR', None)
+    retired = set(getattr(pve, 'RETIRED_HOOK_FILES', ()))
+    if hook_dir:
+        for rel in blobs:
+            # Only *.sh, and at most these: the engine installs the ones a
+            # consumer's settings.json wires (_wired_hook_names).
+            if rel.startswith(hook_dir + '/') and '/' not in rel[len(hook_dir) + 1:] \
+                    and rel.endswith('.sh') \
+                    and rel.rsplit('/', 1)[1] not in retired:
+                shipped['.claude/hooks/' + rel.rsplit('/', 1)[1]] = (rel, 'engine')
+    return shipped
+
+
+def _named_anywhere_else(shipped, root):
+    """-> sorted [consumer path] of shipped files nothing else a consumer
+    receives names: not by file name, not (for a Python module) by import,
+    and not by any enclosing directory of two or more levels. Practices are
+    read by the loader and the named root files are named on purpose, so
+    neither is asked."""
+    texts = {}
+    for dest, (rel, _route) in shipped.items():
+        try:
+            texts[dest] = (root / rel).read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            texts[dest] = ''
+    unnamed = []
+    for dest, (rel, _route) in sorted(shipped.items()):
+        parts = pathlib.PurePosixPath(rel).parts
+        if parts[0] == 'practices' or len(parts) == 1:
             continue
-        rel = p.relative_to(upstream_dir)
-        excluded = [part for part in rel.parts if part in not_vendored]
-        is_root = not excluded and rel in not_vendored_root
-        if is_root:
-            excluded = [str(rel)]
-        if excluded:
-            name = excluded[0]
-            n, _ = hits.get(name, (0, is_root))
-            hits[name] = (n + 1, is_root)
-    out = []
-    for name, (n, is_root) in sorted(hits.items()):
-        where = f"process/upstream/{name}" if is_root else f"process/upstream/{name}/"
-        out.append(f"{where} still present, {n} file(s) under an excluded path -- "
-                   f"either checkin.py update's sweep has not run here since "
-                   f"{name!r} was excluded (re-run it: it now reports this every "
-                   f"time), or this repo vendors from a pre-fix engine copy")
+        name = parts[-1]
+        needles = [name]
+        if name.endswith('.py'):
+            stem = name[:-3]
+            needles += [f'import {stem}', f'from {stem} ', f'import_module(\'{stem}',
+                        f"'{stem}'"]
+        needles += ['/'.join(parts[i:-1]) + '/'
+                    for i in range(0, len(parts) - 2)]
+        if not any(n in text for other, text in texts.items()
+                   if other != dest for n in needles):
+            unnamed.append(dest)
+    return unnamed
+
+
+def _consumers_in_session(repo_root, others=()):
+    """-> [(name, path)] of repos in this session that receive the copy or
+    the engine as a consumer: this checkout, the sources already in scope,
+    and any clone beside this checkout carrying a consumer's markers. The
+    practice puts "any consuming repo the engine is vendored into" in scope;
+    only the markers are read to find one, never the tree."""
+    seen, out = set(), []
+    cands = [('this checkout', pathlib.Path(repo_root))] + list(others)
+    parent = pathlib.Path(repo_root).resolve().parent
+    try:
+        cands += [(d.name, d) for d in sorted(parent.iterdir())
+                  if d.is_dir() and (d / '.git').exists()]
+    except OSError:
+        pass
+    for name, d in cands:
+        d = pathlib.Path(d).resolve()
+        if d in seen:
+            continue
+        seen.add(d)
+        if (d / 'process' / 'upstream').is_dir():
+            out.append((name, d))
+            continue
+        try:
+            m = json.loads((d / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if m.get('kind') == 'consumer':
+            out.append((name, d))
     return out
+
+
+def _consumer_surplus(repo_dir):
+    """-> [str] findings for one consumer: what its process/upstream/ holds
+    that the copy no longer carries, and every file it holds twice -- one
+    under process/upstream/ and a byte-identical one elsewhere in the repo.
+    The allowlist is this engine's (checkin._in_copy): upstream decides
+    what a consumer receives."""
+    import checkin
+    root = pathlib.Path(repo_dir)
+    up = _copy_location()
+    blobs = _tracked_blobs(root)
+    carries = checkin._copy_carries_tools(root)
+    left = collections.Counter()
+    for rel in blobs:
+        if rel.startswith(up) and not checkin._in_copy(rel[len(up):],
+                                                        carries_tools=carries):
+            inner = rel[len(up):]
+            left[inner.split('/', 1)[0] + ('/' if '/' in inner else '')] += 1
+    out = []
+    if left:
+        top = ', '.join(f'{k} {n}' for k, n in left.most_common(6))
+        out.append(f"{sum(left.values())} file(s) under process/upstream/ the "
+                   f"copy no longer carries ({top}"
+                   f"{', ...' if len(left) > 6 else ''}) -- the next Update "
+                   f"Vendors removes each one still identical to upstream's "
+                   f"and names any edited here")
+    # A template beside the file made from it is expected (see
+    # _vendored_surplus_section), so only a copy outside templates/ counts.
+    twice = [g for g in _same_content_groups(blobs, list(blobs))
+             if any(r.startswith(up) and not r.startswith(up + 'templates/')
+                    for r in g)
+             and any(not r.startswith(up) for r in g)]
+    if twice:
+        ex = '; '.join(' = '.join(g) for g in twice[:3])
+        out.append(f"{len(twice)} file(s) held twice, once under "
+                   f"process/upstream/ and again elsewhere, byte for byte "
+                   f"(e.g. {ex}) -- one of each pair has no job")
+    return out
+
+
+def _vendored_surplus_section(repo_root, as_json=False):
+    """Print VENDORED SURPLUS -> its finding count, or None when nothing
+    here ships and no consumer is in the session (unmeasured, not clean).
+
+    WHY (2026-09-30). A consumer's process/upstream/ held 543 files, among
+    them this repo's 2.6 MB test suite, its gotchas, its repo-local rules
+    and a second copy of the engine the consumer already runs from its own
+    tools/. Nothing caught it: the section this one replaced checked only
+    the checkout the run started in -- never a consumer, when the run is
+    here -- and only against a blocklist, so whatever was not named as
+    excluded read as fine. Morgan, 2026-09-30: "should we add a very deep
+    check to alert us ... if there's a major redundancy again?" ... "check
+    specifically the vendored-in files to see if anything is vendored-in
+    that the consumer repo would never have use of".
+
+    So it asks from both ends. Upstream, of what this repo ships by either
+    route: is any file shipped twice, and does anything a consumer receives
+    name each file? Downstream, of each consumer in the session: what does
+    it still hold that the copy no longer carries, and what does it hold
+    twice? It reports and changes nothing; the remedies it prints are
+    ordinary work (practice: very-deep-check, pass 2 question 23)."""
+    n = 0
+    measured = False
+    say = (lambda *a: None) if as_json else print
+    say("VENDORED SURPLUS -- what a consumer receives that it has no use "
+        "for, or receives twice\n")
+    root = pathlib.Path(repo_root)
+    shipped = _shipped_to_a_consumer(root)
+    if shipped is not None:
+        measured = True
+        blobs = _tracked_blobs(root)
+        dest_blobs = {d: blobs[r] for d, (r, _route) in shipped.items()}
+        copy_n = sum(1 for _r, route in shipped.values() if route == 'copy')
+        size = sum(s for _sha, s in dest_blobs.values())
+        say(f"  ships {len(shipped)} file(s), {size / 1e6:.1f} MB: "
+            f"{copy_n} by the catalogue copy (process/upstream/), "
+            f"{len(shipped) - copy_n} by the engine (tools/, .claude/hooks/)")
+        groups = _same_content_groups(dest_blobs, list(shipped))
+        cross = [g for g in groups
+                 if len({shipped[d][1] for d in g}) > 1]
+        # A template and the file the engine installs from it are the
+        # pattern and one instance of it, not a second copy: the template
+        # is what a new repo is made from, and a consumer's manifest reads
+        # it as the baseline for the installed file. Morgan, 2026-09-30,
+        # on the hooks this first flagged: "we want them in templates so
+        # they can go into other new repos". Counted, never a finding.
+        made = [g for g in cross
+                if any(shipped[d][1] == 'copy'
+                       and shipped[d][0].split('/', 1)[0] == 'templates'
+                       for d in g)
+                and any(shipped[d][1] == 'engine' for d in g)]
+        cross = [g for g in cross if g not in made]
+        within = [g for g in groups if g not in cross and g not in made]
+        if made:
+            say(f"  {len(made)} installed file(s) ship with the template "
+                f"they are made from -- expected, not counted")
+        # One line per pair of folders, not per file: fifteen hooks shipped
+        # twice are one decision, and reading them is paid for in context.
+        by_dirs = collections.defaultdict(list)
+        for g in cross:
+            dirs = tuple(sorted({d.rsplit('/', 1)[0] + '/' for d in g}))
+            by_dirs[dirs].append(g[0].rsplit('/', 1)[-1])
+        for dirs, names in sorted(by_dirs.items()):
+            say(f"  TWICE: {len(names)} file(s), the same bytes in "
+                f"{' and '.join(dirs)} by both routes -- one copy has no "
+                f"job ({', '.join(names[:4])}"
+                f"{', ...' if len(names) > 4 else ''})")
+        n += len(cross)
+        for g in within:
+            say(f"  alike, one route: {' = '.join(g)} -- judge it: two kits "
+                f"that each need the file are fine")
+        unnamed = _named_anywhere_else(shipped, root)
+        for d in unnamed:
+            say(f"  UNNAMED: {d} -- ships, and nothing else a consumer "
+                f"receives names it. Judge it: used by hand, or never")
+        n += len(unnamed)
+        if not cross and not unnamed:
+            say("  OK: nothing ships twice, and everything shipped is named "
+                "by something else that ships.")
+        say("  Remedy upstream: a rule in tools/checkin.py's VENDORING_RULES, or "
+            "precedent_vendor_engine.py's\n  CONSUMER_ENGINE_FILES -- a "
+            "judgment on each finding, never automatic.")
+    consumers = _consumers_in_session(root)
+    for name, d in consumers:
+        measured = True
+        try:
+            found = _consumer_surplus(d)
+        except Exception as exc:                              # noqa: BLE001
+            found = [f"not read -- {type(exc).__name__}: {exc}"]
+        if not found:
+            say(f"  OK  consumer {name}: holds nothing the copy does not "
+                f"carry, and nothing twice.")
+        for f in found:
+            say(f"  CONSUMER {name}: {f}")
+        n += len(found)
+    if consumers:
+        say("  Remedy in a consumer: Update Vendors there (checkin.py update "
+            "removes what the copy\n  no longer carries, unchanged files "
+            "only).")
+    if not measured:
+        say("  N/A: this repo ships nothing to consumers, and no consumer is "
+            "in this session.")
+    say()
+    return n if measured else None
 
 
 def _declared_stale_days(repo_dir):
@@ -7843,22 +8076,10 @@ def _main(box):
         led.end(findings=None if _pc_status == 'n/a'
                 else (0 if _pc_status == 'ran' and not any(
                     l.startswith('FAIL') for l in _pc_lines) else 1))
-        led.start('VENDORING EXCLUSIONS')
-    _vendor_findings = _vendored_exclusion_findings(_root)
-    if not as_json:
-        print("VENDORING EXCLUSIONS -- a vendored consumer's process/upstream/ "
-              "checked against\ntools/checkin.py's NOT_VENDORED\n")
-        if _vendor_findings is None:
-            print("  N/A: not a vendored consumer (no process/upstream/, no "
-                  "process/manifest.json upstream.commit).")
-        elif not _vendor_findings:
-            print("  OK: process/upstream/ carries nothing under an excluded path.")
-        else:
-            for _f in _vendor_findings:
-                print(f"  FINDING: {_f}")
-        print()
+        led.start('VENDORED SURPLUS')
+    _vs_n = _vendored_surplus_section(_root, as_json)
     if led:
-        led.end(findings=len(_vendor_findings or []))
+        led.end(findings=_vs_n)
     if led:
         led.start('SECOND LISTS OF PRACTICES')
     _second_lists = _second_practice_lists(_root)

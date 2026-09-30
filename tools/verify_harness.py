@@ -12753,6 +12753,14 @@ def check_precedent_check_fires():
             subprocess.run(['git', '-C', str(repo), 'add', 'unlisted-view.md'],
                            capture_output=True)
         case('generated-files-registered', _plant_generated_drift)
+
+        def _plant_undecided_file(repo):
+            (repo / 'zzz-newplace').mkdir()
+            (repo / 'zzz-newplace' / 'notes.md').write_text('x\n',
+                                                          encoding='utf-8')
+            subprocess.run(['git', '-C', str(repo), 'add', 'zzz-newplace'],
+                           capture_output=True)
+        case('vendoring-decided', _plant_undecided_file)
         _gf = planted['generated-files-registered'][1]
         cases.append(('generated-files-registered: the planted violation names '
                       'the stale index and the unlisted generated file, and '
@@ -15044,6 +15052,107 @@ def check_very_deep_check_finds_a_second_list_of_practices():
     check('the very deep check names a hand-kept list of every practice, and '
           'not a generated view or a file naming a few',
           found == ['routing.json'], repr(found))
+
+
+def check_very_deep_check_finds_vendored_surplus():
+    """very_deep_check.py's VENDORED SURPLUS helpers, planted both ways.
+    Upstream: a file nothing else that ships names is UNNAMED, and one named
+    by another shipped file, by import, or through its folder is not.
+    Downstream: a consumer whose copy holds gotchas/ and a byte-identical
+    second copy of its own tools/ file is reported for both; the same
+    consumer after the copy is trimmed is quiet. The real case is
+    2026-09-30's: a consumer's process/upstream/ held 543 files, the
+    engine among them twice, and the section before this one checked only
+    the checkout the run started in."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    cases = []
+    d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-surplus-'))
+    try:
+        up = d / 'up'
+        for rel, text in {
+                'tools/used.py': 'import helper\n',
+                'tools/helper.py': 'X = 1\n',
+                'tools/orphan.py': 'print("nobody runs me")\n',
+                'templates/kit/deep/a.txt': 'a\n',
+                'INSTALL.md': 'copy templates/kit/deep/ and run used.py\n',
+                }.items():
+            (up / rel).parent.mkdir(parents=True, exist_ok=True)
+            (up / rel).write_text(text, encoding='utf-8')
+        shipped = {rel: (rel, 'engine') for rel in
+                   ('tools/used.py', 'tools/helper.py', 'tools/orphan.py',
+                    'templates/kit/deep/a.txt', 'INSTALL.md')}
+        unnamed = vdc._named_anywhere_else(shipped, up)
+        cases.append(('only the file nothing names is UNNAMED',
+                      unnamed == ['tools/orphan.py'], unnamed))
+
+        body = 'def main():\n    return 0\n' * 20
+        c = d / 'consumer'
+        for rel, text in {
+                'tools/checkin.py': body,
+                'tools/ENGINE_MANIFEST.json': '{"kind": "consumer"}\n',
+                'process/upstream/tools/checkin.py': body,
+                'process/upstream/gotchas/gotcha-x.md': 'a trap\n',
+                'process/upstream/practices/p.md': 'a rule\n',
+                }.items():
+            (c / rel).parent.mkdir(parents=True, exist_ok=True)
+            (c / rel).write_text(text, encoding='utf-8')
+        subprocess.run(['git', '-C', str(c), 'init', '-q'], capture_output=True)
+        subprocess.run(['git', '-C', str(c), 'add', '-A'], capture_output=True)
+        found = vdc._consumer_surplus(c)
+        cases.append(('a consumer holding gotchas/ and a second tools/ copy '
+                      'is reported for both',
+                      len(found) == 2 and 'gotchas/ 1' in found[0]
+                      and 'tools/ 1' in found[0]
+                      and 'held twice' in found[1], found))
+        subprocess.run(['git', '-C', str(c), 'rm', '-q', '-r', '-f',
+                        'process/upstream/tools', 'process/upstream/gotchas'],
+                       capture_output=True)
+        found = vdc._consumer_surplus(c)
+        cases.append(('the trimmed consumer is quiet', found == [], found))
+        cases.append(('the consumer is found beside the checkout',
+                      any(p.name == 'consumer' for _n, p in
+                          vdc._consumers_in_session(up)), ''))
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('the very deep check names what a consumer receives that it has no '
+          'use for, or holds twice',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
+
+
+def check_every_file_is_decided_by_a_vendoring_rule():
+    """tools/checkin.py's VENDORING_RULES decide every file: a path in a new
+    top-level place is UNDECIDED (no rule, left out of the copy), an
+    exception inside a shipped folder wins over the folder, and this repo
+    as it stands has no undecided file. Morgan, 2026-09-30: "make sure that
+    *every new file* is evaluated to see if it should be vendored in or
+    not"."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import checkin
+    cases = []
+    rule = checkin.vendoring_rule('newplace/notes.md')
+    cases.append(('a file in a new top-level place has no rule',
+                  rule is None, rule))
+    cases.append(('an undecided file stays out of the copy',
+                  not checkin._in_copy('newplace/notes.md', carries_tools=True),
+                  ''))
+    rule = checkin.vendoring_rule('tools/verify_harness.py')
+    cases.append(('the test suite stays, though tools/ ships',
+                  rule is not None and rule[1] is False, rule))
+    rule = checkin.vendoring_rule('practices/any-rule.md')
+    cases.append(('a practice ships', rule is not None and rule[1], rule))
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_check.py'),
+                        '--only', 'vendoring-decided'],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(('this repo has no undecided file',
+                  r.returncode == 0 and ' 0 violated' in r.stdout,
+                  r.stdout[-300:] + r.stderr[-300:]))
+    bad = [(n, det) for n, ok, det in cases if not ok]
+    check('every file is decided by a vendoring rule: ships or stays, and a '
+          'new place is undecided until someone writes the rule',
+          not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
 def check_routing_audit_coverage():
@@ -39442,6 +39551,10 @@ def check_hosted_sessions_resolve_without_attaching_a_repo():
                           and 'upstream' not in uni, f'{own} / {uni}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        # _select_source/_bind_source rebind checkin's module state (ROOT,
+        # CODE_DIRS); a later case in this process must get a fresh module.
+        if 'checkin' in sys.modules:
+            importlib.reload(sys.modules['checkin'])
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'a hosted session resolves its sources without attaching a repo by '
           f'hand ({len(cases)} stated cases)',
@@ -47990,6 +48103,8 @@ def main():
     check_practice_file_shape_judges_one_file_at_a_time()
     check_a_changed_glob_needs_its_reason_looked_at()
     check_very_deep_check_finds_a_second_list_of_practices()
+    check_very_deep_check_finds_vendored_surplus()
+    check_every_file_is_decided_by_a_vendoring_rule()
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
