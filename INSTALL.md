@@ -823,13 +823,17 @@ cover, by design and not oversight:
      | a document or content project | that team's set + the writing set + the working-style set |
      | a practice set's own repository | the maintaining team's set + the writing set |
 
-     **Ask this out loud rather than inferring it**, here and on every
-     migration and vendored update — `vendor-update-runbook` carries it as
-     a numbered step for exactly that reason. A set that was never declared
-     is **invisible**: no error, no warning, no missing file, just a repo
-     resolving fewer practices than its owner believes. Nothing mechanical
-     can raise it, because the sets a repo *could* declare are not
-     derivable from the ones it *does*.
+     **Check it, don't assume it**, here and on every migration and
+     vendored update — `vendor-update-runbook` carries it as step 9 for
+     exactly that reason. The session looks for itself (the sets this
+     account can reach, and each one's subject) and says what it declares
+     and why, or names a set it found missing with a recommendation; it
+     never puts "which sets should this repo have?" to the person as an
+     open question (the-boildown; Morgan, 2026-09-28, strength: decided).
+     A set that was never declared is **invisible**: no error, no warning,
+     no missing file, just a repo resolving fewer practices than its owner
+     believes. Nothing mechanical can raise it, because the sets a repo
+     *could* declare are not derivable from the ones it *does*.
 
      **Before moving on, grep for the failure this step is also protecting
      against one level down.** Run `grep -n '<name>' AGENTS.md CLAUDE.md`

@@ -106,6 +106,44 @@ PAIRS = [
 # record/stale_branches.md, never gated on matching a moment that has
 # already passed by the time anything checks it.
 
+# A CONSUMER'S PAIRS ARE ITS OWN FILE (2026-09-30). The list above is
+# BestPractice's, and this file is vendored: a consumer received it with
+# upstream's list, was told to "replace PAIRS in tools/doc_sync.py", and
+# the engine refresh then refused the hand edit ("no local variance by
+# design"). So where this repo holds a vendored engine
+# (tools/ENGINE_MANIFEST.json), its pairs are read from
+# tools/doc_sync_pairs.json -- {"pairs": [[document, block, script], ...]}
+# -- and a repo with no such file has none. BestPractice, which vendors
+# nothing into itself, keeps the list above.
+PAIRS_FILE = 'tools/doc_sync_pairs.json'
+
+
+def _host_pairs():
+    """-> this repo's own pairs, or None where the list above is this
+    repo's (BestPractice itself)."""
+    if not (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        return None
+    f = ROOT / PAIRS_FILE
+    if not f.is_file():
+        return []
+    import json as _json
+    try:
+        raw = _json.loads(f.read_text(encoding='utf-8')).get('pairs') or []
+    except (ValueError, AttributeError) as e:
+        sys.exit(f"[doc_sync] FAIL  {PAIRS_FILE} is not a JSON object with a "
+                 f"\"pairs\" list ({e})")
+    bad = [x for x in raw if not (isinstance(x, list) and len(x) == 3
+                                  and all(isinstance(v, str) and v for v in x))]
+    if bad:
+        sys.exit(f"[doc_sync] FAIL  {PAIRS_FILE}: each pair is [document, "
+                 f"block, script]; these are not: {bad[:3]}")
+    return [tuple(x) for x in raw]
+
+
+_HOST_PAIRS = _host_pairs()
+if _HOST_PAIRS is not None:
+    PAIRS = _HOST_PAIRS
+
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in
 # the host shim if the whole tree is too broad.
 DOC_GLOB = "**/*.md"          # a pattern, or a list of patterns (e.g. slides generated as HTML)
@@ -786,10 +824,11 @@ def main():
     if PAIRS and not live_pairs:
         print(f"[doc_sync] NOT APPLICABLE: all {len(PAIRS)} registered "
               f"document(s) are absent here ({', '.join(d for d, _, _ in PAIRS)})"
-              f" -- this is an upstream copy of PAIRS, not this repo's. "
-              f"Replace PAIRS in tools/doc_sync.py with this repo's own "
-              f"(document, block, script) triples, or leave it empty if no "
-              f"document here carries generated numbers yet.")
+              f" -- the registry names documents this repo does not have. "
+              f"List this repo's own (document, block, script) triples in "
+              f"{PAIRS_FILE} (tools/doc_sync.py itself is vendored and is "
+              f"not edited here), or remove the file if no document here "
+              f"carries generated numbers.")
         PAIRS[:] = []
         pairs = []
 
