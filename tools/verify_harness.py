@@ -32428,6 +32428,42 @@ def check_model_audit_ledger():
     check(name, not bad, '; '.join(bad))
 
 
+def check_push_check_refuses_an_unknown_option():
+    """precedent_push_check.py refuses an option it does not know, exit 2,
+    naming the ones it does -- and still takes every one it reads.
+
+    Found 2026-09-30: the pull request template named
+    `precedent_push_check.py --changed-files-only`, an option this file
+    never had. It was ignored silently and the full ~14-minute suite ran,
+    twice, where a seconds-long pre-staging check was meant."""
+    import precedent_push_check as ppc
+    t0 = time.time()
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_push_check.py'),
+                        '--changed-files-only'], capture_output=True, text=True,
+                       cwd=str(ROOT), timeout=60)
+    cases = [
+        ('an unknown option exits 2', r.returncode == 2, str(r.returncode)),
+        ('and names itself and the valid ones',
+         '--changed-files-only' in r.stderr and '--push-command' in r.stderr,
+         r.stderr[-300:]),
+        ('and runs nothing', time.time() - t0 < 30 and 'passed in' not in r.stdout,
+         r.stdout[-200:]),
+        ('the hook\'s own arguments are all known',
+         ppc.unknown_arguments(['--gate', '--push-command', 'origin pre-staging']) == [], ''),
+        ('--changed-files-check takes its REF, or none',
+         ppc.unknown_arguments(['--changed-files-check', 'origin/x', '--list']) == []
+         and ppc.unknown_arguments(['--changed-files-check', '--gate']) == [], ''),
+        ('the merge gate\'s arguments are all known',
+         ppc.unknown_arguments(['--gate', '--tier', 'full']) == []
+         and ppc.unknown_arguments(['--changed-since', 'origin/pre-staging']) == [], ''),
+        ('a stray positional is refused too',
+         ppc.unknown_arguments(['--gate', 'oops']) == ['oops'], ''),
+    ]
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'precedent_push_check.py refuses an unknown option ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_push_check_runs_cheap_checks_first():
     """precedent_push_check.run() moves the slow checks (the harness suite,
     the deep-check suites) behind every fast one, and skips them once a fast
@@ -48717,6 +48753,7 @@ def main():
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
+    check_push_check_refuses_an_unknown_option()
     check_reach_key_self_check()
     check_content_record_self_check()
     check_doc_sync_ledger()
