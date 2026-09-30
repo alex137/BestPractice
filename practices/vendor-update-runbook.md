@@ -84,11 +84,13 @@ version conflict with what upstream now ships, and is it still needed?**
 **A committed local edit to a received file is reviewed by the command
 itself** (since 2026-09-29,
 [spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)),
-for an engine file in `tools/` and for `process/upstream/`. It compares the
+for an engine file in `tools/`, a hook or declared engine path the engine
+manifest records, `process/upstream/`, and a section 0 catalogue that has its
+own `CATALOGUE_SYNC.json`. It compares the
 file as it was vendored, as this repo committed it, and as upstream has it
 now: an edit upstream has not touched stays; one that merges cleanly with
 upstream's change, and still compiles and passes this repo's own check
-tests, is merged; one upstream changed on the same lines is replaced by
+tests and its landing-tier check, is merged; one upstream changed on the same lines is replaced by
 upstream's version, most likely the same bug fixed there, and the report
 names the commit holding the local one and how to bring it back. A file
 recorded under `kept_template_divergences` with a reason is never
@@ -96,8 +98,8 @@ replaced. Every one is listed under **LOCAL EDITS** in the report, in every
 outcome, and the ones kept or merged are still local edits:
 `python3 ../BestPractice/tools/precedent_local_edits.py send --repo . --why "..."`
 carries them upstream as a branch. **An uncommitted edit still stops the
-update, with nothing written.** Hooks and CI workflows are still refused as
-before, and go through the review below.
+update, with nothing written.** CI workflows are still refused as before,
+and go through the review below.
 
 **`--force`, `record-ci` and "take theirs" come after this review, never
 instead of it**; each one discards the local side in a single step. A

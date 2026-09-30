@@ -38,23 +38,40 @@ runs from the BestPractice clone the way
 LIVE 2 check engine fixes" found five changes; the proposing session accepted
 all five, checked the two load-bearing claims against pre-staging, and added
 four more. Morgan then said to build it (strength: decided), on a feature
-branch, not yet into pre-staging.
+branch, not yet into pre-staging. A parallel session, "Vendored edit
+three-way", built the same resolution on its own branch; Morgan chose this
+one to land, and three of its points were taken in here: hooks and declared
+engine paths, the section 0 catalogue, and a merge judged by the landing-tier
+check. Its way of getting past an old engine copy (rewriting the manifest's
+hashes) was not taken: writing BASE back leaves the manifest untouched.
 
 ## What counts as a local edit, and who owns it
 
-**Two layers in version 1.**
+**Three layers in version 1.**
 
-- **Engine files in `tools/`.** A local edit is what the refresh already
-  calls one: a file whose sha256 differs from the hash
-  `tools/ENGINE_MANIFEST.json` recorded (`precedent_vendor_engine._local_drift`,
-  reused, not copied). `routing_scope.json` is left out: the refresh
-  generates it, so it has no upstream text to merge against. BASE is the
-  file at the manifest's `source_commit`, read from the source clone.
+- **Everything the engine manifest records by hash**: engine files in
+  `tools/`, the hooks it vendored into `.claude/hooks/` (from
+  `templates/harness/claude-code/hooks/`), and paths `precedent.json`
+  declares under `engine_paths`. A local edit is what the refresh already
+  calls one (`precedent_vendor_engine._local_drift`, `_hook_drift` and
+  `_engine_path_drift`, reused, not copied), so a hook a source's adapter
+  writes, or a path no longer declared, is not one here either.
+  `routing_scope.json` is left out: the refresh generates it, so it has no
+  upstream text to merge against. BASE is the file at the manifest's
+  `source_commit`, read from the source clone.
 - **`process/upstream/`.** A local edit is what `checkin.py update`'s guard
   already refuses on: a file whose content differs from the tree at the
   manifest's recorded `upstream.commit`. That comparison moves out of
   `update()` into one function both callers use. BASE is the file at
   `upstream.commit`.
+- **A section 0 install's universal catalogue** (`precedent/universal/`,
+  replaced wholesale). A local edit is what the replace already detects;
+  BASE is the commit its own `CATALOGUE_SYNC.json` names. **With no such
+  record the refusal stays**: the replace can then judge a file only
+  against every version upstream ever had, which shows that it was edited
+  but gives no one version to merge with. The first update that writes the
+  record makes every later edit resolvable. `send` does not carry this
+  layer yet; an edit there goes upstream by hand.
 
 **Who owns each file** comes from
 [tools/precedent_practice_refs.py](../tools/precedent_practice_refs.py)'s
@@ -63,10 +80,9 @@ belong to BestPractice.
 
 **Left out of version 1, on purpose.**
 
-- **Hooks and CI workflows keep today's refusal.** Merging a
-  `.github/workflows` file automatically would change a workflow without the
-  person's words ([ci-workflow-approved](../practices/ci-workflow-approved.md)).
-  Hooks can join later.
+- **CI workflows keep today's refusal.** Merging a `.github/workflows` file
+  automatically would change a workflow without the person's words
+  ([ci-workflow-approved](../practices/ci-workflow-approved.md)).
 - **Practices and checks listed in `MANIFEST.json`.** They are rebuilt from
   live sources on every sync, and nothing records per file what was written,
   so there is no BASE to merge against. An edit there is silently
@@ -74,9 +90,6 @@ belong to BestPractice.
   [todo/todo-2026-09-29-received-practice-edits-are-overwritten.md](../todo/todo-2026-09-29-received-practice-edits-are-overwritten.md).
 - **A shared set's mirrored tree (`process/<name>/`)**, the same way;
   `checkin.py push --source` keeps its old mirror into the clone until then.
-- **A section 0 install's universal catalogue** (`precedent/universal/`),
-  which Update Vendors replaces wholesale and which already treats a file
-  equal to any version upstream ever carried as upstream's text.
 
 ## Part two: Update Vendors resolves the edit
 
@@ -128,7 +141,12 @@ committed copy, NEW is upstream's version now.
   The repo's basic tier alone runs no code, so it cannot catch a merge that
   is clean as text and broken as a program. **On any failure, every merged
   file goes back to NEW at once,** reported under rule 3 with what failed;
-  a per-file retry would multiply the run.
+  a per-file retry would multiply the run. **Then the repo's own landing-tier
+  check judges it again** (step 5 of Update Vendors): red with the merges in
+  place, every merge goes back to NEW and the check runs once more. Green,
+  the merges were the cause and NEW stands, as rule 3; red either way, they
+  were not, and the merges are put back so the failure is reported on the
+  tree the rules made.
 - **A conflict (rule 3).** NEW stays. The report names the file, says that
   upstream changed the same lines and most likely fixed the same bug, names
   the commit that holds the local version, and gives the command to bring it

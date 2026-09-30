@@ -16,19 +16,23 @@ refresh --force"), and Morgan found most of those edits were local attempts
 to fix the same bug upstream had fixed. So the refusal kept a repo on its
 own patch, without upstream's fix, until someone decided by hand.
 
-TWO LAYERS, both BestPractice's (precedent_practice_refs.received_owners()
+THREE LAYERS, all BestPractice's (precedent_practice_refs.received_owners()
 is the one answer to who owns a received file):
-  engine     tools/<name> for each file tools/ENGINE_MANIFEST.json records;
-             an edit is what the refresh itself calls one
-             (precedent_vendor_engine._local_drift), BASE the file at the
+  engine     every file tools/ENGINE_MANIFEST.json records by hash: tools/,
+             hooks in .claude/hooks/, paths declared under engine_paths; an
+             edit is what the refresh itself calls one (_local_drift,
+             _hook_drift, _engine_path_drift), BASE the file at the
              manifest's source_commit. routing_scope.json is left out: the
              refresh generates it, so there is no upstream text to merge.
   catalogue  process/upstream/, in repos installed before 2026-09-14; an
              edit is what checkin.py's update guard refuses on
              (checkin.local_changes), BASE the file at upstream.commit.
-Hooks, CI workflows, received practices and checks (MANIFEST.json) and a
-shared set's process/<name>/ tree are out of this version -- the plan says
-why for each.
+  section0   a section 0 install's precedent/universal/practices/, BASE the
+             commit its CATALOGUE_SYNC.json names; precedent_update.py finds
+             the edits (section0_edits() only builds them), and `send` does
+             not carry this layer yet.
+CI workflows, received practices and checks (MANIFEST.json) and a shared
+set's process/<name>/ tree are out of this version -- the plan says why.
 
 AT UPDATE VENDORS (precedent_update.py calls Swap and resolve()). The
 consumer's own old engine copy runs the refresh, and refuses on a hand edit
@@ -77,7 +81,7 @@ SOURCE = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
 import precedent_time  # noqa: E402
 
-ENGINE, CATALOGUE = 'engine', 'catalogue'
+ENGINE, CATALOGUE, SECTION0 = 'engine', 'catalogue', 'section0'
 # Written by the refresh from upstream text it transforms, so a local edit
 # to it has no upstream version to merge against.
 GENERATED = frozenset({'routing_scope.json'})
@@ -162,10 +166,16 @@ class Edit:
 
 
 def engine_edits(repo, source=SOURCE):
-    """-> (edits, problems) for tools/: `problems` are [(rel, why)] for an
-    edited file that cannot be resolved -- no upstream text to compare with.
-    While there are any, nothing in the layer is swapped, and the refresh
-    refuses as it always has."""
+    """-> (edits, problems) for what the engine manifest records: its files
+    in tools/, the hooks it vendored into .claude/hooks/, and the paths
+    precedent.json declares under engine_paths. An edit is what the
+    refresh's own drift checks call one (_local_drift, _hook_drift,
+    _engine_path_drift), so a hook a source's adapter now claims, or a path
+    no longer declared, is not one here either. `problems` are [(rel, why)]
+    for an edited file with no upstream text to compare with; while there
+    are any, nothing in the layer is swapped, and the refresh refuses as it
+    always has. CI workflows are never here: a workflow changes only with
+    the person's own words (practice: ci-workflow-approved)."""
     pve = _pve()
     mpath = repo / 'tools' / pve.MANIFEST_NAME
     try:
@@ -173,26 +183,39 @@ def engine_edits(repo, source=SOURCE):
     except (OSError, ValueError):
         return [], []
     commit = manifest.get('source_commit') or ''
-    recorded = manifest.get('sha256') or {}
-    edits, problems = [], []
+    ups = manifest.get(pve.ENGINE_PATHS_KEY) or {}
+    found = []      # (rel here, rel upstream, recorded sha256)
     for name, _why in pve._local_drift(repo / 'tools', manifest):
-        rel = f'tools/{name}'
-        if name in GENERATED:
+        found.append((f'tools/{name}', f'tools/{name}',
+                      (manifest.get('sha256') or {}).get(name)))
+    for name, _why in pve._hook_drift(repo, manifest):
+        found.append((f'{pve.HOOK_DEST_DIR}/{name}', f'{pve.HOOK_SOURCE_DIR}/{name}',
+                      (manifest.get('hooks_sha256') or {}).get(name)))
+    for local, _why in pve._engine_path_drift(repo, manifest):
+        found.append((local, ups.get(local),
+                      (manifest.get('engine_paths_sha256') or {}).get(local)))
+    edits, problems = [], []
+    for rel, up, recorded in found:
+        if rel.startswith('tools/') and rel[len('tools/'):] in GENERATED:
             problems.append((rel, 'the refresh generates this file from upstream '
                              'text it trims, so there is no upstream version '
                              'to merge an edit with'))
+            continue
+        if not up:
+            problems.append((rel, 'the manifest does not say which upstream file '
+                             'it was vendored from'))
             continue
         if not commit or not _has_commit(source, commit):
             problems.append((rel, f'the commit it was vendored from '
                              f'({commit[:12] or "none recorded"}) is not in '
                              f'{source}, so there is nothing to compare with'))
             continue
-        base = _show(source, commit, rel)
-        if base is None or _sha(base) != recorded.get(name):
+        base = _show(source, commit, up)
+        if base is None or _sha(base) != recorded:
             problems.append((rel, f'{source} at {commit[:12]} does not hold the '
                              f'text the manifest recorded for it'))
             continue
-        edits.append(Edit(ENGINE, rel, rel, base, _read(repo / rel), commit))
+        edits.append(Edit(ENGINE, rel, up, base, _read(repo / rel), commit))
     return edits, problems
 
 
@@ -274,12 +297,13 @@ class Swap:
         self.repo, self.edits = repo, list(edits)
         self.dir = _journal(repo)
         self.resolved = False
+        self.merges = {}     # rel -> (merged bytes, upstream's bytes), by resolve()
         self._handlers = {}
 
     def _record(self, outcomes=None):
         files = []
         for i, e in enumerate(self.edits):
-            files.append({'rel': e.rel, 'layer': e.layer,
+            files.append({'rel': e.rel, 'layer': e.layer, 'upstream': e.upstream_rel,
                           'local': f'{i}.local' if e.local is not None else None,
                           'base_sha256': _sha(e.base),
                           'outcome_sha256': (outcomes or {}).get(e.rel)})
@@ -333,20 +357,33 @@ class Swap:
 
 
 def _upstream_sha_now(repo, entry, source):
-    """sha256 of the file upstream's text as the repo now records it -- what
-    a layer update that finished before the run died would have written."""
-    rel = entry['rel']
+    """sha256 of upstream's text for the file at the commit its layer now
+    records -- what a layer update that finished before the run died would
+    have written."""
+    up = entry.get('upstream') or entry['rel']
     try:
         if entry['layer'] == ENGINE:
-            m = json.loads((repo / 'tools' / _pve().MANIFEST_NAME)
-                           .read_text(encoding='utf-8'))
-            return (m.get('sha256') or {}).get(rel.split('/', 1)[1])
-        ck = _checkin(repo)
-        commit = (ck._manifest().get('upstream') or {}).get('commit')
-        tree = ck.UPSTREAM.relative_to(repo).as_posix()
-        return _sha(_show(source, commit, rel[len(tree) + 1:])) if commit else None
-    except (OSError, ValueError, KeyError, IndexError):
+            commit = json.loads((repo / 'tools' / _pve().MANIFEST_NAME)
+                                .read_text(encoding='utf-8')).get('source_commit')
+        elif entry['layer'] == SECTION0:
+            tree = entry['rel'][:-len(up)].rstrip('/')
+            commit = json.loads((repo / tree / 'CATALOGUE_SYNC.json')
+                                .read_text(encoding='utf-8')).get('source_commit')
+        else:
+            commit = (_checkin(repo)._manifest().get('upstream') or {}).get('commit')
+        return _sha(_show(source, commit, up)) if commit else None
+    except (OSError, ValueError, KeyError, AttributeError):
         return None
+
+
+def section0_edits(repo, source, rels, tree, commit):
+    """-> [Edit] for a section 0 install's universal catalogue: `rels` are
+    the committed local edits precedent_update.vendor_universal_catalogue()
+    found under `tree`/practices/, judged against `commit`, the catalogue's
+    own CATALOGUE_SYNC.json record -- which is BASE."""
+    return [Edit(SECTION0, rel, rel[len(tree) + 1:],
+                 _show(source, commit, rel[len(tree) + 1:]), _read(repo / rel),
+                 commit) for rel in rels]
 
 
 def recover(repo, source=SOURCE):
@@ -510,6 +547,7 @@ def resolve(repo, swap):
             d[4] = (f'your edit and upstream\'s merged cleanly as text, but the '
                     f'result failed a check ({failed})')
     swap.resolved = True
+    swap.merges = {d[0].rel: (d[3], d[1]) for d in decisions if d[2] == MERGED}
     cmd = send_command(repo)
     out = []
     for e, new, outcome, _data, why in decisions:
@@ -530,15 +568,21 @@ def resolve(repo, swap):
         elif outcome == ALREADY:
             text = f'upstream\'s version already contains your change{why}'
         else:
-            c = local_commit(repo, e.rel)
-            back = (f'see it with `git show {c}:{e.rel}`; if the bug is still '
-                    f'there, bring it back with `git show {c}:{e.rel} > {e.rel}` '
-                    f'and send it upstream: {cmd}' if e.local is not None else
-                    f'if you still want it gone, delete it again and send that '
-                    f'upstream: {cmd}')
-            text = f'{why}, so upstream\'s version was taken. Yours is in commit {c} -- {back}'
+            text = took_upstream_text(repo, e.rel, why, e.local is not None)
         out.append((outcome, e.rel, text))
     return out
+
+
+def took_upstream_text(repo, rel, why, had_local=True):
+    """Rule 3's line in the report: why upstream's version was taken, the
+    commit holding the local one, and how to bring it back or send it."""
+    c, cmd = local_commit(repo, rel), send_command(repo)
+    back = (f'see it with `git show {c}:{rel}`; if the bug is still there, '
+            f'bring it back with `git show {c}:{rel} > {rel}` and send it '
+            f'upstream: {cmd}' if had_local else
+            f'if you still want it gone, delete it again and send that '
+            f'upstream: {cmd}')
+    return f'{why}, so upstream\'s version was taken. Yours is in commit {c} -- {back}'
 
 
 def report_lines(outcomes):
