@@ -31,6 +31,9 @@ Run:
   precedent_merge_check.py --owner O --repo R --number N [--search DIR]...
   precedent_merge_check.py --head [--search DIR]   # `gh pr merge` with no
                                                    # number: the current branch
+  precedent_merge_check.py --owner O --repo R --number N --landed SHA
+      after the merge: the full check on the merge commit itself, and a
+      revert when the base moved in the gap and what landed fails (landed())
 
 Exit: 0 passed; 1 a check failed; 2 could not be run here (no checkout of
 that repository, no push check in it, a fetch that failed) -- the hook
@@ -279,6 +282,157 @@ def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
             f'this one. GitHub deletes the copy; {head_ref} stays.')
 
 
+def pull_landed(owner, repo, number):
+    """-> (merged, base branch, merge commit) of pull request `number` as
+    GitHub reports it now, uncached -- before the merge the same field names
+    the test merge. (None, None, None) when it cannot be read."""
+    sys.path.insert(0, str(HERE))
+    try:
+        import github_budget
+    except ImportError:
+        return None, None, None
+    finally:
+        sys.path.pop(0)
+    data, err = github_budget.call(f'repos/{owner}/{repo}/pulls/{number}',
+                                   cache=False)
+    if err or not isinstance(data, dict):
+        return None, None, None
+    base = data.get('base') if isinstance(data.get('base'), dict) else {}
+    return bool(data.get('merged')), base.get('ref'), data.get('merge_commit_sha')
+
+
+def revert_landing(root, base, sha, number, pb=None):
+    """-> (done, what). Put `base` back to the tree it had just before merge
+    commit `sha`, by a new commit on top of `sha` -- nothing is rewritten,
+    and the pull request's branch still carries the work. Done only while
+    `base` still points at `sha`: a base that moved on again is reported,
+    never reverted over someone else's commit."""
+    tip = None
+    for line in (git(root, 'ls-remote', '--heads', 'origin', base) or '').splitlines():
+        s, _, ref = line.partition('\t')
+        if ref == f'refs/heads/{base}':
+            tip = s
+    if tip != sha:
+        return False, (f'{base} has moved on to {(tip or "nothing")[:12]} since '
+                       f'the merge, so it was NOT reverted')
+    before = git(root, 'rev-parse', f'{sha}^1^{{tree}}')
+    if not before:
+        return False, f'the tree before {sha[:12]} could not be read'
+    env = pb._merge_env(root) if pb and hasattr(pb, '_merge_env') else None
+    made = subprocess.run(
+        ['git', '-C', str(root), 'commit-tree', before, '-p', sha, '-m',
+         f'Revert pull request #{number}: {base} moved while it merged, and '
+         f'what landed failed its full check',
+         '-m', 'precedent_merge_check.py --landed put the base back to the '
+               'tree it had just before the merge. Nothing is lost: the pull '
+               'request\'s branch still has the work. Merge the base into it, '
+               'fix what the check found, and merge it again.'],
+        capture_output=True, text=True, env=env)
+    commit = made.stdout.strip()
+    if made.returncode != 0 or not commit:
+        return False, f'the revert commit could not be made: {made.stderr.strip()[:200]}'
+    push = subprocess.run(['git', '-C', str(root), 'push', '-q', 'origin',
+                           f'{commit}:refs/heads/{base}'],
+                          capture_output=True, text=True)
+    if push.returncode != 0:
+        return False, f'the revert was refused: {push.stderr.strip()[:200]}'
+    return True, f'{base} is back at the tree it had before the merge ({commit[:12]})'
+
+
+def landed(argv, pb, search):
+    """--landed [SHA]: after a merge through GitHub, check what actually
+    landed, and undo it when it fails.
+
+    WHY (2026-09-30). The merge gate checks the test merge, then frees the
+    base's hold, and GitHub merges seconds later. A base that moved in those
+    seconds gets a merge nobody checked. So once the merge is done this runs
+    the full check on the merge commit itself. When nothing moved it is the
+    tree the gate passed, and the recorded pass is reused at once. When the
+    base moved, the check runs; if it fails, the merge is reverted
+    (revert_landing), which puts the base back to the tree the other window
+    had already landed."""
+    owner, repo, number = (_arg(argv, '--owner'), _arg(argv, '--repo'),
+                           _arg(argv, '--number'))
+    if not (owner and repo and number and re.fullmatch(r'\d+', number)):
+        print('precedent_merge_check: --landed needs --owner, --repo and a '
+              'numeric --number.')
+        return 2
+    sha = _arg(argv, '--landed')
+    sha = sha if sha and re.fullmatch(r'[0-9a-f]{40}', sha) else None
+    merged, base, api_sha = pull_landed(owner, repo, number)
+    if merged is False:
+        return 0            # nothing landed: a refused or failed merge
+    sha = sha or (api_sha if merged else None)
+    if not sha:
+        print(f'precedent_merge_check: could not tell which commit pull '
+              f'request #{number} landed as, so what landed was NOT checked.')
+        return 2
+    root = find_checkout(search, owner, repo)
+    if root is None:
+        print(f'precedent_merge_check: no checkout of {owner}/{repo} here, so '
+              f'what pull request #{number} landed was NOT checked.')
+        return 2
+    tool_rel = push_check_tool(root)
+    if not tool_rel:
+        return 2
+    ns = f'refs/precedent-merge-check/{number}/landed'
+    try:
+        if base:
+            subprocess.run(['git', '-C', str(root), 'fetch', '-q', 'origin',
+                            f'+refs/heads/{base}:{ns}'], capture_output=True, text=True)
+        if not git(root, 'cat-file', '-t', sha):
+            subprocess.run(['git', '-C', str(root), 'fetch', '-q', 'origin', sha],
+                           capture_output=True, text=True)
+        if git(root, 'cat-file', '-t', sha) != 'commit':
+            print(f'precedent_merge_check: the merge commit {sha[:12]} of pull '
+                  f'request #{number} could not be fetched, so it was NOT checked.')
+            return 2
+        full = pb.full_branches(root) if pb else {'main', 'staging'}
+        if not base:
+            # Without GitHub's word: the fully checked branch at the merge,
+            # else one whose history holds it (it may have moved on since).
+            bases = [b for b in branches_at(root, sha) if b in full]
+            for b in ([] if bases else sorted(full)):
+                got = subprocess.run(['git', '-C', str(root), 'fetch', '-q',
+                                      'origin', f'+refs/heads/{b}:{ns}'],
+                                     capture_output=True, text=True)
+                if got.returncode == 0 and subprocess.run(
+                        ['git', '-C', str(root), 'merge-base', '--is-ancestor',
+                         sha, ns], capture_output=True).returncode == 0:
+                    bases = [b]
+                    break
+            base = bases[0] if bases else None
+        if not base or base not in full:
+            return 0        # a working branch: its basic check was the gate's
+        rc, out = run_in_worktree(root, sha, 'full', tool_rel)
+    finally:
+        subprocess.run(['git', '-C', str(root), 'update-ref', '-d', ns],
+                       capture_output=True, text=True)
+    if rc == 0 and 'this exact tree already passed' in out:
+        print(f'precedent_merge_check: pull request #{number} landed on {base} '
+              f'as checked ({sha[:12]}).')
+        return 0
+    if rc == 0:
+        print(f'precedent_merge_check: {base} MOVED while pull request '
+              f'#{number} merged, so what landed ({sha[:12]}) was not what the '
+              f'gate checked. It has now had its own full check, and passed.')
+        return 0
+    tail = '\n'.join(out.rstrip().splitlines()[-TAIL_LINES:])
+    if rc != 1:
+        print(f'precedent_merge_check: {base} MOVED while pull request '
+              f'#{number} merged, and what landed ({sha[:12]}) could not be '
+              f'checked here:\n{tail}')
+        return 2
+    done, what = revert_landing(root, base, sha, number, pb)
+    print(f'precedent_merge_check: {base} MOVED while pull request #{number} '
+          f'merged, and what landed ({sha[:12]}) FAILED its full check. '
+          + (f'Reverted: {what}. The pull request\'s branch still has the '
+             f'work: merge {base} into it, fix the finding, and merge again.'
+             if done else f'{what}. Fix it on {base} now.')
+          + f'\n{tail}')
+    return 1
+
+
 def _arg(argv, name):
     if name in argv:
         i = argv.index(name)
@@ -291,6 +445,9 @@ def main(argv):
     search = [a for i, a in enumerate(argv) if i and argv[i - 1] == '--search']
     search = search or [str(pathlib.Path.cwd())]
     pb = branches_module()
+
+    if '--landed' in argv:
+        return landed(argv, pb, search)
 
     if '--head' in argv:
         root_s = git(search[0], 'rev-parse', '--show-toplevel')
