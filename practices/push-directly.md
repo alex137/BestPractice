@@ -12,8 +12,8 @@ index_clause: "no PR; with no branch named, the branch already in play"
 checked_by:  null
 defines:     ["Push directly"]
 command:     {"Push directly": "Save the work and push it straight to the branch right now -- no pull request, whatever go-update's classification would otherwise call for. Name the branch (\"push directly to main\") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward."}
-status:      active
-in_force_at: null
+status:      retired
+in_force_at: none
 supersedes:  []
 overrides:   null
 added:       "2026-09-20"
@@ -121,6 +121,8 @@ case that is actually routine: the target was the branch already being
 worked on all along.
 
 ## Story
+**Retired 2026-09-30.** Morgan: *"push directly we no longer need with our 1-5 steps system but it should be part of the description in the vocab list for booked since that's what it does."* Booked's default is already a direct push, so the phrase added nothing; its description now says so.
+
 Coined 2026-09-20, Morgan, in the same conversation that retired `Go
 merge` as a trigger of [go-update](go-update.md). He asked what plain-English
 developers say for landing a small change live without a merge, was told

@@ -6,12 +6,12 @@ severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
 applies_to_why: "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause. Decided: 2026-09-03, full-practice-audit / routing-audit session."
-occasion:    "a person explicitly asks for a full practice audit (or \"practice check\")"
+occasion:    "a person explicitly asks for a full practice audit"
 gates:       []
 index_clause: "every source's catalogue, one practice at a time; on request only"
 checked_by:  null
 defines:     ["full practice audit"]
-command:     {"Practice check": "Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks."}
+command:     {"Full practice audit": "Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. Once also called a \"practice check\"."}
 status:      active
 in_force_at: null
 supersedes:  []

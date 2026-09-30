@@ -5,13 +5,13 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-08, when it moved up from the individual set."
-occasion:    "a message says \"Booked\", \"Go update\", \"Approved\", \"Book it\" or \"Promote 3\", or plainly authorizes a merge"
+occasion:    "a message says \"Booked\", \"Approved\", \"Book it\" or \"Promote 3\", or plainly authorizes a merge"
 gates:       ["merge"]
 gates_why:   "Its whole subject is what happens at a merge."
-index_clause: "\"Booked\" (stage 3; also \"Go update\", \"Approved\"): push; high-risk: PR and merge"
+index_clause: "\"Booked\" (stage 3; also \"Approved\"): push; high-risk: PR and merge"
 checked_by:  null
 defines:     ["Booked", "Go update", "Approved", "Book", "Book it", "Shared Save"]
-command:     {"Booked": "Stage 3 (Promote 3): save the work, land it on your landing branch on GitHub (pre-staging, for anyone who uses the three tiers) where it won't be lost, and tell you which branch it went to.", "Go update": "The same as **Booked** -- its older name, and it still works.", "Approved": "The same as **Booked**.", "Book it": "The same as **Booked** (also just **Book**).", "Shared Save": "The same as **Booked**."}
+command:     {"Booked": "Stage 3 (Promote 3): save the work, land it on your landing branch on GitHub (pre-staging, for anyone who uses the three tiers) where it won't be lost, and tell you which branch it went to. By default that is a direct push, with no pull request; a high-risk change goes through one. Its older name, \"Go update\", still means this.", "Approved": "The same as **Booked**.", "Book it": "The same as **Booked** (also just **Book**).", "Shared Save": "The same as **Booked**."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -230,8 +230,10 @@ message that still says "go merge" in plain English is read the way any
 intent is: if it plainly asks for this authorization, treat it as one, per
 the no-phrase-required paragraph below -- it is simply no longer one of the
 phrases guaranteed to be recognized on its own. For the case where the size
-call is already made and the PR should be skipped outright, say
-[push-directly](push-directly.md) instead.
+call is already made and the PR should be skipped outright, the person says
+so ("push it directly"), and the push goes straight to the branch; the
+phrase that used to carry this, push-directly, was retired on 2026-09-30,
+since a direct push is already this step's default.
 
 **Neither of the two phrases is required for the authorization to exist —
 they are the unambiguous case, not the only case.** A message can plainly
@@ -542,7 +544,7 @@ beside `Go update` as a second, guaranteed-recognized trigger. This is not
 the rename declined on 2026-09-15 and 2026-09-18: the slug and file stay
 `go-update`, so nothing that cites [go-update](go-update.md) breaks; only the
 set of phrases a session is guaranteed to recognize shrank by one. A
-separate, narrower phrase, [push-directly](push-directly.md), was coined
+separate, narrower phrase, push-directly (retired 2026-09-30), was coined
 the same conversation for skipping the high-risk/default judgment call
 itself, which `Go update` still always makes.
 

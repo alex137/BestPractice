@@ -778,6 +778,11 @@ def check_reachability(files):
     for stem, (fm, sections, f) in files.items():
         if fm.get('tier') != 'on-demand':
             continue
+        # A practice not in force (deduplicated into another, or retired)
+        # binds nothing, so there is nothing for a session to reach: its
+        # text lives in the practice it names, or nowhere by decision.
+        if (fm.get('status') or 'active').strip().strip('"') != 'active':
+            continue
         checked_by = fm.get('checked_by', 'null')
         applies_to = fm.get('applies_to', '[]')
         occasion = fm.get('occasion', '""')
