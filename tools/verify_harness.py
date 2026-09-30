@@ -37201,6 +37201,102 @@ def check_universal_occasion_share_is_capped():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_engine_tools_say_which_repo_they_read():
+    """An engine tool run from inside ANOTHER repo says so, loudly, and names
+    the repo it measured in every output mode (precedent_which_repo.py).
+
+    THE COST IT PAID FOR (2026-09-29). A "Reduction pass" session ran
+    `cd ~/precedent-individual && python3 ~/BestPractice/tools/session_load_trend.py`.
+    The script reads the repo its own file lives in, so it reported
+    BestPractice's figures under a header that named no repo, and the session
+    told Morgan his individual set was over a ceiling when it was not
+    (gotchas/gotcha-2026-09-29-engine-tools-measure-their-own-repo-not-the-cwd.md).
+
+    Discriminating cases, both directions: from a different git repo the
+    warning appears, names both repos and points at that repo's own copy of
+    the tool; from inside ROOT, and from a directory in no repo at all, it
+    does not. The measured repo's name is in the text header, the --since
+    ledger header, and a `repo` field in --json."""
+    import subprocess as _sp
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_which_repo as pwr
+    script = ROOT / 'tools' / 'session_load_trend.py'
+    mine = pwr.describe(ROOT)['name']
+    cases = []
+
+    def run(cwd, *extra):
+        r = _sp.run([sys.executable, str(script), '--days', '1', '--cap', '2',
+                     *extra], cwd=str(cwd), capture_output=True, text=True,
+                    timeout=300)
+        return r.stdout, r.stderr
+
+    other = pathlib.Path(tempfile.mkdtemp()) / 'some-other-repo'
+    bare = pathlib.Path(tempfile.mkdtemp())
+    try:
+        other.mkdir()
+        _sp.run(['git', 'init', '-q', str(other)], check=True)
+        (other / 'tools').mkdir()
+        (other / 'tools' / 'session_load_trend.py').write_text('# stub\n')
+
+        out, err = run(other)
+        cases.append(('from another repo, the warning names both repos and '
+                      'that repo\'s own copy',
+                      'WRONG REPO' in err and mine in err
+                      and 'some-other-repo' in err
+                      and str(other / 'tools' / 'session_load_trend.py') in err,
+                      err[:600]))
+        cases.append(('the text header names the measured repo',
+                      out.startswith(f'SESSION LOAD -- {mine}'), out[:300]))
+
+        out, err = run(ROOT)
+        cases.append(('from inside ROOT there is no warning',
+                      'WRONG REPO' not in err, err[:600]))
+
+        out, err = run(bare)
+        cases.append(('from a directory in no repo there is no warning',
+                      'WRONG REPO' not in err, err[:600]))
+
+        out, err = run(other, '--json')
+        try:
+            repo = json.loads(out).get('repo') or {}
+        except ValueError:
+            repo = {}
+        cases.append(('--json carries a repo field naming the measured repo',
+                      repo.get('name') == mine, out[:300]))
+
+        out, err = run(ROOT, '--since', 'HEAD')
+        cases.append(('the --since ledger header names the measured repo',
+                      out.startswith(f'REDUCTION LEDGER -- {mine}'), out[:300]))
+        out, err = run(ROOT, '--since', 'HEAD', '--json')
+        try:
+            repo = json.loads(out).get('repo') or {}
+        except ValueError:
+            repo = {}
+        cases.append(('--since --json carries the repo field too',
+                      repo.get('name') == mine, out[:300]))
+
+        leaky = pwr.origin_url  # credentials never reach a report
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            _sp.run(['git', 'init', '-q', str(d)], check=True)
+            _sp.run(['git', '-C', str(d), 'remote', 'add', 'origin',
+                     'https://x-access-token:' + 'tok' + '@github.com/o/r.git'],
+                    check=True)
+            url = leaky(d)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        cases.append(('an origin URL loses its credentials',
+                      url == 'https://github.com/o/r', repr(url)))
+    finally:
+        shutil.rmtree(other.parent, ignore_errors=True)
+        shutil.rmtree(bare, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'engine tools say which repo they read, and warn from another '
+          f'repo ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_todo_index_check_survives_midnight():
     """build_todo_index.py --check rebuilds against the date the committed
     TODO.md records, so an index built yesterday, or in a zone behind this
@@ -37456,8 +37552,10 @@ def check_budget_approvals_see_computed_raises():
                            cwd=str(repo))
         cases.append(('session_load_trend.py --root measures that repository '
                       'and names it',
-                      r.returncode == 0 and f'SESSION LOAD in fixture ({repo.resolve()})'
-                      in r.stdout, r.stdout[:300] + r.stderr[-300:]))
+                      r.returncode == 0 and 'SESSION LOAD -- fixture' in r.stdout
+                      and f'at {repo.resolve()}' in r.stdout
+                      and 'WRONG REPO' not in r.stderr,
+                      r.stdout[:300] + r.stderr[-300:]))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'budgets in force stay within the person\'s approvals, and the '
           f'session file\'s hard ceiling is a sum that must fit '
@@ -47100,6 +47198,7 @@ def main():
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
+    check_engine_tools_say_which_repo_they_read()
     check_todo_index_check_survives_midnight()
     check_budget_approvals_see_computed_raises()
     check_headroom_notice_watches_the_resident_block()

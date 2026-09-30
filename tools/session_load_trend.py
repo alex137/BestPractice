@@ -68,6 +68,38 @@ def _today():
                      "(practice: timestamps-carry-offset). Re-vendor the "
                      "engine to fix it; the token figures are unaffected.")
 
+def _which_repo():
+    """The helper that names the measured repo, or None if not vendored here.
+
+    This script reads the repo it lives in, never the current directory --
+    on 2026-09-29 a session ran BestPractice's copy from inside
+    precedent-individual, got BestPractice's figures under a header that named
+    no repo, and reported a ceiling breach that did not exist
+    (gotchas/gotcha-2026-09-29-engine-tools-measure-their-own-repo-not-the-cwd.md).
+    Imported lazily for the same reason as precedent_time above: a partial
+    vendor must lose the label, not the tool (practice: fail-gracefully).
+    """
+    try:
+        import precedent_which_repo
+        return precedent_which_repo
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+def _repo():
+    """-> {'name', 'path', 'origin'} for the measured repo."""
+    w = _which_repo()
+    if w is not None:
+        try:
+            return w.describe(ROOT)
+        except Exception:                                    # noqa: BLE001
+            pass
+    return {'name': ROOT.name, 'path': str(ROOT), 'origin': None}
+
+
+def _repo_label(repo):
+    return f"{repo['name']} ({repo['origin']})" if repo['origin'] else repo['name']
+
 # The surfaces the ceiling check itself measures, kept in that order so the two
 # tools cannot disagree about what "always loaded" means.
 SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
@@ -211,14 +243,16 @@ def _ledger(ref, reg, as_json):
         ceiling = (surfaces.get(rel) or {}).get('ceiling')
         rows.append((rel, before, after, ceiling))
 
+    repo = _repo()
     if as_json:
-        print(json.dumps({'since': ref, 'sha': sha, 'surfaces': [
+        print(json.dumps({'repo': repo, 'since': ref, 'sha': sha, 'surfaces': [
             {'file': r, 'before': b, 'after': a, 'ceiling': c,
              'delta': (None if b is None else a - b)} for r, b, a, c in rows]},
             indent=2))
         return 0
 
-    print(f"REDUCTION LEDGER -- always-loaded surfaces, {ref} ({sha[:8]}) -> working tree\n")
+    print(f"REDUCTION LEDGER -- {_repo_label(repo)}")
+    print(f"  always-loaded surfaces, {ref} ({sha[:8]}) -> working tree\n")
     tb = ta = 0
     skipped = []
     for rel, before, after, ceiling in rows:
@@ -330,28 +364,23 @@ def main():
                          'script lives in)')
     args = ap.parse_args()
 
-    # WHICH REPO, said out loud (2026-09-29). A session ran this file from
-    # BestPractice while working in precedent-individual, read BestPractice's
-    # numbers as precedent-individual's, and told Morgan a file was under its
-    # ceiling when it was over. ROOT comes from __file__, and nothing in the
-    # output named it. So --root measures another repository, the report
-    # names the one it measured, and running it from inside a different
-    # repository without --root says so (practice: verify-postcondition).
+    # --root measures another repository (2026-09-30): ROOT otherwise comes
+    # from __file__, so this could only ever read the repo it was copied
+    # into. With --root the reader named it, so there is nothing to warn of.
     global ROOT
     if args.root:
         ROOT = pathlib.Path(args.root).resolve()
-    here = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
-                          capture_output=True, text=True)
-    elsewhere = (not args.root and here.returncode == 0
-                 and pathlib.Path(here.stdout.strip()).resolve() != ROOT)
-    if elsewhere and not args.json:
-        print(f"NOTE: this measures {ROOT}, not {here.stdout.strip()}, where "
-              f"you are. Pass --root {here.stdout.strip()} to measure that "
-              f"one.\n")
+    # Before anything else, including the no-registry exit: a run from inside
+    # another repo is the one case where every figure below is right and
+    # none of them is the answer (precedent_which_repo.py).
+    w = None if args.root else _which_repo()
+    if w is not None:
+        w.warn_if_elsewhere(ROOT, 'session_load_trend.py')
 
     reg = registry()
     if reg is None:
-        print('session_load_trend: no tools/session_load_budgets.json here.')
+        print(f'session_load_trend: no tools/session_load_budgets.json in '
+              f'{_repo_label(_repo())} at {ROOT}.')
         return 0
     if args.since:
         return _ledger(args.since, reg, args.json)
@@ -359,7 +388,7 @@ def main():
 
     # timestamps-carry-offset
     measured, zone_note = _today()
-    report = {'surfaces': {}, 'measured': measured, 'repository': str(ROOT)}
+    report = {'repo': _repo(), 'surfaces': {}, 'measured': measured}
     if zone_note:
         report['zone_note'] = zone_note
     total_now = total_ceiling = 0
@@ -413,8 +442,8 @@ def main():
 
     if zone_note:
         print(f"NOTE: {zone_note}\n")
-    print(f"SESSION LOAD in {ROOT.name} ({ROOT}) -- what every session pays "
-          f"before it does any work")
+    print(f"SESSION LOAD -- {_repo_label(report['repo'])}")
+    print(f"  what every session pays before it does any work, at {ROOT}")
     print(f"  measured {report['measured']}, "
           f"window {args.days}d, active practices: {report['active_practices']}")
     print()

@@ -614,6 +614,12 @@ ENGINE_FILES = [
     'generated_blocks.py',
     'full_practice_audit.py',
     'session_load_trend.py',
+    # The "you are reading a different repo than the one you are standing
+    # in" warning (added 2026-09-29). session_load_trend.py, precedent_check.py,
+    # build_views.py, precedent_show.py and precedent_push_check.py import it
+    # lazily, so a tree without it only loses the warning -- but every kind
+    # runs those tools, so every kind gets it.
+    'precedent_which_repo.py',
     'todo_progress.py',
     # The SessionStart self-heal: "did this repo's own hooks actually run,
     # and repair it by hand if not" (added 2026-09-08, in BestPractice only
