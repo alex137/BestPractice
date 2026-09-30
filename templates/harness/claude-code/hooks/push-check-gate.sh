@@ -60,10 +60,48 @@ cmd="$(printf '%s' "$input" \
   | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 [[ -n "$cmd" ]] || exit 0
 
+# THE COMMAND WITH ITS QUOTED TEXT BLANKED (2026-09-30), so the tests below
+# read only what the shell will run. A `|` or `;` inside a quoted argument
+# is not a pipe: `grep "a\|git push"` read as a push once, ran the full push
+# check for 766 s and refused a read-only grep
+# (todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command). Quoted
+# strings and heredoc bodies become spaces, newlines kept; everything else
+# is unchanged. The same block sits in every hook that asks "does this
+# command run X"; verify_harness keeps the copies identical. No python3
+# result: the raw command, as before.
+bare="$(printf '%s' "$cmd" | python3 -c '
+import re, sys
+s = sys.stdin.read(); out = []; i = 0; n = len(s)
+Q, D, B = chr(39), chr(34), chr(92)
+blank = lambda t: re.sub(r"[^\n]", " ", t)
+while i < n:
+    c = s[i]
+    if c == B and i + 1 < n:
+        out.append(s[i:i + 2]); i += 2; continue
+    if c in (Q, D):
+        j = i + 1
+        while j < n and s[j] != c:
+            j += 2 if (c == D and s[j] == B) else 1
+        out.append(c + blank(s[i + 1:min(j, n)]) + (c if j < n else "")); i = j + 1; continue
+    m = re.match(r"<<-?[ \t]*([" + Q + D + r"]?)([A-Za-z_]\w*)\1", s[i:])
+    if m:
+        out.append(m.group(0)); i += m.end()
+        nl = s.find("\n", i)
+        if nl < 0:
+            continue
+        out.append(s[i:nl + 1]); i = nl + 1
+        end = re.search(r"(?m)^[ \t]*" + re.escape(m.group(2)) + r"[ \t]*$", s[i:])
+        stop = i + end.start() if end else n
+        out.append(blank(s[i:stop])); i = stop; continue
+    out.append(c); i += 1
+sys.stdout.write("".join(out))
+' 2>/dev/null)" || bare="$cmd"
+[[ -n "$bare" ]] || bare="$cmd"
+
 # Only a real `git push`, in command position -- not one quoted in a commit
 # message or a heredoc (gotcha-2026-09-21, the same discipline both sibling
 # gates apply).
-printf '%s' "$cmd" \
+printf '%s' "$bare" \
   | grep -qE '(^|[|;&]|&&|\|\||\$\()[[:space:]]*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?push\b' \
   || exit 0
 

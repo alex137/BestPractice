@@ -12,8 +12,8 @@ index_clause: "\"Response Please\" -- key points, your call, then a Prompt Pleas
 checked_by:  null
 defines:     ["Response Please"]
 command:     {"Response Please": "Read the pasted message as if I have not seen it, tell me the essential points in it, tell me your recommendation, then hand the whole thing back as a Prompt Please write-up."}
-status:      active
-in_force_at: null
+status:      retired
+in_force_at: none
 supersedes:  []
 overrides:   null
 added:       "2026-09-22"
@@ -93,6 +93,8 @@ knows, which is exactly backwards for a person who says outright he will not
 have read it.
 
 ## Story
+**Retired 2026-09-30.** Morgan: *"Response please probably doesn't need a phrase, because it doesn't really add anything so we can remove."* A pasted message from another session is weighed from context, and Prompt Please still hands work on.
+
 Coined by Morgan, 2026-09-22. He described his own working pattern —
 passing messages between two sessions — and asked for a phrase covering the
 inbound half of it that neither existing command reached. He set the

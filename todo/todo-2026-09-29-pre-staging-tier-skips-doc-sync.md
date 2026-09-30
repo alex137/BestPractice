@@ -3,16 +3,16 @@ slug:              todo-2026-09-29-pre-staging-tier-skips-doc-sync
 kind:              analysis
 domain:            mechanism
 severity:          medium
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "out of scope for the session that found it (local edits to received files); filed at the proposing session's request rather than folded into that work"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-29
-closed:            null
+closed:            2026-09-30
 ---
 ## What
 
@@ -43,3 +43,7 @@ only what the push changes.
 
 Closes when a push into pre-staging that adds a practice without
 regenerating the blocks is refused at that push, with a test that shows it.
+
+## Closed
+
+2026-09-30. The changed-files step of a push into pre-staging ([tools/precedent_push_check.py](../tools/precedent_push_check.py)) runs doc_sync's drift gate, not `--write`, when the push adds a practice or changes a practice's front matter, and refuses with the command that fixes it. check_changed_files_only_judges_the_change adds a practice with its views rebuilt and its counts not: refused at that push, and passing once `doc_sync.py --write` runs.

@@ -201,8 +201,8 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Resident, loaded every session | 11 of 175 practices |
 | Resident block size | ≈1045 tokens of a 2000-token hard cap |
 | `## Rule` share of the catalogue | 26% of the catalogue |
-| Rules still over 150 words | 82 |
-| Carrying a `## Detail` | 122 |
+| Rules still over 150 words | 81 |
+| Carrying a `## Detail` | 123 |
 | Carrying a `## Story` | 175 |
 | Enforced by a check | 55 of 175 practices carry a `checked_by` |
 <!--/gen:catalogue-->

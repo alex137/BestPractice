@@ -185,8 +185,36 @@ def person_messages(records):
             text = b.get('text') or ''
             if not text.strip() or any(m in text for m in skip):
                 continue
-            out.append(text)
+            text = _without_other_sessions_words(text)
+            if text.strip():
+                out.append(text)
     return out
+
+
+# The first line every prompt one session puts into another carries
+# (practice: seeded-prompt-names-its-origin).
+_SEEDED = re.compile(r'Sent automatically by\b[^\n]*?Nobody typed this\.')
+_PASTED = re.compile(r'<pasted_content\b[^>]*>.*?</pasted_content\b[^>]*>', re.S)
+
+
+def _without_other_sessions_words(text):
+    """`text` without the words another session wrote: a prompt it seeded,
+    and anything pasted in a <pasted_content> block. What the person typed
+    around them stays, and is read as before.
+
+    A seeded prompt opens with the header seeded-prompt-names-its-origin
+    requires, on its first non-empty line: that line's text before the
+    header (a person's own "review this" in front of a relay) is kept, and
+    everything from the header on is the other session's. On 2026-09-29
+    three explicit-instruction signals ("Never open a pull request, never
+    merge.", and two more) came from a pasted handoff and were reported
+    as "the person said"."""
+    text = _PASTED.sub(' ', text)
+    first = next((l for l in text.splitlines() if l.strip()), '')
+    m = _SEEDED.search(first)
+    if m:
+        text = first[:m.start()]
+    return text
 
 
 def merged_this_session(records):

@@ -57,7 +57,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | One-line plan | [consider](practices/consider.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
-| Plan it | [plan-it](practices/plan-it.md) |
+| Plan it | [consider](practices/consider.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
@@ -70,11 +70,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Promotion Reviews | [chief-of-staff](practices/chief-of-staff.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
-| Push directly | [push-directly](practices/push-directly.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
-| Response Please | [response-please](practices/response-please.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |

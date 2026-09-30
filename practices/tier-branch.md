@@ -4,13 +4,14 @@ title:       "\"Tier branch\" names one rung of the pre-staging -> staging -> ma
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "A phrase in a MESSAGE, like primary-branch -- no file path reaches it. Reached through the occasion index; no gate, because it defines a word rather than governing a workflow moment. Decided: 2026-09-28, when the practice landed."
-occasion:    "a person says \"Tier branch\", or asks which branches are the tiers"
-gates:       []
+applies_to_why: "A word, not an action -- no file path reaches it. Since 2026-09-30 it is out of the occasion index (Morgan: a definition, not a trigger; its meaning is in Our language) and reached through the merge gate, the moment a tier branch matters: where work lands, and what is never offered for deletion. Decided: 2026-09-30."
+occasion:    null
+gates:       ["merge"]
+gates_why:   "A merge is where a tier branch matters: which one the work targets, and that none of them is ever deleted."
 index_clause: "pre-staging, staging or main -- plus staging's old name and Promote's lock"
 checked_by:  null
 defines:     ["Tier branch", "Landing branch"]
-command:     {"Tier branch": "One of the three branches work climbs through -- pre-staging, then staging, then main -- or one of the two that travel with them: staging's old name precedent-beta-v01 and Promote's lock branch precedent-promote-lock. Never offered for deletion."}
+command:     null
 status:      active
 in_force_at: null
 supersedes:  []

@@ -55,7 +55,8 @@ used to read on turn one.
   sentence could honestly go either way, say the read out loud and get it
   confirmed before the push, the pull request, or the merge — commit locally
   regardless, and hold only the shared-branch steps on the answer.
-- **"Push directly to [branch]"** ([push-directly](../practices/push-directly.md))
+- **"Push directly to [branch]"** (push-directly, retired 2026-09-30: a
+  direct push is already Booked's default; the long form below is history)
   — the classification's own override, named: skip it outright and push
   straight to that branch, no PR, whatever Booked (`Go update`) would otherwise call
   for on this one change. Name the branch ("push directly to main") to

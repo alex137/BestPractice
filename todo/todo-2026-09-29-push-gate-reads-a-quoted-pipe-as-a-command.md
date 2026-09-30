@@ -3,16 +3,16 @@ slug:              todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command
 kind:              analysis
 domain:            mechanism
 severity:          medium
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "out of scope for the session that found it (local edits to received files); filed at the proposing session's request rather than folded into that work"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-29
-closed:            null
+closed:            2026-09-30
 ---
 ## What
 
@@ -45,3 +45,7 @@ must pass the hook untouched, next to the existing cases for a real push
 behind `&&`, `;` and `|`.
 
 Closes when that case is in the harness and passes.
+
+## Closed
+
+2026-09-30. The hook now decides "is this a push" on the command with its quoted strings and heredoc bodies blanked, not on the raw text. The same block went into the three sibling hooks that ask the same kind of question (commit-identity-push-gate.sh, doc-lint-gate.sh, merge-check-gate.sh), since they had the same misread. [tools/verify_harness.py](../tools/verify_harness.py)'s check_push_check_gate runs this item's command verbatim and lets it through, beside real pushes after `;`, `|` and `&&`; check_hooks_share_one_quote_blanking_block keeps the four copies identical.
