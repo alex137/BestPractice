@@ -1204,6 +1204,14 @@ def main(argv):
               'check.', file=sys.stderr)
         return 2
     root = Path(root_s)
+    # A run from inside a different repo reads THIS repo, silently -- say so
+    # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_which_repo
+        precedent_which_repo.warn_if_elsewhere(root, 'precedent_push_check.py')
+    except Exception:                                        # noqa: BLE001
+        pass
     refused = _promote_only_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)

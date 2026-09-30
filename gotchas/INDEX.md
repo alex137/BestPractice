@@ -147,3 +147,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A tool that lists every past version of a file from `git log --raw`, `git log -p` or `git log --name-only` misses a version, and a copy of the file that is byte-identical to that version is treated as locally edited. Update Vendors reports a consumer's untouched `tools/bootstrap.sh` as DIVERGED and never updates it.** [story](gotcha-2026-09-28-git-log-skips-merge-commits-so-a-version-made-in-a-merge-is-in.md)
 
 - **`git rev-parse --is-shallow-repository` keeps printing `true` after `git fetch --unshallow` exits 0, and after a full-depth fetch of every branch. Promote refuses with "the clone is still shallow (the fetch did not complete), so the history checks cannot run".** [story](gotcha-2026-09-28-stale-shallow-entries-for-deleted-branches-survive-unshallow.md)
+
+- **You run an engine tool from inside one precedent-* repo, using another repo's copy of the script, and it reports normal-looking figures. They are the other repo's figures. Two runs from two different folders print the same numbers.** [story](gotcha-2026-09-29-engine-tools-measure-their-own-repo-not-the-cwd.md)
