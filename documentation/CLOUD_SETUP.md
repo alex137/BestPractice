@@ -28,21 +28,23 @@ values substituted in.
 ```sh
 # Reaching your private practice sets from a hosted session
 PRECEDENT_GIT_TOKEN=github_pat_<your read-only token>
-PRECEDENT_SOURCE_BASE_URL=https://github.com/<your-github-account>
 PRECEDENT_PING=1          # throwaway: proves the variables arrive at all
 
-# Who your commits are by, and in what zone
-PRECEDENT_COMMIT_NAME=Your Name
-PRECEDENT_COMMIT_EMAIL=you@example.com
+# The zone your commits are stamped in
 PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires   # an IANA zone name, never an offset
-
-# Only if a shared practice source resolves as a sibling clone beside this
-# project — skip it otherwise. A hosted session clones everything under
-# /home/user/, never ~ (which is /root there), so write the full path:
-PRECEDENT_FRESHNESS_ALSO=/home/user/precedent-individual=main;/home/user/<your-shared-set>=main
 ```
 
-Once `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` are set, the
+That is all most people need. **The account your token belongs to is where
+your practice sets are looked for** (`https://github.com/<that account>/<set>`),
+worked out once and kept in `~/.config/precedent/config.json`. Set
+`PRECEDENT_SOURCE_BASE_URL=https://github.com/<account>` only if your sets
+belong to a different account or an organization. **Your name and email**
+come from your individual set's `identity.json`, or, without one, from
+your GitHub account, and the session says which. **The practice sets your
+project declares are checked for freshness on their own**;
+`PRECEDENT_FRESHNESS_ALSO` is only for an extra repository nothing declares.
+
+Once `PRECEDENT_GIT_TOKEN` is set, the
 SessionStart hook clones your individual and shared practice sets **before
 the first turn** and writes your `~/.config/precedent/config.json` itself —
 there is nothing else to fill in by hand for a hosted session. The one field
@@ -112,10 +114,9 @@ writes is what the next new session shows. In it,
 `.precedent/SESSION_PRACTICES.md` exists and whether commits are authored by
 you, and both are red when no hook ran.
 
-While there, check `PRECEDENT_FRESHNESS_ALSO`: it should name
-`/home/user/` paths, as in the example above, and
-`python3 tools/precedent_session_check.py` prints the value computed from
-the clones actually on disk.
+If you do set `PRECEDENT_FRESHNESS_ALSO` for an extra repository,
+`python3 tools/precedent_session_check.py` says whether each entry names a
+repository that is there.
 
 ## Two Things That Each Cost a Day When Skipped
 

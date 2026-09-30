@@ -61,18 +61,19 @@ the environment's own configuration; locally, in your shell profile
 ```sh
 # Reaching your private practice sets from a hosted session
 export PRECEDENT_GIT_TOKEN="github_pat_<your read-only token>"
-export PRECEDENT_SOURCE_BASE_URL="https://github.com/<the account that owns your team's practice sets>"
 export PRECEDENT_PING=1          # throwaway: proves the variables arrive at all
 
-# Who your commits are by, and in what zone
-export PRECEDENT_COMMIT_NAME="<Your Name>"
-export PRECEDENT_COMMIT_EMAIL="<you@example.com>"
+# The zone your commits are stamped in
 export PRECEDENT_COMMIT_TZ="America/New_York"   # an IANA zone name, never an offset
 
-# Freshness-check repositories your project's own hooks never reach.
-# On a hosted session every clone is under /home/user/ (~ is /root there);
-# on your own computer, use wherever your clones actually are.
-export PRECEDENT_FRESHNESS_ALSO="/home/user/precedent-individual=main"
+# Optional, each an override (2026-09-30): the account that owns your sets,
+# when it is not the token's own; your name and email, when your individual
+# set is not reachable; and an extra repository to freshness-check that
+# nothing declares -- declared practice sets are checked without it.
+# export PRECEDENT_SOURCE_BASE_URL="https://github.com/<an organization>"
+# export PRECEDENT_COMMIT_NAME="<Your Name>"
+# export PRECEDENT_COMMIT_EMAIL="<you@example.com>"
+# export PRECEDENT_FRESHNESS_ALSO='$CLAUDE_PROJECT_DIR/../<extra-repo>=main'
 ```
 
 **2. Your user-level config**, at `~/.config/precedent/config.json` — the
@@ -169,11 +170,11 @@ follow a session into every repository it touches.
 | Variable | Status | Example value |
 |---|---|---|
 | `PRECEDENT_GIT_TOKEN` | Required to reach a private practice set from a hosted session; irrelevant without one | `github_pat_<the rest of your read-only token>` |
-| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/<the account that owns your team's practice sets>` — if your own `precedent-individual` lives under a different account (it does, unless you own the shared sets), also set `PRECEDENT_INDIVIDUAL_REPO` |
-| `PRECEDENT_COMMIT_NAME` | Recommended | `Your Name` |
-| `PRECEDENT_COMMIT_EMAIL` | Recommended, alongside the name | `you@example.com` |
+| `PRECEDENT_SOURCE_BASE_URL` | Optional since 2026-09-30: unset, the account the token belongs to is used, worked out once and kept in `~/.config/precedent/config.json`. Set it when your sets belong to another account or an organization | `https://github.com/<the account that owns your team's practice sets>` — if your own `precedent-individual` lives under a different account (it does, unless you own the shared sets), also set `PRECEDENT_INDIVIDUAL_REPO` |
+| `PRECEDENT_COMMIT_NAME` | Optional: your individual set's `identity.json`, or your GitHub account, supplies it | `Your Name` |
+| `PRECEDENT_COMMIT_EMAIL` | Optional, alongside the name | `you@example.com` |
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
-| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `/home/user/precedent-individual=main;/home/user/precedent-shared-writing=main` |
+| `PRECEDENT_FRESHNESS_ALSO` | Optional since 2026-09-30: every practice set the project declares is checked without it. For an extra repository only | `/home/user/precedent-individual=main;/home/user/precedent-shared-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
 | `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the shared sets | `https://github.com/another-account/precedent-individual` |

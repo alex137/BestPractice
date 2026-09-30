@@ -224,6 +224,62 @@ _also_resolve() {
   printf '%s\t%s\n' "$path" "$base"
 }
 
+# EVERY PRACTICE SET THE REPO DECLARES, checked without being named
+# (2026-09-30). The also-list had to name each attached set by hand, and its
+# value differed per container, so sessions kept rewriting it and each rewrite
+# broke half of it. The sets are already declared -- the shared ones in this
+# repo's precedent.json, the individual one in the person's user config -- so
+# the guard reads them from the resolver's own path logic
+# (precedent_resolve.py --declared-paths: never clones, fetches or writes) and
+# checks exactly the clones the loader reads. PRECEDENT_FRESHNESS_ALSO stays,
+# for repositories nothing declares. Prints "path<TAB>base" per usable set; a
+# set that is not there is a one-line NOTE, never a block.
+_declared_entries() {
+  local tool="" c
+  for c in "$PROJECT_ROOT/tools/precedent_resolve.py" "$PROJECT_ROOT/process/upstream/tools/precedent_resolve.py"; do
+    [ -f "$c" ] && { tool="$c"; break; }
+  done
+  [ -n "$tool" ] || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 "$tool" --declared-paths --repo "$PROJECT_ROOT" 2>/dev/null | while IFS=$'\t' read -r path base level name note; do
+    # No user config means no individual set is declared for this person,
+    # which is normal and not worth a line every session; the session check
+    # says so where it matters. A declared set not cloned yet is a NOTE.
+    [ -n "$path" ] || continue
+    if [ -n "$note" ]; then
+      echo "NOTE: freshness-guard: declared $level set $name not checked -- $note." >&2
+      continue
+    fi
+    [ -n "$path" ] && [ -n "$base" ] || continue
+    [ "$path" = "$PROJECT_ROOT" ] && continue
+    printf '%s\t%s\n' "$path" "$base"
+  done
+}
+
+# The repositories to check besides the project: every also-list entry, then
+# every declared set the also-list did not already name (one check per path).
+# Each line is "path<TAB>base<TAB>kind", kind "listed" or "declared".
+_extra_repos() {
+  local entry resolved seen="" line real
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    resolved="$(_also_resolve "$entry")" || continue
+    real="$(cd "${resolved%%$'\t'*}" 2>/dev/null && pwd -P)"
+    seen="$seen|$real|"
+    printf '%s\tlisted\n' "$resolved"
+  done <<LISTED
+$(_also_entries)
+LISTED
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    real="$(cd "${line%%$'\t'*}" 2>/dev/null && pwd -P)"
+    case "$seen" in *"|$real|"*) continue ;; esac
+    printf '%s\tdeclared\n' "$line"
+  done <<DECLARED
+$(_declared_entries)
+DECLARED
+}
+
 # `git rev-parse <missing-ref>` exits non-zero but PRINTS THE REF NAME on
 # stdout, so `$(git rev-parse X) || fallback` binds a ref name where a hash
 # belongs (BestPractice's gotchas log: this reached CI as a truncated ref
@@ -649,16 +705,19 @@ _session_start_one() {
 # never be the thing that wedges a session.
 mode_session_start() {
   _session_start_one "$PROJECT_ROOT" "$BASE_ARG"
-  local entry resolved path base
-  while IFS= read -r entry; do
-    [ -n "$entry" ] || continue
-    resolved="$(_also_resolve "$entry")" || continue
-    path="${resolved%%$'\t'*}"
-    base="${resolved#*$'\t'}"
-    echo "NOTE: freshness-guard: also checking attached repository $path (base $base)." >&2
+  local line path base kind rest
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    path="${line%%$'\t'*}"; rest="${line#*$'\t'}"
+    base="${rest%%$'\t'*}"; kind="${rest#*$'\t'}"
+    if [ "$kind" = declared ]; then
+      echo "NOTE: freshness-guard: also checking declared practice set $path (base $base)." >&2
+    else
+      echo "NOTE: freshness-guard: also checking attached repository $path (base $base)." >&2
+    fi
     _session_start_one "$path" "$base" 1
   done <<EOF
-$(_also_entries)
+$(_extra_repos)
 EOF
   exit 0
 }
@@ -669,6 +728,16 @@ EOF
 
 # Exit 2 is how a PreToolUse hook refuses the call and hands stderr back to
 # the model as the reason.
+# _block, unless this repository is a declared practice set, where the same
+# finding is a warning (see mode_pre_write's loop).
+_pw_block() {
+  if [ "${PW_WARN_ONLY:-0}" = 1 ]; then
+    echo "WARN: freshness-guard: declared practice set $ROOT: $1 (not blocking: this session writes elsewhere)." >&2
+    return 0
+  fi
+  _block "$1"
+}
+
 _block() {
   echo "BLOCKED by freshness-guard (first tool call of this session): $1" >&2
   echo "Fix it and retry. A git command is never blocked by this guard, so the remedy above is always runnable. To override deliberately for this checkout: git config precedent.freshness.override true" >&2
@@ -782,15 +851,24 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   # deliberately NOT re-read per repo: it is set on the checkout somebody chose
   # to stop guarding, and this loop must not let that decision silence a
   # different repository.
-  local entry resolved path base
-  while IFS= read -r entry; do
-    [ -n "$entry" ] || continue
-    resolved="$(_also_resolve "$entry")" || continue
-    path="${resolved%%$'\t'*}"
-    base="${resolved#*$'\t'}"
-    _pre_write_one "$path" "$base" "$sentinel" 1
+  # A DECLARED set warns and does not block (2026-09-30, agreed with a
+  # consumer session): this session writes to its own repository, and a set
+  # that is behind means it loaded older practices, which the warning and the
+  # session-start fast-forward fix. A write into the set itself is a session
+  # rooted there, where the set is the project and is enforced above. An
+  # also-list entry is still enforced: somebody named it on purpose.
+  local line path base kind rest
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    path="${line%%$'\t'*}"; rest="${line#*$'\t'}"
+    base="${rest%%$'\t'*}"; kind="${rest#*$'\t'}"
+    if [ "$kind" = declared ]; then
+      PW_WARN_ONLY=1 _pre_write_one "$path" "$base" "$sentinel" 1
+    else
+      _pre_write_one "$path" "$base" "$sentinel" 1
+    fi
   done <<EOF
-$(_also_entries)
+$(_extra_repos)
 EOF
 
   : > "$sentinel"
@@ -818,7 +896,7 @@ _pre_write_one() {
     if _branch_absent_from_origin "$branch"; then
       echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind, so this call is not blocked on it. The base-branch check below still runs." >&2
     else
-      _block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
+      _pw_block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
     fi
   fi
 
@@ -833,9 +911,9 @@ _pre_write_one() {
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
     if [ "$behind" != "0" ]; then
       if _dirty; then
-        _block "'$branch' is $behind commit(s) behind origin/$branch and the working tree is dirty.$(_age_phrase "$branch") Commit or stash first, then: git merge --ff-only origin/$branch"
+        _pw_block "'$branch' is $behind commit(s) behind origin/$branch and the working tree is dirty.$(_age_phrase "$branch") Commit or stash first, then: git merge --ff-only origin/$branch"
       elif [ "$ahead" != "0" ]; then
-        _block "'$branch' has diverged from origin/$branch ($ahead local, $behind remote).$(_age_phrase "$branch") Reconcile it deliberately -- this guard will not choose a side for you."
+        _pw_block "'$branch' has diverged from origin/$branch ($ahead local, $behind remote).$(_age_phrase "$branch") Reconcile it deliberately -- this guard will not choose a side for you."
       else
         local before
         before="$(_git rev-parse HEAD 2>/dev/null)"
@@ -843,9 +921,9 @@ _pre_write_one() {
           : > "$sentinel"
           echo "freshness-guard fast-forwarded '$branch' $behind commit(s) to origin/$branch before this call. What moved:" >&2
           _git log --oneline "$before..HEAD" 2>/dev/null | sed 's/^/    /' >&2
-          _block "the tree just changed underneath you. Re-read anything you had already read from it, then retry -- this guard will not run again this session."
+          _pw_block "the tree just changed underneath you. Re-read anything you had already read from it, then retry -- this guard will not run again this session."
         else
-          _block "'$branch' is $behind commit(s) behind origin/$branch and the fast-forward did not apply. Update it deliberately."
+          _pw_block "'$branch' is $behind commit(s) behind origin/$branch and the fast-forward did not apply. Update it deliberately."
         fi
       fi
     fi
@@ -857,7 +935,7 @@ _pre_write_one() {
     if _have_ref "origin/$base" && ! _contains_base "$base"; then
       local n
       n="$(_behind_base_count "$base")"
-      _block "'$branch' is missing $n commit(s) from origin/$base -- it is in sync with its own remote and still built on a stale base, which is the case that keeps producing work against code that moved. Bring it up to date: git merge origin/$base"
+      _pw_block "'$branch' is missing $n commit(s) from origin/$base -- it is in sync with its own remote and still built on a stale base, which is the case that keeps producing work against code that moved. Bring it up to date: git merge origin/$base"
     fi
   fi
 
