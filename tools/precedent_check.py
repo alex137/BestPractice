@@ -9278,6 +9278,19 @@ def load_exemptions():
 # code-cites-practice: session-load-budget
 SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
 
+
+def _as_measured(rel, text):
+    """`text` as a cap measures it: the session-start file without the
+    over-target warning its generator writes (precedent_session_practices.
+    without_target_warning), every other surface as it is."""
+    if rel != '.precedent/SESSION_PRACTICES.md':
+        return text
+    try:
+        import precedent_session_practices as _psp
+        return _psp.without_target_warning(text)
+    except Exception:                                         # noqa: BLE001
+        return text
+
 # --- duplicated always-loaded text (practice: session-load-budget) ---------
 #
 # The FIRST of that practice's three reduction moves is "delete what is
@@ -9644,7 +9657,7 @@ def _session_load_budget(ctx):
         if not f.is_file():
             continue
         text = f.read_text(encoding='utf-8', errors='replace')
-        n = approx(text)
+        n = approx(_as_measured(rel, text))
         entry = surfaces.get(rel)
         if entry is None:
             out.append(Finding(rel, f'is loaded into every session '

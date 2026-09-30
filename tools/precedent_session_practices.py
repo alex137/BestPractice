@@ -291,6 +291,26 @@ def render(extra, levels, notes, repo=None):
     return '\n'.join(head)
 
 
+# How the over-target warning below begins. The cap checks measure the file
+# without it (without_target_warning): it is written BECAUSE the file is
+# over its target, so counting it against the ceiling made the warning
+# itself the thing that broke the ceiling. precedent-individual, 2026-09-30:
+# 5,155 tokens without it, 5,211 with it, against a 5,200 ceiling -- every
+# Promote there refused on a file only the warning had pushed over.
+TARGET_WARNING_MARK = '> **SESSION LOAD OVER TARGET:'
+
+
+def without_target_warning(text):
+    """-> `text` without the over-target warning _with_target_warning adds
+    (and the blank line before it): the file as its content measures."""
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if line.startswith(TARGET_WARNING_MARK):
+            start = i - 1 if i and not lines[i - 1].strip() else i
+            return '\n'.join(lines[:start] + lines[i + 1:])
+    return text
+
+
 def _with_target_warning(repo, text):
     """-> `text` with a warning under its title when the file is over the
     `target` its registry entry declares, else `text` unchanged.
@@ -314,7 +334,7 @@ def _with_target_warning(repo, text):
     at = next((i for i, l in enumerate(lines) if l.startswith('# ')), None)
     if n <= target or at is None:
         return text
-    warning = (f'> **SESSION LOAD OVER TARGET: this file is ~{n:,} tokens, over '
+    warning = (f'{TARGET_WARNING_MARK} this file is ~{n:,} tokens, over '
                f'its {target:,}-token target.** Say so to the person in your '
                f'first reply and offer a Reduction pass (practice: '
                f'reduction-pass). Never raise the target or the ceiling '

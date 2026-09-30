@@ -15261,6 +15261,49 @@ def check_show_loads_a_practice_from_a_declared_source():
           '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
+def check_session_file_warning_does_not_count_against_its_ceiling():
+    """The over-target warning precedent_session_practices.py writes into
+    .precedent/SESSION_PRACTICES.md is left out when the file is measured
+    against its ceiling, by precedent_check.py and session_load_trend.py
+    alike, and nothing else is. precedent-individual, 2026-09-30: 5,155
+    tokens without the warning, 5,211 with it, against a 5,200 ceiling, so
+    every Promote refused on a file only the warning pushed over."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    import precedent_session_practices as psp
+    import precedent_check as pc
+    import session_load_trend as slt
+    rel = '.precedent/SESSION_PRACTICES.md'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-session-warning-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        body = '# Practices in force here\n\n' + 'A rule a session reads. ' * 60 + '\n'
+        n = bv._approx_tokens(body)
+        (tmp / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+            {'surfaces': {rel: {'target': n // 2, 'ceiling': n + 5}}}),
+            encoding='utf-8')
+        written = psp._with_target_warning(tmp, body)
+        cases.append(('over target, the file carries the warning',
+                      psp.TARGET_WARNING_MARK in written, written[:200]))
+        cases.append(('and the warning alone takes it over its ceiling',
+                      bv._approx_tokens(written) > n + 5,
+                      bv._approx_tokens(written)))
+        for name, measure in (('precedent_check', pc._as_measured),
+                              ('session_load_trend', slt.as_measured)):
+            got = measure(rel, written)
+            cases.append((f'{name} measures it without the warning, exactly '
+                          f'the content', got == body, got[:200]))
+            cases.append((f'{name} leaves every other surface as it is',
+                          measure('AGENTS.md', written) == written, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n_, det) for n_, ok, det in cases if not ok]
+    check('the session file\'s over-target warning never counts against its '
+          'ceiling', not bad, '; '.join(f'{n_}: {det!r}' for n_, det in bad))
+
+
 def check_routing_audit_coverage():
     """routing_audit.py's coverage() -- the mechanical half of the routing
     audit (practices/routing-audit.md) -- against real practices already in
@@ -48291,6 +48334,7 @@ def main():
     check_very_deep_check_finds_vendored_surplus()
     check_every_file_is_decided_by_a_vendoring_rule()
     check_show_loads_a_practice_from_a_declared_source()
+    check_session_file_warning_does_not_count_against_its_ceiling()
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
