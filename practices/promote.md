@@ -152,7 +152,12 @@ The command does the whole promotion, and a session adds nothing to it:
    right now"* -- and that is the whole report: don't Promote again while
    it runs, and don't suggest it either. A claim left by a window that died
    frees itself after 15 minutes. The branch is never deleted (a session
-   can't), and it is not unlanded work or a branch to tidy up.
+   can't), and it is not unlanded work or a branch to tidy up. **The merge
+   gate takes the same lock** while it checks a pull request into staging
+   or main (`hold_for_landing`; Alex, 2026-09-30: *"Do all three recs"*,
+   strength: decided), so a Promote and a landing never move a tier under
+   each other's check: whichever finds it held waits, and a claim naming
+   "landing pull request #N" is a landing, not a Promote.
 1. **Copies down what reached staging or main by another route** -- a
    direct push to staging, a workflow's bot commit on main, an edit made on
    GitHub's website -- **once it has had its own tier's checks.** Staging's
