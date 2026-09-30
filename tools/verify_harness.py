@@ -18423,6 +18423,63 @@ def check_trivial_checkin_exempts_the_boildown_gate():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_close_detect_counts_only_this_sessions_reverts():
+    """The practice-candidate detector's revert signal is this session's own.
+
+    Found 2026-09-30: signals() took every revert reachable from HEAD since
+    the session started, so another session's revert, brought in by a merge
+    from pre-staging, was reported as "work this session undid". Now only a
+    commit carrying this session's trailer, on its own first-parent line,
+    counts. Driven against a throwaway repository (practice:
+    fixture-owns-its-state)."""
+    import tempfile
+    import precedent_close_detect as pcd
+    cases = []
+    saved = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID')
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env).stdout.strip()
+
+        def commit(f, text, msg):
+            (repo / f).write_text(text, encoding='utf-8')
+            g('add', '-A'); g('commit', '-qm', msg)
+
+        g('init', '-q', '-b', 'pre-staging')
+        commit('a', '1', 'base')
+        g('checkout', '-q', '-b', 'claude/mine')
+        g('checkout', '-q', 'pre-staging')
+        commit('b', '1', 'other work\n\nSession: https://claude.ai/code/session_OTHER')
+        g('revert', '--no-edit', 'HEAD')
+        g('commit', '-q', '--amend', '-m',
+          'Revert "other work"\n\nSession: https://claude.ai/code/session_OTHER')
+        g('checkout', '-q', 'claude/mine')
+        commit('c', '1', 'mine\n\nSession: https://claude.ai/code/session_ME')
+        g('merge', '-q', '--no-ff', '--no-edit', 'pre-staging')
+        records = [{'timestamp': '2000-01-01T00:00:00Z', 'type': 'user'}]
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_ME'
+        try:
+            before = [d for n, d in pcd.signals(records, repo) if n == 'reverted-or-corrected']
+            commit('c', '2', 'Revert my own change\n\nSession: https://claude.ai/code/session_ME')
+            after = [d for n, d in pcd.signals(records, repo) if n == 'reverted-or-corrected']
+        finally:
+            if saved is None:
+                os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID', None)
+            else:
+                os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = saved
+        cases.append(('a revert merged in from another branch is not a signal',
+                      before == [], str(before)))
+        cases.append(("the session's own revert is",
+                      len(after) == 1 and 'Revert my own change' in after[0], str(after)))
+    failed = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the close detector counts only this session\'s own reverts '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_close_detection_fires_only_when_all_conditions_hold():
     """precedent_close_detect.py: the noticing end of the engine, and every
     one of its four conditions, each with the control that proves the
@@ -48671,6 +48728,7 @@ def main():
     check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
+    check_close_detect_counts_only_this_sessions_reverts()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
