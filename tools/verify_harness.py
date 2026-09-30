@@ -18404,6 +18404,31 @@ def check_close_detection_fires_only_when_all_conditions_hold():
         cases.append(('...while the same words typed by the person still fire',
                       r7c.returncode == 2, f'exit {r7c.returncode}'))
 
+        # A prompt another session seeded, and a pasted block, are that
+        # session's words (2026-09-29: three signals from a pasted handoff,
+        # reported as "the person said").
+        rule = 'Never open a pull request, never merge.'
+        seeded = [('user', 'Review this. Sent automatically by the session '
+                   '"x" (session_1) -- https://claude.ai/code/session_1. '
+                   'Nobody typed this.\n\n' + rule),
+                  ('tool', MERGED), ('assistant', CLOSE)]
+        r7d = run(transcript('seeded.jsonl', seeded))
+        cases.append(("a prompt another session seeded is not mistaken for "
+                      'something the person said', r7d.returncode == 0,
+                      r7d.stderr[:200]))
+        pasted = [('user', 'Thoughts on this?\n<pasted_content id="p1">\n'
+                   + rule + '\n</pasted_content id="p1">'),
+                  ('tool', MERGED), ('assistant', CLOSE)]
+        r7e = run(transcript('pasted.jsonl', pasted))
+        cases.append(('nor is text pasted in a <pasted_content> block',
+                      r7e.returncode == 0, r7e.stderr[:200]))
+        typed_around = [('user', rule + '\n<pasted_content id="p2">\nsome '
+                         'notes\n</pasted_content id="p2">'),
+                        ('tool', MERGED), ('assistant', CLOSE)]
+        r7f = run(transcript('typed-around.jsonl', typed_around))
+        cases.append(("...while the person's own words beside a paste still "
+                      'fire', r7f.returncode == 2, f'exit {r7f.returncode}'))
+
         # A gate that blocks the same reply twice is a loop.
         r8 = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
