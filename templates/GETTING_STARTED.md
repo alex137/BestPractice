@@ -211,12 +211,13 @@ one-line opener:
   project is to ask your AI Assistant — it reads the project's map and
   decision records for you. You should rarely need to open a file
   yourself.
-- **Ask what's new.** Approved changes don't appear in your old
-  conversations by themselves. Each new session, the AI Assistant
-  catches you up on what changed since you last worked — and you can ask
-  *"what's new?"* at any time. If your in-progress work has fallen
-  behind the shared project, the AI Assistant will offer to bring it up
-  to date.
+- **Ask what's new.** Changes don't appear in your old conversations by
+  themselves, so the project keeps a daily log of what changed, in plain
+  words. Ask *"what's new?"* at any time: the AI Assistant brings the log
+  up to date, links it so you can check it daily, shows you the latest,
+  and asks what you'd like to hear more about. If your in-progress work
+  has fallen behind the shared project, the AI Assistant will offer to
+  bring it up to date.
 - **Claim what you take on.** When you start an item from the to-do
   list, the AI Assistant marks it with your name so teammates don't
   duplicate the work — and it will tell you if someone else is already on

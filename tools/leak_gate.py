@@ -985,18 +985,28 @@ def _stale_blocklist_clone_note():
     rc, head = git('log', '-1', '--format=%h %ad', '--date=format:%Y-%m-%d %H:%M')
     head = head if rc == 0 and head else 'unknown'
 
+    # A bare pull refuses in a practice-set clone the session-start refresh
+    # left engine output in (2026-09-30); name the command that works.
+    bring = f'git -C {root} pull --ff-only'
+    if (pathlib.Path(root) / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_engine_freshness as _pef
+            bring = _pef.refresh_remedy(pathlib.Path.cwd(), root)
+        except Exception:                                    # noqa: BLE001
+            pass
     rc, behind = git('rev-list', '--count', 'HEAD..@{u}')
     if rc == 0 and behind.isdigit() and int(behind) > 0:
         return (f"  the blocklist came from {root}, whose checkout is "
                 f"{behind} commit(s) BEHIND its upstream (HEAD {head}). A hit "
                 f"naming something renamed or allowed recently is that, not "
-                f"this tree. Run `git -C {root} pull --ff-only` and re-run "
+                f"this tree. Run `{bring}` and re-run "
                 f"before treating any of the above as real.")
     return (f"  the blocklist came from {root}, HEAD {head}. That is the "
             f"clone's own commit, not proof it is current -- its "
             f"remote-tracking ref may be as stale as the checkout. If a hit "
             f"above names something renamed or allowed recently, run "
-            f"`git -C {root} pull --ff-only` and re-run before treating it "
+            f"`{bring}` and re-run before treating it "
             f"as real.")
 
 

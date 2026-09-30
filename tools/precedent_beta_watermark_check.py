@@ -223,8 +223,15 @@ def _can_push(repo):
     return code == 0
 
 
+def _origin_head(repo, branch):
+    """-> the commit origin/<branch> names in this clone, '' if none."""
+    code, out = git(repo, 'rev-parse', '--verify', '--quiet', f'origin/{branch}')
+    return out.strip() if code == 0 else ''
+
+
 def _is_quiet(repo, branch):
-    """-> True when this checkout is level with origin and nothing is staged.
+    """-> True when this checkout is ON `branch`, level with origin, and
+    nothing is staged.
 
     THE HAZARD THE MOVE INTRODUCED, and the reason this exists. While the
     watermark lived in another repository, a session-start commit there
@@ -237,7 +244,17 @@ def _is_quiet(repo, branch):
 
     So the hook writes history only into a checkout that is demonstrably
     idle. Anything else, and the per-container note takes it instead: the
-    alert is still delivered, and nobody's work moves."""
+    alert is still delivered, and nobody's work moves.
+
+    ON THE BRANCH ITSELF, not merely level with it (2026-09-30). A session
+    resumed on a merged feature branch whose commits were all on staging
+    already counted as "level", so the hook committed the watermark onto
+    the FEATURE branch; the push to origin/staging then failed, and the
+    stray local commit read as work existing nowhere else, which held the
+    archive line."""
+    code, cur = git(repo, 'symbolic-ref', '--quiet', '--short', 'HEAD')
+    if code != 0 or cur.strip() != branch:
+        return False
     code, ahead = git(repo, 'rev-list', '--count', f'origin/{branch}..HEAD')
     if code != 0 or ahead.strip() != '0':
         return False
@@ -412,6 +429,8 @@ def _commit_and_push(repo, path, message, no_push, branch, identity=None):
     wrote into a repository it did not configure, which no longer holds;
     the explicit author stays because it is correct and costs nothing."""
     rel = path.relative_to(pathlib.Path(repo))
+    _, before = git(repo, 'rev-parse', 'HEAD')
+    before = before.strip()
     git(repo, 'add', str(rel))
     _id_args, _id_env = _identity_args(identity)
     code, _ = git(repo, *_id_args, 'commit', '-m', message,
@@ -422,11 +441,23 @@ def _commit_and_push(repo, path, message, no_push, branch, identity=None):
         return 'committed locally only (--no-push)'
     code, out = git(repo, 'push', 'origin', f'HEAD:{branch}')
     if code != 0:
+        # Leave no commit behind: an unpushed one reads as work that exists
+        # nowhere else and holds the archive line (2026-09-30). The branch
+        # goes back only if it still points at the commit made here, and
+        # the one path is restored from the commit before it.
+        _, now = git(repo, 'rev-parse', 'HEAD')
+        undone = bool(before) and git(repo, 'update-ref', f'refs/heads/{branch}',
+                                      before, now.strip())[0] == 0
+        if undone:
+            git(repo, 'checkout', before, '--', str(rel))
+            return (f'the push to origin/{branch} failed '
+                    f'({out.splitlines()[-1] if out else "see stderr"}), so the '
+                    f'commit was taken back; '
+                    + _write_local_note(repo, _origin_head(repo, branch), branch))
         return (f'committed here, and the push to origin/{branch} failed '
-                f'({out.splitlines()[-1] if out else "see stderr"}). Nothing '
-                f'retries it: the local watermark now equals the head, so the '
-                f'next session here short-circuits before reaching this push. '
-                f'It travels with whatever this session pushes next')
+                f'({out.splitlines()[-1] if out else "see stderr"}); the commit '
+                f'could not be taken back, so it travels with whatever this '
+                f'session pushes next')
     return 'committed and pushed'
 
 

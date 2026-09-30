@@ -51,9 +51,16 @@ In the tool ([tools/checkin.py](../tools/checkin.py), `_carry_check`), two mecha
    those and the clone's HEAD deleted is reported as upstream's own
    deletion, counted in one line, and not refused.
 
+3. (Added 2026-09-30.) A line any earlier upstream version of the same
+   file carried is upstream's too. A consumer held 75 vendored files
+   byte-identical to versions older than every stamp, because earlier syncs
+   never refreshed them, so neither mechanism above could see them; and
+   recording with `--accept-loss` did not end it, because the next run read
+   the base branch again. The file's own upstream history can.
+
 A line upstream never had is still refused and named. Pinned by
 [tools/verify_harness.py](../tools/verify_harness.py)'s `check_carry_check_never_counts_upstream_deletions`,
-which fails five of its six cases against the old code.
+which fails five of its six original cases against the first fix, and its two newest against the second.
 **A consumer gets the fix on its next Update Vendors**; until then a
 refusal of this shape is almost certainly this bug, and running the new
 tool from an up-to-date clone confirms it.

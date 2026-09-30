@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 162 practice files (10 resident, 152 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 163 practice files (10 resident, 153 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -172,6 +172,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |
+| [whats-new](practices/whats-new.md) | on-demand | a person asks "What's new?", or what has changed in the project lately |
 | [wide-search-needs-asking](practices/wide-search-needs-asking.md) | on-demand | about to search or scan every clone, every repo or every file for something |
 | [workflow-file-outside-vendoring](practices/workflow-file-outside-vendoring.md) | on-demand | a .github/workflows/*.yml file is added or changed |
 | [write-it-up](practices/write-it-up.md) | on-demand | a person says "Write it up", or asks for a write-up |
@@ -275,6 +276,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_update.py](tools/precedent_update.py) | Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md) |
 | [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) | Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable |
 | [tools/precedent_vocabulary.py](tools/precedent_vocabulary.py) | Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the "Vocabulary" command and emits the reader-facing table |
+| [tools/precedent_whats_new.py](tools/precedent_whats_new.py) | The mechanics behind "What's new?": which finished days on main a project's running log lacks, what changed on each, today so far, and marking the log current -- the entries themselves are the session's to write |
 | [tools/precedent_which_repo.py](tools/precedent_which_repo.py) | Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory |
 | [tools/reach_key.py](tools/reach_key.py) | A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing |
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
