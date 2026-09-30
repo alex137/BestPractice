@@ -231,10 +231,9 @@ def render(extra, levels, notes, repo=None):
         return '\n'.join(head)
     if deferred_notes:
         # ONE LINE, not a section. The deferral notes' reasons are the
-        # intro's, and their source names are the `--repo` lines at the foot
-        # of this file; what the reader still needs is that these sources
+        # intro's; what the reader still needs is that these sources
         # RESOLVED, as against the heading above for the ones that did not.
-        head += ['Every source listed at the end of this file resolved.', '']
+        head += ['Every source this repository declares resolved.', '']
     # build_loader_block returns (text, resident_tokens, resident_count) --
     # the same renderer AGENTS.md uses, so this block cannot drift from it.
     #
@@ -287,7 +286,13 @@ def render(extra, levels, notes, repo=None):
             f'ceiling to clear this without the person\'s own words for that '
             f'raise (practice: session-load-budget).', '']
     head += [block, '']
-    head += _how_to_read_one(extra, levels, _repo)
+    # A "Reading one of these in full" section used to follow, one
+    # `precedent_show.py SLUG --repo <source>` line per source, because
+    # the bare command read only this repo's practices/ and refused every
+    # slug here. precedent_show.py looks the slug up through the declared
+    # sources itself since 2026-09-30, so the standing instruction's bare
+    # command works and the section, ~120 tokens every session, is
+    # retired (a Reduction pass, Morgan, 2026-09-30).
     return '\n'.join(head)
 
 
@@ -340,45 +345,6 @@ def _with_target_warning(repo, text):
                f'reduction-pass). Never raise the target or the ceiling '
                f'without their own words for it.')
     return '\n'.join(lines[:at + 1] + ['', warning] + lines[at + 1:])
-
-
-def _how_to_read_one(extra, levels, repo):
-    """-> lines telling the session how to load one of these practices.
-
-    The block above ends with the loader's standing instruction, which says
-    `python3 tools/precedent_show.py SLUG`. That command reads THIS repo's
-    practices/, and not one practice in this file lives there -- that is the
-    whole reason the file exists -- so in a public repo, and in every practice
-    set, it answers `unknown slug` for all of them. Measured 2026-09-14: a
-    session in this repository ran the instruction for ten slugs from this
-    file and got ten refusals, then found the sources by hand. The tool has
-    had `--repo DIR` all along; nothing told the reader to use it.
-
-    One line per source, derived from where each practice's file actually
-    sits (practices/<slug>.md, so the source root is two levels up), never
-    from a path typed here. A consuming repo that materializes every source
-    into its own practices/ never reaches this: its tracked block carries
-    the practices and this file is not written.
-    """
-    roots = {}
-    for fm, _sections, path in extra:
-        slug = (fm.get('slug') or path.stem).strip()
-        root = path.resolve().parent.parent
-        roots.setdefault(root, [levels.get(slug, '?'), 0])
-        roots[root][1] += 1
-    if not roots:
-        return []
-    lines = ['## Reading one of these in full', '',
-             'None of these lives in this repository\'s `practices/`, so a '
-             'bare `python3 tools/precedent_show.py SLUG` reports an unknown '
-             'slug. Add `--repo` naming its source (`--detail`, `--why` and '
-             '`--story` work the same way):',
-             '']
-    for root, (level, n) in sorted(roots.items(), key=lambda kv: (kv[1][0], str(kv[0]))):
-        lines.append(f'- `python3 tools/precedent_show.py SLUG --repo {root}` '
-                     f'-- the {level} source ({n} practice(s) above)')
-    lines.append('')
-    return lines
 
 
 def main():
