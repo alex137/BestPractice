@@ -1374,6 +1374,8 @@ def update(repo, skip_check=False, ref=None):
     for line in dict.fromkeys(l.strip() for l in out.splitlines()):
         if line.startswith('KEPT ON PURPOSE: '):
             rep.step('kept on purpose', line[len('KEPT ON PURPOSE: '):])
+        elif line.startswith('PIN NARROWED: '):
+            rep.step('kept pin narrowed', line[len('PIN NARROWED: '):])
         elif line.startswith('precedent_vendor_engine refresh: REPLACED '):
             rep.step('replaced', line.split('REPLACED ', 1)[1])
     # A consumer's CI converges to upstream without asking (2026-09-27, see

@@ -30812,9 +30812,17 @@ def check_kept_agents_md_divergence_is_recorded():
         raw = pve._template_sections(tpl)[key][1]
         sec = pve._instantiate(raw, subs)
         assert sec in stock, 'template shape moved; repoint this fixture'
-        ours = stock.replace(sec, f'{key}\n\n- This repo starts its sessions '
-                                  f'its own way, written in its own words.')
-        sha_now = pve._sha_text(sec)
+        own = (f'{key}\n\n- This repo starts its sessions its own way, '
+               f'written in its own words.')
+        ours = stock.replace(sec, own)
+        full_now = pve._sha_text(sec)
+
+        def pin(section):
+            # What a kept section is pinned to since 2026-09-30: the blocks
+            # it carries, each block it lacks entirely standing as one line.
+            return pve._carried_sha(section,
+                                    pve.missing_markdown_blocks(own, section))
+        sha_now = pin(sec)
 
         repo = fx.consumer('kept', agents=ours)
         rc, out = fx.update(repo)
@@ -30823,18 +30831,44 @@ def check_kept_agents_md_divergence_is_recorded():
                       rc == 1 and f'AGENTS.md "{key}"' in out.split('LEFT FOR YOU')[-1]
                       and sha_now in out, out[-1500:]))
 
-        fx.keep(repo, item, 'we say this our own way', sha_now)
+        # Recorded the way an engine before 2026-09-30 printed it: the whole
+        # section's hash. Still honoured, and narrowed to the pin above.
+        fx.keep(repo, item, 'we say this our own way', full_now)
         rc, out = fx.update(repo)
         cases.append(('THE FIX: recorded with a reason against the current '
                       'template, the next update is DONE, exit 0',
                       rc == 0 and 'DONE' in out and 'LEFT FOR YOU' not in out,
                       out[-1500:]))
+        cases.append(('...and a pin to the whole section is narrowed to the '
+                      'blocks the section carries, and says so',
+                      json.loads((repo / 'precedent.json').read_text(
+                          encoding='utf-8'))['kept_template_divergences'][item]
+                      ['template_sha256'] == sha_now
+                      and 'now pins only the blocks' in out, out[-1500:]))
         cases.append(('...and says it once, with the reason, as a note',
                       out.count('kept on purpose: ') == 2   # step line + summary
                       and 'we say this our own way' in out, out[-1500:]))
         cases.append(('...and the section is left exactly as the repo wrote it',
                       'written in its own words' in
                       (repo / 'AGENTS.md').read_text(encoding='utf-8'), ''))
+
+        # Upstream rewords a block this section does not carry at all
+        # (2026-09-30: a placeholder renamed inside one missing bullet brought
+        # a kept section back, and the consumer re-pinned it by hand).
+        blocks = [t for o, t in pve._md_blocks(sec)]
+        assert blocks and all(h == 'missing' for _o, _t, h, _a in
+                              pve.missing_markdown_blocks(own, sec)), \
+            'this fixture needs a section whose blocks are all missing'
+        head, rest = raw.split('\n', 1)
+        word = next(w for w in rest.split() if len(w) > 5 and w.isalpha())
+        reworded = tpl.replace(raw, head + '\n' + rest.replace(word, word + 'x', 1))
+        assert reworded != tpl
+        rc, out = fx.update(repo, fx.upstream_with(fx.AGENTS_SRC,
+                                                   reworded.encode()))
+        cases.append(('a rewording inside a block the section lacks entirely '
+                      'keeps the decision: DONE, exit 0, said as kept',
+                      rc == 0 and 'DONE' in out and 'kept on purpose: ' in out,
+                      out[-1500:]))
 
         moved = tpl.replace(raw, raw + '\n- **FIXTURE BULLET** -- a sentence '
                                        'upstream added to this section later.')
@@ -30844,7 +30878,7 @@ def check_kept_agents_md_divergence_is_recorded():
                       'again, naming the change and the new hash',
                       rc == 1 and f'AGENTS.md "{key}"' in out.split('LEFT FOR YOU')[-1]
                       and 'FIXTURE BULLET' in out and 'has changed since' in out
-                      and pve._sha_text(pve._instantiate(
+                      and pin(pve._instantiate(
                           pve._template_sections(moved)[key][1], subs)) in out,
                       out[-1500:]))
 
@@ -37333,6 +37367,85 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
           f'SESSION LOAD pass ({len(cases)} stated cases, the spread-thin '
           f'overage being the discriminating one)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_refresh_judges_workflows_once_the_engine_is_whole():
+    """An engine release that adds a module took two Update Vendors runs to
+    finish (2026-09-30, a consumer updating from 99941178): the second pass
+    of the self-replacing refresh judged workflow approvals at its top, by
+    importing a precedent_check.py the first pass had already replaced,
+    before it wrote the generated_blocks.py that file now imports. So the
+    first run ended "no approval could be judged ... did not import", with
+    the reason hidden. Discriminating cases, on a planted engine directory:
+    during refresh's opening sweep a failed import is deferred, not left
+    for the person; once the engine is whole the deferred judgment runs and
+    removes an unapproved workflow; and outside refresh the failure is
+    still left for the person, now naming the exception."""
+    import contextlib, io, shutil, subprocess, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='wf-judge-'))
+    saved_dir, saved_mod = pve.ENGINE_DIR, sys.modules.pop('precedent_check', None)
+    cases = []
+    try:
+        eng, dest = tmp / 'eng', tmp / 'dest'
+        eng.mkdir()
+        (dest / '.github' / 'workflows').mkdir(parents=True)
+        git = lambda *a: subprocess.run(['git', '-C', str(dest), *a],
+                                        capture_output=True, text=True)
+        git('init', '-q')
+        git('config', 'user.name', 'Test')
+        git('config', 'user.email', 'test@example.com')
+        wf = dest / '.github' / 'workflows' / 'extra.yml'
+        wf.write_text('on: push\njobs: {}\n', encoding='utf-8')
+        (dest / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'seed\n\nSession: none available (test)')
+        (eng / 'precedent_check.py').write_text(
+            'import generated_blocks_not_written_yet\n', encoding='utf-8')
+        pve.ENGINE_DIR = eng
+        pve._LEFT_FOR_YOU.clear()
+        pve._DEFER_WORKFLOW_JUDGMENT = True
+        with contextlib.redirect_stdout(io.StringIO()):
+            pve._remove_unapproved_workflows(dest, {}, 'consumer', None)
+        pve._DEFER_WORKFLOW_JUDGMENT = False
+        cases.append(('in refresh\'s opening sweep, a failed import is '
+                      'deferred, not left for the person',
+                      len(pve._DEFERRED_WORKFLOW_JUDGMENT) == 1
+                      and not pve._LEFT_FOR_YOU, repr(pve._LEFT_FOR_YOU)))
+        (eng / 'precedent_check.py').write_text(
+            'def _approval_problem(entry):\n    return "fixture"\n',
+            encoding='utf-8')
+        with contextlib.redirect_stdout(io.StringIO()):
+            pve._judge_deferred_workflows()
+        cases.append(('once the engine is whole, the deferred judgment runs '
+                      'and the unapproved workflow goes', not wf.exists(),
+                      repr(pve._LEFT_FOR_YOU)))
+        git('checkout', '-q', 'HEAD', '--', '.github/workflows/extra.yml')
+        git('reset', '-q', '--hard')
+        (eng / 'precedent_check.py').write_text(
+            'import generated_blocks_not_written_yet\n', encoding='utf-8')
+        sys.modules.pop('precedent_check', None)
+        pve._LEFT_FOR_YOU.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            pve._remove_unapproved_workflows(dest, {}, 'consumer', None)
+        said = ' '.join(str(x) for x in pve._LEFT_FOR_YOU)
+        cases.append(('outside refresh the failure is still left for the '
+                      'person, naming the exception',
+                      'generated_blocks_not_written_yet' in said, said[:300]))
+    finally:
+        pve.ENGINE_DIR = saved_dir
+        pve._DEFER_WORKFLOW_JUDGMENT = False
+        pve._DEFERRED_WORKFLOW_JUDGMENT.clear()
+        pve._LEFT_FOR_YOU.clear()
+        sys.modules.pop('precedent_check', None)
+        if saved_mod is not None:
+            sys.modules['precedent_check'] = saved_mod
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a refresh judges workflows once the engine is whole '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
 def check_push_check_skips_a_set_check_older_than_push_time_judging():
@@ -47757,6 +47870,7 @@ def main():
     check_budget_approvals_see_computed_raises()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
+    check_refresh_judges_workflows_once_the_engine_is_whole()
     check_push_check_skips_a_set_check_older_than_push_time_judging()
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
