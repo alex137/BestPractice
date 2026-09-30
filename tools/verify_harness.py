@@ -14273,8 +14273,13 @@ def check_branch_store_and_its_callers():
     an entry byte for byte into another clone, and two clones publishing in
     turn on a stale tip keep both entries."""
     bad, cases = [], []
+    # The store and its callers commit with git's ambient identity; a runner
+    # or a clean $HOME may have none (practice: fixture-owns-its-state).
+    env = dict(os.environ, PRECEDENT_TZ='UTC',
+               GIT_AUTHOR_NAME='x', GIT_AUTHOR_EMAIL='x@example.invalid',
+               GIT_COMMITTER_NAME='x', GIT_COMMITTER_EMAIL='x@example.invalid')
     r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'branch_store.py'), '--self-check'],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=env)
     if r.returncode != 0:
         bad.append('branch_store self-check: ' + (r.stdout + r.stderr).strip()[-300:])
     cases.append('store self-check')
@@ -14315,7 +14320,6 @@ out["pulled"] = rcB.ready(d, claim=False) and d.read_bytes() == bytes([2]) * 100
 print(json.dumps(out))
 """
     with tempfile.TemporaryDirectory() as t:
-        env = dict(os.environ, PRECEDENT_TZ='UTC')
         r = subprocess.run([sys.executable, '-c', script, str(ROOT / 'tools'), t],
                            capture_output=True, text=True, env=env)
         try:
@@ -14775,6 +14779,14 @@ def check_retired_words_are_found_and_history_is_left():
     cases.append(('a line about the retirement itself keeps the old word',
                   hits('documentation/W.md', 'The old spelling, `--level team`, '
                        'still works.\n') == [], ''))
+    # MAP.md's withdrawn-practice rows quote the withdrawn practice's own
+    # Story; a row with a finished status in a cell is history. The same
+    # phrase in a row of an active practice is still live (the control).
+    rows = ('| [a](practices/a.md) | deduplicated | `b` | It hit the three '
+            'team sets. |\n| [c](practices/c.md) | active | the team sets |\n')
+    out = hits('MAP.md', rows)
+    cases.append(('a table row with a finished status is history; an active '
+                  'row is still live', [n for n, *_ in out] == [2], out))
     bad = [(n, det) for n, ok, det in cases if not ok]
     check('retired words are found in live text and left alone in history',
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
@@ -36947,6 +36959,25 @@ def check_push_check_skips_a_set_check_older_than_push_time_judging():
             failed, _m, _t, _f = ppc.run(tmp, checks)
         cases.append(('a new copy that finds something still refuses',
                       failed == ['session_trailer'], repr(failed)))
+        # precedent_update.py's stand-in commit: its message is the tool's,
+        # so the commit-judging checks stand aside there.
+        os.environ[ppc.STANDIN_COMMIT_ENV] = '1'
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                failed, _m, _t, _f = ppc.run(tmp, checks)
+        finally:
+            os.environ.pop(ppc.STANDIN_COMMIT_ENV, None)
+        cases.append(('under the update\'s stand-in commit, the trailer check '
+                      'stands aside', not failed, repr(failed)))
+        # ...and when an update's check is red, its report shows the finding
+        # even when routine notices were printed after it.
+        import precedent_update as pu
+        red = '\n'.join(['      | VIOLATION: session-trailer',
+                         '      |   commit 0123abcd: no trailer'] +
+                        ['      build_views: y is status: retired'] * 40)
+        shown = pu.tail(red)
+        cases.append(('a red update report shows the finding, not the last '
+                      'notices', 'commit 0123abcd' in shown, shown[-300:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
