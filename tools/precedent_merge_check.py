@@ -374,7 +374,32 @@ def main(argv):
         extra = ()
         if tier == 'basic' and pb and pb.PRE_STAGING in bases:
             extra = ('--changed-since', f'origin/{pb.PRE_STAGING}')
-        rc, out = run_in_worktree(root, sha, tier, tool_rel, extra)
+        # A fully checked base is held still while its merge is judged
+        # (precedent_branches.hold_for_landing): a Promote or another landing
+        # moving it now would make this pass stale before it is used.
+        held = None
+        hold = getattr(pb, 'hold_for_landing', None) if pb else None
+        # Only where the tiers exist: a repository that never promotes has
+        # no lock, and must not grow a branch because a merge was checked.
+        if hold and tier == 'full' and bases \
+                and set(bases) & set(pb.full_branches(root)) \
+                and pb._remote_tip(root, pb.PRE_STAGING):
+            state, info = hold(root, f'landing pull request #{number} into {base}')
+            if state == 'busy':
+                print(f'precedent_merge_check: REFUSED pull request #{number} '
+                      f'of {owner}/{repo} for now -- {base} is being moved or '
+                      f'checked by another window ({info}), so a check started '
+                      f'now would be out of date before it finished. Merge '
+                      f'again once that ends; a claim frees itself after '
+                      f'{pb.LOCK_STALE_SECONDS // 60} minutes.')
+                return 1
+            if state == 'held':
+                held = info
+        try:
+            rc, out = run_in_worktree(root, sha, tier, tool_rel, extra)
+        finally:
+            if held:
+                pb.release_hold(root, held)
     finally:
         _cleanup_refs(root, number)
     tail = out.rstrip().splitlines()[-TAIL_LINES:]
