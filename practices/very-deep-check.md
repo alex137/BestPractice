@@ -1154,6 +1154,29 @@ confidently.
     the repos attached to it (measured 2026-09-26), so the list of repos
     not reached is part of the result, and it says what would reach each
     one.
+23. **Does a consumer receive anything it has no use for, or anything
+    twice?** The tool's `VENDORED SURPLUS` section is this question's
+    mechanical half, asked from both ends. From this repo: everything it
+    ships by either route, the catalogue copy into `process/upstream/` and
+    the engine into a consumer's own `tools/` and `.claude/hooks/`, with
+    every file shipped twice and every file nothing else that ships names.
+    From each consumer in the session: what its copy still holds that the
+    copy no longer carries, and every file it holds twice. **Judge each
+    one:** narrow what ships (a rule in `VENDORING_RULES`, the ruleset
+    [vendor-rollout-disclosed](vendor-rollout-disclosed.md)'s fifth question
+    applies to every new file), or say why the consumer needs it. The consumer
+    side clears itself on its next Update Vendors. *(Found 2026-09-30: a
+    consumer's copy held 543 files, among them this repo's test suite, its
+    gotchas and a second copy of the engine. Question 8 never saw it: it
+    reads one repo against itself, and the section before this one checked
+    only the checkout the run started in, against a list of what to leave
+    out, so anything not on that list read as fine. Morgan, that day:
+    "check specifically the vendored-in files to see if anything is
+    vendored-in that the consumer repo would never have use of." Its first
+    run flagged the Claude Code hooks, installed and again in the copy's
+    templates. Morgan kept them: the template is what a new repo is made
+    from. A template beside the file made from it is now counted, not
+    flagged.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits

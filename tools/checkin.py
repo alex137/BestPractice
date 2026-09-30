@@ -59,6 +59,12 @@ had already needed it.
                             nearly mirrored an old tree; the tool pulls
                             fresh and guards the overwrite.)
 
+  rules [REF]               In the repo that ships the copy: each file
+                            added since REF (default: the landing branch)
+                            and whether it ships to consumers, by the
+                            VENDORING_RULES rule that decides it. Exit 1
+                            if a file has no rule.
+
   push <upstream-clone> --why "what went wrong"
                             Send this repo's committed changes to the
                             vendored tree upstream, as a branch in the
@@ -102,7 +108,7 @@ Run:  python3 process/upstream/tools/checkin.py fresh
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
       python3 ../BestPractice/tools/checkin.py update ../BestPractice --repo .
 """
-import datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
+import collections, datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 # practice: one-formatter-per-quantity -- every moment in time this project
 # writes down comes from ONE module, in the person's zone, carrying its
@@ -412,44 +418,188 @@ _NOT_VENDORED_ROOT_PATHS = frozenset(pathlib.Path(n) for n in NOT_VENDORED_ROOT_
 # allowlist, the way a package names the files it publishes -- "Consumers
 # just want to use it not see our todo lists etc." ... "let's do. Act!".
 #
-# So the copy is an allowlist: the catalogue and what a consumer
-# instantiates or reads, plus the four files the engine reads from a
-# universal source's own directory (precedent-source.json, precedent.json,
-# reply_check.json, close_detect.json). NOT_VENDORED below still applies
-# inside it. Anything new at the top level of this repo stays home until
-# it is named here.
-VENDORED_DIRS = frozenset({'practices', 'templates', 'documentation', 'tools'})
-VENDORED_ROOT_FILES = frozenset({
-    'README.md', 'INSTALL.md', 'SETUP.md', 'GLOSSARY.md', 'PRACTICES.md',
-    'precedent-source.json', 'precedent.json', 'reply_check.json',
-    'close_detect.json'})
-# Inside an allowed directory, what is this repo's own and not a consumer's:
-# the harness change log (templates/harness/LEDGER.md) and the test suite.
-NOT_VENDORED_PATHS = frozenset({'templates/harness/LEDGER.md',
-                                'tools/verify_harness.py'})
+# THE RULESET, and every file is decided by it (Morgan, 2026-09-30: "make
+# sure that *every new file* is evaluated to see if it should be vendored
+# in or not, and you should determine the ruleset"). The test:
+#
+#   SHIPS: what a consumer runs, instantiates, or its people read to adopt
+#          and use Precedent -- the catalogue, templates, adopter guides,
+#          the engine, and the settings files the engine reads from a
+#          universal source's directory.
+#   STAYS: how this repo is built -- its plans, open items, decisions,
+#          reasoning, tests, run records, environment traps, repo-local
+#          rules, its own settings and CI, its own sessions' instructions
+#          and index, and separate tools it also builds.
+#
+# A document that is ours but that a consumer's reader needs is linked on
+# GitHub from a shipped one, never shipped itself.
+#
+# First match wins; a path ending in '/' is a folder and everything in it.
+# There is no catch-all: a path no rule covers is UNDECIDED, is left out of
+# the copy, and fails precedent_check.py's `vendoring-decided` check in
+# this repo until somebody adds the rule that decides it.
+# `python3 tools/checkin.py rules` prints the decision for each file added
+# since the landing branch (practice: vendor-rollout-disclosed, question 5).
+VENDORING_RULES = (
+    # Exceptions inside a shipped folder come first.
+    ('templates/harness/LEDGER.md', False,
+     "this repo's change log for the harness adapters"),
+    ('tools/verify_harness.py', False,
+     "this repo's test suite (2.6 MB); a consumer never runs it"),
+    ('practices/', True, 'the catalogue: the loader reads every file'),
+    ('templates/', True,
+     'what a consumer instantiates at install, or when it makes a new repo'),
+    ('documentation/', True,
+     'guides written for the people who adopt and use Precedent'),
+    ('tools/', True,
+     "the engine -- in the copy only until the consumer's own tools/ has "
+     "one that includes checkin.py (_copy_carries_tools)"),
+    ('README.md', True, 'what Precedent is, for an adopter'),
+    ('INSTALL.md', True, 'the install and update runbook'),
+    ('SETUP.md', True, 'the guided setup, for a person who is not technical'),
+    ('GLOSSARY.md', True, "the catalogue's terms"),
+    ('PRACTICES.md', True, 'the catalogue, one page'),
+    ('precedent-source.json', True,
+     "the engine reads it from a universal source's directory"),
+    ('precedent.json', True,
+     "the engine reads it from a universal source's directory"),
+    ('reply_check.json', True,
+     "the reply check reads it from a universal source's directory"),
+    ('close_detect.json', True,
+     "close detection reads it from a universal source's directory"),
+    ('AGENTS.md', False, "this repo's own session instructions"),
+    ('CLAUDE.md', False, "this repo's own session instructions"),
+    ('GEMINI.md', False, "this repo's own session instructions"),
+    ('MAP.md', False, "this repo's own map"),
+    ('WHERE_THINGS_ARE.md', False, "this repo's own index"),
+    ('TODO.md', False, "this repo's to-do redirect stub"),
+    ('MANIFEST.json', False, "a materialization record: which sources' "
+                             "practices were copied into this repo"),
+    ('.claude/', False, "this repo's own Claude Code settings and hooks"),
+    ('.github/', False, "this repo's own GitHub settings and CI"),
+    ('.gitignore', False, "this repo's own ignore list"),
+    ('process/', False, "this repo's own process bookkeeping"),
+    ('spec/', False, 'plans and designs: how Precedent is built'),
+    ('todo/', False, "this repo's open items"),
+    ('decisions/', False, "this repo's decision records"),
+    ('philosophy/', False, 'the reasoning behind Precedent, for its builders'),
+    ('evals/', False, "this repo's evaluations"),
+    ('record/', False, "this repo's run records and ledgers"),
+    ('gotchas/', False, "traps this repo's own environment hit"),
+    ('local/', False, "this repo's own practices, by definition not a "
+                      "consumer's"),
+    ('bridge/', False, 'the chat bridge, a separate tool this repo builds'),
+    ('deck/', False, 'the deck builder, a separate tool this repo builds'),
+)
 
 
-def _copy_carries_tools():
-    """True while this repo still needs the mirror's tools/: until its own
-    tools/ holds a vendored engine that includes checkin.py, some of its
-    scripts can only run the mirror's copy. Once it does, tools/ stays
-    home, so the repo keeps ONE copy of the engine (2026-09-30)."""
-    own = ROOT / 'tools'
+def vendoring_rule(rel):
+    """-> (pattern, ships, why) deciding repo-relative path `rel`, or None
+    when no rule covers it (undecided)."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix()
+    for rule in VENDORING_RULES:
+        pat = rule[0]
+        if rel == pat or (pat.endswith('/') and rel.startswith(pat)):
+            return rule
+    return None
+
+
+def _copy_carries_tools(root=None):
+    """True while this repo (or `root`) still needs the mirror's tools/:
+    until its own tools/ holds a vendored engine that includes checkin.py,
+    some of its scripts can only run the mirror's copy. Once it does, tools/
+    stays home, so the repo keeps ONE copy of the engine (2026-09-30)."""
+    own = pathlib.Path(root or ROOT) / 'tools'
     return not ((own / 'ENGINE_MANIFEST.json').is_file()
                 and (own / 'checkin.py').is_file())
 
 
-def _in_copy(rel):
-    """True when repo-relative path `rel` belongs in the catalogue copy."""
+def _in_copy(rel, carries_tools=None):
+    """True when repo-relative path `rel` belongs in the catalogue copy.
+    `carries_tools` answers _copy_carries_tools() for a repo other than
+    this one (very_deep_check.py asks it of each consumer it reads).
+
+    A shared set's mirror (CODE_DIRS set by _bind_source) is its declared
+    code folders, not universal's catalogue, so VENDORING_RULES do not
+    apply to it: only NOT_VENDORED does, as before 2026-09-30, and _files()
+    narrows it to CODE_DIRS."""
     rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
     if any(part in NOT_VENDORED for part in rel.parts):
         return False
-    if len(rel.parts) == 1:
-        return rel.name in VENDORED_ROOT_FILES
-    top = rel.parts[0]
-    if top not in VENDORED_DIRS or str(rel) in NOT_VENDORED_PATHS:
+    if CODE_DIRS is not None:
+        if pathlib.Path(rel) in _NOT_VENDORED_ROOT_PATHS:
+            return False
+        return any(rel.as_posix() == d or rel.as_posix().startswith(d + '/')
+                   for d in CODE_DIRS)
+    rule = vendoring_rule(rel)
+    if rule is None or not rule[1]:
         return False
-    return top != 'tools' or _copy_carries_tools()
+    if carries_tools is None:
+        carries_tools = _copy_carries_tools()
+    return rel.parts[0] != 'tools' or carries_tools
+
+
+def rules_report(since=None):
+    """`checkin.py rules [REF]`: print, for each file added since REF (the
+    landing branch by default), whether it ships and the rule that says so.
+    -> the number of files no rule decides."""
+    if since is None:
+        try:
+            import precedent_branches as _pb
+            since = 'origin/' + _pb.landing_branch(str(ROOT))[0]
+        except Exception:                                     # noqa: BLE001
+            since = 'origin/main'
+    r = subprocess.run(['git', '-C', str(ROOT), 'diff', '--name-only',
+                        '--diff-filter=A', f'{since}...HEAD'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"checkin rules: could not diff against {since} -- "
+              f"{r.stderr.strip()}")
+        return 1
+    added = [l for l in r.stdout.splitlines() if l.strip()]
+    if not added:
+        print(f"checkin rules: no file added since {since}.")
+        return 0
+    try:
+        import precedent_vendor_engine as _pve
+        engine = set(_pve.CONSUMER_ENGINE_FILES)
+    except Exception:                                         # noqa: BLE001
+        engine = None
+    undecided = practices = 0
+    stays = collections.Counter()
+    print(f"checkin rules: {len(added)} file(s) added since {since}, and "
+          f"whether each ships to consumers:")
+    for rel in added:
+        rule = vendoring_rule(rel)
+        if rule is None:
+            undecided += 1
+            print(f"  UNDECIDED  {rel} -- no rule covers it: add one to "
+                  f"VENDORING_RULES")
+        elif rule[1] and rule[0] == 'tools/' and engine is not None:
+            # A consumer with its own engine takes tools/ from the engine
+            # list, not the copy, so that list is the real decision.
+            name = rel[len('tools/'):]
+            if name in engine:
+                print(f"  SHIPS      {rel} (on CONSUMER_ENGINE_FILES: every "
+                      f"consumer's tools/ gets it)")
+            else:
+                stays['tools/ (not on CONSUMER_ENGINE_FILES)'] += 1
+        elif rule[0] == 'practices/':
+            practices += 1          # the catalogue: shipping is its purpose
+        elif rule[1]:
+            print(f"  SHIPS      {rel} ({rule[0]}: {rule[2]})")
+        else:
+            stays[rule[0]] += 1
+    if practices:
+        print(f"  ships      {practices} practice file(s): the catalogue, "
+              f"which is what the copy is for")
+    for pat, n in sorted(stays.items()):
+        print(f"  stays      {n} under {pat}")
+    print("Judge each SHIPS line: does a consumer run it, instantiate it, or "
+          "read it to use Precedent?\n"
+          "If not, add a rule saying it stays "
+          "(practice: vendor-rollout-disclosed, question 5).")
+    return 1 if undecided else 0
 
 
 def not_vendored_share(base=None):
@@ -1583,6 +1733,8 @@ def _main():
         args = args[:i] + args[i + 2:]
     if args and args[0] == 'fresh':
         return fresh()
+    if args and args[0] == 'rules':
+        return rules_report(args[1] if len(args) > 1 else None)
     if args and args[0] == 'not-vendored':
         # Measures the NOT_VENDORED share against the tree in front of you,
         # so no document or comment has to freeze the numbers. Reports which
