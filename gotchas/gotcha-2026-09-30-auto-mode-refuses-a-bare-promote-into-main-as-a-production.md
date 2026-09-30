@@ -50,7 +50,10 @@ say this.
 
 **The one durable fix is the person's**: an `autoMode.allow` entry in
 managed settings (for cloud sessions, the organization's server-managed
-settings), or in `~/.claude/settings.json` on a machine that keeps it.
+settings, which need a Team or Enterprise plan and an Owner to set them),
+or in `~/.claude/settings.json` on a machine that keeps it. The
+step-by-step for a person is in
+[documentation/CLOUD_SETUP.md](../documentation/CLOUD_SETUP.md).
 **Keep `"$defaults"` in the list**: an `allow` list without it replaces
 every built-in exception. For example:
 
