@@ -66,6 +66,21 @@ Demoting a practice to `on-demand` to make room changes which rules fire in
 every session afterwards, decided by the session that wanted the room.
 
 ## Detail
+**The session-start file's ceiling can be derived instead of measured.**
+`.precedent/SESSION_PRACTICES.md` is other sources' text, rebuilt every
+session, and each source already carries its own occasion allowance
+(`occasion_share_tokens` in its `precedent-source.json`). A watermark on
+that file turns every source's growth inside its own allowance into a red
+check in the one repo that cannot trim it. So its registry entry may say
+`"derived_from_sources": {"fixed_allowance": N}`: the ceiling in force is
+then the sum of the allowances of the sources the file carries, plus N for
+the rest of it (the resident rules and the file's own prose).
+[reduction-pass](reduction-pass.md)'s step 5, composed by the engine.
+`ceiling` stays as the fallback where the sources cannot be read. One
+function reads every ceiling, `surface_ceiling()` in
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py), so the check, the trend tool
+and the very deep check agree. New practice sets get this at bootstrap.
+
 **What counts as an always-loaded surface.** Anything in a session's context
 before its first turn: `AGENTS.md` and `CLAUDE.md` (and whichever of the two
 the harness reads), the generated resident block and occasion index inside
@@ -190,6 +205,15 @@ refuses to write an over-budget block and exits non-zero — and what was
 missing was the second half: its failure message tells a session to demote or
 retire something, and says nothing about whose call that is. The obvious
 reading of a refusal is that the session clears its own path.
+
+On 2026-09-29 precedent-individual's session-start file read 5,249 tokens
+against a hand-set 5,200. None of its own practices were in it: 95% of it
+was generated from four other sources, each of which had been given its own
+allowance that day, and each was inside it. The 5,200 was a watermark taken
+on 2026-09-13, before the shared sets rendered there at all, and the
+bootstrap's own registry comment already said to "re-measure it when it
+trips rather than reading the trip as this set growing". Morgan asked for
+the fix upstream; the derived ceiling is it.
 
 ## Install
 The registry is

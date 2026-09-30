@@ -2827,8 +2827,11 @@ def _declared_ceilings(root):
         return {}
     out = {}
     for rel, entry in (reg.get('surfaces') or {}).items():
-        if isinstance(entry, dict) and isinstance(entry.get('ceiling'), int):
-            out[rel] = entry['ceiling']
+        # One reader of a ceiling, so a derived one sums the MEASURED repo's
+        # sources, not this checkout's (practice: registry-source-of-truth).
+        ceiling, _why = bv.surface_ceiling(root, rel, entry)
+        if isinstance(ceiling, int):
+            out[rel] = ceiling
     return out
 
 

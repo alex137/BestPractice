@@ -296,6 +296,72 @@ def block_occasion_cap(root):
     return total, f"the sum of its sources' allowances: {' + '.join(parts)}"
 
 
+def deferred_occasion_allowance(root):
+    """-> (tokens, why), or (None, why) when the sources cannot be read: the
+    sum of the occasion allowances of the sources this repo DEFERS to
+    .precedent/SESSION_PRACTICES.md -- the other half of what
+    block_occasion_cap() sums for the tracked block."""
+    root = pathlib.Path(root)
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+        _carried, deferred, _notes = sources_for_tracked_block(
+            root, _pr.load_config(str(root)))
+    except (Exception, SystemExit) as e:                    # noqa: BLE001
+        return None, f'the declared sources could not be read ({e})'
+    if not deferred:
+        return 0, 'no deferred sources'
+    return derived_occasion_cap(root, deferred)
+
+
+def surface_ceiling(root, rel, entry):
+    """-> (ceiling, why) for one surface's session_load_budgets.json entry,
+    or (None, why) when it has no usable number. THE ONE PLACE a ceiling is
+    read, so every reader agrees on it (practice: registry-source-of-truth).
+
+    code-cites-practice: session-load-budget, reduction-pass
+
+    A DERIVED CEILING, for the session-start file. An entry may carry
+    `"derived_from_sources": {"fixed_allowance": N}`; its ceiling is then the
+    sum of the occasion allowances of the sources that file carries, plus N
+    for everything else in it (the resident rules, the file's own prose).
+    reduction-pass's step 5 is "compose the ceiling rather than ratchet it
+    off whatever the file measured", and this is that composition, done by
+    the engine rather than by hand.
+
+    WHY. On 2026-09-29 precedent-individual's session-start file read 5,249
+    tokens against a hand-set 5,200, and its own practices were not in it:
+    95% of the file is generated from four other sources, each of which had
+    that same day been given its own allowance (Morgan, strength: decided),
+    and each was inside it. The 5,200 was a watermark taken on 2026-09-13,
+    before the shared sets rendered there at all. Every source growing
+    within its decided allowance turned the consumer red, which is the cost
+    landing in the one repo that cannot trim it -- the thing the
+    per-source allowances were built to stop.
+
+    `ceiling` stays in the entry as the fallback, used where the sources
+    cannot be read and by an engine older than this function, so a registry
+    that opts in still builds everywhere (practice: vendor-rollout-disclosed).
+    """
+    if not isinstance(entry, dict):
+        return None, 'no registry entry'
+    derive = entry.get('derived_from_sources')
+    if isinstance(derive, dict) and isinstance(derive.get('fixed_allowance'), int):
+        fixed = derive['fixed_allowance']
+        occ, why = deferred_occasion_allowance(root)
+        if occ is not None:
+            return occ + fixed, (f"derived: the sources' occasion allowances "
+                                 f"({why}) + fixed {fixed}")
+        fallback = entry.get('ceiling')
+        if isinstance(fallback, int):
+            return fallback, f'the declared fallback ({why})'
+        return None, why
+    ceiling = entry.get('ceiling')
+    if isinstance(ceiling, int):
+        return ceiling, 'declared'
+    return None, 'no integer "ceiling"'
+
+
 class OccasionIndexBudgetExceeded(Exception):
     """The generated occasion index is over its declared ceiling.
 

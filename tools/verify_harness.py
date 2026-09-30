@@ -36385,6 +36385,117 @@ def check_universal_occasion_share_is_capped():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_session_file_ceiling_derives_from_its_sources():
+    """A session-start file can declare its ceiling as the sum of its
+    sources' occasion allowances plus a fixed allowance, and every reader of
+    a ceiling agrees on it (practice: reduction-pass, step 5;
+    control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-29). precedent-individual's
+    .precedent/SESSION_PRACTICES.md read 5,249 tokens against a hand-set
+    5,200 while every source in it sat inside the allowance it had been
+    given that day. The DISCRIMINATING CASE is the first one: a file over
+    the hand number and inside the derived one is not reported. On the code
+    before build_views.surface_ceiling() it is reported, because every
+    reader took `ceiling` at face value.
+
+    The fixture owns its tree and its user config (fixture-owns-its-state)."""
+    import tempfile
+    import json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    import very_deep_check as vdc
+    import session_load_trend as slt
+    cases = []
+    d = pathlib.Path(tempfile.mkdtemp())
+    env_keep = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(d / 'no-user-config.json')
+    try:
+        for name, level, share in (('uni', 'universal', 2000),
+                                   ('shr', 'shared', 300)):
+            (d / name / 'practices').mkdir(parents=True)
+            (d / name / 'precedent-source.json').write_text(_json.dumps(
+                {'name': 'precedent' if level == 'universal' else name,
+                 'level': level, 'occasion_share_tokens': share}),
+                encoding='utf-8')
+        pset = d / 'pset'
+        (pset / 'practices').mkdir(parents=True)
+        (pset / 'tools').mkdir()
+        (pset / '.precedent').mkdir()
+        (pset / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(d / 'uni')},
+                        {'level': 'shared', 'name': 'shr',
+                         'path': str(d / 'shr')}]}), encoding='utf-8')
+        (pset / 'precedent-source.json').write_text(_json.dumps(
+            {'name': 'pset', 'level': 'individual'}), encoding='utf-8')
+        # What makes it a practice SET, so every source it declares is
+        # deferred to the session-start file (build_views.repo_is_practice_source).
+        (pset / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'source'}), encoding='utf-8')
+        # ~1,560 tokens: over a hand ceiling of 1,000, inside 2000+300+200.
+        (pset / '.precedent' / 'SESSION_PRACTICES.md').write_text(
+            'word ' * 1200, encoding='utf-8')
+        rel = '.precedent/SESSION_PRACTICES.md'
+        derived = {'ceiling': 1000,
+                   'derived_from_sources': {'fixed_allowance': 200}}
+
+        def registry(entry):
+            (pset / 'tools' / 'session_load_budgets.json').write_text(
+                _json.dumps({'headroom_floor_pct': 5,
+                             'surfaces': {rel: entry}}), encoding='utf-8')
+
+        def over(msgs):
+            return [m for m in msgs if m.startswith('OVER CEILING')]
+
+        registry(derived)
+        _rows, msgs = vdc._session_load(pset)
+        cases.append(('THE DISCRIMINATING CASE: a file over its hand-set '
+                      'number and inside the derived ceiling is not reported',
+                      over(msgs) == [], repr(over(msgs))))
+        got, why = bv.surface_ceiling(pset, rel, derived)
+        cases.append(('the derived ceiling is the deferred sources\' '
+                      'allowances plus the fixed allowance, and says so',
+                      got == 2000 + 300 + 200 and why.startswith('derived'),
+                      f'{got} ({why})'))
+        cases.append(('the trend tool reads the same number as the check',
+                      slt.surface_ceiling(pset, rel, derived) == got,
+                      repr(slt.surface_ceiling(pset, rel, derived))))
+
+        registry({'ceiling': 1000})
+        _rows, msgs = vdc._session_load(pset)
+        cases.append(('POSITIVE CONTROL: the same file against the same hand '
+                      'number without derived_from_sources is reported',
+                      len(over(msgs)) == 1 and '1,000' in over(msgs)[0],
+                      repr(over(msgs))))
+
+        small = {'ceiling': 1000,
+                 'derived_from_sources': {'fixed_allowance': -1000}}
+        registry(small)
+        _rows, msgs = vdc._session_load(pset)
+        cases.append(('a file over its DERIVED ceiling is still reported, '
+                      'naming that ceiling',
+                      len(over(msgs)) == 1 and '1,300' in over(msgs)[0],
+                      repr(over(msgs))))
+
+        (pset / 'precedent.json').write_text('not json', encoding='utf-8')
+        got, why = bv.surface_ceiling(pset, rel, derived)
+        cases.append(('sources that cannot be read fall back to the entry\'s '
+                      'own ceiling, and say why',
+                      got == 1000 and 'fallback' in why, f'{got} ({why})'))
+    finally:
+        if env_keep is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = env_keep
+        shutil.rmtree(d, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a session-start file\'s ceiling can derive from its sources\' '
+          f'allowances, and every reader agrees ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_headroom_notice_watches_the_resident_block():
     """headroom_notice() also speaks when the generated resident block is
     near its own allocation, not only when a whole file nears its ceiling
@@ -46007,6 +46118,7 @@ def main():
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
+    check_session_file_ceiling_derives_from_its_sources()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
     check_push_check_skips_a_set_check_older_than_push_time_judging()

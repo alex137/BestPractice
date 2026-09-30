@@ -9404,8 +9404,12 @@ def _session_load_budget(ctx):
                                     f'tools/session_load_budgets.json, so '
                                     f'nothing can tell you it grew'))
             continue
-        ceiling = entry.get('ceiling')
-        if not isinstance(ceiling, int):
+        try:
+            ceiling, _why = _bv.surface_ceiling(ROOT, rel, entry)
+        except (NameError, AttributeError):   # no build_views, or an older one
+            ceiling = entry.get('ceiling')
+            ceiling = ceiling if isinstance(ceiling, int) else None
+        if ceiling is None:
             out.append(Finding(rel, 'has a registry entry with no integer '
                                     '"ceiling"'))
             continue
