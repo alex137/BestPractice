@@ -63,6 +63,16 @@ and how to prove the fix (a test that fails without it). Where a session is
 already working in that repository, route to it instead, the way
 [the-boildown](the-boildown.md)'s live-session check says.
 
+**When a local fix already exists** (a stopgap the person asked for, or an
+edit made before this rule was followed), the handoff is one command, run
+from the consuming repo once the edit is committed:
+`python3 ../BestPractice/tools/precedent_local_edits.py send --repo . --why "what went wrong"`.
+It merges the edit onto the owner's landing branch without reverting
+anything upstream changed since, runs this repo's scrub and the owner's leak
+gate and basic tier, pushes a branch (never a pull request, never a merge),
+and prints the Prompt Please block for the session that will land it
+([tools/precedent_local_edits.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_local_edits.py)).
+
 **It holds even where the session could fix the upstream repository itself.** A
 session that could reach the upstream repository still stops and asks here,
 because the person wants to see an upstream bug before anyone patches
@@ -100,9 +110,11 @@ come from an upstream."* (strength: decided)
 
 **On the mechanical check, attempted and declined with a reason**
 ([checkable-gets-checked](checkable-gets-checked.md)). A diff can show that a
-vendored file changed, and the manifests already refuse most of those edits
-(the engine refresh names a hand-edited engine file; the catalogue update
-refuses local changes to the vendored tree). What no check can see is the
+vendored file changed, and Update Vendors already meets every such edit: it
+keeps a committed edit to an engine file or to `process/upstream/`, merges it
+with upstream's change, or takes upstream's version and names the commit that
+holds the local one, and lists each in its report (since 2026-09-29,
+[spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)). What no check can see is the
 moment this rule is about: the decision, before any edit, to patch a copy
 rather than stop. That is why the rule is tied to the vendored paths, so it is
 printed when an edit there begins, and why the Boildown carries the after-the-
