@@ -6002,6 +6002,11 @@ def _vocabulary_reaches_the_consumer(ctx):
             'the consumer, by design (spec/ONE_COMMAND_UPDATE_PLAN.md): a '
             'vendored copy would be the stale one, sitting in the tree it '
             'is updating',
+        'precedent_local_edits.py':
+            'runs from the BestPractice clone against the consumer, as '
+            'precedent_update.py does and for the same reason, and '
+            'precedent_update.py imports it from there '
+            '(spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)',
     }
     NEVER_VENDORED = set(UPSTREAM_ONLY)
 

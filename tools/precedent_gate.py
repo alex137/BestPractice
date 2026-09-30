@@ -613,6 +613,11 @@ def _print_hard_requirements(root):
         if pat:
             print(f"- [{src}] the reply carries a real markdown heading "
                   f"(`## `) matching /{pat}/i. Bold text is not a heading.")
+        _first = r.get('require_first_item_under_heading') or {}
+        if _first.get('heading') and _first.get('matching'):
+            print(f"- [{src}] the FIRST bullet under the heading matching "
+                  f"/{_first['heading']}/i matches /{_first['matching']}/i"
+                  + (f" -- {_first['why']}" if _first.get('why') else ''))
         one_of = r.get('require_one_of') or []
         every = r.get('require_when_context_grew_tokens')
         if one_of and every:
