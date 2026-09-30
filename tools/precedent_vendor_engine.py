@@ -707,6 +707,18 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # the duplicate guard below, which is how a stray re-add gets caught.
     'doc_sync.py',
     'routing_audit.py',
+    # ONE COPY OF THE TOOLS (2026-09-30, Morgan: "All your suggestions ...
+    # let's do. Act!"). A consumer that mirrors the catalogue at
+    # process/upstream/ ran these three from the mirror's tools/, the only
+    # copy it had -- so the mirror carried all of BestPractice's tools/
+    # beside the engine this list vendors into the repo's own tools/: 57
+    # files twice, measured in a real consumer. Vendored here, the mirror
+    # can leave tools/ out once the repo's own copy is whole (checkin.py,
+    # _copy_carries_tools). precedent_local_edits.py comes with them because
+    # checkin.py imports it for `push`.
+    'checkin.py',
+    'practice_audit.py',
+    'precedent_local_edits.py',
     # Move tracked files or directories and repoint every reference in the
     # same change (rename-updates-links made mechanical; added 2026-09-17
     # from a consumer's repository reshape -- 366 files, 2,900 references,

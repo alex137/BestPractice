@@ -54,10 +54,10 @@ deliverables and indexes which documents back each part of each one.
      the point is that "run the check" resolves to one thing without a
      session re-deriving it. Add your own repo's audits to the deep check. -->
 
-- **Light check** — `python3 process/upstream/tools/doc_lint.py` on the markdown you touched.
+- **Light check** — `python3 tools/doc_lint.py` on the markdown you touched.
   Fast, run before every commit without thinking about it. Gates a commit.
-- **Deep check** — the full suite: `python3 process/upstream/tools/precedent_check.py`,
-  `python3 process/upstream/tools/practice_audit.py`, `python3 tools/precedent_sync_views.py --repo . --check`
+- **Deep check** — the full suite: `python3 tools/precedent_check.py`,
+  `python3 tools/practice_audit.py`, `python3 tools/precedent_sync_views.py --repo . --check`
   (only if this repo declares any source beyond universal in `precedent.json`),
   and `<your own audits>`. Gates a push and a merge.
 
@@ -150,7 +150,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
      committed manifest wins; unshipped builds are deleted and rebuilt.
 3. Run the audits — **all must pass before the merge commits**:
    `<your audit commands>` and
-   `python3 process/upstream/tools/practice_audit.py`.
+   `python3 tools/practice_audit.py`.
 4. Commit the merge, push, land per this repo's convention.
 
 ## Conventions
@@ -177,7 +177,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   strikethrough on GitHub. Links stay plain markdown: GitHub strips
   `target=` and most other attributes from raw HTML anchors in rendered
   docs, so an "open in new tab" link can't work there (*as of 2026-08*).
-  `python3 process/upstream/tools/doc_lint.py`
+  `python3 tools/doc_lint.py`
   checks these conventions on files changed vs the default branch; run it on
   what you touch before committing.
 - **Volatile rules carry their dates** (practice `volatile-rules-carry-dates`): a rule that depends
@@ -326,7 +326,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 - `process/upstream/` is a vendored copy of the public Precedent repo
   (`<upstream URL>`), tracked in this repo. **Public-safe invariant:**
   nothing proprietary may appear under `process/upstream/`, ever.
-  `python3 process/upstream/tools/practice_audit.py` enforces this against
+  `python3 tools/practice_audit.py` enforces this against
   `process/scrub_blocklist.txt` and must pass before committing anything
   that touches `process/`.
 - <If parts of this repo are categorically never exported, name them here.>

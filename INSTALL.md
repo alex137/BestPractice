@@ -250,7 +250,7 @@ not this section.
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
    | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row). Same treatment: reword or drop the line. |
-   | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Four `process/upstream/tools/…` entries in the permission allowlist. Harmless (they match nothing), but replace them with the `tools/…` forms so the allowlist covers the commands this repo actually runs. |
+   | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Its permission allowlist names the `tools/…` forms, which is where the engine lives in every install since 2026-09-30. An older copy may still carry `process/upstream/tools/…` entries: harmless (they match nothing), but replace them with the `tools/…` forms. |
 
    **Then, from this repo, run
    `python3 tools/precedent_vendor_engine.py refresh <Precedent clone>`.**
@@ -672,8 +672,10 @@ cover, by design and not oversight:
      pushes that person's timezone onto everyone.
      [templates/gitignore.template](templates/gitignore.template) carries the
      line; the hook warns if your repo does not.
-   - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
-     or copy to the repo's tools dir if it needs local adaptation.
+   - `tools/doc_lint.py` → the vendored engine puts it in this repo's own
+     `tools/` (Update Vendors keeps it current); run it from there. The
+     catalogue copy under `process/upstream/` carries no `tools/` once the
+     engine includes `checkin.py` (2026-09-30), so there is one copy.
    - `tools/doc_sync.py` ([computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md))
      and `tools/model_audit.py`
      ([scripts-assert-properties](practices/scripts-assert-properties.md))
@@ -686,7 +688,7 @@ cover, by design and not oversight:
 3. **Write the manifest** at `process/manifest.json` — see §5 for the
    schema. One entry per installed practice artifact, recording where it
    landed, at what granularity, and what was adapted. Then run
-   `python3 process/upstream/tools/practice_audit.py --update-baseline`
+   `python3 tools/practice_audit.py --update-baseline`
    to record content hashes.
 4. **Create `process/scrub_blocklist.txt`** — whether or not the repo is
    private (read that from the remote; it is not a question for the
@@ -734,9 +736,9 @@ cover, by design and not oversight:
    [GETTING_STARTED.md](templates/GETTING_STARTED.md) first, and also
    accepts [documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) —
    BestPractice's own copy, since 2026-09-20.
-7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
+7. Run `python3 tools/practice_audit.py` — it must pass.
    Then lint the files this install created **by name** —
-   `python3 process/upstream/tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`
+   `python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`
    — because the bare light check scopes itself to files changed against
    `origin/<default branch>`, and on a repo that has not been pushed yet
    that is nothing at all: it reported `0 file(s) checked` on a fresh
@@ -1228,7 +1230,7 @@ same way.
    their content lives under `process/upstream/` — per §1's root-hygiene
    rule.
 5. Replace `process/upstream/` with the new tree —
-   `python3 process/upstream/tools/checkin.py update <upstream-clone>`
+   `python3 tools/checkin.py update <upstream-clone>`
    mirrors the clone's freshly pulled default branch into the vendored
    tree, and refuses if the vendored tree carries unexported local work
    (export first, or `--force` to overwrite) — then update
@@ -1345,7 +1347,7 @@ If yes, in the **same branch**:
    ([scrub-gate](practices/scrub-gate.md)). Abstraction is authorship, not copying: rewrite the
    incident generically, keep the lesson.
 2. Update the touched manifest entries (`notes`, status) and run
-   `python3 process/upstream/tools/practice_audit.py` — the scrub must pass.
+   `python3 tools/practice_audit.py` — the scrub must pass.
 3. If the *installed* file changed but you are not exporting yet, flip its
    manifest entry to `"diverged"` — the audit will keep reminding until the
    export happens or the baseline is deliberately updated.
@@ -1370,7 +1372,7 @@ stay manual:
 1. Review the vendored tree's accumulated changes and every `diverged`
    manifest entry — export what's ready, or record in the entry's notes why
    an entry genuinely stays local.
-   `python3 process/upstream/tools/checkin.py status <upstream-clone>`
+   `python3 tools/checkin.py status <upstream-clone>`
    lists exactly what has accumulated.
    **The check-in carries ALL pending vendored additions, not just the
    ones your own thread made.** A two-way sync that ends by replacing the
@@ -1393,7 +1395,7 @@ stay manual:
    reviewer catches what the blocklist doesn't know yet (and adds it to
    the blocklist).
 4. When the PR merges:
-   `python3 process/upstream/tools/checkin.py record <upstream-clone> --note "PR #N"`
+   `python3 tools/checkin.py record <upstream-clone> --note "PR #N"`
    — pulls the upstream default branch, **verifies it is byte-identical to
    the vendored tree**, and — enforcing step 1's carry-all rule mechanically
    — **verifies every pending vendored addition committed on the dependent
@@ -1488,8 +1490,8 @@ order records a hash the vendored tree doesn't match.
 ## 6. The Audit (`tools/practice_audit.py`)
 
 ```
-python3 process/upstream/tools/practice_audit.py                    # full check (gate)
-python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
+python3 tools/practice_audit.py                    # full check (gate)
+python3 tools/practice_audit.py --update-baseline  # re-record hashes
 ```
 
 Checks, in order — any FAIL exits non-zero:

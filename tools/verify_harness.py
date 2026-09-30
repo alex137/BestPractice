@@ -24427,6 +24427,88 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_catalogue_copy_is_an_allowlist():
+    """The catalogue copy (checkin.py, a consumer's process/upstream/) took
+    everything outside a short exclusion list: 543 files, among them this
+    repo's test suite, its gotchas, its repo-local practices, its own
+    .claude/ and .github/, and a second copy of the engine the consumer
+    already vendors into its own tools/ (Morgan, 2026-09-30: "Consumers
+    just want to use it" ... "let's do. Act!"). Discriminating cases: what
+    a consumer uses goes, what is this repo's own stays home, and tools/
+    goes only while the consumer's own engine lacks checkin.py -- then it
+    stays home, so the repo keeps one copy."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import checkin as ck
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='catalogue-copy-'))
+    saved = ck.ROOT
+    cases = []
+    try:
+        ck.ROOT = tmp
+        goes = ['practices/a.md', 'templates/t.md', 'documentation/d.md',
+                'README.md', 'INSTALL.md', 'precedent-source.json',
+                'reply_check.json', 'close_detect.json', 'tools/x.py']
+        stays = ['gotchas/g.md', 'local/practices/l.md', 'bridge/run.py',
+                 '.claude/settings.json', '.github/workflows/w.yml', 'MAP.md',
+                 'WHERE_THINGS_ARE.md', 'TODO.md', 'AGENTS.md', 'spec/s.md',
+                 'todo/t.md', 'templates/harness/LEDGER.md',
+                 'tools/verify_harness.py', 'something-new/n.md']
+        cases.append(('what a consumer uses is in the copy',
+                      all(ck._in_copy(r) for r in goes),
+                      [r for r in goes if not ck._in_copy(r)]))
+        cases.append(('THE CASE THIS EXISTS FOR: this repo\'s own material, '
+                      'and anything not named, stays home',
+                      not any(ck._in_copy(r) for r in stays),
+                      [r for r in stays if ck._in_copy(r)]))
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+        cases.append(('a consumer whose engine lacks checkin.py still gets '
+                      'the copy\'s tools/', ck._in_copy('tools/x.py'), ''))
+        (tmp / 'tools' / 'checkin.py').write_text('', encoding='utf-8')
+        cases.append(('once its own engine carries checkin.py, tools/ stays '
+                      'home: one copy of the engine',
+                      not ck._in_copy('tools/x.py')
+                      and ck._in_copy('practices/a.md'), ''))
+        # What the copy stopped carrying is removed from a consumer's tree,
+        # unless the consumer edited it: _diff() reads both sides through
+        # the allowlist, so without this the old files would stay forever.
+        saved_up, saved_man = ck.UPSTREAM, ck.MANIFEST
+        try:
+            ck.UPSTREAM = tmp / 'process' / 'upstream'
+            ck.MANIFEST = tmp / 'process' / 'no-manifest.json'
+            src = tmp / 'src'
+            for tree in (ck.UPSTREAM, src):
+                for rel in ('gotchas/g.md', 'local/l.md', 'tools/y.py',
+                            'practices/p.md'):
+                    (tree / rel).parent.mkdir(parents=True, exist_ok=True)
+                    (tree / rel).write_text('upstream\n', encoding='utf-8')
+            (ck.UPSTREAM / 'local' / 'l.md').write_text('ours\n', encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                dropped, kept = ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            cases.append(('what the copy no longer carries is removed when it '
+                          'is upstream\'s text, and kept when edited here',
+                          sorted(map(str, dropped)) == ['gotchas/g.md', 'tools/y.py']
+                          and list(map(str, kept)) == ['local/l.md']
+                          and (ck.UPSTREAM / 'practices' / 'p.md').is_file()
+                          and not (ck.UPSTREAM / 'gotchas').exists(),
+                          f'dropped={dropped} kept={kept}'))
+        finally:
+            ck.UPSTREAM, ck.MANIFEST = saved_up, saved_man
+        import precedent_vendor_engine as pve
+        cases.append(('...because the engine now vendors the tools that ran '
+                      'from the copy',
+                      {'checkin.py', 'practice_audit.py',
+                       'precedent_local_edits.py'} <= set(pve.CONSUMER_ENGINE_FILES),
+                      ''))
+    finally:
+        ck.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the catalogue copy carries what a consumer uses, and one copy '
+          f'of the engine ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+
 def check_doc_sync_reads_a_consumers_own_pairs():
     """doc_sync.py is vendored, and its PAIRS list is BestPractice's. In a
     consumer it told the session to "replace PAIRS in tools/doc_sync.py",
@@ -33897,9 +33979,11 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         _git(d, 'config', 'user.name', 'Harness')
         _git(d, 'config', 'commit.gpgsign', 'false')
 
+    # Under practices/: the catalogue copy is an allowlist since
+    # 2026-09-30, and a top-level file of no known kind stays home.
     shipped = {
-        'marker.txt': 'upstream content\n',
-        'retired.txt': 'upstream stops vendoring this in the push case\n',
+        'practices/marker.txt': 'upstream content\n',
+        'practices/retired.txt': 'upstream stops vendoring this in the push case\n',
         '.gitignore': '.claude/settings.local.json\n.precedent/\n',
         'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
         'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
@@ -33939,7 +34023,7 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         _ident(clone)
         landed = _git(clone, 'rev-parse', 'origin/main').stdout.strip()
         _git(clone, 'checkout', '-qb', 'scratch')
-        (clone / 'marker.txt').write_text('scratch, not what landed\n',
+        (clone / 'practices/marker.txt').write_text('scratch, not what landed\n',
                                           encoding='utf-8')
         _git(clone, 'commit', '-qam', 'scratch')
         _write(clone, stray)
@@ -33983,7 +34067,7 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         # worktree of its own -- so the clone's working tree, tracked files
         # and stray files alike, is never touched, whatever happens next.
         _git(clone, 'checkout', '-q', 'main')
-        (vend / 'retired.txt').unlink()
+        (vend / 'practices/retired.txt').unlink()
         rc, out = run('push')
         cases.append(('push hands the work to send, which asks what went wrong '
                       'before doing anything', rc == 2
@@ -33995,7 +34079,7 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         cases.append(('push leaves the clone\'s working tree untouched: every '
                       'file git does not track, and the tracked file this repo '
                       'dropped', len(survived) == len(stray)
-                      and (clone / 'retired.txt').is_file(),
+                      and (clone / 'practices/retired.txt').is_file(),
                       f'survived={survived}\n{out}'))
 
     failed = [f'{n}: {d[:400]}' for n, ok, d in cases if not ok]
@@ -47860,6 +47944,7 @@ def main():
           *check_session_check_never_calls_an_unfetched_clone_current())
     check_session_check_covers_the_universal_clone()
     check_doc_sync_reads_a_consumers_own_pairs()
+    check_catalogue_copy_is_an_allowlist()
     check('the merge gate sees a workflow that never ran on this commit',
           *check_merge_gate_sees_a_workflow_that_never_ran())
     check('a declared loss releases the archive line, and only then',
