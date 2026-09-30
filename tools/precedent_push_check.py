@@ -673,6 +673,20 @@ def _unplanted_checks(root):
     return sorted(registered - declared)
 
 
+def _front_matter_changed(root, since, rel):
+    """True when practice file `rel`'s front matter differs from `since`'s
+    copy (or it had none there)."""
+    def head(text):
+        parts = (text or '').split('\n---', 1)
+        return parts[0] if text.startswith('---') else ''
+    before = git(root, 'show', f'{since}:{rel}') or ''
+    try:
+        now = (root / rel).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return head(before) != head(now)
+
+
 def changed_files_check(root, since):
     """-> 0 when every file the change touches is sound, 1 with each
     problem named. Reads nothing but the changed files, and the views a
@@ -793,6 +807,29 @@ def changed_files_check(root, since):
                 f'changed, and the generated views were not regenerated with '
                 f'it -- run `python3 tools/build_views.py` and commit what it '
                 f'rewrites. ' + (r.stdout + r.stderr).strip().splitlines()[0][:300])
+    # THE GENERATED COUNTS FOLLOW A NEW PRACTICE (2026-09-29). doc_sync's
+    # blocks (the catalogue count in spec/LOADER.md, the enforced count,
+    # the routing table) move when a practice is added or its front matter
+    # changes, and only the full tier ran doc_sync -- so
+    # stage-word-carries-its-step landed on pre-staging with three stale
+    # blocks and the Debut was the first to notice
+    # (todo-2026-09-29-pre-staging-tier-skips-doc-sync). The drift gate,
+    # never --write; about half a second.
+    sync = root / 'tools' / 'doc_sync.py'
+    moved = [f for f in practice
+             if f in added or _front_matter_changed(root, since, f)]
+    if moved and sync.is_file():
+        r = subprocess.run([sys.executable, str(sync)], cwd=root,
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            stale = [l.strip() for l in (r.stdout + r.stderr).splitlines()
+                     if 'DRIFT' in l or 'STALE' in l or 'FAIL' in l][:4]
+            problems.append(
+                f'{moved[0]}{" and others" if len(moved) > 1 else ""} added or '
+                f'changed its front matter, and the generated blocks that '
+                f'count practices were not regenerated -- run `python3 '
+                f'tools/doc_sync.py --write` and commit what it rewrites. '
+                + ' | '.join(stale)[:400])
     for line in problems:
         print(f'  {line}')
     if tests:

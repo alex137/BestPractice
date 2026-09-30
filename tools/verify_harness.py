@@ -8219,6 +8219,27 @@ def check_changed_files_only_judges_the_change():
         rc, out = files_check(start)
         cases.append(('a changed practice whose views were not regenerated is refused, '
                       'and passes once they are', stale_ok and rc == 0, out[-400:]))
+        # todo-2026-09-29-pre-staging-tier-skips-doc-sync: a new practice
+        # moves the counts doc_sync keeps, so it is refused at this push,
+        # not first at the Debut.
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        src = practice.read_text(encoding='utf-8')
+        (wt / 'practices' / 'zz-fixture-new-rule.md').write_text(
+            re.sub(r'^slug:(\s+)\S+', r'slug:\1zz-fixture-new-rule', src,
+                   count=1, flags=re.M), encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/build_views.py'], cwd=wt,
+                       capture_output=True, text=True, env=env)
+        git('add', '-A')
+        git('commit', '-qm', 'a new practice, views rebuilt, counts not')
+        rc, out = files_check(start)
+        refused = rc == 1 and 'doc_sync.py --write' in out
+        subprocess.run([sys.executable, 'tools/doc_sync.py', '--write'], cwd=wt,
+                       capture_output=True, text=True, env=env)
+        git('commit', '-qam', 'regenerate the counts')
+        rc, out = files_check(start)
+        cases.append(('a new practice whose generated counts were not '
+                      'regenerated is refused at this push, and passes once '
+                      'they are', refused and rc == 0, out[-400:]))
         start = git('rev-parse', 'HEAD').stdout.strip()
         (wt / 'zz_fixture.json').write_text('{"a": 1,}\n', encoding='utf-8')
         git('add', 'zz_fixture.json')
