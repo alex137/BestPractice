@@ -25299,6 +25299,30 @@ def check_session_check_adopts_a_detached_start():
         cases.append(('a move between named branches still fails',
                       ok is False and 'claude/work' in detail, detail))
 
+        # A named start, then the session's own new branch from it: passes.
+        import time as _time
+        git('checkout', '-q', 'main')
+        _, c_main, _ = git('rev-parse', 'HEAD')
+        stamp.write_text(f'main\n{c_main}\n')
+        os.utime(stamp, (_time.time() - 60, _time.time() - 60))
+        git('checkout', '-q', '-b', 'claude/own-feature')
+        ok, detail = row()
+        cases.append(("a named start moving onto the session's own new branch passes",
+                      ok is True and 'created' in detail, detail))
+        cases.append(('and that branch becomes the baseline',
+                      stamp.read_text().split()[0] == 'claude/own-feature',
+                      stamp.read_text()))
+
+        # A branch that existed before the stamp is still a jump.
+        git('branch', 'older-branch', 'main')
+        stamp.write_text(f'main\n{c_main}\n')
+        os.utime(stamp, (_time.time() + 60, _time.time() + 60))
+        git('checkout', '-q', 'older-branch')
+        ok, detail = row()
+        cases.append(('a move onto a branch that existed before the session still fails',
+                      ok is False and 'older-branch' in detail, detail))
+        git('checkout', '-q', 'main')
+
         # A detached start whose commit the new branch lacks still fails.
         git('checkout', '-q', '--detach', 'claude/work')
         commit('made while detached')

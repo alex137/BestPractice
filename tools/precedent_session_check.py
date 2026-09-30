@@ -100,6 +100,33 @@ def _identity_is_declared():
     return (pathlib.Path(path).expanduser() / 'identity.json').exists()
 
 
+def _own_new_branch(git, cur, start_sha, stamp):
+    """-> True when `cur` is a branch this session made itself from where it
+    started (`git checkout -b`, stage 2, Act): the oldest entry in its
+    reflog is its creation, dated no earlier than the stamp, at a commit
+    that carries the start. A branch that existed before the session -- the
+    base branch HEAD was once moved onto mid-turn -- has an older reflog,
+    and still fails the row (2026-09-30)."""
+    if not start_sha:
+        return False
+    rc, log, _ = git('reflog', 'show', '--date=unix', '--format=%H %gd %gs',
+                     f'refs/heads/{cur}', '--')
+    lines = [l for l in (log or '').splitlines() if l.strip()]
+    if rc != 0 or not lines:
+        return False
+    sha, gd, *msg = lines[-1].split(' ', 2)
+    if not (msg and msg[0].startswith('branch: Created from')):
+        return False
+    try:
+        created = int(gd.rsplit('{', 1)[1].rstrip('}'))
+        if created < int(stamp.stat().st_mtime):
+            return False
+    except (IndexError, ValueError, OSError):
+        return False
+    return (git('merge-base', '--is-ancestor', start_sha, sha)[0] == 0
+            and git('merge-base', '--is-ancestor', start_sha, 'HEAD')[0] == 0)
+
+
 def _session_branch_row(stamp, git):
     """The "still on the branch it started on" row, or None when HEAD cannot
     be read. The stamp is two lines, the branch and the commit the session
@@ -110,7 +137,9 @@ def _session_branch_row(stamp, git):
     start and passes, provided the commit it started on is in that branch's
     history -- work made detached is then carried, not stranded. A detached
     start whose commit is NOT in the branch it moved to is still a finding,
-    and so is any move between two named branches or back to detached."""
+    and so is a move back to detached, or between two named branches --
+    except onto a branch this session created from where it started
+    (_own_new_branch), which is its own feature branch."""
     rc, cur, _ = git('rev-parse', '--abbrev-ref', 'HEAD')
     if rc != 0 or not cur:
         return None
@@ -146,6 +175,11 @@ def _session_branch_row(stamp, git):
                 f'does NOT contain that commit. Anything committed while '
                 f'detached is reachable only from `git reflog` -- check it '
                 f'before it is garbage-collected')
+    if started != 'HEAD' and cur != 'HEAD' and _own_new_branch(git, cur, start_sha, stamp):
+        write()
+        return (name, True, f'started on {started!r} and moved onto {cur!r}, a '
+                            f'branch this session created from where it started '
+                            f'-- its own feature branch; {cur!r} is now the baseline')
     return (name, False,
             f'started on {started!r}, now on {cur!r}. Work committed before '
             f'the move is on {started!r} and is NOT lost -- `git checkout '
