@@ -2112,6 +2112,46 @@ def _generated_label(rel, text):
     return None
 
 
+@check('vendoring-decided', 'tree',
+       'every file this repo tracks is decided by a rule in tools/checkin.py\'s '
+       'VENDORING_RULES: it ships to consumers or it stays here, with the '
+       'reason',
+       'whether a rule is RIGHT -- a file a SHIPS rule covers may still be '
+       'something consumers never use; that is the judgment '
+       'vendor-rollout-disclosed\'s fifth question asks at push, with '
+       '`checkin.py rules` listing each new file, and the very deep check\'s '
+       'VENDORED SURPLUS reads what ships for anything unused or doubled',
+       practice_backed=False,
+       # A file in a new place is a new root file or a new top folder's
+       # first file, so a change adding one touches '*' or '*/*' (every
+       # depth-two file, which is most pushes: it is one git ls-files).
+       selects_on=('*', '*/*', 'tools/checkin.py'))
+def _vendoring_decided(ctx):
+    # WHY (Morgan, 2026-09-30): "make sure that *every new file* is
+    # evaluated to see if it should be vendored in or not". The ruleset has
+    # no catch-all, so a file in a new place is undecided until someone
+    # writes the rule, and this is where that shows. Only the repo that
+    # ships a catalogue copy has anything to decide: a consumer runs a
+    # vendored engine (tools/ENGINE_MANIFEST.json) and publishes nothing.
+    if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        raise NotApplicable('a vendored engine: this repo receives the '
+                            'catalogue copy, it does not ship one')
+    try:
+        import checkin
+    except Exception as e:                                    # noqa: BLE001
+        raise NotApplicable(f'tools/checkin.py did not import: {e}')
+    if not hasattr(checkin, 'vendoring_rule'):
+        raise NotApplicable('this checkin.py predates VENDORING_RULES')
+    r = subprocess.run(['git', '-C', str(ROOT), 'ls-files'],
+                       capture_output=True, text=True)
+    return [Finding(rel, 'no VENDORING_RULES rule decides whether this ships '
+                         'to consumers -- add one to tools/checkin.py, with '
+                         'the reason: does a consumer run it, instantiate '
+                         'it, or read it to use Precedent?')
+            for rel in r.stdout.splitlines()
+            if rel and checkin.vendoring_rule(rel) is None]
+
+
 @check('generated-files-registered', 'tree',
        'every file a tool here writes wholesale is listed in '
        'tools/generated_files.json, carries its label naming that tool, points '

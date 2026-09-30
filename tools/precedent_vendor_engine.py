@@ -707,6 +707,18 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # the duplicate guard below, which is how a stray re-add gets caught.
     'doc_sync.py',
     'routing_audit.py',
+    # ONE COPY OF THE TOOLS (2026-09-30, Morgan: "All your suggestions ...
+    # let's do. Act!"). A consumer that mirrors the catalogue at
+    # process/upstream/ ran these three from the mirror's tools/, the only
+    # copy it had -- so the mirror carried all of BestPractice's tools/
+    # beside the engine this list vendors into the repo's own tools/: 57
+    # files twice, measured in a real consumer. Vendored here, the mirror
+    # can leave tools/ out once the repo's own copy is whole (checkin.py,
+    # _copy_carries_tools). precedent_local_edits.py comes with them because
+    # checkin.py imports it for `push`.
+    'checkin.py',
+    'practice_audit.py',
+    'precedent_local_edits.py',
     # Move tracked files or directories and repoint every reference in the
     # same change (rename-updates-links made mechanical; added 2026-09-17
     # from a consumer's repository reshape -- 366 files, 2,900 references,
@@ -2969,6 +2981,31 @@ def _retire_legacy_workflows(dest_root, manifest, kind, pd):
     return deleted, kept
 
 
+# Set by refresh() around its opening sweeps: a workflow judgment that
+# cannot import the engine yet is queued, and refresh() runs it again once
+# the engine files are written (_judge_deferred_workflows).
+_DEFER_WORKFLOW_JUDGMENT = False
+_DEFERRED_WORKFLOW_JUDGMENT = []
+
+
+def _judge_deferred_workflows():
+    """Run the workflow judgment _remove_unapproved_workflows deferred,
+    now that the engine it imports is whole. Its secrets are reported the
+    way retire_legacy_leftovers() reports them."""
+    global _DEFER_WORKFLOW_JUDGMENT
+    _DEFER_WORKFLOW_JUDGMENT = False
+    pending = list(_DEFERRED_WORKFLOW_JUDGMENT)
+    _DEFERRED_WORKFLOW_JUDGMENT.clear()
+    sys.modules.pop('precedent_check', None)
+    for dest_root, manifest, kind, pd in pending:
+        removed = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
+        for s in _orphaned_secrets(dest_root, removed, legacy=False):
+            _left(f'secret {s}', 'no remaining workflow reads it -- if it is '
+                                 'set on this repository, only you can delete '
+                                 'it (Settings -> Secrets and variables -> '
+                                 'Actions)')
+
+
 def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
     """In a kind whose CI converges (CI_CONVERGES_KINDS), remove every
     .github/workflows/*.yml or *.yaml that upstream does not ship to the
@@ -2994,11 +3031,22 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         sys.path.insert(0, str(ENGINE_DIR))
         import precedent_check as _pc
         approval_problem = _pc._approval_problem
-    except Exception:                                          # noqa: BLE001
-        _left('.github/workflows/', 'no approval could be judged, because '
-                                    'the vendored precedent_check.py did not '
-                                    'import -- no workflow was removed. '
-                                    'Refresh again once it does')
+    except Exception as e:                                     # noqa: BLE001
+        # ONE RUN, NOT TWO (2026-09-30, a consumer's update from 99941178).
+        # The second pass of a self-replacing refresh runs this at its top,
+        # when the first pass -- the OLD file list -- has already written
+        # the new precedent_check.py but not the module it now imports
+        # (generated_blocks.py). So refresh() defers the judgment to after
+        # its own write, where the engine is whole, instead of leaving it
+        # for a second Update Vendors.
+        if _DEFER_WORKFLOW_JUDGMENT:
+            _DEFERRED_WORKFLOW_JUDGMENT.append((dest_root, manifest, kind, pd))
+            return {}
+        _left('.github/workflows/', f'no approval could be judged, because '
+                                    f'the vendored precedent_check.py did not '
+                                    f'import ({type(e).__name__}: {e}) -- no '
+                                    f'workflow was removed. Refresh again '
+                                    f'once it does')
         return {}
     shipped = {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
     try:
@@ -4646,6 +4694,53 @@ def missing_markdown_blocks(local_section, template_section):
     return out
 
 
+# A KEPT SECTION IS PINNED TO WHAT IT CARRIES (2026-09-30). The pin was the
+# whole template section, so a consumer that recorded "we word this our own
+# way" was asked again when upstream reworded a block the section does not
+# carry at all: a placeholder rename inside one bullet the report itself
+# listed as missing brought a kept section back, and the consumer re-pinned
+# by hand for a change that could not touch its decision. Each block the
+# section lacks entirely now stands in the pin as one fixed line, so its
+# wording drops out and its presence stays in: a block upstream ADDS, which
+# the section does not carry yet, still changes the pin and is asked about.
+_NOT_CARRIED = '<a block this section does not carry>'
+
+
+def _carried_sha(section, lacks):
+    """The kept-divergence pin for one AGENTS.md section: its heading and
+    blocks, each block `lacks` reports wholly missing replaced by
+    _NOT_CARRIED. A block partly carried stays in whole."""
+    gone = {offset for offset, _t, how, _a in lacks if how == 'missing'}
+    parts = [section.split('\n', 1)[0].strip()]
+    parts += [_NOT_CARRIED if offset in gone else text
+              for offset, text in _md_blocks(section)]
+    return _sha_text('\n'.join(parts))
+
+
+def _narrow_kept_pin(dest_root, item, full_sha, carried_sha):
+    """An entry recorded before 2026-09-30 pins the whole section. When it
+    still matches, the decision covers exactly today's text, so it is
+    re-recorded against what the section carries -- the same decision,
+    narrowed -- and said once. Anything else is left as it is."""
+    if full_sha == carried_sha:
+        return
+    path = dest_root / 'precedent.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        entry = data[KEPT_DIVERGENCES_KEY][item]
+    except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
+        return
+    if not isinstance(entry, dict) or entry.get('template_sha256') != full_sha:
+        return
+    entry['template_sha256'] = carried_sha
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    print(f"PIN NARROWED: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
+          f"{item} now pins only the blocks the section carries "
+          f"(template_sha256 {carried_sha[:12]}...), so a change to a block "
+          f"it leaves out no longer asks again.")
+
+
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
@@ -4704,7 +4799,9 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
             continue
         item = f'{AGENTS_MD} {key}'
         what = f'{src_rel} section "{key}"'
-        template_sha = _sha_text(_instantiate(raw, subs))
+        section = _instantiate(raw, subs)
+        template_sha = _carried_sha(section, lacks)
+        _narrow_kept_pin(dest_root, item, _sha_text(section), template_sha)
         if _kept_divergence(dest_root, item, template_sha)[0] == 'kept':
             _report_kept(dest_root, item, what, template_sha)
             continue
@@ -4887,14 +4984,67 @@ def retired_branch_mentions(dest_root):
         sys.path.insert(0, str(ENGINE_DIR))
         import generated_blocks
         lines = text.splitlines()
-        for n, (line, generated) in enumerate(
-                zip(lines, generated_blocks.mask(lines)), 1):
-            if generated:
-                continue
+        hidden = generated_blocks.mask(lines)
+        for block in _prose_blocks(lines):
+            joined = '\n'.join(lines[i] for i in block)
+            starts, at = [], 0
+            for i in block:
+                starts.append(at)
+                at += len(lines[i]) + 1
             for old_re, new_re, old, new in names:
-                if re.search(old_re, line) and not re.search(new_re, line):
-                    out.append((rel, n, old, new))
+                for m in re.finditer(old_re, joined):
+                    k = max(j for j, st in enumerate(starts) if st <= m.start())
+                    n = block[k]
+                    if hidden[n]:
+                        continue
+                    said = _sentence_at(joined, m.start())
+                    if re.search(new_re, said) or _HISTORY_WORDS.search(said):
+                        continue
+                    if (rel, n + 1, old, new) not in out:
+                        out.append((rel, n + 1, old, new))
     return out
+
+
+# A MENTION IS JUDGED WITH ITS SENTENCE (2026-09-30). The check exempted a
+# line only when the new name was on that same line, so history that
+# wrapped -- "pinned to `precedent-beta-v01`, since renamed" with
+# "`staging`" on the next line -- was flagged, and a consumer reworded its
+# AGENTS.md to stop naming the old branch at all. So each mention is read
+# in its sentence, which may wrap; a list item and a table row each stand
+# alone. A sentence is history when it names the new name, or says so:
+# renamed, formerly, or a status like deduplicated or retired (a set's
+# MAP.md lists its withdrawn practices in rows that way).
+_HISTORY_WORDS = re.compile(
+    r'\b(?:since renamed|renamed|formerly|previously called|old name|'
+    r'retired|deduplicated|withdrawn|superseded)\b', re.I)
+_ITEM_START = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s|^\s*#|^\s*\|')
+
+
+def _prose_blocks(lines):
+    """-> [[line index, ...]]: runs of non-blank lines, where a list item,
+    a heading or a table row starts a block of its own."""
+    blocks, cur = [], []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            if cur:
+                blocks.append(cur)
+            cur = []
+            continue
+        if cur and (_ITEM_START.match(line) or lines[cur[-1]].lstrip().startswith('|')):
+            blocks.append(cur)
+            cur = []
+        cur.append(i)
+    if cur:
+        blocks.append(cur)
+    return blocks
+
+
+def _sentence_at(text, pos):
+    """The sentence of `text` around position `pos`."""
+    ends = [m.end() for m in re.finditer(r'[.!?](?=\s|$)', text)]
+    before = max([e for e in ends if e <= pos], default=0)
+    after = min([e for e in ends if e > pos], default=len(text))
+    return text[before:after]
 
 
 def _report_retired_branch_names(dest_root):
@@ -5678,7 +5828,12 @@ def refresh(clone, force=False, ref=None):
     # recognised by content. Also before the drift check, so a hand-paused
     # copy that _remove_retired_ci_workflow_files just stopped tracking is
     # judged here rather than refused there. See LEGACY_CI_WORKFLOWS.
-    retire_legacy_leftovers(ROOT, manifest, kind)
+    global _DEFER_WORKFLOW_JUDGMENT
+    _DEFER_WORKFLOW_JUDGMENT = True
+    try:
+        retire_legacy_leftovers(ROOT, manifest, kind)
+    finally:
+        _DEFER_WORKFLOW_JUDGMENT = False
 
     # A declared engine path that would give one file two writers is refused
     # before anything else, --force or not: force discards an edit, it does
@@ -5871,6 +6026,7 @@ def refresh(clone, force=False, ref=None):
             _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             _warn_legacy_status_records(ROOT)
             _report_retired_branch_names(ROOT)
+            _judge_deferred_workflows()
             print_left_for_you()
             return 0
 
@@ -5949,6 +6105,9 @@ def refresh(clone, force=False, ref=None):
                                            engine_path_sources, manifest)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
+    # The engine is whole now, so a judgment that could not import it at the
+    # top of this pass runs here.
+    _judge_deferred_workflows()
     # The commit this repo was on BEFORE the refresh. A second pass reads a
     # manifest the first pass already rewrote, so it is handed the first
     # pass's answer: "(was e8a2bc67cc8d)" on a repo that had been at

@@ -1009,10 +1009,17 @@ def main(argv):
         if e['error']:
             print(f"  ?      {_label(e['repo'])}: {e['error']}")
         elif e['stale']:
-            print(f"  STALE  {_label(e['repo'])} ({e['kind']}): has "
-                  f"{e['recorded'][:12] or '(none)'}, {tip_ref} is {tip[:12]}")
+            # Both hashes are BestPractice's -- the engine the set was last
+            # refreshed from, and BestPractice's tip -- so the line names
+            # BestPractice. Beside a set's name, "origin/main is ..." read as
+            # the SET's own main and sent a session after a non-bug
+            # (2026-09-30).
+            print(f"  STALE  {_label(e['repo'])} ({e['kind']}): has engine "
+                  f"{e['recorded'][:12] or '(none)'}, BestPractice {tip_ref} "
+                  f"is {tip[:12]}")
         else:
-            print(f"  ok     {_label(e['repo'])} ({e['kind']}): current at {tip[:12]}")
+            print(f"  ok     {_label(e['repo'])} ({e['kind']}): engine current "
+                  f"at BestPractice {tip[:12]}")
         # The hook line is printed for a CURRENT source too, and that is the
         # whole point: the set this was written for was current at the tip
         # and had no hooks at all. Reporting hooks only for stale sets would

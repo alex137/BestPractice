@@ -468,6 +468,14 @@ says so, both from the vendored tree under `process/upstream/`.
    [tools/precedent_source_names.py](../tools/precedent_source_names.py);
    `UNVERIFIED` means the name was not checked, which is not the same as
    checked and current.
+   **In a hosted session, attach each source with access "push" before
+   this step**, public shared sets included. The session's proxy answers
+   GitHub's API only for attached repositories, and read access does not
+   attach a public one, because git can already read it. git follows a
+   rename silently, so it cannot answer this either. Reading practices
+   needs only read access; checking the name is the one reason for push
+   here (measured 2026-09-28 and 2026-09-30: every public set
+   `UNVERIFIED` until attached with push).
 
    **In a practice SET this step is not applicable, and that is different
    from skipped.** The tool reads a multi-source config a set does not
@@ -494,21 +502,31 @@ says so, both from the vendored tree under `process/upstream/`.
    path inside `process/`, the engine copy you are running predates that
    fix: pass `--repo .` and take the answer from that run.**
 
-9. **Ask the person whether a source should be ADDED or DROPPED.** Steps 7
-   and 8 both ask about the sources this repo already declares — can they
-   be reached, are they still called that. Neither can ask the question
-   underneath: *should this repo be declaring something it isn't?* **A set
-   that was never declared is invisible.** It produces no `MISSING`, no
-   `UNVERIFIED`, no error and no absent file — only a repo quietly
-   resolving fewer practices than its owner believes, and no check will
-   ever report it, because **the sets a repo COULD declare are not
-   derivable from the sets it does.**
+9. **Check whether a source should be added or dropped — yourself, and
+   raise only a concrete finding.** Steps 7 and 8 both ask about the
+   sources this repo already declares — can they be reached, are they
+   still called that. Neither can ask the question underneath: *should
+   this repo be declaring something it isn't?* **A set that was never
+   declared is invisible.** It produces no `MISSING`, no `UNVERIFIED`, no
+   error and no absent file — only a repo quietly resolving fewer
+   practices than its owner believes, and no check will ever report it,
+   because **the sets a repo COULD declare are not derivable from the sets
+   it does.**
 
-   So this one is answered by a person, not a tool, and an update is when
-   to ask: somebody is already looking at how this repo gets its practices.
-   Name what it declares now and ask outright. Do not infer it from the
-   tree, and do not skip the question because nothing looks wrong — nothing
-   looking wrong is the symptom, not the all-clear.
+   So the session looks, and an update is when: somebody is already
+   looking at how this repo gets its practices. List the practice sets
+   this account can reach (in a hosted Claude Code session, `list_repos`;
+   elsewhere, the account's repositories or the clones beside this one),
+   read each one's subject in its `precedent-source.json`, and compare
+   them with what `precedent.json` declares. **Never put it to the person
+   as an open question** — "should any source be added or dropped?" is
+   the question [the-boildown](the-boildown.md) forbids (Morgan,
+   2026-09-28, strength: decided). Nothing found is said in one line.
+   Something found is a finding with a recommendation: *"precedent-shared-X
+   is not declared here; its subject is Y, which this repo does — declare
+   it?"*, or a declared set whose subject this repo no longer has. Do not
+   skip the look because nothing looks wrong — nothing looking wrong is
+   the symptom, not the all-clear.
 
    Measured, 2026-09-09, across five repositories that each looked healthy:
    one had no session-start instruction at all, so nothing ever fetched the

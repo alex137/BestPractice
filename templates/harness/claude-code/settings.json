@@ -36,10 +36,9 @@
       "Bash(python3 tools/doc_lint.py *)",
       "Bash(python3 tools/doc_sync.py)",
       "Bash(python3 tools/doc_sync.py *)",
-      "Bash(python3 process/upstream/tools/doc_lint.py)",
-      "Bash(python3 process/upstream/tools/doc_lint.py *)",
-      "Bash(python3 process/upstream/tools/practice_audit.py)",
-      "Bash(python3 process/upstream/tools/practice_audit.py *)",
+      "Bash(python3 tools/practice_audit.py)",
+      "Bash(python3 tools/practice_audit.py *)",
+      "Bash(python3 tools/checkin.py *)",
       "Bash(bash tools/bootstrap.sh)"
     ]
   },
