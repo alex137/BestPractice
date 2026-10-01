@@ -974,6 +974,8 @@ HOOK_WIRING = {
         ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
         # Everything CI used to run on a push, run before it (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        # No wait loop on pgrep -f, which always finds itself (2026-10-01).
+        ('PreToolUse', 'Bash', 'wait-loop-gate.sh', ''),
         # The same check before a merge through GitHub, which no push gate
         # sees (spec/BRANCH_TIERS_PLAN.md, hole 1).
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
@@ -1005,6 +1007,7 @@ HOOK_WIRING = {
         # A set runs no CI at all (source-sets-run-no-ci), so this is the
         # only thing that runs its checks before a push (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        ('PreToolUse', 'Bash', 'wait-loop-gate.sh', ''),
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PostToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
@@ -2915,6 +2918,38 @@ def _decommission_module():
                                          'read_registry')):
         return None
     return pd
+
+
+def dead_manifest_entries(root):
+    """-> [(manifest file name, entry name, local_path)] for each
+    process/manifest*.json entry whose local_path does not exist, a
+    declined entry aside (it has no local copy by design). practice_audit.py
+    fails on every one ("INTEGRITY: ... local_path missing").
+
+    THE ONE QUESTION, ASKED ONCE (2026-10-01). Each step that deletes a file
+    had to remember its manifest entry: this module's retire path did, the
+    update's rename did, and the catalogue sweep did not -- so an update
+    said DONE and the audit failed the next minute, from a consumer's
+    Update Vendors. Asking at the end, of the result, catches every deleting
+    step, including one not written yet: the update's postcondition and the
+    manifest-entries-resolve check both read this."""
+    out = []
+    proc = pathlib.Path(root) / 'process'
+    if not proc.is_dir():
+        return out
+    for m in sorted(proc.glob('manifest*.json')):
+        try:
+            entries = json.loads(m.read_text(encoding='utf-8')).get('entries')
+        except (OSError, ValueError, AttributeError):
+            continue
+        for e in entries if isinstance(entries, list) else ():
+            if not isinstance(e, dict) or e.get('status') == 'declined':
+                continue
+            rel = str(e.get('local_path') or '')
+            if rel and not (pathlib.Path(root) / rel).exists():
+                name = str(e.get('name') or e.get('practice') or rel)
+                out.append((m.name, name, rel))
+    return out
 
 
 def _drop_process_manifest_entries(dest_root, rel):

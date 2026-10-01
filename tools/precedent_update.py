@@ -437,19 +437,7 @@ def retire_shipped_root_doc(repo, old):
             (repo / old).unlink()
         except OSError:
             return False
-    man = repo / 'process' / 'manifest.json'
-    try:
-        data = json.loads(man.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return True
-    entries = data.get('entries')
-    if isinstance(entries, list):
-        kept = [e for e in entries
-                if not (isinstance(e, dict) and e.get('local_path') == old)]
-        if len(kept) != len(entries):
-            data['entries'] = kept
-            man.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
-                           encoding='utf-8')
+    pve._drop_process_manifest_entries(repo, old)
     return True
 
 
@@ -1876,7 +1864,45 @@ def update(repo, skip_check=False, ref=None):
                     f'or name the old slug: '
                     + ', '.join(read) if read else ''))
 
+    manifest_postcondition(repo, rep)
     return closing_check(repo, rep, skip_check)
+
+
+def manifest_postcondition(repo, rep):
+    """No manifest entry names a missing file when the update ends.
+
+    Asked of the result, not of each step: every step that deletes a file
+    used to have to remember its process/manifest.json entry, and the one
+    that forgot left the update saying DONE while practice_audit.py failed
+    (2026-10-01, from a consumer's Update Vendors). An entry for a file
+    this update deleted, or one inside the mirrored upstream tree the
+    consumer does not own, goes with its file and is said in a step line.
+    Any other is the repo's own, so it is left for the person by name --
+    DONE never prints over a manifest the audit would refuse."""
+    dead = pve.dead_manifest_entries(repo)
+    if not dead:
+        return
+    r = subprocess.run(['git', '-C', str(repo), 'diff', 'HEAD', '--name-only',
+                        '--diff-filter=D'], capture_output=True, text=True)
+    deleted = set(r.stdout.split()) if r.returncode == 0 else set()
+    try:
+        import precedent_resolve as pr
+        mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    except Exception:                                          # noqa: BLE001
+        mirrors = ()
+    dropped = []
+    for manifest, name, rel in dead:
+        if rel in deleted or (mirrors and rel.startswith(mirrors)):
+            pve._drop_process_manifest_entries(repo, rel)
+            dropped.append(f'{name} ({rel})')
+        else:
+            rep.leave(f'process/{manifest}: {name}',
+                      f'names {rel}, which does not exist -- practice_audit.py '
+                      f'fails on it. Restore the file, or drop the entry if '
+                      f'the file is gone on purpose')
+    if dropped:
+        rep.step('manifest', 'dropped the entries for files this update '
+                 'removed: ' + ', '.join(dropped))
 
 
 def closing_check(repo, rep, skip_check=False):

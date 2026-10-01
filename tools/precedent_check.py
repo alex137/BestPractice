@@ -3932,6 +3932,7 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'precedent-paths.sh',
     'push-check-gate.sh',
     'seeded-prompt-gate.sh',
+    'wait-loop-gate.sh',
 )
 
 
@@ -9380,6 +9381,27 @@ def _todo_gotcha_stale_reference(ctx):
                     'items; file it under todo/ instead '
                     '(spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'))
     return out
+
+
+@check('manifest-entries-resolve', 'tree',
+       'every process/manifest*.json entry (a declined one aside) names a '
+       'local_path that exists -- practice_audit.py fails on one that does '
+       'not, and the push gate does not run that audit',
+       'an entry whose file exists but holds the wrong thing -- that is '
+       'practice_audit.py\'s drift and hash comparison, which needs the '
+       'upstream tree; this sees only a path that is gone',
+       practice_backed=False, selects_on=('*', '*/*', 'process/manifest*.json'))
+def _manifest_entries_resolve(ctx):
+    # 2026-10-01, from a consumer's Update Vendors: the catalogue sweep
+    # deleted process/upstream/tools/ and left the doc-lint entry pointing
+    # into it. The update said DONE, every push check passed, and the audit
+    # failed. One question for every step that deletes, asked of the result
+    # (precedent_vendor_engine.dead_manifest_entries).
+    import precedent_vendor_engine as pve
+    return [Finding(f'process/{m}', f'entry {name!r} names {rel}, which does not '
+                                    f'exist -- restore the file, or drop the '
+                                    f'entry if it is gone on purpose')
+            for m, name, rel in pve.dead_manifest_entries(ROOT)]
 
 
 OPEN_ITEM_FILE_RE = re.compile(r'(?:^|/)(todo|gotcha)-\d{4}-\d{2}-\d{2}-[^/]*\.md$')
