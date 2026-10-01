@@ -223,10 +223,10 @@ individual's own practice set or dependent project.
   [precedent_check.py](../tools/precedent_check.py) takes **0.35s** and
   [build_views.py](../tools/build_views.py) `--check` **0.12s** — 0.47 seconds of
   work that the three-job shape billed as **three minutes**, paying for
-  three checkouts and three Python setups to carry it. Both
-  `doc-lint.yml.template` (retired 2026-09-21)
-  and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-  now ship **one job**, and a trigger that fires bills one minute.
+  three checkouts and three Python setups to carry it. Both templates of
+  that day (the Markdown lint, retired 2026-09-21, and the practice-set
+  check, retired 2026-10-01) were cut to **one job**, and the light check
+  and leak gate are one job each: a trigger that fires bills one minute.
 - **The `debounce` job and `ci_debounce_minutes` are RETIRED** (2026-09-20).
   A debounce job skipped the check job(s) that `needs:` it when the last
   completed run on the branch was recent. A skipped job really is unbilled —
@@ -261,8 +261,8 @@ individual's own practice set or dependent project.
   running both wide open.
 - **A `PRECEDENT_RUNNER` repository variable, for an adopter who already
   operates a self-hosted runner** (2026-09-20). Every job in
-  `doc-lint.yml.template` (retired 2026-09-21)
-  and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+  [light-check.yml.template](../templates/github-actions/light-check.yml.template)
+  and [leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template)
   reads `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` — set the
   variable (**Settings → Secrets and variables → Actions → Variables**) to a
   self-hosted runner label, and every job in that workflow runs there
@@ -302,13 +302,8 @@ generated-views drift check (`generated-artifact-provenance`, the same
 comparison `python3 tools/build_views.py --check` makes). A set created by
 [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
 gets no workflow, and the engine refresh deletes one an older set still
-carries.
-
-`templates/github-actions/precedent-check.yml.template`, the workflow sets
-used to run, is still in the repository but ships to no kind of repo
-(`CI_WORKFLOW_TEMPLATES['source']` in
-[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) is
-empty).
+carries. The workflow template sets used to run was retired on
+2026-10-01.
 
 ## Enable GitHub Actions
 

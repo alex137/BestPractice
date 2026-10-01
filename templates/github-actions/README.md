@@ -1,14 +1,12 @@
 # GitHub Actions templates
 
-Two templates a consuming repo gets, and one that ships nowhere. All are
-read-only: they report, and none holds a token that could write
+Two templates, both for a consuming repo. Both are read-only: they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/staging/practices/ci-commits-carry-identity.md)).
 
 | Template | Install as | In which repo |
 |---|---|---|
 | [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | every consuming repo, by default (a source declaring `"github_ci_workflows": "disabled"` switches it off) -- **engine-owned since 2026-09-27**: each Update Vendors writes it from the template over any hand-made copy; see below |
 | [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | every consuming repo, on the same terms as the row above |
-| [`precedent-check.yml.template`](precedent-check.yml.template) | nothing | no repo since 2026-09-21: a practice set runs no CI (practice `source-sets-run-no-ci`), and its checks run in the session before every push, the generated-views drift check its `views-drift` job ran included |
 
 **When each runs.** The light check runs on a pull request into `main` and
 on a push to `main`, and on the push it stops within seconds when those
@@ -18,6 +16,11 @@ in a private repository it skips its job before a runner starts; in a public
 one, where a push is publication, it scans (see "The leak gate template"
 below). Read a template's own header before changing either: every run of
 a private repository's workflow bills at least a minute.
+
+A practice set runs no CI (practice `source-sets-run-no-ci`, 2026-09-21):
+its checks, the generated-views drift check included, run in the session
+before every push. The workflow template sets used to run, with its
+`views-drift` job, was retired on 2026-10-01.
 
 **Runner, both (2026-09-20):**
 `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` --

@@ -35,6 +35,10 @@ concluding it's new.
 exists for the deliberate read; nothing loads it automatically. That
 sentence was in the Rule until 2026-09-21 (see `## Story`).
 
+**In a repo that vendors Precedent, search both catalogues**: the repo's
+own `gotchas/`, and Precedent's at `process/upstream/gotchas/`, the traps a
+session using the system can hit (shipped to consumers since 2026-10-01).
+
 **Every entry is its own file from the first one.** There is no size below
 which stories live inline "for now": the instructions file never carries
 the catalogue, so there is nothing to gain by deferring the split, and a

@@ -28,9 +28,8 @@ closed:            null
    right for a person and a silent green for a gate.
 
    So the views-drift check (its own template until 2026-09-19, then a
-   job inside
-   [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template),
-   which ships to no repo since 2026-09-21) refused that layout outright
+   job in the practice-set workflow template, which was retired on
+   2026-10-01) refused that layout outright
    rather than shipping a check that passes blind, and what covers a consuming repo is a session remembering to run
    `python3 tools/precedent_sync_views.py --repo . --check` where the sources
    do resolve. That is exactly the "session discipline only" state
