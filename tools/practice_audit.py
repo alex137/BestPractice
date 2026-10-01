@@ -249,7 +249,7 @@ def stale_declines(manifest_path):
             continue
         name = f"{label}:{e.get('practice', '?')}"
         rel = e.get('upstream_path') or ''
-        upstream = tree / rel
+        upstream = _upstream_file(tree, rel)
         if not rel:
             out.append((name, 'declined with no upstream_path, so nothing can tell '
                               'when the practice it declined has moved on'))
@@ -298,7 +298,7 @@ def redecide(manifest_paths, practice):
         for e in manifest.get('entries', []):
             if e.get('practice') != practice or e.get('status') != 'declined':
                 continue
-            upstream = tree / (e.get('upstream_path') or '')
+            upstream = _upstream_file(tree, e.get('upstream_path') or '')
             if not upstream.is_file():
                 print(f"practice_audit --redecide: {practice}'s upstream_path "
                       f"{e.get('upstream_path')!r} is not in the vendored tree; point "
@@ -316,6 +316,24 @@ def redecide(manifest_paths, practice):
               f"status 'declined'.")
         return 1
     return 0
+
+
+def _upstream_file(tree, rel):
+    """-> where upstream file `rel` lives in this repo.
+
+    Normally inside the vendored tree. But since 2026-09-30 the catalogue
+    copy leaves tools/ out once this repo vendors the engine into its own
+    tools/ (checkin.py, _copy_carries_tools), so an entry pairing a host
+    shim with its engine -- upstream_path "tools/doc_lint.py" -- found
+    nothing in the tree and failed "upstream_path missing" in every such
+    consumer, for a file sitting in the repo's own tools/. Found 2026-09-30
+    taking that update into a consumer with nine such entries. A tools/
+    path missing from the tree resolves to the repo's own copy."""
+    up = tree / rel
+    if rel and not up.exists() and rel.startswith('tools/') \
+            and (ROOT / rel).exists():
+        return ROOT / rel
+    return up
 
 
 def audit_manifest(manifest_path, update, fails, warns, pending):
@@ -351,7 +369,7 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
         # is somebody else's file; it does not owe us a particular spelling
         # of absent.
         local = ROOT / (e.get('local_path') or '')
-        upstream = tree / (e.get('upstream_path') or '')
+        upstream = _upstream_file(tree, e.get('upstream_path') or '')
         if not local.exists():
             fails.append(f"INTEGRITY: [{name}] local_path missing: {e.get('local_path')}")
             continue
