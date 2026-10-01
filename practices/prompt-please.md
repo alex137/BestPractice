@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Its two occasions (an existing recommendation, or work this session cannot reach) are both facts about the conversation and the session's own repository access, not about any file being edited. Reached through the occasion index and the reply gate. Decided: 2026-09-20, when the practice landed."
-occasion:    "handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach"
+occasion:    "a person says \"Prompt Please\", or work belongs in a new session or needs a repo this one cannot reach"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
-index_clause: "\"Prompt Please\" -- recommendation or unreachable work, one paste-ready prompt"
+index_clause: "one paste-ready prompt for a new session; never a session-creating tool"
 checked_by:  null
 defines:     ["Prompt Please"]
 command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach."}

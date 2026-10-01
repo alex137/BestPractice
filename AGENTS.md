@@ -195,8 +195,8 @@ When a message says "Booked", "Approved", "Book it" or "Promote 3", or plainly a
   go-update — stage 3, Booked: land it on the landing branch; high-risk: PR and merge
 When a message says "Update Vendors", or an upstream update is taken into a vendoring repo:
   vendor-update-runbook — source clone first, both layers move separately, then merge
-When a model or comparison rests on an operating constant nobody decided:
-  constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
+When a model or comparison rests on a constant nobody decided:
+  constants-are-risk-inputs — make it a swept, registered input, never doctrine
 When a person asks "What's new?", or what has changed in the project lately:
   whats-new — write any missing daily entries first, then link the log and show the newest
 When a person explicitly asks for a "very deep check" or a "full practice audit":
@@ -206,14 +206,16 @@ When a person says "Chief of Staff":
   chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
-When a person says "My options", or asks to see a decision's options or hand them off:
-  my-options — every option, plainer, your pick -- or a paste-ready handoff
+When a person says "My options", or asks to see a decision's options:
+  my-options — every real option, plainer, costs said flatly, your pick and why
 When a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier:
   act — stage 2: build on the session's feature branch, pushed so it survives
   consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
   debut — stage 4: pre-staging into staging, full checks
   produce — stage 5: staging into main (production); read strictly
   promote — the next tier up, chosen from the work and said first; "Promote N" does stage N
+When a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach:
+  prompt-please — one paste-ready prompt for a new session; never a session-creating tool
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Root issues" or "Root fixes", or asks what this session found that should go back to Precedent:
@@ -229,7 +231,7 @@ When a person says "Vocabulary", or asks what the standing commands are:
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
 When a person says "Write it up", or asks for a write-up:
-  write-it-up — "Write it up": commit a full report of issue and fix, then link it
+  write-it-up — commit a full report: issue, options attacked, the fix that survived; link it
 When a second implementation of the same mechanism turns up:
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
@@ -240,8 +242,8 @@ When an unattended job hits something blocking its normal work, or something opt
   automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
-When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual source; keep one clone, both paths; shared sources beside
+When attaching a practice source:
+  attach-never-clone-individual — attach the individual one, never a second clone; shared sets sit beside the repo
 When being asked for something another window or session of the person's may already be working on:
   dont-race-another-window — say so and decline; send them to the window already on it
 When building a mechanism that makes something discoverable or reachable:
@@ -272,7 +274,7 @@ When creating, renaming or retagging a session:
   session-title-names-the-difference — title by the differentiator; never the task alone, never an open sibling's title
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
-When decommissioning a mechanism that leaves files with no remaining job:
+When decommissioning a mechanism:
   decommission-deletes-files — delete what it owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
@@ -280,8 +282,6 @@ When finishing substantial work, or merging a branch:
   capture-gate — capture it in the turn that finds it; a separate second pass; merge is backstop
 When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
-When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
-  prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When naming or adding a file:
   filename-separator — beside others of its kind: one word separator; never both - and _
   no-version-suffix — name a file for what it is; the repository is the version
@@ -310,8 +310,8 @@ When writing a hook, script, or practice-file rule in this repository that a dep
   vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — it carries its date, inline
-When writing or changing anything that automatically repairs a state it found wrong:
-  repair-cannot-discard-work — an auto-repair must never discard work; reporting is not repairing
+When writing or changing an automatic repair:
+  repair-cannot-discard-work — it must never discard work; reporting is not repairing
 When writing, running or reviewing a gate, audit, cache or heavy solve:
   gate-ledger — re-runs: record code, reads and result per unit; skip a unit whose fact holds
   gates-fail-fast — cheap checks first; a failure skips the slow ones and stops the work beside it

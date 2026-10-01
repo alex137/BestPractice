@@ -18,7 +18,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [act](practices/act.md) | on-demand | a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive" or "Archive?", or asks whether the session can be archived |
-| [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source with the repo-attach tool, or its reply says to clone |
+| [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo or other binary asset the person supplies |
 | [automation-issues](practices/automation-issues.md) | on-demand | an unattended job hits something blocking its normal work, or something optional it cannot reach |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work the repository or another session may already cover |
@@ -41,7 +41,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [code-cites-practice](practices/code-cites-practice.md) | on-demand | writing code because a specific practice requires it |
 | [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) | on-demand | writing a document that cites a computed number |
 | [consider](practices/consider.md) | on-demand | a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier |
-| [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on an operating constant nobody decided |
+| [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on a constant nobody decided |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
@@ -51,7 +51,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
 | [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
-| [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism that leaves files with no remaining job |
+| [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
 | [diagnosis-is-measured](practices/diagnosis-is-measured.md) | on-demand | a tool, hook or error message names the possible causes of a failure |
 | [disclose-landing](practices/disclose-landing.md) | on-demand | a practice lands or a candidate is raised, at any level |
@@ -91,7 +91,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
 | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo onto Precedent from an old system |
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
-| [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to see a decision's options or hand them off |
+| [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to see a decision's options |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
 | [never-delete-a-remote-branch](practices/never-delete-a-remote-branch.md) | on-demand | a branch has done its job, or a person says to delete branches |
 | [new-hook-joins-the-registry](practices/new-hook-joins-the-registry.md) | on-demand | adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs |
@@ -114,7 +114,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [primary-branch](practices/primary-branch.md) | on-demand | ** |
 | [produce](practices/produce.md) | on-demand | a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier |
 | [promote](practices/promote.md) | on-demand | a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier |
-| [prompt-please](practices/prompt-please.md) | on-demand | handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach |
+| [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [quick-index](practices/quick-index.md) | resident | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | computing, quoting or tabulating figures |
@@ -123,7 +123,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
 | [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system |
-| [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing anything that automatically repairs a state it found wrong |
+| [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing an automatic repair |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [review-against-a-contract](practices/review-against-a-contract.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |

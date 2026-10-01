@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus. The subject is any mechanism that repairs a state it found wrong -- a hook, a script, a CI step, an agent's own recovery path -- and those share no directory. Routing it by path would attach it to the one example that prompted it (.claude/hooks/) and hide it from the next one. Decided: 2026-09-22."
-occasion:    "writing or changing anything that automatically repairs a state it found wrong"
+occasion:    "writing or changing an automatic repair"
 gates:       []
-index_clause: "an auto-repair must never discard work; reporting is not repairing"
+index_clause: "it must never discard work; reporting is not repairing"
 checked_by:  null
 defines:     []
 status:      active
