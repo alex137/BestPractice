@@ -101,7 +101,9 @@ used to read on turn one.
   starting what he just asked for, check whether it belongs in a different
   session, repositories first; then hand back **one paste-ready block** he
   opens a new window with, naming the repository to root it in and the ones
-  to attach, plus one ordinary unfenced sentence outside the block saying
+  to attach, inviting the receiving session to push back with a stronger
+  counter-proposal, and asking for any reply as its own paste-back block
+  signed with that session's name and link, plus one ordinary unfenced sentence outside the block saying
   where to paste it. **Never call a session-creating or session-messaging
   tool for this, and never wake a live session either** — both have come
   back rejected often enough that the mechanism is retired outright, and a
