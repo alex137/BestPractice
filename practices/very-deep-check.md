@@ -1044,7 +1044,7 @@ confidently.
     and a structural line match where it is not — **CI has no PyYAML, so
     the first version of that check skipped in the one environment that
     gates every pull request**, which is not a check
-    ([durable-fix](durable-fix.md)). *(Found 2026-09-21: an anchor shared one `paths:` list
+    ([upstream-fix](upstream-fix.md), point 7). *(Found 2026-09-21: an anchor shared one `paths:` list
     between a `push:` and a `pull_request:` trigger. PyYAML resolved it —
     including through the exact command this repository's own templates
     recommend — and GitHub rejects the file outright. Every local
@@ -1082,8 +1082,8 @@ confidently.
     item 12.
 
 21. **Every detector built since the last run, carried to every repo in
-    force.** [fix-the-original](https://github.com/alex137/BestPractice/blob/staging/practices/fix-the-original.md)
-    says fix the origin and then every copy. **Nothing checked that the
+    force.** [upstream-fix](https://github.com/alex137/BestPractice/blob/staging/practices/upstream-fix.md)
+    says fix the origin and then every copy (point 8). **Nothing checked that the
     second half happened**, and the failure is quiet by construction: a
     consumer running the engine it vendored before the fix reports nothing,
     correctly, and its silence reads exactly like a clean result.
@@ -2403,7 +2403,7 @@ had rather than growing a second copy. And **the fix went in `_run_git`
 keyed on the git subcommand**, not at the three call sites that fetch
 today: this sweep grew three new fetches in a fortnight, and a per-caller
 fix covers whatever existed the day it was written
-([durable-fix](durable-fix.md)).
+(durable-fix, now part of [upstream-fix](upstream-fix.md)).
 
 **The generator check above came from a question, not a failure, and that is
 worth saying plainly.** Morgan asked on 2026-09-11, after reading how a

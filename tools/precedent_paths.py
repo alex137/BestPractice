@@ -53,7 +53,7 @@ import json, pathlib, re, sys
 # avoids (computing ROOT from `__file__` alone breaks the moment this script
 # is relocated or vendored somewhere other than <repo>/tools/whatever.py).
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
-# practice: fix-the-original -- ROOT is the repo whose CONTENT this reads, and
+# practice: upstream-fix -- ROOT is the repo whose CONTENT this reads, and
 # `_ENGINE_DIR.parent` is the wrong answer for exactly one layout: an engine
 # copy vendored inside a consuming repo at process/upstream/tools/. There ROOT
 # lands on the VENDORED tree, whose practices/ is the universal catalogue

@@ -151,7 +151,7 @@ upstream that day and never verified a rule against upstream's catalogue.**
 By this practice's own rungs it stopped at (b) — a written rule, dated,
 carrying its incident — and skipped (c), *if the lesson is generic, export it*.
 That is the consumer-template-only shape one level up, landing on the same day
-as [fix-the-original](fix-the-original.md), which exists to prevent exactly
+as fix-the-original (now part of [upstream-fix](upstream-fix.md)), which exists to prevent exactly
 that shape.
 
 ## Install

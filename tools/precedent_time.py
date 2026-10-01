@@ -21,7 +21,7 @@ and naive). Nothing said which of the three any given stamp was, so a
 reader comparing two records from different tools could not order them.
 The same root cause had by then produced a run of separate commit-offset
 incidents; the durable fix is one module, not another careful session
-(practice: durable-fix).
+(practice: upstream-fix).
 
 THE ZONE LADDER, and why it ends where it does. Same order as
 `.claude/hooks/commit-identity.sh` resolves a committer's zone, and for
