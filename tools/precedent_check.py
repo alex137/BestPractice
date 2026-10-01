@@ -1387,6 +1387,62 @@ def _sibling_not_in_force(pdir, base):
             f'where that rule went -- settle that before linking it')
 
 
+_MD_LINK_TARGET = re.compile(r'\]\(([^)\s#]+)(?:#[^)\s]*)?\)')
+
+
+@check('shipped-links-travel', 'tree',
+       'no file this repo ships in its catalogue copy links relatively to a '
+       'file the copy leaves out (tools/checkin.py\'s VENDORING_RULES): '
+       'such a link is broken in every consumer, under process/upstream/, '
+       'where the consumer may not fix it. A doc of ours a consumer\'s reader '
+       'needs is linked on GitHub instead',
+       'a link that is not Markdown link syntax (a bare path in backticks, '
+       'an HTML anchor), and a relative link that climbs out of the repo; '
+       'practice files are judged more closely by practice-links-travel. '
+       'Only the repo that ships a catalogue copy is judged',
+       practice_backed=False, selects_on=('*.md', '*/*.md', 'tools/checkin.py'))
+def _shipped_links_travel(ctx):
+    # WHY (2026-10-01, from a consumer's update): seven links to
+    # templates/harness/LEDGER.md, a file the copy leaves out, were broken
+    # in every consumer, and the full set was 195 links in 65 files.
+    if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        raise NotApplicable('a vendored engine: this repo receives the '
+                            'catalogue copy, it does not ship one')
+    try:
+        import checkin
+    except Exception as e:                                    # noqa: BLE001
+        raise NotApplicable(f'tools/checkin.py did not import: {e}')
+    if not hasattr(checkin, 'vendoring_rule'):
+        raise NotApplicable('this checkin.py predates VENDORING_RULES')
+    import posixpath
+    out = []
+    for rel in _git('ls-files', '*.md').stdout.split():
+        rule = checkin.vendoring_rule(rel)
+        if not (rule and rule[1]):
+            continue
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            for m in _MD_LINK_TARGET.finditer(line):
+                t = m.group(1)
+                if re.match(r'^[a-z]+:', t) or t.startswith('/'):
+                    continue
+                tgt = posixpath.normpath(posixpath.join(posixpath.dirname(rel), t))
+                if tgt.startswith('..'):
+                    continue
+                stays = (checkin.vendoring_rule(tgt)
+                         or checkin.vendoring_rule(tgt.rstrip('/') + '/'))
+                if stays and stays[1] is False:
+                    out.append(Finding(
+                        f'{rel}:{i}', f'links to {tgt}, which the catalogue '
+                        f'copy leaves out, so the link is broken in every '
+                        f'consumer -- link it on GitHub instead '
+                        f'(https://github.com/alex137/BestPractice/blob/staging/{tgt})'))
+    return out
+
+
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo publishes either travels with the '
        "file (a sibling practice, a vendored engine file, this source's own "

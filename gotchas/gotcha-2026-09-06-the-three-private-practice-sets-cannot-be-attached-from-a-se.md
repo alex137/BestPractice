@@ -33,12 +33,12 @@ The three private practice sets cannot be attached from a session
   disabled"*, because this session's git credentials cover `alex137/*` only.
   Nothing done from inside such a session closes this. The remedy is a
   session whose **initial source** is the private repo
-  ([TODO.md](../TODO.md)'s `attach-private-sources` item, which also lists what
+  ([TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)'s `attach-private-sources` item, which also lists what
   to run once there); BestPractice is public, so that session clones it
   directly with no second `add_repo`. The failure this entry prevents is
   spending the attempt at all: the fact was already recorded in
-  [TODO.md](../TODO.md), [spec/PHASE6_BRIEF.md](../spec/PHASE6_BRIEF.md) and
-  [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md),
+  [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md), [spec/PHASE6_BRIEF.md](https://github.com/alex137/BestPractice/blob/staging/spec/PHASE6_BRIEF.md) and
+  [decisions/2026-09-01-relax-private-repo-isolation.md](https://github.com/alex137/BestPractice/blob/staging/decisions/2026-09-01-relax-private-repo-isolation.md),
   and a session on 2026-09-06 rediscovered it by trying both calls anyway,
   because this section — the one place written to stop rediscovery — did not
   carry it.

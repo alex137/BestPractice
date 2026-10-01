@@ -124,7 +124,7 @@ another a tax.
 
 A shared set can be private. A project that declares one and is itself
 **public** will not render that set's practice text into its tracked
-[AGENTS.md](../AGENTS.md) — publishing it there would publish the set. The generated
+[AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md) — publishing it there would publish the set. The generated
 block says so out loud rather than quietly dropping it.
 
 If the gate flags a directory your set legitimately has — a drafting
@@ -162,7 +162,7 @@ If a diff surprises you, that line is the first thing to read.
 - [FOR_DEVELOPERS.md](FOR_DEVELOPERS.md) — working in a Precedent project
   day to day, including making your own set
 - [ADOPTING.md](ADOPTING.md) — the non-technical introduction
-- [spec/BOOTSTRAP_NEW_SOURCES.md](../spec/BOOTSTRAP_NEW_SOURCES.md) — the
+- [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md) — the
   full procedure
   [precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
   mechanizes, including the

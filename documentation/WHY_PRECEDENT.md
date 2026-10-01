@@ -152,7 +152,7 @@ last one left off, because "where we left off" is a file.
 
 ### You Control What the AI Assistant Knows
 
-**Every session starts by reading the project's map ([MAP.md](../MAP.md)) and
+**Every session starts by reading the project's map ([MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md)) and
 its instructions file**, so what the AI Assistant knows is something you
 decide, by editing files. Nothing load-bearing lives in a hidden memory
 store or depends on a lucky recollection from an old conversation. If

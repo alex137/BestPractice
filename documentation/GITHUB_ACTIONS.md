@@ -6,12 +6,12 @@ This is especially important when working through GitHub-connected ChatGPT. A no
 
 ## Precedent's Own Workflows (This Repo, Not a Template)
 
-Two workflows run on this repo itself, in [.github/workflows/](../.github/workflows/).
+Two workflows run on this repo itself, in [.github/workflows/](https://github.com/alex137/BestPractice/tree/staging/.github/workflows).
 (A third, `docs.yml`, ran the Markdown lint here until that left CI on
 2026-09-21; see the next section.)
 
 - **`deep-check.yml`** — added by a 2026-09-03 deep-check audit. Runs
-  [tools/verify_harness.py](../tools/verify_harness.py),
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py),
   [tools/precedent_check.py](../tools/precedent_check.py) and
   [tools/doc_sync.py](../tools/doc_sync.py) — the three of AGENTS.md's five
   named "deep check" tools that had no continuous-integration (CI) check
@@ -25,24 +25,24 @@ Two workflows run on this repo itself, in [.github/workflows/](../.github/workfl
   all. It runs on a pull request into `main` (since 2026-09-25) and on every
   push to `main` (since 2026-09-27), where it stops after a few seconds if
   those exact files already passed it -- this repo's one GitHub test
-  ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)); every other
+  ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)); every other
   push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is
   the branch being published, not just its default). It is the unbypassable
   backstop for the private-source separation described in
-  [spec/PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
+  [spec/PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
   Practice Belongs To": a `git push --no-verify` can skip the local
   [pre-push hook](../templates/hooks/pre-push), but not this. See
-  [spec/SOURCES.md](../spec/SOURCES.md) for what it checks and why it has two
+  [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md) for what it checks and why it has two
   layers, only one of which can run here. (This section exists because the
   workflow went undisclosed for months after being added — the practice
   requiring disclosure, `github-setup-disclosed`, only fires on a
   newly-added workflow file in the diff being checked, so it structurally
   cannot catch a workflow that was already merged before the practice
   existed to check it. Found by a 2026-09-01 deep-check audit; see
-  [tools/verify_harness.py](../tools/verify_harness.py)'s
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
   `check_all_workflows_disclosed` for the tree-wide check added in
   response, which does catch this going forward.)
 
@@ -63,7 +63,7 @@ has already run on every change before it is committed. CI was re-checking
 work the session in front of the person had just cleared — a measured 350
 billed minutes over 19 days in one repository, on a workflow that was
 already one job with `paths:` filters from the day it was installed
-([spec/BILLING_FLOOR.md](../spec/BILLING_FLOOR.md)).
+([spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/staging/spec/BILLING_FLOOR.md)).
 
 **What replaced it is stricter than what went.** "The light check gates a
 commit" was written down and followed, but nothing refused a commit that
@@ -141,7 +141,7 @@ Runs No CI" below).
 
 ## Controlling Actions Minutes
 
-**What a new install gets, since 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
+**What a new install gets, since 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
 one GitHub test and no more. `light-check.yml` runs only on a pull request
 into `main`, about one billed minute per merge into main in a private repo;
 `leak-gate.yml` runs on every push in a public repo, where a push is
@@ -216,7 +216,7 @@ individual's own practice set or dependent project.
   with the Markdown workflow it replaced, and there is no scheduled
   template to copy any more.
 - **One job per workflow — the lever that replaced the debounce**
-  (2026-09-20, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md) item
+  (2026-09-20, [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md) item
   13). GitHub bills **per job, rounded up to a whole minute**, so what a
   workflow costs on a trigger that fires is mostly its job count, not its
   run time. Measured on a real installed practice set:
@@ -240,7 +240,7 @@ individual's own practice set or dependent project.
   its `precedent.json`/`identity.json` can delete the field; nothing reads
   it any more.
 - **`pull_request:` alongside a branch-scoped `push:`, not push on every
-  branch** (2026-09-19, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)
+  branch** (2026-09-19, [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
   item 8) — both templates ship `push: branches: [main]` plus
   `pull_request: [opened, synchronize]`. A branch with no open PR triggers
   neither event that matches here, so the workflow is never evaluated —
@@ -272,7 +272,7 @@ individual's own practice set or dependent project.
   does anything once an adopter has already stood up and secured their own
   runner, which nobody else can do for them (a self-hosted runner executes
   whatever code triggered the workflow, so it is a real security posture
-  choice, not a setting to flip casually — [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)
+  choice, not a setting to flip casually — [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
   item 6 has the trade-offs in full, including why GitHub itself advises
   against a self-hosted runner on a repo that takes untrusted forked
   pull requests). This variable is the mechanism; deciding whether to use
@@ -401,7 +401,7 @@ than writing a block from an incomplete source set, which is the shape a
 green-but-blind check would take. So no workflow a consuming repo gets
 checks its views. What covers a consuming repo today is a session running
 `python3 tools/precedent_sync_views.py --repo . --check` where the sources
-do resolve; [TODO.md](../TODO.md)'s
+do resolve; [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)'s
 `consumer-views-drift-uncheckable-in-ci` item holds the question of whether
 anything better is possible.
 
@@ -427,8 +427,8 @@ runs, never once disagreeing), and a `schedule:` inherited by every adopter
 is a clock in somebody else's repository that they never picked.
 
 Precedent itself ships no committing workflow — its two
-([deep-check](../.github/workflows/deep-check.yml),
-[leak-gate](../.github/workflows/leak-gate.yml)) all read and none writes — so
+([deep-check](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/deep-check.yml),
+[leak-gate](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/leak-gate.yml)) all read and none writes — so
 there is nothing to fix here. This is a limit to know before you add one.
 
 *GitHub interface and product behavior verified August 2, 2026. Settings and labels can change.*

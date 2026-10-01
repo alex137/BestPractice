@@ -41,7 +41,7 @@ has to be a verified email on the account the signing key belongs to —
 an account-level fact, not a BestPractice-specific one.
 
 The repo-scoped design was dropped before being built
-([spec/COMMIT_IDENTITY_PLAN.md](../spec/COMMIT_IDENTITY_PLAN.md)), in
+([spec/COMMIT_IDENTITY_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/COMMIT_IDENTITY_PLAN.md)), in
 favor of one self-declared identity plus a "guess, and say so" fallback in
 `commit-identity.sh` — no per-repo split. The cost of not checking first
 was a full design document (rungs, precedence rules, a risk analysis) for

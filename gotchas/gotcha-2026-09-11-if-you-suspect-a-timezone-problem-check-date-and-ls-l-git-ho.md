@@ -30,7 +30,7 @@ unaffected and stands.
   `.claude/settings.local.json` is inert — the harness reads environment
   before hooks run — and reading it sent two diagnoses down the wrong path.
   `TZ` is unset in every tool shell, so git falls back to the SYSTEM zone;
-  [.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)
+  [.claude/hooks/commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/commit-identity.sh)
   repoints `/etc/localtime` for a **declared** zone, which is the one lever a
   hook can move mid-session that every later shell and `git merge` picks up.
   `PRECEDENT_LOCALTIME` overrides the target so this is testable. The

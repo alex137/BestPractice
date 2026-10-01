@@ -757,13 +757,21 @@ says so, both from the vendored tree under `process/upstream/`.
     is set the way the person actually wants, not just inherited from
     whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality
-   ([verify-postcondition](verify-postcondition.md)).
+   ([verify-postcondition](verify-postcondition.md)), **and before the merge
+   in step 12, on the pushed branch or the pull request's head.** What
+   merges is that head, so its content is the check that matters, and it
+   runs before anything Claude Code's own safety check can refuse: on
+   2026-10-01 the merge went through and the very next command, a read of
+   the merged branch, was blocked as "Merge Without Review", so a check
+   left for after the merge never ran
+   ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)).
 12. **Publish it, without asking again.** Run [go-update](go-update.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop after step 11 and ask. Every condition
     Booked (`Go update`) carries still holds -- a branch the repository restricts is
     still restricted, and a step this session cannot reach hands off rather
-    than coming back as a question.
+    than coming back as a question. **If the safety check refuses a step
+    here, report that step by name and stop; never route around it.**
 
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the

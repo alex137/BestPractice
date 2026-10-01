@@ -39,7 +39,7 @@ A repository attached mid-session clones single-branch, so every
   the canonical capitalization at the same time stops the misleading
   redirect notice.
   **The refspec half of that repair now applies itself** — 2026-09-06,
-  [.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh) here and
+  [.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh) here and
   [templates/bootstrap.sh](../templates/bootstrap.sh) for dependent repos both
   widen `remote.origin.fetch` at session start when it carries no
   `refs/heads/*` mapping, before the freshness block runs. It is local

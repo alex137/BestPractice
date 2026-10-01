@@ -64,7 +64,7 @@ rules instead of living and dying inside one document.
    that omits the field is read as public, which silently excludes every
    shared-level source's practice text. If the count comes back near the size
    of the universal set alone, that field is what to check first.
-5. Follow [spec/CONTRIBUTOR_ACCESS.md](../../spec/CONTRIBUTOR_ACCESS.md)'s
+5. Follow [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md)'s
    "Verify these first" section before anything else here is relied on. Three
    platform behaviours that plan rests on are unverified as of 2026-09-11 —
    most importantly whether a code-owner review requirement leaves a
@@ -117,7 +117,7 @@ rules instead of living and dying inside one document.
 
 ## What this template deliberately does not include
 
-Per [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](../../spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
+Per [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](https://github.com/alex137/BestPractice/blob/staging/spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
 own scope: no pilot project or pilot person is built into this template —
 neither exists yet. The first repo instantiated from this template *is* that
 pilot, and its own `AGENTS.md` should be adapted with that project's real

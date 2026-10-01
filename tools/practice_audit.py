@@ -2,7 +2,9 @@
 """practice_audit.py — audit the practice-export layer
 (practice: practice-export-loop; practice: scrub-gate; practice: layered-practice-packs).
 
-Runs from a dependent repo (script lives at process/upstream/tools/). A repo
+Runs from a dependent repo, from its own vendored engine in tools/ (the
+catalogue copy under process/upstream/ leaves tools/ out once the engine
+carries this script, 2026-09-30). A repo
 may install several practice layers ("packs" -- (practice: layered-practice-packs)): the generic
 upstream at process/upstream/ tracked by process/manifest.json, plus any
 domain packs vendored at process/<pack>/ tracked by process/manifest_<pack>.json.
@@ -88,12 +90,12 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      installs, still carrying both retired workflows. FAILS until the
      migration is finished (spec/MIGRATING_EXISTING_INSTALLS.md step 7).
 
-Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
-      python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
-      python3 process/upstream/tools/practice_audit.py --manifest process/manifest.json  # one manifest
-      python3 process/upstream/tools/practice_audit.py --loader-notice    # check 5 only, never fails
+Run:  python3 tools/practice_audit.py                    # gate (all manifests)
+      python3 tools/practice_audit.py --update-baseline  # re-record hashes
+      python3 tools/practice_audit.py --manifest process/manifest.json  # one manifest
+      python3 tools/practice_audit.py --loader-notice    # check 5 only, never fails
                                                     # (what tools/bootstrap.sh prints at session start)
-      python3 process/upstream/tools/practice_audit.py --redecide NAME    # after re-deciding a decline:
+      python3 tools/practice_audit.py --redecide NAME    # after re-deciding a decline:
                                                     # record the upstream file's current hash
 """
 import hashlib, json, pathlib, re, subprocess, sys

@@ -25,7 +25,7 @@ The session's PRIMARY repo does not run its SessionStart hooks either,
   by side under `/home/user` — the layout a team source requires, since it
   resolves as a *sibling clone* — and the harness set the session root to
   that parent. Every hook in
-  [.claude/settings.json](../.claude/settings.json) is written as
+  [.claude/settings.json](https://github.com/alex137/BestPractice/blob/staging/.claude/settings.json) is written as
   `$CLAUDE_PROJECT_DIR/.claude/hooks/…`, `/home/user` has no `.claude/`,
   so every one of them resolved to nothing. Silently: a hook whose path
   does not exist is not an error anybody sees.

@@ -29,7 +29,7 @@ tools/precedent_refresh_sources.py --apply` now restores a
 declared-but-missing hook, **independently of engine staleness**, since the
 two go stale independently. Bringing a drifted-but-present hook up to
 canonical is still a person's call, and [TODO.md's `source-hook-drift`
-item](../todo/todo-2026-09-09-source-hook-drift.md) holds it.
+item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-09-source-hook-drift.md) holds it.
 
 ## Fix
 

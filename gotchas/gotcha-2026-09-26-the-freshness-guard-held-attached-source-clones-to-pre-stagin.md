@@ -37,7 +37,7 @@ refused as a safety bypass until the person approved it for that checkout.
 
 ## Fix
 
-In [.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh),
+In [.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh),
 and the template copy: an attached repository's declared base wins over
 the landing branch. Nothing this session writes lands on an attached
 source, so the person's landing branch says nothing about it. The project
