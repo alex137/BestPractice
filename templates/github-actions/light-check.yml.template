@@ -133,7 +133,23 @@ jobs:
     name: Light check
     # A push to main runs only in a public repository (see `on:` above);
     # the pull request into main and a run started by hand run everywhere.
-    if: github.event_name != 'push' || github.event.repository.private != true
+    #
+    # ONE EXCEPTION, A PRIVATE REPOSITORY'S PROMOTE THAT IS NOT DUE A TEST
+    # (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote decides"). Promote reads
+    # the person's `github_ci_every_hours` and, when main's GitHub test passed
+    # more recently than that, names the pull request's branch
+    # `to-main-not-due-...`. This job then skips itself here, before a runner
+    # starts, so it bills nothing -- the same free skip a private push to
+    # main gets. A skipped job counts as passing for a required check, so the
+    # merge is not held. A public repository is never skipped this way.
+    # Morgan: "these tests will happen BEFORE the github workflow yaml is
+    # triggered so that, if it's not being run, it doesn't even get to the
+    # github point" (strength: decided).
+    if: >-
+      (github.event_name != 'push' || github.event.repository.private != true)
+      && !(github.event_name == 'pull_request'
+      && github.event.repository.private == true
+      && startsWith(github.head_ref, 'to-main-not-due-'))
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:

@@ -17,6 +17,14 @@ one, where a push is publication, it scans (see "The leak gate template"
 below). Read a template's own header before changing either: every run of
 a private repository's workflow bills at least a minute.
 
+**In a private repository the light check runs at most once every
+`github_ci_every_hours`** (since 2026-10-01). Promote decides, in the
+session: when the test passed more recently than that, it names the pull
+request's branch `to-main-not-due-DATE` and the job's `if:` skips it before
+a runner starts
+([spec/CI_CADENCE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_CADENCE_PLAN.md),
+"Promote decides").
+
 A practice set runs no CI (practice `source-sets-run-no-ci`, 2026-09-21):
 its checks, the generated-views drift check included, run in the session
 before every push. The workflow template sets used to run, with its

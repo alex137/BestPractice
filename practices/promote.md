@@ -220,6 +220,18 @@ a pass; never a poller of the session's own, since one crashed mid-wait on
 2026-09-27), and merges it with a merge commit. Report the copy, the pull request and the merge, and confirm with a
 fetch that `origin/main` carries staging's tip.
 
+**In a private repository the GitHub test runs at most once every
+`github_ci_every_hours`** (since 2026-10-01,
+[spec/CI_CADENCE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_CADENCE_PLAN.md), "Promote decides").
+Promote reads the person's value first, then the repository's, and when the
+test passed more recently than that it names the copy
+`to-main-not-due-DATE`: the light check skips that pull request before a
+runner starts, and `--wait-main-test` says **NOT DUE** and exits 0, so merge
+on the full local check. It always runs on a batch that changes a workflow
+or the vendored engine, after a failed run until one passes, and with
+`PRECEDENT_CI_NOW=1`. Say which it was -- due or not due, and the line
+Promote printed for why -- in the report.
+
 **Main takes staging by a pull request from a throwaway copy, never from
 staging itself.** A merged pull request's page offers to delete its
 source branch, and on 2026-09-26 staging, the source of the pull request

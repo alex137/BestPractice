@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Let Morgan push as often as he likes to a private repo while GitHub Actions runs at most once every X hours, X set once in precedent-individual. The decision is made on the commit, before GitHub starts a runner, so it costs nothing -- unlike the 2026-09-16 debounce, which paid a minute to decide not to spend one."
+summary:       "Since 2026-10-01 Promote decides main's GitHub test by the same number (section 'Promote decides'). Let Morgan push as often as he likes to a private repo while GitHub Actions runs at most once every X hours, X set once in precedent-individual. The decision is made on the commit, before GitHub starts a runner, so it costs nothing -- unlike the 2026-09-16 debounce, which paid a minute to decide not to spend one."
 ---
 
 # Run CI at most once every X hours in private repos
@@ -39,6 +39,42 @@ the same day -- see "The branch switch" below.
 **The default is 0.** Nobody's CI changes until they write a number above 0
 into their own `identity.json` or a repo's `precedent.json`. An absent,
 unreadable or invalid value is 0 too.
+
+## Promote decides (2026-10-01)
+
+**The commit hook below stopped mattering for main on 2026-09-25**, when
+[BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md) made a private repository's
+one GitHub test the pull request into main, on every Promote, and said the
+hours setting "never skips the main test". One private consuming repo then
+ran it 11 times in 5 days. Morgan, 2026-10-01: *"if they do it on a push to main once per week
+or something like that, that keeps the cost under control"*, then, on the
+plan: *"Act, but ... do both 2A and 2B (so that, if it conflicts, and I run
+promote, it still skips it but the repo owner's wins on the 2A method
+including it or not), flip the switch and enable my ci_workflows, 168
+hours"* (`strength: decided`).
+
+**2B, Promote, decides for main's test.** In a private repository,
+[precedent_branches.py](../tools/precedent_branches.py)'s `main_test_due`
+asks whether the test passed, on main or on a pull request from a to-main
+copy, within `github_ci_every_hours`. Not due, it names the copy
+`to-main-not-due-DATE`, and the light check's job `if:` skips that pull
+request before a runner starts: GitHub shows it as skipped, bills nothing,
+and a required check counts it as passing. `--wait-main-test` says NOT DUE
+and exits 0. **The person's value wins here**, then the repository's: when
+he runs Promote, his number decides.
+
+**It runs anyway**, every time, on any doubt: a public or undeclared
+repository, 0 or a value that is not a number, `PRECEDENT_CI_NOW=1`, a batch
+changing `.github/workflows/` or the vendored engine's manifest (so every
+Update Vendors gets it: the 2026-09-28 PyYAML break is the case), a newest
+run that failed (it stays due until one passes), no passing run found,
+GitHub not answering, and a workflow file installed before this skip
+existed, which would run anyway and must not be merged under.
+
+**2A, the commit hook below, is unchanged** and keeps the repository's own
+value first. A skipped run no longer reads as a failure anywhere: GitHub
+records one, free, for every private push to main, and from 2026-09-25 that
+had made main's test read "failed" in every private repository.
 
 ## Why the obvious version loses money
 

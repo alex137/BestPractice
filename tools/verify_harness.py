@@ -25448,6 +25448,179 @@ def check_promote_keeps_the_old_name_in_step():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_main_test_cadence():
+    """Main's GitHub test runs at most once every github_ci_every_hours in a
+    private repository, decided by Promote before GitHub starts anything
+    (spec/CI_CADENCE_PLAN.md, "Promote decides", 2026-10-01).
+
+    THE NEGATIVE CASES ARE THE POINT: a skip that fires wrongly is main
+    going untested. Each "not due" is paired with the shape where it must
+    run -- a public repo, an expired window, a failed newest run, GitHub not
+    answering, a workflow that cannot skip yet, a batch that changes a
+    workflow, PRECEDENT_CI_NOW=1. And a skipped run must never read as a
+    failure: GitHub records one, free, on every private push to main."""
+    import importlib.util, json as _json, tempfile, time as _time
+    name = "main's GitHub test runs at most once every github_ci_every_hours"
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    if not src.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_cadence', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    cases = []
+    tpl = (ROOT / 'templates' / 'github-actions' / 'light-check.yml.template')
+    tpl_text = tpl.read_text(encoding='utf-8') if tpl.is_file() else ''
+    cases.append(('the light-check template skips a private pull request from '
+                  'the very branch prefix Promote names a not-due copy with',
+                  f"startsWith(github.head_ref, '{pb.NOT_DUE_PREFIX}')" in tpl_text
+                  and 'github.event.repository.private == true' in tpl_text))
+    saved_env = os.environ.get(pb.FORCE_ENV)
+    os.environ.pop(pb.FORCE_ENV, None)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+
+        def setup(visibility='private', mine=None, theirs=None):
+            pj = {'base_branch': 'main'}
+            if visibility:
+                pj['visibility'] = visibility
+            if theirs is not None:
+                pj['github_ci_every_hours'] = theirs
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if mine is not None:
+                ident['ci_every_hours'] = mine
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+
+        setup('public', mine=168)
+        cases.append(('a public repository is tested on every Promote, whatever '
+                      'the person sets', pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(None, mine=168)
+        cases.append(('...and so is one that declares no visibility',
+                      pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(mine=168, theirs=0)
+        h, where = pb.main_test_cadence(repo, cfg)
+        cases.append(("in Promote the person's value wins over the repository's 0 "
+                      '(Morgan: "if it conflicts, and I run promote, it still skips it")',
+                      h == 168 and str(me) in where))
+        setup(theirs=6)
+        cases.append(("with no personal value, the repository's own applies",
+                      pb.main_test_cadence(repo, cfg)[0] == 6))
+        setup(mine='weekly')
+        cases.append(('a value that is not a number means every Promote',
+                      pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(mine=True)
+        cases.append(('...and so does true', pb.main_test_cadence(repo, cfg)[0] == 0))
+
+        WF = '.github/workflows/light-check.yml'
+        now = _time.time()
+
+        def iso(hours_ago):
+            return _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(now - hours_ago * 3600))
+
+        def run(hours_ago, conclusion='success', branch='to-main-2026-09-30'):
+            return {'path': WF, 'status': 'completed', 'conclusion': conclusion,
+                    'head_branch': branch, 'created_at': iso(hours_ago),
+                    'html_url': 'U'}
+
+        class GH:
+            def __init__(self, runs, fail=None):
+                self.runs, self.fail = runs, fail
+
+            def call(self, path, cache=True):
+                if self.fail:
+                    return None, self.fail
+                return {'workflow_runs': self.runs}, None
+
+        pb._slug = lambda root: 'o/r'
+        skipping = 'on: {}\n# ' + pb.NOT_DUE_PREFIX + '\n'
+        shown = {'text': skipping, 'diff': ''}
+        real_git = pb._git
+
+        def fake_git(root, *args):
+            if args[:1] == ('show',):
+                return shown['text']
+            if args[:2] == ('diff', '--name-only'):
+                return shown['diff']
+            return real_git(root, *args)
+        pb._git = fake_git
+        pb.github_tests = lambda root, sha: [(WF, True)]
+        setup(mine=168)
+
+        def due(runs, **kw):
+            return pb.main_test_due(repo, 'TIP', gh=GH(runs, kw.get('fail')),
+                                    base=kw.get('base'), user_config=cfg)
+        d, why = due([run(10), run(1, 'skipped', 'main')])
+        cases.append(('a pass 10 hours ago with a 168-hour window is NOT DUE, says when '
+                      'the next one is, and a newer skipped run changes nothing',
+                      d is False and 'next one is due' in why))
+        d, why = due([run(200)])
+        cases.append(('a pass 200 hours ago is due', d is True and '200h ago' in why))
+        d, why = due([run(1, 'failure', 'main'), run(10)])
+        cases.append(('a failed newest run keeps it due inside the window, with its link',
+                      d is True and 'failure' in why and 'U' in why))
+        d, why = due([run(10, branch='claude/some-feature')])
+        cases.append(('a pass on a working branch does not count for main',
+                      d is True and 'no passing run' in why))
+        d, why = due([], fail='HTTP 403')
+        cases.append(('GitHub not answering means it runs', d is True and '403' in why))
+        shown['text'] = 'on: {}\n'
+        d, why = due([run(10)])
+        cases.append(('a workflow installed before the not-due skip existed is always '
+                      'due, so a "not due" wait never merges under a running test',
+                      d is True and 'predates' in why))
+        shown['text'] = skipping
+        shown['diff'] = 'README.md\n.github/workflows/light-check.yml\n'
+        d, why = due([run(10)], base='BASE')
+        cases.append(('a batch that changes a workflow is always due',
+                      d is True and '.github/workflows/' in why))
+        shown['diff'] = 'tools/ENGINE_MANIFEST.json\n'
+        d, why = due([run(10)], base='BASE')
+        cases.append(('...and so is one that moves the vendored engine (Update Vendors)',
+                      d is True and 'ENGINE_MANIFEST' in why))
+        shown['diff'] = 'README.md\n'
+        d, why = due([run(10)], base='BASE')
+        cases.append(('...while one that changes only content is not', d is False))
+        os.environ[pb.FORCE_ENV] = '1'
+        d, why = due([run(10)])
+        os.environ.pop(pb.FORCE_ENV, None)
+        cases.append((f'{pb.FORCE_ENV}=1 makes it due', d is True))
+        setup(mine=0)
+        d, why = due([run(10)])
+        cases.append(('a value of 0 is every Promote', d is True))
+
+        said = []
+        rc = pb.wait_for_main_test(repo, 'TIP', said.append, GH([]),
+                                   copy=pb.NOT_DUE_PREFIX + '2026-10-01')
+        cases.append(('--wait-main-test on a not-due copy exits 0 at once and says '
+                      'NOT DUE', rc == 0 and said and 'NOT DUE' in said[-1]))
+        pb._remote_tip = lambda root, branch: None
+        cases.append(('a not-due copy is named with the prefix the template skips on',
+                      pb._to_main_copy(repo, due=False).startswith(pb.NOT_DUE_PREFIX)
+                      and not pb._to_main_copy(repo).startswith(pb.NOT_DUE_PREFIX)))
+        ok_run = {'path': WF, 'status': 'completed', 'conclusion': 'success',
+                  'created_at': '2026-09-30T10:00:00Z', 'head_sha': 'SHA'}
+        skipped = dict(ok_run, conclusion='skipped', created_at='2026-09-30T11:00:00Z')
+
+        class RunsGH:
+            def call(self, path, cache=True):
+                if '/pulls' in path:
+                    return [], None
+                return {'workflow_runs': [ok_run, skipped]}, None
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)], RunsGH())
+        cases.append(('a skipped run newer than a pass reads "passed", never "failed" '
+                      '(every private push to main records one)', st == 'passed'))
+    if saved_env is not None:
+        os.environ[pb.FORCE_ENV] = saved_env
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_copies_work_from_above_once_checked():
     """What reached staging or main without climbing through pre-staging --
     a workflow's bot commit on main, a web edit, a direct push -- is copied
@@ -51711,6 +51884,7 @@ def main():
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
     check_sync_copies_work_from_above_once_checked()
+    check_main_test_cadence()
     check_source_clone_is_pinned_to_a_branch()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
