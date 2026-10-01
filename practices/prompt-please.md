@@ -116,14 +116,18 @@ following, every time:
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
-- **The branch the work lands on is the person's landing branch** -- what
-  `python3 tools/precedent_branches.py --landing` answers in the seed repo,
-  `pre-staging` for a person who lands there. Never name `staging` or
-  `main` as where to work or where the pull request goes: the person's
-  Promote moves work up to those. A repository's declared base branch is
-  not the answer either, because it names staging. When you cannot run the
-  command, write "your landing branch" and let the receiving session
-  resolve it.
+- **Where the work stops.** Without the person's Booked for this handoff
+  (below), **the prompt ends at Act**: *"Build it on your feature branch,
+  push it there, and stop; the person lands it with Booked and promotes it
+  from there."* It names no tier branch -- not `pre-staging`, `staging` or
+  `main` -- as somewhere to land, merge or open a pull request, since
+  landing is Booked's and needs the person's word. With Booked, it names
+  the person's landing branch -- what `python3 tools/precedent_branches.py
+  --landing` answers in the seed repo, `pre-staging` for a person who lands
+  there -- and never `staging` or `main`, which only the person's Promote
+  reaches. A repository's declared base branch is not the answer either,
+  because it names staging. When you cannot run the command, write "your
+  landing branch" and let the receiving session resolve it.
 - **When the recommended action would itself change something this repo
   ships to other repos** -- a practice file, a template, a hook, a vendored
   engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
@@ -193,8 +197,8 @@ paste block needs nothing from any one provider's tool surface).
 this handoff**, exactly as `session-text` drew this line before this
 absorbed it. Absent that, the default text says so directly:
 
-> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go update" in
-> this session before merging.**
+> **STOP AT ACT: build it on your feature branch, push it there, and stop.
+> Open no pull request and merge nothing; the person lands it with Booked.**
 
 When the person says `Prompt Please` together with Booked (`Go update`) (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
@@ -379,6 +383,17 @@ closing line asking for any reply to the sending session in its own
 copyable block, with the replying session's name and link. A handoff had
 been read as orders; these make it a conversation the person can carry both
 ways. Strength: decided.
+
+**2026-10-01: a prompt that granted landing nobody gave.** Two prompts a
+session wrote that day each ended "Land it on staging per this repo's
+conventions." Wrong twice: Morgan had not said Booked, so the prompt
+carried no landing authority, and routine work lands on pre-staging, never
+staging. The default ending then said to stop at the pull request, which is
+itself the start of landing. Morgan: *"No, we always want to do it in the
+local container ("Act") and then I'll authorize it to go to pre-staging via
+"Promote" etc."* So a prompt without his Booked now ends at Act, and the
+reply check refuses a paste block that tells a session to land on a tier
+branch without his quoted word.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

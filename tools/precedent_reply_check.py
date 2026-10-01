@@ -416,6 +416,27 @@ def first_item_under_heading(text, pattern):
     return None
 
 
+def _fenced_blocks(text):
+    """-> the text inside each ``` or ~~~ fenced block of `text`, in order.
+    An unclosed fence runs to the end, as Markdown renders it."""
+    blocks, cur, fence = [], None, None
+    for line in text.split('\n'):
+        m = re.match(r'^\s{0,3}(`{3,}|~{3,})', line)
+        if cur is None:
+            if m:
+                cur, fence = [], m.group(1)
+            continue
+        if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not line.strip()[len(m.group(1)):].strip():
+            blocks.append('\n'.join(cur))
+            cur = None
+            continue
+        cur.append(line)
+    if cur is not None:
+        blocks.append('\n'.join(cur))
+    return blocks
+
+
 def is_trivial_checkin(text):
     """True when `text` opens with the fixed one-line check-in template
     practices/the-boildown.md names for a turn with nothing visible or
@@ -436,6 +457,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_no_contradiction',
     'require_no_bare_pattern',
     'require_paired_with',
+    'require_in_fence_paired_with',
     'require_container_safe_if_says',
     'require_landed_if_says',
     'unless_reply_declares_loss',
@@ -692,6 +714,34 @@ def violations(text, reqs, timeline=None):
                     + (f" -- {pair.get('why')}" if pair.get('why') else '')
                     + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_in_fence_paired_with: require_paired_with, judged one
+        # fenced block at a time. A rule about what a paste block may say to
+        # another session must read the block, not the reply around it: the
+        # reply's own prose says "lands on pre-staging" all day, to the
+        # person, and that is no instruction to anybody.
+        #
+        # WHY IT EXISTS (2026-10-01): two prompts a session wrote ended
+        # "Land it on staging per this repo's conventions." The person had
+        # not said Booked, so the block granted landing nobody gave, and
+        # to the wrong branch. fence-block-for-paste passed both: it checks
+        # that a block says where it goes, not what it authorizes.
+        for pair in (r.get('require_in_fence_paired_with') or []):
+            trigger, needed = pair.get('if_matches'), pair.get('must_also_match')
+            if not (trigger and needed):
+                continue
+            for block in _fenced_blocks(text):
+                m = re.search(trigger, block, re.I | re.M)
+                if m and not re.search(needed, block, re.I | re.M):
+                    out.append({'kind': 'in_fence_paired', 'advisory': advisory,
+                                'message': (
+                        f"[{r.get('_source', '?')}] a fenced block says "
+                        f"\"{m.group(0).strip()[:90]}\" but nothing in that "
+                        f"block matches /{needed}/"
+                        + (f" -- {pair.get('why')}" if pair.get('why') else '')
+                        + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+                    break
 
         # require_container_safe_if_says: the only predicate here that looks
         # at the DISK rather than at the reply. When the reply says one of
@@ -961,6 +1011,11 @@ def main():
                 for pair in r['require_paired_with']:
                     bits.append(f"/{pair.get('if_matches')}/ requires "
                                 f"/{pair.get('must_also_match')}/")
+            if r.get('require_in_fence_paired_with'):
+                for pair in r['require_in_fence_paired_with']:
+                    bits.append(f"inside a fenced block, /{pair.get('if_matches')}/ "
+                                f"requires /{pair.get('must_also_match')}/ in "
+                                f"the same block")
             if r.get('require_container_safe_if_says'):
                 for ph in r['require_container_safe_if_says']:
                     bits.append(f'"{ph}" requires a container with nothing '
