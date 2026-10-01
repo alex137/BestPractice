@@ -72,7 +72,7 @@ import json, os, pathlib, subprocess, sys
 # parent directory but overridable with --repo in main() -- see
 # precedent_show.py for the fuller rationale.
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
-# practice: fix-the-original -- ROOT is the repo whose CONTENT this reads, and
+# practice: upstream-fix -- ROOT is the repo whose CONTENT this reads, and
 # `_ENGINE_DIR.parent` is the wrong answer for exactly one layout: an engine
 # copy vendored inside a consuming repo at process/upstream/tools/. There ROOT
 # lands on the VENDORED tree, whose practices/ is the universal catalogue

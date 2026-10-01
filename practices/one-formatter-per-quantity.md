@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Fires on how a quantity is printed, not on which file prints it. Decided: phase 4 routing pass."
-occasion:    "printing a number compared across rows"
+occasion:    "computing, quoting or tabulating figures"
 gates:       []
-index_clause: "one formatter per quantity kind, declared in one module"
+index_clause: "compared across rows: one formatter per quantity kind, in one module"
 checked_by:  null
 defines:     []
 status:      active

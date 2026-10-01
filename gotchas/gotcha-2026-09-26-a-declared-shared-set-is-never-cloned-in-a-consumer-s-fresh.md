@@ -31,7 +31,7 @@ repo:
   declared shared and universal source, was
   [precedent-universal-catalogue.sh](../templates/harness/claude-code/hooks/precedent-universal-catalogue.sh).
   That is the hook for practice sets.
-- [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
+- [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)
   step 8 tells every consumer to decline that hook, because it is "for
   practice sets". Declining it looked free.
 - The steps a consumer does wire clone only the individual set:

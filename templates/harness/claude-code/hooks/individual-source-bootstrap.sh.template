@@ -117,8 +117,13 @@ fi
 # own value.
 DEFAULT_REPO_URL="{{SOURCE_REPO_URL}}"
 if [ "{{SOURCE_REPO_URL_SUBSTITUTED}}" != "yes" ]; then
-  # Still a raw template: the placeholder above is a literal, not a URL.
-  DEFAULT_REPO_URL=""
+  # Still a raw template: the placeholder above is a literal, not a URL, and
+  # the set's name below is one too. Running on derived a URL from the
+  # environment and cloned and linked a path named after the placeholder: a
+  # test run of this raw file left one in a real home directory (found
+  # 2026-10-01). Nothing here is set up until the file is instantiated.
+  echo "individual-source bootstrap: no repository URL -- this is the raw template, never instantiated, so there is nothing to set up." >&2
+  exit 0
 fi
 
 # LAST RESORT, and the reason a public repo need bake in no account at all.

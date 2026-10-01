@@ -43,7 +43,7 @@ A private repo name reaches a public tree by nobody having predicted
   of it.** The 2026-09-07 sweep scrubbed a private consumer repo's name from
   this tree, `d167ada` caught four stragglers at 17:12 — and two hits of
   `<that repo>-local` survived both, in
-  [spec/SOURCE_NAMING.md](../spec/SOURCE_NAMING.md) and [TODO.md](../TODO.md),
+  [spec/SOURCE_NAMING.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCE_NAMING.md) and [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md),
   written at 07:02 and not removed until 21:17, all on the same public
   branch and the same day. That string was the name its repo-local practice
   source carried before `source-naming` renamed it to `local`, so it was

@@ -804,7 +804,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             # fine. The cost lands somewhere else entirely -- the harness
             # reported `commit-identity.sh` copies disagreeing across
             # repositories and the drift was in this clone, not in any
-            # repository (practice: durable-fix -- the recurring failure was
+            # repository (practice: upstream-fix -- the recurring failure was
             # the symptom; this is what kept producing it).
             #
             # _try_sync() is the same clone-or-pull used for a fresh source,

@@ -7,9 +7,9 @@ applies_to:  ["process/upstream/**"]
 applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "committing anything that touches the vendored/public tree"
 gates:       ["merge", "push"]
-gates_why:   "The public tree must be clean at merge and at push, which are the two moments it can be checked."
+gates_why:   "The public tree must be clean at merge and at push, which are the two moments it can be checked. index_required: false: those gates and its path still reach it, and the process/upstream/** tree it was built on is in no repository here any more; its merge with private-repo-scrub is still to do. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 index_clause: "the public tree stays public-safe always, not just at check-in"
-index_required: true
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork)"
+approved_by: "BestPractice (pre-fork); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 source_practice_number: 15
 ---
 ## Rule
@@ -63,6 +63,8 @@ Later evidence bore the design out. Switching a private vocabulary
 blocklist on against a real tree for the first time found live hits in a
 public repo's own tracked files -- exactly what a gate that runs only at
 check-in would have let through.
+
+**Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) found this built on `process/upstream/**` and `process/scrub_blocklist.txt`, which no repository here has any more, and Morgan approved merging it with the repo-maintenance set's private-repo-scrub around what is in force now. That merge spans two repositories and a rewrite, so this step only drops the index line; its merge and push gates and its path still reach it, and the merge is recorded as still to do in the open item. Morgan (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 Blocklist format and gate wiring in [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md).

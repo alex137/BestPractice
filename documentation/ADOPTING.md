@@ -5,7 +5,7 @@
 *This is written for someone who has not seen Precedent before and wants to
 use it. It assumes no programming, and "AI Assistant" below means whatever
 tool you talk to about your work. If you are working on the rewrite itself,
-[PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) is the document for you,
+[PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md) is the document for you,
 not this one.*
 
 ## What It Is
@@ -229,8 +229,8 @@ you have already decided. It has no opinion about whether you decided well.
 
 | | |
 |---|---|
-| The full design, and why each part is the way it is | [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) |
-| What a practice file looks like | [spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md) |
-| How the right practices get picked out, and what was measured | [spec/LOADER.md](../spec/LOADER.md) |
-| How the four sources combine — team, this project's own, yours, the general library — and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
+| The full design, and why each part is the way it is | [PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md) |
+| What a practice file looks like | [spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md) |
+| How the right practices get picked out, and what was measured | [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md) |
+| How the four sources combine — team, this project's own, yours, the general library — and which wins | [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md) |
 | An example of a personal set | [examples/practice-set/](examples/practice-set) |

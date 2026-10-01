@@ -42,7 +42,7 @@ how a reply should be pitched. The library ships with general ones; the
 point is the ones you add.
 
 - Plain: [What It Is](ADOPTING.md#what-it-is), [When It Gets Something Wrong, Make It a Rule](DAILY_HABITS.md#2-when-it-gets-something-wrong-make-it-a-rule)
-- Technical: [spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md), the [live catalogue](../practices/)
+- Technical: [spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md), the [live catalogue](../practices/)
 
 ## 4. The System Proposes a Practice; a Person Approves It
 
@@ -64,7 +64,7 @@ or merged. The ones that cannot be checked stay advisory, and the
 documentation says so plainly rather than promising otherwise.
 
 - Plain: [What It Does Not Do](ADOPTING.md#what-it-does-not-do)
-- Technical: [How Enforcement Works](FOR_DEVELOPERS.md#how-enforcement-works), [spec/ENFORCEMENT.md](../spec/ENFORCEMENT.md)
+- Technical: [How Enforcement Works](FOR_DEVELOPERS.md#how-enforcement-works), [spec/ENFORCEMENT.md](https://github.com/alex137/BestPractice/blob/staging/spec/ENFORCEMENT.md)
 
 ## 6. A Practice Belongs to You, to a Team, to One Project, or to Everyone
 
@@ -77,7 +77,7 @@ whatever sits above it. A rule can move between levels later, through the
 approval its new home requires.
 
 - Plain: [Personal, Team, and Universal — And Moving Between Them](FOR_EVERYONE_ELSE.md#personal-team-and-universal--and-moving-between-them), [Sharing Practices With a Team](ADOPTING.md#sharing-practices-with-a-team)
-- Technical: [Four Levels, Each Just Another Repo](FOR_DEVELOPERS.md#four-levels-each-just-another-repo), [spec/SOURCES.md](../spec/SOURCES.md)
+- Technical: [Four Levels, Each Just Another Repo](FOR_DEVELOPERS.md#four-levels-each-just-another-repo), [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md)
 
 ## 7. What You May Change Is Decided by What the Change Touches, at Three Levels
 
@@ -90,7 +90,7 @@ else suggests one. Nothing anywhere records whether a person is technical;
 the line runs through paths and lists.
 
 - Plain: [What You Can't Do (on Purpose)](FOR_EVERYONE_ELSE.md#what-you-cant-do-on-purpose)
-- Technical: [Who May Change What](FOR_DEVELOPERS.md#who-may-change-what), [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md), [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md)
+- Technical: [Who May Change What](FOR_DEVELOPERS.md#who-may-change-what), [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md), [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md)
 
 ## 8. A Few Standing Phrases Mean Exactly One Thing
 
@@ -125,7 +125,7 @@ what a prescribed fix would have missed, and it's the raw material a
 practice gets written from when a correction repeats — a bare instruction
 finishes the one task in front of it and teaches nothing past that.
 
-- Technical: [People and the Model](../philosophy/OUR_PHILOSOPHY.md#explain-the-why)
+- Technical: [People and the Model](https://github.com/alex137/BestPractice/blob/staging/philosophy/OUR_PHILOSOPHY.md#explain-the-why)
 
 ## Where to Go From Here
 

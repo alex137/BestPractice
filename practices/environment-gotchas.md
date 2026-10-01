@@ -1,11 +1,13 @@
 ---
 slug:        environment-gotchas
 title:       "Recorded lore: environment gotchas with their stories"
-tier:        resident
+tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "hitting an environment or tooling quirk"
+applies_to_why: "A trap can be met anywhere, in a file or in no file at all, so no glob names it; the occasion index reaches it, and the instructions file's own gotcha section (the install template carries one, and the environment-gotchas check refuses an instructions file without it) says where to grep. Decided: on-demand with an index line, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+occasion:    "an environment or tooling trap costs real time"
 gates:       []
+index_clause: "one file per trap under gotchas/, with the story, not just the fix"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -13,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork)"
+approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 source_practice_number: 4
 ---
 ## Rule
@@ -83,6 +85,8 @@ and a grep instruction.
 it is the rule that keeps an instructions file from regrowing the catalogue;
 what left is the sentence about the generated overview, which is a pointer
 to a convenience rather than a constraint on anybody.
+
+**On-demand from 2026-10-01, with an index line.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) found this rule resident in every session while every instructions file the install template writes carries its own gotcha section, which the environment-gotchas check refuses to lose. Morgan approved making it on-demand, kept in the occasion index under "an environment or tooling trap costs real time" (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 A short pointer section in the instructions file naming `gotchas/` and the

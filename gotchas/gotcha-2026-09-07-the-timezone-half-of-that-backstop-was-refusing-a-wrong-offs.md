@@ -29,7 +29,7 @@ The timezone half of that backstop was refusing a wrong offset it could
   git falls back to the SYSTEM zone when `TZ` is unset, and the system zone
   is the one lever a hook can move mid-session that every later shell,
   tool, and `git merge` picks up without cooperating — so
-  [.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)
+  [.claude/hooks/commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/commit-identity.sh)
   repoints it, for a **declared** zone only. Verified end to end: a fresh
   `git init` with no prefix and no local config committed at `-0300`.
   `PRECEDENT_LOCALTIME` overrides the target so this is testable — and the

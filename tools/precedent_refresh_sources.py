@@ -98,7 +98,7 @@ Run:
   python3 tools/precedent_refresh_sources.py --apply --path ../other-set   # writes that repo ONLY
 Exit: 0 always, except --check with a stale source, or a malformed manifest.
 """
-import json, os, pathlib, re, subprocess, sys
+import hashlib, json, os, pathlib, re, subprocess, sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_resolve
@@ -329,6 +329,31 @@ def engine_owned_paths(repo):
         owned.add(f'.claude/hooks/{name}')
     for name in man.get('ci_workflow_files') or []:
         owned.add(str(name))
+    # AND THE PATHS A SET DECLARES OUTSIDE tools/ AND .claude/hooks/, added
+    # 2026-10-01. A set's precedent.json can name extra engine paths
+    # (`engine_paths`: precedent-individual keeps its own copies of two hooks
+    # in bootstrap/), and the refresh writes them and records each, keyed by
+    # the LOCAL path, with the sha256 it wrote. Every list above was read and
+    # this one was not, so after each refresh those two hooks read as a
+    # person's uncommitted work and the container scanner called the
+    # container unsafe to archive on every reply -- while the twenty engine
+    # files beside them, refreshed by the same run, were correctly skipped.
+    #
+    # STRICTER THAN THE LISTS ABOVE, on purpose: a declared path is
+    # outside the engine's own directories, so a name alone is not enough.
+    # It counts only while the file on disk still has the hash the refresh
+    # recorded. A hand edit after the refresh changes the hash, and the
+    # file is a person's again.
+    recorded = man.get('engine_paths_sha256') or {}
+    for local in man.get('engine_paths') or {}:
+        want = recorded.get(local)
+        path = pathlib.Path(repo) / str(local)
+        try:
+            if want and path.is_file() and hashlib.sha256(
+                    path.read_bytes()).hexdigest() == want:
+                owned.add(str(local))
+        except OSError:
+            pass
     # Lazily, and never fatally: a vendored engine that arrived without
     # build_views.py still classifies everything the manifest names
     # (practice: fail-gracefully). The literal is that module's own tuple,
@@ -794,7 +819,7 @@ def _commit(repo, message, *paths):
     `git config` the clone happens to hold. A set this refreshes is a
     sibling clone no SessionStart hook of its own configured, which is the
     exact shape that produced bot-authored engine commits on 2026-09-26
-    (practice: durable-fix). -> (ok, output); refused, (False, why)."""
+    (practice: upstream-fix). -> (ok, output); refused, (False, why)."""
     sys.path.insert(0, str(HERE))
     try:
         import precedent_identity
@@ -1174,7 +1199,7 @@ def main(argv):
     for e in stale:
         e['tip'] = tip
         print(f"\n--- {_label(e['repo'])}")
-        # practice: durable-fix -- session-start.sh now calls --apply
+        # practice: upstream-fix -- session-start.sh now calls --apply
         # unconditionally, every session, so this guard is what keeps that
         # safe. Without it, a person's own uncommitted edit in this source
         # (a new practice file, a hand fix mid-review) would be sitting in

@@ -112,13 +112,15 @@ used to read on turn one.
   AT THE PULL REQUEST` in those words; given one, it is bounded to the
   handed-off work, that repository's routine branch and its own checks
   passing.
-- **"Upstream fix"** ([upstream-fix](../practices/upstream-fix.md)) — about the
-  change this session recommended, made or is about to make: **does it also
-  fix what caused the problem?** If not, name where the cause lives (a
-  template, a generator, something vendored in, a practice) and fix that
-  root where it is reachable and sound. Any part that needs a session rooted
-  in another repo comes back as a `Prompt Please` block. It licenses the
-  root fix, not a push or merge beyond the authorization already in force.
+- **"Root issues"** / **"Root fixes"** ([root-issues](../practices/root-issues.md))
+  — look back over **everything this session has done**, warnings and its
+  own fixes and band-aids included, and hand back each one that also
+  belongs in Precedent, a precedent-* repo, the template that generates the
+  file, or another related repo, **each as a `Prompt Please` block**. Ones he may
+  already have passed on are given anyway, marked if this session raised
+  them before; none found is said in one line. It replaced **"Upstream
+  fix"** on 2026-10-01: whether a fix removes its cause is now answered for
+  every fix without being asked ([upstream-fix](../practices/upstream-fix.md)).
 - **"My options"** ([my-options](../practices/my-options.md)) — every real choice
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
@@ -235,7 +237,14 @@ constant pass above, run before every commit without thinking about it.
 `python3 tools/precedent_push_check.py`**, which is also what
 `push-check-gate.sh` runs before any `git push` a session makes. A pass
 is recorded against the tree, so running it first makes the push
-instant; skipping it makes the push wait for it. **Which of the two a push
+instant; skipping it makes the push wait for it. **Run bare, with no
+destination named, it checks what a push to your landing branch gets**
+(Morgan, 2026-10-01, strength: assented: a session ran it bare before every
+landing on pre-staging and paid the full suite each time); `--tier full`
+asks for everything, and where the landing branch takes the quick tier it is
+refused unless given a reason, `--because "<why>"` (Morgan, 2026-10-01,
+strength: decided: the same day, a session still typed `--tier full` before
+every pre-staging landing, and wrote it into its helpers' briefs). **Which of the two a push
 gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
 a push to `staging` or `main` runs the deep check; a
 push to any other branch runs the basic tier -- the lint, the leak gate

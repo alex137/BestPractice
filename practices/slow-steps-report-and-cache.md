@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index. Decided: 2026-09-08, when the practice landed."
-occasion:    "writing or running a gate, audit or solve over a minute"
+occasion:    "writing, running or reviewing a gate, audit, cache or heavy solve"
 gates:       []
-index_clause: "print elapsed and remaining; cache a heavy solve to disk"
+index_clause: "over a minute: print elapsed and remaining; cache a heavy solve to disk"
 checked_by:  null
 defines:     []
 status:      active

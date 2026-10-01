@@ -145,6 +145,7 @@ as_of: 2026-10-01
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 2d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
 | [`todo-2026-09-29-source-checks-adopt-generated-blocks`](todo-2026-09-29-source-checks-adopt-generated-blocks.md) | Move the practice sets' own checks onto `generated_blocks.py`, the engine's one answer to "is this line inside a generat | 2d | wait | generated_blocks.py reaching main, then each practice set's engine refresh |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 1d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
+| [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 0d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
 
 ## Decisions (the Person's Call)
 
@@ -154,6 +155,7 @@ as_of: 2026-10-01
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. | 21d | wait |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | 19d | wait | Morgan's decision, explicitly deferred. |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay | 12d | ask |  |
+| [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 0d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 
 ## Unblocked Work
 
@@ -203,6 +205,7 @@ as_of: 2026-10-01
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | Morgan |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay |  |
+| [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 
 ## Due Reminders
 

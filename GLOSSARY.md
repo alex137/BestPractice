@@ -25,7 +25,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Booked | [go-update](practices/go-update.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
-| capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
+| capture sweep | [capture-gate](practices/capture-gate.md) |
 | Chief of Staff | [chief-of-staff](practices/chief-of-staff.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Consider | [consider](practices/consider.md) |
@@ -76,6 +76,8 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
+| Root fixes | [root-issues](practices/root-issues.md) |
+| Root issues | [root-issues](practices/root-issues.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
@@ -89,13 +91,12 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Test Readiness | [debut](practices/debut.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
 | the five stages | [promote](practices/promote.md) |
-| the origin artifact | [fix-the-original](practices/fix-the-original.md) |
+| the origin artifact | [upstream-fix](practices/upstream-fix.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Tier branch | [tier-branch](practices/tier-branch.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
-| Upstream fix | [upstream-fix](practices/upstream-fix.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |
@@ -112,9 +113,9 @@ The words the mechanism itself is made of. No single practice owns these, so the
 | **level** | Which population a rule binds. Four of them: universal (everyone using Precedent), shared (everyone who declares that shared set), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs. | [practices/layered-practice-packs.md](practices/layered-practice-packs.md) |
 | **source** | A place practices come from -- usually a repository, sometimes a directory inside one. Each source sits at exactly one level, and a repository declares the sources in force in it in its own precedent.json. The individual source is the exception that is never declared in a shared file: it is named in a person's own user-level config, so its existence stays private. | [practices/source-naming.md](practices/source-naming.md) |
 | **level repo** | Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just "the source", or "the individual set" / "a shared set" when the level matters. Naming conventions for those repositories are in source-naming. | [practices/source-naming.md](practices/source-naming.md) |
-| **catalogue** | All the practice files of one source, taken together -- what that source teaches. "The catalogue" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
-| **in force** | A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
+| **catalogue** | All the practice files of one source, taken together -- what that source teaches. "The catalogue" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated. | [spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md) |
+| **in force** | A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk. | [spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md) |
 | **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-update` is practices/go-update.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |
 | **gate** | A named moment when practices are loaded, rather than a kind of file. Four exist -- merge, review, push, reply -- and a practice lists the ones it fires at. Gates carry the rules no path pattern can reach: "before pushing" is not a file. | [tools/precedent_gate.py](tools/precedent_gate.py) |
-| **resident block** | The handful of practices written into a repository's instructions file in full, so they are read every session without anyone asking. Everything else is on-demand, reached through the occasion index. The block has a token budget, which is what stops it becoming the whole catalogue. | [spec/LOADER.md](spec/LOADER.md) |
-| **occasion index** | The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it. | [spec/LOADER.md](spec/LOADER.md) |
+| **resident block** | The handful of practices written into a repository's instructions file in full, so they are read every session without anyone asking. Everything else is on-demand, reached through the occasion index. The block has a token budget, which is what stops it becoming the whole catalogue. | [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md) |
+| **occasion index** | The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it. | [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md) |

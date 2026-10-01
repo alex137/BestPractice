@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment (the person says the phrase, or asks for a decision's options laid out), not a place. Nothing is written to the tree, so no path exists whose editing means the command was ignored -- the same shape as plain-words and three-things beside it. Reached through the occasion index and the reply gate. Decided: 2026-09-12, when the practice landed."
-occasion:    "a person says \"My options\", or asks to see a decision's options or hand them off"
+occasion:    "a person says \"My options\", or asks to see a decision's options"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the options, their costs and the recommendation either appear there or they do not."
-index_clause: "every option, plainer, your pick -- or a paste-ready handoff"
+index_clause: "every real option, plainer, costs said flatly, your pick and why"
 checked_by:  null
 defines:     ["My options"]
 command:     {"My options": "Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block."}

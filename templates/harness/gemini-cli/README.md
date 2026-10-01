@@ -7,7 +7,7 @@ the file itself — this page covers the parts a person, not the agent, needs
 to know.
 
 **Gemini CLI has hooks.** Until 2026-09-28 this page said it had no hook
-mechanism, and every hook row in [../LEDGER.md](../LEDGER.md) and
+mechanism, and every hook row in [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) and
 [../PARALLELS.md](../PARALLELS.md) recorded no transfer on that ground. It
 has `SessionStart`, `BeforeTool`, `AfterAgent` and more, configured in
 `.gemini/settings.json`
@@ -29,7 +29,7 @@ they would let everything through.
   hooks and warns before running a new or changed one, so expect that
   warning the first time. Written from the documented shape and checked by
   `check_gemini_settings_template_keeps_stdout_clean` in
-  [tools/verify_harness.py](../../../tools/verify_harness.py); **not yet
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py); **not yet
   seen to fire in a live Gemini CLI session**.
 - **The gates are the next step, not a limit.** The Markdown gate and the
   push check need a small shim each: run the Claude Code script, and turn
@@ -54,7 +54,7 @@ they would let everything through.
   `.claude/hooks/commit-identity.sh` automatically (since 2026-09-16), so
   this runs wherever the Bootstrap step above actually runs — hard with the
   `SessionStart` hook installed, soft with the directive alone. See
-  [../LEDGER.md](../LEDGER.md) for the history of this gap; if your
+  [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) for the history of this gap; if your
   environment signs commits by default in a way that collides with a
   human-only authorship policy, see
   [CLOUD_SETUP.md](../../../documentation/CLOUD_SETUP.md#when-the-containers-own-signing-collides-with-a-human-only-policy).

@@ -6,7 +6,7 @@ access, not the plain chat-only Grok this repo's other guides used to treat
 as unverified. Everything below is grounded in xAI's own current
 documentation, found and read on 2026-09-17; nothing here has been
 confirmed by an actual Grok Build session working in this repo yet — that
-is exactly what [spec/PROVIDER_PORTABILITY_PLAN.md](../../../spec/PROVIDER_PORTABILITY_PLAN.md)'s
+is exactly what [spec/PROVIDER_PORTABILITY_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PROVIDER_PORTABILITY_PLAN.md)'s
 Phase 5 test is for.
 
 Grok reads **`AGENTS.md` natively** — no pointer file needed; xAI's own
@@ -41,14 +41,14 @@ Wiring the rest:
   a session-start hook to `bash tools/bootstrap.sh` (the script Codex and
   Gemini CLI both run) should put it in `~/.grok/hooks/`, check the
   current hooks reference first, and record what they saw in
-  [../LEDGER.md](../LEDGER.md).
+  [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md).
 - **Pre-approved commands:** unresearched — not found in what this pass
   covered.
 - **Commit identity and signing:** `tools/bootstrap.sh` calls
   `.claude/hooks/commit-identity.sh` automatically, the moment a
   session-start hook is wired per the Bootstrap step above — same
   guarantee level as Codex and Gemini CLI (hard if the hook is actually
-  configured, none at all if it isn't). See [../LEDGER.md](../LEDGER.md)
+  configured, none at all if it isn't). See [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md)
   for this mechanism's own history. One thing specific to Grok worth
   testing directly: `commit-identity.sh`'s GitHub-account-lookup fallback
   now sends a bearer token when `GH_TOKEN` or `GITHUB_TOKEN` is set in the
@@ -56,7 +56,7 @@ Wiring the rest:
   environment carries either of those by default is exactly the kind of
   thing Phase 5's test would answer and this research pass could not.
 
-**Wired into [../LEDGER.md](../LEDGER.md)'s enforced transfer tracking on
+**Wired into [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md)'s enforced transfer tracking on
 2026-09-21.** This section used to say the opposite, and the deferral was
 half right: extending an enforced check on unverified assumptions about a
 hooks syntax nobody has confirmed would indeed have been a guess. But the
@@ -84,7 +84,7 @@ and Grok sends `toolInput` in camelCase, so wired as-is the script would
 see no command and let every commit through. It would need a shim that
 renames the field, and, per the open dispatch bug, a home in
 `~/.grok/hooks/`. **If you verify the hooks reference and wire it, say so in
-[../LEDGER.md](../LEDGER.md) and [../PARALLELS.md](../PARALLELS.md).**
+[../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) and [../PARALLELS.md](../PARALLELS.md).**
 Codex (since 2026-09-28) already runs this gate from its own hooks file.
 
 **So on this adapter, nothing checks your Markdown before it reaches a

@@ -183,7 +183,10 @@ SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
                  # No workflow file written straight onto GitHub, past the
                  # push gate that checks its approval (2026-09-26,
                  # ci-workflow-approved).
-                 'workflow-write-gate.sh')
+                 'workflow-write-gate.sh',
+                 # No wait loop on pgrep -f, which always finds itself
+                 # (2026-10-01).
+                 'wait-loop-gate.sh')
 # The third hook a set gets, kept out of SESSION_HOOKS because it is the one
 # that is NOT a verbatim copy: it is instantiated from a .template with two
 # placeholders substituted, which is write_session_hook()'s job below.
@@ -331,7 +334,7 @@ def _install_workflows(dest):
 # is that universal's text is NEVER committed into a set. Measured
 # 2026-09-13 against a real set: `git check-ignore` said not ignored, and
 # the generated file showed up in `git status` as untracked-and-addable.
-# practice: durable-fix -- the ignore line travels with the set, so it
+# practice: upstream-fix -- the ignore line travels with the set, so it
 # survives a fresh container and a fresh clone.
 IGNORE_LINE = '.precedent/'
 IGNORE_BLOCK = """
@@ -611,6 +614,14 @@ def _install_session_hooks(dest, base_branch='main'):
                          'timeout': 900},
                     ],
                 }, {
+                    # No wait loop on pgrep -f (2026-10-01): inside the
+                    # harness it always matches its own shell.
+                    'matcher': 'Bash',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/wait-loop-gate.sh'},
+                    ],
+                }, {
                     # THE MERGE CHECK (2026-09-25): the push check again,
                     # before a pull request is merged through GitHub -- a
                     # push no local hook sees. Same matcher and timeout as
@@ -703,7 +714,7 @@ def verify(level, path):
     file still holding a `{{PLACEHOLDER}}` was bootstrapped and never
     finished, which no consumer can do anything sensible with.
 
-    An empty blocklist stays fine on purpose (`blank-blocklist`): an empty
+    An empty blocklist stays fine on purpose: an empty
     one is a deliberate state, an absent one is a gap."""
     level = LEVEL_ALIASES.get(level, level)
     skeleton = SKELETONS.get(level)

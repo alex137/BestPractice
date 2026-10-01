@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Fires on publishing a table, which no path in this repo identifies. Decided: phase 4 routing pass."
-occasion:    "publishing a sortable multi-column table"
+occasion:    "computing, quoting or tabulating figures"
 gates:       []
-index_clause: "ship a sortable render from the one shared renderer"
+index_clause: "a sortable multi-column table ships from the one shared renderer"
 checked_by:  null
 defines:     []
 status:      active

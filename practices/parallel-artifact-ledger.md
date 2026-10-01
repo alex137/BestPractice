@@ -49,7 +49,7 @@ The origin incident: a session recorded a headline-level verdict
 and wrong for one mechanism inside it, which transferred to all three sibling
 artifacts. Nothing forced the verdict to be decomposed, re-run, or recorded
 per member, so the miss was invisible until a prompted second pass
-([second-pass-capture](second-pass-capture.md)) caught it. Free-text one-time verdicts have three failure modes the
+(second-pass-capture, now part of [capture-gate](capture-gate.md)) caught it. Free-text one-time verdicts have three failure modes the
 ledger kills: wrong granularity (headline vs mechanism), staleness (new
 changes inherit old verdicts), and unauditability (nothing can check what was
 never recorded).

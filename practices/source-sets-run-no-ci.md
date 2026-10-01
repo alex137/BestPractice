@@ -24,17 +24,23 @@ approved_by: "Morgan, 2026-09-21 (strength: decided): \"the sets don't need CI;
 
 ## Rule
 **A practice source — an individual set, a shared set, any repository whose
-`kind` is `source` — installs no continuous-integration workflow.** Not the
-check suite, not the leak gate, not a documentation lint. A consuming repo
+`kind` is `source` — carries no GitHub workflow.** Not the check suite,
+not the leak gate, not a documentation lint. A consuming repo
 is a different case and keeps its leak gate; this rule is about sources
-only. A dispatch-only maintenance workflow a set's owner asked for (an
-engine-refresh button, run by a person) is not continuous integration and
-is not what this rule refuses.
+only. **No workflow of any kind either, a button run by hand included**
+(Morgan, 2026-10-01): a set's engine is refreshed by Update Vendors in a
+session, which does more than any workflow did. **If a set has one, its
+next Update Vendors deletes it** -- unless deleting it would stop something
+running that the set's own checks do not run. **Only then is the person
+asked:** the session says in plain words what the file does and what would
+stop, recommends, and asks keep or delete. A keep is recorded as their
+approval, and no update asks again.
 
 **It is the default for every future set, not a cleanup of four existing
 ones.** A new set created tomorrow gets no workflows, because the engine's
 shipping list for that kind is empty, and an existing set loses the ones it
-has on its next refresh.
+has on its next refresh, on the same terms as a consumer (practice
+`ci-workflow-approved`).
 
 ## Detail
 **The checks already ran, seconds earlier, on the same tree.** Every change

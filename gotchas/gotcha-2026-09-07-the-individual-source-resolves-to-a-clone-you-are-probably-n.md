@@ -36,7 +36,7 @@ The individual source resolves to a clone you are probably not editing,
   session start, so it can only ever be BEHIND — an attached sibling clone
   beside the repo you are working in is what a session actually edits and
   pushes from, and is the better evidence of what the source says.**
-  [tools/verify_harness.py](../tools/verify_harness.py)'s
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
   `check_commit_identity_copies_are_identical` encodes exactly that
   preference; its first run reported drift against an uncommitted edit three
   directories away, which is the trap in miniature. **Do not read the next sentence as

@@ -317,7 +317,7 @@ SMALL = {
 # notices -- one dependent repo had 16 live headings depending on the
 # exemption and a comment in its own copy saying a refresh eats it. Morgan's
 # call, 2026-09-20; the fix belongs here, where a refresh carries it instead
-# of destroying it (practice: fix-the-original).
+# of destroying it (practice: upstream-fix).
 KEEP_PHRASES = ("The Why", "See also")
 
 HEADING = re.compile(r"^(#{1,6})(\s+)(.*?)(\s*)$")
@@ -418,7 +418,25 @@ def _is_pathish(token: str) -> bool:
     return "/" in core and "." in core
 
 
+# A DATED LOG HEADING names its day, and its slug is a name, exactly like a
+# path: `Wednesday 2026-09-30: daily-log-and-safer-merges`. The weekday is
+# already capitalized and the slug must stay as written, so the heading is
+# left alone whole. The shape is a full match, deliberately: a hyphenated
+# compound anywhere else ("Lock-In") is still prose and still capitalized.
+# Added 2026-10-01 for the What's New log (practice: whats-new), whose
+# --check reads the same pattern from here. The slug was in a code span
+# first, which kept this rule off it, but every viewer sizes code in a
+# heading its own way and one showed it far larger than the date.
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+            "Saturday", "Sunday")
+DATED_SLUG_HEADING = re.compile(
+    r"^(?P<weekday>" + "|".join(WEEKDAYS) + r") (?P<date>\d{4}-\d{2}-\d{2}): "
+    r"(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)$")
+
+
 def title_case(text: str) -> str:
+    if DATED_SLUG_HEADING.match(text):
+        return text
     text, restore = _protect_code_spans(text)
     tokens = text.split(" ")
     # Index of the last token that actually contains a letter — a trailing

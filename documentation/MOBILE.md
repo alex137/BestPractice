@@ -40,7 +40,7 @@ What works today *(as of 2026-08)*: a ChatGPT conversation connected to
 GitHub can read your project and answer questions dependably. What
 doesn't work reliably yet: making changes (editing files, proposing
 updates) from a plain ChatGPT conversation. Until that improves (tracked
-in [TODO.md](../TODO.md)), do the asking and reviewing in ChatGPT, and
+in [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)), do the asking and reviewing in ChatGPT, and
 route actual changes through Codex or a teammate with a coding agent —
 the project's automatic checks ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md))
 protect the result no matter which tool made the change.
@@ -126,7 +126,7 @@ question and copy only the opener.
 If the Shortcut approach proves too clumsy in practice, the next step is
 a small companion app — pick a repository, type the task, open the
 AI Assistant with the prompt prepared. That is real app development rather
-than documentation, and is tracked as an open item in [TODO.md](../TODO.md).
+than documentation, and is tracked as an open item in [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md).
 
 ## Even Lighter: A Text Replacement
 

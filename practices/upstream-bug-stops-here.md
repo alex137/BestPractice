@@ -79,10 +79,9 @@ because the person wants to see an upstream bug before anyone patches
 anything. The Boildown's root-fix item then reports where the upstream fix
 stands ([the-boildown](the-boildown.md)).
 
-**Relation to its neighbours.** [fix-the-original](fix-the-original.md) asks,
-after a fix, where the file came from and who else has a copy;
-[upstream-fix](upstream-fix.md) answers "is that the real cause?" when asked.
-Both work after the change is chosen. This one works before, at the moment the
+**Relation to its neighbour.** [upstream-fix](upstream-fix.md) asks, after a
+fix, whether it removes the cause, where the file came from and who else has
+a copy. It works after the change is chosen. This one works before, at the moment the
 edit would otherwise happen.
 
 ## Why

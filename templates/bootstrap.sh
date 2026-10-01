@@ -37,9 +37,9 @@ local_session="${PRECEDENT_LOCAL_SESSION:-}"
 # Python deps the repo's scripts import (cmarkgfm is doc_lint's exact
 # GitHub-renderer check; keep it even if you add nothing else):
 if [ "$local_session" = "1" ]; then
-  echo "NOTE: local session -- skipped pip install (cmarkgfm); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
+  echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
 else
-  pip install --quiet cmarkgfm 2>/dev/null || \
+  pip install --quiet cmarkgfm markdown 2>/dev/null || \
     echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
 fi
 
@@ -205,6 +205,14 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
       base_branch="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
       base_branch="${base_branch#origin/}"
     fi
+    # The branch tiers (spec/BRANCH_TIERS_PLAN.md): a person whose Go update
+    # lands on pre-staging has every other window's work there, so that is
+    # the base -- the same answer freshness-guard.sh gives Claude Code.
+    if [ -f tools/precedent_branches.py ] \
+       && [ "$(python3 tools/precedent_branches.py --landing 2>/dev/null | head -n1)" = "pre-staging" ] \
+       && git ls-remote --exit-code --heads origin pre-staging >/dev/null 2>&1; then
+      base_branch="pre-staging"
+    fi
     if [ -z "$base_branch" ] || [ "$base_branch" = "$branch" ]; then
       echo "NOTE: '$branch' is not on origin yet -- nothing to be behind there. No base branch resolved (set base_branch in precedent.json), so the base check is SKIPPED, not passed." >&2
     else
@@ -304,9 +312,9 @@ fi
 # section 2) because installs are adaptive and unattended mirrors are the
 # mechanism class that loses content.
 #
-# GUARDED, not silenced. This line used to be an unconditional
-# `python3 process/upstream/tools/checkin.py fresh 2>/dev/null || true`,
-# which in a Precedent-loader install (no process/upstream/ at all) failed
+# GUARDED, not silenced. This line used to run the mirrored copy's
+# checkin.py `fresh` unconditionally, its errors thrown away, which in a
+# Precedent-loader install (no process/upstream/ at all) failed
 # on every session start and said nothing -- so a whole class of install
 # got no freshness check and no notice that it had none. Silence has to
 # mean "checked and current", never "there was nothing to run": that is

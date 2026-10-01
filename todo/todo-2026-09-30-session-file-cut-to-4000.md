@@ -60,3 +60,176 @@ closed:            null
   others may link to", and the like). Cutting those decides which rules
   stop firing in every session, so it waits on Morgan's word, practice by
   practice.
+
+## Reduction pass review, 2026-10-01
+
+Morgan asked for a Reduction pass and then a deep review of every practice in
+the file, "which practices you recommend changing or dropping or merging"
+(2026-10-01). Four read-only reviewers covered all of them except
+upstream-fix, durable-fix and fix-the-original, which another session was
+merging that day. **Morgan approved Tier 1 the same day ("Question 3 - all
+are great, approved", strength: decided); what is applied so far, and what
+waits, is under "Tier 1 progress" at the end.** Token figures are words x
+1.3 against the file as built on 2026-10-01 (4,911).
+
+**Measured.** Every other always-loaded surface is under its line, the
+individual set's own AGENTS.md (1,622 of 1,800) and CLAUDE.md included;
+that CLAUDE.md's 92 is almost all an HTML comment Claude Code does not load,
+so moving it saves nothing. Steps 1-3 of the menu find no lossless room in
+the session file: 97% of it is generated, and none of its lines is loaded
+twice in a session rooted in the set.
+
+**Two facts that limit what can be routed out.** (1) The set repos wire the
+push, merge, workflow-write and seeded-prompt hooks but not
+`precedent-paths.sh` or `reply-gate.sh`, so in a session rooted in a set the
+path and reply channels fire only if the session runs them by hand -- and
+this file is loaded only in sessions rooted in the individual set. (2) The
+merge and push gates print practices only when run by hand; the push hook
+runs the mechanical checks. So a line is safe to drop for routing alone only
+where a mechanical check refuses the push before any harm. Related open
+item: [should sets run the reply gate](todo-2026-09-25-should-sets-run-the-reply-gate.md).
+
+**On dropping the one-line summaries.** In a set-rooted session the index is
+often the only channel that reaches a session at all, and the summary is
+often the only part of a rule it reads; a slug like `capture-gate` or
+`small-calls` does not carry its rule. Each look-up also loads 100-300
+tokens. Tier 1 below reaches the target without it.
+
+### Tier 1 -- no rule stops firing (merges, dead mechanisms, shorter wording)
+
+| Change | Saves |
+|---|---|
+| **Link rules:** rule-links absorbs doc-link-text, file-mention-links (and its reply gate) and branch-links; name-the-branch stays, shortened | ~100 |
+| **Stage commands:** one index line for promote, consider, act, debut and produce, their `command:` phrases moved into promote's; go-update keeps its own line | ~97 |
+| **Shared occasion lines** for families that already cite each other: gates and heavy solves (slow-steps-report-and-cache, gate-ledger, gates-fail-fast, shared-result-cache, review-against-a-contract); numbers (verify-decomposition, scripts-assert-properties, one-formatter-per-quantity, tabular-shared-renderer, quote-discipline); outward documents (frame-from-audience-question, outward-summary-discipline, deliverables-carry-no-process, curly-quotes); "already covered?" (search-by-purpose, lease-in-flight-work, base-branch-is-the-record); open items (todo-is-a-handoff, item-closes-on-its-condition) | ~190 |
+| **Resident text tightened**, same meaning: current-rule-governs, brainstorm-holds-commits, write-like-a-human (closing paragraph to `## Why`), language-variety | ~146 |
+| **Retire two dead mechanisms:** blank-blocklist (targets the retired section-1 install's blocklist) and new-rule-placement (numbered rules documents); the 2026-09-28 very deep check recommended both | ~53 |
+| **Scrub:** scrub-gate (built on `process/upstream/**`, which no repo here has) and private-repo-scrub become one practice about what is in force now | ~45 |
+| grep-before-search absorbs wide-search-needs-asking | ~40 |
+| resolved-issue-note-updates folds into universal change-updates-its-docs (no-duplication) | ~40 |
+| answer-first-ask-before-long-work absorbs nonblocking-questions as part (4) | ~30 |
+| quiet-checks folds into verdict-not-mechanism | ~30 |
+| capture-gate and second-pass-capture become one line | ~25 |
+| install absorbs default-branch; drift-notice absorbs fresh-check-escalation | ~50 |
+| very-deep-check's line carries full-practice-audit (its Pass 4) | ~23 |
+| rename-updates-links absorbs migration-scrubs-vocabulary; index-remembers-past folds into document-status-header | ~50 |
+| Shorter occasion or clause, same meaning: their-constraints-are-given, organize-scattered-content, deep-check, constants-are-risk-inputs, judgment-check-or-tool, attach-never-clone-individual, decommission-deletes-files, repair-cannot-discard-work, my-options, prompt-please, write-it-up | ~120 |
+
+**Tier 1 total: about 1,040**, which would bring the file to about 3,900.
+
+### Tier 2 -- takes a rule out of every session (each is a call to make)
+
+- **Demote four resident rules the install template already carries:**
+  orientation-map, quick-index, environment-gotchas, bold-key-phrases
+  (~234). The template's own sections and checks keep the first three; the
+  cost of bold-key-phrases is bolding in chat, which its Rule never asked for.
+- **Move modeling practices out of universal into an opt-in set:**
+  name-both-sides-of-ledger, permutation-frontier-column,
+  check-source-architecture, build-buy-decompose (~100, more if the numbers
+  family goes too). [ATTENTION_CEILING.md](../spec/ATTENTION_CEILING.md) already says this repo does
+  not exercise them; the dependent repo they came from would opt in.
+- **Route out lines a mechanical check already refuses at push:**
+  ci-workflow-approved, filename-separator, session-trailer,
+  revert-needs-no-trailer, vendor-rollout-disclosed, two-check-levels,
+  routing-audit (~230). Lines that would rely on the path hook instead --
+  assorted-notes, no-duplication, vendor-neutral-by-default,
+  mirror-into-agents -- wait until the set repos wire it.
+- **default-register (~86):** it steps aside by its own words for anyone
+  with a declared register, but a shared practice outranks an individual
+  one, so his set cannot switch it off. A `yields_to_identity: register`
+  field read by the loader would; a smaller option is demoting it in the
+  working-style set.
+
+### Housekeeping found on the way (no token cost)
+
+Shared copies still `active` beside a live universal one: automation-issues,
+dont-race-another-window, fresh-before-write, session-trailer; and
+vendor-neutral-by-default in both a shared set and BestPractice's `local/`.
+derived-file-marker's header says hand edits are safe, and
+generated-edit-goes-upstream says never edit. The session file's standing
+instruction does not mention [precedent_paths.py](../tools/precedent_paths.py).
+
+### Tier 1 progress
+
+**Applied on `claude/reduction-pass-review` (2026-10-01), universal
+practices only:**
+
+- **Stage commands.** promote, consider, act, debut and produce share one
+  occasion line naming every stage word; go-update keeps its own, with the
+  shorter clause. Not as proposed: moving the four `command:` maps into
+  promote and dropping their lines fails the harness's reachability test
+  (consider and act have no gate), and would leave produce's "read it
+  strictly" two hops away. Every stage keeps its own clause and command.
+- **Shared occasion lines:** gates and heavy solves; figures; "already
+  covered?" (base-branch-is-the-record's "or opening a PR" is carried by its
+  push gate); open items; outward deliverables for
+  frame-from-audience-question and outward-summary-discipline; and a new
+  pair, filename-separator with no-version-suffix.
+- **Resident text tightened:** current-rule-governs,
+  brainstorm-holds-commits (still resident), write-like-a-human (closing
+  line to `## Why`).
+- grep-before-search absorbs wide-search-needs-asking (deduplicated).
+- capture-gate absorbs second-pass-capture (deduplicated).
+- verdict-not-mechanism carries quiet-checks' sentence.
+- very-deep-check and full-practice-audit share one line.
+- rename-updates-links carries migration-scrubs-vocabulary's rule, and
+  document-status-header index-remembers-past's. **Neither absorbed practice
+  was deduplicated**: each backs a check, and a deduplicated practice is
+  dropped by the resolver, so the check would skip in every consumer. Both
+  left the index by taking real paths instead.
+- Shorter occasion or clause: constants-are-risk-inputs,
+  judgment-check-or-tool, attach-never-clone-individual,
+  decommission-deletes-files, repair-cannot-discard-work, my-options,
+  prompt-please, write-it-up.
+- And the follow-on Morgan asked for: very-deep-check's Pass 3 measures
+  every surface against its target, and over target runs this review
+  (reduction-pass carries the method).
+
+Measured here: universal's share of every session's occasion index went
+from 2,646 to 2,319 tokens and its resident text from 915 to 833, about 409
+off precedent-individual's session file. BestPractice's own AGENTS.md went
+from 6,263 to 5,852.
+
+**Waiting on access to precedent-shared-writing and
+precedent-shared-repo-maintenance** (and working-style for its own lines):
+the link rules; the two retirements (blank-blocklist, new-rule-placement);
+the scrub merge (scrub-gate is universal, but it merges with
+private-repo-scrub); install absorbing default-branch; drift-notice
+absorbing fresh-check-escalation; resolved-issue-note-updates into
+change-updates-its-docs; deep-check's shorter occasion; language-variety;
+curly-quotes and deliverables-carry-no-process joining the outward line;
+answer-first-ask-before-long-work absorbing nonblocking-questions;
+retiring quiet-checks in its set; their-constraints-are-given and
+organize-scattered-content's shorter lines.
+
+### Tier 2 progress
+
+**Morgan, 2026-10-01 (strength: decided):** *"Booked, attach both shared
+sets, and do both Tier 2 items (and note as a possibility for the future in
+a Todo the other tier 2 items to consider)"*. **Applied on
+`claude/reduction-pass-tier2` (2026-10-01):**
+
+- **Four resident rules made on-demand.** orientation-map (by path:
+  [MAP.md](../MAP.md), [AGENTS.md](../AGENTS.md),
+  [CLAUDE.md](../CLAUDE.md)) and quick-index (the same two instructions
+  files and [WHERE_THINGS_ARE.md](../WHERE_THINGS_ARE.md)) leave the index; environment-gotchas
+  keeps an index line ("an environment or tooling trap costs real time");
+  bold-key-phrases is reached by its `**/*.md` path. The three checks do not
+  read `tier:` and still run.
+- **Seven index lines the push already covers.** ci-workflow-approved,
+  vendor-rollout-disclosed: `index_required: false`. filename-separator and
+  session-trailer (universal copy): push gate, `index_required: false`.
+  two-check-levels and routing-audit: real paths. revert-needs-no-trailer:
+  push gate, on the same branch name in precedent-shared-working-style.
+- **change-updates-its-docs** carries resolved-issue-note-updates' example
+  in one sentence; the writing set deduplicates that practice on its own
+  branch.
+- **scrub-gate**, the smaller safe part only: `index_required: false`
+  (its merge and push gates and its path still reach it). **The Tier 1 merge
+  with private-repo-scrub, around what is in force now, is still to do**:
+  it spans two repositories and a rewrite of the Rule.
+
+The two Tier 2 calls not taken (the modeling practices leaving universal,
+and default-register yielding to a declared register) are recorded as
+possibilities in
+[Tier 2 reductions held for later](todo-2026-10-01-tier-2-reductions-held-for-later.md).

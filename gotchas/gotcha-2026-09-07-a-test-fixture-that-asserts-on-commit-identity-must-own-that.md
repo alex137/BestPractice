@@ -17,7 +17,7 @@ A test fixture that asserts on commit identity must OWN that identity,
 
 - **A test fixture that asserts on commit identity must OWN that identity,
   or the session's environment silently becomes part of the test.** FIXED
-  2026-09-07 in [verify_harness.py](../tools/verify_harness.py) and recorded
+  2026-09-07 in [verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) and recorded
   here for the story, not for a workaround -- if you hit it, your checkout
   predates the fix. `check_identity_reaches_a_repo_that_did_not_exist_yet`
   built its fixture by copying `os.environ`, pointing `HOME` at a temporary
@@ -45,7 +45,7 @@ A test fixture that asserts on commit identity must OWN that identity,
   invisible dependency. `GIT_AUTHOR_DATE` goes too (the same check asserts
   on the author-date offset); `GIT_COMMITTER_*` deliberately does not,
   because nothing here or in
-  [commit-identity.sh](../.claude/hooks/commit-identity.sh) reads the
+  [commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/commit-identity.sh) reads the
   committer. Verified against the hostile case: with all three exported,
   `GIT_AUTHOR_DATE` set to a `+0000` that would independently have broken
   the timezone case, the run is `0 failed`. The reusable half is the first

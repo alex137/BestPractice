@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-07"
-approved_by: "Morgan (2026-09-07)"
+approved_by: "Morgan (2026-09-07); the index-lineage sentence in obligation 3 folded in from index-remembers-past on 2026-10-01, in the reduction pass Morgan approved that day: \"Question 3 - all are great, approved\" (strength: decided)"
 ---
 ## Rule
 Every document under `spec/` and `record/` opens with frontmatter declaring
@@ -43,9 +43,12 @@ Three obligations follow, and the third is the one migrations lose:
    and `superseded_by`, and the new one's `supersedes`, in the commit that
    lands the replacement. A migration that moves, splits or rewrites
    documents is exactly when this is skipped, because the new document feels
-   like the whole job. Pair this with
-   [index-remembers-past](index-remembers-past.md), which puts the lineage in
-   the index; this puts it in the files.
+   like the whole job. **The lineage itself goes in the repository index,
+   not in either document's prose**: the new document's index row names
+   what it succeeded, the old one's names what replaced it, and neither body
+   gains a "successor to…" note
+   ([index-remembers-past](index-remembers-past.md)). This puts it in the
+   frontmatter; that puts it in the index.
 
 **Do not declare a status in prose as well.** A bolded "Status: …" opening
 line is a second, hand-maintained copy of a field a check can read, and it
@@ -105,6 +108,11 @@ other direction: a plan whose prose still said *"drafted, not executed"* had
 had its first two steps executed two days earlier. Neither error was anybody's
 carelessness. Both were the predictable result of storing a claim somewhere no
 check could read it.
+
+**2026-10-01.** Obligation 3 used to point at index-remembers-past for the
+other half. The reduction pass Morgan approved that day ("Question 3 - all
+are great, approved", strength: decided) folded that half in, so a session
+replacing a document under spec/ or record/ reads both in one Rule.
 
 ## Install
 Add frontmatter to every document under `spec/` and `record/` with the schema

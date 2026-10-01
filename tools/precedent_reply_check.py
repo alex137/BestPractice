@@ -48,6 +48,12 @@ whether the reply asserts it in the same breath as a plain-language phrase
 that means the opposite. Added 2026-09-20 after exactly that: a reply said
 "nothing is blocking" and then closed with "Don't archive this session".
 
+A `require_no_contradiction` pair may also carry `unless_sentence_matching`:
+a match whose own sentence matches it is skipped, so a report about
+ANOTHER session, window or repository ("your Planning window says
+it's blocked on an upstream bug") is not read as this session's state.
+Added 2026-10-01; an older engine ignores the key.
+
 `require_no_bare_pattern` checks a different practice family entirely --
 rule-links and branch-links, both of which say a mentioned destination (a
 PR, a session, a branch, a rule) gets a link the first time it is named, and
@@ -271,7 +277,7 @@ def offer_is_due(timeline, every, phrases):
 
     Stateless on purpose -- the transcript is the state. The alternative was a
     counter file somewhere, which goes stale the moment a session is resumed
-    in a fresh container (practice: durable-fix).
+    in a fresh container (practice: upstream-fix).
     """
     # The BASELINE is where the session started, not zero. A session in this
     # repository opens at ≈97,000 tokens before anybody types anything --
@@ -312,6 +318,13 @@ def _norm(s):
 # docstring, reply_check.json's `why` fields, every *"..."* quote in the
 # practice files). practice: the-boildown, cite-the-incident.
 _DQUOTE_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
+
+
+def _sentence_at(text, pos):
+    """The sentence (or list item, or line) of `text` that holds `pos`."""
+    start = max(text.rfind(c, 0, pos) for c in ('.', '!', '?', '\n')) + 1
+    ends = [i for i in (text.find(c, pos) for c in ('.', '!', '?', '\n')) if i != -1]
+    return text[start:min(ends) if ends else len(text)]
 
 
 def _strip_quoted_spans(s):
@@ -607,8 +620,21 @@ def violations(text, reqs, timeline=None):
             trigger, pat2 = pair.get('if_says'), pair.get('must_not_say_matching')
             if not trigger or not pat2:
                 continue
-            if (_norm(trigger) in _norm(quoted_stripped)
-                    and re.search(pat2, quoted_stripped, re.I)):
+            # `unless_sentence_matching`: a match whose own sentence is
+            # about another session, window or repository is that one's
+            # state, not this session's (2026-10-01: "your Planning
+            # window says it's blocked on an upstream bug" refused a correct
+            # "You can archive this session").
+            elsewhere = pair.get('unless_sentence_matching')
+            hit = None
+            for m in re.finditer(pat2, quoted_stripped, re.I):
+                if elsewhere and re.search(elsewhere,
+                                           _sentence_at(quoted_stripped, m.start()),
+                                           re.I):
+                    continue
+                hit = m
+                break
+            if _norm(trigger) in _norm(quoted_stripped) and hit:
                 out.append({'kind': 'contradiction', 'advisory': advisory, 'message': (
                     f"[{r.get('_source', '?')}] this reply says \"{trigger}\" and "
                     f"ALSO matches /{pat2}/i elsewhere in the same reply -- the two "
@@ -1000,7 +1026,7 @@ def main():
     # missing closing on its own; re-sending the whole answer makes them read
     # it twice, which is what happened on 2026-09-13 when this message said
     # only "rewrite the closing" and the session rewrote everything.
-    # practice: durable-fix, label-describes-content.
+    # practice: upstream-fix, label-describes-content.
     #
     # THE SECOND INCIDENT, 2026-09-14, is why there are two messages. The
     # individual set revised its required sentence that morning from "close

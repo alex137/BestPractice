@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE (\"Produce\", \"Promote 5\") -- stage 5, a Promote with the step named, like promote's entry. Routed by the `merge` gate. Decided: 2026-09-29, when the practice landed."
-occasion:    "a person says \"Produce\", \"Make live\" or \"Promote 5\""
+occasion:    "a person says \"Promote\", \"Promote N\" or a stage word (\"Consider\", \"Act\", \"Debut\", \"Produce\", \"Make live\"), or asks to plan, build or move work up a tier"
 gates:       ["merge"]
 gates_why:   "Debut and Produce are merges between branch tiers -- the moment that gate exists for, as for promote."
-index_clause: "stage 5: Promote staging into main (production); read strictly"
+index_clause: "stage 5: staging into main (production); read strictly"
 checked_by:  null
 defines:     ["Produce", "Make live", "production"]
 command:     {"Produce": "Stage 5 (Promote 5): move staging into main -- production -- with the full local checks plus the GitHub test, saying so first. Here we graduate you from the practice to real-life production!", "Make live": "The same as **Produce**."}
