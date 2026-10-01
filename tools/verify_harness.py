@@ -3130,6 +3130,10 @@ def check_received_hooks_and_moved_engine_files():
         (repo / '.claude' / 'hooks').mkdir(parents=True)
         (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(fallback, encoding='utf-8')
         (repo / 'tools' / 'bootstrap.sh').write_text(fallback, encoding='utf-8')
+        # ...but an unguarded call in a script of the repo's own is a step
+        # that stops running (2026-10-01).
+        (repo / 'tools' / 'steps.sh').write_text(
+            'python3 process/upstream/tools/precedent_push_check.py\n', encoding='utf-8')
         (repo / 'README.md').write_text('See process/upstream/tools/gone_tool.py.\n',
                                         encoding='utf-8')
         # A command, not a fallback (2026-10-01, from a consumer's Update
@@ -3178,6 +3182,8 @@ def check_received_hooks_and_moved_engine_files():
                       in out, out[-800:]))
         cases.append(('...and so is a .claude/settings.json allowlist entry',
                       '.claude/settings.json:' in out, out[-800:]))
+        cases.append(('...and an unguarded call in the repo\'s own shell script',
+                      'tools/steps.sh:1' in out, out[-800:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -34334,6 +34340,17 @@ def check_push_check_installs_gate_packages():
                   f'{ok} {note!r}'))
     cases.append(('the list matches the session check\'s row',
                   ppc.GATE_PACKAGES == ('cmarkgfm', 'markdown'), ''))
+    # ...and both startup scripts install every one of them. A fresh
+    # consumer container installed cmarkgfm alone, and the session check
+    # reported "missing markdown" at every session start (2026-10-01, from
+    # a consumer's Update Vendors).
+    import re as _re
+    for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        m = _re.search(r'^\s*pip install --quiet ([^\n|]*?)\s*2>', text, _re.M)
+        got = set(m.group(1).split()) if m else set()
+        cases.append((f'{rel} installs every gate package',
+                      set(ppc.GATE_PACKAGES) <= got, f'installs {sorted(got)}'))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the push check installs the gate packages or stops naming them '
           f'({len(cases)} stated cases)',
@@ -44417,7 +44434,22 @@ def check_update_repoints_moved_engine_commands():
         (repo / '.claude' / 'settings.json').write_text(
             '{"permissions": {"allow": ["Bash(python3 process/upstream/tools/'
             'practice_audit.py:*)"]}}\n', encoding='utf-8')
-        done = dict(pu.repoint_moved_engine_mentions(repo))
+        # The consumer's own startup script, as one carried it (2026-10-01):
+        # unguarded calls to files the update removed, a guarded fallback,
+        # and a vendored hook, which is the engine's to rewrite.
+        (repo / 'tools' / 'checkin.py').write_text('', encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            'python3 process/upstream/tools/checkin.py update || true\n'
+            'python3 process/upstream/tools/practice_audit.py\n'
+            '[ -f process/upstream/tools/checkin.py ] && echo old\n'
+            'python3 process/upstream/tools/gone_tool.py\n', encoding='utf-8')
+        (repo / '.claude' / 'hooks').mkdir()
+        (repo / '.claude' / 'hooks' / 'h.sh').write_text(
+            'python3 process/upstream/tools/checkin.py\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        done, stranded = pu.repoint_moved_engine_mentions(repo)
+        done = dict(done)
         text = (repo / 'AGENTS.md').read_text(encoding='utf-8').split('\n')
         cases.append(('the AGENTS.md command now names tools/',
                       text[0] == 'Run `python3 tools/practice_audit.py` weekly.', text[0]))
@@ -44430,8 +44462,22 @@ def check_update_repoints_moved_engine_commands():
         cases.append(('the settings.json allowlist entry now names tools/',
                       'python3 tools/practice_audit.py' in
                       (repo / '.claude' / 'settings.json').read_text(encoding='utf-8'), ''))
+        boot = (repo / 'tools' / 'bootstrap.sh').read_text(encoding='utf-8').split('\n')
+        cases.append(('the startup script\'s unguarded calls now name tools/',
+                      boot[0].startswith('python3 tools/checkin.py')
+                      and boot[1] == 'python3 tools/practice_audit.py', str(boot)))
+        cases.append(('...its guarded fallback is left alone',
+                      boot[2].startswith('[ -f process/upstream/tools/checkin.py ]'),
+                      boot[2]))
+        cases.append(('...a call to a file tools/ lacks is named, not rewritten',
+                      ('tools/bootstrap.sh', 4, 'process/upstream/tools/gone_tool.py')
+                      in stranded and 'gone_tool' in boot[3], str(stranded)))
+        cases.append(('a vendored hook is the engine\'s to rewrite, not this step\'s',
+                      'process/upstream' in (repo / '.claude' / 'hooks' / 'h.sh')
+                      .read_text(encoding='utf-8'), ''))
         cases.append(('and each file is reported with its count',
-                      done == {'AGENTS.md': 1, '.claude/settings.json': 1}, str(done)))
+                      done == {'AGENTS.md': 1, '.claude/settings.json': 1,
+                               'tools/bootstrap.sh': 2}, str(done)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
