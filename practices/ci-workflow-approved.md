@@ -7,8 +7,9 @@ applies_to:  [".github/workflows/**"]
 applies_to_why: "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run. Decided: 2026-09-25, when the practice landed."
 occasion:    "a .github/workflows file is added, edited, or found in an update or migration"
 gates:       ["push"]
+gates_why:   "The push check refuses a workflow file without the person's recorded approval, and workflow-write-gate.sh refuses one written through the GitHub tools before it lands, so a session that never saw the rule is stopped before a billed run. index_required: false records that judgment: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 index_clause: "no new workflow or CI minutes without the person's words; a fix is maintenance"
-index_required: true
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -16,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-25"
-approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to this ever happening again ... It's a priority\", strength: decided)"
+approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to this ever happening again ... It's a priority\", strength: decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 ---
 ## Rule
 **A session never adds a GitHub Actions workflow, or adds CI work to one,
@@ -140,6 +141,8 @@ from running, that's why we now run the checks locally etc so it shouldn't
 ask."* The session fixed that one repository by hand. The engine now owns the
 light check, and a consumer's refresh replaces a hand-made copy and removes
 an unapproved workflow on its own.
+
+**Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: the push check refuses an unapproved workflow, and `workflow-write-gate.sh` refuses a write through the GitHub tools. Its path and push gate still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 Enforced by `_ci_workflow_approved` in

@@ -31877,7 +31877,7 @@ def check_vendor_engine_consumer_case():
         agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8') if (consumer / 'AGENTS.md').exists() else ''
         cases.append(('the regenerated AGENTS.md loader block names a real universal '
                       'practice (proves the universal source, not just the fixtures, '
-                      'flowed through)', 'orientation-map' in agents_text, agents_text[:300]))
+                      'flowed through)', 'verify-postcondition' in agents_text, agents_text[:300]))
 
         team_practice = consumer / 'practices' / 'consumer-fixture-team.md'
         local_practice = consumer / 'practices' / 'consumer-fixture-local.md'

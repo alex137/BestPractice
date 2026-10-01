@@ -23,7 +23,9 @@ approved_by: "Morgan, 2026-09-08"
 **When you change how something works, update the document that describes it
 — in the same commit as the change, not in a follow-up.** A tool that gained a
 flag, a command whose meaning moved, an install step that is now one step
-instead of two: whatever a reader would have been told, tell them now.
+instead of two: whatever a reader would have been told, tell them now. A
+document that names an issue as still open in prose ("not yet fixed", "a
+real gap") is updated in the same commit as the fix that closes it.
 
 **And when you add something a person is expected to know about, put it where
 that person reads.** A feature documented only in a specification the audience
@@ -111,6 +113,8 @@ capitalized entries in any active practice's `defines:` — has to appear
 verbatim in the page that teaches the vocabulary. That is checkable, and it
 is the half that fails silently, because a command nobody was told about
 produces no error at all.
+
+**2026-10-01: a fixed issue's "not yet fixed" note.** The Rule gained one sentence carrying `resolved-issue-note-updates`' example -- a document that names an open issue in prose gets updated in the same commit as the fix -- as that practice deduplicates into this one (approved in Tier 1 of the reduction pass, [the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md); Morgan, strength: decided). Its own incident: a spec's "not yet fixed" sentence would have kept reading that way after the bug was fixed, because nothing flags such a sentence once the code has moved.
 
 ## Install
 **`checked_by` is deliberately null.** The sweep exists and is real, but its
