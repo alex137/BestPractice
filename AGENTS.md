@@ -107,48 +107,28 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~915 of 2000 token budget, 10 of 167 practices (10 universal))
-
-**bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
+## Resident block (~561 of 2000 token budget, 6 of 165 practices (6 universal))
 
 **brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas") -- **write nothing to the repository and commit nothing
-until they say to.** Research, read, argue the case, propose the design; do
-not create, edit, commit, push, open a pull request, or merge. **The edit is
-the thing to hold, not just the commit.**
+you have ideas") -- **hold the edit, not just the commit: write nothing to
+the repository until they authorize the work.** Research, argue the case,
+propose the design; do not create, edit, commit, push, open a pull request
+or merge. Answering a question inside it is not authorization, and neither
+is enthusiasm for the idea. **When in doubt, it is a brainstorm.**
 
-It ends only when the person authorizes the work. Their answering a question
-inside it is not authorization, and neither is their enthusiasm for the
-idea. **When in doubt, it is a brainstorm.**
+**current-rule-governs.** **A standing command means what the rule in force says today: do it.**
+`precedent_show.py SLUG` resolves it, following a deduplicated copy to the
+live one. **Superseded, deduplicated and retired entries, `## Story`
+sections, old deferrals and past decisions are history**: read them to
+investigate a failure or to back a proposal to reconsider a rule, never to
+decide whether to do what was just asked.
 
-**current-rule-governs.** **A standing command means what the rule in force says today, and you do
-it.** Resolve the command to its active practice
-(`precedent_show.py SLUG` follows a deduplicated copy to the live one) and
-carry it out. **Superseded, deduplicated and retired entries, `## Story`
-sections, old deferrals and past decisions are history.** Read them to
-investigate a failure, or to back a proposal to reconsider a rule. Never
-read them to decide whether to do what was just asked.
-
-**Do it first, and propose reconsidering after**, in the same reply if you
-want to. **Never decline silently:** if you are not doing what was asked,
-the first line of the reply says so, and why.
+**Do it first, and propose reconsidering after. Never decline silently:** if
+you are not doing what was asked, the reply's first line says so, and why.
 
 **When obeying a rule to the letter would leave something broken or wrong,
-ask, with your pick.** Never comply silently and never override silently.
-
-**environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
-tool that silently doesn't work, a path that does work) is written down
-**with the story of what failed and why, not just the fix**, in its own
-file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
-(directory and frontmatter shape:
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
-Part 2).
-
-**None of that catalogue loads into the instructions file, at any size** —
-not the stories, and not even a one-line-per-trap index. The file carries a
-pointer instead: hit an unexplained failure, grep `gotchas/` before
-concluding it's new.
+ask, with your pick.** Never comply or override silently.
 
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
@@ -158,14 +138,6 @@ first-person experience that did not happen.
 Without the real figure, **write around it** — *"most of them"*, *"a
 handful"*, *"it went up"* — or say plainly that it is unknown. **A vague
 true sentence beats a specific false one, every time.**
-
-**orientation-map.** A top-level `MAP.md` indexes the repo: what the key deliverables
-are, where everything lives, and — crucially — which supporting documents back
-each part of each deliverable. Every session reads it before doing anything.
-
-**quick-index.** The project instructions file carries a "check here BEFORE searching
-the repo" table: *looking for X → go to Y*, one row per thing sessions
-actually hunt for.
 
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
@@ -184,53 +156,43 @@ it's Y" contrast, the summary nobody asked for, the even-handed survey
 that takes no position, the caveat stack. **Say the thing, in your own
 words, at the length it earns.**
 
-Unrewritten model output is output nobody thought about — style is the
-cheapest evidence a reader has that somebody did.
-
 ## Occasion index
 
 ```
-When a .github/workflows file is added, edited, or found in an update or migration:
-  ci-workflow-approved — no new workflow or CI minutes without the person's words; a fix is maintenance
 When a branch has done its job, or a person says to delete branches:
   never-delete-a-remote-branch — never delete a remote branch; hand over the one-click link
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
-When a document replaces or is replaced by an earlier one:
-  index-remembers-past — put the lineage in the index, not in either document
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Booked", "Approved", "Book it" or "Promote 3", or plainly authorizes a merge:
-  go-update — "Booked" (stage 3; also "Approved"): push; high-risk: PR and merge
-When a message says "Promote" or "Promote N", or asks to move work up a tier:
-  promote — pre-staging->staging or staging->main, chosen from the work; says which
+  go-update — stage 3, Booked: land it on the landing branch; high-risk: PR and merge
 When a message says "Update Vendors", or an upstream update is taken into a vendoring repo:
   vendor-update-runbook — source clone first, both layers move separately, then merge
-When a model or comparison rests on an operating constant nobody decided:
-  constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
+When a model or comparison rests on a constant nobody decided:
+  constants-are-risk-inputs — make it a swept, registered input, never doctrine
 When a person asks "What's new?", or what has changed in the project lately:
   whats-new — write every missing day, quiet ones named; the reply opens with the link
-When a person explicitly asks for a "very deep check":
+When a person explicitly asks for a "very deep check" or a "full practice audit":
+  full-practice-audit — the very deep check's Pass 4 alone: every source's practices, one at a time
   very-deep-check — read every repo in force against itself, pass by pass; never routine
-When a person explicitly asks for a full practice audit:
-  full-practice-audit — every source's catalogue, one practice at a time; on request only
-When a person says "Act" or "Promote 2", or asks to start building after a plan:
-  act — stage 2: build it on the session's feature branch, pushed so it survives
 When a person says "Chief of Staff":
   chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last
-When a person says "Consider" or "Promote 1", or asks to plan before building:
-  consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
-When a person says "Debut" or "Promote 4":
-  debut — stage 4: Promote pre-staging into staging, full checks
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
-When a person says "My options", or asks to see a decision's options or hand them off:
-  my-options — every option, plainer, your pick -- or a paste-ready handoff
-When a person says "Produce", "Make live" or "Promote 5":
-  produce — stage 5: Promote staging into main (production); read strictly
-When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
+When a person says "My options", or asks to see a decision's options:
+  my-options — every real option, plainer, costs said flatly, your pick and why
+When a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier:
+  act — stage 2: build on the session's feature branch, pushed so it survives
+  consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
+  debut — stage 4: pre-staging into staging, full checks
+  produce — stage 5: staging into main (production); read strictly
+  promote — the next tier up, chosen from the work and said first; "Promote N" does stage N
+When a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach:
+  prompt-please — one paste-ready prompt for a new session; never a session-creating tool
+When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream:
   root-issues — what this session hit that belongs upstream, each as a Prompt Please
@@ -245,23 +207,21 @@ When a person says "Vocabulary", or asks what the standing commands are:
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
 When a person says "Write it up", or asks for a write-up:
-  write-it-up — "Write it up": commit a full report of issue and fix, then link it
-When a second implementation of the same mechanism turns up, or a full practice audit runs:
+  write-it-up — commit a full report: issue, options attacked, the fix that survived; link it
+When a second implementation of the same mechanism turns up:
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
-When about to search a repo, or use a GitHub tool for what the clone holds:
-  grep-before-search — grep the clone first; list before search; fewer windows at once
-When about to search or scan every clone, every repo or every file for something:
-  wide-search-needs-asking — never sweep every clone unasked; fix the known source, ask for an example
-When adding a file beside others of its kind:
-  filename-separator — one word separator per directory and kind; never both - and _
+When about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds:
+  grep-before-search — grep the clone first; list before search; never sweep every clone unasked
+When an environment or tooling trap costs real time:
+  environment-gotchas — one file per trap under gotchas/, with the story, not just the fix
 When an unattended job hits something blocking its normal work, or something optional it cannot reach:
   automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
   attach-the-original — attach the file itself; recreating it from a description is invention
-When attaching a practice source with the repo-attach tool, or its reply says to clone:
-  attach-never-clone-individual — attach the individual source; keep one clone, both paths; shared sources beside
+When attaching a practice source:
+  attach-never-clone-individual — attach the individual one, never a second clone; shared sets sit beside the repo
 When being asked for something another window or session of the person's may already be working on:
   dont-race-another-window — say so and decline; send them to the window already on it
 When building a mechanism that makes something discoverable or reachable:
@@ -270,91 +230,63 @@ When building a permutation or configuration-sweep table:
   permutation-frontier-column — one full table with a computed Frontier column
 When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
-When checking whether practices that should have fired for recent work did:
-  routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
-When committing a shipped practice, hook, template or engine file, before push or merge:
-  vendor-rollout-disclosed — say whether shipped content must reach consumers, if it will, how it migrates
-When committing anything:
-  session-trailer — a Session: <url> trailer on every commit
-When committing anything that touches the vendored/public tree:
-  scrub-gate — the public tree stays public-safe always, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
+When computing, quoting or tabulating figures:
+  one-formatter-per-quantity — compared across rows: one formatter per quantity kind, in one module
+  quote-discipline — compression rounds against you; qualifiers travel with the figure
+  scripts-assert-properties — a script a document cites asserts its own properties and cited anchors
+  tabular-shared-renderer — a sortable multi-column table ships from the one shared renderer
+  verify-decomposition — check the parts, not the total; never assert an impossibility
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted
   session-title-names-the-difference — title by the differentiator; never the task alone, never an open sibling's title
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
-When decommissioning a mechanism that leaves files with no remaining job:
+When decommissioning a mechanism:
   decommission-deletes-files — delete what it owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
-When finishing substantial work, before the merge capture gate:
-  second-pass-capture — a separate capture pass after the work, not inside it
+When finishing substantial work, or merging a branch:
+  capture-gate — capture it in the turn that finds it; a separate second pass; merge is backstop
 When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
-When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
-  prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
-When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:
-  shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
-When merging a branch:
-  capture-gate — capture follow-on work in the thread that created the need
-When migrating a repo onto Precedent from an old system:
-  migration-scrubs-vocabulary — scrub the old vocabulary in the same session, unasked
-When naming a new file:
+When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
-When naming what "run the checks" means in a repo:
-  two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — PRs target pre-staging or staging; main moves only by a Promote or when the person names main
-When printing a number compared across rows:
-  one-formatter-per-quantity — one formatter per quantity kind, declared in one module
-When publishing a sortable multi-column table:
-  tabular-shared-renderer — ship a sortable render from the one shared renderer
-When quoting or compressing someone else's figures:
-  quote-discipline — compression rounds against you; qualifiers travel with the figure
-When renaming, moving or deleting a file others may link to, or renaming or retiring a name:
-  rename-updates-links — repoint every link, and every use of a retired name, in the same commit
-When reporting a computed total or a negative feasibility result:
-  verify-decomposition — check the parts, not the total; never assert an impossibility
-When reviewing code that decides what is skipped, cached, held or refused:
-  review-against-a-contract — give each reviewer a one-line contract; a finding counts once reproduced
+When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
+  rename-updates-links — repoint every link and use of a retired name in the same commit or migration
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
-When starting an outward-facing deliverable:
-  frame-from-audience-question — build it around the audience's question, not your material
-When starting slow, costly or external work another session could also start:
-  lease-in-flight-work — lease work in flight on a branch; the starting tool checks the board first
-When starting work another session may have done, or opening a PR:
+When starting work the repository or another session may already cover:
   base-branch-is-the-record — read the base branch before starting and before the PR
-When starting work the repository may already cover:
+  lease-in-flight-work — lease slow, costly or external work on a branch; its tool checks the board first
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
-When work touches an open item's subject, or a branch merges:
-  item-closes-on-its-condition — record findings in the item; close only on its condition
+When writing a deliverable an outside reader will see:
+  frame-from-audience-question — from the start, build it around the audience's question, not your material
+  outward-summary-discipline — claims summary: claims-to-source table, honest sums, a recorded adversarial pass
 When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
   vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — it carries its date, inline
-When writing a script whose numbers a document will cite:
-  scripts-assert-properties — scripts assert their own properties and their cited anchors
-When writing an outward-facing summary of claims:
-  outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
-When writing or changing anything that automatically repairs a state it found wrong:
-  repair-cannot-discard-work — an auto-repair must never discard work; reporting is not repairing
-When writing or running a drift gate or an audit that re-runs scripts to compare their output:
-  gate-ledger — record code, reads and result per unit; skip a unit whose fact holds
-When writing or running a gate that chains several checks or runs work concurrently:
+When writing or changing an automatic repair:
+  repair-cannot-discard-work — it must never discard work; reporting is not repairing
+When writing, running or reviewing a gate, audit, cache or heavy solve:
+  gate-ledger — re-runs: record code, reads and result per unit; skip a unit whose fact holds
   gates-fail-fast — cheap checks first; a failure skips the slow ones and stops the work beside it
-When writing or running a gate, audit or solve over a minute:
-  slow-steps-report-and-cache — print elapsed and remaining; cache a heavy solve to disk
-When writing or triaging an open item:
+  review-against-a-contract — skip/cache/hold/refuse code: one-line contract; a finding counts once reproduced
+  shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
+  slow-steps-report-and-cache — over a minute: print elapsed and remaining; cache a heavy solve to disk
+When writing, triaging or doing work on an open item:
+  item-closes-on-its-condition — record findings in the item; close only on its condition
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason; else just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
@@ -453,8 +385,13 @@ place — nothing is ever deleted, and nothing moves.
 - **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
-  before push or merge. What matters is `0 failed` and `0 violated`. Which
-  one a push gets, `--as-ci`, and failing tests a source shipped:
+  before push or merge, **always run bare**: it checks at your landing
+  branch's tier, seconds for `pre-staging`. **Booked into `pre-staging`
+  never needs the full suite, however risky the change** -- a pull request
+  into `pre-staging` gets the quick check too; the full suite belongs to the
+  Debut, which runs it for you, and `--tier full` is refused there without
+  a stated reason. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 
 ## Conventions (every session, every reply)

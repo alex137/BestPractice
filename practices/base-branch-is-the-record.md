@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "What the rule governs is a READ -- fetching the base branch and looking at it -- which happens before any file is opened and touches nothing. There is no path whose editing means the read was skipped; by the time a file is edited the duplicate work has already been done. Reached through the occasion index and the push gate. Decided: 2026-09-12, when the practice landed."
-occasion:    "starting work another session may have done, or opening a PR"
+occasion:    "starting work the repository or another session may already cover"
 gates:       ["push"]
 gates_why:   "The second of the two reads is owed immediately before a pull request is opened, which is the push moment. The first read -- before starting -- has no gate, because no moment fires at 'about to begin'; the occasion index carries that half."
 index_clause: "read the base branch before starting and before the PR"

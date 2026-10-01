@@ -37,9 +37,9 @@ local_session="${PRECEDENT_LOCAL_SESSION:-}"
 # Python deps the repo's scripts import (cmarkgfm is doc_lint's exact
 # GitHub-renderer check; keep it even if you add nothing else):
 if [ "$local_session" = "1" ]; then
-  echo "NOTE: local session -- skipped pip install (cmarkgfm); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
+  echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
 else
-  pip install --quiet cmarkgfm 2>/dev/null || \
+  pip install --quiet cmarkgfm markdown 2>/dev/null || \
     echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
 fi
 

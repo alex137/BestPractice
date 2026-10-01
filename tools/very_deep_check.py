@@ -3065,6 +3065,25 @@ def _declared_ceilings(root):
     return out
 
 
+def _declared_targets(root):
+    """-> {surface path: target} from THIS repo's own budget registry, or {}.
+
+    A target is where a surface is meant to live, below its ceiling
+    (session_load_trend.over_target reads the same field). Read per repo for
+    the reason _declared_ceilings is. practice: very-deep-check -- Morgan,
+    2026-10-01: a surface over its target gets a reduction pass in every very
+    deep check, not only one over its ceiling.
+    """
+    f = pathlib.Path(root) / 'tools' / 'session_load_budgets.json'
+    try:
+        reg = json.loads(f.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    return {rel: entry['target']
+            for rel, entry in (reg.get('surfaces') or {}).items()
+            if isinstance(entry, dict) and isinstance(entry.get('target'), int)}
+
+
 def _split_projection(section):
     """-> a costed line for the SPLIT move, or '' when the section has no
     bulleted entries to split.
@@ -3257,6 +3276,29 @@ def _session_load(repo_dir):
             f'      The overage may be spread thin, with no single section '
             f'large enough to\n      appear above; that is the case this '
             f'finding exists for.')
+
+    # THE FILE AGAINST ITS TARGET, the lower number. Over it is not a broken
+    # budget, so it never fails anything; it is the cue for the reduction
+    # pass, practice-by-practice review included (practice: reduction-pass).
+    for rel, target in sorted(_declared_targets(root).items()):
+        n = file_totals.get(rel)
+        if n is None:
+            f = root / rel
+            if not f.is_file():
+                continue
+            n = bv._approx_tokens(f.read_text(encoding='utf-8',
+                                              errors='replace'))
+        if n <= target:
+            continue
+        over.append(
+            f'OVER TARGET {rel}\n'
+            f'      {n:,} tokens, every session, against the {target:,} target '
+            f'this repo declares\n      in tools/session_load_budgets.json -- '
+            f'over by {n - target:,}. Run a reduction\n      pass '
+            f'(reduction-pass), including its practice-by-practice review of '
+            f'the\n      occasion index and resident block, and report the '
+            f'proposals. A change\n      that takes a rule out of a session '
+            f'is the person\'s call.')
 
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.

@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus. Any gate that chains checks or runs units concurrently; the practice is a property of the gate runner, not of a path. Decided: 2026-09-28, with the practice."
-occasion:    "writing or running a gate that chains several checks or runs work concurrently"
+occasion:    "writing, running or reviewing a gate, audit, cache or heavy solve"
 gates:       []
 index_clause: "cheap checks first; a failure skips the slow ones and stops the work beside it"
 checked_by:  null

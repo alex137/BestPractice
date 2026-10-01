@@ -4,8 +4,8 @@ title:       Sort each practice by what carries it -- judgment, a check, or one 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "No locus. A second implementation of a mechanism can turn up in any tool, and the full practice audit covers the whole catalogue; the occasion index is the channel. Decided: 2026-09-29, with the practice."
-occasion:    "a second implementation of the same mechanism turns up, or a full practice audit runs"
+applies_to_why: "No locus. A second implementation of a mechanism can turn up in any tool, and the full practice audit asks its question of the whole catalogue (that citation lives in full-practice-audit's Rule since 2026-10-01); the occasion index is the channel. Decided: 2026-09-29, with the practice."
+occasion:    "a second implementation of the same mechanism turns up"
 gates:       []
 index_clause: "judgment stays prose; checkable gets an audit; a mechanism gets one tool"
 checked_by:  null

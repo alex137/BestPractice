@@ -244,12 +244,35 @@ MOVED_ENGINE_FILES = ('AGENTS.md', 'CLAUDE.md', '.claude/settings.json')
 MIRRORED_TOOL_RE = re.compile(r'(?<![\w./-])process/upstream/tools/([\w.-]+)')
 
 
+def _own_shell_scripts(repo):
+    """-> the repo's own tracked *.sh files: not .claude/hooks/, which the
+    engine vendors and rewrites, and not an engine file it received."""
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '*.sh'],
+                       capture_output=True, text=True)
+    try:
+        received = set(json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json')
+                                  .read_text(encoding='utf-8')).get('files') or ())
+    except (OSError, ValueError, AttributeError):
+        received = set()
+    return [rel for rel in (r.stdout.split() if r.returncode == 0 else [])
+            if not rel.startswith('.claude/hooks/')
+            and not (rel.startswith('tools/') and rel[len('tools/'):] in received)]
+
+
 def repoint_moved_engine_mentions(repo):
-    """-> [(rel, n)]: rewrite `process/upstream/tools/X` to `tools/X` in
-    AGENTS.md, CLAUDE.md and .claude/settings.json, wherever tools/X is
-    there and the mirrored copy is gone. A guarded fallback (a `[ -f` test,
-    or a line naming tools/X beside it) is left alone, and so is a
-    generated block, which build_views.py rewrites.
+    """-> ([(rel, n)] repointed, [(rel, line_no, path)] stranded): rewrite
+    `process/upstream/tools/X` to `tools/X` in AGENTS.md, CLAUDE.md,
+    .claude/settings.json and the repo's own shell scripts, wherever
+    tools/X is there and the mirrored copy is gone. A guarded fallback (a
+    `[ -f` test, or a line naming tools/X beside it) is left alone, and so
+    is a generated block, which build_views.py rewrites. A call to a file
+    tools/ does not hold either is stranded: it is returned, not rewritten.
+
+    The shell scripts since 2026-10-01, from a consumer's Update Vendors:
+    its tools/bootstrap.sh ran `process/upstream/tools/checkin.py` and
+    `practice_audit.py` after the update removed both, and the update said
+    only that the file "diverged from templates/bootstrap.sh" -- those
+    steps then stopped, silently.
 
     2026-10-01, from a consumer's Update Vendors: the catalogue copy dropped
     process/upstream/tools/, and AGENTS.md went on telling sessions to run
@@ -259,8 +282,8 @@ def repoint_moved_engine_mentions(repo):
     the staged diff shows it."""
     import generated_blocks
     import precedent_check as pc
-    done = []
-    for rel in MOVED_ENGINE_FILES:
+    done, stranded = [], []
+    for rel in list(MOVED_ENGINE_FILES) + _own_shell_scripts(repo):
         f = repo / rel
         try:
             text = f.read_text(encoding='utf-8')
@@ -273,11 +296,13 @@ def repoint_moved_engine_mentions(repo):
             if mask[i]:
                 continue
 
-            def swap(m, line=line):
+            def swap(m, line=line, i=i):
                 name = m.group(1)
-                if not (repo / 'tools' / name).is_file() \
-                        or (repo / 'process' / 'upstream' / 'tools' / name).exists() \
+                if (repo / 'process' / 'upstream' / 'tools' / name).exists() \
                         or pc.is_guarded_fallback(rel, line, m.group(0)):
+                    return m.group(0)
+                if not (repo / 'tools' / name).is_file():
+                    stranded.append((rel, i + 1, m.group(0)))
                     return m.group(0)
                 return f'tools/{name}'
             new = MIRRORED_TOOL_RE.sub(swap, line)
@@ -287,7 +312,7 @@ def repoint_moved_engine_mentions(repo):
         if n:
             f.write_text('\n'.join(lines), encoding='utf-8')
             done.append((rel, n))
-    return done
+    return done, stranded
 
 
 def retired_mentions(repo, engine_out):
@@ -437,19 +462,7 @@ def retire_shipped_root_doc(repo, old):
             (repo / old).unlink()
         except OSError:
             return False
-    man = repo / 'process' / 'manifest.json'
-    try:
-        data = json.loads(man.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return True
-    entries = data.get('entries')
-    if isinstance(entries, list):
-        kept = [e for e in entries
-                if not (isinstance(e, dict) and e.get('local_path') == old)]
-        if len(kept) != len(entries):
-            data['entries'] = kept
-            man.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
-                           encoding='utf-8')
+    pve._drop_process_manifest_entries(repo, old)
     return True
 
 
@@ -1847,7 +1860,11 @@ def update(repo, skip_check=False, ref=None):
 
     # 4c. Commands that name an engine file at the mirrored path the
     # catalogue copy no longer carries (repoint_moved_engine_mentions).
-    moved = repoint_moved_engine_mentions(repo)
+    moved, stranded = repoint_moved_engine_mentions(repo)
+    for rel, n, path in stranded:
+        rep.leave(f'{rel}:{n}', f'calls {path}, which is gone, and tools/ has '
+                  f'no copy -- that step no longer runs. Remove it, or point '
+                  f'it at what replaced it')
     if moved:
         rep.step('repointed', 'process/upstream/tools/ is gone and tools/ holds '
                  'the engine, so these now name tools/: '
@@ -1876,7 +1893,45 @@ def update(repo, skip_check=False, ref=None):
                     f'or name the old slug: '
                     + ', '.join(read) if read else ''))
 
+    manifest_postcondition(repo, rep)
     return closing_check(repo, rep, skip_check)
+
+
+def manifest_postcondition(repo, rep):
+    """No manifest entry names a missing file when the update ends.
+
+    Asked of the result, not of each step: every step that deletes a file
+    used to have to remember its process/manifest.json entry, and the one
+    that forgot left the update saying DONE while practice_audit.py failed
+    (2026-10-01, from a consumer's Update Vendors). An entry for a file
+    this update deleted, or one inside the mirrored upstream tree the
+    consumer does not own, goes with its file and is said in a step line.
+    Any other is the repo's own, so it is left for the person by name --
+    DONE never prints over a manifest the audit would refuse."""
+    dead = pve.dead_manifest_entries(repo)
+    if not dead:
+        return
+    r = subprocess.run(['git', '-C', str(repo), 'diff', 'HEAD', '--name-only',
+                        '--diff-filter=D'], capture_output=True, text=True)
+    deleted = set(r.stdout.split()) if r.returncode == 0 else set()
+    try:
+        import precedent_resolve as pr
+        mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    except Exception:                                          # noqa: BLE001
+        mirrors = ()
+    dropped = []
+    for manifest, name, rel in dead:
+        if rel in deleted or (mirrors and rel.startswith(mirrors)):
+            pve._drop_process_manifest_entries(repo, rel)
+            dropped.append(f'{name} ({rel})')
+        else:
+            rep.leave(f'process/{manifest}: {name}',
+                      f'names {rel}, which does not exist -- practice_audit.py '
+                      f'fails on it. Restore the file, or drop the entry if '
+                      f'the file is gone on purpose')
+    if dropped:
+        rep.step('manifest', 'dropped the entries for files this update '
+                 'removed: ' + ', '.join(dropped))
 
 
 def closing_check(repo, rep, skip_check=False):

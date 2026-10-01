@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE (\"Debut\", \"Promote 4\") -- stage 4, a Promote with the step named, like promote's entry. Routed by the `merge` gate. Decided: 2026-09-29, when the practice landed."
-occasion:    "a person says \"Debut\" or \"Promote 4\""
+occasion:    "a person says \"Promote\", \"Promote N\" or a stage word (\"Consider\", \"Act\", \"Debut\", \"Produce\", \"Make live\"), or asks to plan, build or move work up a tier"
 gates:       ["merge"]
 gates_why:   "Debut and Produce are merges between branch tiers -- the moment that gate exists for, as for promote."
-index_clause: "stage 4: Promote pre-staging into staging, full checks"
+index_clause: "stage 4: pre-staging into staging, full checks"
 checked_by:  null
 defines:     ["Debut", "Test Readiness"]
 command:     {"Debut": "Stage 4 (Promote 4), also called Test Readiness: move pre-staging into staging, with the full local checks, saying so first -- saving this session's own work to pre-staging first if it is not there yet."}

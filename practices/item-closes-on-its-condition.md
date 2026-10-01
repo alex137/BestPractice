@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md", "**/TODO.md"]
 applies_to_why: "The item is the artifact edited, so the open-items file is the locus. Deliberately NOT '**': the rule fires on work that bears on an item, and no glob can see that -- the merge gate is what reaches it, which is why the practice registers there. Decided: 2026-09-13."
-occasion:    "work touches an open item's subject, or a branch merges"
+occasion:    "writing, triaging or doing work on an open item"
 gates:       ["merge"]
 index_clause: "record findings in the item; close only on its condition"
 index_required: true

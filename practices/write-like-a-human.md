@@ -26,9 +26,6 @@ it's Y" contrast, the summary nobody asked for, the even-handed survey
 that takes no position, the caveat stack. **Say the thing, in your own
 words, at the length it earns.**
 
-Unrewritten model output is output nobody thought about — style is the
-cheapest evidence a reader has that somebody did.
-
 ## Detail
 This is a short guiding point on purpose, not a banned-word list. A word
 that is the right word is the right word: "robust" about an estimator,
@@ -53,6 +50,9 @@ stop, which is why `gates: ["reply"]` puts the Rule in front of the turn
 that writes it.
 
 ## Why
+Unrewritten model output is output nobody thought about — style is the
+cheapest evidence a reader has that somebody did.
+
 These were two rules saying one thing. `no-ai-voice` argued *why* — it
 reads as nobody home, it erodes trust, and what you sound like is the one
 claim a reader can check for free. `write-like-a-human` was the
@@ -110,6 +110,12 @@ failure mode here was *inventing* work, not missing it"
 false positives. `checkable-gets-checked` calls a check that fires on
 correct work worse than no check, because it teaches the next session to
 ignore the gate — and this one would have fired on nothing else.
+
+**2026-10-01:** the closing line, "Unrewritten model output is output nobody
+thought about", moved from the Rule to the top of `## Why` in the reduction
+pass Morgan approved that day ("all are great, approved", strength:
+decided). It is the reason for the rule, not an instruction, and the Rule
+loads on every turn.
 
 ## Install
 No mechanical check, for the reason measured above rather than assumed:

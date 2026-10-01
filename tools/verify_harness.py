@@ -3130,6 +3130,10 @@ def check_received_hooks_and_moved_engine_files():
         (repo / '.claude' / 'hooks').mkdir(parents=True)
         (repo / '.claude' / 'hooks' / 'push-check-gate.sh').write_text(fallback, encoding='utf-8')
         (repo / 'tools' / 'bootstrap.sh').write_text(fallback, encoding='utf-8')
+        # ...but an unguarded call in a script of the repo's own is a step
+        # that stops running (2026-10-01).
+        (repo / 'tools' / 'steps.sh').write_text(
+            'python3 process/upstream/tools/precedent_push_check.py\n', encoding='utf-8')
         (repo / 'README.md').write_text('See process/upstream/tools/gone_tool.py.\n',
                                         encoding='utf-8')
         # A command, not a fallback (2026-10-01, from a consumer's Update
@@ -3178,6 +3182,8 @@ def check_received_hooks_and_moved_engine_files():
                       in out, out[-800:]))
         cases.append(('...and so is a .claude/settings.json allowlist entry',
                       '.claude/settings.json:' in out, out[-800:]))
+        cases.append(('...and an unguarded call in the repo\'s own shell script',
+                      'tools/steps.sh:1' in out, out[-800:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -13626,8 +13632,7 @@ def check_precedent_check_fires():
         # fixture can resolve.
         def _plant_unreachable(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
-                r'\nWhen quoting or compressing someone else.s figures:\n'
-                r'  quote-discipline[^\n]*\n', '\n', t))
+                r'\n  quote-discipline [^\n]*', '', t))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
 
         # quick-index -- the table removed from the instructions
@@ -15251,6 +15256,20 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'planted item outside todo/')
 
         case('open-items-outside-todo', _plant_item_outside_todo)
+
+        # manifest-entries-resolve -- an entry left naming a file a sweep
+        # deleted (2026-10-01).
+        def _plant_dead_manifest_entry(repo):
+            m = repo / 'process' / 'manifest.json'
+            m.parent.mkdir(parents=True, exist_ok=True)
+            data = json.loads(m.read_text(encoding='utf-8')) if m.is_file() else {}
+            data.setdefault('entries', []).append(
+                {'name': 'planted', 'local_path': 'process/upstream/tools/gone.py'})
+            m.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted dead manifest entry')
+
+        case('manifest-entries-resolve', _plant_dead_manifest_entry)
 
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
@@ -24158,7 +24177,7 @@ def check_promote_pre_staging():
         # should not run the full suite again if nothing has changed").
         commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
         subprocess.run([sys.executable, 'tools/precedent_push_check.py',
-                        '--tier', 'full'], cwd=work, capture_output=True,
+                        '--tier', 'full', '--because', 'harness case'], cwd=work, capture_output=True,
                        text=True, env=env)
         rc, out = branches('--promote')
         cases.append(('a batch whose exact files already passed the full check '
@@ -24538,7 +24557,7 @@ def check_history_checks_never_ride_a_reused_pass():
 
         def gate(cwd, *extra):
             p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
-                                '--tier', 'full', *extra], cwd=cwd,
+                                '--tier', 'full', '--because', 'harness case', *extra], cwd=cwd,
                                capture_output=True, text=True, env=person)
             return p.returncode, p.stdout + p.stderr
 
@@ -25228,7 +25247,8 @@ def check_sync_copies_work_from_above_once_checked():
         # The same commit once its tree has a full-check receipt on origin.
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '--detach', 'origin/main')
-        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full'],
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full',
+                        '--because', 'harness case'],
                        cwd=work, capture_output=True, text=True, env=env)
         rc, report = branches('--drift')
         cases.append(('a commit whose tree has a published full-check receipt '
@@ -26346,8 +26366,36 @@ def check_catalogue_copy_is_an_allowlist():
                     (tree / rel).parent.mkdir(parents=True, exist_ok=True)
                     (tree / rel).write_text('upstream\n', encoding='utf-8')
             (ck.UPSTREAM / 'local' / 'l.md').write_text('ours\n', encoding='utf-8')
+            # A manifest entry for a file the sweep removes goes with it:
+            # practice_audit.py fails "local_path missing" on one left behind
+            # (2026-10-01, from a consumer's Update Vendors: doc-lint ->
+            # process/upstream/tools/doc_lint.py).
+            planted = [{'name': 'upstream:doc-lint',
+                        'local_path': 'process/upstream/tools/y.py'},
+                       {'name': 'upstream:p', 'local_path': 'process/upstream/practices/p.md'},
+                       {'name': 'upstream:l', 'local_path': 'process/upstream/local/l.md'}]
+            (tmp / 'process' / 'manifest.json').write_text(
+                json.dumps({'entries': planted}), encoding='utf-8')
             with contextlib.redirect_stdout(io.StringIO()):
                 dropped, kept = ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            left = [e['name'] for e in json.loads((tmp / 'process' / 'manifest.json')
+                                                  .read_text(encoding='utf-8'))['entries']]
+            cases.append(('a manifest entry for a removed file is dropped with it; '
+                          'one for a file still there, or kept as edited, stays',
+                          left == ['upstream:p', 'upstream:l'], str(left)))
+            # A consumer an older update already left that way is healed on
+            # the next run, when there is nothing left to remove.
+            (tmp / 'process' / 'manifest.json').write_text(json.dumps({'entries': [
+                {'name': 'upstream:gone', 'local_path': 'process/upstream/tools/gone.py'},
+                {'name': 'own', 'local_path': 'docs/missing-but-ours.md'}]}),
+                encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            left = [e['name'] for e in json.loads((tmp / 'process' / 'manifest.json')
+                                                  .read_text(encoding='utf-8'))['entries']]
+            cases.append(('an entry an older update left inside the mirror is '
+                          'cleared on the next run; one for the repo\'s own file '
+                          'is the audit\'s to report', left == ['own'], str(left)))
             cases.append(('what the copy no longer carries is removed when it '
                           'is upstream\'s text, and kept when edited here',
                           sorted(map(str, dropped)) == ['TODO.md', 'WHATS_NEW.md',
@@ -30418,7 +30466,7 @@ def check_freshness_quiet_says_when_a_source_is_unverified():
     """`precedent_engine_freshness.py --quiet`, which every session-start
     hook runs, prints one NOT VERIFIED line when a declared source could not
     be checked -- it printed nothing, which is what current looks like
-    (the maintainers' fresh-check-escalation; very deep check, 2026-09-28).
+    (the maintainers' drift-notice; very deep check, 2026-09-28).
     Planted: a consumer whose engine manifest points at an upstream that is
     not there. Controls: a current source stays silent, and a repo with no
     engine manifest at all (the engine's own origin) is not an unverified
@@ -31836,7 +31884,7 @@ def check_vendor_engine_consumer_case():
         agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8') if (consumer / 'AGENTS.md').exists() else ''
         cases.append(('the regenerated AGENTS.md loader block names a real universal '
                       'practice (proves the universal source, not just the fixtures, '
-                      'flowed through)', 'orientation-map' in agents_text, agents_text[:300]))
+                      'flowed through)', 'verify-postcondition' in agents_text, agents_text[:300]))
 
         team_practice = consumer / 'practices' / 'consumer-fixture-team.md'
         local_practice = consumer / 'practices' / 'consumer-fixture-local.md'
@@ -34045,6 +34093,137 @@ def check_model_audit_ledger():
     check(name, not bad, '; '.join(bad))
 
 
+def check_full_tier_needs_a_reason_on_a_quick_landing():
+    """`--tier full` is refused where the landing branch takes the quick
+    tier, unless a reason is given (Morgan, 2026-10-01, strength: decided:
+    "Go, do both, then Booked"). The same day the bare run was fixed, a
+    session still typed `--tier full` before every pre-staging landing and
+    wrote it into its helpers' briefs. Stated cases: refused on a
+    pre-staging landing; allowed with --because; untouched for --gate, for
+    a named push, and on a landing branch that is fully checked."""
+    import tempfile
+    import precedent_push_check as ppc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='full-tier-reason-'))
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+
+        def landing(branch):
+            (tmp / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
+        landing('pre-staging')
+        full = ['--tier', 'full']
+        cases.append(('refused on a pre-staging landing',
+                      bool(ppc._full_tier_refusal(tmp, full)), ''))
+        cases.append(('...and the refusal says how to ask anyway',
+                      '--because' in (ppc._full_tier_refusal(tmp, full) or ''), ''))
+        for extra in (['--because', 'testing'], ['--gate'],
+                      ['--push-command', 'origin HEAD:staging']):
+            cases.append((f'allowed with {extra[0]}',
+                          ppc._full_tier_refusal(tmp, full + extra) is None, ''))
+        cases.append(('--tier basic is never refused',
+                      ppc._full_tier_refusal(tmp, ['--tier', 'basic']) is None, ''))
+        cases.append(('--because is a known option',
+                      ppc.unknown_arguments(full + ['--because', 'x']) == [], ''))
+        landing('main')
+        cases.append(('a landing branch that is fully checked is untouched',
+                      ppc._full_tier_refusal(tmp, full) is None, ''))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--tier full needs a reason where the landing branch is quick '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_bare_push_check_takes_the_landing_tier():
+    """precedent_push_check.py run with no destination checks what a push
+    to the person's landing branch gets (Morgan, 2026-10-01, strength:
+    assented). A session ran it bare before every landing on pre-staging
+    and paid the ~11-minute suite each time. Stated cases: bare, with a
+    pre-staging landing, it becomes a push to pre-staging at the basic
+    tier; a staging landing still runs full; --tier full and a named push
+    are left exactly as given."""
+    import contextlib, io, tempfile
+    import precedent_push_check as ppc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bare-push-check-'))
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+
+        def landing(branch):
+            (tmp / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
+        landing('pre-staging')
+        with contextlib.redirect_stdout(io.StringIO()):
+            argv = ppc._default_destination(tmp, [])
+        cases.append(('bare, it names a push to the landing branch',
+                      argv == ['--push-command', 'origin HEAD:pre-staging'], str(argv)))
+        cases.append(('...which is the basic tier',
+                      ppc._tier_from_args(tmp, argv)[0] == ppc.BASIC,
+                      str(ppc._tier_from_args(tmp, argv))))
+        landing('main')
+        with contextlib.redirect_stdout(io.StringIO()):
+            argv = ppc._default_destination(tmp, [])
+        cases.append(('a landing branch that is fully checked still runs full',
+                      ppc._tier_from_args(tmp, argv)[0] == ppc.FULL,
+                      str(ppc._tier_from_args(tmp, argv))))
+        for given in (['--tier', 'full'], ['--push-command', 'origin x']):
+            cases.append((f'{given} is left as given',
+                          ppc._default_destination(tmp, list(given)) == given, ''))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a bare push check takes the landing branch\'s tier '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_wait_loop_gate_refuses_pgrep_f():
+    """wait-loop-gate.sh refuses a Bash command running `pgrep -f` or
+    `pkill -f`, and nothing else (2026-10-01: a wait loop on `pgrep -f`
+    matched its own shell and ran 20 minutes past the check it waited for;
+    Morgan asked for a wall). Runs the real hook, both copies, on payloads."""
+    cases = []
+    refused = ['while pgrep -f "tools/x.py" >/dev/null; do sleep 5; done',
+               'pkill -f tools/x', 'pgrep -fa x', 'echo hi; pgrep --full x',
+               'sleep 1 && pkill -af y']
+    allowed = ['grep -n "pgrep -f" file', 'pgrep python3', 'ls -la',
+               "git commit -m 'stop using pkill -f'", 'ps -ef | grep x']
+    for rel in ('.claude/hooks/wait-loop-gate.sh',
+                'templates/harness/claude-code/hooks/wait-loop-gate.sh'):
+        hook = ROOT / rel
+        for cmd, want in [(c, True) for c in refused] + [(c, False) for c in allowed]:
+            r = subprocess.run(['bash', str(hook)], input=json.dumps(
+                {'tool_input': {'command': cmd}}), capture_output=True, text=True,
+                timeout=30)
+            denied = '"deny"' in r.stdout
+            cases.append((f'{rel}: {cmd!r} {"refused" if want else "allowed"}',
+                          r.returncode == 0 and denied == want, r.stdout[-200:]))
+    settings = json.loads((ROOT / 'templates' / 'harness' / 'claude-code'
+                           / 'settings.json').read_text(encoding='utf-8'))
+    wired = any('wait-loop-gate.sh' in h.get('command', '')
+                for e in settings['hooks'].get('PreToolUse', [])
+                if e.get('matcher') == 'Bash' for h in e.get('hooks', []))
+    cases.append(('the template settings wire it on PreToolUse Bash', wired, ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'wait-loop-gate.sh refuses pgrep -f and pkill -f, and nothing else '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_push_check_refuses_an_unknown_option():
     """precedent_push_check.py refuses an option it does not know, exit 2,
     naming the ones it does -- and still takes every one it reads.
@@ -34161,6 +34340,17 @@ def check_push_check_installs_gate_packages():
                   f'{ok} {note!r}'))
     cases.append(('the list matches the session check\'s row',
                   ppc.GATE_PACKAGES == ('cmarkgfm', 'markdown'), ''))
+    # ...and both startup scripts install every one of them. A fresh
+    # consumer container installed cmarkgfm alone, and the session check
+    # reported "missing markdown" at every session start (2026-10-01, from
+    # a consumer's Update Vendors).
+    import re as _re
+    for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        m = _re.search(r'^\s*pip install --quiet ([^\n|]*?)\s*2>', text, _re.M)
+        got = set(m.group(1).split()) if m else set()
+        cases.append((f'{rel} installs every gate package',
+                      set(ppc.GATE_PACKAGES) <= got, f'installs {sorted(got)}'))
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the push check installs the gate packages or stops naming them '
           f'({len(cases)} stated cases)',
@@ -39828,6 +40018,28 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
                   'many sections it has', hits == [],
                   f'total={total} hits={hits!r}'))
 
+    # A TARGET below the ceiling (practice: very-deep-check, Morgan
+    # 2026-10-01): over it asks for a reduction pass, under it says nothing.
+    def targeted(target):
+        d = repo(5, 40, 20000)
+        (d / 'tools' / 'session_load_budgets.json').write_text(
+            json.dumps({'surfaces': {'AGENTS.md': {'ceiling': 20000,
+                                                   'target': target}}}),
+            encoding='utf-8')
+        try:
+            _rows, msgs = vdc._session_load(d)
+            return [m for m in msgs if m.startswith('OVER TARGET')]
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+    hits = targeted(1800)
+    cases.append(('a file inside its ceiling but over its declared TARGET is '
+                  'reported, and the finding asks for the practice-by-practice '
+                  'review', hits and 'practice-by-practice' in hits[0]
+                  and '1,800' in hits[0], repr(hits)))
+    hits = targeted(20000)
+    cases.append(('a file under its target raises no target finding',
+                  hits == [], repr(hits)))
+
     total, _largest, hits = run(repo(5, 40, 1800, registry=False))
     cases.append(('a repo that declares NO ceiling is not tested against an '
                   'invented one', hits == [], f'total={total} hits={hits!r}'))
@@ -44222,7 +44434,22 @@ def check_update_repoints_moved_engine_commands():
         (repo / '.claude' / 'settings.json').write_text(
             '{"permissions": {"allow": ["Bash(python3 process/upstream/tools/'
             'practice_audit.py:*)"]}}\n', encoding='utf-8')
-        done = dict(pu.repoint_moved_engine_mentions(repo))
+        # The consumer's own startup script, as one carried it (2026-10-01):
+        # unguarded calls to files the update removed, a guarded fallback,
+        # and a vendored hook, which is the engine's to rewrite.
+        (repo / 'tools' / 'checkin.py').write_text('', encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            'python3 process/upstream/tools/checkin.py update || true\n'
+            'python3 process/upstream/tools/practice_audit.py\n'
+            '[ -f process/upstream/tools/checkin.py ] && echo old\n'
+            'python3 process/upstream/tools/gone_tool.py\n', encoding='utf-8')
+        (repo / '.claude' / 'hooks').mkdir()
+        (repo / '.claude' / 'hooks' / 'h.sh').write_text(
+            'python3 process/upstream/tools/checkin.py\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        done, stranded = pu.repoint_moved_engine_mentions(repo)
+        done = dict(done)
         text = (repo / 'AGENTS.md').read_text(encoding='utf-8').split('\n')
         cases.append(('the AGENTS.md command now names tools/',
                       text[0] == 'Run `python3 tools/practice_audit.py` weekly.', text[0]))
@@ -44235,8 +44462,22 @@ def check_update_repoints_moved_engine_commands():
         cases.append(('the settings.json allowlist entry now names tools/',
                       'python3 tools/practice_audit.py' in
                       (repo / '.claude' / 'settings.json').read_text(encoding='utf-8'), ''))
+        boot = (repo / 'tools' / 'bootstrap.sh').read_text(encoding='utf-8').split('\n')
+        cases.append(('the startup script\'s unguarded calls now name tools/',
+                      boot[0].startswith('python3 tools/checkin.py')
+                      and boot[1] == 'python3 tools/practice_audit.py', str(boot)))
+        cases.append(('...its guarded fallback is left alone',
+                      boot[2].startswith('[ -f process/upstream/tools/checkin.py ]'),
+                      boot[2]))
+        cases.append(('...a call to a file tools/ lacks is named, not rewritten',
+                      ('tools/bootstrap.sh', 4, 'process/upstream/tools/gone_tool.py')
+                      in stranded and 'gone_tool' in boot[3], str(stranded)))
+        cases.append(('a vendored hook is the engine\'s to rewrite, not this step\'s',
+                      'process/upstream' in (repo / '.claude' / 'hooks' / 'h.sh')
+                      .read_text(encoding='utf-8'), ''))
         cases.append(('and each file is reported with its count',
-                      done == {'AGENTS.md': 1, '.claude/settings.json': 1}, str(done)))
+                      done == {'AGENTS.md': 1, '.claude/settings.json': 1,
+                               'tools/bootstrap.sh': 2}, str(done)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -44296,6 +44537,77 @@ def check_update_in_force_nowhere_asks_once():
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'Update Vendors asks about a rule in force nowhere until it is '
           f'recorded ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_leaves_no_dead_manifest_entry():
+    """Update Vendors never says DONE over a manifest entry naming a missing
+    file, whichever step deleted it (2026-10-01, from a consumer's Update
+    Vendors: the catalogue sweep removed a tree, its doc-lint entry stayed,
+    and practice_audit.py failed after DONE). Asked of the result, so a
+    deleting step written later is covered too.
+
+    Stated cases: an entry inside the mirrored tree, and one for a file
+    this update deleted, go with their files; one for the repo's own file,
+    missing for no reason this update knows, is left for the person; a
+    declined entry and one whose file exists are untouched."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dead-manifest-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'process').mkdir(parents=True)
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'here.md').write_text('x\n', encoding='utf-8')
+        (repo / 'docs' / 'removed.md').write_text('x\n', encoding='utf-8')
+        (repo / 'process' / 'upstream' / 'practices').mkdir(parents=True)
+        (repo / 'process' / 'upstream' / 'practices' / 'p.md').write_text('x\n',
+                                                                        encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        entries = [
+            {'name': 'upstream:doc-lint', 'local_path': 'process/upstream/tools/doc_lint.py'},
+            {'name': 'removed', 'local_path': 'docs/removed.md'},
+            {'name': 'own', 'local_path': 'docs/never-there.md'},
+            {'name': 'declined', 'local_path': 'docs/declined.md', 'status': 'declined',
+             'notes': 'not for us'},
+            {'name': 'here', 'local_path': 'docs/here.md'}]
+        (repo / 'process' / 'manifest.json').write_text(
+            json.dumps({'entries': entries}), encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        for a in (['init', '-q'], ['add', '-A'], ['commit', '-qm', 'base'],
+                  ['rm', '-q', 'docs/removed.md']):
+            subprocess.run(['git', '-C', str(repo), *a], capture_output=True, env=env)
+        cases.append(('the shared question sees the three dead entries, not the '
+                      'declined one',
+                      sorted(n for _m, n, _r in pve.dead_manifest_entries(repo))
+                      == ['own', 'removed', 'upstream:doc-lint'],
+                      str(pve.dead_manifest_entries(repo))))
+        rep = pu.Report()
+        with contextlib.redirect_stdout(io.StringIO()):
+            pu.manifest_postcondition(repo, rep)
+        left = [e['name'] for e in json.loads((repo / 'process' / 'manifest.json')
+                                              .read_text(encoding='utf-8'))['entries']]
+        cases.append(('entries in the mirror, and for a file this update deleted, '
+                      'go with their files', left == ['own', 'declined', 'here'],
+                      str(left)))
+        cases.append(('...said in one step line', any(n == 'manifest' for n, _o in rep.steps),
+                      str(rep.steps)))
+        cases.append(('the repo\'s own missing file is left for the person, so '
+                      'the run cannot say DONE',
+                      [w for w, _y in rep.left] == ['process/manifest.json: own'],
+                      str(rep.left)))
+        cases.append(('the update runs the postcondition',
+                      'manifest_postcondition(' in __import__('inspect').getsource(pu.update),
+                      ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors leaves no manifest entry naming a missing file '
+          f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
@@ -50702,6 +51014,9 @@ def main():
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
     check_push_check_refuses_an_unknown_option()
+    check_bare_push_check_takes_the_landing_tier()
+    check_full_tier_needs_a_reason_on_a_quick_landing()
+    check_wait_loop_gate_refuses_pgrep_f()
     check_reach_key_self_check()
     check_content_record_self_check()
     check_doc_sync_ledger()
@@ -50790,6 +51105,7 @@ def main():
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
     check_update_done_names_the_check_it_ran()
+    check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
     check_update_vendors_dropped_wording_reads_placeholders_filled()
