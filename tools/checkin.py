@@ -1199,32 +1199,15 @@ def _drop_manifest_entries(paths):
     2026-10-01, from a consumer's Update Vendors: the sweep below removed
     process/upstream/tools/, the manifest kept its doc-lint entry pointing
     at process/upstream/tools/doc_lint.py, the update said DONE, and the
-    audit failed. The same rule precedent_vendor_engine's
-    _drop_process_manifest_entries keeps for a file the engine deletes."""
-    gone = {pathlib.PurePosixPath(p).as_posix() for p in paths}
-    proc = ROOT / 'process'
-    if not gone or not proc.is_dir():
-        return
-    for m in sorted(proc.glob('manifest*.json')):
-        try:
-            data = json.loads(m.read_text(encoding='utf-8'))
-        except (OSError, ValueError):
-            continue
-        entries = data.get('entries')
-        if not isinstance(entries, list):
-            continue
-        out = [e for e in entries
-               if not (isinstance(e, dict) and e.get('local_path') in gone)]
-        if len(out) == len(entries):
-            continue
-        names = [str(e.get('name') or e.get('local_path')) for e in entries
-                 if isinstance(e, dict) and e.get('local_path') in gone]
-        data['entries'] = out
-        m.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
-                     encoding='utf-8')
-        print(f"checkin update: dropped {len(names)} entr"
-              f"{'y' if len(names) == 1 else 'ies'} from {m.relative_to(ROOT)} "
-              f"whose file this run deleted: {', '.join(names)}")
+    audit failed. One implementation, precedent_vendor_engine's, for every
+    step that deletes; the update's own postcondition catches a step that
+    forgets."""
+    import precedent_vendor_engine as pve
+    gone = sorted({pathlib.PurePosixPath(p).as_posix() for p in paths})
+    for rel in gone:
+        for name in pve._drop_process_manifest_entries(ROOT, rel):
+            print(f"checkin update: dropped the process/{name} entry for "
+                  f"{rel}, which this run deleted")
 
 
 def _drop_what_the_copy_no_longer_carries(clone, src):
