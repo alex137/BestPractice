@@ -1,17 +1,17 @@
 ---
 slug:        upstream-fix
-title:       "\"Upstream fix\" asks whether the change fixes what caused the problem, and gets the root fixed"
+title:       "Every fix says whether it removes what caused the problem, and gets the root fixed"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "A phrase in a MESSAGE, about whatever change is in front of the session -- no file path reaches it, and its work (finding the cause, fixing the root, handing off the rest) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-24, when the practice landed."
-occasion:    "a person says \"Upstream fix\" or asks if a fix reaches the cause, or a fix, check or exemption is being added"
+applies_to_why: "About whatever fix is in front of the session, in any file -- no path narrows it, and its work (finding the cause, fixing the root, handing off the rest) happens inline. Reached through the occasion index and the `reply` gate. Decided: 2026-09-24, when the practice landed; checked again 2026-10-01, when its command phrase was retired, and the glob still holds."
+occasion:    "a fix, check or exemption is being added, or a person asks whether a fix reaches the cause"
 gates:       ["reply"]
-gates_why:   "Points 5 and 6 apply without being asked, to any fix a turn reports: the reply is where a check-only fix or a new exemption gets presented as done, so that is the moment to ask what caused it."
+gates_why:   "Every point applies without being asked, to any fix a turn reports: the reply is where a symptom-only fix, a check-only fix or a new exemption gets presented as done, so that is the moment to ask what caused it."
 index_clause: "fix the cause, not just add a check; a new exemption means look again"
+index_required: true
 checked_by:  "tools/precedent_check.py"
-defines:     ["Upstream fix"]
-command:     {"Upstream fix": "Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo."}
+defines:     []
 status:      active
 in_force_at: null
 supersedes:  []
@@ -27,13 +27,18 @@ approved_by: "Morgan, 2026-09-24 -- coined the phrase and wrote its meaning
   the root issue (or if you see fit do it); and if you need anything in a
   session rooted in a different repo, then just follow the 'prompt please'
   instructions to give those to me.'\" Authorized in the same message:
-  \"Go update.\""
+  \"Go update.\" Command phrase retired by Morgan, 2026-10-01: \"I think
+  we should remove 'Upstream fix' and replace it with something else. I
+  never use it ... now I'm instead trying to get you to do that all the
+  time!\""
 strength:    decided
 ---
 ## Rule
-**"Upstream fix" is the clean form, not the only one.** "Will this stop it
-happening again?", "is that the real cause?" and anything else that plainly
-asks the same question get the same treatment.
+**Every fix a session reports answers this, without being asked.** "Will
+this stop it happening again?" and "is that the real cause?" ask for it out
+loud; the answer is owed either way. (This was the "Upstream fix" command
+until 2026-10-01; the phrase is retired, and looking back over a whole
+session for causes that live upstream is [root-issues](root-issues.md).)
 
 It is about **the change in front of the session**: the one it recommended,
 the one it already made, or the one it is about to make. Answer, in this
@@ -83,13 +88,11 @@ strength: decided):
    entry in a `precedent.json` exemption list without a `root_fix`.
 
 ## Detail
-**This command is the explicit, on-demand form of two standing rules.**
+**This sits beside two other standing rules.**
 [fix-the-original](fix-the-original.md) says to fix the origin of a copied
 file, not just the copy. [durable-fix](durable-fix.md) says a fix is done
-when the cause can't produce the problem again. Both apply without being
-asked. `Upstream fix` is what the person says when they want the check done
-out loud and the answer in front of them, including the case neither rule
-names on its own: **the cause is a process, not a file**, such as a
+when the cause can't produce the problem again. This one adds the case
+neither names on its own: **the cause is a process, not a file**, such as a
 generator that keeps writing the bad output or a practice that keeps
 steering sessions wrong.
 
@@ -102,8 +105,8 @@ practices. When the root fix changes what a repo ships to others,
 say whether the fix has to reach the repos vendoring this one, and whether
 their next `Update Vendors` will actually carry it.
 
-**Doing the root fix follows the authorization already in force.** The
-command licenses making the root fix. It does not add a push or a merge
+**Doing the root fix follows the authorization already in force.** This
+rule licenses making the root fix. It does not add a push or a merge
 authorization of its own. When Booked (`Go update`) or an equivalent covers the
 work, the root fix lands with it. When nothing does, commit it and say it
 is ready to land.
@@ -141,11 +144,20 @@ did not know two names were fixed by engine tools. *"Maybe whenever we need
 to add an 'exemption' of any sort anywhere, we always use that as an
 example of a root fix opportunity."* Both root fixes shipped with the rule.
 
+**Retired as a command, 2026-10-01.** Morgan had stopped saying "Upstream
+fix": he wanted the root fixed every time, and asking for it one fix at a
+time had become the wrong shape. What he did keep asking, by pasting the
+same paragraph into session after session, was whether anything the
+session had run into should go back upstream; that became
+[root-issues](root-issues.md). Points 1 to 4 became standing rules here the
+same day, so nothing they asked for depends on the phrase. Strength:
+decided.
+
 ## Install
 Points 1 to 4 have no mechanical check: whether a reply found the real
 cause is a judgment about the problem, not a property a script can see in
 the diff, the same as [go-update](go-update.md) and
-[write-it-up](write-it-up.md). Points 5 and 6 reach every turn through the
+[write-it-up](write-it-up.md). All six reach every turn through the
 `reply` gate. Point 6 is also checked: `precedent_check.py --only
 upstream-fix` compares each exemption list in
 `precedent.json` (every `*_exempt` key, and `not_binding`) with the base

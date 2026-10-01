@@ -76,6 +76,8 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
+| Root fixes | [root-issues](practices/root-issues.md) |
+| Root issues | [root-issues](practices/root-issues.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
@@ -95,7 +97,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Tier branch | [tier-branch](practices/tier-branch.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
-| Upstream fix | [upstream-fix](practices/upstream-fix.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |
