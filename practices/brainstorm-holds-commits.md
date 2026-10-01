@@ -20,14 +20,11 @@ approved_by: "Morgan, 2026-09-08 -- after a session committed and pushed twice, 
 ## Rule
 When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas") -- **write nothing to the repository and commit nothing
-until they say to.** Research, read, argue the case, propose the design; do
-not create, edit, commit, push, open a pull request, or merge. **The edit is
-the thing to hold, not just the commit.**
-
-It ends only when the person authorizes the work. Their answering a question
-inside it is not authorization, and neither is their enthusiasm for the
-idea. **When in doubt, it is a brainstorm.**
+you have ideas") -- **hold the edit, not just the commit: write nothing to
+the repository until they authorize the work.** Research, argue the case,
+propose the design; do not create, edit, commit, push, open a pull request
+or merge. Answering a question inside it is not authorization, and neither
+is enthusiasm for the idea. **When in doubt, it is a brainstorm.**
 
 ## Detail
 **What holding the edit means, and what ends a brainstorm** -- moved out of
@@ -112,6 +109,13 @@ end a brainstorm moved into `## Detail` above, and *"when in doubt, it is a
 brainstorm"* moved the other way, up into the Rule, because it is the
 operative default rather than a gloss on one. Morgan asked for this pass by
 name after taking the three that came before it.
+
+**Tightened 2026-10-01** in the reduction pass Morgan approved that day
+("all are great, approved", strength: decided). "It ends only when the
+person authorizes the work" folded into the first sentence, which now says
+*until they authorize the work*; the Detail keeps the list of what counts.
+It stays resident, because its push and merge gates fire too late to hold an
+edit.
 
 ## Install
 **No mechanical check, and the reason is the same one

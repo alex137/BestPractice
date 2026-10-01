@@ -106,35 +106,30 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~915 of 2000 token budget, 10 of 167 practices (10 universal))
+## Resident block (~833 of 2000 token budget, 10 of 167 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
 **brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas") -- **write nothing to the repository and commit nothing
-until they say to.** Research, read, argue the case, propose the design; do
-not create, edit, commit, push, open a pull request, or merge. **The edit is
-the thing to hold, not just the commit.**
+you have ideas") -- **hold the edit, not just the commit: write nothing to
+the repository until they authorize the work.** Research, argue the case,
+propose the design; do not create, edit, commit, push, open a pull request
+or merge. Answering a question inside it is not authorization, and neither
+is enthusiasm for the idea. **When in doubt, it is a brainstorm.**
 
-It ends only when the person authorizes the work. Their answering a question
-inside it is not authorization, and neither is their enthusiasm for the
-idea. **When in doubt, it is a brainstorm.**
+**current-rule-governs.** **A standing command means what the rule in force says today: do it.**
+`precedent_show.py SLUG` resolves it, following a deduplicated copy to the
+live one. **Superseded, deduplicated and retired entries, `## Story`
+sections, old deferrals and past decisions are history**: read them to
+investigate a failure or to back a proposal to reconsider a rule, never to
+decide whether to do what was just asked.
 
-**current-rule-governs.** **A standing command means what the rule in force says today, and you do
-it.** Resolve the command to its active practice
-(`precedent_show.py SLUG` follows a deduplicated copy to the live one) and
-carry it out. **Superseded, deduplicated and retired entries, `## Story`
-sections, old deferrals and past decisions are history.** Read them to
-investigate a failure, or to back a proposal to reconsider a rule. Never
-read them to decide whether to do what was just asked.
-
-**Do it first, and propose reconsidering after**, in the same reply if you
-want to. **Never decline silently:** if you are not doing what was asked,
-the first line of the reply says so, and why.
+**Do it first, and propose reconsidering after. Never decline silently:** if
+you are not doing what was asked, the reply's first line says so, and why.
 
 **When obeying a rule to the letter would leave something broken or wrong,
-ask, with your pick.** Never comply silently and never override silently.
+ask, with your pick.** Never comply or override silently.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
 tool that silently doesn't work, a path that does work) is written down
@@ -182,9 +177,6 @@ throat-clearing opener that circles before it lands, the "not just X,
 it's Y" contrast, the summary nobody asked for, the even-handed survey
 that takes no position, the caveat stack. **Say the thing, in your own
 words, at the length it earns.**
-
-Unrewritten model output is output nobody thought about — style is the
-cheapest evidence a reader has that somebody did.
 
 ## Occasion index
 
