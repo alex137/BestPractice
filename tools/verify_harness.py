@@ -13543,6 +13543,17 @@ def check_precedent_check_fires():
                     lambda t: t.replace('## Learn More', '## Learn more', 1))
         case('headline-capitalization', _plant_headline)
 
+        # whats-new -- an entry's bullet with its bold opening taken off, the
+        # exact slip the check was added for on 2026-10-01 (the bold sat
+        # mid-sentence and went unseen). The log's first bullet is the plant
+        # because the newest entry always has one.
+        def _plant_whats_new(repo):
+            def strip_first_bold(t):
+                head, sep, rest = t.partition('\n- **')
+                return head + sep.replace('**', '') + rest.replace('**', '', 1) if sep else t
+            rewrite(repo, 'WHATS_NEW.md', strip_first_bold)
+        case('whats-new', _plant_whats_new)
+
         # source-naming -- a source named freehand instead of by its level.
         # `bestpractice-local` is the real name this repo's own repo-local
         # source carried before the convention was fixed, so the planted case
