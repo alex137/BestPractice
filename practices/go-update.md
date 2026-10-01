@@ -276,6 +276,13 @@ prompt in the reply. **Finish everything this session can do first** --
 sync, commit, push where the push works -- so only the residue moves.
 Reporting the refusal and stopping there is the one wrong answer.
 
+**A refusal by Claude Code's auto mode is not that.** Its safety check
+can refuse a push or a merge this repository's rules allow ("Merge
+Without Review", 2026-10-01). Handing that to another session would be
+routing around it. Say in one line that auto mode stopped it, not this
+repository's rules, and ask for it again in words that name it: "Merge
+PR #N into pre-staging".
+
 **What the receiving session may then DO with the relayed phrase is
 [relayed-authorization](relayed-authorization.md)'s**: it merges only where
 the person's own `identity.json` says they accept relays, and otherwise stops
