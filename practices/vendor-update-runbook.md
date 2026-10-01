@@ -476,6 +476,15 @@ says so, both from the vendored tree under `process/upstream/`.
    needs only read access; checking the name is the one reason for push
    here (measured 2026-09-28 and 2026-09-30: every public set
    `UNVERIFIED` until attached with push).
+   **If that attach is refused, take the name from `list_repos` instead,
+   and never route around the refusal.** Claude Code's auto-mode
+   classifier can refuse a push attach as a permission grant (2 of 3,
+   2026-09-30). `list_repos` gives each repository's `full_name` as GitHub
+   calls it now, so pass the ones for your sources:
+   `--canonical OWNER/NAME`, once per source. A source the list carries
+   exactly reads `OK`. One the list does not carry stays `UNVERIFIED`, and
+   you report it that way: it may have been renamed, or be out of the
+   account's reach.
 
    **In a practice SET this step is not applicable, and that is different
    from skipped.** The tool reads a multi-source config a set does not

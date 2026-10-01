@@ -2460,6 +2460,79 @@ def check_bootstrap_local_steps_run_and_dead_lines_are_named():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_bootstrap_new_branch_compared_to_landing_branch():
+    """A branch not yet on origin is checked against the person's landing
+    branch, in the template a consumer receives as well as in this repo's
+    own copy (2026-10-01, from a consumer's Update Vendors: every branch cut
+    from pre-staging was warned "cut from a stale base", because main holds
+    the Promote merge commits pre-staging never gets, and only
+    tools/bootstrap.sh had learned the tiers).
+
+    Stated cases, for templates/bootstrap.sh and tools/bootstrap.sh alike: a
+    branch made from origin/pre-staging, with a commit of its own, in a repo
+    whose landing branch is pre-staging and whose main is one Promote ahead,
+    is checked against origin/pre-staging and draws no stale-base warning.
+    And the two copies of that block are the same text, so one cannot learn
+    a case the other has not."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bootstrap-landing-'))
+
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True)
+    try:
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(tmp / 'origin.git')], check=True)
+        w = tmp / 'w'
+        subprocess.run(['git', 'clone', '-q', str(tmp / 'origin.git'), str(w)],
+                       capture_output=True)
+        git(w, 'config', 'user.email', 'fixture@example.invalid')
+        git(w, 'config', 'user.name', 'fixture')
+        (w / 'precedent.json').write_text(
+            '{"base_branch": "main", "landing_branch": "pre-staging"}\n')
+        git(w, 'add', '.')
+        git(w, 'commit', '-qm', 'init')
+        git(w, 'push', '-q', 'origin', 'main', 'main:pre-staging')
+        git(w, 'commit', '-q', '--allow-empty', '-m', 'Promote pre-staging into main')
+        git(w, 'push', '-q', 'origin', 'main')
+        git(w, 'fetch', '-q', 'origin')
+        git(w, 'checkout', '-q', '-b', 'feat', 'origin/pre-staging')
+        git(w, 'commit', '-q', '--allow-empty', '-m', 'work of its own')
+        (w / 'tools').mkdir()
+        shutil.copy(ROOT / 'tools' / 'precedent_branches.py', w / 'tools')
+        (w / '.git' / 'info' / 'exclude').write_text('tools/\n')
+        env = dict(os.environ, PRECEDENT_LOCAL_SESSION='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+                   CLAUDE_PROJECT_DIR=str(w))
+        for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
+            shutil.copy(ROOT / rel, w / 'tools' / 'bootstrap.sh')
+            r = subprocess.run(['bash', 'tools/bootstrap.sh'], cwd=w, env=env,
+                               capture_output=True, text=True, timeout=180)
+            out = r.stdout + r.stderr
+            cases.append((f'{rel}: a new branch is checked against origin/pre-staging',
+                          'Checking it against origin/pre-staging' in out, out[-400:]))
+            cases.append((f'{rel}: and draws no stale-base warning',
+                          'stale base' not in out, out[-400:]))
+
+        def block(rel):
+            t = (ROOT / rel).read_text(encoding='utf-8')
+            a = t.find('  # Not on origin yet:')
+            b = t.find('SKIPPED, not passed', a)
+            return t[a:b] if a >= 0 and b > a else None
+        cases.append(('the two copies of the new-branch block are the same text',
+                      block('templates/bootstrap.sh') is not None
+                      and block('templates/bootstrap.sh') == block('tools/bootstrap.sh'),
+                      'templates/bootstrap.sh and tools/bootstrap.sh differ between '
+                      '"# Not on origin yet:" and "SKIPPED, not passed"'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a new branch is compared with the landing branch by both bootstrap '
+          f'copies ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_update_written_files_name_no_mirrored_engine():
     """A file only an update writes names no `process/upstream/tools/`
     path: every update since the catalogue copy left tools/ out removes that
@@ -5405,6 +5478,41 @@ def check_source_names_detects_a_rename():
                       and '1 NOT checked' in out
                       and 'an unchecked source is not a passing one' in out,
                       out))
+
+        # A NAME THE SESSION READ FROM list_repos (2026-10-01, from a
+        # consumer's Update Vendors): the auto-mode classifier refused the
+        # push attach that lets the API answer, and list_repos had already
+        # given each repository's current full_name. Supplied with
+        # --canonical, it settles the name where the API could not.
+        psn.api_full_name = (lambda o, n, env=None:
+                             (None, 'GitHub answered HTTP 403: not enabled', False))
+
+        def verdicts(canonical):
+            return [r['verdict'] for r in psn.assess(
+                str(consumer), user_config=str(user_cfg), canonical=canonical)]
+        cases.append(('an unreachable API with the name listed exactly by '
+                      '--canonical is OK',
+                      verdicts(['example/precedent-team-fixture']) == ['OK'], ''))
+        cases.append(('...listed in another case, SPELLING',
+                      verdicts(['Example/Precedent-Team-Fixture']) == ['SPELLING'], ''))
+        cases.append(('...not listed at all, still UNVERIFIED -- the list cannot '
+                      'tell a rename from a repository out of reach',
+                      verdicts(['example/precedent-team-other']) == ['UNVERIFIED'], ''))
+        psn.api_full_name = (lambda o, n, env=None:
+                             ('example/precedent-team-repo-maintenance', None, False))
+        cases.append(('where the API answers, its answer wins over --canonical',
+                      verdicts(['example/precedent-team-fixture']) == ['RENAMED'], ''))
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_source_names.py'),
+                            '--repo', str(consumer), '--user-config', str(user_cfg),
+                            '--canonical', 'example/precedent-team-fixture'],
+                           capture_output=True, text=True, timeout=120,
+                           env=dict(os.environ, https_proxy='http://127.0.0.1:9',
+                                    HTTPS_PROXY='http://127.0.0.1:9',
+                                    GITHUB_TOKEN='', GH_TOKEN=''))
+        cases.append(('the command line takes --canonical OWNER/NAME',
+                      r.returncode == 0 and 'OK' in r.stdout
+                      and 'precedent-team-fixture' in r.stdout,
+                      (r.stdout + r.stderr)[-300:]))
 
         # THE REDIRECT, which is the case this tool exists for and the one
         # it got wrong until 2026-09-14. GitHub answers 301 for a renamed
@@ -26460,6 +26568,16 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('a new branch made from pre-staging, which lacks the '
                       'start commit, passes', ok is True, detail))
+        # The same move as a cloud session makes it, from origin's copy
+        # (`git checkout -b feat origin/pre-staging`).
+        git('checkout', '-q', 'main')
+        git('update-ref', 'refs/remotes/origin/pre-staging', 'pre-staging')
+        stamp.write_text(f'main\n{c_main}\n')
+        os.utime(stamp, (_time.time() - 60, _time.time() - 60))
+        git('checkout', '-q', '-b', 'claude/ladder-origin', 'origin/pre-staging')
+        ok, detail = row()
+        cases.append(('...and so does one made from origin/pre-staging',
+                      ok is True, detail))
         git('checkout', '-q', 'main')
         stamp.write_text(f'main\n{c_main}\n')
         os.utime(stamp, (_time.time() - 60, _time.time() - 60))
@@ -44003,6 +44121,81 @@ def check_update_vendors_reports_dropped_template_wording():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_dropped_wording_reads_placeholders_filled():
+    """A line that is the CURRENT template's line with its placeholders
+    filled in is not dropped wording, even when it equals an older template
+    line word for word.
+
+    2026-10-01, from a consumer's Update Vendors: GETTING_STARTED.md's
+    template once wrote `process/upstream/` and now writes `<upstream-docs>/`,
+    and a §1 install is told to replace the second with the first. The
+    install did exactly that, and the update listed the result as wording
+    the template had dropped. A line an older template had that no current
+    line can be filled in to produce is still listed."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-filled-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    cases = []
+    saved_source = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'TODO.md.template'
+        tmpl.write_text('<!-- not just a mention in the install log under\n'
+                        '     `process/upstream/`. Add a line whenever a future install step\n'
+                        '     introduces a new one. -->\n'
+                        'Read the guide in process/upstream/documentation before you start.\n',
+                        encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        tmpl.write_text('<!-- not just a mention in the install log under\n'
+                        '     `<upstream-docs>/`. Add a line whenever a future install step\n'
+                        '     introduces a new one. -->\n'
+                        'Read the guide at <upstream-docs> before you begin.\n',
+                        encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (repo / 'TODO.md').write_text(
+            '<!-- not just a mention in the install log under\n'
+            '     `process/upstream/`. Add a line whenever a future install step\n'
+            '     introduces a new one. -->\n'
+            'Read the guide in process/upstream/documentation before you start.\n',
+            encoding='utf-8')
+        pu.SOURCE = src
+        rep = pu.Report()
+        with contextlib.redirect_stdout(io.StringIO()):
+            pu.dropped_template_lines_step(repo, rep, rev)
+        left = dict(rep.left)
+        cases.append(('the current line with its placeholder filled in is not '
+                      'listed, though an older template had it verbatim',
+                      'TODO.md:2' not in left, str(rep.left)))
+        cases.append(('a line no current line can be filled in to make still is',
+                      'TODO.md:4' in left, str(rep.left)))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors reads a template\'s placeholders as filled in '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_start_hook_runs_bootstrap_locally():
     """The Claude Code adapter's SessionStart hook runs tools/bootstrap.sh in
     a local session too, marked PRECEDENT_LOCAL_SESSION=1, and bootstrap.sh
@@ -50134,6 +50327,7 @@ def main():
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
+    check_bootstrap_new_branch_compared_to_landing_branch()
     check_update_written_files_name_no_mirrored_engine()
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
@@ -50233,6 +50427,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_dropped_wording_reads_placeholders_filled()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
