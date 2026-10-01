@@ -23397,6 +23397,27 @@ def check_commit_identity_ci_cadence():
         cases.append(('a repo declaring its own cadence is honoured over a '
                       'personal 0', SKIP in h))
 
+        # github_ci_main_test, the repository's final say (2026-10-01).
+        work, env = _setup('main-test-always', personal=48,
+                           repo_cfg={'github_ci_main_test': 'always'})
+        _commit(work, env, 'old'); _push(work, env)
+        m1 = _commit(work, env, 'M1')
+        cases.append(('github_ci_main_test "always" never tags a commit on main, '
+                      'whatever the personal hours: every push there is tested',
+                      SKIP not in m1))
+        work, env = _setup('main-test-hours', personal=0,
+                           repo_cfg={'github_ci_main_test': 48})
+        _commit(work, env, 'old'); _push(work, env)
+        m2 = _commit(work, env, 'M2')
+        cases.append(('github_ci_main_test 48 is the hours, over a personal 0',
+                      SKIP in m2))
+        work, env = _setup('main-test-individual', personal=48,
+                           repo_cfg={'github_ci_main_test': 'individual'})
+        _commit(work, env, 'old'); _push(work, env)
+        m3 = _commit(work, env, 'M3')
+        cases.append(('github_ci_main_test "individual" hands it to the personal hours',
+                      SKIP in m3))
+
         # Doubt runs CI.
         work, env = _setup('public', personal=48, repo_cfg={'visibility': None})
         _commit(work, env, 'old'); _push(work, env)
@@ -25731,6 +25752,232 @@ def check_main_test_minutes_rule():
         os.environ[pb.FORCE_ENV] = saved_force
     failed = [n for n, ok in cases if not ok]
     detail = '; '.join(failed) + ((' | ' + ' | '.join(wrong[:5])) if wrong else '')
+    check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
+
+
+def check_main_test_repo_setting():
+    """The repository's own github_ci_main_test has the final say over
+    main's GitHub test (2026-10-01, spec/CI_CADENCE_PLAN.md, "The repository
+    decides"): "individual" (the default), "never", "always" or a number of
+    hours. Morgan: "I don't want the big bills to come back", and on two runs
+    for one change: "no we don't want it run twice, no no no, not at all".
+
+    THE INVARIANT THAT MATTERS MOST: in a private repository no change that
+    lands on main is tested more than once, by any route -- a Promote, a
+    pull request merged by hand, a direct push. Counted here by walking each
+    route's events through the installed workflow (the template, or the
+    template as Update Vendors writes it for "always") and Promote's own
+    decision, for every combination of the repository's setting, the
+    person's switch and hours, and the time since the last pass. Then the
+    real refresh is run on a scratch consumer, both directions."""
+    import importlib.util, itertools, json as _json, tempfile, time as _time
+    name = 'the repository decides main\'s GitHub test, and no change is tested twice'
+    try:
+        import yaml as _yaml
+    except ImportError:
+        not_applicable(name, 'PyYAML is not installed, and the template is read with it')
+        return
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    srcs = {m: ROOT / 'tools' / f'{m}.py' for m in ('precedent_branches', 'precedent_vendor_engine')}
+    if not tpl.is_file() or not all(p.exists() for p in srcs.values()):
+        not_applicable(name, 'the light-check template or an engine module is absent')
+        return
+
+    def load(mod, alias):
+        spec = importlib.util.spec_from_file_location(alias, srcs[mod])
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+    pb = load('precedent_branches', '_pb_repo_setting')
+    pve = load('precedent_vendor_engine', '_pve_repo_setting')
+    cases = []
+    raw = tpl.read_bytes()
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        always_repo = tmp / 'always-repo'
+        always_repo.mkdir()
+        (always_repo / 'precedent.json').write_text(_json.dumps(
+            {'github_ci_main_test': 'always'}), encoding='utf-8')
+        rendered = pve.render_ci_workflow(always_repo, raw)
+        cases.append(('only "always" changes the file: the marker, and nothing else',
+                      rendered != raw
+                      and rendered == raw.replace(pve.MAIN_TEST_MARKER, pve.MAIN_TEST_ALWAYS)
+                      and len([1 for a, b in zip(raw.splitlines(), rendered.splitlines())
+                               if a != b]) == raw.count(pve.MAIN_TEST_MARKER)
+                      and pb.MAIN_TEST_ALWAYS_TEXT.encode() in rendered
+                      and pb.MAIN_TEST_ALWAYS_TEXT.encode() not in raw))
+        for value in ('individual', 'never', 48, 0, 'Always', 'bogus', None):
+            other = tmp / f'repo-{value}'
+            other.mkdir()
+            (other / 'precedent.json').write_text(_json.dumps(
+                {} if value is None else {'github_ci_main_test': value}), encoding='utf-8')
+            cases.append((f'github_ci_main_test {value!r} leaves the file byte-identical '
+                          f'to the template', pve.render_ci_workflow(other, raw) == raw))
+
+        def wf(text):
+            doc = _yaml.safe_load(text)
+            return doc.get('on', doc.get(True)) or {}, doc['jobs']['light-check']['if']
+
+        def starts(text, event, branch, private, head_ref=''):
+            on, expr = wf(text)
+            if event not in on:
+                return False
+            trig = on.get(event)
+            branches = trig.get('branches') if isinstance(trig, dict) else None
+            if branches is not None and branch not in branches:
+                return False
+            return _gh_if(expr, event, private, head_ref)
+
+        RAW, REN = raw.decode('utf-8'), rendered.decode('utf-8')
+        for private in (True, False):
+            kind = 'private' if private else 'public'
+            for b in ('pre-staging', 'staging', 'claude/feature-x'):
+                cases.append((f'"always", {kind}: a push to {b} still starts no runner',
+                              not starts(REN, 'push', b, private)))
+        cases.append(('"always", private: a push to main runs',
+                      starts(REN, 'push', 'main', True)))
+        cases.append(('"always", private: NO pull request into main runs -- not a due '
+                      'copy, not a not-due one, not a hand-made one',
+                      not any(starts(REN, 'pull_request', 'main', True, h) for h in
+                              ('to-main-2026-10-01', pb.NOT_DUE_PREFIX + '2026-10-01',
+                               'claude/feature-x', 'staging'))))
+
+        # The table: every route a change takes to main, counted.
+        saved_force = os.environ.pop(pb.FORCE_ENV, None)
+        WF = '.github/workflows/light-check.yml'
+        now = _time.time()
+
+        class GH:
+            def __init__(self, hours_ago):
+                self.hours_ago = hours_ago
+
+            def call(self, path, cache=True):
+                if self.hours_ago is None:
+                    return {'workflow_runs': []}, None
+                return {'workflow_runs': [{
+                    'path': WF, 'status': 'completed', 'conclusion': 'success',
+                    'head_branch': 'to-main-2026-09-20', 'html_url': 'U',
+                    'created_at': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(
+                        now - self.hours_ago * 3600))}]}, None
+        pb._slug = lambda root: 'o/r'
+        pb.github_tests = lambda root, sha: [(WF, True)]
+        installed = {'text': RAW}
+        real_git = pb._git
+        pb._git = lambda root, *a: (installed['text'] if a[:1] == ('show',)
+                                    else real_git(root, *a))
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+        wrong, twice, rows = [], [], 0
+        modes = (None, 'individual', 'never', 'always', 'always-not-installed', 0, 48, 'bogus')
+        for vis, mode, sw, hrs, ago in itertools.product(
+                ('public', 'private', None), modes, ('enabled', 'disabled', None),
+                (0, 168, None), (1, 47, 49, 200, None)):
+            private = vis == 'private'
+            pj = {'base_branch': 'main'}
+            if vis:
+                pj['visibility'] = vis
+            if mode is not None:
+                pj['github_ci_main_test'] = 'always' if mode == 'always-not-installed' else mode
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if sw is not None:
+                ident['ci_workflows'] = sw
+            if hrs is not None:
+                ident['ci_every_hours'] = hrs
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+            text = REN if mode == 'always' else RAW
+            installed['text'] = text
+            due, why = pb.main_test_due(repo, 'TIP', gh=GH(ago), user_config=cfg)
+            copy = ('to-main-' if due else pb.NOT_DUE_PREFIX) + '2026-10-01'
+            promote = (int(starts(text, 'pull_request', 'main', private, copy))
+                       + int(starts(text, 'push', 'main', private)))
+            hand = (int(starts(text, 'pull_request', 'main', private, 'claude/feature-x'))
+                    + int(starts(text, 'push', 'main', private)))
+            direct = int(starts(text, 'push', 'main', private))
+            rows += 1
+            # The rule, written out. Public: tested (its minutes are free, and
+            # every push to main there is tested by decision of 2026-09-27).
+            # Private: the repository's word, unless it says "individual".
+            if not private:
+                exp_promote_pr, exp_push = True, True
+            else:
+                eff = 'individual' if mode in (None, 'individual', 'always-not-installed') \
+                    else 'never' if mode == 'bogus' else mode
+                on_ = sw in ('enabled', None)
+                if eff == 'never':
+                    exp_promote_pr, exp_push = False, False
+                elif eff == 'always':
+                    exp_promote_pr, exp_push = False, True
+                elif isinstance(eff, (int, float)):
+                    exp_promote_pr = ago is None or ago >= eff
+                    exp_push = False
+                else:
+                    h = hrs if isinstance(hrs, (int, float)) else 0
+                    exp_promote_pr = on_ and (ago is None or ago >= h)
+                    exp_push = False
+            exp_promote = int(exp_promote_pr) + int(exp_push)
+            label = f'{vis}/{mode}/{sw}/{hrs}h/last {ago}h'
+            if promote != exp_promote or direct != int(exp_push) or (
+                    private and hand != int(exp_push)):
+                wrong.append(f'{label}: promote={promote} hand={hand} direct={direct}, '
+                             f'expected promote={exp_promote} push={int(exp_push)} ({why[:80]})')
+            if private and (promote > 1 or hand > 1 or direct > 1):
+                twice.append(label)
+        pb._git = real_git
+        if saved_force is not None:
+            os.environ[pb.FORCE_ENV] = saved_force
+        cases.append((f'all {rows} combinations run exactly when the rule says, by '
+                      f'every route: a Promote, a hand-made pull request, a direct push',
+                      not wrong))
+        cases.append(('in a private repository, NO route tests one change twice',
+                      not twice))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'visibility': 'private', 'github_ci_main_test': 'bogus'}), encoding='utf-8')
+        mode, _h, why = pb.main_test_mode(repo)
+        cases.append(('a value that is none of the four reads as "never", and says so',
+                      mode == 'never' and 'not "individual"' in why))
+
+        # Update Vendors, for real, on a scratch consumer: "always" is written
+        # into the file and recorded, and taken back out when it changes.
+        import hashlib as _hl
+        dest = tmp / 'consumer'
+        (dest / 'tools').mkdir(parents=True)
+        (dest / '.github' / 'workflows').mkdir(parents=True)
+        # As a real consumer has it: the template installed, recorded in the
+        # manifest, and committed -- the refresh replaces only a file git holds.
+        (dest / 'tools' / 'ENGINE_MANIFEST.json').write_text(_json.dumps(
+            {'kind': 'consumer', 'ci_workflow_files': ['.github/workflows/light-check.yml'],
+             'ci_workflows_sha256': {'.github/workflows/light-check.yml':
+                                     _hl.sha256(raw).hexdigest()}}), encoding='utf-8')
+        installed_wf = dest / '.github' / 'workflows' / 'light-check.yml'
+        installed_wf.write_bytes(raw)
+        genv = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                    GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                    GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        for a in (['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-qm', 'install']):
+            subprocess.run(['git', '-C', str(dest), *a], capture_output=True, env=genv)
+        (dest / 'precedent.json').write_text(_json.dumps(
+            {'visibility': 'private', 'github_ci_main_test': 'always'}), encoding='utf-8')
+        tdir = ROOT / 'templates' / 'github-actions'
+        man = _json.loads((dest / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        pve._refresh_ci_workflow_files(dest, 'consumer', tdir, man)
+        got = installed_wf.read_bytes()
+        man = _json.loads((dest / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        cases.append(('Update Vendors writes "always" into a repo that asks for it, and '
+                      'records that file, so the workflow-approval check sees it as '
+                      "the engine's own",
+                      got == rendered and man.get('ci_workflows_sha256', {}).get(
+                          '.github/workflows/light-check.yml') == _hl.sha256(got).hexdigest()))
+        (dest / 'precedent.json').write_text(_json.dumps(
+            {'visibility': 'private', 'github_ci_main_test': 'individual'}), encoding='utf-8')
+        pve._refresh_ci_workflow_files(dest, 'consumer', tdir, man)
+        cases.append(('...and takes it back out when the repo changes its mind',
+                      installed_wf.read_bytes() == raw))
+    failed = [n for n, ok in cases if not ok]
+    detail = '; '.join(failed) + ((' | ' + ' | '.join(wrong[:4])) if wrong else '')
     check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
 
 
@@ -52178,6 +52425,7 @@ def main():
     check_sync_copies_work_from_above_once_checked()
     check_main_test_cadence()
     check_main_test_minutes_rule()
+    check_main_test_repo_setting()
     check_source_clone_is_pinned_to_a_branch()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()

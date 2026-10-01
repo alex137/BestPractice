@@ -1036,40 +1036,99 @@ def last_main_test_pass(root, tests, gh=None):
     return (min(newest) if newest else None), None
 
 
+MAIN_TEST_KEY = 'github_ci_main_test'
+# The same marker precedent_vendor_engine.render_ci_workflow writes; text,
+# because this module must import with nothing vendored beside it.
+MAIN_TEST_ALWAYS_TEXT = "'main-test:always' == 'main-test:always'"
+
+
+def main_test_mode(root):
+    """-> (mode, hours, why): the repository's own say over main's GitHub
+    test, from precedent.json's `github_ci_main_test` (2026-10-01,
+    spec/CI_CADENCE_PLAN.md, "The repository decides"). mode is
+    'individual' (the default: the person's switch and hours decide),
+    'never', 'always' or 'hours' (this many, whatever the person says).
+    Anything else is 'never', and says so: a typo costs a missed test,
+    never minutes."""
+    cfg = precedent_json(root)
+    if MAIN_TEST_KEY not in cfg:
+        return 'individual', None, f'{MAIN_TEST_KEY} is not set in this repo'
+    value = cfg[MAIN_TEST_KEY]
+    if value in ('individual', 'never', 'always'):
+        return value, None, f'{MAIN_TEST_KEY} is "{value}" in this repo\'s precedent.json'
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return 'hours', float(value), (f'{MAIN_TEST_KEY} is {value:g} in this repo\'s '
+                                       f'precedent.json')
+    return 'never', None, (f'{MAIN_TEST_KEY} is {value!r} in this repo\'s precedent.json, '
+                           f'which is not "individual", "never", "always" or a number of '
+                           f'hours -- read as "never" until it is fixed')
+
+
+def _always_installed(root, tip, tests):
+    """True when every installed test workflow carries the marker set to
+    always -- what Update Vendors writes for "always". Until it does, an
+    "always" repo is decided as "individual", so it is never left with no
+    test at all."""
+    return bool(tests) and all(
+        MAIN_TEST_ALWAYS_TEXT in (_git(root, 'show', f'{tip}:{p}') or '') for p, _ in tests)
+
+
 def main_test_due(root, tip, gh=None, user_config=None):
-    """-> (due, why): does a Promote of `tip` into main get its GitHub test?"""
+    """-> (due, why): does a Promote of `tip` into main get its GitHub test
+    on its pull request? In a private repository the repository's own
+    github_ci_main_test has the final say; "individual" hands it to the
+    person's switch and hours."""
+    private = precedent_json(root).get('visibility') == 'private'
+    note = ''
+    mode = 'individual'
+    if private:
+        mode, mode_hours, mode_why = main_test_mode(root)
+        if mode == 'never':
+            return False, f'{mode_why}, so this repository gets no GitHub test'
+        if mode == 'always':
+            if _always_installed(root, tip, github_tests(root, tip)):
+                return False, (f'{mode_why}: GitHub tests the push to {MAIN} once this '
+                               f'merges, and never the pull request, so it runs once')
+            mode = 'individual'
+            note = (f'{mode_why}, but this repo\'s light-check.yml does not say so yet '
+                    f'-- run Update Vendors; until then it is decided as "individual": ')
     if os.environ.get(FORCE_ENV) == '1':
-        return True, f'{FORCE_ENV}=1 asks for it'
-    if precedent_json(root).get('visibility') == 'private':
-        on, where = main_test_switch(root, user_config)
-        if not on:
-            return False, (f'{where}, so a private repository gets no GitHub test. '
-                           f'To run it anyway: {FORCE_ENV}=1 before the Promote')
-    hours, where = main_test_cadence(root, user_config)
+        return True, f'{note}{FORCE_ENV}=1 asks for it'
+    if private and mode == 'hours':
+        hours, where = mode_hours, "this repo's precedent.json"
+        key = MAIN_TEST_KEY
+    else:
+        if private:
+            on, where = main_test_switch(root, user_config)
+            if not on:
+                return False, (f'{note}{where}, so a private repository gets no GitHub '
+                               f'test. To run it anyway: {FORCE_ENV}=1 before the Promote')
+        hours, where = main_test_cadence(root, user_config)
+        key = 'github_ci_every_hours'
     if not hours:
-        return True, f'every Promote gets it ({where})'
+        return True, f'{note}every Promote gets it ({where})'
     tests = github_tests(root, tip)
     if not tests:
-        return True, 'no GitHub test is installed here'
+        return True, f'{note}no GitHub test is installed here'
     # A workflow installed before 2026-10-01 has no skip on the not-due name,
     # so it would run anyway and a "not due" wait would merge under it.
     old = [p for p, _ in tests
            if NOT_DUE_PREFIX not in (_git(root, 'show', f'{tip}:{p}') or '')]
     if old:
-        return True, (f'{old[0]} predates the not-due skip, so it runs on every '
+        return True, (f'{note}{old[0]} predates the not-due skip, so it runs on every '
                       f'pull request into {MAIN} until Update Vendors brings the '
                       f'current one')
     when, problem = last_main_test_pass(root, tests, gh)
     if problem:
-        return True, problem
+        return True, note + problem
     if when is None:
-        return True, 'no passing run of it was found'
+        return True, f'{note}no passing run of it was found'
     age = time.time() - when
     if age >= hours * 3600:
-        return True, (f'it last passed {_when(root, when)}, {age / 3600:.0f}h ago, '
-                      f'and {where} sets github_ci_every_hours {hours:g}')
-    return False, (f'it last passed {_when(root, when)}, {age / 3600:.0f}h ago; '
-                   f'{where} sets github_ci_every_hours {hours:g}, so the next one '
+        return True, (f'{note}it last passed {_when(root, when)}, {age / 3600:.0f}h ago, '
+                      f'and {where} sets {key} {hours:g}')
+    return False, (f'{note}it last passed {_when(root, when)}, {age / 3600:.0f}h ago; '
+                   f'{where} sets {key} {hours:g}, so the next one '
                    f'is due {_when(root, when + hours * 3600)}. To run it anyway: '
                    f'{FORCE_ENV}=1 before the Promote')
 
@@ -1162,10 +1221,12 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
         return 0
     if copy and copy.startswith(NOT_DUE_PREFIX):
         say(f'GitHub test NOT DUE on {sha[:12]}: Promote named this copy {copy} '
-            f'because main\'s GitHub test passed within github_ci_every_hours, so '
-            f'its pull request shows the test as skipped and no runner started. '
-            f'The full local check at the Promote was the whole check. Merge the '
-            f'pull request into {MAIN} with a merge commit.')
+            f'because main\'s GitHub test is not due on its pull request (the '
+            f'Promote printed why), so the pull request shows the test as skipped '
+            f'and no runner started. The full local check at the Promote stands; '
+            f'in a repo set to github_ci_main_test "always", GitHub tests the push '
+            f'to {MAIN} once this merges. Merge the pull request into {MAIN} with '
+            f'a merge commit.')
         return 0
     say(f'waiting for the GitHub test on {sha[:12]} (up to '
         f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes): ' + ', '.join(p for p, _ in tests))
@@ -1738,6 +1799,9 @@ def _promote_to_main(root, say=print):
         f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
         f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
         + (f'GitHub test: DUE -- {why}.\n\n' if due else
+           f'GitHub test: ON THE PUSH TO {MAIN.upper()} -- {why}. Its pull request '
+           f'shows the test as skipped, which starts no runner and costs nothing.\n\n'
+           if 'never the pull request' in why else
            f'GitHub test: NOT DUE -- {why}. Its pull request shows the test as '
            f'skipped, which starts no runner and costs nothing.\n\n') +
         f'Next, and not by this script: open a pull request from {copy} into '

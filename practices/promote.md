@@ -231,7 +231,10 @@ on the full local check. It runs anyway after a failed run until one
 passes, when GitHub cannot be asked, and with `PRECEDENT_CI_NOW=1`; a
 change to a workflow or the vendored engine is not forced. In a private
 repository nothing but a due Promote copy runs the test: a pull request
-into main from any other branch is skipped. Say which it was -- due or not due, and the line
+into main from any other branch is skipped. **The repository's own
+`github_ci_main_test` has the final say** ("individual", "never",
+"always" or a number of hours); under "always" GitHub tests the push to
+main after the merge, never the pull request, and Promote says so. Say which it was -- due or not due, and the line
 Promote printed for why -- in the report.
 
 **Main takes staging by a pull request from a throwaway copy, never from

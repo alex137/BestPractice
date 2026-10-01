@@ -77,10 +77,12 @@ GitHub minutes are only ever spent on main:
 2. A public repository: every push to main and every pull request into
    main runs.
 3. A private repository, a push to main: never runs.
-4. A private repository, a Promote into main: it runs if and only if the
-   switch is on AND at least `github_ci_every_hours` have passed since the
-   last *passing* test (0 or not set: every Promote). The person's value
-   wins over the repository's.
+4. A private repository, a Promote into main: **the repository's own
+   `github_ci_main_test` has the final say** (below). Left at "individual",
+   it runs if and only if the switch is on AND at least
+   `github_ci_every_hours` have passed since the last *passing* test (0 or
+   not set: every Promote), and the person's value wins over the
+   repository's.
 5. It runs inside that window anyway when the newest run failed (until one
    passes), when GitHub cannot be asked, when the installed workflow
    predates the skip (it would run anyway), and with `PRECEDENT_CI_NOW=1`.
@@ -92,11 +94,57 @@ GitHub minutes are only ever spent on main:
    named due (`to-main-DATE`, not `to-main-not-due-DATE`) is tested:
    *"if and only if the setting is turned on ... AND the number of hours
    is more than the number defined since the last successful test"*.
-7. 2A, the commit hook's `[skip ci]`, keeps the repository owner's value
-   first; it changes nothing today, because rule 3 already stops a private
-   push to main, and stays as a backstop.
+7. 2A, the commit hook's `[skip ci]`, reads the repository's
+   `github_ci_main_test` first, then its own `github_ci_every_hours`; on
+   "always" it tags nothing on main. Under any other setting it changes
+   nothing, because rule 3 already stops a private push to main, and stays
+   as a backstop.
 8. GitHub's "Run workflow" button runs whenever a person presses it.
 
+## The repository decides (2026-10-01)
+
+**A repository's owner can take the decision for that repository** with
+`github_ci_main_test` in its `precedent.json`, and it has the final say
+there. Morgan: *"the repo owner can define whether these run with a
+variable like "always" / "never" / "sometimes" / "individual" and that
+variable has the final say for that repo"*; then, on Alex never running
+Promote: *"is there a way to make it run when there's a push to main, even
+if not through a promote?"*; then, on that costing two runs: *"no we don't
+want it run twice, no no no, not at all"* (`strength: decided`).
+
+| Value | In a private repository |
+|---|---|
+| `"individual"`, or not set | rules 4 to 6: the person's switch and hours, decided by Promote |
+| `"never"` | no GitHub test at all; only the "Run workflow" button |
+| `"always"` | **every push to main is tested, by any route, and no pull request is** -- one run per change that lands, after it lands |
+| a number | Promote decides with that many hours, whatever the person's switch and hours say |
+| anything else | read as `"never"`, and Promote says so: a typo costs a missed test, never minutes |
+
+**"Always" is the only value written into the workflow file**, because it
+is the only one GitHub must act on with no session involved -- a push to
+main from someone who never runs Promote. Install and Update Vendors put
+`always` in place of the main-test marker in `light-check.yml`
+(`precedent_vendor_engine.render_ci_workflow`); every other value leaves
+the file byte-identical to the template. Until the file says so, Promote
+decides an "always" repository as "individual" and says to run Update
+Vendors, so it is never left with no test at all. Changing the value needs
+an Update Vendors to reach the file.
+
+**Why never on the pull request under "always":** testing the pull request
+and then the push it lands would bill twice for one change, and nothing
+GitHub can read before a runner starts tells a hand-merged or squashed
+pull request's push apart from any other.
+
+Public repositories are unaffected: their minutes are free, and every push
+to main there is tested (rule 2).
+
+`check_main_test_repo_setting` in
+[verify_harness.py](../tools/verify_harness.py) walks every route -- a
+Promote, a hand-made pull request, a direct push -- through the installed
+workflow and Promote's decision for all 1080 combinations of the
+repository's setting, the person's switch and hours, and the time since the
+last pass, asserts no change in a private repository is tested twice, and
+runs the real refresh both ways on a scratch consumer.
 `check_main_test_minutes_rule` in
 [verify_harness.py](../tools/verify_harness.py) holds this rule against
 every combination of visibility, switch, hours and time since the last

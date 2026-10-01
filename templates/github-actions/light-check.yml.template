@@ -136,21 +136,33 @@ jobs:
     #
     # IN A PRIVATE REPOSITORY A PULL REQUEST INTO MAIN RUNS ONLY WHEN
     # PROMOTE JUDGED IT DUE (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
-    # decides"). Promote reads the person's github_ci_workflows switch and
-    # github_ci_every_hours, then names the pull request's branch
-    # `to-main-DATE` when the test is due and `to-main-not-due-DATE` when it
-    # is not. GitHub cannot read anyone's settings, so a private pull request
-    # from any other branch -- one nobody judged -- is skipped too. A skip
-    # here happens before a runner starts and bills nothing, and a skipped
-    # job counts as passing for a required check. A public repository is
-    # never skipped this way. Morgan: "if and only if the setting is turned
-    # on ... AND the number of hours is more than the number defined since
-    # the last successful test" (strength: decided).
+    # decides"). Promote reads the settings, then names the pull request's
+    # branch `to-main-DATE` when the test is due and `to-main-not-due-DATE`
+    # when it is not. GitHub cannot read anyone's settings, so a private
+    # pull request from any other branch -- one nobody judged -- is skipped
+    # too. A skip here happens before a runner starts and bills nothing, and
+    # a skipped job counts as passing for a required check. A public
+    # repository is never skipped this way. Morgan: "if and only if the
+    # setting is turned on ... AND the number of hours is more than the
+    # number defined since the last successful test" (strength: decided).
+    #
+    # THE main-test MARKER BELOW IS WRITTEN BY THE ENGINE, never by hand.
+    # Install and Update Vendors put `always` in place of its `individual`
+    # when the repository's precedent.json says
+    # "github_ci_main_test": "always".
+    # Then a private repository tests every push to main, from any route --
+    # a Promote, a pull request merged by hand, a direct push, a web edit --
+    # and never a pull request, so a change is tested exactly once, after
+    # it lands. Every other value leaves this file byte-identical to the
+    # template. Morgan: "no we don't want it run twice, no no no, not at
+    # all" (strength: decided).
     if: >-
-      (github.event_name != 'push' || github.event.repository.private != true)
+      (github.event_name != 'push' || github.event.repository.private != true
+      || 'main-test:individual' == 'main-test:always')
       && (github.event_name != 'pull_request'
       || github.event.repository.private != true
-      || (startsWith(github.head_ref, 'to-main-')
+      || ('main-test:individual' != 'main-test:always'
+      && startsWith(github.head_ref, 'to-main-')
       && !startsWith(github.head_ref, 'to-main-not-due-')))
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
