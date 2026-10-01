@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-09-29
+checked_through: 2026-09-30
 ---
 # What's new
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## 2026-09-30
+
+**The project started keeping this log, and a merge is now checked again after it lands, then undone if a branch moving underneath it broke something.**
+
+- Asking "What's new?" now writes up each finished day that has no entry yet, then shows the newest ones and what changed today so far (practices/whats-new.md and tools/precedent_whats_new.py; a day ends in the project's own timezone, and a first run covers the last seven finished days).
+- Another window could move the branch in the few seconds between a merge's check and the merge itself, so the merged result went unchecked. It is now checked after it lands, and a failing one is undone with a new commit while the pull request's branch keeps the work (precedent_merge_check.py --landed, run by merge-check-gate.sh after every merge).
+- Landings got faster after one landing into staging ran its sixteen-minute full check five times the day before (verify_harness --as-ci now runs its shards at once across up to four processes, and the merge gate holds the Promote lock while it checks).
+- A project that had edited one of Precedent's files used to be stuck until it undid the edit; an update now keeps the edit, merges it, or takes the new version and says which commit holds the old one (precedent_update.py, planned in spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md).
 
 ## 2026-09-29
 
