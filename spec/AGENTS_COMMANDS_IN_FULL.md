@@ -236,7 +236,11 @@ constant pass above, run before every commit without thinking about it.
 `python3 tools/precedent_push_check.py`**, which is also what
 `push-check-gate.sh` runs before any `git push` a session makes. A pass
 is recorded against the tree, so running it first makes the push
-instant; skipping it makes the push wait for it. **Which of the two a push
+instant; skipping it makes the push wait for it. **Run bare, with no
+destination named, it checks what a push to your landing branch gets**
+(Morgan, 2026-10-01, strength: assented: a session ran it bare before every
+landing on pre-staging and paid the full suite each time); `--tier full`
+asks for everything. **Which of the two a push
 gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
 a push to `staging` or `main` runs the deep check; a
 push to any other branch runs the basic tier -- the lint, the leak gate

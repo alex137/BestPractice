@@ -886,6 +886,38 @@ def _changed_since(root, argv):
     return None
 
 
+def _default_destination(root, argv):
+    """A run that names no destination checks what a push to the person's
+    landing branch would get. -> argv, with --push-command added when it
+    was missing.
+
+    Morgan, 2026-10-01, strength: assented. A session ran this bare before
+    every landing on pre-staging, as AGENTS.md's "before push or merge"
+    line read, and bare meant the full ~11-minute suite -- the check that
+    belongs to the Debut into staging -- several times in one day, for work
+    the push gate itself would have checked in seconds. Now the bare run
+    and the push agree: pre-staging gets its basic tier, and staging or
+    main, as a landing branch, still gets full. `--tier full` asks for the
+    full check outright; the push gate, the merge gate and a Promote name
+    their own destination or tier, so none of them is changed by this."""
+    if any(a in argv for a in ('--tier', '--push-command', '--changed-files-check')):
+        return argv
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+        landing = precedent_branches.landing_branch(root)[0]
+    except Exception:                                        # noqa: BLE001
+        return argv
+    finally:
+        sys.path.pop(0)
+    if not landing:
+        return argv
+    print(f'precedent_push_check: no destination named, so this checks what '
+          f'a push to {landing}, your landing branch, gets. The full check: '
+          f'--tier full.', flush=True)
+    return list(argv) + ['--push-command', f'origin HEAD:{landing}']
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -1273,6 +1305,7 @@ def main(argv):
         precedent_which_repo.warn_if_elsewhere(root, 'precedent_push_check.py')
     except Exception:                                        # noqa: BLE001
         pass
+    argv = _default_destination(root, argv)
     refused = _promote_only_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
