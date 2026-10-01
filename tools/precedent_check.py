@@ -6050,6 +6050,15 @@ def _ci_workflow_approved(ctx):
         if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
             continue
         rel = f'.github/workflows/{path.name}'
+        # A practice set carries no workflow at all, approved or not
+        # (source-sets-run-no-ci, Morgan, 2026-10-01: "if it's around it
+        # should be deleted"); its next Update Vendors deletes it.
+        if manifest.get('kind') == 'source':
+            findings.append(Finding(rel, 'a practice set carries no workflow, '
+                                         'approved or not -- run Update Vendors, '
+                                         'whose engine refresh deletes it '
+                                         '(source-sets-run-no-ci)'))
+            continue
         sha = hashlib.sha256(path.read_bytes()).hexdigest()
         if tracked.get(rel) == sha:
             continue

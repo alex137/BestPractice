@@ -2565,11 +2565,11 @@ def check_rename_links_leaves_dated_records_alone():
 
 
 def check_practice_set_workflows_converge():
-    """A practice set converges like a consumer (2026-10-01): a refresh
-    removes a workflow the set carries unless the person approved it in
-    their own words, pinned to its content. Before, a set "ran its own on
-    purpose" and a leftover there was never cleared (Morgan: solve it "in
-    the update, not just this file but others")."""
+    """A practice set's refresh removes every workflow it carries, approved
+    or not (2026-10-01); a consumer still keeps one the person approved.
+    Before, a set "ran its own on purpose" and a leftover there was never
+    cleared (Morgan: solve it "in the update, not just this file but
+    others"; and of the one approved button, "delete it")."""
     import contextlib, io, shutil, tempfile, hashlib
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as pve
@@ -2602,13 +2602,18 @@ def check_practice_set_workflows_converge():
         cases.append(('a set\'s unapproved workflow is removed by the refresh',
                       not left.exists() and '.github/workflows/leftover.yml' in removed,
                       repr(removed)))
-        cases.append(('...and one the person approved in their own words is kept',
-                      kept.exists(), repr(removed)))
+        cases.append(('...and so is one the person approved: a set keeps no '
+                      'workflow at all', not kept.exists(), repr(removed)))
+        git('reset', '-q', '--hard')
+        with contextlib.redirect_stdout(io.StringIO()):
+            removed = pve._remove_unapproved_workflows(dest, {}, 'consumer', None)
+        cases.append(('CONTROL: in a consumer the approved one is kept',
+                      kept.exists() and not left.exists(), repr(removed)))
     finally:
         pve._LEFT_FOR_YOU.clear()
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'a practice set\'s workflows converge, approvals kept ({len(cases)} stated cases)',
+    check(f'a practice set keeps no workflow, approved or not ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
@@ -10979,28 +10984,20 @@ def check_legacy_leftovers_retired_by_content():
                       'only that one', [e['practice'] for e in entries]
                       == ['other'], str(entries)))
 
-        # 3. NEGATIVE: the same name, hand-authored -> kept and reported. In
-        #    a practice SOURCE: in a consumer, CI converges to upstream since
-        #    2026-09-27 and the file goes (case 4c below).
+        # 3-4. In a practice SOURCE every workflow goes, hand-authored or on
+        #    a live trigger (2026-10-01: a set carries no workflow at all,
+        #    source-sets-run-no-ci). Until then a source was the one kind
+        #    that kept them, and these cases asserted the keeping.
         r3 = make('own', {DOCS: docs_own}, {'kind': 'source'})
         res, left = sweep(r3, 'source')
-        cases.append(('NEGATIVE: a same-name hand-authored workflow is kept',
-                      (r3 / DOCS).is_file(), str(res)))
-        cases.append(('and reported under Left for you',
-                      any('NOT the old install' in w
-                          for w in left_names(left, DOCS)), str(left)))
-
-        # 4. NEGATIVE: a live trigger is kept, and the report says why.
+        cases.append(('in a practice source, a same-name hand-authored '
+                      'workflow goes', not (r3 / DOCS).is_file(), str(res)))
         live = sync_stock.replace('  workflow_dispatch:', '  push:\n  '
                                   'workflow_dispatch:')
         r4 = make('live', {SYNC: live}, {'kind': 'source'})
         res, left = sweep(r4, 'source')
-        cases.append(('NEGATIVE: in a practice source, a stock-shaped file on '
-                      'a LIVE trigger is kept',
-                      (r4 / SYNC).is_file(), str(res)))
-        cases.append(('and the report names the live trigger',
-                      any('still live' in w for w in left_names(left, SYNC)),
-                      str(left)))
+        cases.append(('in a practice source, a stock-shaped file on a LIVE '
+                      'trigger goes too', not (r4 / SYNC).is_file(), str(res)))
 
         # 4c. In a CONSUMER both of those go (2026-09-27, CI_CONVERGES_KINDS):
         #     the checks run locally, so a live workflow nobody approved is
@@ -34581,7 +34578,7 @@ def check_ci_workflow_approved_pins_approval_to_content():
           for n in _pve.KINDS['consumer'] if n.endswith('.py')}
     try:
         def consumer(name, text=body, approved=None, tracked=None,
-                     manifest=True):
+                     manifest=True, kind='consumer'):
             # No practices/ci-workflow-approved.md on purpose: the check
             # binds any repo keeping .github/workflows (binds_when), and a
             # fixture carrying the practice would hide that gate breaking.
@@ -34594,7 +34591,7 @@ def check_ci_workflow_approved_pins_approval_to_content():
                 (c / rel).write_text(text)
             if manifest:
                 (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
-                    {'kind': 'consumer', 'source_commit': 'deadbeef',
+                    {'kind': kind, 'source_commit': 'deadbeef',
                      'files': [], 'sha256': {},
                      'ci_workflow_files': sorted(tracked or {}),
                      'ci_workflows_sha256': tracked or {}}))
@@ -34631,6 +34628,12 @@ def check_ci_workflow_approved_pins_approval_to_content():
             rel: {'sha256': sha, 'approved_by': 'Morgan: "yes"'}})
         cases.append(('an undated approval is not an approval',
                       rc != 0 and 'carries no date' in out, out[-1500:]))
+        # A practice set keeps no workflow at all, approved or not
+        # (source-sets-run-no-ci, 2026-10-01).
+        rc, out = consumer('set-approved', approved=good, kind='source')
+        cases.append(('in a practice set even an approved workflow is a '
+                      'VIOLATION, sent to Update Vendors',
+                      rc != 0 and 'carries no workflow' in out, out[-1500:]))
         rc, out = consumer('tracked', tracked={rel: sha})
         cases.append(('CONTROL: the engine\'s own untouched copy passes '
                       'with no approval', rc == 0, out[-1500:]))

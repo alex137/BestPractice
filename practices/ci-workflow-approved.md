@@ -56,7 +56,9 @@ did not give.** If they do not want the file, delete it.
 
 **In a consuming repo or a practice set, Update Vendors settles a leftover
 without asking** (a consumer since 2026-09-27, a practice set since
-2026-10-01, which ships no workflow at all). The engine owns the workflows upstream ships
+2026-10-01). **A practice set keeps no workflow at all, approved or not**
+(practice `source-sets-run-no-ci`): this check names any it carries, and
+the refresh deletes it. What follows is about a consumer. The engine owns the workflows upstream ships
 (`leak-gate.yml`, `light-check.yml`): each refresh writes them from the
 template over any hand edit, and removes every other workflow that has no
 approval in the person's own words. **First it checks that nothing needed is
