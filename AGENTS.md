@@ -106,7 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~833 of 2000 token budget, 10 of 166 practices (10 universal))
+## Resident block (~833 of 2000 token budget, 10 of 165 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -279,14 +279,12 @@ When decommissioning a mechanism that leaves files with no remaining job:
   decommission-deletes-files — delete what it owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
-When finishing substantial work, before the merge capture gate:
-  second-pass-capture — a separate capture pass after the work, not inside it
+When finishing substantial work, or merging a branch:
+  capture-gate — capture it in the turn that finds it; a separate second pass; merge is backstop
 When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
-When merging a branch:
-  capture-gate — capture follow-on work in the thread that created the need
 When migrating a repo onto Precedent from an old system:
   migration-scrubs-vocabulary — scrub the old vocabulary in the same session, unasked
 When naming or adding a file:
