@@ -12153,6 +12153,50 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
         (fresh / 'tools' / lagging).unlink()
         (fresh / 'tools' / 'my_own_script.py').unlink()
 
+        # 8c. A SET'S DECLARED engine_paths (2026-10-01). precedent-individual
+        #     keeps its own copies of two hooks in bootstrap/; the refresh
+        #     writes them and records each, keyed by the local path, with the
+        #     sha256 it wrote. engine_owned_paths read every manifest list but
+        #     that one, so both hooks read as a person's work after every
+        #     refresh and the archive gate went red on every reply. Owned only
+        #     while the recorded hash still matches: these paths sit outside
+        #     the engine's own directories, so a hand edit stays a person's.
+        import hashlib as _hl
+        #     TRACKED first, as in the real set: git reports a wholly
+        #     untracked directory as the directory, never the file in it.
+        (fresh / 'bootstrap').mkdir(exist_ok=True)
+        hook = fresh / 'bootstrap' / 'commit-identity.sh'
+        hook.write_text('as committed\n', encoding='utf-8')
+        git(fresh, 'add', 'bootstrap/commit-identity.sh')
+        git(fresh, 'commit', '--quiet', '-m', 'the set keeps its own hook')
+        hook.write_text('refreshed\n', encoding='utf-8')
+        manifest_ep = dict(
+            manifest_new,
+            engine_paths={'bootstrap/commit-identity.sh':
+                          'templates/harness/claude-code/hooks/commit-identity.sh'},
+            engine_paths_sha256={'bootstrap/commit-identity.sh':
+                                 _hl.sha256(b'refreshed\n').hexdigest()})
+        (fresh / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest_ep), encoding='utf-8')
+        engine, other = rs.classify_dirt(fresh)
+        cases.append(('a declared engine path the refresh just wrote is '
+                      'engine dirt, not a person\'s work',
+                      'bootstrap/commit-identity.sh' in engine
+                      and 'bootstrap/commit-identity.sh' not in other,
+                      f'engine={engine} other={other}'))
+        hook.write_text('refreshed, then edited by hand\n', encoding='utf-8')
+        engine, other = rs.classify_dirt(fresh)
+        cases.append(("negative control: the same path edited by hand after "
+                      "the refresh is a person's again",
+                      'bootstrap/commit-identity.sh' in other
+                      and 'bootstrap/commit-identity.sh' not in engine,
+                      f'engine={engine} other={other}'))
+        git(fresh, 'reset', '--quiet', 'HEAD~1')      # keeps the dirt 9 uses
+        hook.unlink()
+        (fresh / 'bootstrap').rmdir()
+        (fresh / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest_new), encoding='utf-8')
+
         # 9. …and discarding it works. `git checkout --` fails outright on a
         #    path git has never tracked, so widening the classification
         #    without widening the discard would have turned a working
