@@ -8,7 +8,7 @@ applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file pat
 occasion:    "a message says \"Booked\", \"Approved\", \"Book it\" or \"Promote 3\", or plainly authorizes a merge"
 gates:       ["merge"]
 gates_why:   "Its whole subject is what happens at a merge."
-index_clause: "\"Booked\" (stage 3; also \"Approved\"): push; high-risk: PR and merge"
+index_clause: "stage 3, Booked: land it on the landing branch; high-risk: PR and merge"
 checked_by:  null
 defines:     ["Booked", "Go update", "Approved", "Book", "Book it", "Shared Save"]
 command:     {"Booked": "Stage 3 (Promote 3): save the work, land it on your landing branch on GitHub (pre-staging, for anyone who uses the three tiers) where it won't be lost, and tell you which branch it went to. By default that is a direct push, with no pull request; a high-risk change goes through one. Its older name, \"Go update\", still means this.", "Approved": "The same as **Booked**.", "Book it": "The same as **Booked** (also just **Book**).", "Shared Save": "The same as **Booked**."}

@@ -202,9 +202,7 @@ When a judgment call is needed to keep work moving:
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Booked", "Approved", "Book it" or "Promote 3", or plainly authorizes a merge:
-  go-update — "Booked" (stage 3; also "Approved"): push; high-risk: PR and merge
-When a message says "Promote" or "Promote N", or asks to move work up a tier:
-  promote — pre-staging->staging or staging->main, chosen from the work; says which
+  go-update — stage 3, Booked: land it on the landing branch; high-risk: PR and merge
 When a message says "Update Vendors", or an upstream update is taken into a vendoring repo:
   vendor-update-runbook — source clone first, both layers move separately, then merge
 When a model or comparison rests on an operating constant nobody decided:
@@ -215,20 +213,18 @@ When a person explicitly asks for a "very deep check":
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person explicitly asks for a full practice audit:
   full-practice-audit — every source's catalogue, one practice at a time; on request only
-When a person says "Act" or "Promote 2", or asks to start building after a plan:
-  act — stage 2: build it on the session's feature branch, pushed so it survives
 When a person says "Chief of Staff":
   chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last
-When a person says "Consider" or "Promote 1", or asks to plan before building:
-  consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
-When a person says "Debut" or "Promote 4":
-  debut — stage 4: Promote pre-staging into staging, full checks
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options or hand them off:
   my-options — every option, plainer, your pick -- or a paste-ready handoff
-When a person says "Produce", "Make live" or "Promote 5":
-  produce — stage 5: Promote staging into main (production); read strictly
+When a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier:
+  act — stage 2: build on the session's feature branch, pushed so it survives
+  consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
+  debut — stage 4: pre-staging into staging, full checks
+  produce — stage 5: staging into main (production); read strictly
+  promote — the next tier up, chosen from the work and said first; "Promote N" does stage N
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Root issues" or "Root fixes", or asks what this session found that should go back to Precedent:

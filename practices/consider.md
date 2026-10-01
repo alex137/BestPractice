@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE (\"Consider\", \"Promote 1\") -- stage 1 of the five-stage ladder, like promote's entry; no file path reaches it. Reached through the occasion index; no gate, since the plan it asks for comes before any file moment. Decided: 2026-09-29, when the practice landed."
-occasion:    "a person says \"Consider\" or \"Promote 1\", or asks to plan before building"
+occasion:    "a person says \"Promote\", \"Promote N\" or a stage word (\"Consider\", \"Act\", \"Debut\", \"Produce\", \"Make live\"), or asks to plan, build or move work up a tier"
 gates:       []
 index_clause: "stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up"
 checked_by:  null
