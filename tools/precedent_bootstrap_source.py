@@ -714,7 +714,7 @@ def verify(level, path):
     file still holding a `{{PLACEHOLDER}}` was bootstrapped and never
     finished, which no consumer can do anything sensible with.
 
-    An empty blocklist stays fine on purpose (`blank-blocklist`): an empty
+    An empty blocklist stays fine on purpose: an empty
     one is a deliberate state, an absent one is a gap."""
     level = LEVEL_ALIASES.get(level, level)
     skeleton = SKELETONS.get(level)

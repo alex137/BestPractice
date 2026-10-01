@@ -30459,7 +30459,7 @@ def check_freshness_quiet_says_when_a_source_is_unverified():
     """`precedent_engine_freshness.py --quiet`, which every session-start
     hook runs, prints one NOT VERIFIED line when a declared source could not
     be checked -- it printed nothing, which is what current looks like
-    (the maintainers' fresh-check-escalation; very deep check, 2026-09-28).
+    (the maintainers' drift-notice; very deep check, 2026-09-28).
     Planted: a consumer whose engine manifest points at an upstream that is
     not there. Controls: a current source stays silent, and a repo with no
     engine manifest at all (the engine's own origin) is not an unverified

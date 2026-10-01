@@ -89,7 +89,7 @@
   "why": "rule-links says anything mentioned that has a destination gets a link the first time it is named -- a PR, a session, a rule, a file -- and had no mechanical check at all until this predicate (tools/precedent_reply_check.py's require_no_bare_pattern). Added 2026-09-20 after a reply in a downstream consumer repository mentioned 'PR #21' with no link, and nothing caught it before the person had to notice and ask. Declared advisory rather than blocking: markdown links are stripped from the whole reply once, up front, so a thing correctly linked on its FIRST mention and named bare again later in the same reply still matches -- a known imprecision (rule-links only requires the first mention to carry the link), not a bug, and not yet worth refusing a turn over."
  },
  {
-  "practice": "branch-links",
+  "practice": "rule-links",
   "require_no_bare_pattern": [
    {
     "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*",
