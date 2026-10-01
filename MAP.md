@@ -69,7 +69,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [fixture-owns-its-state](practices/fixture-owns-its-state.md) | on-demand | writing a test, fixture or control that reads or edits state it did not create |
 | [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | writing a deliverable an outside reader will see |
 | [fresh-before-write](practices/fresh-before-write.md) | on-demand | setting up a project a session works in, or a session reporting that its checkout is behind |
-| [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit |
+| [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a "very deep check" or a "full practice audit" |
 | [gate-ledger](practices/gate-ledger.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [gates-fail-fast](practices/gates-fail-fast.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
@@ -82,7 +82,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |
 | [item-closes-on-its-condition](practices/item-closes-on-its-condition.md) | on-demand | writing, triaging or doing work on an open item |
-| [judgment-check-or-tool](practices/judgment-check-or-tool.md) | on-demand | a second implementation of the same mechanism turns up, or a full practice audit runs |
+| [judgment-check-or-tool](practices/judgment-check-or-tool.md) | on-demand | a second implementation of the same mechanism turns up |
 | [label-describes-content](practices/label-describes-content.md) | on-demand | writing or editing a document |
 | [layered-practice-packs](practices/layered-practice-packs.md) | on-demand | deciding where a new rule belongs |
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
@@ -166,7 +166,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [verdict-not-mechanism](practices/verdict-not-mechanism.md) | on-demand | a tool, hook, check or gate flags something the person would otherwise have to judge |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | computing, quoting or tabulating figures |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
-| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" |
+| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" or a "full practice audit" |
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |

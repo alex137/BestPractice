@@ -6,7 +6,7 @@ severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
 applies_to_why: "Not a place -- a whole-repo coherence review is invoked explicitly by a person, or after drift-inviting work, not triggered by touching any one file. Reachability comes from its occasion clause, the same as its full-practice-audit and routing-audit siblings. Decided: 2026-09-05, in the session that enumerated and wired the RepoPersonalPreferences 'very deep check'."
-occasion:    "a person explicitly asks for a \"very deep check\""
+occasion:    "a person explicitly asks for a \"very deep check\" or a \"full practice audit\""
 gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never routine"
 checked_by:  null

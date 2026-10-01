@@ -201,10 +201,9 @@ When a model or comparison rests on an operating constant nobody decided:
   constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
 When a person asks "What's new?", or what has changed in the project lately:
   whats-new — write any missing daily entries first, then link the log and show the newest
-When a person explicitly asks for a "very deep check":
+When a person explicitly asks for a "very deep check" or a "full practice audit":
+  full-practice-audit — Pass 4's catalogue read alone: every source's practices, one at a time
   very-deep-check — read every repo in force against itself, pass by pass; never routine
-When a person explicitly asks for a full practice audit:
-  full-practice-audit — every source's catalogue, one practice at a time; on request only
 When a person says "Chief of Staff":
   chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last
 When a person says "Drop it" about an open item or a question:
@@ -233,7 +232,7 @@ When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
 When a person says "Write it up", or asks for a write-up:
   write-it-up — "Write it up": commit a full report of issue and fix, then link it
-When a second implementation of the same mechanism turns up, or a full practice audit runs:
+When a second implementation of the same mechanism turns up:
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
