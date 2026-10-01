@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "`**` because this is a standing COMMAND, not a rule about a kind of file. \"Reduction pass\" can be said in any turn, about any repository's always-loaded surfaces, and the session has to already know what it means -- the same reasoning as go-update, park-it and three-things, which are all at `**` for being phrases rather than file-shaped rules. The occasion index is the channel that matters here; a path trigger could not fire on a sentence. The second half of the occasion (\"an always-loaded surface is near its ceiling\") is served by tools/precedent_gate.py's merge and push gates, which print the headroom notice, rather than by any glob. Decided: 2026-09-14, when the practice was added."
-occasion:    "a person says \"Reduction pass\", or an always-loaded surface is near its ceiling"
+occasion:    "a person says \"Reduction pass\", or an always-loaded surface is near its ceiling or over its target"
 gates:       []
 index_clause: "work the menu in order; move, never delete; report what moved"
 checked_by:  null
@@ -16,7 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-14"
-approved_by: "Morgan, 2026-09-14 -- asked for the command in the thread that answered the AGENTS.md ceiling question: \"Do we have a command to do a 'reduction' pass listing what you did? Let's define that command if you think that's a good idea.\""
+approved_by: "Morgan, 2026-09-14 -- asked for the command in the thread that answered the AGENTS.md ceiling question: \"Do we have a command to do a 'reduction' pass listing what you did? Let's define that command if you think that's a good idea.\" The practice-by-practice review: Morgan, 2026-10-01, after the first one -- \"this reduction pass is great; if it's not part of Very Deep Check, it absolutely should be\" (strength: decided)."
 ---
 ## Rule
 When the person says **"Reduction pass"**, measure every always-loaded
@@ -44,6 +44,26 @@ text is still somewhere it already reads.
    off whatever the file happened to measure.
 6. **Move a whole surface out of the always-loaded set.** Last, and usually
    empty: most such surfaces are the only channel something has.
+
+**Over a target, review the generated half practice by practice.** The
+menu cannot trim the occasion index or the resident block, because their
+text lives in the practices. So read every practice in both, with evidence,
+and give each one verdict:
+
+- **Keep** -- it earns its line as it is.
+- **Merge** -- the same rule or moment as another; the survivor carries the
+  absorbed rule's substance. A family can instead share one `occasion:`
+  string, which the index prints as a single line over all of them.
+- **Route out** -- only where a gate, a real path or a mechanical check
+  reaches the session in time. Say which hooks each kind of repo actually
+  wires; a practice set, for one, wires the push and merge checks and not
+  the path or reply hooks.
+- **Retire** -- the mechanism it governs is gone.
+- **Demote** -- a resident rule that an on-demand channel reaches in time.
+- **Tighten** -- shorter wording, the same meaning.
+
+Report them as proposals. A change that takes a rule out of any session is
+the person's to make, one by one.
 
 **Never raise a ceiling to make a red check green.** That is
 [session-load-budget](session-load-budget.md)'s line and this command does
@@ -129,6 +149,16 @@ cannot read, and it will go and ask what it means — the exact interruption
 the phrase exists to prevent. Any repository with an always-loaded
 instructions file has this problem, which is what makes it universal rather
 than Precedent's own.
+
+**The practice-by-practice review, 2026-10-01.** A pass over
+precedent-individual's session-start file found no lossless room left in the
+menu: 97% of it was generated. Morgan asked for a review of every practice
+in it instead, four reviewers read them all, and their verdicts came back
+in two tiers: merges, shared occasion lines and shorter wording that keep
+every rule firing, and moves that would take a rule out of some session. He
+approved the first tier whole and called the method something every very
+deep check should do, so it is written here and very-deep-check's Pass 3
+runs it whenever a surface is over its target.
 
 ## Install
 **Nothing mechanically checks that a pass was performed or that its report is

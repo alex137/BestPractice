@@ -216,7 +216,7 @@ When a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "D
   promote — the next tier up, chosen from the work and said first; "Promote N" does stage N
 When a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach:
   prompt-please — one paste-ready prompt for a new session; never a session-creating tool
-When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
+When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Root issues" or "Root fixes", or asks what this session found that should go back to Precedent:
   root-issues — what this session hit that belongs upstream, each as a Prompt Please
