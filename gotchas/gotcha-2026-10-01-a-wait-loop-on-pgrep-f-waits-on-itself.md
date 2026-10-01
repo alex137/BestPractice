@@ -37,3 +37,5 @@ Nothing needs to poll.
 its process ID (PID), `cmd & pid=$!`, and use `wait "$pid"` in the same shell, or
 `tail --pid="$pid" -f /dev/null` from another. Never `pgrep -f` or
 `pkill -f` with a pattern that also appears in the command running them.
+
+**Refused since 2026-10-01**: the Claude Code hook [`wait-loop-gate.sh`](../templates/harness/claude-code/hooks/wait-loop-gate.sh) stops any command that runs `pgrep -f` or `pkill -f`, and says the above.
