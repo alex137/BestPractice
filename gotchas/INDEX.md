@@ -158,4 +158,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A bare **"Promote"** correctly resolves to staging into `main`, and then `python3 tools/precedent_branches.py --promote --to main` comes back `Denied by auto mode classifier` with the reason `[Production Deploy]`. Nothing in the repository refused it. The same move goes through when the person says **"Produce"**.** [story](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md)
 
+- **A shell loop meant to wait until a long command finishes, `while pgrep -f "tools/precedent_push_check.py"; do sleep 10; done`, never ends. The command it waits on finished long ago, and the loop runs until its own time limit kills it.** [story](gotcha-2026-10-01-a-wait-loop-on-pgrep-f-waits-on-itself.md)
+
 - **In Claude Code's auto mode, Update Vendors merges its own pull request (step 12) and the merge goes through. The next command, even one that only reads the merged branch to confirm its content, comes back `Denied by auto mode classifier` as **Merge Without Review**, and the check it was running never runs.** [story](gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)
