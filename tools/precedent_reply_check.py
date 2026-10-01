@@ -277,7 +277,7 @@ def offer_is_due(timeline, every, phrases):
 
     Stateless on purpose -- the transcript is the state. The alternative was a
     counter file somewhere, which goes stale the moment a session is resumed
-    in a fresh container (practice: durable-fix).
+    in a fresh container (practice: upstream-fix).
     """
     # The BASELINE is where the session started, not zero. A session in this
     # repository opens at ≈97,000 tokens before anybody types anything --
@@ -1026,7 +1026,7 @@ def main():
     # missing closing on its own; re-sending the whole answer makes them read
     # it twice, which is what happened on 2026-09-13 when this message said
     # only "rewrite the closing" and the session rewrote everything.
-    # practice: durable-fix, label-describes-content.
+    # practice: upstream-fix, label-describes-content.
     #
     # THE SECOND INCIDENT, 2026-09-14, is why there are two messages. The
     # individual set revised its required sentence that morning from "close

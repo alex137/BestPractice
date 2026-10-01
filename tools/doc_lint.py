@@ -395,7 +395,7 @@ def check_broken_links(path):
     # Asked of precedent_resolve.mirrored_prefixes() via VENDORED_PREFIXES,
     # not added to the constant above: that is the one place the question
     # "what does this repo mirror" is answered, and a second list is how the
-    # first one goes stale (practice: durable-fix, registry-source-of-truth).
+    # first one goes stale (practice: upstream-fix, registry-source-of-truth).
     # Only the LINK check is skipped here -- every other doc_lint finding in
     # a mirror still prints, split out of the gate by _split_vendored().
     if _is_vendored(rel):
@@ -1181,7 +1181,7 @@ def check_findability(docs):
 # Exactly the failure the paragraph above says must never happen, caused by
 # the constant meant to prevent it. Ask the engine instead; the constant
 # survives only as the fallback for a tree with no importable engine.
-# (practice: durable-fix -- the fix is asking the one authority, not adding a
+# (practice: upstream-fix -- the fix is asking the one authority, not adding a
 # second path to the list and waiting for the third.)
 _VENDORED_PREFIXES_FALLBACK = ('process/upstream/',)
 

@@ -26,7 +26,7 @@
 # tracked script, which no session has ever been refused. It is the pattern
 # every other entry in a set's settings.json already used -- the two inline
 # commands were the exception, and the exception is what cost a person a
-# manual GitHub edit. (practice: durable-fix -- the fix that survives, not the
+# manual GitHub edit. (practice: upstream-fix -- the fix that survives, not the
 # one that works once.)
 #
 # EXITS 0 ALWAYS. A SessionStart hook that fails takes the session with it,

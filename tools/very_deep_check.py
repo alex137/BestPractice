@@ -324,7 +324,7 @@ def checklist(practice_file=None):
 # Keyed on the subcommand rather than fixed up at each call site, because
 # the call sites are the thing that changes: the sweep grew three new
 # fetches in a fortnight, and a fix applied per-caller is a fix that covers
-# whatever existed the day it was written (practice: durable-fix).
+# whatever existed the day it was written (practice: upstream-fix).
 _NETWORK_GIT = frozenset({'fetch', 'ls-remote', 'pull', 'push', 'clone'})
 _ORIGIN_URL = {}
 
@@ -1787,9 +1787,9 @@ def _scratch_tree(src, dest, engine_src):
 def _fix_sweep(repo_root, targets, since=None, timeout=300):
     """-> (since, slugs, rows, note, caveat). Every detector added since the
     last recorded run, run against every repo in force.
-    (practice: very-deep-check, pass 2 item 13 -- fix-the-original\'s half)
+    (practice: very-deep-check, pass 2 item 13 -- upstream-fix\'s half)
 
-    THE GAP THIS CLOSES. fix-the-original requires fixing the origin and then
+    THE GAP THIS CLOSES. upstream-fix requires fixing the origin and then
     every copy. Nothing checked that the sweep happened. The hardcoded-identity
     check was written the day the trap was reported, HERE, and the repo that
     actually had the problem was a consumer nobody re-scanned -- a check built
@@ -5946,7 +5946,7 @@ def _tracked_text_files(repo_dir):
         # literal 'process/upstream/' that used to sit here is INSTALL.md
         # §1's layout; a §0 repo's vendored catalogue sits wherever its
         # precedent.json points, so every one of those files was being read
-        # as the repo's own text. (practice: durable-fix)
+        # as the repo's own text. (practice: upstream-fix)
         if rel.startswith(pr.mirrored_prefixes(repo_dir) + ('.git/',)):
             continue      # mirrored: another repo's tree, not this one's text
         p = pathlib.Path(repo_dir) / rel
@@ -6486,7 +6486,7 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
 # repo that actually vendors the engine.
 #
 # So the definition went DOWN into the small file that travels, and the big
-# on-request audit imports it (practice: fix-the-original). Keeping a copy
+# on-request audit imports it (practice: upstream-fix). Keeping a copy
 # here is how two probes drift apart; `access_audit` below is unchanged and
 # still owns the TABLE, which is this tool's own presentation concern.
 from precedent_access_check import can_land_here  # noqa: E402

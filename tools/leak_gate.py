@@ -941,7 +941,7 @@ _PRIVATE_BLOCKLIST_PATH = None
 def _stale_blocklist_clone_note():
     """-> str or None: what to say about the private blocklist's own clone.
 
-    practice: durable-fix, cite-the-incident. 2026-09-11: the leak gate
+    practice: upstream-fix, cite-the-incident. 2026-09-11: the leak gate
     reported 30 undeclared-repo hits against this tree, and a session read
     them as a real defect in the tree and filed a TODO item for it. The tree
     was fine. Its clone of the private set was four hours old, from before a
@@ -1016,7 +1016,7 @@ def _try_refresh_private_blocklist_clone(timeout=20):
     was already there); False if there is nothing to try, or the pull is
     refused (dirty tree, diverged, no upstream, network failure, timeout).
 
-    practice: durable-fix, cite-the-incident. 2026-09-20: the gate reported
+    practice: upstream-fix, cite-the-incident. 2026-09-20: the gate reported
     110 undeclared-repo hits, all false, all in a file the session had not
     touched -- the private clone was behind an upstream rename, the exact
     shape _stale_blocklist_clone_note() above already names. The note

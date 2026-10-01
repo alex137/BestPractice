@@ -627,7 +627,7 @@ def _log_scope_args() -> list[str]:
 
     ADDED 2026-09-22 (Morgan, same day: "Whole history reviews are good for
     things like very deep check but not for daily practice" -- practice:
-    durable-fix, cite-the-incident). commit-identity-push-gate.sh calls this
+    upstream-fix, cite-the-incident). commit-identity-push-gate.sh calls this
     script directly on every `git push`, bypassing precedent_check.py's own
     rotation slice on purpose (see that hook's header) -- and until now that
     meant EVERY commit reachable from HEAD was re-read and re-judged on

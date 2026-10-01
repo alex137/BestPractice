@@ -537,7 +537,7 @@ def _merge_env(root=None):
     lock commit came out authored by the container's bot, because TZ was
     set here and the author was not. `git merge` and `git commit-tree` run
     no `pre-commit` hook, so the global backstop never saw them (practice:
-    durable-fix).
+    upstream-fix).
 
     Where the repository is somebody's individual source and no author
     resolves, CommitRefused is raised instead of committing as the bot.

@@ -331,7 +331,7 @@ def _install_workflows(dest):
 # is that universal's text is NEVER committed into a set. Measured
 # 2026-09-13 against a real set: `git check-ignore` said not ignored, and
 # the generated file showed up in `git status` as untracked-and-addable.
-# practice: durable-fix -- the ignore line travels with the set, so it
+# practice: upstream-fix -- the ignore line travels with the set, so it
 # survives a fresh container and a fresh clone.
 IGNORE_LINE = '.precedent/'
 IGNORE_BLOCK = """

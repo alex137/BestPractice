@@ -191,7 +191,7 @@ breaks the moment somebody's branch is named `claude/something`. That is
 precisely the kind of detail that gets "improved" in one copy of a rule and
 not the other, which is why the mechanism lives in this one file and both
 surfaces that use it cite it rather than restate it
-([fix-the-original](fix-the-original.md)).
+([upstream-fix](upstream-fix.md), point 8).
 
 **The unmerged list is the part that can do real damage.** Everything else
 here costs a person some clicking. Presenting a branch with unlanded commits
@@ -290,7 +290,7 @@ gate rather than a path glob, because a reply has no file to match on.
 
 **Related:** [never-delete-a-remote-branch](never-delete-a-remote-branch.md) —
 why the link is the only thing a session can offer;
-[fix-the-original](fix-the-original.md) — why the mechanism is one
+[upstream-fix](upstream-fix.md) — why the mechanism is one
 file and not two;
 [repo-is-memory](repo-is-memory.md) — why the per-repo sweep writes a committed
 page rather than only printing.
