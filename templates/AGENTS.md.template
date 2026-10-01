@@ -36,16 +36,10 @@ deliverables and indexes which documents back each part of each one.
   setup); in other harnesses, run it yourself unless your adapter wires it — Precedent's
   [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
   says which can.
-- **A session already scoped to more than one repo from the start — not one
-  attached mid-session — never gets this automatically for ANY of them.** A
-  harness's own SessionStart hook (which sets `commit-author`'s declared
-  identity and installs its pre-commit backstop) fires only for its
-  *primary* project directory; a sibling repo in the same multi-repo session
-  is never that, for the session's entire duration, not just its first turn
-  (practice `session-bootstrap`). Run `bash tools/bootstrap.sh` by hand,
-  once per repo, before that repo's first commit — the existing fallback
-  for a harness with no hook mechanism at all applies here for the same
-  reason.
+- **A session scoped to more than one repo from the start runs only its
+  primary repo's SessionStart hook** (practice `session-bootstrap`): run
+  `bash tools/bootstrap.sh` by hand in each other repo, once, before its
+  first commit.
 
 ### Two check levels
 
@@ -156,19 +150,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Conventions
 
 - **Sections are ordered by the reader's frequency, not the writer's**
-  (practice `section-order-by-frequency`): a document walking through instructions or rules in
-  multiple sections puts common, everyday content first and rare edge
-  cases / migration scenarios / "if the world changes" contingencies last —
-  unless the subject matter itself dictates a different order. Ask: would
-  most readers have to scroll past this section to reach the one they
-  opened the document for?
-- **PR descriptions come from the diff, not the template** (practice `pr-template-honest-gates`):
-  when opening a PR, write "What changed" / "Why" / "Files touched" from
-  what actually happened on this branch. Check a `## Gates` box only when
-  it is actually true for this change — an unchecked box, or a "not
-  applicable" note, is normal and expected. Never check every box, or fill
-  every field with N/A, just to make the form look complete; that looks
-  like verification and isn't.
+  (practice `section-order-by-frequency`): everyday content first, rare
+  cases last.
+- **PR descriptions come from the diff, not the template** (practice
+  `pr-template-honest-gates`): check a box only when it is true for this
+  change.
 - **Doc references are links** (practice `doc-references-are-links`): in-repo docs reference other
   repo files as relative markdown links, never bare backticked names. New
   text always links; a thread touching a document fixes the references in
@@ -191,27 +177,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   name the model they were verified on (a model upgrade = re-verify); a
   durable rule records its tenure and exceptions (*in effect since X; N
   exceptions, each under Y*) — its survival record is its authority.
-- **Outward-facing documents use the reader's words** (practice `readers-vocabulary`): in a
-  README, product page, pitch, or onboarding guide, every term that names a
-  category is either already the reader's word, replaced with a plain
-  equivalent, or glossed inline on first use — never left to a glossary the
-  reader won't open. Jargon usually arrives from the *sources* you just
-  read, so run this as a separate pass after drafting, not while writing.
-  Rule of thumb: if a term can be replaced by a plain description of five
-  words or fewer, it is jargon.
-- **Reply convention** (practice `reply-links-files`): every reply that created, modified or
-  deleted files ends with a "Files touched" list, prefaced `Files touched in
-  owner/repo/branch:` (one preface per repository and branch), then branch
-  link + post-merge link + one-line description per file — so the reader can open the work from
-  the chat. A **deleted** file is listed too: its path, why it went, and a
-  link to the commit that removed it, since it is the one entry with nothing
-  to open on the branch and the one a reader cannot find any other way (a
-  whole retired directory is one entry, not one line per file). When a
-  touched file is an HTML render or a picture and the harness
-  offers hosted private previews (artifacts), the entry also carries the
-  rendered-view link — a repo link shows source, not the render; publish by
-  the same file path each time so the link stays stable, and never preview
-  per-recipient send records.
+- **Outward-facing documents use the reader's words** (practice
+  `readers-vocabulary`): run it as its own pass after drafting.
+- **Reply convention** (practice `reply-links-files`, reached by the
+  `reply` gate): a reply that touched files ends with a "Files touched"
+  list.
 - **Commits are credited to the human driving the session.** Set the git
   author to the member's name and GitHub noreply email (ask **before the
   first commit** if you don't know who you're working for —

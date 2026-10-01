@@ -49,6 +49,11 @@ document or person restates them:
 - A phrase whose own capitalization carries meaning is exempt by name, in
   the tool's `KEEP_PHRASES`. *The Why* is a noun phrase — the reasoning
   behind a decision — not an article plus a word.
+- A dated log heading, *Wednesday 2026-09-30: daily-log-and-safer-merges*,
+  is left whole: its slug is a name, like a path, and its weekday is
+  already capitalized (`title_case.DATED_SLUG_HEADING`, added 2026-10-01 for
+  the [whats-new](whats-new.md) log). The match is the whole heading, so a
+  hyphenated compound anywhere else is still prose.
 
 **Scope is stated as an exclusion, not a list of directories.** Every
 document is in scope unless it is named internal in

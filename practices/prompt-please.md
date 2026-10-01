@@ -108,6 +108,14 @@ following, every time:
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
+- **The branch the work lands on is the person's landing branch** -- what
+  `python3 tools/precedent_branches.py --landing` answers in the seed repo,
+  `pre-staging` for a person who lands there. Never name `staging` or
+  `main` as where to work or where the pull request goes: the person's
+  Promote moves work up to those. A repository's declared base branch is
+  not the answer either, because it names staging. When you cannot run the
+  command, write "your landing branch" and let the receiving session
+  resolve it.
 - **When the recommended action would itself change something this repo
   ships to other repos** -- a practice file, a template, a hook, a vendored
   engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
@@ -256,6 +264,13 @@ command, with one deliverable, is cheaper than two commands that produce the
 same shape of answer for different reasons.
 
 ## Story
+**The landing branch, 2026-10-01.** A seeded prompt from a consumer's
+Update Vendors told the receiving session to "work on `staging`" and open
+its pull request there, though Morgan lands on `pre-staging`. Nothing here
+said which branch to name, so the writer took BestPractice's declared base.
+Morgan: "Can we update a practice or rule so that in the future it
+recommends these go to pre-staging".
+
 Coined by Morgan, 2026-09-20. He named the gap directly: something like
 [My options](my-options.md), for a copy-pasteable prompt into a new session,
 but for the case where a recommendation already exists and he just wants to

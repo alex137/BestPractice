@@ -2921,6 +2921,38 @@ def check_workflow_growth_needs_the_persons_words():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_todo_migrate_refuses_a_subdirectory():
+    """todo_migrate.py writes only into the repository root's todo/.
+
+    2026-10-01, from a consumer's Update Vendors: `--repo docs` wrote 33
+    items under docs/todo/, which build_todo_index.py and every check never
+    read, and they sat invisible for 13 days. A --repo below the root is
+    refused before anything is written; the root itself still migrates."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='todo-migrate-root-'))
+    cases = []
+    try:
+        repo = tmp / 'proj'
+        (repo / 'docs').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        (repo / 'docs' / 'TODO.md').write_text(
+            '# TODO\n\n- **An item** -- something to do.\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'todo_migrate.py'),
+                            '--repo', str(repo / 'docs'), '--source', 'todo.md',
+                            '--apply'], capture_output=True, text=True, timeout=120)
+        cases.append(('a --repo below the repository root is refused',
+                      r.returncode != 0 and 'not the repository root' in
+                      (r.stdout + r.stderr), (r.stdout + r.stderr)[-300:]))
+        cases.append(('...and writes nothing',
+                      not (repo / 'docs' / 'todo').exists(), ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'todo_migrate.py refuses to write items below the repository root '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_docs_name_no_path_this_repo_removed():
     """change-updates-its-docs: a live document naming a path this repo's
     history deleted is refused, in plain text and as a link to this repo's
@@ -2953,6 +2985,10 @@ def check_docs_name_no_path_this_repo_removed():
             'docs/story.md': f'# X\n## Story\nWe read `{gone}`.\n',
             'docs/plan.md': f'---\nkind: plan\nstatus: closed\n---\nEdit `{gone}`.\n',
             'docs/consumer.md': 'A consumer keeps `local/practices/x.md`.\n',
+            # The sentence says it, wrapped onto the next line (2026-10-01).
+            'docs/wrapped.md': f'The checker that lived in `{gone}`\nwas retired on 2026-09-01.\n',
+            # ...but a NEXT sentence that says "was" excuses nothing.
+            'docs/adjacent.md': f'Read `{gone}` first.\nThis was a fine design.\n',
         }
         for rel, text in files.items():
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -2984,8 +3020,12 @@ def check_docs_name_no_path_this_repo_removed():
                          ('docs/retired.md', 'a line that says it was retired'),
                          ('docs/story.md', 'a Story section'),
                          ('docs/plan.md', 'a closed document'),
-                         ('docs/consumer.md', 'a path this repo never had')):
+                         ('docs/consumer.md', 'a path this repo never had'),
+                         ('docs/wrapped.md', 'a sentence wrapped so "retired" is '
+                                             'on the next line')):
             cases.append((f'{why} is left alone', rel not in out, out[-400:]))
+        cases.append(('a "was" in the next sentence excuses nothing',
+                      'docs/adjacent.md:1' in out, out[-400:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -3092,6 +3132,14 @@ def check_received_hooks_and_moved_engine_files():
         (repo / 'tools' / 'bootstrap.sh').write_text(fallback, encoding='utf-8')
         (repo / 'README.md').write_text('See process/upstream/tools/gone_tool.py.\n',
                                         encoding='utf-8')
+        # A command, not a fallback (2026-10-01, from a consumer's Update
+        # Vendors): it fails "No such file" once the mirror is gone.
+        (repo / 'AGENTS.md').write_text(
+            'Before pushing, run `python3 process/upstream/tools/precedent_push_check.py`.\n',
+            encoding='utf-8')
+        (repo / '.claude' / 'settings.json').write_text(json.dumps({'permissions': {
+            'allow': ['Bash(python3 process/upstream/tools/precedent_push_check.py:*)']}},
+            indent=2) + '\n', encoding='utf-8')
         owners = ppr.received_owners(repo)
         cases.append(('a vendored hook is received',
                       ppr.received_owner('.claude/hooks/push-check-gate.sh', owners)
@@ -3124,6 +3172,12 @@ def check_received_hooks_and_moved_engine_files():
                       'tools/bootstrap.sh:' not in out, out[-500:]))
         cases.append(('CONTROL: a mirrored tool with no copy in tools/ is still reported',
                       'README.md:1' in out and 'gone_tool.py' in out, out[-500:]))
+        cases.append(('an AGENTS.md command naming the moved file is reported, '
+                      'with where it is now',
+                      'AGENTS.md:1' in out and 'is at tools/precedent_push_check.py now'
+                      in out, out[-800:]))
+        cases.append(('...and so is a .claude/settings.json allowlist entry',
+                      '.claude/settings.json:' in out, out[-800:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -3140,7 +3194,10 @@ def check_whats_new_log_mechanics():
     repo's declared zone): a day with a change, an empty day, a day whose
     only commit touches the log itself, and a day that adds a document.
     Stated cases: the first run lists exactly the two real days, newest
-    document named; --mark covers them and a second run lists none; a day
+    document named, and names the quiet ones; an entry's heading carries
+    its weekday, --check flags an entry not in the shape (heading, opening
+    line, a bold key phrase per bullet), and headline case leaves the
+    slug alone; --mark covers them and a second run lists none; a day
     that has not finished cannot be marked; the later of this checkout's
     log and main's is read; an entry naming an approval is flagged; the
     log never ships to another project."""
@@ -3188,6 +3245,46 @@ def check_whats_new_log_mechanics():
         got_back = [d.isoformat() for d, _ in back]
         cases.append(('--since backfills a first run from the day it names',
                       got_back == ['2026-08-01', '2026-09-05', '2026-09-08'], str(got_back)))
+        _tz, _t, _active, quiet = pwn.scan_days(repo, today=today)
+        got_quiet = [d.isoformat() for d in quiet]
+        cases.append(('a quiet day, and one whose only change is the log, is named '
+                      'as quiet rather than dropped silently',
+                      got_quiet == ['2026-09-03', '2026-09-04', '2026-09-06',
+                                    '2026-09-07', '2026-09-09'], str(got_quiet)))
+        cases.append(('a heading carries its weekday',
+                      pwn.heading_for(_dt.date(2026, 9, 30), 'a-slug')
+                      == '## Wednesday 2026-09-30: a-slug',
+                      pwn.heading_for(_dt.date(2026, 9, 30), 'a-slug')))
+        good = (f'## Wednesday 2026-09-30: safer-merges\n\n{pwn.HEADLINE}\n\n'
+                f'- **A change** (a name)\n')
+        old = '## 2026-09-30\n\n**A summary of the bullets.**\n\n- A change\n'
+        wrong_day = good.replace('Wednesday', 'Tuesday')
+        no_line = good.replace(pwn.HEADLINE, '**Merges got safer.**')
+        no_bold = good.replace('**A change**', 'A change')
+        backticked = good.replace('safer-merges', '`safer-merges`')
+        mid_bold = good.replace('**A change** (a name)', 'A **change** (a name)')
+        cases.append(('an entry in the shape passes, and the old shape, a wrong '
+                      'weekday, a summary headline, a bullet with no bold key '
+                      'phrase, one whose bold is mid-sentence and a backticked '
+                      'slug are each flagged',
+                      pwn.shape_problems(good) == []
+                      and len(pwn.shape_problems(old)) == 3
+                      and len(pwn.shape_problems(wrong_day)) == 1
+                      and len(pwn.shape_problems(no_line)) == 1
+                      and len(pwn.shape_problems(no_bold)) == 1
+                      and len(pwn.shape_problems(backticked)) == 1
+                      and len(pwn.shape_problems(mid_bold)) == 1,
+                      str([pwn.shape_problems(t) for t in
+                           (good, old, wrong_day, no_line, no_bold, backticked,
+                            mid_bold)])))
+        import title_case as _tc
+        kept = _tc.title_case('Wednesday 2026-09-30: safer-merges')
+        compound = _tc.title_case('a lock-in for safer-merges')
+        cases.append(('headline case leaves a dated heading\'s slug alone, and '
+                      'still capitalizes a compound elsewhere',
+                      kept == 'Wednesday 2026-09-30: safer-merges'
+                      and compound == 'A Lock-In for Safer-Merges',
+                      f'{kept!r} {compound!r}'))
         added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
         cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
                       str(added)))
@@ -3212,6 +3309,26 @@ def check_whats_new_log_mechanics():
                                   '- Shorter instructions (about 800 tokens)\n')
         cases.append(('an entry naming an approval is flagged, and only it',
                       [n for n, _ in hits] == [5], str(hits)))
+        # The reply check's declared pairing, read from reply_check.json
+        # itself: a reply showing the log opens with the log's link.
+        import re as _re
+        decl = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('practice') == 'whats-new']
+        pair = (decl[0].get('require_paired_with') or [{}])[0] if decl else {}
+
+        def refused(reply):
+            return bool(_re.search(pair.get('if_matches', '(?!)'), reply, _re.I | _re.M)
+                        and not _re.search(pair.get('must_also_match', ''), reply,
+                                           _re.I | _re.M))
+        linked = ('**The log:** [WHATS_NEW.md](https://x/WHATS_NEW.md). Check '
+                  'here daily.\n\n' + pwn.HEADLINE + '\n')
+        late = 'Wrote one day.\n\n' + linked
+        cases.append(('a reply showing the log is refused unless its first line '
+                      'carries the log\'s link; one that does not show it is '
+                      'untouched',
+                      bool(pair) and not refused(linked) and refused(late)
+                      and not refused('Nothing about the log here.\n'),
+                      str(pair)[:200]))
         rule = _ck.vendoring_rule('WHATS_NEW.md')
         cases.append(('a project\'s log never ships to another project',
                       bool(rule) and rule[1] is False, str(rule)))
@@ -13480,6 +13597,17 @@ def check_precedent_check_fires():
                     lambda t: t.replace('## Learn More', '## Learn more', 1))
         case('headline-capitalization', _plant_headline)
 
+        # whats-new -- an entry's bullet with its bold opening taken off, the
+        # exact slip the check was added for on 2026-10-01 (the bold sat
+        # mid-sentence and went unseen). The log's first bullet is the plant
+        # because the newest entry always has one.
+        def _plant_whats_new(repo):
+            def strip_first_bold(t):
+                head, sep, rest = t.partition('\n- **')
+                return head + sep.replace('**', '') + rest.replace('**', '', 1) if sep else t
+            rewrite(repo, 'WHATS_NEW.md', strip_first_bold)
+        case('whats-new', _plant_whats_new)
+
         # source-naming -- a source named freehand instead of by its level.
         # `bestpractice-local` is the real name this repo's own repo-local
         # source carried before the convention was fixed, so the planted case
@@ -15109,6 +15237,19 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'planted stale TODO.md reference')
 
         case('todo-gotcha-stale-reference', _plant_stale_todo_reference)
+
+        # open-items-outside-todo -- an item a migration wrote under
+        # docs/todo/, where nothing indexes or closes it (2026-10-01).
+        def _plant_item_outside_todo(repo):
+            d = repo / 'docs' / 'todo'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'todo-2026-01-01-planted.md').write_text(
+                '---\nslug: planted\nstatus: open\n---\n# Planted\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted item outside todo/')
+
+        case('open-items-outside-todo', _plant_item_outside_todo)
 
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
@@ -32917,6 +33058,34 @@ class _KeptDivergenceFixture:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
 
+def check_agents_templates_repeat_no_practice_text():
+    """No block of an AGENTS.md template repeats a practice's own text.
+
+    2026-10-01, from a consumer's Update Vendors: the update listed four
+    `## Conventions` blocks the consumer's section lacked and said to copy
+    each in by hand; once copied, session-load-budget refused the same text
+    as already sitting in practices/<slug>.md, "paid for twice, every
+    session". The template is where both instructions came from, so the
+    template carries a one-line pointer to the practice instead, and this
+    holds it there."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    corpus = pc._practice_corpus(ROOT)
+    bad = []
+    for rel in ('templates/AGENTS.md.loader.template', 'templates/AGENTS.md.template'):
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        for offset, block in pve._md_blocks(text):
+            for src, quote, words in pc.duplicated_resident_text(ROOT, block, corpus):
+                bad.append(f'{rel}:{offset + 1} repeats {words} words of {src}: '
+                           f'"{quote[:80]}..."')
+    check('an AGENTS.md template repeats no practice text, so the update never '
+          'asks for a copy session-load-budget then refuses', not bad, '; '.join(bad))
+
+
 def check_kept_agents_md_divergence_is_recorded():
     """An AGENTS.md section a repo words its own way ON PURPOSE can be
     recorded, and then Update Vendors finishes: DONE, exit 0 -- until
@@ -32976,12 +33145,13 @@ def check_kept_agents_md_divergence_is_recorded():
                       'template, the next update is DONE, exit 0',
                       rc == 0 and 'DONE' in out and 'LEFT FOR YOU' not in out,
                       out[-1500:]))
-        cases.append(('...and a pin to the whole section is narrowed to the '
-                      'blocks the section carries, and says so',
-                      json.loads((repo / 'precedent.json').read_text(
-                          encoding='utf-8'))['kept_template_divergences'][item]
-                      ['template_sha256'] == sha_now
-                      and 'now pins only the blocks' in out, out[-1500:]))
+        entry = json.loads((repo / 'precedent.json').read_text(
+            encoding='utf-8'))['kept_template_divergences'][item]
+        cases.append(('...and the pin gains the blocks the section carries '
+                      'beside the template\'s own text, and says so',
+                      entry['template_sha256'] == full_now
+                      and entry.get('carried_sha256') == sha_now
+                      and 'now records both' in out, out[-1500:]))
         cases.append(('...and says it once, with the reason, as a note',
                       out.count('kept on purpose: ') == 2   # step line + summary
                       and 'we say this our own way' in out, out[-1500:]))
@@ -33017,6 +33187,25 @@ def check_kept_agents_md_divergence_is_recorded():
                       and 'FIXTURE BULLET' in out and 'has changed since' in out
                       and pin(pve._instantiate(
                           pve._template_sections(moved)[key][1], subs)) in out,
+                      out[-1500:]))
+
+        # The consumer edits its OWN section: one sentence from a block it
+        # lacked. Upstream never changed, so the decision holds (2026-10-01,
+        # from a consumer's Update Vendors: the carried pin moved with the
+        # local text and the report said upstream had changed).
+        local = fx.consumer('local-edit', agents=ours)
+        fx.keep(local, item, 'we say this our own way', full_now)
+        fx.update(local)
+        first = blocks[0].split('\n')[0]
+        text = (local / 'AGENTS.md').read_text(encoding='utf-8')
+        (local / 'AGENTS.md').write_text(
+            text.replace('written in its own words.',
+                         'written in its own words.\n\n' + first, 1),
+            encoding='utf-8')
+        rc, out = fx.update(local)
+        cases.append(('a local edit to a kept section keeps the decision: DONE, '
+                      'exit 0, and never "upstream has changed"',
+                      rc == 0 and 'DONE' in out and 'has changed since' not in out,
                       out[-1500:]))
 
         bare = fx.consumer('unreasoned', agents=ours)
@@ -42445,6 +42634,8 @@ def check_individual_source_bootstrap_self_heals():
                         / 'individual-source-bootstrap.sh.template')
         raw_home = tmp / 'home-raw-template'
         raw_home.mkdir()
+        stray = pathlib.Path('/home/user/{{SOURCE_NAME}}')
+        stray_before = os.path.lexists(stray)
         r14 = subprocess.run(['bash', str(raw_template)], capture_output=True,
                              text=True, timeout=180,
                              env={**_no_credentials(), 'HOME': str(raw_home),
@@ -42455,6 +42646,14 @@ def check_individual_source_bootstrap_self_heals():
                       'trying to clone its own placeholder',
                       r14.returncode == 0
                       and 'no repository URL' in (r14.stdout + r14.stderr),
+                      r14.stdout + r14.stderr))
+        # ...and sets nothing up: a run that derived a URL from the
+        # environment once cloned and linked a path named after the
+        # placeholder, outside the fixture (2026-10-01).
+        cases.append(('...and creates nothing named after its placeholder, in '
+                      'the fixture or outside it',
+                      not any('{{' in q.name for q in raw_home.rglob('*'))
+                      and (stray_before or not os.path.lexists(stray)),
                       r14.stdout + r14.stderr))
 
         # NO COMMENT IN THE TEMPLATE MAY SPELL A PLACEHOLDER OUT. The same
@@ -44016,6 +44215,167 @@ def check_update_vendors_rehearsal_findings():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     verdict('a fresh install tracks its hooks in ENGINE_MANIFEST.json', cases)
+
+
+def check_update_repoints_moved_engine_commands():
+    """Update Vendors rewrites `process/upstream/tools/X` to `tools/X` in
+    AGENTS.md, CLAUDE.md and .claude/settings.json once the mirror is gone
+    and tools/X is there (2026-10-01, from a consumer's Update Vendors:
+    three AGENTS.md commands and an allowlist entry kept naming the gone
+    path). A guarded fallback, a generated block and a file with no copy in
+    tools/ are left as they are."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repoint-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'practice_audit.py').write_text('', encoding='utf-8')
+        (repo / '.claude').mkdir()
+        agents = ('Run `python3 process/upstream/tools/practice_audit.py` weekly.\n'
+                  'if [ -f process/upstream/tools/practice_audit.py ]; then :; fi\n'
+                  'And `python3 process/upstream/tools/gone_tool.py`.\n'
+                  '<!-- BEGIN GENERATED: precedent-loader -->\n'
+                  'process/upstream/tools/practice_audit.py\n'
+                  '<!-- END GENERATED: precedent-loader -->\n')
+        (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        (repo / '.claude' / 'settings.json').write_text(
+            '{"permissions": {"allow": ["Bash(python3 process/upstream/tools/'
+            'practice_audit.py:*)"]}}\n', encoding='utf-8')
+        done = dict(pu.repoint_moved_engine_mentions(repo))
+        text = (repo / 'AGENTS.md').read_text(encoding='utf-8').split('\n')
+        cases.append(('the AGENTS.md command now names tools/',
+                      text[0] == 'Run `python3 tools/practice_audit.py` weekly.', text[0]))
+        cases.append(('the guarded fallback is left alone',
+                      'process/upstream/tools/practice_audit.py' in text[1], text[1]))
+        cases.append(('a file with no copy in tools/ is left alone (the check reports it)',
+                      'process/upstream/tools/gone_tool.py' in text[2], text[2]))
+        cases.append(('a generated block is left to build_views',
+                      text[4] == 'process/upstream/tools/practice_audit.py', text[4]))
+        cases.append(('the settings.json allowlist entry now names tools/',
+                      'python3 tools/practice_audit.py' in
+                      (repo / '.claude' / 'settings.json').read_text(encoding='utf-8'), ''))
+        cases.append(('and each file is reported with its count',
+                      done == {'AGENTS.md': 1, '.claude/settings.json': 1}, str(done)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors repoints commands that name a moved engine file '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_in_force_nowhere_asks_once():
+    """A rule in force nowhere is asked about until precedent.json records
+    that it does not apply here, by slug or by the set it lives in, and
+    then said in one line instead (2026-10-01, from a consumer's Update
+    Vendors: sixteen of them asked on every update, under a header that
+    contradicted itself)."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-nowhere-'))
+    cases = []
+    out = ('precedent_sync_views: IN FORCE NOWHERE -- doc-link-text '
+           '(precedent-shared-repo-maintenance): status: deduplicated names '
+           'in_force_at: doc-link-text, but nothing resolves it\n'
+           'precedent_sync_views: IN FORCE NOWHERE -- old-rule (precedent): '
+           'withdrawn from universal on 2026-09-20; in force in '
+           '`precedent-shared-writing` -- declare that set to keep it\n')
+    try:
+        repo = tmp / 'consumer'
+        repo.mkdir()
+
+        def run(cfg):
+            (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.in_force_nowhere_step(repo, rep, out)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rep.close()
+            return rep, buf.getvalue()
+        rep, text = run({})
+        cases.append(('unrecorded, each is asked, with the snippet that records it',
+                      len(rep.asks) == 2 and all('not_in_force_here' in q
+                                                 for _w, q in rep.asks), str(rep.asks)))
+        cases.append(('...naming the set when the finding knows it',
+                      any('`precedent-shared-writing`' in q for _w, q in rep.asks),
+                      str(rep.asks)))
+        cases.append(('the header no longer contradicts itself',
+                      'blocks the update' not in text and 'before Go update'
+                      not in text and 'QUESTIONS FOR THE PERSON' in text, text[-600:]))
+        rep, _ = run({'not_in_force_here': {'doc-link-text': 'we dropped that set',
+                                            'precedent-shared-writing': 'dropped'}})
+        cases.append(('recorded by slug and by set, nothing is asked',
+                      not rep.asks, str(rep.asks)))
+        cases.append(('...and they are said in one step line',
+                      [n for n, _o in rep.steps] == ['not in force here, on purpose'],
+                      str(rep.steps)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors asks about a rule in force nowhere until it is '
+          f'recorded ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_done_names_the_check_it_ran():
+    """Update Vendors' DONE says which check it ran, that the full check did
+    not run, and passes on a size-cap warning the check printed.
+
+    2026-10-01, from a consumer's Update Vendors: the update printed "check
+    for pre-staging: passed" and DONE; the consumer's full check then failed
+    three ways on the same tree, one of them a size cap this update's own
+    regenerated AGENTS.md block had pushed over. The basic check is right
+    for pre-staging; reading as the push gate's all-clear was not."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-done-tier-'))
+    cases = []
+    real = pu.check_with_merge_fallback
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'precedent_push_check.py').write_text('', encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+
+        def run(out):
+            pu.check_with_merge_fallback = lambda _r, _rep, _a, _l: (0, out)
+            rep = pu.Report()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = pu.closing_check(repo, rep)
+            return rc, buf.getvalue()
+        try:
+            rc, out = run('precedent_push_check: all passed\n')
+            cases.append(('the step names the tier it ran',
+                          'basic check for pre-staging: passed' in out, out[-600:]))
+            cases.append(('DONE says the full check was NOT run, and how to run it',
+                          rc == pu.DONE and 'full check was NOT run' in out
+                          and '--tier full' in out, out[-600:]))
+            rc, out = run('passed\nWARNING: over a session-load size cap '
+                          '(changed_practice, above). Allowed onto pre-staging; '
+                          'the Debut into staging refuses it.\n')
+            cases.append(('a size-cap warning the check printed is repeated '
+                          'beside DONE', 'WARNING: over a session-load size cap'
+                          in out.split('== Update Vendors ==')[-1], out[-600:]))
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+    finally:
+        pu.check_with_merge_fallback = real
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors\' DONE names the check it ran and the one it did '
+          f'not ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_update_vendors_reports_dropped_template_wording():
@@ -50349,6 +50709,7 @@ def main():
     check_rename_links_leaves_dated_records_alone()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
+    check_todo_migrate_refuses_a_subdirectory()
     check_update_written_files_name_no_mirrored_engine()
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
@@ -50407,6 +50768,7 @@ def main():
     check('duplicate detection ignores a run of lines with no word in it',
           *check_duplicate_runs_skip_wordless_lines())
     check_kept_agents_md_divergence_is_recorded()
+    check_agents_templates_repeat_no_practice_text()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
     check_legacy_bootstrap_shim_is_replaced()
@@ -50448,6 +50810,9 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_done_names_the_check_it_ran()
+    check_update_in_force_nowhere_asks_once()
+    check_update_repoints_moved_engine_commands()
     check_update_vendors_dropped_wording_reads_placeholders_filled()
     check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()

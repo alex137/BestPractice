@@ -147,10 +147,11 @@ make that practice stronger"* and approved this wording with *"Go update on
 the fixes and wording"* (strength: decided).
 
 **Merged into [upstream-fix](upstream-fix.md), 2026-10-01.** Morgan asked
-whether this, fix-the-original and upstream-fix were saying the same thing
-three times, and approved folding them into one: *"Go, merge them, then
-Booked into pre-staging."* Its copies question and its missed-gate question are upstream-fix's points 8 and 9. This file stays, word for word above, as
-the record; the rule in force is upstream-fix.
+whether this, durable-fix and upstream-fix were saying the same thing three
+times, and approved folding them into one: *"Go, merge them, then Booked
+into pre-staging."* Its copies question and its missed-gate question are
+upstream-fix's points 8 and 9. This file stays, word for word above, as the
+record; the rule in force is upstream-fix.
 
 ## Install
 Two questions before any fix is reported, and one line in the reply.

@@ -2326,6 +2326,21 @@ def _lives_on_in_own_engine(old):
     return False
 
 
+def is_guarded_fallback(rel, line, old):
+    """True when `line` names the mirrored `old` (`<mirror>/tools/X`) only
+    as the fallback beside this repo's own tools/X: a shell file, a `[ -f`
+    test, or a line that names tools/X too. Everything else that names it
+    -- an instruction in AGENTS.md, an allowlist entry in
+    .claude/settings.json -- is a command that now fails "No such file"
+    (2026-10-01, from a consumer's Update Vendors: three AGENTS.md lines
+    and a settings.json entry, found only by running one)."""
+    if rel.endswith('.sh') or '[ -f' in line or 'if [' in line:
+        return True
+    own = 'tools/' + old.split('/tools/', 1)[-1]
+    rest = line.replace(old, ' ')
+    return re.search(r'(?<![\w./-])' + re.escape(own) + r'(?![\w-])', rest) is not None
+
+
 def _withheld_from_manifest():
     """-> the practice files MANIFEST.json says are withheld from this public
     tree (published in a private source and deliberately kept out), or None
@@ -6732,6 +6747,33 @@ def _headline_capitalization(ctx):
     return out
 
 
+@check('whats-new', 'change',
+       'a changed What\'s New log has every entry in the shape: a heading '
+       '"<Weekday> <date>: <slug>" whose weekday is the date\'s own, the '
+       'fixed opening line word for word, every bullet opening with a bold '
+       'key phrase, '
+       'and no approver named',
+       'whether the bullets are the day\'s most noteworthy changes, whether '
+       'a figure is real, whether every missing day was written and the '
+       'quiet ones said in the reply -- judgment, the session\'s; and a log '
+       'nobody changed, so an old entry is only flagged once a session '
+       'touches the log, which is when the practice has it rewritten.')
+def _whats_new(ctx):
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_whats_new as pwn
+    except Exception as e:
+        raise NotApplicable(f'tools/precedent_whats_new.py did not import: {e}')
+    rel = pwn.feed_path(ROOT)
+    if rel not in ctx.changed or not (ROOT / rel).is_file():
+        raise NotApplicable(f'{rel} is not changed here')
+    text = (ROOT / rel).read_text(encoding='utf-8')
+    out = [Finding(f'{rel}:{n}', problem) for n, problem in pwn.shape_problems(text)]
+    out += [Finding(f'{rel}:{n}', f'names an approval: {line.strip()[:100]}')
+            for n, line in pwn.approval_lines(text)]
+    return out
+
+
 def _unglossed(text, known, path=None):
     """[(line, TOKEN)] via doc_lint's own acronym scan, so this check and the
     warning it replaces never drift apart -- one detector, two callers.
@@ -7414,8 +7456,7 @@ def _rename_updates_links(ctx):
                 continue
             if old in withheld:
                 continue      # withheld, not deleted -- see the note above
-            if _lives_on_in_own_engine(old):
-                continue      # moved to this repo's own tools/, not gone
+            moved = _lives_on_in_own_engine(old)
             # A file the consuming repo RECEIVED cannot be repointed there:
             # a mirrored tree, the vendored engine and another source's
             # materialized files are copied wholesale, and an edit is
@@ -7469,7 +7510,12 @@ def _rename_updates_links(ctx):
                 # longer exists -- it cannot go stale. A link to a branch can,
                 # and still counts.
                 if old in line and old in PINNED_PERMALINK_RE.sub('', line):
+                    if moved and is_guarded_fallback(rel, line, old):
+                        continue  # the fallback beside tools/, as templates write it
                     where = f'renamed to {new_path}' if new_path else 'deleted'
+                    if moved:
+                        where = (f'deleted; the file is at tools/'
+                                 f'{old.split("/tools/", 1)[-1]} now')
                     out.append(Finding(
                         f'{rel}:{i}',
                         f'still references {old!r}, which this branch '
@@ -7487,6 +7533,43 @@ def _rename_updates_links(ctx):
 # "`x.template` (retired 2026-09-21)", "since removed", "was folded into".
 _SAYS_GONE = re.compile(r'\b(retired|removed|deleted|folded|renamed|tombstoned|'
                         r'no longer|used to|was|until 20\d\d)\b', re.I)
+
+# Where a Markdown paragraph starts: a blank line, a heading, a list item, a
+# table row, a fence or a quote. Every other line continues the one above.
+_BLOCK_START = re.compile(r'^\s*($|#|[-*+]\s|\d+[.)]\s|\||```|~~~|>)')
+_SENTENCE_END = re.compile(r'[.!?](?=\s|$)')
+
+
+def _sentences_saying_gone(lines, i, path):
+    """True when a sentence that runs through line `i` (0-based), names
+    `path`, and says the thing is gone. A sentence wrapped across lines
+    puts "retired" on the line after the path, and judging one physical
+    line at a time read that as a live pointer (2026-10-01, twice in one
+    consumer session, both fixed by re-wrapping text and nothing else).
+    The sentence, not the paragraph: "Read `x`. This was fine." stays a
+    live pointer."""
+    start = i
+    while start > 0 and lines[start].strip() and not _BLOCK_START.match(lines[start]) \
+            and lines[start - 1].strip() and not re.match(r'^\s*(#|\||```|~~~)', lines[start - 1]):
+        start -= 1
+    end = i + 1
+    while end < len(lines) and lines[end].strip() and not _BLOCK_START.match(lines[end]):
+        end += 1
+    joined, span = '', None
+    for j in range(start, end):
+        if j == i:
+            span = (len(joined), len(joined) + len(lines[j].strip()))
+        joined += lines[j].strip() + ' '
+    if span is None:
+        return False
+    bounds = [0] + [m.end() for m in _SENTENCE_END.finditer(joined)] + [len(joined)]
+    for a, b in zip(bounds, bounds[1:]):
+        if b <= span[0] or a >= span[1]:
+            continue
+        sentence = joined[a:b]
+        if path in sentence and _SAYS_GONE.search(sentence):
+            return True
+    return False
 
 
 def _paths_this_repo_removed():
@@ -7558,6 +7641,8 @@ def _docs_name_no_removed_path(ctx):
             # INSTALL-era docs name it: `process/upstream/<path here>`.
             live += ' ' + live.replace('process/upstream/', ' ')
             hit = next((g for g, pat in pats if pat.search(live)), None)
+            if hit and _sentences_saying_gone(lines, i - 1, hit):
+                continue
             if hit:
                 out.append(Finding(
                     f'{rel}:{i}', f'names {hit!r}, which this repository no '
@@ -9294,6 +9379,41 @@ def _todo_gotcha_stale_reference(ctx):
                     'stub since the 2026-09-16 migration and takes no new '
                     'items; file it under todo/ instead '
                     '(spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'))
+    return out
+
+
+OPEN_ITEM_FILE_RE = re.compile(r'(?:^|/)(todo|gotcha)-\d{4}-\d{2}-\d{2}-[^/]*\.md$')
+
+
+@check('open-items-outside-todo', 'tree',
+       'an open item (todo-<date>-*.md) or gotcha (gotcha-<date>-*.md) '
+       'filed anywhere but the repository\'s root todo/ or gotchas/, where '
+       'the index, the closing check and every other tool look',
+       'an item filed under its own name in the right directory but with '
+       'broken frontmatter -- that is the item format\'s own checks; this '
+       'sees only where the file sits',
+       practice_backed=False,
+       selects_on=('*todo-*.md', '*gotcha-*.md', 'tools/todo_migrate.py'))
+def _open_items_outside_todo(ctx):
+    # 2026-10-01, from a consumer's Update Vendors: `todo_migrate.py --repo
+    # docs` wrote 33 items under docs/todo/, and build_todo_index.py and
+    # every check read only <repo>/todo -- so for 13 days they were
+    # invisible, closed items unrecognised, and nothing said so.
+    home = {'todo': 'todo/', 'gotcha': 'gotchas/'}
+    mirrored = _mirrored(ctx.root)
+    out = []
+    for rel in _git('ls-files', '*.md').stdout.split():
+        m = OPEN_ITEM_FILE_RE.search(rel)
+        if not m or rel.startswith(home[m.group(1)]) or rel.startswith(mirrored) \
+                or _received_owner(rel) is not None:
+            continue
+        text = ctx.read(rel) or ''
+        if not (text.startswith('---') and re.search(r'^status:', text, re.M)):
+            continue
+        out.append(Finding(rel, f'an item outside the root {home[m.group(1)]} -- '
+                                f'nothing indexes or closes it here; git mv it '
+                                f'into {home[m.group(1)]} and run '
+                                f'python3 tools/build_todo_index.py'))
     return out
 
 

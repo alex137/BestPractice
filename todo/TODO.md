@@ -145,6 +145,7 @@ as_of: 2026-10-01
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 2d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
 | [`todo-2026-09-29-source-checks-adopt-generated-blocks`](todo-2026-09-29-source-checks-adopt-generated-blocks.md) | Move the practice sets' own checks onto `generated_blocks.py`, the engine's one answer to "is this line inside a generat | 2d | wait | generated_blocks.py reaching main, then each practice set's engine refresh |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 1d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
+| [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 0d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
 
 ## Decisions (the Person's Call)
 

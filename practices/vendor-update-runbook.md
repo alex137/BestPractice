@@ -781,6 +781,10 @@ says so, both from the vendored tree under `process/upstream/`.
     still restricted, and a step this session cannot reach hands off rather
     than coming back as a question. **If the safety check refuses a step
     here, report that step by name and stop; never route around it.**
+    Claude Code's auto mode refuses this merge as "Merge Without Review"
+    even though the phrase authorizes it (2026-10-01). Say in one line
+    that auto mode stopped it, not this repository's rules, and ask for
+    it again in words that name it: "Merge PR #N into pre-staging".
 
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the
