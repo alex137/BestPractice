@@ -6,8 +6,10 @@ severity:    default
 applies_to:  ["**"]
 applies_to_why: "The occasion is committing anything -- a moment, not a place, and every path is committed. Reached through the occasion index. Decided: 2026-09-28, when the practice landed at universal from the shared set precedent-shared-repo-maintenance."
 occasion:    "committing anything"
-gates:       []
+gates:       ["push"]
+gates_why:   "Wherever precedent-shared-repo-maintenance is declared, the push check runs its check_session_trailer.py and refuses a commit without the trailer, and the push gate prints this rule. index_required: false records that judgment, with its cost said plainly: in a repo with no trailer check, a missing trailer is first named at push, after the commit exists. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 index_clause: "a Session: <url> trailer on every commit"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active
@@ -15,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session"
+approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session; push gate, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 ---
 ## Rule
 A `Session: <url>` trailer on every commit -- for Claude Code, `https://claude.ai/code/session_<ID>`. `Claude-Session: <url>` is also accepted -- the key Claude Code Remote's own harness actually emits as of 2026-09, functionally the same trailer under a different name. For unattended automation with no chat session behind it, the workflow run's own URL stands in. If a tool has no shareable link at all, the trailer says so explicitly (`Session: none available (<tool>)`) rather than being silently omitted.
@@ -43,6 +45,8 @@ repository maintenance, on Morgan's accepting a session's recommendation
 that it applies to any repository and not only to maintaining practice
 sets. The rule text is unchanged. Its mechanical check did not move with
 it -- see Install for why.
+
+**Push gate, and off the occasion index, from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: `check_session_trailer.py` runs in the push check wherever precedent-shared-repo-maintenance is declared. Where it is not, the push gate still prints this rule, after the commit exists; the Rule's own remedy is a reworded commit before it is shared. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 **The mechanical check lives with a shared set, not here.** The shared set

@@ -155,6 +155,7 @@ as_of: 2026-10-01
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. | 21d | wait |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | 19d | wait | Morgan's decision, explicitly deferred. |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay | 12d | ask |  |
+| [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 0d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
 
 ## Unblocked Work
 
@@ -204,6 +205,7 @@ as_of: 2026-10-01
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | Morgan |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay |  |
+| [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
 
 ## Due Reminders
 

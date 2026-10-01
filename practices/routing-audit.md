@@ -4,8 +4,8 @@ title:       The routing audit checks coverage, not content
 tier:        on-demand
 severity:    default
 scope:       engine-dev
-applies_to:  ["**"]
-applies_to_why: "Not a place -- \"checking whether practices that should have fired, fired\" is a periodic act a person invokes, not a file-touch trigger. Reachability comes from its occasion clause. Decided: 2026-09-03, full-practice-audit / routing-audit session."
+applies_to:  ["tools/routing_audit.py", "tools/routing_audit_state.json"]
+applies_to_why: "The audit's own tool and the state file it rolls forward: running or changing the audit touches one of them. Decided: 2026-09-03, full-practice-audit / routing-audit session; real paths, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 occasion:    "checking whether practices that should have fired for recent work did"
 gates:       []
 index_clause: "run the mechanical coverage check now; roll the deep-read slice forward"
@@ -16,7 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "pending review"
+approved_by: "pending review; real paths, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 ---
 ## Rule
 Ask a narrower question than "did we follow every practice": **did every
@@ -79,6 +79,8 @@ conversation alone. See
 [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/staging/spec/UNBUILT_PLAN_ITEMS.md) for the
 investigation this gap itself opens: why an approved phase-5 deliverable
 fell through, and what else the plan approved that the tree does not show.
+
+**Real paths from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) gave this rule the audit's own tool and state file in place of `**`, so it leaves the occasion index and fires when the audit is run or changed. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 [tools/routing_audit.py](../tools/routing_audit.py) implements both parts;
