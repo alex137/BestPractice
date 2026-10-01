@@ -21,7 +21,10 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   individual or shared set, a practice whose frontmatter claims a non-
   universal source, a personal email address, an absolute home directory.
   These patterns are safe to publish because they describe SHAPES, not
-  anyone's actual vocabulary.
+  anyone's actual vocabulary. A person whose own domain is public says so
+  in their private list --
+  `# leak-gate: public-email-domain <domain> -- why` -- and addresses
+  there pass the email rule; nothing else about it changes.
 
   VOCABULARY, in two halves. This layer catches WORDS rather than shapes.
 
@@ -574,6 +577,33 @@ STEM_NOTES_RE = re.compile(
 AUTO_COVER_RE = re.compile(
     r'#\s*visibility-audit:\s*auto-cover-bare-names\s+(on|off)\s*--\s*(.+)$')
 
+# A fifth directive, and the only one that narrows a CONTENT rule. The
+# built-in "an email address" rule refuses every address, because Precedent's
+# own tree should carry none. A consuming repo's product can carry one on
+# purpose: a browser add-on's Firefox ID must be shaped like an address, and a
+# real one carried its owner's domain into the manifest and its store listing,
+# so its push check refused every push with nothing wrong in the repo
+# (2026-10-01). The owner then decided the domain is public anyway.
+#
+# Whether a person's domain is private is a fact about that PERSON, so it is
+# declared in that person's own list, beside the allow lines above -- not
+# per consuming repo, where it would have to be repeated in each one and could
+# disagree. A subdomain counts (mail.<domain>); a domain that merely ENDS in
+# the same letters does not. It never touches a blocklist pattern: a term
+# somebody banned stays banned, whatever this line says.
+#
+# ITS OWN PREFIX, `# leak-gate:`, not `# visibility-audit:`, and that is the
+# rollout. One person's list is read by the gate vendored in every repo they
+# work in, at whatever engine each carries, and an engine that predates a
+# directive refuses an unknown `visibility-audit:` line as unparsed -- one new
+# line in the list would have turned every older repo's push check red. An
+# older engine reads `# leak-gate:` as a comment, so the address is refused
+# there exactly as before until that repo's next update.
+PUBLIC_EMAIL_DOMAIN_RE = re.compile(
+    r'#\s*leak-gate:\s*public-email-domain\s+'
+    r'([A-Za-z0-9][\w-]*(?:\.[\w-]+)+)\s*--\s*(.+)$')
+LEAK_GATE_ANNOUNCE_RE = re.compile(r'#\s*leak-gate:')
+
 VIS_AUDIT_ANNOUNCE_RE = re.compile(r'#\s*visibility-audit:')
 
 
@@ -590,6 +620,12 @@ def repo_policy_errors(path):
         return out
     for i, raw in enumerate(text.splitlines(), 1):
         line = raw.strip()
+        if LEAK_GATE_ANNOUNCE_RE.match(line):
+            if not PUBLIC_EMAIL_DOMAIN_RE.match(line):
+                out.append((i, line, 'not a recognized directive. Expected '
+                                     '`leak-gate: public-email-domain <domain> '
+                                     '-- reason`, the reason on the same line'))
+            continue
         if not VIS_AUDIT_ANNOUNCE_RE.match(line):
             continue
         if PRIVATE_OWNER_RE.match(line):
@@ -643,6 +679,31 @@ def parse_repo_policy(path):
         if m:
             allowed[m.group(1).lower()] = m.group(2).strip()
     return owners, allowed
+
+
+def parse_public_email_domains(path):
+    """-> {domain: reason} the blocklist declares public. A line with no
+    reason does not parse, so it declares nothing."""
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return out
+    for line in text.splitlines():
+        m = PUBLIC_EMAIL_DOMAIN_RE.match(line.strip())
+        if m:
+            out[m.group(1).lower().rstrip('.')] = m.group(2).strip()
+    return out
+
+
+def _address_is_public(address, public_domains):
+    """True when the address's domain is a declared public domain or a
+    subdomain of one. The same domain with more after it, or with more
+    letters before it, is neither."""
+    if not public_domains or '@' not in address:
+        return False
+    dom = address.rsplit('@', 1)[1].lower().rstrip('.')
+    return any(dom == d or dom.endswith('.' + d) for d in public_domains)
 
 
 def stem_notes_enabled(path):
@@ -1230,7 +1291,7 @@ def _path_is_exempt(rel, exemptions):
 
 
 def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
-         private_names=None, structural_exempt=None):
+         private_names=None, structural_exempt=None, public_email_domains=None):
     owners, allowed = repo_policy
     if private_names is None:
         private_names = private_set_names()
@@ -1268,6 +1329,9 @@ def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
             if owner_manifest and why == 'an email address':
                 continue          # see OWNER_MANIFESTS_AT_ROOT above
             for m in pat.finditer(text):
+                if why == 'an email address' and _address_is_public(
+                        m.group(0).strip(), public_email_domains):
+                    continue      # see PUBLIC_EMAIL_DOMAIN_RE above
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, why, m.group(0).strip()[:70]))
         for pat in blocklist:
@@ -1530,7 +1594,9 @@ def main():
                                         _policy[1])
              if (not structural_only and _policy[0] and _bl_path is not None
                  and auto_cover_enabled(_bl_path)) else [])
-    hits = scan(units, blocklist, _policy, _auto)
+    _public = (parse_public_email_domains(_bl_path)
+               if _bl_path is not None and _bl_path.is_file() else {})
+    hits = scan(units, blocklist, _policy, _auto, public_email_domains=_public)
 
     # SELF-CORRECT THE COMMON CASE. A private blocklist clone that is
     # simply behind makes a real tree look like it leaks something that
@@ -1558,7 +1624,8 @@ def main():
             _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
                                                 _policy[1])
                      if (_policy[0] and auto_cover_enabled(_bl_path)) else [])
-        hits = scan(units, blocklist, _policy, _auto)
+            _public = parse_public_email_domains(_bl_path)
+        hits = scan(units, blocklist, _policy, _auto, public_email_domains=_public)
 
     # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
     # declares an owner private-by-default, and a clone that never did would
