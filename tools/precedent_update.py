@@ -246,7 +246,11 @@ MIRRORED_TOOL_RE = re.compile(r'(?<![\w./-])process/upstream/tools/([\w.-]+)')
 
 def _own_shell_scripts(repo):
     """-> the repo's own tracked *.sh files: not .claude/hooks/, which the
-    engine vendors and rewrites, and not an engine file it received."""
+    engine vendors and rewrites, not an engine file it received, and not a
+    mirrored copy (precedent_resolve.mirrored_prefixes), which this repo may
+    not edit -- a rewrite there reads to the catalogue sync as a local
+    change, and it refuses the whole update over it."""
+    import precedent_resolve as pr
     r = subprocess.run(['git', '-C', str(repo), 'ls-files', '*.sh'],
                        capture_output=True, text=True)
     try:
@@ -254,8 +258,10 @@ def _own_shell_scripts(repo):
                                   .read_text(encoding='utf-8')).get('files') or ())
     except (OSError, ValueError, AttributeError):
         received = set()
+    mirrors = tuple(pr.mirrored_prefixes(repo) or ())
     return [rel for rel in (r.stdout.split() if r.returncode == 0 else [])
             if not rel.startswith('.claude/hooks/')
+            and not (mirrors and rel.startswith(mirrors))
             and not (rel.startswith('tools/') and rel[len('tools/'):] in received)]
 
 
@@ -293,12 +299,19 @@ def repoint_moved_engine_mentions(repo):
         mask = generated_blocks.mask(lines) if rel.endswith('.md') else [False] * len(lines)
         n = 0
         for i, line in enumerate(lines):
-            if mask[i]:
+            # A shell comment is history, not a call: the template's own
+            # comments name the mirrored path to say why it is gone.
+            if mask[i] or (rel.endswith('.sh') and line.lstrip().startswith('#')):
                 continue
 
             def swap(m, line=line, i=i):
                 name = m.group(1)
+                # tools/X naming itself would be a script that runs itself:
+                # the old install's wrapper tools/bootstrap.sh, which calls
+                # upstream's own bootstrap at the mirrored path, is replaced
+                # whole by the template step, never repointed.
                 if (repo / 'process' / 'upstream' / 'tools' / name).exists() \
+                        or f'tools/{name}' == rel \
                         or pc.is_guarded_fallback(rel, line, m.group(0)):
                     return m.group(0)
                 if not (repo / 'tools' / name).is_file():
