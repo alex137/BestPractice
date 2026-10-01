@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Any change can have a reader-facing half -- a tool, a template, a config key, a practice. No glob narrower than everything describes \"the thing some document describes\", and a narrower one would silently exempt whichever kind of file nobody thought of. Decided: 2026-09-08, when the practice landed."
-occasion:    "changing a mechanism, a workflow or a behaviour that some document describes"
+occasion:    "changing a mechanism some document describes, or finding a document that no longer matches what is true"
 gates:       ["merge"]
 gates_why:   "The merge is the last moment the document and the change can still land in the same commit, which is the whole rule."
-index_clause: "update the document that describes it, in the same commit -- never later"
+index_clause: "update the doc in the same commit; a doc you find wrong, fix now"
 index_required: false
 checked_by:  null
 defines:     []
@@ -28,6 +28,16 @@ instead of two: whatever a reader would have been told, tell them now.
 **And when you add something a person is expected to know about, put it where
 that person reads.** A feature documented only in a specification the audience
 never opens is a feature nobody has.
+
+**A document you come across that no longer matches what is true gets
+fixed now, whatever you were there to do.** It is not a finding to report
+and leave. Whether it breaks anything is not the test; whether it is true is.
+Fix it in the session's own work and say in one line what you corrected.
+Only a fix that needs the person's call (it changes what a rule means, or
+what someone is told to do in a way they have not decided) goes to them,
+with your recommendation. Morgan, 2026-09-30, after a session left a
+section describing a retired workflow because it was "a doc fix, not a broken
+path": *"Part of your job is to keep the docs consistent with the reality!"*
 
 Finding the document is part of the change, not a separate task. Search by
 purpose as well as by mechanism ([search-by-purpose](search-by-purpose.md)):

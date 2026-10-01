@@ -712,9 +712,10 @@ cover, by design and not oversight:
    `local/practices/project-voice.md` and
    `local/practices/project-visual-identity.md` (repo-local practices, not
    root files, but still install artifacts — nothing else may land under
-   `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` (only
-   when the individual or shared source resolved declares `"github_ci_workflows":
-   "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
+   `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` and
+   `.github/workflows/light-check.yml` (written by default since 2026-09-25;
+   a source that declares `"github_ci_workflows": "disabled"` switches both
+   off; see GITHUB_ACTIONS.md), and
    `.github/pull_request_template.md`. Everything else that ships
    with Precedent (INSTALL.md, PRACTICES.md, SETUP.md,
    GITHUB_ACTIONS.md, MOBILE.md, METHOD.md, GIT.md, templates/, tools/,

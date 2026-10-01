@@ -221,23 +221,21 @@ jobs:
       - name: Locate the vendored engine
         id: engine
         if: steps.already.outputs.skip != 'true'
+        # The repo's own tools/ only. process/upstream/tools/ was tried
+        # FIRST until 2026-09-30, so where both existed this ran the mirrored
+        # copy instead of the repo's own engine; every update since the
+        # catalogue copy left tools/ out removes that directory anyway.
         run: |
           set -eu
-          for candidate in \
-            process/upstream/tools \
-            tools; do
-            if [ -f "$candidate/precedent_check.py" ]; then
-              echo "dir=$candidate" >> "$GITHUB_OUTPUT"
-              echo "Using $candidate"
-              exit 0
-            fi
-          done
-          echo "No vendored engine found at either install model's path" \
-               "(process/upstream/tools/ for INSTALL.md section 1," \
-               "tools/ for section 0). Either the engine was never" \
-               "vendored, or it lives somewhere this workflow does not" \
-               "know about -- add that path here and to the two 'paths:'" \
-               "lists above." >&2
+          if [ -f tools/precedent_check.py ]; then
+            echo "dir=tools" >> "$GITHUB_OUTPUT"
+            echo "Using tools"
+            exit 0
+          fi
+          echo "No vendored engine at tools/precedent_check.py. Either the" \
+               "engine was never vendored, or this repo still has the old" \
+               "process/upstream/ layout -- run Update Vendors, which moves" \
+               "the engine into tools/." >&2
           exit 1
 
       - name: Run the light check

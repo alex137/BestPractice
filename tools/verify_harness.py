@@ -2463,6 +2463,7 @@ def check_update_written_files_name_no_mirrored_engine():
     for rel in ('templates/bootstrap.sh',
                 'templates/harness/claude-code/hooks/push-check-gate.sh',
                 'templates/harness/claude-code/hooks/merge-check-gate.sh',
+                'templates/github-actions/light-check.yml.template',
                 'templates/harness/codex/README.md',
                 'templates/harness/gemini-cli/README.md'):
         hits = [n for n, l in enumerate((ROOT / rel).read_text(
@@ -25651,7 +25652,11 @@ def check_catalogue_copy_is_an_allowlist():
                  '.claude/settings.json', '.github/workflows/w.yml', 'MAP.md',
                  'WHERE_THINGS_ARE.md', 'TODO.md', 'AGENTS.md', 'spec/s.md',
                  'todo/t.md', 'templates/harness/LEDGER.md',
-                 'tools/verify_harness.py', 'something-new/n.md']
+                 'tools/verify_harness.py', 'something-new/n.md',
+                 # This project's own open items and news log: a consumer
+                 # gets the machinery (tools/, templates/) and writes its own
+                 # (Morgan, 2026-09-30).
+                 'WHATS_NEW.md', 'todo/INDEX.md']
         cases.append(('what a consumer uses is in the copy',
                       all(ck._in_copy(r) for r in goes),
                       [r for r in goes if not ck._in_copy(r)]))
@@ -25678,7 +25683,8 @@ def check_catalogue_copy_is_an_allowlist():
             src = tmp / 'src'
             for tree in (ck.UPSTREAM, src):
                 for rel in ('gotchas/g.md', 'local/l.md', 'tools/y.py',
-                            'practices/p.md'):
+                            'practices/p.md', 'todo/todo-x.md', 'TODO.md',
+                            'WHATS_NEW.md'):
                     (tree / rel).parent.mkdir(parents=True, exist_ok=True)
                     (tree / rel).write_text('upstream\n', encoding='utf-8')
             (ck.UPSTREAM / 'local' / 'l.md').write_text('ours\n', encoding='utf-8')
@@ -25686,7 +25692,9 @@ def check_catalogue_copy_is_an_allowlist():
                 dropped, kept = ck._drop_what_the_copy_no_longer_carries(tmp, src)
             cases.append(('what the copy no longer carries is removed when it '
                           'is upstream\'s text, and kept when edited here',
-                          sorted(map(str, dropped)) == ['gotchas/g.md', 'tools/y.py']
+                          sorted(map(str, dropped)) == ['TODO.md', 'WHATS_NEW.md',
+                                                        'gotchas/g.md', 'todo/todo-x.md',
+                                                        'tools/y.py']
                           and list(map(str, kept)) == ['local/l.md']
                           and (ck.UPSTREAM / 'practices' / 'p.md').is_file()
                           and not (ck.UPSTREAM / 'gotchas').exists(),
@@ -25699,6 +25707,11 @@ def check_catalogue_copy_is_an_allowlist():
                       {'checkin.py', 'practice_audit.py',
                        'precedent_local_edits.py'} <= set(pve.CONSUMER_ENGINE_FILES),
                       ''))
+        cases.append(('...and the machinery for a consumer\'s own open items and '
+                      'news log ships, though ours does not',
+                      {'build_todo_index.py', 'todo_migrate.py',
+                       'precedent_whats_new.py'} <= set(pve.CONSUMER_ENGINE_FILES)
+                      and ck._in_copy('templates/TODO.md.template'), ''))
     finally:
         ck.ROOT = saved
         shutil.rmtree(tmp, ignore_errors=True)

@@ -7,7 +7,7 @@ applies_to:  [".github/workflows/**"]
 applies_to_why: "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run. Decided: 2026-09-25, when the practice landed."
 occasion:    "a .github/workflows file is added, edited, or found in an update or migration"
 gates:       ["push"]
-index_clause: "no workflow added or edited without the person's words, hash-pinned"
+index_clause: "no new workflow or CI minutes without the person's words; a fix is maintenance"
 index_required: true
 checked_by:  "tools/precedent_check.py"
 defines:     []
@@ -19,8 +19,18 @@ added:       "2026-09-25"
 approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to this ever happening again ... It's a priority\", strength: decided)"
 ---
 ## Rule
-**A session never adds a GitHub Actions workflow, or changes when one runs,
-on its own judgment.** Every `.github/workflows/*.yml` file in a repo that
+**A session never adds a GitHub Actions workflow, or adds CI work to one,
+on its own judgment**: no new workflow, job or trigger, nothing that makes
+one run more often or longer. **That is what this rule guards: billed
+minutes.** A change that adds no CI work -- a broken path, a dead fallback,
+a stale message, in a workflow or in a template one is written from -- is
+ordinary maintenance: make it, the way you would fix any other file.
+**Where this rule seems to stand in the way of what is plainly right, ask
+the person, with your recommendation; never leave a workflow broken because
+of it** (Morgan, 2026-09-30: "We clearly shouldn't have broken workflows
+because I once said to not edit a file! Ask!").
+
+Every `.github/workflows/*.yml` file in a repo that
 vendors Precedent is either the engine's own untouched copy, or carries the
 person's approval in `precedent.json`'s `github_ci_approved`, **pinned to
 the file's exact content by sha256**, with their words quoted:
@@ -36,7 +46,10 @@ the file's exact content by sha256**, with their words quoted:
 
 **Any edit changes the hash and fails the check until the person approves
 the new content.** That includes a new trigger, a new job, or a trigger put
-back that someone removed. To get approval, show the person the file and say
+back that someone removed. For a fix that adds no CI work to a file they
+approved, make the fix, then show it and ask for the new approval, saying it
+adds no minutes. A workflow the engine owns needs no approval to fix: fix
+its template, and the next refresh carries the fix. To get approval, show the person the file and say
 when it will run: every run bills at least a minute in a private repository.
 Then record what they said, in their words. **Never write an approval they
 did not give.** If they do not want the file, delete it.

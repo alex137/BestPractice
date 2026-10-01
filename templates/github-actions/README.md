@@ -1,80 +1,34 @@
 # GitHub Actions templates
 
-Three templates, for two different kinds of repository. All are read-only:
-they report, and none holds a token that could write
+Two templates a consuming repo gets, and one that ships nowhere. All are
+read-only: they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/staging/practices/ci-commits-carry-identity.md)).
 
 | Template | Install as | In which repo |
 |---|---|---|
-| [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
-| [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `github_ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
-| [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | every dependent repository, gated by `github_ci_workflows` — **engine-owned since 2026-09-27**: each Update Vendors writes it from the template over any hand-made copy; see below |
+| [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | every consuming repo, by default (a source declaring `"github_ci_workflows": "disabled"` switches it off) -- **engine-owned since 2026-09-27**: each Update Vendors writes it from the template over any hand-made copy; see below |
+| [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | every consuming repo, on the same terms as the row above |
+| [`precedent-check.yml.template`](precedent-check.yml.template) | nothing | no repo since 2026-09-21: a practice set runs no CI (practice `source-sets-run-no-ci`), and its checks, the generated-views drift check included, run in the session before every push |
 
-**Trigger shape, all three (2026-09-19, spec/CI_MINUTES_PLAN.md item 8):**
-`pull_request: [opened, synchronize]` plus `push:` scoped to the branch(es)
-that actually receive merges — `branches: [main]` as shipped, which each
-template's own header says how to widen for a repo whose routine merge
-target isn't just `main` (this repo's own copies list
-`[main, precedent-beta-v01]`). A branch with no open PR costs nothing at
-all; a branch with an open PR gets checked. Read a template's own header
-before deviating from this — the shape exists because the two simpler
-alternatives (push on every branch, or push scoped to named branches with
-no `pull_request:` at all) were each tried here first and each cost
-something real: the first billed for branches nobody was reviewing yet,
-the second gave up automatic checking on anything short of a merge.
+**When each runs.** The light check runs on a pull request into `main` and
+on a push to `main`, and on the push it stops within seconds when those
+exact files already passed (its "already tested" step). The leak gate is
+triggered by every push and pull request, and decides once it is running:
+in a private repository it skips its job before a runner starts; in a public
+one, where a push is publication, it scans (see "The leak gate template"
+below). Read a template's own header before changing either: every run of
+a private repository's workflow bills at least a minute.
 
-**Runner, all jobs in `doc-lint.yml.template` and `precedent-check.yml.template`
-(2026-09-20):** `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` —
-unset, every job runs on GitHub's own `ubuntu-latest`, same as before. A
-repo that declares a `PRECEDENT_RUNNER` repository variable (Settings →
-Secrets and variables → Actions → Variables) moves every job in that
-workflow onto the named self-hosted runner instead, with no template edit.
-This is opt-in per repo, on purpose: it only helps an adopter who already
-operates and secures their own runner, and
+**Runner, both (2026-09-20):**
+`runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` --
+unset, every job runs on GitHub's own `ubuntu-latest`. A repo that declares
+a `PRECEDENT_RUNNER` repository variable (Settings → Secrets and variables →
+Actions → Variables) moves the job onto the named self-hosted runner
+instead, with no template edit. This is opt-in per repo, on purpose: it only
+helps an adopter who already operates and secures their own runner, and
 [GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md)'s "Controlling
 Actions Minutes" section has the trade-offs (including why a self-hosted
 runner is not safe on a repo that takes untrusted forked pull requests).
-
-## The generated-views drift check
-
-**No longer a separate template.** Through 2026-09-19 this was
-`views-drift.yml.template`, copied to `.github/workflows/views-drift.yml`
-alongside `precedent-check.yml`. It is now the `views-drift` job inside
-`precedent-check.yml.template` itself — folded in the same day as the
-trigger change above, for the same reason: two separate workflow files each
-billed their own one-job-minute floor on every push regardless of what
-either one's debounce window decided. Both debounce jobs are gone as of
-2026-09-20 (they cost a billed minute to decide not to spend one — see
-GITHUB_ACTIONS.md, "Controlling Actions Minutes"), and the merged file ships
-a single job. Installing `precedent-check.yml.template` installs
-this check; there is nothing further to copy.
-
-It runs `python3 tools/build_views.py --repo . --check`, which exits
-non-zero when [AGENTS.md](../../AGENTS.md)'s loader block,
-[MAP.md](../../MAP.md) or [GLOSSARY.md](../../GLOSSARY.md) has drifted
-from a fresh regeneration.
-
-**Why it exists.** Until 2026-09-11 nothing checked a generated view
-anywhere but in Precedent's own repo, whose `deep-check.yml` runs
-`verify_harness.py` — and that file is deliberately not vendored into a
-source set, while `precedent_check.py`'s equivalent check skips itself
-there (its practice is universal, and a source set's `practices/` holds only
-its own). A real individual set's `MAP.md` sat three practices stale under a
-generated header claiming a guard was failing the build on exactly that.
-
-Sets created by
-[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
-get it installed; a set created before 2026-09-11 needs `precedent-check.yml`
-installed (which now carries this job), and that tool's `--verify` names it
-as missing until it is there.
-
-**It refuses rather than passing blind** when the engine is vendored under
-`process/upstream/` (a consuming repo, whose `practices/` is materialized
-from sources a runner cannot reach), when the loader block turns out to be
-built from unreachable sources, or when no engine is vendored at all. The
-job's own comments say which case is which, and
-[GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md)
-covers what gates a consuming repo instead.
 
 ## The light check template
 
@@ -145,8 +99,9 @@ Markdown.**
 
 ## The leak gate template
 
-Copy [`leak-gate.yml.template`](leak-gate.yml.template) to
-`.github/workflows/leak-gate.yml`. First vendored 2026-09-20
+The installer writes [`leak-gate.yml.template`](leak-gate.yml.template) to
+`.github/workflows/leak-gate.yml`, and every Update Vendors rewrites it.
+First vendored 2026-09-20
 ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
 item 12) — before that date `leak-gate.yml` existed only in this repo,
 un-vendored, run unconditionally on every branch because this repo is
@@ -154,8 +109,8 @@ public and a leak here is already published the instant it is pushed.
 That reasoning does not transfer to a private dependent repo as-is, so this
 template does not just copy this repo's own scope.
 
-**Trigger shape is deliberately NOT the branch-scoped `push:` the other
-three templates use.** GitHub Actions evaluates `on:` before any job runs,
+**Trigger shape is deliberately NOT the branch-scoped one the light check
+uses.** GitHub Actions evaluates `on:` before any job runs,
 from the YAML alone — it cannot read this repo's `precedent.json` at that
 point, so "scope the trigger by declared visibility" is not something the
 platform lets a template do. Instead the workflow triggers on every push
@@ -196,7 +151,7 @@ public repo (visibility absent or `"public"`), nothing narrows: every push
 to every branch is scanned, matching this repo's own `leak-gate.yml`
 exactly.
 
-A practice SET has no `precedent.json` — it reads `precedent-source.json`
-instead, which always declares `"visibility": "private"`
-(`precedent_bootstrap_source.py`'s `_write_source_manifest`), so a set is
-always treated as private here; there is no field for it to opt out of.
+A practice SET runs no workflow, this one included (practice
+`source-sets-run-no-ci`). Its own `leak_gate.py` runs in the session, and
+reads `precedent-source.json`, which always declares `"visibility": "private"`
+(`precedent_bootstrap_source.py`'s `_write_source_manifest`).

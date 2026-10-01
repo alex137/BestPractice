@@ -186,7 +186,7 @@ cheapest evidence a reader has that somebody did.
 
 ```
 When a .github/workflows file is added, edited, or found in an update or migration:
-  ci-workflow-approved — no workflow added or edited without the person's words, hash-pinned
+  ci-workflow-approved — no new workflow or CI minutes without the person's words; a fix is maintenance
 When a branch has done its job, or a person says to delete branches:
   never-delete-a-remote-branch — never delete a remote branch; hand over the one-click link
 When a computation books a transfer between two parties:
