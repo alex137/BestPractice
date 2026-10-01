@@ -17365,9 +17365,12 @@ def check_source_sets_can_learn_they_are_stale():
                 held_line = next((l for l in said.splitlines()
                                   if 'uncommitted-set' in l), '')
                 cases.append(('a refreshed working tree over an older committed '
-                              'engine says both (2026-10-01)',
+                              'engine says both, and how it lands: Update '
+                              'Vendors in that set (2026-10-01)',
                               'working tree current' in held_line
-                              and 'committed engine is 111111111111' in held_line,
+                              and 'committed engine is 111111111111' in held_line
+                              and 'only in this container' in held_line
+                              and '"Update Vendors" in uncommitted-set' in held_line,
                               held_line))
                 cur_line = next((l for l in said.splitlines()
                                  if 'current-set' in l and 'uncommitted' not in l), '')
@@ -33889,7 +33892,18 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
                 rc = prs.main(['--apply'])
             return rc, buf.getvalue()
 
-        # CONTROL first: dirty, so it must stay behind and say so.
+        # CONTROL first: dirty, so it must stay behind and say so. A clean
+        # consumer is reported after it, so its row is the last one printed
+        # before the note (2026-10-01: the note sat under a consumer's row,
+        # unnamed, and was read as that consumer's).
+        consumer = tmp / 'consumer'
+        (consumer / 'tools').mkdir(parents=True)
+        (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'consumer', 'source_commit': 'an-older-engine'}),
+            encoding='utf-8')
+        g(tmp, 'init', '-q', '-b', 'main', str(consumer))
+        g(consumer, 'add', '-A'); g(consumer, 'commit', '-qm', 'consumer')
+        prs.candidate_dirs = lambda extra=(): [clone.resolve(), consumer.resolve()]
         (clone / 'scratch.txt').write_text('mine\n', encoding='utf-8')
         rc, out = run()
         cases.append(('CONTROL: a dirty clone behind its origin is left where it is',
@@ -33897,6 +33911,13 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
         cases.append(('...and the run says why, pointing at a re-run',
                       'uncommitted changes of its own' in out and '--apply' in out,
                       out[-400:]))
+        note = next((l for l in out.splitlines()
+                     if 'uncommitted changes of its own' in l), '')
+        cases.append(('...on a line that names the set it is about, never the '
+                      'consumer whose row was printed last',
+                      prs._label(clone.resolve()) in note
+                      and prs._label(consumer.resolve()) not in note, note))
+        prs.candidate_dirs = lambda extra=(): [clone.resolve()]
         (clone / 'scratch.txt').unlink()
 
         rc, out = run()
