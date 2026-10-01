@@ -506,6 +506,30 @@ def _template_lines_ever(rev, rel):
     return out
 
 
+# A template's `<placeholder>`: anything in angle brackets that is not an
+# HTML comment or tag. The install replaces each with the project's value.
+_PLACEHOLDER_RE = re.compile(r'<(?![!/])[^<>\n]+>')
+
+
+def _filled_forms(text):
+    """-> [compiled pattern] for each line of a template that carries a
+    placeholder, matching that line with every placeholder filled in.
+
+    A consumer's line can equal an OLDER template line and still be the
+    current one, filled in: GETTING_STARTED.md once wrote
+    `process/upstream/` where it now writes `<upstream-docs>/`, and a §1
+    install is told to replace the second with the first -- so a correct
+    install read back as dropped wording (2026-10-01, from a consumer's
+    Update Vendors). The values are the consumer's, unknowable here, so
+    each placeholder matches any text."""
+    out = []
+    for line in {l.strip() for l in text.splitlines()}:
+        parts = _PLACEHOLDER_RE.split(line)
+        if len(parts) > 1:
+            out.append(re.compile('.+?'.join(re.escape(x) for x in parts)))
+    return out
+
+
 def dropped_template_lines(repo, rev):
     """-> [(consumer_rel, template_rel, template_sha256, [(line_no, text)])]
     for each install-once file still carrying, verbatim, a line an OLDER
@@ -538,8 +562,10 @@ def dropped_template_lines(repo, rev):
             text = target.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
+        filled = _filled_forms(current)
         hits = [(n, l.strip()) for n, l in enumerate(text.splitlines(), 1)
-                if l.strip() in gone]
+                if l.strip() in gone
+                and not any(f.fullmatch(l.strip()) for f in filled)]
         if hits:
             found.append((rel, tmpl, hashlib.sha256(current.encode('utf-8')).hexdigest(),
                           hits))

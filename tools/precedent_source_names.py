@@ -68,8 +68,21 @@ not exist" and "this session may not ask" are indistinguishable from the
 status code alone, and this tool reports both as UNVERIFIED with the body's
 own words rather than guessing. Measured 2026-09-11.
 
+A NAME THE SESSION READ FROM GITHUB ANOTHER WAY. Attaching a public set
+with push access is how a hosted session lets this tool ask the API, and
+the auto-mode classifier can refuse that attach as a permission grant (2 of
+3 refused, 2026-09-30, from a consumer's Update Vendors). The session can
+still list the repositories its account reaches -- `list_repos`, whose
+`full_name` is GitHub's current name, a rename included -- and pass each one
+with `--canonical OWNER/NAME`. A source whose API answer did not arrive is
+then OK when the list carries its name exactly, SPELLING when only the case
+differs, and stays UNVERIFIED when the list does not carry it: a name absent
+from the list may have moved, or may be out of the account's reach, and
+the list cannot say which. Where the API did answer, the API's answer wins.
+
 Run:
   python3 tools/precedent_source_names.py            # report
+  python3 tools/precedent_source_names.py --canonical OWNER/NAME [...]
   python3 tools/precedent_source_names.py --check    # exit 1 on a RENAMED source
   python3 tools/precedent_source_names.py --repo PATH [--user-config PATH]
 Exit: 0 always, except --check with a source whose name has moved.
@@ -246,8 +259,11 @@ def api_full_name(owner, name, env=None):
                    f'follows redirects silently. To verify, attach it '
                    f'(add_repo; a public repository attaches only with access '
                    f'"push", since read access is already served) and run this '
-                   f'again, or run it from a machine with a GitHub token or '
-                   f'open https://github.com/{owner}/{name} in a browser')
+                   f'again. If that attach is refused, list the account\'s '
+                   f'repositories (list_repos) and pass each full_name it '
+                   f'gives with --canonical OWNER/NAME; or run it from a '
+                   f'machine with a GitHub token, or open '
+                   f'https://github.com/{owner}/{name} in a browser')
         return None, why, False
     except Exception as e:                                   # noqa: BLE001
         return None, f'the API could not be reached ({type(e).__name__}: {e})', False
@@ -300,11 +316,16 @@ def sources_to_check(repo, user_config=None):
     return out
 
 
-def assess(repo, env=None, user_config=None):
+def assess(repo, env=None, user_config=None, canonical=()):
     """-> [row], one per separate-repository source, each carrying its own
     verdict. Never raises: a name check degrades the report, it does not take
-    an update down (practice: fail-gracefully)."""
+    an update down (practice: fail-gracefully).
+
+    `canonical`: full names the session read from GitHub by another route
+    (list_repos), consulted only where the API did not answer -- see the
+    module docstring."""
     env = os.environ if env is None else env
+    listed = {str(c).strip().strip('/') for c in canonical or () if str(c).strip()}
     rows = []
     for src in sources_to_check(repo, user_config=user_config):
         row = {'level': src['level'], 'declared': src['name'],
@@ -343,6 +364,28 @@ def assess(repo, env=None, user_config=None):
             # UNVERIFIED one, and --check has to fail on it.
             if renamed:
                 row['verdict'] = 'RENAMED'
+                continue
+            if not listed:
+                continue
+            here = f'{owner}/{name}'
+            same = [c for c in listed if c.lower() == here.lower()]
+            if here in listed:
+                row['verdict'] = 'OK'
+                row['detail'] = (f'still {here}, as GitHub lists it in the '
+                                 f'names this session supplied (--canonical); '
+                                 f'the API itself was not reachable')
+            elif same:
+                row['verdict'] = 'SPELLING'
+                row['current'] = same[0]
+                row['detail'] = (f'the same repository, spelled {same[0]} in the '
+                                 f'names this session supplied (--canonical) -- '
+                                 f'git does not care and a reader might')
+            else:
+                row['detail'] = (f'{here} is not among the names this session '
+                                 f'supplied (--canonical), so it may have been '
+                                 f'renamed or be out of this account\'s reach -- '
+                                 f'the list cannot say which. The API was not '
+                                 f'reachable either: {why}')
             continue
         row['current'] = full
         cur_name = full.split('/', 1)[-1]
@@ -396,13 +439,16 @@ def main():
         else ROOT))
     ap.add_argument('--user-config', default=None)
     ap.add_argument('--check', action='store_true')
+    ap.add_argument('--canonical', action='append', default=[],
+                    metavar='OWNER/NAME')
     ap.add_argument('--help', '-h', action='store_true')
     args = ap.parse_args()
     if args.help:
         print((__doc__ or '').strip())
         return 0
     try:
-        rows = assess(args.repo, user_config=args.user_config)
+        rows = assess(args.repo, user_config=args.user_config,
+                      canonical=args.canonical)
     except Exception as e:                                   # noqa: BLE001
         print(f'precedent_source_names: could not read this repo\'s sources '
               f'({type(e).__name__}: {e}), so no name was checked.',
