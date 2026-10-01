@@ -5,9 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus, and deliberately `**`. What the rule governs is a session's choice of TOOL in the moment it goes looking for something -- a local grep against a GitHub search call -- which happens before any file is opened and leaves no artifact in the tree at all. There is no path whose editing means the choice was made badly, so a narrower glob would only make the rule invisible at the moment it fires. Decided: 2026-09-14, when the practice was written."
-occasion:    "about to search a repo, or use a GitHub tool for what the clone holds"
+occasion:    "about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds"
 gates:       []
-index_clause: "grep the clone first; list before search; fewer windows at once"
+index_clause: "grep the clone first; list before search; never sweep every clone unasked"
+index_required: true
 checked_by:  null
 defines:     ["search allowance"]
 status:      active
@@ -18,7 +19,11 @@ added:       "2026-09-14"
 approved_by: "Morgan, 2026-09-14 (strength: decided) -- shown the lever as a
   candidate individual practice at the close of the rate-limit investigation,
   he asked for it written and levelled up: \"Yes, write that practice, but it
-  should be a universal practice, not an individual one. Go merge.\""
+  should be a universal practice, not an individual one. Go merge.\"
+  Absorbed wide-search-needs-asking (Morgan, 2026-09-28, decided) on
+  2026-10-01, in the reduction pass Morgan approved that day: \"Question 3 -
+  all are great, approved\" (strength: decided)."
+strength:    decided
 ---
 ## Rule
 **Grep the clone.** A session working in a repository already has its whole
@@ -34,6 +39,15 @@ that goes hunting for it. **`search` is 30 requests a MINUTE (as of 2026-09),
 account-wide, shared by every session open at that moment** — the tightest
 allowance on the account by a wide margin, and about eight times tighter
 than the 15,000-an-hour pool (250 a minute) it is easy to mistake it for.
+
+**A wide search waits for the person's explicit go-ahead.** Wide means its
+reach is everything: every clone on disk, every repository, every file in
+them, a whole fleet. **Do the cheap thing instead, and say it in one line:**
+fix the source you already know, tell the person a full sweep would not be
+worth its cost, and ask them to send an example if they see the problem
+again. **A wide search already running without that go-ahead is stopped** as
+soon as it is noticed, and so is any background job nothing is waiting on
+any more.
 
 **The other lever is how many windows are working at once.** Allowances are
 shared across sessions, so the fifth simultaneous session is not five times
@@ -55,6 +69,18 @@ is the cheap one, so there is no tension to resolve — search more, search
 locally.
 
 ## Detail
+**Where a wide search starts.** A grep of the repository you are working in,
+or of the one or two repositories the work names, is ordinary work. The line
+is reach: once the search goes through repositories the task never named,
+just to be thorough, it needs asking. **Explicit means the person asked for
+this sweep**, in words that name its reach. "Fix it everywhere" authorizes
+fixing the places you know of, not a hunt through every clone for places you
+don't. The requests that already carry a sweep by definition, a
+[very-deep-check](very-deep-check.md) or a
+[full-practice-audit](full-practice-audit.md), are that explicit ask. For
+example: *"That sweep isn't worth the tokens. I've fixed the source I know
+of; if you see it again, send me the example."*
+
 **What is actually on disk, and worth naming because sessions forget it.**
 The full history, so `git log`, `git blame`, `git show` and `git diff` answer
 questions about who changed what and when. Every file at every commit, so a
@@ -90,6 +116,12 @@ window, as an error with no number in it. The discipline has to come from
 the read being genuinely cheaper, which it is: the local answer is faster
 and more complete, and the allowance it saves was never yours alone.
 
+A wide search looks responsible, and it is usually the wrong trade. The
+known source is already fixed, so the sweep only hunts for copies that may
+not exist. Copies that do exist surface on their own: the next update brings
+the fix, or the person sees the problem again and says so. That costs one
+sentence, and the sweep costs minutes of waiting and a large pile of tokens.
+
 ## Story
 **2026-09-14.** Morgan was refused by GitHub with a rate-limit error and
 asked what in normal usage was causing it. The measuring
@@ -108,6 +140,25 @@ a mechanism, which is why this is a practice and not a check — shown as a
 candidate at the close of the investigation, and levelled up to universal the
 same hour, because nothing about it is specific to this project, this team or
 this person.
+
+**2026-09-28, the wide search.** A session fixed the Boildown so it stopped
+asking which repositories to add or remove. It then started a background
+search of every cloned repository for other wordings of that question, and
+left it running long after the fix had landed. Morgan waited on it, asked
+whether the question was that important, and had it stopped; it had found
+nothing. His words: *"We never want to do a search like that unless I
+explicitly authorize it - every clone ever every file etc - a lot of time and
+energy and tokens. ... Here you could have said, 'Morgan, that isn't
+token-efficient at all; I've stopped asking that question, and if you happen
+to find an example or it happens again, tell me' - that would have been
+1000x better than all the tokens and time and wait."* That became
+wide-search-needs-asking (strength: decided).
+
+**Merged here, 2026-10-01.** Both rules are about how to search cheaply, at
+the same moment, so the reduction pass Morgan approved that day folded
+wide-search-needs-asking in as the wide-search paragraph of the Rule, its
+reach line in Detail and its reasoning in Why. Its file stays as the record;
+the rule in force is this one.
 
 ## Install
 Nothing to install. The figure behind it is printed by

@@ -106,7 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~833 of 2000 token budget, 10 of 167 practices (10 universal))
+## Resident block (~833 of 2000 token budget, 10 of 166 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -237,10 +237,8 @@ When a second implementation of the same mechanism turns up, or a full practice 
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
-When about to search a repo, or use a GitHub tool for what the clone holds:
-  grep-before-search — grep the clone first; list before search; fewer windows at once
-When about to search or scan every clone, every repo or every file for something:
-  wide-search-needs-asking — never sweep every clone unasked; fix the known source, ask for an example
+When about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds:
+  grep-before-search — grep the clone first; list before search; never sweep every clone unasked
 When an unattended job hits something blocking its normal work, or something optional it cannot reach:
   automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
