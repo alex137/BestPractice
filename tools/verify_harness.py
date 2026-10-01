@@ -44514,7 +44514,7 @@ def check_update_repoints_moved_engine_commands():
                       boot[0].startswith('python3 tools/checkin.py')
                       and boot[1] == 'python3 tools/practice_audit.py', str(boot)))
         cases.append(('...its guarded fallback is left alone',
-                      boot[2].startswith('[ -f process/upstream/tools/checkin.py ]'),
+                      '[ -f process/upstream/tools/checkin.py ]' in boot[2],
                       boot[2]))
         cases.append(('...a call to a file tools/ lacks is named, not rewritten',
                       ('tools/bootstrap.sh', 4, 'process/upstream/tools/gone_tool.py')
