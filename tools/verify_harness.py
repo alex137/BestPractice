@@ -463,6 +463,15 @@ def _ref_including_worktree(repo):
         if tree_sha == head_tree:
             return head_sha  # clean tree -- nothing uncommitted to capture
 
+        # Its own identity: the commit is never pushed or checked out, and a
+        # bare runner (the isolated --as-ci run, GitHub's) has none to give
+        # it. Found 2026-09-30: shards share one checkout, a file one shard
+        # wrote for a moment made another's tree read as dirty, and
+        # commit-tree failed with "Author identity unknown" -- a full check
+        # that failed without naming a test.
+        env.update(GIT_AUTHOR_NAME='verify_harness', GIT_AUTHOR_EMAIL='harness@localhost',
+                   GIT_COMMITTER_NAME='verify_harness',
+                   GIT_COMMITTER_EMAIL='harness@localhost')
         commit = _git('commit-tree', tree_sha, '-p', head_sha, '-m',
                       'verify_harness: scratch snapshot of the working tree '
                       '(never pushed, never checked out)', env=env)
@@ -2553,6 +2562,68 @@ def check_rename_links_leaves_dated_records_alone():
     check(f'rename-updates-links leaves dated records alone, and still reads live text '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_worktree_snapshot_needs_no_git_identity():
+    """_ref_including_worktree() snapshots a dirty tree with no git identity
+    anywhere -- empty $HOME, no global or system config -- the shape of the
+    isolated --as-ci run and of GitHub's runner (2026-09-30: a full check
+    failed with "Author identity unknown" and named no test)."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='snapshot-identity-'))
+    saved = {k: os.environ.get(k) for k in ('HOME', 'GIT_CONFIG_NOSYSTEM',
+                                              'GIT_CONFIG_GLOBAL', 'GIT_AUTHOR_NAME',
+                                              'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME',
+                                              'GIT_COMMITTER_EMAIL', 'EMAIL')}
+    try:
+        repo = tmp / 'r'
+        repo.mkdir()
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env)
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                        'user.email=t@t', 'commit', '-qm', 'base'], env=env)
+        (repo / 'b.txt').write_text('new\n', encoding='utf-8')
+        os.environ.update(HOME=str(tmp / 'empty-home'), GIT_CONFIG_NOSYSTEM='1',
+                          GIT_CONFIG_GLOBAL=os.devnull)
+        for k in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME',
+                  'GIT_COMMITTER_EMAIL', 'EMAIL'):
+            os.environ.pop(k, None)
+        try:
+            ref = _ref_including_worktree(repo)
+            ok, det = True, ref
+        except SystemExit as e:
+            ok, det = False, str(e)
+        cases.append(('a dirty tree is snapshotted with no identity configured',
+                      ok, det[-200:]))
+        if ok:
+            listed = subprocess.run(['git', '-C', str(repo), 'ls-tree', '--name-only',
+                                     ref], capture_output=True, text=True).stdout.split()
+            cases.append(('...and the snapshot holds the new file',
+                          'b.txt' in listed, str(listed)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    # ...and when a shard does fail, the push check's report names it.
+    import precedent_push_check as ppc
+    out = ['  SHARD FAILED (exit 1)', '  last 20 line(s) of its stderr:',
+           '      SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): check_x',
+           '    verify_harness FAIL: could not create a scratch commit: why',
+           '    *** Please tell me who you are.']
+    found = ppc._finding_lines(out)
+    cases.append(('the push check\'s report picks a failed shard and its reason',
+                  out[0] in found and out[3] in found and out[2] not in found,
+                  str(found), ))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the working-tree snapshot needs no git identity ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
 
 
 def check_workflow_growth_needs_the_persons_words():
@@ -49901,6 +49972,7 @@ def main():
     check_update_written_files_name_no_mirrored_engine()
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
+    check_worktree_snapshot_needs_no_git_identity()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()
