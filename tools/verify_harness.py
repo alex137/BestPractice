@@ -2555,6 +2555,166 @@ def check_rename_links_leaves_dated_records_alone():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_workflow_growth_needs_the_persons_words():
+    """ci-workflow-approved, everywhere: a change that makes a workflow or a
+    workflow template run more -- a new event, branch, type, schedule or
+    job, or a narrowing filter dropped -- is refused until the person's
+    words are pinned to its content; a fix that adds no CI work passes
+    (Morgan, 2026-09-30: permission is for adding workflows or CI minutes,
+    and "we clearly shouldn't have broken workflows"). Until then nothing
+    pinned BestPractice's own templates at all."""
+    import tempfile, hashlib
+    import precedent_check as pc
+    cases = []
+    base = ('on:\n  pull_request:\n    branches: [main]\n    types: [opened]\n'
+            '  push:\n    branches: [main]\n'
+            'jobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n'
+            '      - run: python3 tools/x.py\n')
+    for name, after, grows in (
+            ('a fixed path in a step', base.replace('tools/x.py', 'tools/y.py'), False),
+            ('a comment', '# why\n' + base, False),
+            ('a branch added', base.replace('branches: [main]\n    types',
+                                            'branches: [main, dev]\n    types'), True),
+            ('a type added', base.replace('[opened]', '[opened, synchronize]'), True),
+            ('a push filter dropped', base.replace('  push:\n    branches: [main]\n',
+                                                   '  push:\n'), True),
+            ('a schedule added', base.replace('  push:\n', '  schedule:\n    - cron: "0 3 * * *"\n  push:\n'), True),
+            ('a job added', base + '  more:\n    runs-on: ubuntu-latest\n', True),
+            ('an event removed', base.replace('  push:\n    branches: [main]\n', ''), False)):
+        got = pc._workflow_growth(base, after)
+        cases.append((f'{name}: {"grows" if grows else "adds no CI work"}',
+                      bool(got) == grows, str(got)))
+    cases.append(('a new workflow is all growth', bool(pc._workflow_growth(None, base)), ''))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='workflow-growth-'))
+    try:
+        repo = tmp / 'proj'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'ci-workflow-approved.md', up / 'practices')
+        cfg = {'sources': [{'level': 'universal', 'name': 'precedent',
+                            'path': 'process/upstream'}]}
+        (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        tpl = repo / 'templates' / 'github-actions' / 'w.yml.template'
+        tpl.parent.mkdir(parents=True)
+        tpl.write_text(base, encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def run():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'ci-workflow-approved'], cwd=str(repo),
+                               capture_output=True, text=True, env=env, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'work')
+        tpl.write_text(base.replace('tools/x.py', 'tools/y.py'), encoding='utf-8')
+        g('commit', '-qam', 'fix a path')
+        rc, out = run()
+        cases.append(('a template fix that adds no CI work passes', rc == 0, out[-300:]))
+        tpl.write_text(base + '  more:\n    runs-on: ubuntu-latest\n', encoding='utf-8')
+        g('commit', '-qam', 'add a job')
+        rc, out = run()
+        cases.append(('a template given a new job is refused, naming it',
+                      rc == 1 and 'job:more' in out, out[-400:]))
+        cfg['github_ci_approved'] = {'templates/github-actions/w.yml.template': {
+            'sha256': hashlib.sha256(tpl.read_bytes()).hexdigest(),
+            'approved_by': 'Dana, 2026-09-30: "yes, add the second job"'}}
+        (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        g('commit', '-qam', 'approved')
+        rc, out = run()
+        cases.append(('...and passes once the person\'s words are pinned to it',
+                      rc == 0, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a workflow change that adds CI work needs the person\'s words, and a '
+          f'fix does not ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_docs_name_no_path_this_repo_removed():
+    """change-updates-its-docs: a live document naming a path this repo's
+    history deleted is refused, in plain text and as a link to this repo's
+    own branch; history is left alone (2026-09-30: a session found a section
+    describing a retired workflow and left it, as "a doc fix, not a broken
+    path"). A path this repo never had -- a consumer's layout, another
+    repo's file -- is never flagged."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='removed-paths-'))
+    gone = 'docs/old/guide.md'
+    try:
+        repo = tmp / 'proj'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'change-updates-its-docs.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'process/upstream'}]}), encoding='utf-8')
+        (repo / gone).parent.mkdir(parents=True)
+        (repo / gone).write_text('old\n', encoding='utf-8')
+        files = {
+            'README.md': f'Read `{gone}` first.\n',
+            'docs/link.md': f'[guide](https://github.com/acme/widget/blob/main/{gone})\n',
+            'docs/other-repo.md': f'[theirs](https://github.com/else/where/blob/main/{gone})\n',
+            'docs/retired.md': f'`{gone}` (retired 2026-09-01) is gone.\n',
+            'docs/story.md': f'# X\n## Story\nWe read `{gone}`.\n',
+            'docs/plan.md': f'---\nkind: plan\nstatus: closed\n---\nEdit `{gone}`.\n',
+            'docs/consumer.md': 'A consumer keeps `local/practices/x.md`.\n',
+        }
+        for rel, text in files.items():
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(text, encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def run():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'change-updates-its-docs'], cwd=str(repo),
+                               capture_output=True, text=True, env=env, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('remote', 'add', 'origin', 'https://github.com/acme/widget')
+        rc, out = run()
+        cases.append(('nothing deleted yet: nothing to judge', rc == 0
+                      and 'README.md:1' not in out, out[-300:]))
+        g('rm', '-q', gone); g('commit', '-qm', 'delete the guide')
+        rc, out = run()
+        cases.append(('a live document naming the deleted path is refused',
+                      rc == 1 and 'README.md:1' in out, out[-400:]))
+        cases.append(('...and so is a link to it on this repo\'s own branch',
+                      'docs/link.md:1' in out, out[-400:]))
+        for rel, why in (('docs/other-repo.md', 'the same path in another repo'),
+                         ('docs/retired.md', 'a line that says it was retired'),
+                         ('docs/story.md', 'a Story section'),
+                         ('docs/plan.md', 'a closed document'),
+                         ('docs/consumer.md', 'a path this repo never had')):
+            cases.append((f'{why} is left alone', rel not in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a live document naming a path this repo removed is refused, and '
+          f'history is not ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_loader_caps_unmeasured_without_a_declared_source():
     """loader-within-caps says COULD NOT VERIFY, never a violation and never a
     pass, where a declared source is not on disk (2026-09-30).
@@ -13065,6 +13225,14 @@ def check_precedent_check_fires():
             git(repo, 'mv', 'spec/LOADER.md', 'spec/LOADER_MOVED.md')
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
+
+        # change-updates-its-docs -- a file deleted in an earlier commit,
+        # every document that names it left as it was. The unplanted
+        # fixture's history deletes nothing, so it has nothing to judge.
+        def _plant_removed_path(repo):
+            git(repo, 'rm', '-q', 'spec/LOADER.md')
+            git(repo, 'commit', '-qm', 'delete a file other documents name')
+        case('change-updates-its-docs', _plant_removed_path)
 
         # checks-use-generated-blocks -- a repo's own check that finds
         # generated text by spelling a marker itself, the shape a shared
@@ -34365,9 +34533,12 @@ def check_ci_workflow_approved_pins_approval_to_content():
         cases.append(('an approval whose file is gone is reported',
                       rc != 0 and 'no longer exists' in out, out[-1500:]))
         rc, out = consumer('no-manifest', manifest=False)
-        cases.append(('CONTROL: no manifest (BestPractice\'s shape) is '
-                      'SKIPPED, never a pass or a crash',
-                      rc == 0 and 'SKIPPED' in out, out[-1500:]))
+        # Since 2026-09-30 a repo with no manifest is judged on growth only
+        # (a change that makes a workflow run more), so it runs, never
+        # crashes, and a repo whose change grows nothing passes.
+        cases.append(('CONTROL: no manifest (BestPractice\'s shape) is judged '
+                      'on growth only: no crash, and nothing grown passes',
+                      rc == 0 and 'Traceback' not in out, out[-1500:]))
 
         # Since 2026-09-27 the light check is an engine file like the leak
         # gate: shipped through CI_WORKFLOW_TEMPLATES, tracked in the
@@ -49728,6 +49899,8 @@ def main():
     check_rename_links_leaves_dated_records_alone()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_update_written_files_name_no_mirrored_engine()
+    check_docs_name_no_path_this_repo_removed()
+    check_workflow_growth_needs_the_persons_words()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()

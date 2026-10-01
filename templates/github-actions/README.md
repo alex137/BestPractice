@@ -8,7 +8,7 @@ read-only: they report, and none holds a token that could write
 |---|---|---|
 | [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | every consuming repo, by default (a source declaring `"github_ci_workflows": "disabled"` switches it off) -- **engine-owned since 2026-09-27**: each Update Vendors writes it from the template over any hand-made copy; see below |
 | [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | every consuming repo, on the same terms as the row above |
-| [`precedent-check.yml.template`](precedent-check.yml.template) | nothing | no repo since 2026-09-21: a practice set runs no CI (practice `source-sets-run-no-ci`), and its checks, the generated-views drift check included, run in the session before every push |
+| [`precedent-check.yml.template`](precedent-check.yml.template) | nothing | no repo since 2026-09-21: a practice set runs no CI (practice `source-sets-run-no-ci`), and its checks run in the session before every push, the generated-views drift check its `views-drift` job ran included |
 
 **When each runs.** The light check runs on a pull request into `main` and
 on a push to `main`, and on the push it stops within seconds when those

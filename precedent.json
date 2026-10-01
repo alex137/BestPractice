@@ -684,6 +684,10 @@
       "note": "Predates the session-trailer practice (added 2026-08-31); published history, not rewritten (practice: no-rewrite-for-warnings)"
     }
   ],
+  "record_paths": [
+    {"path": "spec/CROSS_REPO_DRIFT_BRIEF.md",
+     "reason": "a dated investigation brief (2026-09-19); it quotes, as evidence, the broken link it reports, which has since been fixed where it lived"}
+  ],
   "_source_purpose_comment": [
     "One disambiguating sentence per declared source, for a session sorting",
     "where a practice belongs -- added 2026-09-19 after `push-back` was found",

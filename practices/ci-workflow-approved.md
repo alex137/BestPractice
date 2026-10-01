@@ -75,7 +75,12 @@ decided): *"Asking creates doubt and confusion when there isn't any."* The
 person's approval is still what keeps a workflow they actually asked for.
 
 **This check runs on every push** (the push gate's basic tier, seconds), in
-every full check, and at every Update Vendors and migration. A workflow
+every full check, and at every Update Vendors and migration. **It also
+judges growth everywhere, this repo's own templates included:** a change
+that makes a workflow or a workflow template run more (a new event, branch,
+type, path, schedule or job, or a narrowing filter dropped) is refused until
+the person's words are pinned to its content in `github_ci_approved`; a fix
+that adds no CI work passes. A workflow
 written from a shipped template is tracked in `ENGINE_MANIFEST.json`, which
 is what the check reads for it, so it needs no approval entry.
 Re-baselining an edited engine workflow with `record-ci` is an approval

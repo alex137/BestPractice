@@ -3,16 +3,16 @@ slug:              todo-2026-09-14-source-set-push-triggers
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            dropped
 disposition:       wait
 remind_on:         null
 blocked_on:        "four repositories under a different owner. Established 2026-09-14 rather than assumed — `git push` returned *\"access denied by the git proxy: … is not in this session's authorized repository set\"*, and `add_repo` with `access: \"push\"` returned *\"cross-tier adds are not supported in v1: … session alr"
 batch:             null
-decision:          null
+decision:          "Overtaken: a practice set runs no CI at all since 2026-09-21 (source-sets-run-no-ci), and the engine refresh deleted the four sets' workflows, so there is no trigger left to widen. Closed by a session bringing the CI docs in line, 2026-09-30."
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-09-30
 ---
 ## What
 
@@ -21,7 +21,7 @@ closed:            null
     nothing.** Upstream's half landed 2026-09-14 in
     [PR #313](https://github.com/alex137/BestPractice/pull/313):
     [templates/github-actions/precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-    and templates/github-actions/views-drift.yml.template (a job inside
+    and the views-drift template (retired: a job inside
     precedent-check.yml.template since 2026-09-19)
     now carry `push:` with no branch filter, so a set bootstrapped or
     refreshed from here on gets it. **The installed copies in the four

@@ -10,7 +10,7 @@ gates:       ["merge"]
 gates_why:   "The merge is the last moment the document and the change can still land in the same commit, which is the whole rule."
 index_clause: "update the doc in the same commit; a doc you find wrong, fix now"
 index_required: false
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 in_force_at: null
