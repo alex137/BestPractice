@@ -24171,7 +24171,7 @@ def check_promote_pre_staging():
         # should not run the full suite again if nothing has changed").
         commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
         subprocess.run([sys.executable, 'tools/precedent_push_check.py',
-                        '--tier', 'full'], cwd=work, capture_output=True,
+                        '--tier', 'full', '--because', 'harness case'], cwd=work, capture_output=True,
                        text=True, env=env)
         rc, out = branches('--promote')
         cases.append(('a batch whose exact files already passed the full check '
@@ -24551,7 +24551,7 @@ def check_history_checks_never_ride_a_reused_pass():
 
         def gate(cwd, *extra):
             p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
-                                '--tier', 'full', *extra], cwd=cwd,
+                                '--tier', 'full', '--because', 'harness case', *extra], cwd=cwd,
                                capture_output=True, text=True, env=person)
             return p.returncode, p.stdout + p.stderr
 
@@ -25241,7 +25241,8 @@ def check_sync_copies_work_from_above_once_checked():
         # The same commit once its tree has a full-check receipt on origin.
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '--detach', 'origin/main')
-        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full'],
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full',
+                        '--because', 'harness case'],
                        cwd=work, capture_output=True, text=True, env=env)
         rc, report = branches('--drift')
         cases.append(('a commit whose tree has a published full-check receipt '
@@ -34084,6 +34085,55 @@ def check_model_audit_ledger():
             if bool(rc) != bool(should_fail):
                 bad.append(f'{what}: the audit exited {rc}')
     check(name, not bad, '; '.join(bad))
+
+
+def check_full_tier_needs_a_reason_on_a_quick_landing():
+    """`--tier full` is refused where the landing branch takes the quick
+    tier, unless a reason is given (Morgan, 2026-10-01, strength: decided:
+    "Go, do both, then Booked"). The same day the bare run was fixed, a
+    session still typed `--tier full` before every pre-staging landing and
+    wrote it into its helpers' briefs. Stated cases: refused on a
+    pre-staging landing; allowed with --because; untouched for --gate, for
+    a named push, and on a landing branch that is fully checked."""
+    import tempfile
+    import precedent_push_check as ppc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='full-tier-reason-'))
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+
+        def landing(branch):
+            (tmp / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
+        landing('pre-staging')
+        full = ['--tier', 'full']
+        cases.append(('refused on a pre-staging landing',
+                      bool(ppc._full_tier_refusal(tmp, full)), ''))
+        cases.append(('...and the refusal says how to ask anyway',
+                      '--because' in (ppc._full_tier_refusal(tmp, full) or ''), ''))
+        for extra in (['--because', 'testing'], ['--gate'],
+                      ['--push-command', 'origin HEAD:staging']):
+            cases.append((f'allowed with {extra[0]}',
+                          ppc._full_tier_refusal(tmp, full + extra) is None, ''))
+        cases.append(('--tier basic is never refused',
+                      ppc._full_tier_refusal(tmp, ['--tier', 'basic']) is None, ''))
+        cases.append(('--because is a known option',
+                      ppc.unknown_arguments(full + ['--because', 'x']) == [], ''))
+        landing('main')
+        cases.append(('a landing branch that is fully checked is untouched',
+                      ppc._full_tier_refusal(tmp, full) is None, ''))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--tier full needs a reason where the landing branch is quick '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_bare_push_check_takes_the_landing_tier():
@@ -50919,6 +50969,7 @@ def main():
     check_push_check_runs_cheap_checks_first()
     check_push_check_refuses_an_unknown_option()
     check_bare_push_check_takes_the_landing_tier()
+    check_full_tier_needs_a_reason_on_a_quick_landing()
     check_wait_loop_gate_refuses_pgrep_f()
     check_reach_key_self_check()
     check_content_record_self_check()

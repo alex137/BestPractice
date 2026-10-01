@@ -102,8 +102,11 @@ lives in precedent_branches.py, not here. A full pass satisfies a basic
 gate; a basic pass never satisfies a full one.
 
 Run:
-  python3 tools/precedent_push_check.py                  # every check, record a pass
+  python3 tools/precedent_push_check.py                  # your landing branch's tier, record a pass
   python3 tools/precedent_push_check.py --tier basic     # the basic tier only
+  python3 tools/precedent_push_check.py --tier full --because 'why'
+                                  # the full suite; refused without a reason
+                                  # where the landing branch is the quick tier
   python3 tools/precedent_push_check.py --gate           # skip if this tree passed
   python3 tools/precedent_push_check.py --gate --push-command 'origin pre-staging'
                                   # the tier that push needs (what the hook runs)
@@ -913,9 +916,48 @@ def _default_destination(root, argv):
     if not landing:
         return argv
     print(f'precedent_push_check: no destination named, so this checks what '
-          f'a push to {landing}, your landing branch, gets. The full check: '
-          f'--tier full.', flush=True)
+          f'a push to {landing}, your landing branch, gets. The full check is the Debut\'s: '
+          f'--tier full --because "<reason>".', flush=True)
     return list(argv) + ['--push-command', f'origin HEAD:{landing}']
+
+
+def _full_tier_refusal(root, argv):
+    """-> why `--tier full` is refused before anything runs, or None.
+
+    Morgan, 2026-10-01, strength: decided ("Go, do both, then Booked"). The
+    bare run already checks at the landing branch's tier (_default_destination),
+    and on the same day a session still paid the ~12-minute suite three times
+    for work going to pre-staging -- by typing `--tier full` itself, and by
+    writing it into every helper's brief, because "deep check before push"
+    read as "the thorough one". Pre-staging is the quick tier on purpose; the
+    full check belongs to the Debut into staging, which runs it for you. So
+    asking for full where the landing branch is the quick tier now needs a
+    stated reason: `--because "<why>"`. A machine caller (`--gate`), a named
+    push (`--push-command`) and a landing branch that is fully checked are
+    untouched."""
+    if '--tier' not in argv:
+        return None
+    i = argv.index('--tier')
+    if (argv[i + 1] if i + 1 < len(argv) else '') != FULL:
+        return None
+    if any(a in argv for a in ('--gate', '--push-command', '--because')):
+        return None
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+        landing = precedent_branches.landing_branch(root)[0]
+        tier = precedent_branches.tier_for_branch(root, landing)[0]
+    except Exception:                                        # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
+    if tier != BASIC:
+        return None
+    return (f'--tier full asks for the ~12-minute suite, and your landing '
+            f'branch, {landing}, takes the quick check: run this bare, which '
+            f'is what Booked needs. The full check is the Debut\'s, and it '
+            f'runs it for you. If you really mean it, say why: '
+            f'--tier full --because "<reason>".')
 
 
 def _tier_from_args(root, argv):
@@ -1306,6 +1348,15 @@ def main(argv):
     except Exception:                                        # noqa: BLE001
         pass
     argv = _default_destination(root, argv)
+    refused = _full_tier_refusal(root, argv)
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
+    if '--because' in argv:
+        i = argv.index('--because')
+        print(f'precedent_push_check: running as asked, because: '
+              f'{argv[i + 1] if i + 1 < len(argv) else "(no reason given)"}',
+              flush=True)
     refused = _promote_only_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
@@ -1462,7 +1513,7 @@ def main(argv):
 # than ignored: a PR template naming a flag this file never had
 # (--changed-files-only) ran the full ~14-minute suite twice, silently
 # (2026-09-30).
-VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command')
+VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command', '--because')
 OPTIONAL_VALUE_OPTIONS = ('--changed-files-check',)
 FLAG_OPTIONS = ('--gate', '--list', '--help', '-h')
 
