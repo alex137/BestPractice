@@ -1179,20 +1179,37 @@ def discovered_neighbour_blocklists(root=None):
     Adding a list can only make the gate stricter, never quieter.
     """
     root = pathlib.Path(root or ROOT).resolve()
+    # A worktree's siblings are the wrong ones (local_clone_refs says why):
+    # the merge check runs in a throwaway worktree under the temp directory,
+    # so the main clone's siblings are read too, and the main clone is not
+    # its own neighbour either.
+    selves, parents = {root}, [root.parent]
     try:
-        siblings = sorted(root.parent.iterdir())
-    except OSError:
-        return []
+        r = subprocess.run(['git', '-C', str(root), 'rev-parse',
+                            '--path-format=absolute', '--git-common-dir'],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and r.stdout.strip():
+            main_root = pathlib.Path(r.stdout.strip()).resolve().parent
+            selves.add(main_root)
+            if main_root.parent not in parents:
+                parents.append(main_root.parent)
+    except (OSError, subprocess.SubprocessError):
+        pass
     out = []
-    for d in siblings:
+    for parent in parents:
         try:
-            if d.resolve() == root or not (d / '.git').exists():
-                continue
+            siblings = sorted(parent.iterdir())
         except OSError:
             continue
-        p = d / INDIVIDUAL_BLOCKLIST_NAME
-        if p.is_file():
-            out.append(p)
+        for d in siblings:
+            try:
+                if d.resolve() in selves or not (d / '.git').exists():
+                    continue
+            except OSError:
+                continue
+            p = d / INDIVIDUAL_BLOCKLIST_NAME
+            if p.is_file() and p not in out:
+                out.append(p)
     return out
 
 

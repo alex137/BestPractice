@@ -1962,6 +1962,25 @@ def check_leak_gate_reads_neighbour_blocklists():
         (tmp / 'home').mkdir()
 
         found = _lg.discovered_neighbour_blocklists(root=repo)
+        # From a throwaway worktree elsewhere -- where the merge check runs
+        # -- the main clone's neighbours are the ones that count.
+        real = tmp / 'nest' / 'real-tree'
+        (tmp / 'nest' / 'private-neighbour').mkdir(parents=True)
+        (tmp / 'nest' / 'private-neighbour' / '.git').mkdir()
+        (tmp / 'nest' / 'private-neighbour' / 'leak-blocklist.txt').write_text(
+            'zqxother\n', encoding='utf-8')
+        real.mkdir()
+        _git = lambda *a: subprocess.run(['git', '-C', str(real), *a],
+                                         capture_output=True, text=True)
+        _git('init', '-q')
+        (real / 'f.txt').write_text('x\n', encoding='utf-8')
+        _git('add', 'f.txt')
+        _git('-c', 'user.name=f', '-c', 'user.email=f@example.invalid',
+             'commit', '-q', '-m', 'f')
+        wt = tmp / 'elsewhere' / 'wt'
+        wt.parent.mkdir()
+        _git('worktree', 'add', '-q', '--detach', str(wt))
+        from_wt = _lg.discovered_neighbour_blocklists(root=wt)
         os.environ['HOME'] = str(tmp / 'home')
         os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
         _lg.ROOT = repo
@@ -1977,6 +1996,9 @@ def check_leak_gate_reads_neighbour_blocklists():
              'list is applied and the private half reports configured',
              configured and str(private / 'leak-blocklist.txt') in desc),
             ('a name inside an identifier is caught', catches),
+            ('from a worktree elsewhere, the main clone\'s neighbour is read',
+             tmp / 'nest' / 'private-neighbour' / 'leak-blocklist.txt'
+             in [p.resolve() for p in from_wt]),
         ]
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
