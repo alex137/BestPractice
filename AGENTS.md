@@ -200,7 +200,7 @@ When a model or comparison rests on a constant nobody decided:
 When a person asks "What's new?", or what has changed in the project lately:
   whats-new — write every missing day, quiet ones named; the reply opens with the link
 When a person explicitly asks for a "very deep check" or a "full practice audit":
-  full-practice-audit — Pass 4's catalogue read alone: every source's practices, one at a time
+  full-practice-audit — the very deep check's Pass 4 alone: every source's practices, one at a time
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person says "Chief of Staff":
   chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last

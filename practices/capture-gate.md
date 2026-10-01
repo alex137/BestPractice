@@ -28,19 +28,15 @@ Capture it **in the turn that discovers it** — the merge-runbook gate is the
 backstop that catches what a thread missed, never the plan. Never park it in
 a "for later review" staging document.
 
-**After any substantial work-product** — a document, a design, an analysis,
-a decision — the same session does a deliberate second pass **as a separate
-step, not part of the production flow**, re-reading its own reasoning
-against a short checklist: (a) did every idea discussed reach its **durable
-artifact**, or does it live only in prose or conversation? (b) do
-**parallel artifacts** that must track this change have their transfer
-verdicts ([parallel-artifact-ledger](https://github.com/alex137/BestPractice/blob/staging/practices/parallel-artifact-ledger.md))? (c) did technical value get its **cross-ledger
-capture** — the business, operational, or planning implication recorded where
-those live? (d) are open decisions **queued in the typed TODO**
-([repo-is-memory](repo-is-memory.md))
-rather than only in the conversation? (e) are the **indexes, registries, and
-glossaries** synced? Run that sweep before the merge, so what it finds lands
-in the same change-set as the work.
+**After any substantial work-product, a second pass, as a separate step**
+from producing it: (a) did every idea reach a **durable artifact**? (b) do
+the **parallel artifacts** carry their transfer verdicts
+([parallel-artifact-ledger](https://github.com/alex137/BestPractice/blob/staging/practices/parallel-artifact-ledger.md))?
+(c) is the business, operational or planning implication **recorded where
+those live**? (d) are open decisions **queued in the typed TODO**
+([repo-is-memory](repo-is-memory.md))? (e) are **indexes, registries and
+glossaries** synced? Run it before the merge, so what it finds lands with
+the work.
 
 ## Detail
 **Why the unit is the turn, not the thread.** Long sessions are summarized

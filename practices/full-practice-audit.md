@@ -8,7 +8,7 @@ applies_to:  ["**"]
 applies_to_why: "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause. Decided: 2026-09-03, full-practice-audit / routing-audit session."
 occasion:    "a person explicitly asks for a \"very deep check\" or a \"full practice audit\""
 gates:       []
-index_clause: "Pass 4's catalogue read alone: every source's practices, one at a time"
+index_clause: "the very deep check's Pass 4 alone: every source's practices, one at a time"
 checked_by:  null
 defines:     ["full practice audit"]
 command:     {"Full practice audit": "Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. Once also called a \"practice check\"."}

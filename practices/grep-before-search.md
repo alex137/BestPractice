@@ -116,11 +116,11 @@ window, as an error with no number in it. The discipline has to come from
 the read being genuinely cheaper, which it is: the local answer is faster
 and more complete, and the allowance it saves was never yours alone.
 
-A wide search looks responsible, and it is usually the wrong trade. The
-known source is already fixed, so the sweep only hunts for copies that may
-not exist. Copies that do exist surface on their own: the next update brings
-the fix, or the person sees the problem again and says so. That costs one
-sentence, and the sweep costs minutes of waiting and a large pile of tokens.
+**A sweep of every clone looks responsible and is usually the wrong
+trade.** With the known source fixed, it only hunts for copies that may not
+exist, and the ones that do exist turn up anyway: the next update carries
+the fix, or the person meets the problem again and says so. That costs one
+sentence; the sweep costs minutes of waiting and a large pile of tokens.
 
 ## Story
 **2026-09-14.** Morgan was refused by GitHub with a rate-limit error and
