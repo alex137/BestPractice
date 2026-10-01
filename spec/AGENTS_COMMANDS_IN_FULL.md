@@ -116,7 +116,9 @@ used to read on turn one.
   — look back over **everything this session has done**, warnings and its
   own fixes and band-aids included, and hand back each one that also
   belongs in Precedent, a precedent-* repo, the template that generates the
-  file, or another related repo, **each as a `Prompt Please` block**. Ones he may
+  file, or another related repo, **in one `Prompt Please` block** for a
+  session rooted in all of those repos, naming the root and the repos to
+  attach before the block. Ones he may
   already have passed on are given anyway, marked if this session raised
   them before; none found is said in one line. It replaced **"Upstream
   fix"** on 2026-10-01: whether a fix removes its cause is now answered for
