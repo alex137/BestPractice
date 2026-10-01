@@ -974,6 +974,8 @@ HOOK_WIRING = {
         ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
         # Everything CI used to run on a push, run before it (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        # No wait loop on pgrep -f, which always finds itself (2026-10-01).
+        ('PreToolUse', 'Bash', 'wait-loop-gate.sh', ''),
         # The same check before a merge through GitHub, which no push gate
         # sees (spec/BRANCH_TIERS_PLAN.md, hole 1).
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
@@ -1005,6 +1007,7 @@ HOOK_WIRING = {
         # A set runs no CI at all (source-sets-run-no-ci), so this is the
         # only thing that runs its checks before a push (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        ('PreToolUse', 'Bash', 'wait-loop-gate.sh', ''),
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PostToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),

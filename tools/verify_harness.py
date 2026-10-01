@@ -34136,6 +34136,39 @@ def check_bare_push_check_takes_the_landing_tier():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_wait_loop_gate_refuses_pgrep_f():
+    """wait-loop-gate.sh refuses a Bash command running `pgrep -f` or
+    `pkill -f`, and nothing else (2026-10-01: a wait loop on `pgrep -f`
+    matched its own shell and ran 20 minutes past the check it waited for;
+    Morgan asked for a wall). Runs the real hook, both copies, on payloads."""
+    cases = []
+    refused = ['while pgrep -f "tools/x.py" >/dev/null; do sleep 5; done',
+               'pkill -f tools/x', 'pgrep -fa x', 'echo hi; pgrep --full x',
+               'sleep 1 && pkill -af y']
+    allowed = ['grep -n "pgrep -f" file', 'pgrep python3', 'ls -la',
+               "git commit -m 'stop using pkill -f'", 'ps -ef | grep x']
+    for rel in ('.claude/hooks/wait-loop-gate.sh',
+                'templates/harness/claude-code/hooks/wait-loop-gate.sh'):
+        hook = ROOT / rel
+        for cmd, want in [(c, True) for c in refused] + [(c, False) for c in allowed]:
+            r = subprocess.run(['bash', str(hook)], input=json.dumps(
+                {'tool_input': {'command': cmd}}), capture_output=True, text=True,
+                timeout=30)
+            denied = '"deny"' in r.stdout
+            cases.append((f'{rel}: {cmd!r} {"refused" if want else "allowed"}',
+                          r.returncode == 0 and denied == want, r.stdout[-200:]))
+    settings = json.loads((ROOT / 'templates' / 'harness' / 'claude-code'
+                           / 'settings.json').read_text(encoding='utf-8'))
+    wired = any('wait-loop-gate.sh' in h.get('command', '')
+                for e in settings['hooks'].get('PreToolUse', [])
+                if e.get('matcher') == 'Bash' for h in e.get('hooks', []))
+    cases.append(('the template settings wire it on PreToolUse Bash', wired, ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'wait-loop-gate.sh refuses pgrep -f and pkill -f, and nothing else '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_push_check_refuses_an_unknown_option():
     """precedent_push_check.py refuses an option it does not know, exit 2,
     naming the ones it does -- and still takes every one it reads.
@@ -50865,6 +50898,7 @@ def main():
     check_push_check_runs_cheap_checks_first()
     check_push_check_refuses_an_unknown_option()
     check_bare_push_check_takes_the_landing_tier()
+    check_wait_loop_gate_refuses_pgrep_f()
     check_reach_key_self_check()
     check_content_record_self_check()
     check_doc_sync_ledger()

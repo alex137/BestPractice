@@ -3932,6 +3932,7 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'precedent-paths.sh',
     'push-check-gate.sh',
     'seeded-prompt-gate.sh',
+    'wait-loop-gate.sh',
 )
 
 
