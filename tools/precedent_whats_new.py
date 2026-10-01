@@ -9,8 +9,10 @@ what was noteworthy, said plainly); this file does the mechanical half.
 
     python3 tools/precedent_whats_new.py            # status: where the log is,
                                                     # how far it runs, what is missing
-    python3 tools/precedent_whats_new.py --days     # each finished day the log lacks,
-                                                    # with what changed on main that day
+    python3 tools/precedent_whats_new.py --days     # every finished day the log lacks,
+                                                    # however many: what changed on main
+                                                    # each day, and the quiet days that
+                                                    # get no entry
                                                     # (add --full for each commit's first
                                                     # paragraph; `git show SHA` for the rest)
     python3 tools/precedent_whats_new.py --days --since YYYY-MM-DD
@@ -20,7 +22,8 @@ what was noteworthy, said plainly); this file does the mechanical half.
     python3 tools/precedent_whats_new.py --mark YYYY-MM-DD
                                                     # the log now covers every day through
                                                     # this one (creates the file if needed)
-    python3 tools/precedent_whats_new.py --check    # entries name no approver
+    python3 tools/precedent_whats_new.py --check    # every entry has the shape (heading,
+                                                    # opening line) and names no approver
 
 THE ONE PIECE OF STATE is the log's own front matter, `checked_through:
 <date>`. It answers both questions a run asks: which days to write, and
@@ -35,8 +38,16 @@ has to end at the same moment whoever writes it. It changed when the tip
 of `main`'s first-parent line at that day's midnight differs from the tip
 at the midnight before, and a commit that touches only the log itself
 does not count -- the log landing on main would otherwise be news every
-day after it. The first run, with no log yet, covers the last seven
-finished days.
+day after it. A day with no change is QUIET: it gets no entry, and --days
+names it so the session can say it was skipped. The first run, with no
+log yet, covers the last seven finished days.
+
+AN ENTRY'S SHAPE is fixed where it can be checked: a heading
+`## <Weekday> <YYYY-MM-DD>: <slug>` (the weekday the date's own; the slug
+a few lowercase words joined by hyphens, plain text at the date's size,
+not a link -- title_case.DATED_SLUG_HEADING, which also keeps the
+headline-capitalization check off it), then HEADLINE as its first line,
+word for word, then bullets that each open with a bold key phrase.
 
 Standard library and precedent_time only, so it runs in any repo that
 vendors the engine (practice: whats-new).
@@ -50,12 +61,24 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import title_case  # noqa: E402
 
 DEFAULT_PATH = 'WHATS_NEW.md'
 PRODUCTION = 'main'
 FIRST_RUN_DAYS = 7
 BODY_CHARS = 400
-HEADER = ("# What's new\n\n"
+# Every entry opens with this line, word for word. The bullets under it
+# are the highlights; a sentence summing them up would only repeat them.
+HEADLINE = ("Some top highlights from the day's activity; ask if you want to learn "
+            "more details or the full list of everything done.")
+WEEKDAYS = title_case.WEEKDAYS
+ENTRY_HEADING = re.compile(r'^## (?P<rest>.*)$')
+HEADING_SHAPE = title_case.DATED_SLUG_HEADING
+# A bullet OPENS with its key phrase in bold, so a skimmer reads the spine
+# of the day down the left edge. Bold mid-sentence was tried first and was
+# easy to miss on the page.
+BOLD_OPENING = re.compile(r'^- \*\*[^*\s][^*]*\*\*')
+HEADER = ("# What's New\n\n"
           "A running log of what changed in this project, newest first: one "
           "entry per day on which something did.\n")
 
@@ -208,23 +231,74 @@ def missing_days(root, today=None, since=None):
     after checked_through (or, with no log yet, from `since` or the last
     FIRST_RUN_DAYS) on which the production branch changed. `since` is a
     first run's backfill; once the log has a date, the log decides."""
+    name, through, active, _quiet = scan_days(root, today=today, since=since)
+    return name, through, active
+
+
+def scan_days(root, today=None, since=None):
+    """-> (tz name, checked_through, [(date, changes)], [quiet dates]):
+    missing_days, plus the finished days in the same span on which nothing
+    changed. A quiet day gets no entry; the session says it was skipped."""
     tz, name = repo_zone(root)
     today = today or datetime.datetime.now(tz).date()
     _text, through = read_state(root)
     ref = production_ref(root)
     first = (through + datetime.timedelta(days=1)) if through else \
         (since or today - datetime.timedelta(days=FIRST_RUN_DAYS))
-    out = []
+    out, quiet = [], []
     if ref is None:
-        return name, through, out
+        return name, through, out, quiet
     day = first
     while day < today:
         ch = changes_between(root, ref, _midnight(day, tz),
                              _midnight(day + datetime.timedelta(days=1), tz))
         if ch:
             out.append((day, ch))
+        else:
+            quiet.append(day)
         day += datetime.timedelta(days=1)
-    return name, through, out
+    return name, through, out, quiet
+
+
+def heading_for(day, slug='<slug>'):
+    """-> an entry's heading line for `day`."""
+    return f'## {WEEKDAYS[day.weekday()]} {day.isoformat()}: {slug}'
+
+
+def shape_problems(text):
+    """-> [(line number, problem)] for entries not in the fixed shape: a
+    heading `## <Weekday> <date>: <slug>` whose weekday is the date's own,
+    then HEADLINE as the first line under it, then bullets that each open
+    with a bold key phrase."""
+    lines = (text or '').splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        m = ENTRY_HEADING.match(line)
+        if not m:
+            continue
+        rest = m.group('rest').strip()
+        h = HEADING_SHAPE.match(rest)
+        if not h:
+            out.append((i + 1, 'heading is not "## <Weekday> <YYYY-MM-DD>: <slug>" '
+                               '(slug: lowercase words joined by hyphens, plain text)'))
+        else:
+            try:
+                day = datetime.date.fromisoformat(h.group('date'))
+            except ValueError:
+                out.append((i + 1, f'{h.group("date")} is not a date'))
+                day = None
+            if day and h.group('weekday') != WEEKDAYS[day.weekday()]:
+                out.append((i + 1, f'{day} is a {WEEKDAYS[day.weekday()]}, '
+                                   f'not a {h.group("weekday")}'))
+        first = next((l.strip() for l in lines[i + 1:] if l.strip()), '')
+        if first != HEADLINE:
+            out.append((i + 1, f'the first line under it is not, word for word: {HEADLINE}'))
+        for j in range(i + 1, len(lines)):
+            if ENTRY_HEADING.match(lines[j]):
+                break
+            if lines[j].startswith('- ') and not BOLD_OPENING.match(lines[j]):
+                out.append((j + 1, 'bullet does not open with its key phrase in bold'))
+    return out
 
 
 def mark(root, day, today=None):
@@ -300,8 +374,12 @@ def main(argv):
         for n, line in hits:
             print(f'{rel}:{n}: names an approval -- an entry says what changed, '
                   f'never who approved it: {line.strip()[:120]}')
-        print(f'precedent_whats_new: {len(hits)} entry line(s) naming an approval')
-        return 1 if hits else 0
+        shape = shape_problems(text)
+        for n, problem in shape:
+            print(f'{rel}:{n}: {problem}')
+        print(f'precedent_whats_new: {len(hits)} entry line(s) naming an approval, '
+              f'{len(shape)} entry shape problem(s)')
+        return 1 if hits or shape else 0
 
     if '--today' in argv:
         tz, name = repo_zone(root)
@@ -322,7 +400,7 @@ def main(argv):
         except (IndexError, ValueError):
             print('precedent_whats_new: --since takes a date, YYYY-MM-DD', file=sys.stderr)
             return 2
-    name, through, days = missing_days(root, since=since)
+    name, through, days, quiet = scan_days(root, since=since)
     if since and through:
         print(f'precedent_whats_new: --since applies only to a first run; {rel} '
               f'already covers through {through}, so it starts after that.')
@@ -331,16 +409,27 @@ def main(argv):
               f'nothing to log.')
         return 0
     if '--days' in argv:
-        if not days:
+        if not days and not quiet:
             print(f'precedent_whats_new: {rel} is current through '
                   f'{through or "(no log yet)"}; no finished day is missing.')
             return 0
+        print(f'precedent_whats_new: {len(days)} day(s) to write, '
+              f'{len(quiet)} quiet day(s) to skip ({name})')
         for day, ch in reversed(days):
-            print(f'\n## {day.isoformat()} ({name})')
+            print(f'\n{heading_for(day)}')
             _print_changes(ch, '--full' in argv)
-        last = max(d for d, _ in days)
-        print(f'\nWrite one entry per day above, newest first, then run: '
-              f'python3 tools/precedent_whats_new.py --mark {last}')
+        if quiet:
+            print(f'\nQuiet -- nothing changed, so no entry; tell the person '
+                  f'these were skipped: '
+                  f'{", ".join(f"{WEEKDAYS[d.weekday()]} {d}" for d in quiet)}')
+        last = max([d for d, _ in days] + quiet)
+        if days:
+            print(f'\nWrite one entry per day above, newest first: the heading as '
+                  f'shown with a slug in place of <slug>, then this line word for '
+                  f'word, then about three bullets, each opening with its key phrase '
+                  f'in bold:\n  {HEADLINE}')
+        print(f'\nThen run: python3 tools/precedent_whats_new.py --mark {last}'
+              f'{" && python3 tools/precedent_whats_new.py --check" if days else ""}')
         return 0
 
     exists = (root / rel).is_file()
@@ -348,7 +437,10 @@ def main(argv):
     print(f'checked through: {through or "nothing yet"} ({name})')
     if days:
         print(f'missing: {len(days)} finished day(s) with changes -- '
-              f'{", ".join(d.isoformat() for d, _ in days)}')
+              f'{", ".join(d.isoformat() for d, _ in days)}'
+              f'{f" (and {len(quiet)} quiet day(s), no entry)" if quiet else ""}')
+    elif quiet:
+        print(f'missing: none with changes; {len(quiet)} quiet day(s) to mark covered')
     else:
         print('missing: none -- the log is current through yesterday')
     return 0

@@ -210,7 +210,7 @@ When a message says "Update Vendors", or an upstream update is taken into a vend
 When a model or comparison rests on an operating constant nobody decided:
   constants-are-risk-inputs — an undecided constant is a swept, registered input, never doctrine
 When a person asks "What's new?", or what has changed in the project lately:
-  whats-new — write any missing daily entries first, then link the log and show the newest
+  whats-new — write every missing day, quiet ones named; the reply opens with the link
 When a person explicitly asks for a "very deep check":
   very-deep-check — read every repo in force against itself, pass by pass; never routine
 When a person explicitly asks for a full practice audit:

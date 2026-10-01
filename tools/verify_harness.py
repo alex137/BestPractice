@@ -3140,7 +3140,10 @@ def check_whats_new_log_mechanics():
     repo's declared zone): a day with a change, an empty day, a day whose
     only commit touches the log itself, and a day that adds a document.
     Stated cases: the first run lists exactly the two real days, newest
-    document named; --mark covers them and a second run lists none; a day
+    document named, and names the quiet ones; an entry's heading carries
+    its weekday, --check flags an entry not in the shape (heading, opening
+    line, a bold key phrase per bullet), and headline case leaves the
+    slug alone; --mark covers them and a second run lists none; a day
     that has not finished cannot be marked; the later of this checkout's
     log and main's is read; an entry naming an approval is flagged; the
     log never ships to another project."""
@@ -3188,6 +3191,46 @@ def check_whats_new_log_mechanics():
         got_back = [d.isoformat() for d, _ in back]
         cases.append(('--since backfills a first run from the day it names',
                       got_back == ['2026-08-01', '2026-09-05', '2026-09-08'], str(got_back)))
+        _tz, _t, _active, quiet = pwn.scan_days(repo, today=today)
+        got_quiet = [d.isoformat() for d in quiet]
+        cases.append(('a quiet day, and one whose only change is the log, is named '
+                      'as quiet rather than dropped silently',
+                      got_quiet == ['2026-09-03', '2026-09-04', '2026-09-06',
+                                    '2026-09-07', '2026-09-09'], str(got_quiet)))
+        cases.append(('a heading carries its weekday',
+                      pwn.heading_for(_dt.date(2026, 9, 30), 'a-slug')
+                      == '## Wednesday 2026-09-30: a-slug',
+                      pwn.heading_for(_dt.date(2026, 9, 30), 'a-slug')))
+        good = (f'## Wednesday 2026-09-30: safer-merges\n\n{pwn.HEADLINE}\n\n'
+                f'- **A change** (a name)\n')
+        old = '## 2026-09-30\n\n**A summary of the bullets.**\n\n- A change\n'
+        wrong_day = good.replace('Wednesday', 'Tuesday')
+        no_line = good.replace(pwn.HEADLINE, '**Merges got safer.**')
+        no_bold = good.replace('**A change**', 'A change')
+        backticked = good.replace('safer-merges', '`safer-merges`')
+        mid_bold = good.replace('**A change** (a name)', 'A **change** (a name)')
+        cases.append(('an entry in the shape passes, and the old shape, a wrong '
+                      'weekday, a summary headline, a bullet with no bold key '
+                      'phrase, one whose bold is mid-sentence and a backticked '
+                      'slug are each flagged',
+                      pwn.shape_problems(good) == []
+                      and len(pwn.shape_problems(old)) == 3
+                      and len(pwn.shape_problems(wrong_day)) == 1
+                      and len(pwn.shape_problems(no_line)) == 1
+                      and len(pwn.shape_problems(no_bold)) == 1
+                      and len(pwn.shape_problems(backticked)) == 1
+                      and len(pwn.shape_problems(mid_bold)) == 1,
+                      str([pwn.shape_problems(t) for t in
+                           (good, old, wrong_day, no_line, no_bold, backticked,
+                            mid_bold)])))
+        import title_case as _tc
+        kept = _tc.title_case('Wednesday 2026-09-30: safer-merges')
+        compound = _tc.title_case('a lock-in for safer-merges')
+        cases.append(('headline case leaves a dated heading\'s slug alone, and '
+                      'still capitalizes a compound elsewhere',
+                      kept == 'Wednesday 2026-09-30: safer-merges'
+                      and compound == 'A Lock-In for Safer-Merges',
+                      f'{kept!r} {compound!r}'))
         added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
         cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
                       str(added)))
@@ -3212,6 +3255,26 @@ def check_whats_new_log_mechanics():
                                   '- Shorter instructions (about 800 tokens)\n')
         cases.append(('an entry naming an approval is flagged, and only it',
                       [n for n, _ in hits] == [5], str(hits)))
+        # The reply check's declared pairing, read from reply_check.json
+        # itself: a reply showing the log opens with the log's link.
+        import re as _re
+        decl = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('practice') == 'whats-new']
+        pair = (decl[0].get('require_paired_with') or [{}])[0] if decl else {}
+
+        def refused(reply):
+            return bool(_re.search(pair.get('if_matches', '(?!)'), reply, _re.I | _re.M)
+                        and not _re.search(pair.get('must_also_match', ''), reply,
+                                           _re.I | _re.M))
+        linked = ('**The log:** [WHATS_NEW.md](https://x/WHATS_NEW.md). Check '
+                  'here daily.\n\n' + pwn.HEADLINE + '\n')
+        late = 'Wrote one day.\n\n' + linked
+        cases.append(('a reply showing the log is refused unless its first line '
+                      'carries the log\'s link; one that does not show it is '
+                      'untouched',
+                      bool(pair) and not refused(linked) and refused(late)
+                      and not refused('Nothing about the log here.\n'),
+                      str(pair)[:200]))
         rule = _ck.vendoring_rule('WHATS_NEW.md')
         cases.append(('a project\'s log never ships to another project',
                       bool(rule) and rule[1] is False, str(rule)))
@@ -13479,6 +13542,17 @@ def check_precedent_check_fires():
             rewrite(repo, 'documentation/WHY_PRECEDENT.md',
                     lambda t: t.replace('## Learn More', '## Learn more', 1))
         case('headline-capitalization', _plant_headline)
+
+        # whats-new -- an entry's bullet with its bold opening taken off, the
+        # exact slip the check was added for on 2026-10-01 (the bold sat
+        # mid-sentence and went unseen). The log's first bullet is the plant
+        # because the newest entry always has one.
+        def _plant_whats_new(repo):
+            def strip_first_bold(t):
+                head, sep, rest = t.partition('\n- **')
+                return head + sep.replace('**', '') + rest.replace('**', '', 1) if sep else t
+            rewrite(repo, 'WHATS_NEW.md', strip_first_bold)
+        case('whats-new', _plant_whats_new)
 
         # source-naming -- a source named freehand instead of by its level.
         # `bestpractice-local` is the real name this repo's own repo-local
