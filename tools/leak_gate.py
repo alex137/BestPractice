@@ -1159,6 +1159,43 @@ def discovered_blocklist_path():
     return path if path.is_file() else None
 
 
+def discovered_neighbour_blocklists(root=None):
+    """-> [path] the `leak-blocklist.txt` of every repository checked out
+    beside this one.
+
+    WHY THIS EXISTS (2026-10-01). A session working in a private repository
+    carried that repository's names into this public tree through a pull
+    request: a filename and a comment in an engine, test sentences and a
+    practice's story all quoted the private repo. This gate passed it,
+    because the only private list it reads is the person's individual
+    source's -- it had never heard the private repo's vocabulary. The same
+    day it refused a clean merge because a private shared set was cloned
+    beside it and its list, on disk the whole time, was never read.
+
+    Whatever text a session holds came from the repositories on its disk,
+    and the repositories checked out beside this one are those. So every
+    neighbour that keeps a `leak-blocklist.txt` at its root -- an individual
+    source, a shared set, a private consumer -- contributes its list.
+    Adding a list can only make the gate stricter, never quieter.
+    """
+    root = pathlib.Path(root or ROOT).resolve()
+    try:
+        siblings = sorted(root.parent.iterdir())
+    except OSError:
+        return []
+    out = []
+    for d in siblings:
+        try:
+            if d.resolve() == root or not (d / '.git').exists():
+                continue
+        except OSError:
+            continue
+        p = d / INDIVIDUAL_BLOCKLIST_NAME
+        if p.is_file():
+            out.append(p)
+    return out
+
+
 def resolve_blocklist_path():
     """-> (path, how) where how is 'env', 'individual source' or None.
 
@@ -1182,7 +1219,24 @@ def load_blocklist():
     the reporting below key off -- the default half is never in question."""
     default_pats = load_default_blocklist()
     path, how = resolve_blocklist_path()
+    # Neighbours' lists add to whichever private list is in force; a path
+    # already named by the environment or the individual source is not read
+    # twice.
+    named = path.resolve() if path is not None and path.exists() else None
+    extra = [p for p in discovered_neighbour_blocklists()
+             if p.resolve() != named]
+    extra_pats, extra_desc = [], []
+    for p in extra:
+        pp = _parse_blocklist(p)
+        if pp:
+            extra_pats += pp
+            extra_desc.append(f'{p} ({len(pp)})')
     if path is None:
+        if extra_pats:
+            return (default_pats + extra_pats,
+                    ' + '.join([f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)})']
+                               + extra_desc),
+                    True)
         return default_pats, f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)} pattern(s))', False
     if not path.exists():
         sys.exit(f"leak gate FAIL: {BLOCKLIST_ENV} points at {path}, which does not "
@@ -1218,8 +1272,9 @@ def load_blocklist():
                  f"while checking nothing, which is the one outcome this gate must "
                  f"never produce. Add at least one term, or unset {BLOCKLIST_ENV} "
                  f"deliberately and rely on the default list alone.")
-    return (default_pats + pats,
-            f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)}) + {path} ({len(pats)})',
+    return (default_pats + pats + extra_pats,
+            ' + '.join([f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)})',
+                        f'{path} ({len(pats)})'] + extra_desc),
             True)
 
 
