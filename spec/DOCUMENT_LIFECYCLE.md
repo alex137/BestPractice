@@ -360,7 +360,7 @@ All 24 files. `→ spec/` means it stays.
 |---|---|---|
 | [README.md](../README.md) | root, pinned | The front door. |
 | [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md) | root, pinned | The harness reads them by path. |
-| [MAP.md](../MAP.md) | root, pinned | [orientation-map](../practices/orientation-map.md) specifies *a top-level [MAP.md](../MAP.md)*. Moving it violates a resident practice. |
+| [MAP.md](../MAP.md) | root, pinned | [orientation-map](../practices/orientation-map.md) specifies *a top-level [MAP.md](../MAP.md)*. Moving it breaks that practice and its check. |
 | [GLOSSARY.md](../GLOSSARY.md) | root, pinned | Generated to root by [tools/build_views.py](../tools/build_views.py). |
 | [precedent.json](../precedent.json) | root, pinned | Resolved by path. |
 | [INSTALL.md](../INSTALL.md), [SETUP.md](../SETUP.md) | root | The install path, linked from outside the repository. |

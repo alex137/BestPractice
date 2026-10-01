@@ -671,7 +671,7 @@ def checks(offline=False):
     # that two rules had been silently switched off. They had not. The copies
     # had landed upstream hours earlier. Absent-from-disk was reported as
     # absent-full-stop, which is the exact confusion the shared set's
-    # `fresh-check-escalation` names: tell "could not verify" apart from
+    # `drift-notice` names: tell "could not verify" apart from
     # "confirmed".
     #
     # So: BEHIND is still a hard False, including when read off a stale ref

@@ -113,7 +113,7 @@ if [ -f "$P/tools/precedent_access_check.py" ]; then
 fi
 
 # FOURTH STEP, added 2026-09-28: has anything this set loads fallen behind its
-# upstream? (The maintainers' drift-notice and fresh-check-escalation.) A
+# upstream? (The maintainers' drift-notice.) A
 # consumer's session-start.sh already ran this; a practice set never did, so
 # a session rooted in a set worked from a stale engine or a stale sibling
 # clone and was never told. Inside the capture so its lines reach the model;

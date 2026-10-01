@@ -201,3 +201,35 @@ curly-quotes and deliverables-carry-no-process joining the outward line;
 answer-first-ask-before-long-work absorbing nonblocking-questions;
 retiring quiet-checks in its set; their-constraints-are-given and
 organize-scattered-content's shorter lines.
+
+### Tier 2 progress
+
+**Morgan, 2026-10-01 (strength: decided):** *"Booked, attach both shared
+sets, and do both Tier 2 items (and note as a possibility for the future in
+a Todo the other tier 2 items to consider)"*. **Applied on
+`claude/reduction-pass-tier2` (2026-10-01):**
+
+- **Four resident rules made on-demand.** orientation-map (by path:
+  [MAP.md](../MAP.md), [AGENTS.md](../AGENTS.md),
+  [CLAUDE.md](../CLAUDE.md)) and quick-index (the same two instructions
+  files and [WHERE_THINGS_ARE.md](../WHERE_THINGS_ARE.md)) leave the index; environment-gotchas
+  keeps an index line ("an environment or tooling trap costs real time");
+  bold-key-phrases is reached by its `**/*.md` path. The three checks do not
+  read `tier:` and still run.
+- **Seven index lines the push already covers.** ci-workflow-approved,
+  vendor-rollout-disclosed: `index_required: false`. filename-separator and
+  session-trailer (universal copy): push gate, `index_required: false`.
+  two-check-levels and routing-audit: real paths. revert-needs-no-trailer:
+  push gate, on the same branch name in precedent-shared-working-style.
+- **change-updates-its-docs** carries resolved-issue-note-updates' example
+  in one sentence; the writing set deduplicates that practice on its own
+  branch.
+- **scrub-gate**, the smaller safe part only: `index_required: false`
+  (its merge and push gates and its path still reach it). **The Tier 1 merge
+  with private-repo-scrub, around what is in force now, is still to do**:
+  it spans two repositories and a rewrite of the Rule.
+
+The two Tier 2 calls not taken (the modeling practices leaving universal,
+and default-register yielding to a declared register) are recorded as
+possibilities in
+[Tier 2 reductions held for later](todo-2026-10-01-tier-2-reductions-held-for-later.md).

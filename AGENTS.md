@@ -106,9 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~833 of 2000 token budget, 10 of 165 practices (10 universal))
-
-**bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
+## Resident block (~561 of 2000 token budget, 6 of 165 practices (6 universal))
 
 **brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
@@ -131,19 +129,6 @@ you are not doing what was asked, the reply's first line says so, and why.
 **When obeying a rule to the letter would leave something broken or wrong,
 ask, with your pick.** Never comply or override silently.
 
-**environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
-tool that silently doesn't work, a path that does work) is written down
-**with the story of what failed and why, not just the fix**, in its own
-file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
-(directory and frontmatter shape:
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
-Part 2).
-
-**None of that catalogue loads into the instructions file, at any size** —
-not the stories, and not even a one-line-per-trap index. The file carries a
-pointer instead: hit an unexplained failure, grep `gotchas/` before
-concluding it's new.
-
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
 because the sentence would be stronger with one, and do not invent
@@ -152,14 +137,6 @@ first-person experience that did not happen.
 Without the real figure, **write around it** — *"most of them"*, *"a
 handful"*, *"it went up"* — or say plainly that it is unknown. **A vague
 true sentence beats a specific false one, every time.**
-
-**orientation-map.** A top-level `MAP.md` indexes the repo: what the key deliverables
-are, where everything lives, and — crucially — which supporting documents back
-each part of each deliverable. Every session reads it before doing anything.
-
-**quick-index.** The project instructions file carries a "check here BEFORE searching
-the repo" table: *looking for X → go to Y*, one row per thing sessions
-actually hunt for.
 
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
@@ -181,8 +158,6 @@ words, at the length it earns.**
 ## Occasion index
 
 ```
-When a .github/workflows file is added, edited, or found in an update or migration:
-  ci-workflow-approved — no new workflow or CI minutes without the person's words; a fix is maintenance
 When a branch has done its job, or a person says to delete branches:
   never-delete-a-remote-branch — never delete a remote branch; hand over the one-click link
 When a computation books a transfer between two parties:
@@ -238,6 +213,8 @@ When a tool, hook, check or gate flags something the person would otherwise have
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; never sweep every clone unasked
+When an environment or tooling trap costs real time:
+  environment-gotchas — one file per trap under gotchas/, with the story, not just the fix
 When an unattended job hits something blocking its normal work, or something optional it cannot reach:
   automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
@@ -252,14 +229,6 @@ When building a permutation or configuration-sweep table:
   permutation-frontier-column — one full table with a computed Frontier column
 When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
-When checking whether practices that should have fired for recent work did:
-  routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
-When committing a shipped practice, hook, template or engine file, before push or merge:
-  vendor-rollout-disclosed — say whether shipped content must reach consumers, if it will, how it migrates
-When committing anything:
-  session-trailer — a Session: <url> trailer on every commit
-When committing anything that touches the vendored/public tree:
-  scrub-gate — the public tree stays public-safe always, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When computing, quoting or tabulating figures:
@@ -283,12 +252,9 @@ When finishing substantial work, or merging a branch:
 When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When naming or adding a file:
-  filename-separator — beside others of its kind: one word separator; never both - and _
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
-When naming what "run the checks" means in a repo:
-  two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — PRs target pre-staging or staging; main moves only by a Promote or when the person names main
 When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:

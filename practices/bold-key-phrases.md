@@ -1,10 +1,10 @@
 ---
 slug:        bold-key-phrases
 title:       Bold the key phrases by default -- people skim
-tier:        resident
+tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
-applies_to_why: "Its own applies_to. The occasion is writing any document meant to be read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the path glob is a second reminder rather than the only one. Decided: promoted to universal 2026-09-07."
+applies_to_why: "Its occasion is writing a document meant to be read, so the path channel fires on markdown and nothing else. Its Rule is about documents; it never asked for bolding in chat, which is what it cost as a resident rule. Decided: promoted to universal 2026-09-07; on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 occasion:    "writing any document meant to be read"
 gates:       []
 index_clause: "bold the key phrases by default, without being asked"
@@ -23,7 +23,7 @@ approved_by: "Morgan F, migrated from RepoPersonalPreferences by the private-set
   the team sets were simply where it was written down first. Deleted from both
   on promotion rather than left as copies. A repo this does not bind exempts it
   in `not_binding` with a stated reason, which is the mechanism that makes one
-  copy safe"
+  copy safe; tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 ---
 ## Rule
 People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
@@ -66,6 +66,8 @@ asked for the lead-ins to be plain and named the clause a suggestion,
 deliberately weak, rather than a gate: a spans-per-100-words ratio cannot
 tell a heading-dense page from an under-emphasized one, so a check here
 would only re-flag the page he had just fixed.
+
+**On-demand from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) noted that, resident, this rule's main cost was bolding in chat replies, which its Rule never asked for: it is about documents. Morgan approved making it on-demand, reached through its existing `**/*.md` path (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 No mechanical check: whether a phrase is "key" and whether the bolded share of a document matches its own two rough tests (a skimmer gets the argument; bold still reads as highlighting, not the normal typeface) is a judgment about that document's own content and audience. A count of bold spans can't tell correct restraint from under- or over-bolding without knowing what the document is actually arguing.
