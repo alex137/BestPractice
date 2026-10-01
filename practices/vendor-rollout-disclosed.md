@@ -72,7 +72,7 @@ loud, not one:
    open-items list and a news log, and keeps its own; it never gets our
    todo items or our What's New (Morgan, 2026-09-30). How this repo is built
    stays here: plans, open items, decisions, reasoning, tests, run
-   records, environment traps, repo-local rules, its own settings and
+   records, repo-local rules, its own settings and
    instructions. For each SHIPS line, say whether that holds; when it does
    not, add the rule that keeps it here. A file in a new place has no rule
    yet, and the `vendoring-decided` check refuses it until one is written.
@@ -128,6 +128,9 @@ day. Morgan: *"make sure that \*every new file\* is evaluated to see if it
 should be vendored in or not, and you should determine the ruleset."* The
 ruleset is `VENDORING_RULES`, each rule with its reason and no catch-all,
 so a new kind of file is decided by a person rather than by default.
+The environment traps went back in the next day: they are what a session
+using Precedent runs into, and environment-gotchas tells it to search them
+(Morgan, 2026-10-01).
 
 ## Install
 No mechanical check, and this is a considered gap, not the first

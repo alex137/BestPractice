@@ -37,8 +37,7 @@
 # fast it finishes, so a second job that exists to DECIDE whether to run the
 # first costs exactly the minute it was deciding whether to spend. Two
 # templates here were split that way and both were folded back. The full
-# arithmetic is in precedent-check.yml.template's header and in
-# spec/BILLING_FLOOR.md; the short version is that no debounce, cache or
+# arithmetic is in spec/BILLING_FLOOR.md; the short version is that no debounce, cache or
 # early-exit is free once a runner has been allocated.
 #
 # THE `paths:` FILTER IS THE ONLY GENUINELY FREE LEVER IN THIS FILE, because
@@ -206,8 +205,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The same step, for the same reason, as precedent-check.yml.template
-      # has carried since 2026-09-13: the engine needs no third-party module,
+      # The same step, for the same reason, as the practice-set workflow
+      # template carried from 2026-09-13 until it was retired: the engine needs no third-party module,
       # but a check script materialized from a practice set may, and PyYAML
       # is the common one. This template never got the step. On 2026-09-28 a
       # set's check_light_check.py did `import yaml` on this bare runner and

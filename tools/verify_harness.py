@@ -10496,7 +10496,8 @@ def check_ci_templates_install_pyyaml_before_the_checks():
     """Every shipped CI template that runs the check suite installs PyYAML
     before it does.
 
-    2026-09-28: precedent-check.yml.template had installed PyYAML since
+    2026-09-28: the practice-set workflow template (retired 2026-10-01) had
+    installed PyYAML since
     2026-09-13, because a check script materialized from a practice set may
     import it. light-check.yml.template runs the same scripts in consuming
     repos and never got the step, so a set's `import yaml` crashed on the
@@ -16145,7 +16146,7 @@ def check_very_deep_check_finds_vendored_surplus():
                 'tools/checkin.py': body,
                 'tools/ENGINE_MANIFEST.json': '{"kind": "consumer"}\n',
                 'process/upstream/tools/checkin.py': body,
-                'process/upstream/gotchas/gotcha-x.md': 'a trap\n',
+                'process/upstream/spec/PLAN.md': 'a plan\n',
                 'process/upstream/practices/p.md': 'a rule\n',
                 }.items():
             (c / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -16153,13 +16154,13 @@ def check_very_deep_check_finds_vendored_surplus():
         subprocess.run(['git', '-C', str(c), 'init', '-q'], capture_output=True)
         subprocess.run(['git', '-C', str(c), 'add', '-A'], capture_output=True)
         found = vdc._consumer_surplus(c)
-        cases.append(('a consumer holding gotchas/ and a second tools/ copy '
+        cases.append(('a consumer holding spec/ and a second tools/ copy '
                       'is reported for both',
-                      len(found) == 2 and 'gotchas/ 1' in found[0]
+                      len(found) == 2 and 'spec/ 1' in found[0]
                       and 'tools/ 1' in found[0]
                       and 'held twice' in found[1], found))
         subprocess.run(['git', '-C', str(c), 'rm', '-q', '-r', '-f',
-                        'process/upstream/tools', 'process/upstream/gotchas'],
+                        'process/upstream/tools', 'process/upstream/spec'],
                        capture_output=True)
         found = vdc._consumer_surplus(c)
         cases.append(('the trimmed consumer is quiet', found == [], found))
@@ -25906,8 +25907,10 @@ def check_catalogue_copy_is_an_allowlist():
         ck.ROOT = tmp
         goes = ['practices/a.md', 'templates/t.md', 'documentation/d.md',
                 'README.md', 'INSTALL.md', 'precedent-source.json',
-                'reply_check.json', 'close_detect.json', 'tools/x.py']
-        stays = ['gotchas/g.md', 'local/practices/l.md', 'bridge/run.py',
+                'reply_check.json', 'close_detect.json', 'tools/x.py',
+                # Traps a session using Precedent hits (Morgan, 2026-10-01).
+                'gotchas/g.md']
+        stays = ['local/practices/l.md', 'bridge/run.py',
                  '.claude/settings.json', '.github/workflows/w.yml', 'MAP.md',
                  'WHERE_THINGS_ARE.md', 'TODO.md', 'AGENTS.md', 'spec/s.md',
                  'todo/t.md', 'templates/harness/LEDGER.md',
@@ -25952,11 +25955,10 @@ def check_catalogue_copy_is_an_allowlist():
             cases.append(('what the copy no longer carries is removed when it '
                           'is upstream\'s text, and kept when edited here',
                           sorted(map(str, dropped)) == ['TODO.md', 'WHATS_NEW.md',
-                                                        'gotchas/g.md', 'todo/todo-x.md',
-                                                        'tools/y.py']
+                                                        'todo/todo-x.md', 'tools/y.py']
                           and list(map(str, kept)) == ['local/l.md']
                           and (ck.UPSTREAM / 'practices' / 'p.md').is_file()
-                          and not (ck.UPSTREAM / 'gotchas').exists(),
+                          and (ck.UPSTREAM / 'gotchas' / 'g.md').is_file(),
                           f'dropped={dropped} kept={kept}'))
         finally:
             ck.UPSTREAM, ck.MANIFEST = saved_up, saved_man
@@ -30601,13 +30603,14 @@ def check_views_drift_gate_reaches_a_source_set():
       1. Regenerate the views inside a fixture set built from ENGINE_FILES
          alone, and require every `*.py` named in their generated headers to
          exist in that set's own tools/.
-      2. `build_views.py --check` -- what the headers now name, and what
-         precedent-check.yml.template's own views-drift steps run -- actually
-         gates there: exit 0 clean, non-zero on one planted line.
+      2. `build_views.py --check` -- what the headers now name, and what the
+         set's own full sweep runs -- actually gates there: exit 0 clean,
+         non-zero on one planted line.
 
-    Plus the shipping half: the template exists, gates without writing, and
-    precedent_bootstrap_source.py installs it into a new set (and reports a
-    set that has none, which is every set created before that date).
+    Plus the shipping half, since a practice set runs no CI (2026-09-21):
+    precedent_bootstrap_source.py installs no workflow into a new set, and
+    does not report one missing. The workflow template sets once ran was
+    retired on 2026-10-01.
 
     The fixture copies ENGINE_FILES out of THIS working tree, for the same
     reason check_precedent_check_degrades_in_a_source_set does: seeding from
@@ -30677,47 +30680,13 @@ def check_views_drift_gate_reaches_a_source_set():
                       'command the headers and the shipped workflow both name '
                       'actually gates', rc != 0 and 'MAP.md' in out, out))
 
-        # The shipping half. Since 2026-09-19 the views-drift gate lives
-        # inside precedent-check.yml.template rather than its own file, and
-        # since 2026-09-20 it is STEPS in that file's single job rather than
-        # a job of its own -- see that template's header and
-        # spec/CI_MINUTES_PLAN.md items 9 and 13.
-        #
-        # ASSERT THE GATE, NOT ITS PACKAGING (2026-09-20). This case used to
-        # test `'views-drift:' in text`, which is a YAML job key -- so
-        # collapsing three billed jobs into one turned it red although the
-        # gate it names still shipped, unchanged, in the same file. A check
-        # that fails when the thing it guards is intact is a check that
-        # teaches people to edit checks. What actually has to hold is that
-        # an adopter's workflow RUNS the drift check; whether that is a job
-        # or a step is a billing decision, and the cases below already pin
-        # the parts that matter (the command, the checkout ref, the refusals).
-        tmpl = ROOT / 'templates' / 'github-actions' / 'precedent-check.yml.template'
-        text = tmpl.read_text(encoding='utf-8') if tmpl.is_file() else ''
-        cases.append(('templates/github-actions/precedent-check.yml.template '
-                      'ships the views-drift gate to adopters (as a job or '
-                      'as steps -- the gate is what is required, not its '
-                      'packaging)',
-                      bool(text) and 'Check the generated views' in text
-                      and 'build_views.py' in text, ''))
-        cases.append(('it runs build_views.py --check, and only reads the repo',
-                      '--check' in text and 'build_views.py' in text
-                      and 'contents: read' in text,
-                      'a workflow that regenerates in CI puts a runner bot in '
-                      'the authorship path ci-commits-carry-identity keeps clean'))
-        cases.append(('it checks out the pull request head, not refs/pull/N/merge',
-                      'pull_request.head.sha' in text,
-                      'auditing the merge tree reports drift belonging to '
-                      'neither branch'))
-        cases.append(('it refuses the layouts it cannot cover rather than '
-                      'passing blind',
-                      'process/upstream/tools/build_views.py' in text
-                      and 'NOT VERIFIABLE' in text, ''))
-        cases.append(('README.md in templates/github-actions/ names it, so an '
-                      'adopter can find it',
-                      'views-drift' in
-                      (ROOT / 'templates' / 'github-actions' / 'README.md')
-                      .read_text(encoding='utf-8'), ''))
+        # The shipping half: no workflow. The practice-set template, whose
+        # views-drift steps ran this same command in CI, was retired on
+        # 2026-10-01 (a set runs no CI since 2026-09-21); the cases below
+        # pin that the bootstrap installs none and asks for none.
+        cases.append(('the retired practice-set workflow template is gone',
+                      not (ROOT / 'templates' / 'github-actions' /
+                           ('precedent-check' + '.yml.template')).exists(), ''))
 
         import precedent_bootstrap_source as pbs
         newset = tmp / 'bootstrapped'
@@ -34263,8 +34232,8 @@ def check_vendor_engine_names_a_dependent_of_a_deleted_file():
 
 def check_vendor_engine_retires_ci_workflow_files():
     """THE INCIDENT (2026-09-19, found in themorgan/precedent-individual).
-    views-drift.yml.template was folded into precedent-check.yml.template as
-    its own job (spec/CI_MINUTES_PLAN.md item 9), and the repos that
+    views-drift.yml.template was folded into the practice-set workflow
+    template (itself retired 2026-10-01) as its own job (spec/CI_MINUTES_PLAN.md item 9), and the repos that
     hand-applied that fix the same day deleted their now-redundant
     views-drift.yml file -- but nothing told refresh() the old manifest
     entry was retired, so ci_workflows_sha256 kept a hash for a file that no

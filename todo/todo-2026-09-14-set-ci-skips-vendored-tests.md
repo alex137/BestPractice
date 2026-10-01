@@ -3,16 +3,16 @@ slug:              todo-2026-09-14-set-ci-skips-vendored-tests
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            dropped
 disposition:       wait
 remind_on:         null
 blocked_on:        "two calls: whether the suite belongs in the `precedent-check` workflow or its own, and what it should do in a set whose checks want a BestPractice clone CI does not have — the same gap that turns real answers into `SKIPPED` unless `PRECEDENT_BESTPRACTICE_CLONE` is set."
 batch:             null
-decision:          null
+decision:          "Overtaken: a practice set runs no CI since 2026-09-21 (source-sets-run-no-ci), and its push check runs tools/checks/tests/run_all.sh before every push (precedent_push_check.py's deep_check step), so the suite is no longer outside every gate. Closed by a session retiring the practice-set workflow template, 2026-10-01."
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-14
-closed:            null
+closed:            2026-10-01
 ---
 ## What
 
@@ -21,7 +21,7 @@ closed:            null
     request.** Verified 2026-09-14: none of the three workflow templates a set
     is bootstrapped with —
     doc-lint (retired 2026-09-21),
-    [precedent-check](../templates/github-actions/precedent-check.yml.template),
+    the practice-set check (template retired 2026-10-01),
     views-drift (a job inside precedent-check since 2026-09-19) —
     references `tools/checks/tests/run_all.sh`, and the same day a sweep of
     all four private sets' workflows found no reference either.

@@ -2193,11 +2193,9 @@ def _write_engine_paths(dest_root, mapping, sources, manifest):
 #
 # KIND-SPECIFIC, unlike the hooks above (which vendor the SAME scripts into
 # both kinds, narrowed only by what a repo's own settings.json wires). A
-# consumer installs bestpractice-docs.yml from doc-lint.yml.template; a
-# source set installs precedent-check.yml (which since 2026-09-19 also
-# carries the views-drift check as one of its jobs -- see
-# templates/github-actions/precedent-check.yml.template's own header,
-# spec/CI_MINUTES_PLAN.md item 9) from its own template --
+# consumer installs leak-gate.yml and light-check.yml; a source set installs
+# none (2026-09-21: a practice set runs no CI; its own workflow template was
+# retired on 2026-10-01) --
 # CI_WORKFLOW_TEMPLATES is the one place that pairing is declared, so
 # precedent_bootstrap_source.py's own WORKFLOW_TEMPLATES reuses it rather
 # than repeating it (practice: registry-source-of-truth).
@@ -2326,8 +2324,8 @@ CI_WORKFLOW_TEMPLATES = {
 # whose template CI_WORKFLOW_TEMPLATES no longer lists at all.
 #
 # THE GAP THIS CLOSES, found 2026-09-19 in a real individual practice set.
-# views-drift.yml.template was folded into precedent-check.yml.template as
-# its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
+# views-drift.yml.template was folded into the practice-set workflow
+# template (itself retired 2026-10-01) as its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
 # applied that fix the same day deleted the now-redundant views-drift.yml
 # file -- but nothing told refresh() the old entry was retired, so
 # ci_workflows_sha256 kept recording a hash for a file that no longer
@@ -2369,7 +2367,7 @@ CI_WORKFLOW_TEMPLATES = {
 # spec/CI_MINUTES_PLAN.md's Phase B sweep for that half.
 RETIRED_CI_WORKFLOW_FILES = {
     '.github/workflows/views-drift.yml':
-        'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+        'folded into the practice-set check workflow as its own job, 2026-09-19 '
         '(spec/CI_MINUTES_PLAN.md item 9)',
     # THE MARKDOWN LINT LEAVES CI ENTIRELY, 2026-09-21. Morgan: "I think we
     # should remove all markdown checks in the yml github actions check (but
@@ -2756,7 +2754,7 @@ LEGACY_REASON_DOCS = (
     'the Markdown-lint workflow, retired 2026-09-21 -- doc_lint.py already '
     'gates every commit as the light check (spec/BILLING_FLOOR.md)')
 LEGACY_REASON_VIEWS_DRIFT = (
-    'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+    'folded into the practice-set check workflow as its own job, 2026-09-19 '
     '(spec/CI_MINUTES_PLAN.md item 9)')
 
 _USES_RE = re.compile(r'^\s*-?\s*uses:\s*["\']?([^@\s"\']+)', re.M)

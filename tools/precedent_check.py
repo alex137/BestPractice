@@ -6359,7 +6359,8 @@ def _shipped_template_carries_its_script(ctx):
         # COMMAND POSITION, NOT MERE MENTION -- and this precision was not
         # designed in, it was forced. The first version of this check
         # matched any `tools/NAME.py` in a non-comment line and fired on its
-        # own first run against precedent-check.yml.template, which names
+        # own first run against the practice-set workflow template (retired
+        # 2026-10-01), which named
         # `'python3 tools/precedent_sync_views.py --repo . --check'` INSIDE
         # an echo, as advice to a human reading a failure message. Nothing
         # executes it; that template is correct.
