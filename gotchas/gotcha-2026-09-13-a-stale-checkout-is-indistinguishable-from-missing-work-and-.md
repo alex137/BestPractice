@@ -18,7 +18,7 @@ commits behind and concluded that files which had landed days earlier "did not
 exist"; another had a local branch sharing **zero** commits with origin. `git
 status` says "up to date with origin" in both cases, because it compares
 against a remote-tracking ref nothing has refreshed.
-[.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh) now
+[.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh) now
 **repairs** rather than warns — on a clean tree that is strictly behind it
 fast-forwards, which makes the harness re-read the instruction files — and
 warns only for diverged, no-shared-history and dirty-tree states, because a

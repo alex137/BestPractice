@@ -31,9 +31,9 @@ once a day, whatever the zone.
 
 ## Fix
 
-[todo/TODO.md](../todo/TODO.md) now records `as_of:` in its frontmatter, the date its ages
+[todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md) now records `as_of:` in its frontmatter, the date its ages
 were computed on, and `--check` rebuilds against that date. The check tests
 that the file matches its items, not that somebody regenerated it since
 midnight. A new generated file with a today-relative value needs the same
 treatment. Test: `check_todo_index_check_survives_midnight` in
-[tools/verify_harness.py](../tools/verify_harness.py).
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py).

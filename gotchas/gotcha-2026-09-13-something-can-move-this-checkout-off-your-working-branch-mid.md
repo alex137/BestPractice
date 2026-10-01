@@ -66,7 +66,7 @@ history is unharmed (`git log`/`git rev-parse` against its remote), switch
 back to the correct branch cleanly, then `git apply --reject` the saved patch
 — expect at least one hunk to conflict if the correct branch has diverged
 from the wrong one since the edits were made, and reapply that hunk by hand
-from the `.rej` file. See [spec/VERIFY_HARNESS_PERFORMANCE.md](../spec/VERIFY_HARNESS_PERFORMANCE.md)
+from the `.rej` file. See [spec/VERIFY_HARNESS_PERFORMANCE.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERIFY_HARNESS_PERFORMANCE.md)
 for the full incident this was pulled from.
 
 ## Fix

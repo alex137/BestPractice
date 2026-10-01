@@ -8,18 +8,18 @@ retires_when:    null
 ---
 ## Symptom
 
-[tools/verify_harness.py](../tools/verify_harness.py) passes locally with
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) passes locally with
 `0 failed`, and the deep-check CI job fails anyway — with a traceback
 instead of a verdict, before a single `PASS:` line is printed.
 
 ## Story
 
-CI does not run [tools/verify_harness.py](../tools/verify_harness.py) the way a
+CI does not run [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) the way a
 session runs it. The
 deep-check workflow splits it into two jobs using
 `PRECEDENT_CHECK_ONLY` / `PRECEDENT_CHECK_SKIP`, because one check
 (`check_precedent_check_fires`) was about half the total runtime
-([spec/VERIFY_HARNESS_PERFORMANCE.md](../spec/VERIFY_HARNESS_PERFORMANCE.md)).
+([spec/VERIFY_HARNESS_PERFORMANCE.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERIFY_HARNESS_PERFORMANCE.md)).
 Those variables are set **only** in CI. A plain local run sets neither, so
 the entire filter path — including every behaviour that depends on a check
 being replaced by a stand-in — is code no local run ever executes.

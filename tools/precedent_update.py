@@ -329,15 +329,93 @@ LEGACY_ROOT_DOCS = (
     ('VOICE.md', 'local/practices/project-voice.md', '3a'),
     ('STYLEGUIDE.md', 'local/practices/project-visual-identity.md', '3b'),
 )
+# The retired template each old root document was written from.
+LEGACY_ROOT_TEMPLATES = {
+    'VOICE.md': 'templates/VOICE.md.template',
+    'STYLEGUIDE.md': 'templates/STYLEGUIDE.md.template',
+}
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
 
 
-def legacy_root_docs(repo):
+def _as_shipped(text):
+    """`text` with its HTML comments dropped and its whitespace evened out:
+    an instantiated template loses the template's header comment, and
+    nothing else about it says the person decided anything."""
+    text = _HTML_COMMENT.sub('', text)
+    lines = [l.rstrip() for l in text.strip().splitlines()]
+    out = []
+    for l in lines:
+        if l or (out and out[-1]):
+            out.append(l)
+    return '\n'.join(out).strip()
+
+
+def shipped_unchanged(repo, old, rev):
+    """True when the repo's `old` (VOICE.md, STYLEGUIDE.md) is a version of
+    its retired template exactly as it shipped, comments aside -- so it
+    carries no decision of the person's. Every version reachable from `rev`
+    in the source clone counts (2026-10-01: a consumer's VOICE.md matched the
+    2026-08-16 template, and converting it produced a practice file of
+    `<undecided>` sections)."""
+    tmpl = LEGACY_ROOT_TEMPLATES.get(old)
+    try:
+        mine = _as_shipped((repo / old).read_text(encoding='utf-8'))
+    except (OSError, UnicodeDecodeError):
+        return False
+    if not tmpl or not rev or not mine:
+        return False
+    r = subprocess.run(['git', '-C', str(SOURCE), 'rev-list', rev, '--', tmpl],
+                       capture_output=True, text=True)
+    for commit in (r.stdout.split() if r.returncode == 0 else ()):
+        text = _source_text(commit, tmpl)
+        if text is not None and _as_shipped(text) == mine:
+            return True
+    return False
+
+
+def retire_shipped_root_doc(repo, old):
+    """Delete an unchanged `old` and drop the process/manifest.json entry
+    that points at it -> True when deleted. A deleted file's entry is
+    what made practice_audit fail a consumer's staging check with UPSTREAM
+    NOT VENDORED (2026-10-01)."""
+    r = subprocess.run(['git', '-C', str(repo), 'rm', '-q', '--', old],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        try:
+            (repo / old).unlink()
+        except OSError:
+            return False
+    man = repo / 'process' / 'manifest.json'
+    try:
+        data = json.loads(man.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return True
+    entries = data.get('entries')
+    if isinstance(entries, list):
+        kept = [e for e in entries
+                if not (isinstance(e, dict) and e.get('local_path') == old)]
+        if len(kept) != len(entries):
+            data['entries'] = kept
+            man.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                           encoding='utf-8')
+    return True
+
+
+def legacy_root_docs(repo, rev=None, rep=None):
     """-> [(old, why)] for each root document LEGACY_ROOT_DOCS names that is
     still here: to convert when its practice file is missing, to delete when
-    both are present."""
+    both are present. One that is still the template exactly as it shipped
+    carries nothing to convert, so with `rev` it is deleted here and said in
+    one line on `rep` instead."""
     out = []
     for old, new, step in LEGACY_ROOT_DOCS:
         if not (repo / old).is_file():
+            continue
+        if rev and shipped_unchanged(repo, old, rev):
+            if retire_shipped_root_doc(repo, old) and rep is not None:
+                rep.step(old, f'deleted: it was the shipped default, unchanged, '
+                              f'so it carried no decision to convert into {new}; '
+                              f'its process/manifest.json entry went with it')
             continue
         where = f'spec/MIGRATING_EXISTING_INSTALLS.md step {step}'
         if (repo / new).is_file():
@@ -428,6 +506,30 @@ def _template_lines_ever(rev, rel):
     return out
 
 
+# A template's `<placeholder>`: anything in angle brackets that is not an
+# HTML comment or tag. The install replaces each with the project's value.
+_PLACEHOLDER_RE = re.compile(r'<(?![!/])[^<>\n]+>')
+
+
+def _filled_forms(text):
+    """-> [compiled pattern] for each line of a template that carries a
+    placeholder, matching that line with every placeholder filled in.
+
+    A consumer's line can equal an OLDER template line and still be the
+    current one, filled in: GETTING_STARTED.md once wrote
+    `process/upstream/` where it now writes `<upstream-docs>/`, and a §1
+    install is told to replace the second with the first -- so a correct
+    install read back as dropped wording (2026-10-01, from a consumer's
+    Update Vendors). The values are the consumer's, unknowable here, so
+    each placeholder matches any text."""
+    out = []
+    for line in {l.strip() for l in text.splitlines()}:
+        parts = _PLACEHOLDER_RE.split(line)
+        if len(parts) > 1:
+            out.append(re.compile('.+?'.join(re.escape(x) for x in parts)))
+    return out
+
+
 def dropped_template_lines(repo, rev):
     """-> [(consumer_rel, template_rel, template_sha256, [(line_no, text)])]
     for each install-once file still carrying, verbatim, a line an OLDER
@@ -460,8 +562,10 @@ def dropped_template_lines(repo, rev):
             text = target.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
+        filled = _filled_forms(current)
         hits = [(n, l.strip()) for n, l in enumerate(text.splitlines(), 1)
-                if l.strip() in gone]
+                if l.strip() in gone
+                and not any(f.fullmatch(l.strip()) for f in filled)]
         if hits:
             found.append((rel, tmpl, hashlib.sha256(current.encode('utf-8')).hexdigest(),
                           hits))
@@ -1529,7 +1633,7 @@ def update(repo, skip_check=False, ref=None):
     # cannot convert for the repo, the install-once file an update can
     # bring forward on its own, and the install-once files it can only
     # report on, since each is the repo's own once written.
-    for old, why in legacy_root_docs(repo):
+    for old, why in legacy_root_docs(repo, head.strip() if head_ok else None, rep):
         rep.leave(old, why)
     gitignore_step(repo, rep, head.strip() if head_ok else None)
     dropped_template_lines_step(repo, rep, head.strip() if head_ok else None)

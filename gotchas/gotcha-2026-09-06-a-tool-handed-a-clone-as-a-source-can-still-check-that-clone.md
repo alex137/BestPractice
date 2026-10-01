@@ -37,7 +37,7 @@ A tool handed a clone as a *source* can still check that clone out from
   every consumer tracks `precedent-beta-v01` while `main` is still the
   default, so the old code would have mirrored `main` over a beta-vendored
   tree, a wholesale revert dressed as an update. Both properties are asserted
-  in [tools/verify_harness.py](../tools/verify_harness.py) with negative
+  in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) with negative
   controls.
 
 </details>

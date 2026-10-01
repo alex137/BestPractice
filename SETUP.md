@@ -25,7 +25,7 @@ nothing to choose here — this page installs §0, always.
    about to set up: a practice layer that gives their project durable
    memory, safe concurrent work, and a Getting Started page for members.
 2. **Ask exactly five questions** — the canonical list, in
-   [spec/INSTALL_QUESTIONS.md](spec/INSTALL_QUESTIONS.md) — together in one
+   [spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md) — together in one
    message, and wait:
    - *What is this project about?* (one or two sentences) — and: fill in
      `MAP.md`'s deliverables and `AGENTS.md`'s quick index now, or leave
@@ -116,7 +116,7 @@ nothing to choose here — this page installs §0, always.
    goes in a new `precedent.json`; an individual source is never touched
    by this session at all — it's declared in that person's own user-level
    config, not this project). If they'd like one set up now instead,
-   follow [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) —
+   follow [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md) —
    it walks through creating the repository (do it yourself if the session
    can; otherwise hand them the exact command or click-path), running
    [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),

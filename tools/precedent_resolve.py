@@ -804,7 +804,7 @@ def load_config(repo, user_config=None):
             # PRECEDENT_FRESHNESS_ALSO's "write the path as ~/name, never
             # spelled out". An already-relative path is unaffected: expansion
             # is a no-op on it, and the join still happens against repo_root.
-            # practice: durable-fix
+            # practice: upstream-fix
             entry_path = _declared_path(repo_root, entry['path'])
             # practice: session-bootstrap -- a universal source declared but
             # not yet on disk (never cloned, because the SessionStart hook

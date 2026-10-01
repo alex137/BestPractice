@@ -39,7 +39,7 @@ failure class in this file.
 
 **Reproduce it in four commands**, which is how the fix was verified: clone
 `--depth 1` over `file://` (a local path ignores `--depth`, gotcha
-[g7](../record/GOTCHAS.md#g7)), add commits upstream, then `git fetch --depth=1 origin <branch>`.
+[g7](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g7)), add commits upstream, then `git fetch --depth=1 origin <branch>`.
 The fetched tip lands as a **disjoint graft** with no path back to `HEAD`, so
 `rev-list --count origin/<branch>..HEAD` counts everything the shallow clone
 can see and calls it local. A plain `git fetch` on an already-shallow
@@ -90,7 +90,7 @@ standing on now.
 guard**, so a session rooted in any of them meets the original trap at full
 force. Their vendored engines were refreshed to current that day and did
 **not** bring the hook with them — the engine and the hooks go stale
-independently ([g20](../record/GOTCHAS.md#g20)), and only the engine has a repair path.
+independently ([g20](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g20)), and only the engine has a repair path.
 
 **A third occurrence, 2026-09-15, finally answers "can this be prevented
 outright" — and the answer is narrower than either fix so far assumed.**

@@ -152,5 +152,5 @@ the occasion index, which every session loads before it works.
 hand over instead, and the rule that deletion is never blocking;
 [the-boildown](the-boildown.md) — item 5, where a safe-to-delete branch is
 reported;
-[durable-fix](durable-fix.md) — why this landed as a committed rule rather
+[upstream-fix](upstream-fix.md) — why this landed as a committed rule rather
 than as one more session knowing better.

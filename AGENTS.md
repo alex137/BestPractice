@@ -55,8 +55,9 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 - **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — one
   paste-ready block for a new session, never a session-creating tool; no
   merge authorization unless he gave one for this handoff.
-- **"Upstream fix"** ([upstream-fix](practices/upstream-fix.md)) — does the
-  fix remove the cause? If not, fix the root where it lives.
+- **"Root issues"** / **"Root fixes"** ([root-issues](practices/root-issues.md))
+  — every bug, issue or warning this session hit whose cause lives in
+  Precedent or a precedent-* repo, each as a Prompt Please block.
 - **"My options"** ([my-options](practices/my-options.md)) — every real
   choice in plain words, costs said flatly, then your pick and why.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — read the list
@@ -105,7 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~915 of 2000 token budget, 10 of 168 practices (10 universal))
+## Resident block (~915 of 2000 token budget, 10 of 167 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -230,14 +231,14 @@ When a person says "Produce", "Make live" or "Promote 5":
   produce — stage 5: Promote staging into main (production); read strictly
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
+When a person says "Root issues" or "Root fixes", or asks what this session found that should go back to Precedent:
+  root-issues — what this session hit that belongs upstream, each as a Prompt Please
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
   three-things — the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — write it with disposition ask and remind_on; never a trigger
-When a person says "Upstream fix" or asks if a fix reaches the cause, or a fix, check or exemption is being added:
-  upstream-fix — fix the cause, not just add a check; a new exemption means look again
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
@@ -290,6 +291,8 @@ When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
 When finishing substantial work, before the merge capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
+When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
+  upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:

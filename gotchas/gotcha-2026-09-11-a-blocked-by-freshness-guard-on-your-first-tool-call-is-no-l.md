@@ -33,7 +33,7 @@ A `BLOCKED by freshness-guard` on your first tool call is no longer the new-bran
   guard actually measured, not to disable it. **An unreachable origin still
   blocks, deliberately.** The 2026-09-09 incident, and the push-the-branch
   workaround it had to use, are entry 30 in
-  [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
+  [record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md).
 
 </details>
 

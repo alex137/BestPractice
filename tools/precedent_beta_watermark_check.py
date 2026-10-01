@@ -363,7 +363,7 @@ def _identity_args(identity):
     specific clone, which is the thing that has to be reached. Trusting an
     earlier step to have configured somebody else's repository is not a
     guarantee, so this stops trusting it and states the author on the
-    command that writes the commit (practice: durable-fix).
+    command that writes the commit (practice: upstream-fix).
 
     Degrades rather than fails: no identity, or an unreadable timezone, and
     the caller commits exactly as it did before. A watermark that cannot be

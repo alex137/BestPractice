@@ -34,7 +34,7 @@ in place and declares that tree as the universal source.
 **§1 stays in this file for two reasons only**: §0's own steps borrow its
 numbered steps for the parts the two share, and a repo that was installed
 the classic way needs to know what it has. **Such a repo migrates** —
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md),
 whole, in one change — and cannot quietly stay classic:
 [tools/practice_audit.py](tools/practice_audit.py)'s check 5 fails on a
 vendored catalogue nothing loads, `checkin.py update` says the same thing
@@ -77,13 +77,13 @@ refinement is deferred whether or not it appears on a list here.
 commit identity, the shared and individual source question, the audit passing,
 and anything a mechanical check fails without. Those are not refinements —
 the project is wrong without them, and an install that skips one has not
-installed. **[spec/INSTALL_QUESTIONS.md](spec/INSTALL_QUESTIONS.md) is the
+installed. **[spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md) is the
 canonical list of every question this asks a person**, fresh install or
 migration alike — edit that table, not the prose in this file or SETUP.md,
 when a question is added, dropped or reworded.
 
 For what each practice is and why, read [practices/](practices/) — indexed
-by [MAP.md](MAP.md), one rule at a time with
+by [MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md), one rule at a time with
 `python3 tools/precedent_show.py SLUG`. ([PRACTICES.md](PRACTICES.md) is
 the frozen pre-fork catalogue, kept for its prose; it is no longer the live
 list.)
@@ -95,7 +95,7 @@ list.)
 It is the only install that turns the loader on — the resident block, the
 occasion index, the enforced checks; §1 installs the vendored prose and none
 of that, so a §1 project that wants Precedent later takes
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).
 [SETUP.md](SETUP.md)'s guided conversation runs this path (until 2026-09-14
 it ran §1 — flipped on the very deep check's recommendation; `strength:
 assented`).
@@ -123,14 +123,14 @@ are what the tool does**, in the order it does it, and because a repo
 that wants to deviate from one of them needs to know what it is deviating
 from. Rehearsed against a real project on 2026-09-14 (the closing paragraph
 of this section says what it found); the tool's own fixture in
-[tools/verify_harness.py](tools/verify_harness.py) installs into a scratch
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) installs into a scratch
 project and runs that project's checks on every harness run.
 
 **When to use this instead of §1**: a genuinely fresh repo, never
 BestPractice-vendored before. A repo that already vendored BestPractice
 the old way and wants to move to the three-source model is a different,
 already-documented case —
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md),
 not this section.
 
 1. **Vendor the universal source.** Clone Precedent (on `main`, as
@@ -171,7 +171,7 @@ not this section.
    answered yes to the shared/individual question (step 3 below, same
    question §1 step 9 asks), a `team` source too — resolved live from a
    sibling clone, per
-   [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+   [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
    §3, **never vendored**. Never declare a `level: "individual"` entry —
    `tools/precedent_resolve.py` refuses this by name, and for good
    reason: naming a person's individual set in a repo anyone else on the
@@ -312,7 +312,7 @@ not this section.
     usual case, and a project whose every collaborator is a maintainer can
     skip this. `precedent_install.py` does not do this step; it is a
     decision about people, made after the install. The line is
-    [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s: **content is
+    [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md)'s: **content is
     any contributor's; a protected path needs a maintainer's review; a
     practice is suggested by anyone and landed only by a listed approver.**
     Nothing in it is keyed to what kind of person somebody is
@@ -355,7 +355,7 @@ not this section.
 **What has and has not been rehearsed, stated plainly rather than left to
 be discovered.** Every step here has been walked end to end against a
 scratch repository twice — 2026-09-06 (the
-[pre-launch audit](spec/PRELAUNCH_AUDIT.md)) and again 2026-09-07 (the
+[pre-launch audit](https://github.com/alex137/BestPractice/blob/staging/spec/PRELAUNCH_AUDIT.md)) and again 2026-09-07 (the
 [very deep check](practices/very-deep-check.md)'s pass 1) — vendoring,
 declaring sources, instantiating, syncing, and running the deep check on
 the result, which comes back clean. **No count is quoted here on purpose**
@@ -374,7 +374,7 @@ install. Two of them only bite a consumer declaring `visibility: public` —
 private practice text was materialized into its tracked tree, and the
 loader block the documented step wrote was one the enforced check then
 reported as hand-edited. All four are fixed; the run is recorded in
-[spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md).
+[spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md).
 
 **A real project has now done this, 2026-09-14**, which is what the
 paragraph above used to say was still missing — a scratch repository has no
@@ -387,7 +387,7 @@ defects, all of them in this engine and none in the steps:
   traceback was reported as a violation of the practice itself. **Fixed
   2026-09-14**: both checks now skip, saying there is no history yet, and
   run clean as soon as the repo has its first commit.
-  [TODO.md's `no-history-checks-unpushed` item](todo/todo-2026-09-14-no-history-checks-unpushed.md)
+  [TODO.md's `no-history-checks-unpushed` item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-14-no-history-checks-unpushed.md)
   carries what landed;
 - a repo declaring its own `fallback_timezone` in `precedent.json` — the
   documented rung-5 override — was reported as drift by
@@ -399,7 +399,7 @@ defects, all of them in this engine and none in the steps:
   reported dozens of broken links in files an adopter must not edit. A
   mirrored tree is now exempt from the link check alone.
 
-What is still untested is the rest of [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s
+What is still untested is the rest of [spec/PHASE6_BRIEF.md](https://github.com/alex137/BestPractice/blob/staging/spec/PHASE6_BRIEF.md)'s
 list, not the install itself. Two things this section deliberately does **not**
 cover, by design and not oversight:
 
@@ -422,7 +422,7 @@ cover, by design and not oversight:
 > [§0](#0-installing-directly-onto-the-precedent-loader)
 > (`python3 tools/precedent_install.py`); a project already installed this
 > way migrates, per
-> [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+> [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).
 > The steps below vendor the catalogue and turn none of it on, which is why
 > they were retired — the opening of this file has the incident. They stay
 > because §0 cites several of them for the parts the two paths share (the
@@ -448,15 +448,15 @@ cover, by design and not oversight:
    from mirroring this file, so nothing generic is lost by skipping it.
 
    - [evals/](evals/) is Precedent's own routing-quality measurement corpus
-     (the fixtures behind [spec/LOADER.md](spec/LOADER.md)'s recall and
+     (the fixtures behind [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md)'s recall and
      precision figures).
    - [philosophy/](philosophy/) is the argument *for* the ideas, and
-     [binds nothing outside itself](local/practices/philosophy-is-not-repo-policy.md)
+     [binds nothing outside itself](https://github.com/alex137/BestPractice/blob/staging/local/practices/philosophy-is-not-repo-policy.md)
      even here.
    - [spec/](spec/), [todo/](todo/), [decisions/](decisions/) and
      [deck/](deck/) are the engine's own build plans, backlog, dated design
      decisions and pitch-deck tooling — contributor material, per
-     [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s own
+     [spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/staging/spec/DOCUMENT_LIFECYCLE.md)'s own
      audience table.
    - [record/](record/) holds the fuller, pre-migration text behind the
      current [gotchas/](gotchas/) split, cited from vendored practices by
@@ -476,7 +476,7 @@ cover, by design and not oversight:
 
    **Which is not the same as "skip the reader-facing prose".**
    [documentation/](documentation/) vendors, in full and on purpose:
-   [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s placement
+   [spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/staging/spec/DOCUMENT_LIFECYCLE.md)'s placement
    table sorts every directory by audience, and `documentation/`'s audience
    is *"someone using Precedent on their own project"* — exactly who a
    vendored tree is for. That table is the test to apply to any directory
@@ -605,7 +605,7 @@ cover, by design and not oversight:
      | `commit-identity.sh` | **Always, and it asks nobody anything.** See below. |
      | `freshness-guard.sh` | **Always**, unless this repo's own bootstrap already fetches and fast-forwards — then it is duplicated work, not a conflict. |
      | `stop-git-check.sh` | **Wired by default** — the adapter's settings.json carries it, and an install leaves it. It blocks ending a turn on uncommitted or unpushed work: good discipline for a repo you own, intrusive in one shared with someone who did not choose it, so the one thing to say to the administrator is that this `Stop` entry can be removed on its own, without touching `stop-reply-check.sh`, if the team objects. Not a question at install. |
-     | `stop-reply-check.sh` | **Wired by default**, same as `stop-git-check.sh` — a separate `Stop` entry as of 2026-09-23 (split out of that file; see its header). Prints the reply gate's reminders, blocks a reply that broke a source's declared requirement, and runs close detection; it never blocks on the git tree, so it carries none of the other hook's "intrusive in a shared repo" objection. **An existing install taking the update by hand does not receive this file automatically** — vendoring is gated on wiring, and a refresh never writes a consumer's `settings.json` ([todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md](todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md)); a repo installed before this split keeps running the old, unsplit `stop-git-check.sh` behavior until someone adds the `Stop` entry above by hand and re-runs the refresh. |
+     | `stop-reply-check.sh` | **Wired by default**, same as `stop-git-check.sh` — a separate `Stop` entry as of 2026-09-23 (split out of that file; see its header). Prints the reply gate's reminders, blocks a reply that broke a source's declared requirement, and runs close detection; it never blocks on the git tree, so it carries none of the other hook's "intrusive in a shared repo" objection. **An existing install taking the update by hand does not receive this file automatically** — vendoring is gated on wiring, and a refresh never writes a consumer's `settings.json` ([todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md)); a repo installed before this split keeps running the old, unsplit `stop-git-check.sh` behavior until someone adds the `Stop` entry above by hand and re-runs the refresh. |
      | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
      | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
@@ -779,7 +779,7 @@ cover, by design and not oversight:
    `spec/BOOTSTRAP_NEW_SOURCES.md` exists to get offered it.
    - **If yes, set one (or both) up now — same flow whether this is the
      first ask or a "yes" to the active offer above:** follow
-     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) — it
+     [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md) — it
      creates the repository (or hands the administrator the exact
      command/click-path where this session can't create one itself), runs
      `tools/precedent_bootstrap_source.py` to instantiate a real starter
@@ -882,7 +882,7 @@ cover, by design and not oversight:
      have to notice and react to.** `templates/AGENTS.md.template`'s
      "Build-environment gotchas" section carries the exact bullet to
      instantiate for this — use it rather than writing your own version;
-     see [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     see [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4 for the worked pattern and the incident that made "write your
      own version" the wrong call once already (it covers both this and the
      individual source below together, since they hit the identical gap).
@@ -900,7 +900,7 @@ cover, by design and not oversight:
      so `precedent_candidate.py create --level shared --as-issue true`
      drafts a GitHub Issue on the shared-set repo instead, for an actual
      approver to act on later — see
-     [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)
+     [spec/CANDIDATE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-a-shared-set-file-or-issue)
      for the full "file vs. Issue" reasoning (it also covers individual,
      which never needs this: you're always the one who gets to say yes to
      your own set).
@@ -938,7 +938,7 @@ cover, by design and not oversight:
      scoped per session, and a shell hook cannot grant itself more of it.
      The consuming repo's instructions file still needs the standing
      `add_repo` instruction that
-     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4 gives in full.
 
      **Two independent adopters had that instruction in place and still hit
@@ -985,11 +985,11 @@ cover, by design and not oversight:
      ([no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)).
      An unpushed commit gets fixed, not listed. A repo with history that
      predates the check is the migration case, not this one:
-     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4d.
    - See [documentation/examples/practice-set/](documentation/examples/practice-set) for what an
      individual set's files actually look like, and
-     [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
+     [spec/PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
      for **universal source**, **shared source**, and **individual source**
      as terms.
    - This step isn't only for a fresh install — see §2 step 3 for asking it
@@ -1058,7 +1058,7 @@ Check first: if this repo vendors `process/upstream/` and its
 `precedent.json` declares no `level: "universal"` source (or there is no
 `precedent.json` at all), this update would refresh text no session ever
 reads. Follow
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)
 instead; its step 1 *is* this update, and the rest turns the loader on. It
 asks the person which practice sets the repo should load, so expect that
 question. `practice_audit.py` fails until the migration is done. The
@@ -1070,7 +1070,7 @@ old one; the failing audit is what says so.
 project-visual-identity change, lands on a repo that still has a root
 `VOICE.md` or `STYLEGUIDE.md`** from an earlier install. That is a
 migration, not an ordinary template refresh — see
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
 project-voice and project-visual-identity steps, and do not leave the old
 `VOICE.md` or `STYLEGUIDE.md` sitting beside the new practice file: a repo
 with both is a repo where a session has no way to know which one is meant
@@ -1129,7 +1129,7 @@ same way.
    source simply stopped producing, which usually means your vendored copy
    is *stale* and needs a refresh. Read that message before reaching for
    `--allow-removals`, and check the named practices against upstream's
-   [MAP.md](MAP.md) withdrawn-practices table first.
+   [MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md) withdrawn-practices table first.
 
    **A second refusal names a source your `precedent.json` no longer
    declares**, and it is worth reading rather than flagging past: the match
@@ -1268,9 +1268,9 @@ same way.
    `tools/ENGINE_MANIFEST.json`, it was vendored with
    [`tools/precedent_vendor_engine.py`](tools/precedent_vendor_engine.py)'s
    `'consumer'` kind (§0 step 1, or the migration path
-   [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+   [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)
    step 7 documents) — the same mechanism
-   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
+   [spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
    vendored engine" section already documents for an individual/shared
    *source* set, extended to a four-source *consumer*'s larger file list.
    From a sibling BestPractice clone — **but check for

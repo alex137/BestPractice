@@ -46,7 +46,7 @@ A `verify_harness.py` fixture that builds a "no credential" scenario inherits th
   will not have read them.** That practice's own Rule says to clear the
   ambient inputs at the top, once, rather than in the fixture that happened
   to notice — so the scrub also sits at the head of
-  [tools/verify_harness.py](../tools/verify_harness.py), beside the
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py), beside the
   `GIT_AUTHOR_*` one that was the identical shape four days earlier, and
   `check_fixtures_own_the_credential_environment` holds it there: it plants
   both variables in a subprocess, imports the module, and asserts they come
@@ -59,7 +59,7 @@ A `verify_harness.py` fixture that builds a "no credential" scenario inherits th
   *"pre-write does not block a branch absent from origin (exit 2)"*, red on any
   machine with the variable and green everywhere else. **The tell is a block
   naming a repo or branch the fixture never created.** Scrubbed at the head of
-  [tools/verify_harness.py](../tools/verify_harness.py) with the other two, and
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) with the other two, and
   planted-and-asserted by `check_fixtures_own_the_credential_environment`.
 
   **The generalization is worth more than the fix: an ABSENCE is state

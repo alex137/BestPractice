@@ -44,6 +44,7 @@
    },
    {
     "if_says": "You can archive this session",
+    "unless_sentence_matching": "\\b(?:(?:another|other|a different|that|your)\\s+(?:[\\w'-]+\\s+){0,2}|the\\s+(?!this\\b|current\\b|same\\b)(?:[\\w'-]+\\s+){1,2})(?:session|window|repo|repository)\\b",
     "must_not_say_matching": "\\bstill (?:open|pending|blocking|waiting)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b|upstream\\b|(?:in|on) (?:another|a different|the other) (?:repo|repository)\\b))|\\bwaiting on (?:you|your)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bblocked on\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bneeds? your (?:approval|input|answer|review)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bnot yet (?:pushed|merged|committed)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))"
    }
   ],

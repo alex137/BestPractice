@@ -53,7 +53,7 @@ machine. Until 2026-09-27 this template carried a `CUSTOMIZE` line and told
 an adopter to copy their old command into it. That advice is what kept
 hand-made copies alive, and it is gone.
 
-**Why a shape exists at all** ([spec/BILLING_FLOOR.md](../../spec/BILLING_FLOOR.md)).
+**Why a shape exists at all** ([spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/staging/spec/BILLING_FLOOR.md)).
 [two-check-levels](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md)
 tells every adopter to name a fast check and a full check. This repository
 shipped the **rule** and never shipped a **shape**, so twelve repositories

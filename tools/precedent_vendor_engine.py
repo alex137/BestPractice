@@ -5681,7 +5681,7 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # Hook scripts, into tmp/hooks/ -- same commit, same read-only blob
     # discipline, listed from THIS commit's tree rather than from disk so a
     # hook added or removed upstream is picked up without a code change here
-    # (practice: durable-fix -- see _hook_file_names). No skip-and-converge
+    # (practice: upstream-fix -- see _hook_file_names). No skip-and-converge
     # dance for a missing one: hooks have no self-reference problem the way
     # this tool's own file does, so a hook name from this commit's own tree
     # listing cannot fail to `git show` from the same commit.

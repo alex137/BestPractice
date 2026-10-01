@@ -8,7 +8,7 @@ retires_when:    null
 ---
 ## Symptom
 
-`python3` [`tools/verify_harness.py`](../tools/verify_harness.py) crashes with an
+`python3` [`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) crashes with an
 uncaught `OSError: [Errno 39] Directory not empty` from inside Python's own
 `tempfile.TemporaryDirectory.__exit__`, rather than printing a `FAIL` line —
 the whole run dies mid-suite instead of reporting the one check that owns
@@ -41,7 +41,7 @@ candidate, also unmeasured: newer git can auto-start a per-repo background
 filesystem-monitor daemon that outlives the `git` subprocess that spawned
 it and keeps a socket file open under `.git/` until stopped.
 
-**The fix is `_rmtree_retrying()`** ([tools/verify_harness.py](../tools/verify_harness.py), next to `check()`):
+**The fix is `_rmtree_retrying()`** ([tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py), next to `check()`):
 retry the delete a few times with a short pause before giving up, and if it
 is still not empty after those retries, raise anyway with the directory's
 remaining contents attached as evidence — a real, persistent leak still

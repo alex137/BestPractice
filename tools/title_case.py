@@ -317,7 +317,7 @@ SMALL = {
 # notices -- one dependent repo had 16 live headings depending on the
 # exemption and a comment in its own copy saying a refresh eats it. Morgan's
 # call, 2026-09-20; the fix belongs here, where a refresh carries it instead
-# of destroying it (practice: fix-the-original).
+# of destroying it (practice: upstream-fix).
 KEEP_PHRASES = ("The Why", "See also")
 
 HEADING = re.compile(r"^(#{1,6})(\s+)(.*?)(\s*)$")

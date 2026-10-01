@@ -62,7 +62,7 @@ own rules only because Claude Code falls back to `AGENTS.md` where a project
 has no `CLAUDE.md` of its own. A set needs the stub and
 [`hooks/precedent-universal-catalogue.sh`](claude-code/hooks/precedent-universal-catalogue.sh);
 what it does not need is an `@import` of the catalogue that hook renders —
-[`../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md`](../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md)
+[`../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md`](https://github.com/alex137/BestPractice/blob/staging/spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md)
 says why, and it is the same file a session should read before changing what
 any hook here prints to stdout.
 
@@ -152,11 +152,11 @@ installs it into every consuming repo on the same sync that carries the
 practices and checks, recording the copy in that repo's `MANIFEST.json` so a
 later hand-edit shows up as drift. The settings wiring still does not travel
 and is refused as a destination — each repo substitutes its own base branch
-there. See [spec/SOURCES.md](../../spec/SOURCES.md)'s "Harness adapters travel
+there. See [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md)'s "Harness adapters travel
 with the source" for the two incidents behind it and the decisions taken.
 
 **Transfer verdicts for changes to any one adapter are ledgered:**
-[LEDGER.md](LEDGER.md) — a change to one member presumptively transfers to
+[LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) — a change to one member presumptively transfers to
 the others, and this family's ledger records the per-member verdict for
 each change rather than leaving it to a headline judgment call
 ([parallel-artifact-ledger](../../practices/parallel-artifact-ledger.md)).

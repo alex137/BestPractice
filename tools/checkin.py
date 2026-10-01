@@ -101,11 +101,11 @@ had already needed it.
                             automated, taking the update stays deliberate
                             (INSTALL.md sec.2).
 
-Run:  python3 process/upstream/tools/checkin.py fresh
-      python3 process/upstream/tools/checkin.py status ../BestPractice
-      python3 process/upstream/tools/checkin.py update ../BestPractice
-      python3 process/upstream/tools/checkin.py push   ../BestPractice
-      python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
+Run:  python3 tools/checkin.py fresh
+      python3 tools/checkin.py status ../BestPractice
+      python3 tools/checkin.py update ../BestPractice
+      python3 tools/checkin.py push   ../BestPractice
+      python3 tools/checkin.py record ../BestPractice --note "PR #4"
       python3 ../BestPractice/tools/checkin.py update ../BestPractice --repo .
 """
 import collections, datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
@@ -1053,7 +1053,7 @@ def _report_excluded_content():
     _carry_check, which walks the tree unfiltered) flagged 52 real lines as
     "lost" and nearly had them discarded by an --accept-loss call before a
     human caught it.
-    (practice: durable-fix -- this is the mechanism fix, not the one-time
+    (practice: upstream-fix -- this is the mechanism fix, not the one-time
     manual cleanup a consumer's own re-vendor would otherwise have to
     remember to do.)
 
