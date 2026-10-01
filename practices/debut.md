@@ -32,19 +32,22 @@ the lock, the full local check on the batch, nothing moving unless it
 passes. Work still on this session's feature branch goes through
 [Booked](go-update.md) first, and the read-back names both stages.
 
-**When a Debut is refused, see every failure before trying again.** The
-refusal shows only part of what is wrong: the push check stops at its first
-failing step, and a test that crashes takes the rest of its batch down with
-it. So fix what it named, then run every step once, in the session:
+**When a Debut is refused, fix what it named, then run every step once in
+the session before booking and trying again** -- `## Detail` has the
+command (Morgan, 2026-10-01, strength: assented).
+
+**Where a repository has no pre-staging** -- a person who lands on staging
+-- Debut has nothing to do, and says so.
+
+## Detail
+A refusal shows only part of what is wrong: the push check stops at its
+first failing step, and a test that crashes takes the rest of its batch
+down with it. So after fixing what it named, run:
 
     PRECEDENT_PUSH_CHECK_ALL=1 python3 tools/precedent_push_check.py --tier full --because "a Debut was refused"
 
 Fix all of what that finds, book it, and Debut again. The next Debut reuses
-that pass for the same files rather than running it a second time (Morgan,
-2026-10-01, strength: assented).
-
-**Where a repository has no pre-staging** -- a person who lands on staging
--- Debut has nothing to do, and says so.
+that pass for the same files rather than running it a second time.
 
 ## Why
 "Debut" names the step for what it means: the work's first appearance where
