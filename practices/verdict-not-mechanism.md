@@ -16,7 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-26"
-approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR NOT, I DON'T KNOW WHAT STOP HOOKS ARE, SO YOU NEED TO EVALUATE THE STOP HOOKS AND MAKE A RECOMMENDATION, AND THE SAME FOR OTHER SIMILAR ISSUES NOT JUST STOP HOOKS.\" Commits that change no file are never mentioned, and ahead/behind counts are of commits that changed files: Morgan, 2026-09-27 -- \"let's have the system stop describing and/or reporting and/or mentioning empty merges\" (strength: decided)."
+approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR NOT, I DON'T KNOW WHAT STOP HOOKS ARE, SO YOU NEED TO EVALUATE THE STOP HOOKS AND MAKE A RECOMMENDATION, AND THE SAME FOR OTHER SIMILAR ISSUES NOT JUST STOP HOOKS.\" Commits that change no file are never mentioned, and ahead/behind counts are of commits that changed files: Morgan, 2026-09-27 -- \"let's have the system stop describing and/or reporting and/or mentioning empty merges\" (strength: decided). The unchanged-backlog sentence absorbed the working-style set's quiet-checks on 2026-10-01, in the reduction pass Morgan approved that day: \"Question 3 - all are great, approved\" (strength: decided)."
 strength:    decided
 ---
 ## Rule
@@ -50,6 +50,11 @@ are none, there is nothing to say. Morgan, 2026-09-27 (strength: decided):
 *"let's have the system stop describing and/or reporting and/or mentioning
 empty merges"*, and on the branch lines, count *"the number of commits
 ahead/behind that made changes to the repo"*.
+
+**An unchanged, known backlog in a check's output is never re-explained.**
+"Pre-existing warnings only, unrelated to my edit", said again at every
+commit, informs nothing; say "checks passed" or what failed. A run that
+failed, or a warning the current edit introduced, is always reported.
 
 **When a tool's verdict and the session's disagree, the reply says what the
 session found, not what the tool concluded.** If a fixed sentence the tool
@@ -102,6 +107,15 @@ into four practice-set clones. Once the session looked, every code file
 matched the upstream `main` byte for byte, and the rest were generated from
 those files. So the right verdict was "lose them; any new session re-creates
 them". The session could have said that in the first place and didn't.
+
+**2026-10-01.** The working-style set's quiet-checks said one thing this
+Rule did not: a session that explains away the same unchanging backlog with
+the same sentence at every commit is repeating a disclaimer that never
+informs the next step. It is the same rule as the empty-commit paragraph,
+about a check's output instead of a branch's, so the reduction pass Morgan
+approved that day ("Question 3 - all are great, approved", strength:
+decided) added it here as one sentence. Retiring quiet-checks in that set
+is a separate change, made there.
 
 ## Install
 Nothing to install. It fires at the `reply` gate
