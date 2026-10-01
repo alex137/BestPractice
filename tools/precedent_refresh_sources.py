@@ -1061,9 +1061,15 @@ def main(argv):
                   f"{e['recorded'][:12] or '(none)'}, BestPractice {tip_ref} "
                   f"is {tip[:12]}")
         elif e.get('committed') and e['committed'] != e['recorded']:
+            # Written here at every session start, by decision (2026-09-15),
+            # and never committed by this tool: the copy is regenerable, not
+            # work, but it lives in this container only until it lands. Say
+            # how it lands, so nobody saves the container's copy instead.
             print(f"  ok     {_label(e['repo'])} ({e['kind']}): working tree "
                   f"current at BestPractice {tip[:12]}; committed engine is "
-                  f"{e['committed'][:12]}, until the refresh is committed")
+                  f"{e['committed'][:12]}. The refreshed files exist only in "
+                  f"this container -- to land them, say \"Update Vendors\" "
+                  f"in {e['repo'].name}")
         else:
             print(f"  ok     {_label(e['repo'])} ({e['kind']}): engine current "
                   f"at BestPractice {tip[:12]}")
@@ -1115,9 +1121,14 @@ def main(argv):
             # person's own changes stop it (2026-09-30: the session-start
             # refresh leaves engine output in every clone, so refusing on
             # any dirt would have refused every clone).
+            # Each note names its repo. Printed after every row above, an
+            # unnamed note sat under whichever row came last: on 2026-10-01
+            # precedent-individual's two bootstrap/ files appeared under a
+            # consumer's STALE row, and a session told the person that
+            # consumer had uncommitted edits it never had.
             engine_dirt, other_dirt = classify_dirt(e['repo'])
             if other_dirt:
-                print(f"         clone not brought up to its own origin/{want}: "
+                print(f"  NOTE   {_label(e['repo'])}: clone not brought up to its own origin/{want}: "
                       f"uncommitted changes of its own "
                       f"({', '.join(other_dirt[:3])}"
                       f"{'...' if len(other_dirt) > 3 else ''}) -- commit or "
@@ -1125,7 +1136,7 @@ def main(argv):
                 continue
             ok_cur, note = make_current(e['repo'], want)
             if note != 'already current':
-                print(f"         clone vs its own origin/{want}: "
+                print(f"  NOTE   {_label(e['repo'])}: clone vs its own origin/{want}: "
                       f"{note if ok_cur else 'NOT brought current -- ' + note}")
             if ok_cur and engine_dirt:
                 e['stale'] = True           # its engine output was discarded
