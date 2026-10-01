@@ -34087,6 +34087,55 @@ def check_model_audit_ledger():
     check(name, not bad, '; '.join(bad))
 
 
+def check_bare_push_check_takes_the_landing_tier():
+    """precedent_push_check.py run with no destination checks what a push
+    to the person's landing branch gets (Morgan, 2026-10-01, strength:
+    assented). A session ran it bare before every landing on pre-staging
+    and paid the ~11-minute suite each time. Stated cases: bare, with a
+    pre-staging landing, it becomes a push to pre-staging at the basic
+    tier; a staging landing still runs full; --tier full and a named push
+    are left exactly as given."""
+    import contextlib, io, tempfile
+    import precedent_push_check as ppc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bare-push-check-'))
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+
+        def landing(branch):
+            (tmp / 'precedent.json').write_text(json.dumps(
+                {'base_branch': 'main', 'landing_branch': branch}), encoding='utf-8')
+        landing('pre-staging')
+        with contextlib.redirect_stdout(io.StringIO()):
+            argv = ppc._default_destination(tmp, [])
+        cases.append(('bare, it names a push to the landing branch',
+                      argv == ['--push-command', 'origin HEAD:pre-staging'], str(argv)))
+        cases.append(('...which is the basic tier',
+                      ppc._tier_from_args(tmp, argv)[0] == ppc.BASIC,
+                      str(ppc._tier_from_args(tmp, argv))))
+        landing('main')
+        with contextlib.redirect_stdout(io.StringIO()):
+            argv = ppc._default_destination(tmp, [])
+        cases.append(('a landing branch that is fully checked still runs full',
+                      ppc._tier_from_args(tmp, argv)[0] == ppc.FULL,
+                      str(ppc._tier_from_args(tmp, argv))))
+        for given in (['--tier', 'full'], ['--push-command', 'origin x']):
+            cases.append((f'{given} is left as given',
+                          ppc._default_destination(tmp, list(given)) == given, ''))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a bare push check takes the landing branch\'s tier '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_push_check_refuses_an_unknown_option():
     """precedent_push_check.py refuses an option it does not know, exit 2,
     naming the ones it does -- and still takes every one it reads.
@@ -50815,6 +50864,7 @@ def main():
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
     check_push_check_refuses_an_unknown_option()
+    check_bare_push_check_takes_the_landing_tier()
     check_reach_key_self_check()
     check_content_record_self_check()
     check_doc_sync_ledger()
