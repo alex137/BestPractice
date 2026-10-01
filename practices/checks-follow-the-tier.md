@@ -67,6 +67,12 @@ the files a session created or edited and nothing a different session put
 there. A check may still READ the rest of the repository to answer, for
 instance to compare one document against another, but it only REPORTS on
 the changed files.
+**A deletion is part of the change too.** A file the change deleted or
+renamed away strands its mentions in files the change never touched, so
+those mentions are reported at `pre-staging` all the same, and only for
+paths this change removed (2026-09-30: an Update Vendors passed Booked, and
+the Debut into staging then refused on about 15 files no earlier run had
+named).
 A practice file sync wrote into a consuming repository -- one its
 `MANIFEST.json` names -- is not the change's own writing even when the
 change is the update that wrote it, so it is not judged there: its source

@@ -59,8 +59,8 @@ Wiring the rest:
   will prompt, or run under the sandbox policy configured for the
   environment. Nothing in the practice layer depends on the allowlist; it
   only reduces prompts.
-- **Audits:** unchanged — `python3 process/upstream/tools/practice_audit.py`
-  and `python3 process/upstream/tools/doc_lint.py` are plain Python and run
+- **Audits:** unchanged — `python3 tools/practice_audit.py`
+  and `python3 tools/doc_lint.py` are plain Python and run
   identically here.
 - **Commit identity and signing:** `tools/bootstrap.sh` calls
   `.claude/hooks/commit-identity.sh` automatically (since 2026-09-16), so

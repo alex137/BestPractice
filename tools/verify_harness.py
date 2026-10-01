@@ -2451,6 +2451,36 @@ def check_bootstrap_local_steps_run_and_dead_lines_are_named():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_update_written_files_name_no_mirrored_engine():
+    """A file only an update writes names no `process/upstream/tools/`
+    path: every update since the catalogue copy left tools/ out removes that
+    directory, so a fallback to it is dead text (2026-09-30, found by a
+    consumer's session reading its own bootstrap.sh). The individual-set
+    hook is different: it also arrives by a set's sync, which can reach a
+    repo that has not updated, so it keeps the fallback -- but tries the
+    repo's own tools/ first."""
+    cases = []
+    for rel in ('templates/bootstrap.sh',
+                'templates/harness/claude-code/hooks/push-check-gate.sh',
+                'templates/harness/claude-code/hooks/merge-check-gate.sh',
+                'templates/harness/codex/README.md',
+                'templates/harness/gemini-cli/README.md'):
+        hits = [n for n, l in enumerate((ROOT / rel).read_text(
+                    encoding='utf-8').splitlines(), 1)
+                if 'process/upstream/tools/' in l and not l.lstrip().startswith('#')]
+        cases.append((f'{rel} runs nothing from process/upstream/tools/',
+                      not hits, f'lines {hits}'))
+    hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
+            'individual-source-bootstrap.sh.template').read_text(encoding='utf-8')
+    engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-\.\}/(\S+?)"', hook, re.M)
+    cases.append(('the individual-set hook tries tools/ before the mirror',
+                  engines[:1] == ['tools/precedent_source_bootstrap.py'], str(engines)))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'files only an update writes run no mirrored engine '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_rename_links_leaves_dated_records_alone():
     """rename-updates-links leaves history alone: a generated view, a closed
     todo item, a `## Story` section and a declared record file each name a
@@ -8833,6 +8863,29 @@ def check_changed_files_only_judges_the_change():
         git('rm', '-q', 'MANIFEST.json')
         git('checkout', '-q', start, '--', str(practice.relative_to(wt)))
         git('commit', '-qam', 'undo the materialized fixture')
+
+        # A deletion strands its mentions in files the change never touches.
+        # Those are still this change's doing, and must be refused here, not
+        # one stage later (2026-09-30: a consumer's Update Vendors passed
+        # Booked and the Debut into staging refused on about 15 files).
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        git('rm', '-q', 'documentation/CLOUD_SETUP.md')
+        git('commit', '-qm', 'delete a file other files cite')
+        rc, out = run_check(start)
+        cases.append(('a change that deletes a file an untouched file cites is refused',
+                      rc == 1 and 'rename-updates-links' in out
+                      and 'documentation/CLOUD_SETUP.md' in out, out[-800:]))
+        deleted = git('rev-parse', 'HEAD').stdout.strip()
+        # .gitignore cites nothing; README.md does, and a change touching it
+        # would rightly be refused for the mention it carries.
+        with open(wt / '.gitignore', 'a', encoding='utf-8') as f:
+            f.write('\n# an unrelated line\n')
+        git('commit', '-qam', 'touch another file after the deletion')
+        rc, out = run_check(deleted)
+        cases.append(('...and a later change that deletes nothing is not refused for it',
+                      rc == 0, out[-800:]))
+        git('checkout', '-q', start, '--', 'documentation/CLOUD_SETUP.md', '.gitignore')
+        git('commit', '-qm', 'undo the deletion fixture')
 
         # The file-level checks (checks-follow-the-tier): only the changed
         # files, and the views a changed practice feeds.
@@ -39203,6 +39256,20 @@ def check_push_check_skips_a_set_check_older_than_push_time_judging():
         shown = pu.tail(red)
         cases.append(('a red update report shows the finding, not the last '
                       'notices', 'commit 0123abcd' in shown, shown[-300:]))
+        # ...and every finding, never the first 22 then "..." (2026-09-30: a
+        # consumer's update ended FAILED three times running, each showing a
+        # few more stranded files than the last).
+        many = '\n'.join(['      | VIOLATION: rename-updates-links'] +
+                         [f'      |     doc{i}.md:3: still references x'
+                          for i in range(60)] + ['      notice'] * 40)
+        shown = pu.tail(many, repo=tmp)
+        saved = tmp / pu.FULL_OUTPUT_NAME
+        cases.append(('...every finding of it, not the first few',
+                      all(f'doc{i}.md:3' in shown for i in range(60)),
+                      shown[-300:]))
+        cases.append(('...and the whole output is saved, and named',
+                      saved.is_file() and saved.read_text() == many
+                      and pu.FULL_OUTPUT_NAME in shown, shown[-200:]))
         # ...and the stand-in itself carries a Session: trailer, because the
         # session-trailer check also runs inside precedent_check.py and in
         # the set's own test, which judge the commit and not the variable
@@ -43211,6 +43278,37 @@ def check_update_vendors_rehearsal_findings():
                       left[-800:]))
         cases.append(('...and nothing for a tool this repo already budgets',
                       'github_api_budgets.json: github_budget.py' not in left, ''))
+        # A consumer whose GLOSSARY.md build_views.py generates gets the full
+        # build after the sync, which renders the loader block only: a
+        # practice the update stopped materializing stayed linked from it,
+        # and the lint failed on the dead link (2026-09-30). A hand-written
+        # one is the repo's and is not rebuilt.
+        for name, header in (('generated-views', '---\ngenerated_by: '
+                              'tools/build_views.py\n---\n'),
+                             ('hand-views', '')):
+            repo = planted(name, tip)
+            (repo / 'tools' / 'precedent_sync_views.py').write_text(
+                'print("synced")\n', encoding='utf-8')
+            (repo / 'tools' / 'build_views.py').write_text(
+                'import pathlib\n'
+                'p = pathlib.Path("GLOSSARY.md")\n'
+                'p.write_text(p.read_text().replace("[Plan it](practices/plan-it.md)",'
+                ' ""))\n', encoding='utf-8')
+            (repo / 'GLOSSARY.md').write_text(
+                header + '# Glossary\n\n[Plan it](practices/plan-it.md)\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'views')
+            rc, text = run_update(repo)
+            linked = 'practices/plan-it.md' in (repo / 'GLOSSARY.md').read_text()
+            if header:
+                cases.append(('a consumer\'s generated GLOSSARY.md is rebuilt by the '
+                              'update, so a withdrawn practice is no longer linked',
+                              not linked and 'GLOSSARY.md, which build_views.py '
+                              'generates here' in text, text[-800:]))
+            else:
+                cases.append(('...and a hand-written one is left as it is',
+                              linked, text[-800:]))
         elsewhere = planted('landed-elsewhere', '1' * 40)
         rc, text = run_update(elsewhere)
         cases.append(('an engine that landed off the fetched tip FAILS, saying '
@@ -49616,6 +49714,7 @@ def main():
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
+    check_update_written_files_name_no_mirrored_engine()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()

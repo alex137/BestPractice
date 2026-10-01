@@ -274,11 +274,17 @@ class Finding:
     """`where` is what prints; the file a finding is about is `path` when a
     check passes one, else `where` up to its first colon (the "file:line"
     most checks write). The runner reads it to drop findings on files this
-    repo received, and --changed-files-only to keep findings on the change."""
+    repo received, and --changed-files-only to keep findings on the change.
 
-    def __init__(self, where, detail, path=None):
+    `cause` is the path whose change produced the finding, when that is not
+    the file it sits in: a stranded mention sits in a file the change never
+    touches, and is still that change's doing. --changed-files-only keeps a
+    finding whose cause this change deleted or renamed."""
+
+    def __init__(self, where, detail, path=None, cause=None):
         self.where, self.detail = where, detail
         self.path = path
+        self.cause = cause
 
     def file(self):
         if self.path is not None:
@@ -7280,7 +7286,8 @@ def _rename_updates_links(ctx):
                         f'{rel}:{i}',
                         f'still references {old!r}, which this branch '
                         f'{where} -- repoint it in the same change, or the '
-                        f'repository is broken at every commit in between'))
+                        f'repository is broken at every commit in between',
+                        cause=old))
                     break
     if not out and skipped:
         print(f'  (rename-updates-links: {skipped} single-segment path(s) '
@@ -10078,6 +10085,26 @@ def _touched_files():
     return sorted(out)
 
 
+def _gone_in_change(ctx):
+    """-> the paths the change in scope deleted or renamed away: its range
+    when it has one, else what the working tree and index changed against
+    HEAD. Empty when git cannot say."""
+    if ctx.range:
+        diffs = [['diff', '--name-status', '--find-renames', ctx.range]]
+    else:
+        diffs = [['diff', '--name-status', '--find-renames', 'HEAD']]
+    gone = set()
+    for args in diffs:
+        r = _git(*args)
+        if r.returncode != 0:
+            continue
+        for line in r.stdout.splitlines():
+            parts = line.split('\t')
+            if len(parts) >= 2 and parts[0][:1] in ('D', 'R'):
+                gone.add(parts[1])
+    return gone
+
+
 def _scoped_tree_slugs(tree_slugs, buckets=None):
     """-> the subset of `tree_slugs` (all `scope: 'tree'` CHECKS keys) to
     actually run this invocation, per Morgan's 2026-09-18 direction: don't
@@ -10418,13 +10445,22 @@ def main():
                     and _manifest_entry(c) is not None:
                 in_change.discard(c)
                 materialized += 1
+        # A path this change deleted or renamed away is the change's own
+        # doing wherever the mention it strands sits, and that is never in
+        # the change: the pre-staging check could not see a stranded
+        # reference at all, so a consumer's Update Vendors passed Booked and
+        # the Debut into staging refused on about 15 files no earlier run
+        # had named (2026-09-30). Narrows the rule above, it does not undo
+        # it: what the push brings includes what it takes away.
+        gone_in_change = _gone_in_change(ctx)
         kept_results = []
         for slug, status, findings, why, uv in results:
             if status == 'VIOLATION':
                 kept = [f for f in findings
                         if (f.file() if hasattr(f, 'file') else
                             str(getattr(f, 'where', '') or '').split(':', 1)[0])
-                        in in_change]
+                        in in_change
+                        or getattr(f, 'cause', None) in gone_in_change]
                 outside_change += len(findings) - len(kept)
                 status = 'VIOLATION' if kept else 'PASS'
                 findings = kept
