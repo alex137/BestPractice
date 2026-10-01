@@ -18356,6 +18356,54 @@ def check_contradiction_requirement_blocks():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
+    """A paste block that tells another session to land on a tier branch
+    carries the person's quoted Booked, or the reply is refused.
+
+    2026-10-01: two prompts a session wrote ended "Land it on staging per
+    this repo's conventions". Morgan had not said Booked, and routine work
+    lands on pre-staging, never staging; fence-block-for-paste passed both,
+    since it checks where a block goes, not what it authorizes. Driven
+    against the rule as reply_check.json ships it (practice: prompt-please),
+    both ways: the instructions that must fire, and the blocks that must
+    stay clean -- a quoted Booked, an Act ending, a negated line, the
+    reply's own prose to the person, and a shell command."""
+    import precedent_reply_check as prc
+    name = 'a paste block that lands on a tier branch needs the quoted Booked'
+    try:
+        reqs = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('require_in_fence_paired_with')]
+    except (OSError, ValueError):
+        reqs = []
+    if not reqs:
+        check(name, False, 'reply_check.json declares no require_in_fence_paired_with')
+        return
+
+    def fires(body, prose='Paste into: a new session rooted in x.\n'):
+        text = prose + '```\n' + body + '\n```\n'
+        return [v for v in prc.violations(text, reqs) if v['kind'] == 'in_fence_paired']
+    must_fire = {
+        'land it on staging': "Do the work.\nLand it on staging per this repo's conventions.",
+        'a pull request into pre-staging': 'Open a pull request into pre-staging and merge it.',
+        'merge into main': 'When the checks pass, merge it into `main`.',
+        'push to pre-staging': 'Push it to pre-staging once it is green.',
+    }
+    clean = {
+        "the person's quoted Booked": 'Morgan, 2026-10-01: "Booked".\nOpen a pull request into pre-staging and merge it.',
+        'an Act ending': 'Build it on your feature branch, push it there, and stop.',
+        'a negated line': 'Open no pull request and merge nothing into pre-staging.',
+        'a shell command': 'git push -u origin main',
+    }
+    cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
+    cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
+    cases.append(("clean: the reply's own prose saying Booked lands it on pre-staging",
+                  not fires('push it there and stop',
+                            prose='Booked lands it on pre-staging.\nPaste into: x\n'), ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} {d}' for n, d in bad))
+
+
 def check_reply_check_requires_a_destination_for_a_fence_block():
     """`require_paired_with` catches a reply that hands over a fenced block
     and never says where it goes.
@@ -51476,6 +51524,7 @@ def main():
           *check_every_verdict_returning_check_is_recorded())
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
+    check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
     check('the reply check requires the Boildown to open with where the work is',
           *check_reply_check_requires_the_boildown_first_line())
     check_endgame_merge_finds_the_silent_drop()

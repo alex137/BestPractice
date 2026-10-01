@@ -156,7 +156,7 @@ start the Telegram chat bridge for my test.
 
 This is a test run: change no code, and push nothing yourself -- the bridge
 makes its own commits to my test repository.
-DO NOT MERGE — STOP AT THE PULL REQUEST
+Open no pull request and merge nothing.
 ```
 
 Paste into: a new session in the `chat bridge` cloud environment, rooted in
