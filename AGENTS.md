@@ -249,8 +249,6 @@ When about to search a repo, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; fewer windows at once
 When about to search or scan every clone, every repo or every file for something:
   wide-search-needs-asking — never sweep every clone unasked; fix the known source, ask for an example
-When adding a file beside others of its kind:
-  filename-separator — one word separator per directory and kind; never both - and _
 When an unattended job hits something blocking its normal work, or something optional it cannot reach:
   automation-issues — a blocked job files or updates an issue; skip an optional input, never silently
 When asked to include an image, logo or other binary asset the person supplies:
@@ -275,6 +273,12 @@ When committing anything that touches the vendored/public tree:
   scrub-gate — the public tree stays public-safe always, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
+When computing, quoting or tabulating figures:
+  one-formatter-per-quantity — compared across rows: one formatter per quantity kind, in one module
+  quote-discipline — compression rounds against you; qualifiers travel with the figure
+  scripts-assert-properties — a script a document cites asserts its own properties and cited anchors
+  tabular-shared-renderer — a sortable multi-column table ships from the one shared renderer
+  verify-decomposition — check the parts, not the total; never assert an impossibility
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted
@@ -291,13 +295,12 @@ When fixing anything -- a bug, a stale or copied file, a broken environment -- o
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
-When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:
-  shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
 When merging a branch:
   capture-gate — capture follow-on work in the thread that created the need
 When migrating a repo onto Precedent from an old system:
   migration-scrubs-vocabulary — scrub the old vocabulary in the same session, unasked
-When naming a new file:
+When naming or adding a file:
+  filename-separator — beside others of its kind: one word separator; never both - and _
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
@@ -305,51 +308,35 @@ When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — PRs target pre-staging or staging; main moves only by a Promote or when the person names main
-When printing a number compared across rows:
-  one-formatter-per-quantity — one formatter per quantity kind, declared in one module
-When publishing a sortable multi-column table:
-  tabular-shared-renderer — ship a sortable render from the one shared renderer
-When quoting or compressing someone else's figures:
-  quote-discipline — compression rounds against you; qualifiers travel with the figure
 When renaming, moving or deleting a file others may link to, or renaming or retiring a name:
   rename-updates-links — repoint every link, and every use of a retired name, in the same commit
-When reporting a computed total or a negative feasibility result:
-  verify-decomposition — check the parts, not the total; never assert an impossibility
-When reviewing code that decides what is skipped, cached, held or refused:
-  review-against-a-contract — give each reviewer a one-line contract; a finding counts once reproduced
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
-When starting an outward-facing deliverable:
-  frame-from-audience-question — build it around the audience's question, not your material
-When starting slow, costly or external work another session could also start:
-  lease-in-flight-work — lease work in flight on a branch; the starting tool checks the board first
-When starting work another session may have done, or opening a PR:
+When starting work the repository or another session may already cover:
   base-branch-is-the-record — read the base branch before starting and before the PR
-When starting work the repository may already cover:
+  lease-in-flight-work — lease slow, costly or external work on a branch; its tool checks the board first
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
-When work touches an open item's subject, or a branch merges:
-  item-closes-on-its-condition — record findings in the item; close only on its condition
+When writing a deliverable an outside reader will see:
+  frame-from-audience-question — from the start, build it around the audience's question, not your material
+  outward-summary-discipline — claims summary: claims-to-source table, honest sums, a recorded adversarial pass
 When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
   vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — it carries its date, inline
-When writing a script whose numbers a document will cite:
-  scripts-assert-properties — scripts assert their own properties and their cited anchors
-When writing an outward-facing summary of claims:
-  outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
 When writing or changing anything that automatically repairs a state it found wrong:
   repair-cannot-discard-work — an auto-repair must never discard work; reporting is not repairing
-When writing or running a drift gate or an audit that re-runs scripts to compare their output:
-  gate-ledger — record code, reads and result per unit; skip a unit whose fact holds
-When writing or running a gate that chains several checks or runs work concurrently:
+When writing, running or reviewing a gate, audit, cache or heavy solve:
+  gate-ledger — re-runs: record code, reads and result per unit; skip a unit whose fact holds
   gates-fail-fast — cheap checks first; a failure skips the slow ones and stops the work beside it
-When writing or running a gate, audit or solve over a minute:
-  slow-steps-report-and-cache — print elapsed and remaining; cache a heavy solve to disk
-When writing or triaging an open item:
+  review-against-a-contract — skip/cache/hold/refuse code: one-line contract; a finding counts once reproduced
+  shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
+  slow-steps-report-and-cache — over a minute: print elapsed and remaining; cache a heavy solve to disk
+When writing, triaging or doing work on an open item:
+  item-closes-on-its-condition — record findings in the item; close only on its condition
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason; else just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)

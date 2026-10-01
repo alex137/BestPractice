@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Every directory that holds files, which is every path -- the rule is about a directory's contents as a set, so no narrower glob describes it. Enforced tree-scope instead of routed. Decided: 2026-09-08, when the practice landed."
-occasion:    "adding a file beside others of its kind"
+occasion:    "naming or adding a file"
 gates:       []
 gates_why:   "No gate: it is a property of the tree at rest, checked mechanically, not an obligation that fires at a moment."
-index_clause: "one word separator per directory and kind; never both - and _"
+index_clause: "beside others of its kind: one word separator; never both - and _"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No path tells you who the audience is. Decided: phase 4 routing pass."
-occasion:    "starting an outward-facing deliverable"
+occasion:    "writing a deliverable an outside reader will see"
 gates:       []
-index_clause: "build it around the audience's question, not your material"
+index_clause: "from the start, build it around the audience's question, not your material"
 checked_by:  null
 defines:     []
 status:      active

@@ -13498,8 +13498,7 @@ def check_precedent_check_fires():
         # fixture can resolve.
         def _plant_unreachable(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
-                r'\nWhen quoting or compressing someone else.s figures:\n'
-                r'  quote-discipline[^\n]*\n', '\n', t))
+                r'\n  quote-discipline [^\n]*', '', t))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
 
         # quick-index -- the table removed from the instructions
