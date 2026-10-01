@@ -2585,9 +2585,11 @@ def _practice_change_propagates(ctx):
             f'("renamed", "retired", or name `{succ or "the successor"}` '
             f'beside it) and it stops being read as a live citation'))
 
+    base = _published_default_branch()
+    out.extend(_withdrawn_here_cited_elsewhere(ppr, base, successors, wmap))
+
     # Deleting a practice file erases the one record that lets this check,
     # and every reader, tell a withdrawn name from an unrelated word.
-    base = _published_default_branch()
     if base is not None:
         dirs = _repo_local_practice_dirs()
         # practices/ is this repository's own only where nothing
@@ -2621,6 +2623,53 @@ def _practice_change_propagates(ctx):
                          f'retired) and `in_force_at:` to where the rule went, '
                          f'so every citation of `{pathlib.Path(old).stem}` in every '
                          f'source can still be found and repointed'))
+    return out
+
+
+def _withdrawn_here_cited_elsewhere(ppr, base, successors, wmap):
+    """-> [Unverified] for each live pointer, in another source this repo
+    declares and has on disk, to a practice THIS branch withdrew, deleted or
+    renamed. Reported, never edited, and never failing this run: those are
+    other repositories, changed by their own commits.
+
+    2026-10-01: a change here deduplicated second-pass-capture into
+    capture-gate and passed every check, while the repo-maintenance set's
+    todo-gate.md still linked the old slug. That set's own push check then
+    failed on a line it had not changed, found only because a later session
+    pushed there. rename-updates-links asks for every citation to move in
+    the same change; this is how the change gets to see the ones outside
+    its own repository."""
+    if base is None:
+        return []
+    try:
+        changed = ppr.changed_slugs(ROOT, base)
+    except Exception:                               # practice: fail-gracefully
+        return []
+    gone = {slug for slug, what in changed.items()
+            if not what.startswith('Rule reworded')}
+    if not gone:
+        return []
+    out = []
+    for name, root in ppr.source_roots(ROOT)[1:]:
+        try:
+            rows = ppr.scan_root(root, gone, successors,
+                                 skip=ppr.received_paths(root))
+        except Exception:                           # practice: fail-gracefully
+            continue
+        for row in rows:
+            if not ppr.must_fix(row):
+                continue
+            rel, ln, slug, _form, _kind, _section, _line = row
+            succ = successors.get(slug)
+            what = changed[slug]
+            what = 'made ' + what[4:] if what.startswith('now ') else what
+            out.append(Unverified(
+                f'{name}:{rel}:{ln}',
+                f'FOLLOW-UP in {name}, another repository: it still points at '
+                f'`{slug}`, which this branch {what} -- '
+                + (f'repoint it to `{succ}` ' if succ else 'repoint or remove it ')
+                + f'in a change to {name} itself, or its own check refuses '
+                f'the line on its next push'))
     return out
 
 

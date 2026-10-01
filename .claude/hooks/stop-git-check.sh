@@ -28,9 +28,11 @@ set -euo pipefail
 # this turn, with stop_hook_active=true on stdin — exit clean rather than
 # loop if this hook (or another one) already fired.
 input="$(cat)"
+session_id=""
 if command -v jq >/dev/null 2>&1; then
   stop_hook_active="$(echo "$input" | jq -r '.stop_hook_active // empty' 2>/dev/null || true)"
   [[ "$stop_hook_active" == "true" ]] && exit 0
+  session_id="$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null || true)"
 fi
 
 # Not a git repo — nothing here to check.
@@ -74,7 +76,20 @@ if [[ "$in_git" == "1" ]] && [[ -n "$(git remote 2>/dev/null)" ]]; then
 fi
 
 if [[ ${#reasons[@]} -gt 0 ]]; then
+  # Said once per state, not at every turn end (2026-10-01, from a
+  # reduction-pass session): while a background helper of the session was
+  # mid-edit or mid-check on this branch, the same finding blocked every
+  # stop and produced a run of turns with nothing to do. The state is the
+  # branch, its commit, and which paths are dirty; once this session has
+  # been told about it, it is not told again until one of them changes.
+  seen="$(git rev-parse --git-dir 2>/dev/null)/precedent-stop-git-seen"
+  state="${session_id:-no-session} $(git rev-parse HEAD 2>/dev/null) ${current_branch:-} $( { git status --porcelain 2>/dev/null; printf '%s\n' "${reasons[@]}"; } | cksum)"
+  if [[ -f "$seen" ]] && [[ "$(cat "$seen" 2>/dev/null)" == "$state" ]]; then
+    exit 0
+  fi
+  printf '%s\n' "$state" > "$seen" 2>/dev/null || true
   printf '%s\n' "${reasons[@]}" >&2
+  echo "Said once for this state: if a background task of this session is writing here, finish waiting on it; this will not repeat until the branch, its commit or its changed files differ." >&2
   exit 2
 fi
 

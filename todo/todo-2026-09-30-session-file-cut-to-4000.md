@@ -233,3 +233,28 @@ The two Tier 2 calls not taken (the modeling practices leaving universal,
 and default-register yielding to a declared register) are recorded as
 possibilities in
 [Tier 2 reductions held for later](todo-2026-10-01-tier-2-reductions-held-for-later.md).
+
+### Measured 2026-10-01: under target on pre-staging
+
+Rebuilt in scratch clones with every source checked out at the same
+branch, using precedent-individual's own generator and the cap's own
+measure (`session_load_trend.as_measured`):
+
+| every source at | tokens |
+|---|---:|
+| `main` | 4,119 |
+| `pre-staging` | 3,705 |
+
+So the Tier 2 work above, once a Promote carries it to `main`, puts the file
+under its 4,000 target with no further cut. The live file in a session
+reads higher (4,911 and 4,013 that day) because its clones sit on mixed
+branches; the reply gate now says when a reduction is waiting on a Promote
+instead of asking for another pass. Two more shared copies,
+automation-issues and dont-race-another-window, are deduplicated on
+precedent-shared-repo-maintenance's `claude/very-deep-check-2amsjs`, not
+yet in the figure.
+
+**Still open, on the item's condition:** re-measure after that Promote,
+then the held half -- `hard_ceiling: 4400` with a `fixed_allowance`, and the
+four lowered `occasion_share_tokens` -- each needs Morgan's own words in
+precedent-individual's `approved_budgets`.

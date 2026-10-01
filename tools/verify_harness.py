@@ -7771,6 +7771,45 @@ def _new_entries(parent, before):
     return sorted(set(p.name for p in pathlib.Path(parent).iterdir()) - set(before))
 
 
+def _carry_uncommitted(src, dst):
+    """-> how many uncommitted paths of `src` were written into the clone
+    `dst` (0 when there were none), or None when they could not be.
+
+    The copy used to be committed work only, while every other step of the
+    full check reads the working tree. Run before a commit, the harness
+    then judged the commit BEFORE the change and the rest judged the
+    change: on 2026-10-01 a new check with no planted case (whats-new) went
+    green in the full check and was refused by the merge gate's quick one,
+    which reads the files. Tracked edits travel as a binary diff against
+    HEAD; untracked files that are not ignored are copied as they are."""
+    import shutil
+    diff = subprocess.run(['git', '-C', str(src), 'diff', 'HEAD', '--binary'],
+                          capture_output=True)
+    if diff.returncode != 0:
+        return None
+    n = 0
+    if diff.stdout.strip():
+        r = subprocess.run(['git', '-C', str(dst), 'apply', '--binary',
+                            '--whitespace=nowarn', '-'], input=diff.stdout,
+                           capture_output=True)
+        if r.returncode != 0:
+            return None
+        names = subprocess.run(['git', '-C', str(src), 'diff', 'HEAD',
+                                '--name-only'], capture_output=True, text=True)
+        n += len(names.stdout.split())
+    extra = subprocess.run(['git', '-C', str(src), 'ls-files', '--others',
+                            '--exclude-standard', '-z'], capture_output=True)
+    for rel in [x for x in extra.stdout.decode('utf-8', 'replace').split('\0') if x]:
+        target = pathlib.Path(dst) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(pathlib.Path(src) / rel, target)
+        except OSError:
+            return None
+        n += 1
+    return n
+
+
 def run_as_ci_isolated():
     """-> exit status. --as-ci, from a copy of this commit laid out the way
     GitHub's runner lays it out, then the not-applicable slice again here.
@@ -7785,7 +7824,9 @@ def run_as_ci_isolated():
     nothing else, with this checkout's remote-tracking refs and origin URL
     (actions/checkout's fetch-depth: 0 gives the runner every branch), run
     under _isolated_env(): an empty $HOME, no user config, no source token,
-    UTC. Committed work only -- the runner checks out a commit too.
+    UTC. The checkout's uncommitted changes are carried into it
+    (_carry_uncommitted), so it judges what the rest of the check judges;
+    a commit pushed later is what the runner checks out.
 
     THE SECOND RUN. A test that needs what only this machine has -- a
     private source, a sibling clone -- goes not-applicable in the copy.
@@ -7821,12 +7862,21 @@ def run_as_ci_isolated():
         if url:
             subprocess.run(['git', '-C', str(repo), 'remote', 'set-url',
                             'origin', url], capture_output=True)
+        carried = _carry_uncommitted(ROOT, repo)
+        if carried is None:
+            print('--as-ci --isolated: could not carry this checkout\'s '
+                  'uncommitted changes into the copy, so it would test the '
+                  'last commit instead of them. Commit, then run it again.')
+            return 1
         before = [p.name for p in parent.iterdir()]
         na_file = work / 'not-applicable.txt'
         env = _isolated_env(os.environ, home)
         env['PRECEDENT_NA_FUNCTIONS_FILE'] = str(na_file)
-        print(f'=== isolated: {repo} at {head[:12]} (no siblings, empty '
-              f'$HOME, no source token, UTC) ===', flush=True)
+        print(f'=== isolated: {repo} at {head[:12]}'
+              + (f' plus {carried} uncommitted path(s) from this checkout'
+                 if carried else '')
+              + ' (no siblings, empty $HOME, no source token, UTC) ===',
+              flush=True)
         rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
                              '--as-ci'], cwd=repo, env=env).returncode
         grown = _new_entries(parent, before)
@@ -7859,6 +7909,66 @@ def run_as_ci_isolated():
         return 1 if rc or rc2 else 0
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def check_isolated_copy_carries_uncommitted_changes():
+    """The isolated harness judges what the rest of the full check judges.
+
+    2026-10-01: a full check run before a commit went green while the
+    commit it was about to make added a check with no planted case. The
+    isolated copy was a clone of HEAD, so the harness judged the commit
+    before the change; reproduced on that commit, committed, the same run
+    fails with "untested: ['whats-new']". _carry_uncommitted now writes the
+    checkout's uncommitted state into the copy. The rule under test: a
+    tracked edit, a deletion and an untracked file reach the copy, an
+    ignored file does not, and a clean checkout carries nothing. Driven
+    against a throwaway repository (a whole planted --as-ci run costs
+    about nine minutes)."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        src, dst = tmp / 'src', tmp / 'dst'
+
+        def git(repo, *a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)],
+                       capture_output=True, env=env)
+        (src / 'kept.py').write_text('A = 1\n', encoding='utf-8')
+        (src / 'gone.py').write_text('B = 1\n', encoding='utf-8')
+        (src / '.gitignore').write_text('scratch/\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'base')
+
+        def copy():
+            import shutil
+            shutil.rmtree(dst, ignore_errors=True)
+            subprocess.run(['git', 'clone', '-q', str(src), str(dst)],
+                           capture_output=True, env=env)
+            return _carry_uncommitted(src, dst)
+        cases.append(('a clean checkout carries nothing', copy() == 0, ''))
+        (src / 'kept.py').write_text('A = 2\n', encoding='utf-8')
+        (src / 'gone.py').unlink()
+        (src / 'new_check.py').write_text('C = 3\n', encoding='utf-8')
+        (src / 'scratch').mkdir()
+        (src / 'scratch' / 'notes.txt').write_text('x', encoding='utf-8')
+        n = copy()
+        cases.append(('the edit, the deletion and the new file are counted',
+                      n == 3, repr(n)))
+        cases.append(('the tracked edit reaches the copy',
+                      (dst / 'kept.py').read_text(encoding='utf-8') == 'A = 2\n', ''))
+        cases.append(('the deletion reaches the copy',
+                      not (dst / 'gone.py').exists(), ''))
+        cases.append(('the untracked file reaches the copy',
+                      (dst / 'new_check.py').is_file(), ''))
+        cases.append(('an ignored file does not',
+                      not (dst / 'scratch').exists(), ''))
+    bad = [(n_, d) for n_, ok, d in cases if not ok]
+    check(f'the isolated harness copy carries the checkout\'s uncommitted '
+          f'changes ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n_}: {d}' for n_, d in bad))
 
 
 def check_isolated_run_matches_the_runner():
@@ -17212,7 +17322,17 @@ def check_source_sets_can_learn_they_are_stale():
             if tip:
                 current = fake_set('current-set', tip)
                 stale = fake_set('stale-set', '0' * 40)
-                _t, _r, found = prs.survey([str(current), str(stale)])
+                # Refreshed in the working tree, older engine committed: the
+                # state every set clone is in after a session-start refresh.
+                held = fake_set('uncommitted-set', '1' * 40)
+                for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                          ['-c', 'user.name=t', '-c', 'user.email=t@t',
+                           'commit', '-qm', 'older engine']):
+                    subprocess.run(['git', '-C', str(held), *a], capture_output=True)
+                (held / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    json.dumps({'format_version': 1, 'kind': 'source',
+                                'source_commit': tip}), encoding='utf-8')
+                _t, _r, found = prs.survey([str(current), str(stale), str(held)])
                 by = {e['repo'].name: e for e in found}
                 cases.append(('a set recording this tip reports as current',
                               by.get('current-set', {}).get('stale') is False,
@@ -17242,6 +17362,18 @@ def check_source_sets_can_learn_they_are_stale():
                               len(lines) == 2 and all('BestPractice' in l
                                                       for l in lines),
                               said[-600:]))
+                held_line = next((l for l in said.splitlines()
+                                  if 'uncommitted-set' in l), '')
+                cases.append(('a refreshed working tree over an older committed '
+                              'engine says both (2026-10-01)',
+                              'working tree current' in held_line
+                              and 'committed engine is 111111111111' in held_line,
+                              held_line))
+                cur_line = next((l for l in said.splitlines()
+                                 if 'current-set' in l and 'uncommitted' not in l), '')
+                cases.append(('...and a clone with nothing committed to compare '
+                              'says engine current, as before',
+                              'engine current' in cur_line, cur_line))
             else:
                 cases.append(('the staleness fixtures could run (needs '
                               f'origin/{prs.SOURCE_BRANCH} fetched)', False,
@@ -26790,11 +26922,23 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('and stays green on the next run', ok is True, detail))
 
-        # A later jump between named branches is still the finding it was.
+        # A later jump between named branches, leaving work behind on the
+        # one it started on, is still the finding it was.
+        commit('work on claude/work that main lacks')
         git('checkout', '-q', 'main')
         ok, detail = row()
-        cases.append(('a move between named branches still fails',
+        cases.append(('a move between named branches that strands work still fails',
                       ok is False and 'claude/work' in detail, detail))
+
+        # Booked merged it, and the session moved onto the branch that now
+        # carries it: carried, not stranded (2026-10-01).
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q',
+            '--no-ff', '-m', 'Booked', 'claude/work')
+        ok, detail = row()
+        cases.append(('a move onto a branch that carries all of the start '
+                      'branch passes', ok is True and 'carries all' in detail, detail))
+        cases.append(('...and that branch becomes the baseline',
+                      stamp.read_text().split()[0] == 'main', stamp.read_text()))
 
         # A named start, then the session's own new branch from it: passes.
         import time as _time
@@ -39607,6 +39751,22 @@ def check_practice_change_propagates_refuses():
 
         # CONTROLS: fix each, and the same check passes on the same tree.
         g('revert', '--no-edit', 'HEAD')
+        # Another source this repo declares, on disk, still links the
+        # practice this branch is about to retire (2026-10-01: a shared
+        # set's todo-gate.md linked second-pass-capture after the dedupe).
+        shared = tmp / 'shared-set'
+        write(shared / 'practices' / 'todo-gate.md', 'todo-gate',
+              rule='Then run the [old rule](old-rule.md) pass.')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(shared)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(shared), 'add', '-A'],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(shared), 'commit', '-qm', 'set'],
+                       capture_output=True, env=env)
+        cfg = _json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['sources'].append({'level': 'shared', 'name': 'shared-set',
+                               'path': str(shared)})
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
         write(repo / 'practices' / 'old-rule.md', 'old-rule', 'deduplicated',
               'go-update')
         (repo / 'README.md').write_text(
@@ -39615,7 +39775,13 @@ def check_practice_change_propagates_refuses():
         g('add', '-A'); g('commit', '-qm', 'retire in place, repoint')
         out = run()
         cases.append(('retired in place and repointed, the check passes',
-                      '1 passed, 0 violated' in out, out[-600:]))
+                      '1 passed, 0 violated' in out, out[-2500:]))
+        cases.append(('...and the shared set\'s link to the practice this '
+                      'branch retired is reported as a follow-up there, '
+                      'with the file and line',
+                      'FOLLOW-UP in shared-set' in out
+                      and 'shared-set:practices/todo-gate.md:1' in out
+                      and '`old-rule`' in out, out[-900:]))
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'practice-change-propagates refuses a live pointer to a renamed '
@@ -40682,6 +40848,68 @@ def check_todo_index_check_survives_midnight():
     check(f'the TODO index check does not go stale at midnight '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
+def check_landed_reduction_quiets_the_reduction_ask():
+    """An over-target file whose reduction has already landed on the landing
+    branch is reported as waiting on a Promote, not as needing another pass.
+
+    Found 2026-10-01 in a reduction-pass session: the reply gate kept
+    requiring a Reduction pass after the pass had landed on pre-staging,
+    because the file it measures is built from main. The rule under test:
+    AGENTS.md smaller on origin/pre-staging than on origin/main marks the
+    over-target line; the same size, or no landing branch, leaves it as
+    the plain ask. Driven against a throwaway repository."""
+    import tempfile
+    import precedent_gate as pg
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        bare, work = tmp / 'origin.git', tmp / 'work'
+
+        def git(*a, cwd=None):
+            return subprocess.run(['git', '-C', str(cwd or work), *a],
+                                  capture_output=True, text=True, env=env)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)],
+                       capture_output=True, env=env)
+        (work / 'tools').mkdir()
+        (work / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+            {'surfaces': {'AGENTS.md': {'target': 50}}}), encoding='utf-8')
+        (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 400, encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'big')
+        git('remote', 'add', 'origin', f'file://{bare}')
+        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:pre-staging')
+        git('fetch', '-q', 'origin')
+
+        got = pg._over_target(work, siblings=False)
+        cases.append(('over target, same size on pre-staging: the plain ask',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK not in got[0],
+                      repr(got)))
+        git('checkout', '-q', '-b', 'pre-staging', 'origin/pre-staging')
+        (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 200, encoding='utf-8')
+        git('commit', '-qam', 'reduction pass')
+        git('push', '-q', 'origin', 'pre-staging')
+        git('fetch', '-q', 'origin')
+        git('checkout', '-q', 'main')
+        got = pg._over_target(work, siblings=False)
+        cases.append(('a smaller AGENTS.md on pre-staging marks the line as '
+                      'waiting on a Promote, with both sizes',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
+                      and 'on main' in got[0] and 'on pre-staging' in got[0],
+                      repr(got)))
+        git('push', '-q', 'origin', '--delete', 'pre-staging')
+        git('fetch', '-q', '--prune', 'origin')
+        cases.append(('no landing branch on origin: no mark',
+                      pg._landed_reduction(work) is None,
+                      repr(pg._landed_reduction(work))))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a reduction already on the landing branch is reported as waiting '
+          f'on a Promote ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_budget_approvals_see_computed_raises():
@@ -43315,6 +43543,77 @@ def _stale_ref_fixture_env(tmp):
                 GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
                 GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0',
                 PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+
+def check_stop_hook_says_each_state_once():
+    """The Stop hook blocks once per dirty state, not at every turn end.
+
+    Found 2026-10-01 in a reduction-pass session: while a background helper
+    of the session was mid-edit on its branch, the same "uncommitted
+    changes" finding blocked every stop, and each block was a turn with
+    nothing to do. The rule under test: the first stop on a dirty state is
+    blocked and says why; the same session stopping on the same state is
+    not blocked again; a change to the state, or another session, is told
+    afresh. Both copies are run, the template and this repo's own."""
+    import tempfile
+    name = 'the Stop hook says each dirty state once per session'
+    hooks = [ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+             ROOT / '.claude' / 'hooks' / 'stop-git-check.sh']
+    hooks = [h for h in hooks if h.exists()]
+    if not hooks:
+        not_applicable(name, 'no stop-git-check.sh here')
+        return
+    cases = []
+    for hook in hooks:
+        label = hook.relative_to(ROOT).parts[0]
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            env = _stale_ref_fixture_env(tmp)
+
+            def git(*a):
+                return subprocess.run(['git', '-C', str(work), *a],
+                                      capture_output=True, text=True, env=env)
+            bare = tmp / 'origin.git'
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                           capture_output=True, env=env)
+            work = tmp / 'work'
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)],
+                           capture_output=True, env=env)
+            (work / 'a.txt').write_text('a\n', encoding='utf-8')
+            git('add', 'a.txt')
+            git('commit', '-q', '-m', 'a')
+            git('remote', 'add', 'origin', f'file://{bare}')
+            git('push', '-q', '-u', 'origin', 'main')
+
+            def stop(session):
+                return subprocess.run(['bash', str(hook)], cwd=str(work),
+                                      input=json.dumps({'session_id': session}),
+                                      capture_output=True, text=True, env=env)
+
+            (work / 'a.txt').write_text('a, edited\n', encoding='utf-8')
+            r = stop('s1')
+            cases.append((f'{label}: the first stop on a dirty tree is blocked, '
+                          f'and says it will not repeat',
+                          r.returncode == 2 and 'Uncommitted' in r.stderr
+                          and 'will not repeat' in r.stderr))
+            r = stop('s1')
+            cases.append((f'{label}: the same session, same state: not blocked again',
+                          r.returncode == 0))
+            (work / 'b.txt').write_text('b\n', encoding='utf-8')
+            r = stop('s1')
+            cases.append((f'{label}: a new untracked file is a new state: blocked',
+                          r.returncode == 2 and 'Untracked' in r.stderr))
+            r = stop('s2')
+            cases.append((f'{label}: another session is told afresh',
+                          r.returncode == 2))
+            git('add', '-A')
+            git('commit', '-q', '-m', 'both')
+            git('push', '-q')
+            r = stop('s2')
+            cases.append((f'{label}: clean and pushed: not blocked',
+                          r.returncode == 0))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_stop_hook_ignores_commits_another_remote_ref_has():
@@ -51086,6 +51385,7 @@ def main():
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
     check_isolated_run_matches_the_runner()
+    check_isolated_copy_carries_uncommitted_changes()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
@@ -51297,6 +51597,7 @@ def main():
     check_todo_index_check_survives_midnight()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
+    check_landed_reduction_quiets_the_reduction_ask()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
     check_refresh_judges_workflows_once_the_engine_is_whole()
@@ -51346,6 +51647,7 @@ def main():
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_stop_hook_ignores_commits_another_remote_ref_has()
+    check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
