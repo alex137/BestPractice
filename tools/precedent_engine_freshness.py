@@ -366,7 +366,7 @@ def workflow_impact(root, names):
     that this repo actually installs a workflow from.
 
     THE LINE THAT CLOSES THE LOOP. Without it the report says
-    "templates/github-actions/precedent-check.yml.template changed
+    "templates/github-actions/light-check.yml.template changed
     upstream" and stops, and the reader has to know by heart which file in
     their own .github/workflows/ that template produces. That gap is not
     theoretical: the one-job CI templates landed upstream on 2026-09-20 and

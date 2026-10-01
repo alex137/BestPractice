@@ -146,7 +146,7 @@ top="$(git -C "$target" rev-parse --show-toplevel 2>/dev/null || true)"
 [[ -n "$top" ]] || exit 0
 
 tool=""
-for candidate in tools/precedent_push_check.py process/upstream/tools/precedent_push_check.py; do
+for candidate in tools/precedent_push_check.py; do
     if [[ -f "$top/$candidate" ]]; then
         tool="$top/$candidate"
         break

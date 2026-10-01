@@ -284,6 +284,26 @@ def retired_mentions(repo, engine_out):
     return out
 
 
+FULL_VIEWS = ('MAP.md', 'GLOSSARY.md')
+_GENERATED_BY_BUILD_VIEWS = re.compile(
+    r'\A---\n(?:.*\n)*?generated_by:\s*["\']?tools/build_views\.py', re.M)
+
+
+def generated_full_views(repo):
+    """-> the FULL_VIEWS this repo's own header says build_views.py
+    generates, in order. A hand-written MAP.md is the repo's, and left
+    alone."""
+    out = []
+    for name in FULL_VIEWS:
+        try:
+            head = (pathlib.Path(repo) / name).read_text(encoding='utf-8')[:2000]
+        except (OSError, UnicodeDecodeError):
+            continue
+        if _GENERATED_BY_BUILD_VIEWS.match(head):
+            out.append(name)
+    return out
+
+
 def source_is_its_own_clone():
     """-> None when SOURCE, the tree this file sits in, is the top of its own
     git repository -- a BestPractice clone -- else what it is instead.
@@ -851,15 +871,35 @@ def run(argv, cwd):
 _VERDICT_LINE = re.compile(r'FAIL|VIOLATION|^\s+\S+ \|\s|^\s*\|\s{2,}\S')
 
 
-def tail(out, n=25):
-    """The last `n` lines of `out`, verdict lines first. A plain tail showed
-    only routine notices when a build printed them after the verdict: an
-    update reported "the check is red" and nothing about why (2026-09-29)."""
+FULL_OUTPUT_NAME = '.precedent/update-failure.log'
+
+
+def tail(out, n=25, repo=None):
+    """`out`'s verdict lines, every one of them, then its last two lines; or,
+    with no verdict line, its last `n`. A plain tail showed only routine
+    notices when a build printed them after the verdict: an update reported
+    "the check is red" and nothing about why (2026-09-29).
+
+    Never a partial list of findings. The verdict lines were capped at 22
+    until 2026-09-30, when a consumer's update ended FAILED three times in a
+    row, each showing a few more stranded files than the last, and two full
+    runs went on reading the rest. With `repo`, whatever this leaves out is
+    in FULL_OUTPUT_NAME (untracked), and the last line names it."""
     lines = [l for l in out.rstrip().splitlines()]
     verdict = [l for l in lines if _VERDICT_LINE.search(l)
                and 'build_views:' not in l]
-    shown = (verdict[:n - 3] + ['...'] + lines[-2:]) if verdict else lines[-n:]
-    return '\n'.join('    | ' + l for l in shown)
+    shown = (verdict + ['...'] + lines[-2:]) if verdict else lines[-n:]
+    text = '\n'.join('    | ' + l for l in shown)
+    if repo is not None and len(shown) < len(lines):
+        path = pathlib.Path(repo) / FULL_OUTPUT_NAME
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(out, encoding='utf-8')
+            text += (f'\n    (the whole output, {len(lines)} lines, is in '
+                     f'{FULL_OUTPUT_NAME})')
+        except OSError:
+            pass
+    return text
 
 
 def left_block(out):
@@ -1278,7 +1318,7 @@ def update(repo, skip_check=False, ref=None):
                        pve.tracking_refspec(pve.SOURCE_BRANCH)], SOURCE)
         if rc != 0:
             return rep.close(f"could not fetch origin/{pve.SOURCE_BRANCH} in "
-                             f"{SOURCE}:\n{tail(out)}")
+                             f"{SOURCE}:\n{tail(out, repo=repo)}")
     rc, head = run(['git', '-C', str(SOURCE), 'rev-parse',
                     ref or f'origin/{pve.SOURCE_BRANCH}'], SOURCE)
     head_ok = rc == 0
@@ -1332,7 +1372,7 @@ def update(repo, skip_check=False, ref=None):
                               "or refresh --force once you have decided it can go")
             rep.step('engine', 'refused: a vendored file was edited here')
             return rep.close()
-        return rep.close(f"the engine refresh failed:\n{tail(out)}")
+        return rep.close(f"the engine refresh failed:\n{tail(out, repo=repo)}")
     engine_out = out
     details = diverged_details(out)
     for item in left_block(out):
@@ -1450,7 +1490,7 @@ def update(repo, skip_check=False, ref=None):
                               'or let it go')
                 rep.step('catalogue', 'refused: the vendored tree has local changes')
                 return rep.close()
-            return rep.close(f"checkin.py update failed:\n{tail(out)}")
+            return rep.close(f"checkin.py update failed:\n{tail(out, repo=repo)}")
         rc, out = rc2, out2
         if rc != 0:
             lost = lost_files(out)
@@ -1461,7 +1501,7 @@ def update(repo, skip_check=False, ref=None):
                               '--accept-loss if dropping them is deliberate')
                 rep.step('catalogue record', 'held: the carry check found lines to lose')
                 return rep.close()
-            return rep.close(f"checkin.py record failed:\n{tail(out)}")
+            return rep.close(f"checkin.py record failed:\n{tail(out, repo=repo)}")
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
@@ -1523,7 +1563,7 @@ def update(repo, skip_check=False, ref=None):
     if kind == 'source' and build.is_file():
         rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
         if rc != 0:
-            return rep.close(f"the view build failed:\n{tail(out)}")
+            return rep.close(f"the view build failed:\n{tail(out, repo=repo)}")
         rep.step('views', 'regenerated (loader block, MAP.md, GLOSSARY.md)')
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
@@ -1547,8 +1587,21 @@ def update(repo, skip_check=False, ref=None):
                 rep.step('views', 'not regenerated: a declared source answers '
                          'to another name')
                 return rep.close()
-            return rep.close(f"the view sync failed:\n{tail(out)}")
-        rep.step('views', 'regenerated')
+            return rep.close(f"the view sync failed:\n{tail(out, repo=repo)}")
+        built = generated_full_views(repo)
+        if built and build.is_file():
+            # A consumer whose MAP.md or GLOSSARY.md says build_views.py
+            # generates it gets the full build too: the sync renders the
+            # loader block only, so a practice the update stopped
+            # materializing stayed linked from the glossary, and the lint
+            # failed on the dead links (2026-09-30, three practices).
+            rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
+            if rc != 0:
+                return rep.close(f"the view build failed:\n{tail(out, repo=repo)}")
+            rep.step('views', 'regenerated (loader block, and '
+                     + ', '.join(built) + ', which build_views.py generates here)')
+        else:
+            rep.step('views', 'regenerated')
 
     # After the views, because the view sync writes harness adapters too.
     rebased = rebaseline_vendored_entries(repo)
@@ -1637,7 +1690,7 @@ def update(repo, skip_check=False, ref=None):
                      'would: ' + ', '.join(stamped))
         rc, out = check_with_merge_fallback(repo, rep, argv, label)
         if rc != 0:
-            return rep.close(f"the {label} is red:\n{tail(out)}")
+            return rep.close(f"the {label} is red:\n{tail(out, repo=repo)}")
         rep.step(label, 'passed')
     else:
         rep.step(label, 'this repo has no tools/precedent_push_check.py')

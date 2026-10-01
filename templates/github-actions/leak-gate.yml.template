@@ -14,8 +14,8 @@
 # own declared visibility and narrows accordingly.
 #
 # WHY A RUNTIME CHECK, NOT A NARROWED `on: push: branches:` LIST, THE WAY
-# doc-lint.yml.template AND precedent-check.yml.template DO IT. Those two
-# templates can hardcode their branch list because GitHub Actions evaluates
+# THE LIGHT CHECK DOES IT. That template can hardcode its branch list
+# because GitHub Actions evaluates
 # `on:` before any job runs, from the YAML alone -- it cannot read this
 # repo's config at that point, so "scope the trigger by what precedent.json
 # says" is not an option the platform offers. Reading visibility has to

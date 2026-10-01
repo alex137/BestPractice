@@ -152,6 +152,8 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **You run an engine tool from inside one precedent-* repo, using another repo's copy of the script, and it reports normal-looking figures. They are the other repo's figures. Two runs from two different folders print the same numbers.** [story](gotcha-2026-09-29-engine-tools-measure-their-own-repo-not-the-cwd.md)
 
+- **`python3 tools/precedent_push_check.py` ends `FAILED -- verify_harness`, and the report under it shows only a list of `SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP)` lines and timings. No test is named. Run again, it may pass.** [story](gotcha-2026-09-30-a-full-check-fails-on-author-identity-unknown-and-names-no-test.md)
+
 - **`git branch -r --contains SHA` or `git log origin/pre-staging` says a commit is not on a remote branch, and it is. A session tells the person a change "never reached pre-staging" while it is already there, and sometimes already promoted further.** [story](gotcha-2026-09-30-an-unfetched-remote-ref-says-a-merge-never-happened.md)
 
 - **A bare **"Promote"** correctly resolves to staging into `main`, and then `python3 tools/precedent_branches.py --promote --to main` comes back `Denied by auto mode classifier` with the reason `[Production Deploy]`. Nothing in the repository refused it. The same move goes through when the person says **"Produce"**.** [story](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md)

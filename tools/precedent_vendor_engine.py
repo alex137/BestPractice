@@ -2193,11 +2193,9 @@ def _write_engine_paths(dest_root, mapping, sources, manifest):
 #
 # KIND-SPECIFIC, unlike the hooks above (which vendor the SAME scripts into
 # both kinds, narrowed only by what a repo's own settings.json wires). A
-# consumer installs bestpractice-docs.yml from doc-lint.yml.template; a
-# source set installs precedent-check.yml (which since 2026-09-19 also
-# carries the views-drift check as one of its jobs -- see
-# templates/github-actions/precedent-check.yml.template's own header,
-# spec/CI_MINUTES_PLAN.md item 9) from its own template --
+# consumer installs leak-gate.yml and light-check.yml; a source set installs
+# none (2026-09-21: a practice set runs no CI; its own workflow template was
+# retired on 2026-10-01) --
 # CI_WORKFLOW_TEMPLATES is the one place that pairing is declared, so
 # precedent_bootstrap_source.py's own WORKFLOW_TEMPLATES reuses it rather
 # than repeating it (practice: registry-source-of-truth).
@@ -2326,8 +2324,8 @@ CI_WORKFLOW_TEMPLATES = {
 # whose template CI_WORKFLOW_TEMPLATES no longer lists at all.
 #
 # THE GAP THIS CLOSES, found 2026-09-19 in a real individual practice set.
-# views-drift.yml.template was folded into precedent-check.yml.template as
-# its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
+# views-drift.yml.template was folded into the practice-set workflow
+# template (itself retired 2026-10-01) as its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
 # applied that fix the same day deleted the now-redundant views-drift.yml
 # file -- but nothing told refresh() the old entry was retired, so
 # ci_workflows_sha256 kept recording a hash for a file that no longer
@@ -2369,7 +2367,7 @@ CI_WORKFLOW_TEMPLATES = {
 # spec/CI_MINUTES_PLAN.md's Phase B sweep for that half.
 RETIRED_CI_WORKFLOW_FILES = {
     '.github/workflows/views-drift.yml':
-        'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+        'folded into the practice-set check workflow as its own job, 2026-09-19 '
         '(spec/CI_MINUTES_PLAN.md item 9)',
     # THE MARKDOWN LINT LEAVES CI ENTIRELY, 2026-09-21. Morgan: "I think we
     # should remove all markdown checks in the yml github actions check (but
@@ -2756,7 +2754,7 @@ LEGACY_REASON_DOCS = (
     'the Markdown-lint workflow, retired 2026-09-21 -- doc_lint.py already '
     'gates every commit as the light check (spec/BILLING_FLOOR.md)')
 LEGACY_REASON_VIEWS_DRIFT = (
-    'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+    'folded into the practice-set check workflow as its own job, 2026-09-19 '
     '(spec/CI_MINUTES_PLAN.md item 9)')
 
 _USES_RE = re.compile(r'^\s*-?\s*uses:\s*["\']?([^@\s"\']+)', re.M)
@@ -4236,6 +4234,46 @@ def _template_instances_pending(plan, manifest):
                for _s, rel, action in plan)
 
 
+_TOP_LEVEL_EXIT = re.compile(r'^exit(?:\s+\d+)?\s*(?:#.*)?$')
+BOOTSTRAP_LOCAL = 'tools/bootstrap.local.sh'
+
+
+def dead_after_exit(text):
+    """-> (line of the top-level `exit`, [line numbers after it that hold a
+    command]) for a shell script, or (None, []) when nothing follows one.
+
+    A top-level, unconditional `exit` -- at column 0, outside any function --
+    ends the script, so every command after it is dead. 2026-09-30, a real
+    consumer: its own session-start steps sat at the end of tools/bootstrap.sh,
+    a session copied the template's new blocks in by hand, and they landed
+    after the template's final `exit 0`. They never ran again, and nothing
+    said so: the DIVERGED report listed only the blocks the copy lacked."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if _TOP_LEVEL_EXIT.match(line):
+            after = [n for n, l in enumerate(lines[i + 1:], i + 2)
+                     if l.strip() and not l.lstrip().startswith('#')]
+            if after:
+                return i + 1, after
+    return None, []
+
+
+def _report_dead_after_exit(rel, local):
+    """Print and list, under a DIVERGED block, the commands after a top-level
+    exit; -> True when there were any."""
+    at, dead = dead_after_exit(local)
+    if not dead:
+        return False
+    print(f"    {rel}:{at} is a top-level `exit`, and the {len(dead)} line(s) "
+          f"with commands after it never run (lines {dead[0]}-{dead[-1]}): "
+          f"move this repo's own steps into {BOOTSTRAP_LOCAL}, which the "
+          f"template runs before its exit and refresh never touches")
+    _left(rel, f'{len(dead)} line(s) after its top-level `exit` on line {at} '
+               f'never run -- move them into {BOOTSTRAP_LOCAL} '
+               f'(vendor-update-runbook step 10(d))')
+    return True
+
+
 def _report_diverged_template_instances(dest_root, templates_dir, plan):
     """Print, for every diverged instance, which template blocks it lacks,
     and put it on the Left-for-you list when it lacks any. Every run, the
@@ -4251,6 +4289,7 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
             print(f"DIVERGED: {rel} has local edits and carries every block "
                   f"of upstream's {src_rel} -- left as it is, nothing to "
                   f"copy in.")
+            _report_dead_after_exit(rel, local)
             continue
         template_sha = _sha256(templates_dir / src_rel)
         if _kept_divergence(dest_root, rel, template_sha)[0] == 'kept':
@@ -4262,6 +4301,7 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
               f"It lacks {len(lacks)} block(s) upstream's {src_rel} carries:")
         for line_no, title, how in lacks:
             print(f"    {src_rel}:{line_no} \"{title}\" -- {how}")
+        _report_dead_after_exit(rel, local)
         if shim_own:
             print(f"    it is the old install's wrapper, which runs "
                   f"{_LEGACY_SHIM_TARGET} -- upstream's own bootstrap, not "

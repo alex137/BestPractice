@@ -487,7 +487,14 @@ VENDORING_RULES = (
     ('philosophy/', False, 'the reasoning behind Precedent, for its builders'),
     ('evals/', False, "this repo's evaluations"),
     ('record/', False, "this repo's run records and ledgers"),
-    ('gotchas/', False, "traps this repo's own environment hit"),
+    # Traps a session using Precedent can hit, and environment-gotchas (a
+    # resident practice) tells every session to grep gotchas/ before calling
+    # a failure new. Kept home for a day by the 2026-09-30 allowlist, which
+    # contradicted the reasoning recorded above; Morgan, 2026-10-01: gotchas
+    # "are issues that might come up using the system that you should be
+    # ready for".
+    ('gotchas/', True, "traps a session using Precedent can hit; "
+                       "environment-gotchas says to grep them"),
     ('local/', False, "this repo's own practices, by definition not a "
                       "consumer's"),
     ('bridge/', False, 'the chat bridge, a separate tool this repo builds'),

@@ -3,23 +3,23 @@ slug:              todo-2026-09-20-carry-one-job-ci-templates-into-installed-rep
 kind:              manual
 domain:            ci
 severity:          high
-status:            open
+status:            dropped
 disposition:       ask
 remind_on:         null
 blocked_on:        "a session whose GitHub access reaches themorgan/* — this one is scoped to alex137/bestpractice, and PRECEDENT_GIT_TOKEN returns 403 on the Actions API"
 batch:             null
-decision:          null
+decision:          "Overtaken: the four sets' check workflows were deleted by the engine refresh on 2026-09-21 (a set runs no CI), and a consumer's workflows are engine-owned since 2026-09-27, rewritten from the templates by every Update Vendors. Closed by a session retiring the practice-set workflow template, 2026-10-01."
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-20
-closed:            null
+closed:            2026-10-01
 ---
 ## What
 
 - **The one-job CI templates land in BestPractice but reach nobody until
   each repo takes an "Update Vendors".** Item 13 of
   [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md) cut
-  `precedent-check.yml.template` from 3 jobs to 1 and
+  the practice-set check template (retired 2026-10-01) from 3 jobs to 1 and
   `doc-lint.yml.template` from 2 to 1, and retired `ci_debounce_minutes`.
   Per `vendor-rollout-disclosed` that reaches an installed repo only
   through [vendor-update-runbook](../practices/vendor-update-runbook.md).
