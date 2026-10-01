@@ -560,8 +560,11 @@ cover, by design and not oversight:
      needed) — same treatment as `AGENTS.md`, installed once and
      propagated to existing installs on update (§2). GitHub picks it up
      automatically for every PR opened against the repo.
-   - `templates/bootstrap.sh` → `tools/bootstrap.sh` (add the repo's own
-     setup needs).
+   - `templates/bootstrap.sh` → `tools/bootstrap.sh`, unchanged. The
+     repo's own setup steps go in `tools/bootstrap.local.sh`, which the
+     template runs before its final `exit 0` and an update never touches,
+     so `tools/bootstrap.sh` stays identical to the template and is kept
+     current automatically.
    - `templates/gitignore.template` → `.gitignore` at the repo root (create
      it) or merge into an existing one (append, don't overwrite): baseline
      ignores for ordinary tool/interpreter caches — `__pycache__/` in

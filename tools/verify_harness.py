@@ -2394,6 +2394,63 @@ def check_freshness_guard_checks_declared_sets():
           f'({len(cases)} stated cases, both copies)', not failed, '; '.join(failed))
 
 
+def check_bootstrap_local_steps_run_and_dead_lines_are_named():
+    """A consumer's own session-start steps have a place that runs and that
+    no refresh touches, and steps stranded after the template's `exit 0`
+    are named (2026-09-30, a real consumer: three of its own steps landed
+    after `exit 0` in a hand merge and never ran again, unreported).
+
+    Stated cases: a tools/bootstrap.sh with commands after its top-level
+    `exit` is reported, naming the lines, under its DIVERGED block and on
+    the Left-for-you list; the same steps in tools/bootstrap.local.sh, with
+    bootstrap.sh identical to the template, run and leave it `current`."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bootstrap-local-'))
+    template = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+    try:
+        dead = tmp / 'dead'
+        (dead / 'tools').mkdir(parents=True)
+        (dead / 'tools' / 'bootstrap.sh').write_text(
+            template + 'git clone -q https://example.invalid/ref ref || true\necho own step\n',
+            encoding='utf-8')
+        plan = pve._template_instance_plan(dead, 'consumer', ROOT, {})
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            pve._report_diverged_template_instances(dead, ROOT, plan)
+        out = buf.getvalue()
+        cases.append(('lines after the top-level exit are named as never running',
+                      'never run' in out and 'bootstrap.local.sh' in out, out[-400:]))
+        at, lines = pve.dead_after_exit((dead / 'tools' / 'bootstrap.sh').read_text())
+        cases.append(('and it is exactly the two commands after the exit',
+                      len(lines) == 2 and lines[0] == at + 1, f'{at} {lines}'))
+        cases.append(('the template itself has nothing after its exit',
+                      pve.dead_after_exit(template) == (None, []), ''))
+
+        live = tmp / 'live'
+        (live / 'tools').mkdir(parents=True)
+        (live / 'tools' / 'bootstrap.sh').write_text(template, encoding='utf-8')
+        (live / 'tools' / 'bootstrap.local.sh').write_text(
+            'echo ran > "$MARK"\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=live)
+        mark = tmp / 'marker'
+        r = subprocess.run(['bash', 'tools/bootstrap.sh'], cwd=live, capture_output=True,
+                           text=True, timeout=180, env=dict(os.environ, MARK=str(mark)))
+        cases.append(('the same steps in tools/bootstrap.local.sh run',
+                      mark.is_file() and r.returncode == 0, (r.stdout + r.stderr)[-300:]))
+        plan = pve._template_instance_plan(live, 'consumer', ROOT, {})
+        cases.append(('and tools/bootstrap.sh is current, not DIVERGED',
+                      [a for _s, rel, a in plan if rel == 'tools/bootstrap.sh'] == ['current'],
+                      str(plan)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a consumer\'s own bootstrap steps run from bootstrap.local.sh, and '
+          f'dead lines after exit are named ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_rename_links_leaves_dated_records_alone():
     """rename-updates-links leaves history alone: a generated view, a closed
     todo item, a `## Story` section and a declared record file each name a
@@ -49558,6 +49615,7 @@ def main():
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
+    check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()

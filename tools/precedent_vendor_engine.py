@@ -4209,6 +4209,46 @@ def _template_instances_pending(plan, manifest):
                for _s, rel, action in plan)
 
 
+_TOP_LEVEL_EXIT = re.compile(r'^exit(?:\s+\d+)?\s*(?:#.*)?$')
+BOOTSTRAP_LOCAL = 'tools/bootstrap.local.sh'
+
+
+def dead_after_exit(text):
+    """-> (line of the top-level `exit`, [line numbers after it that hold a
+    command]) for a shell script, or (None, []) when nothing follows one.
+
+    A top-level, unconditional `exit` -- at column 0, outside any function --
+    ends the script, so every command after it is dead. 2026-09-30, a real
+    consumer: its own session-start steps sat at the end of tools/bootstrap.sh,
+    a session copied the template's new blocks in by hand, and they landed
+    after the template's final `exit 0`. They never ran again, and nothing
+    said so: the DIVERGED report listed only the blocks the copy lacked."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if _TOP_LEVEL_EXIT.match(line):
+            after = [n for n, l in enumerate(lines[i + 1:], i + 2)
+                     if l.strip() and not l.lstrip().startswith('#')]
+            if after:
+                return i + 1, after
+    return None, []
+
+
+def _report_dead_after_exit(rel, local):
+    """Print and list, under a DIVERGED block, the commands after a top-level
+    exit; -> True when there were any."""
+    at, dead = dead_after_exit(local)
+    if not dead:
+        return False
+    print(f"    {rel}:{at} is a top-level `exit`, and the {len(dead)} line(s) "
+          f"with commands after it never run (lines {dead[0]}-{dead[-1]}): "
+          f"move this repo's own steps into {BOOTSTRAP_LOCAL}, which the "
+          f"template runs before its exit and refresh never touches")
+    _left(rel, f'{len(dead)} line(s) after its top-level `exit` on line {at} '
+               f'never run -- move them into {BOOTSTRAP_LOCAL} '
+               f'(vendor-update-runbook step 10(d))')
+    return True
+
+
 def _report_diverged_template_instances(dest_root, templates_dir, plan):
     """Print, for every diverged instance, which template blocks it lacks,
     and put it on the Left-for-you list when it lacks any. Every run, the
@@ -4224,6 +4264,7 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
             print(f"DIVERGED: {rel} has local edits and carries every block "
                   f"of upstream's {src_rel} -- left as it is, nothing to "
                   f"copy in.")
+            _report_dead_after_exit(rel, local)
             continue
         template_sha = _sha256(templates_dir / src_rel)
         if _kept_divergence(dest_root, rel, template_sha)[0] == 'kept':
@@ -4235,6 +4276,7 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
               f"It lacks {len(lacks)} block(s) upstream's {src_rel} carries:")
         for line_no, title, how in lacks:
             print(f"    {src_rel}:{line_no} \"{title}\" -- {how}")
+        _report_dead_after_exit(rel, local)
         if shim_own:
             print(f"    it is the old install's wrapper, which runs "
                   f"{_LEGACY_SHIM_TARGET} -- upstream's own bootstrap, not "

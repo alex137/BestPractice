@@ -594,10 +594,17 @@ says so, both from the vendored tree under `process/upstream/`.
     refresh already rewrote an unedited copy (step 3). One it reported
     `DIVERGED` has local edits, and the output lists each block of upstream
     `templates/bootstrap.sh` it lacks, as `templates/bootstrap.sh:LINE
-    "heading" -- missing` or `-- N of its M lines absent or changed`. Copy
-    each listed block in from the template, **keeping every line this repo
-    added**, then re-run step 3's refresh: it should report the file as
-    carrying every block. Never replace the whole file to get there, and
+    "heading" -- missing` or `-- N of its M lines absent or changed`.
+    **Move this repo's own steps into `tools/bootstrap.local.sh`** (since
+    2026-09-30), which the template runs just before its final `exit 0`
+    and refresh never touches; then copy the template back over
+    `tools/bootstrap.sh`, so it is unedited and the next refresh keeps it
+    current. Only where that cannot work, copy each listed block in by
+    hand, keeping every line this repo added, then re-run step 3's
+    refresh: it should report the file as carrying every block. **The
+    report also names any lines after a top-level `exit`:** those never
+    run, which is how a hand merge silently dropped a consumer's own
+    steps. Move them into the local file. Never replace the whole file to get there, and
     never reach for `--force`, which does not touch it anyway. **The one
     exception is the old install's wrapper**, a `tools/bootstrap.sh` that
     only runs `process/upstream/tools/bootstrap.sh` — BestPractice's own
