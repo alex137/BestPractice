@@ -23,7 +23,7 @@ tools/precedent_check.py --only declared-hooks-exist` resolves every declared
 executable, and
 [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py) does
 the same per attached source. Full story:
-[record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) entry 37.
+[record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md) entry 37.
 
 ## Fix
 

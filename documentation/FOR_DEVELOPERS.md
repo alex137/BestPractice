@@ -43,7 +43,7 @@ exist, not because anyone should take it — it was retired 2026-09-23:
   an install path any more**: a project installed this way ran with every
   practice on disk and none in force, and its sessions said so. A project
   that already vendored BestPractice this way migrates, per
-  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md);
+  [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md);
   `practice_audit.py` fails until it does.
 
 What a classic install did, in short, so you can recognize one — each step
@@ -266,7 +266,7 @@ a hosted session automatically.)
 A practice that already exists and is still wanted, just at the wrong
 level (a team habit that turns out to be one person's, or a personal habit
 the whole team adopted) moves in two deliberate steps — never a silent
-edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTICES.md)):
+edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)):
 
 1. **Land it at the new home**, through that level's own approval —
    exactly the four-stage walkthrough below, using the existing practice's
@@ -305,7 +305,7 @@ runs at each one:
    candidate skips `--path` entirely — `--level universal` drafts a GitHub
    Issue body for `alex137/BestPractice`, labeled `precedent-candidate`,
    since nothing world-readable is ever committed to a `candidates/`
-   directory here (see [spec/SOURCES.md](../spec/SOURCES.md)).
+   directory here (see [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md)).
 2. **Promote it.** `precedent_promote.py` runs the candidate against four
    criteria — recurrence or real cost, reachability (a check, a narrow
    `applies_to`, or an occasion), non-duplication, and resident-budget fit
@@ -371,7 +371,7 @@ Every GitHub setting in this section, and what GitHub itself does with a
 CODEOWNERS file, is [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md). The install
 step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader);
 the design, and the three GitHub behaviours it still rests on unverified,
-is [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md);
+is [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md);
 [templates/document-project/](../templates/document-project/) is the
 ready-made shape for a project where most collaborators only ever touch
 documents.
@@ -453,6 +453,6 @@ each linked to its section here and in the plain-language guide.
 working habits and the standing command vocabulary — short, and worth
 reading even if everything above was obvious.
 [INSTALL.md](../INSTALL.md) for wiring this into a project.
-[PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) for the full design
-and reasoning behind all of the above. [spec/CANDIDATE_FORMAT.md](../spec/CANDIDATE_FORMAT.md)
+[PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md) for the full design
+and reasoning behind all of the above. [spec/CANDIDATE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md)
 for the candidate file's exact shape and signal vocabulary.

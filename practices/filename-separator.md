@@ -5,10 +5,11 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Every directory that holds files, which is every path -- the rule is about a directory's contents as a set, so no narrower glob describes it. Enforced tree-scope instead of routed. Decided: 2026-09-08, when the practice landed."
-occasion:    "adding a file beside others of its kind"
-gates:       []
-gates_why:   "No gate: it is a property of the tree at rest, checked mechanically, not an obligation that fires at a moment."
-index_clause: "one word separator per directory and kind; never both - and _"
+occasion:    "naming or adding a file"
+gates:       ["push"]
+gates_why:   "The rule is a property of the tree at rest, and the push check's full sweep runs its tree check, so a mixed directory is refused at push before it reaches a shared branch. index_required: false records that the push arrives in time: renaming a file before it is shared costs nothing. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+index_clause: "beside others of its kind: one word separator; never both - and _"
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -16,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
-approved_by: "Morgan, 2026-09-08"
+approved_by: "Morgan, 2026-09-08; push gate, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 ---
 ## Rule
 **Files of the same kind, in the same directory, use the same word
@@ -137,6 +138,8 @@ that does not know the difference between an inherited name and a chosen one
 generates findings nobody can act on.** A check producing permanently
 unactionable output is one people learn to skip, which costs more than the
 rule protects.
+
+**Push gate, and off the occasion index, from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: its tree check runs in the push check's full sweep. no-version-suffix keeps the shared "naming or adding a file" line. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 Enforced by [tools/precedent_check.py](../tools/precedent_check.py), which

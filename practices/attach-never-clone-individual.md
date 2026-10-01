@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus, and deliberately `**`. The mistake is a session running `git clone` into the wrong directory right after the repo-attach tool answers, outside every repo's tree; no file in this one is edited when it happens, so a narrower glob would never fire. The occasion index is the channel. Decided: 2026-09-25, when the practice was written."
-occasion:    "attaching a practice source with the repo-attach tool, or its reply says to clone"
+occasion:    "attaching a practice source"
 gates:       []
-index_clause: "attach the individual source; keep one clone, both paths; shared sources beside"
+index_clause: "attach the individual one, never a second clone; shared sets sit beside the repo"
 checked_by:  null
 defines:     []
 status:      active

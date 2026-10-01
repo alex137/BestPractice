@@ -228,7 +228,10 @@ nobody touches for a month is told nothing for a month.
 **There is no scheduled refresh anywhere, at any level, as of
 2026-09-14.** Not in the templates, not in the shared sets, not in anyone's
 individual set. The third channel a reader expects to find here does not
-exist, and its absence is a decision rather than a gap.
+exist, and its absence is a decision rather than a gap. Since 2026-10-01
+there is no button either: a set carries no workflow at all, and the next
+Update Vendors deletes one a set still has (practice
+`source-sets-run-no-ci`).
 
 Morgan, 2026-09-14, in his own words: *"I think that engine-refresh.yml is
 now doing an automatic update weekly. Let's stop that. No weekly updates. I

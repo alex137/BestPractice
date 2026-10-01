@@ -3,8 +3,8 @@ slug:        migration-scrubs-vocabulary
 title:       A migration scrubs the old system's vocabulary immediately, not on request
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
-applies_to_why: "A moment (migrating off an old system) rather than a place -- reachable only through the occasion index, since no gate exists for a moment this rare. Decided: follow-up session, 2026-09-03."
+applies_to:  ["process/manifest_*.json", "process/retired_vocabulary.json"]
+applies_to_why: "The two files a migration off an old practice system touches: the old pack's manifest, which it removes, and the retired-vocabulary declaration, which it writes. The moment itself (starting a migration) reaches a session through rename-updates-links' index line, which carries this rule's trigger and core since 2026-10-01; this practice keeps the declaration format and the leftover-pack check. Decided: follow-up session, 2026-09-03 (occasion index); 2026-10-01 (these paths)."
 occasion:    "migrating a repo onto Precedent from an old system"
 gates:       []
 index_clause: "scrub the old vocabulary in the same session, unasked"
@@ -95,6 +95,14 @@ unrelated to this repo's migration, since it was that other source's own
 legitimate provenance note. Both are fixed as of this writing (the `ROOT`
 fix, and the directory-exemption support in Detail above); this Story
 entry is the record that they were real, not hypothetical.
+
+**Its index line moved, 2026-10-01.** The reduction pass Morgan approved that
+day ("Question 3 - all are great, approved", strength: decided) folded the
+trigger and the core of this Rule into
+[rename-updates-links](rename-updates-links.md), whose index line now names
+the migration. This practice stays in force, because its check still runs
+here and in every consumer; it reaches a session through the two files its
+`applies_to` names and through that check.
 
 ## Install
 `tools/precedent_check.py`'s `retired-words` check reads

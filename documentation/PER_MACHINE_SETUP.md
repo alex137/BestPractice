@@ -190,7 +190,7 @@ and was not that: `list_environments` showed two environments both named
 running in the other. The ping separates "the variables do not arrive" from
 "the token is wrong", which print identically otherwise. An environment change
 never reaches a session already running, so test in a NEW one. Full sequence:
-[record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) entry 29.
+[record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md) entry 29.
 
 ## The Setup Command — Keeping the Checkout Itself Current
 
@@ -207,7 +207,7 @@ diverged from live `origin`, which then tripped the freshness guard and the
 Stop hook on every session as if real unpushed work existed. Recreating the
 environment cleared it that one time; whether it recurs on a schedule is
 still open ([TODO.md's `check-default-cc-environment-staleness`
-item](../todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
+item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
 
 Add this to the Setup command field to bring the checkout current on every
 run whenever that is a fast-forward:
@@ -329,9 +329,9 @@ been resolving 89 from 1, and
 reported `OK`. No `add_repo` call was made or needed. **What made this look impossible
 for three days was not the token**: the account held two environments with
 the same name, and the values had been set on the one the sessions were not
-running in. Name your environments distinctly — see [AGENTS.md](../AGENTS.md)'s
+running in. Name your environments distinctly — see [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)'s
 gotcha and, for the full sequence, entry 29 in
-[record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
+[record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md).
 
 **What was verified before that, and how (measured 2026-09-09, in a Claude
 Code on the web container).** Three things were tested directly: an

@@ -55,7 +55,7 @@ repo whose every source is current says nothing, and one whose sources are
 unreachable says so rather than reading as current. That line was missing
 until 2026-09-28: --quiet printed nothing for an unreachable source, which
 is exactly what current looks like to a session start -- the failure the
-maintainers' fresh-check-escalation rule names. The full run is where each
+maintainers' drift-notice rule names. The full run is where each
 unverified row is spelled out. A repo with no engine manifest at all -- the
 engine's own origin, or one that never vendored it -- has no engine row to
 verify, so that one row is not counted there. `--files` needs to fetch

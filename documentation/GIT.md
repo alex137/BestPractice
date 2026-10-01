@@ -23,7 +23,7 @@ GitHub is the worked example throughout these documents, and Precedent
 currently leans on GitHub features (pull requests, Actions checks)
 deliberately. The layer itself is plain git, markdown, and Python, so
 equivalents on other hosts such as Gitea can be added later — see
-[TODO.md](../TODO.md).
+[TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md).
 
 ## The Eight Ideas
 
@@ -205,8 +205,8 @@ already know what they are.
 - **Workflow** — a program GitHub runs for you, on its own machines, when
   something happens in the repository. One file per workflow, under
   `.github/workflows/`. The filename is whoever wrote it's choice:
-  [`deep-check.yml`](../.github/workflows/deep-check.yml) here runs the full
-  gate suite, [`leak-gate.yml`](../.github/workflows/leak-gate.yml) checks
+  [`deep-check.yml`](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/deep-check.yml) here runs the full
+  gate suite, [`leak-gate.yml`](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/leak-gate.yml) checks
   nothing private is being published. (A third, docs.yml, ran the markdown
   linter until 2026-09-21, when a commit hook replaced it — see
   [documentation/GITHUB_ACTIONS.md](GITHUB_ACTIONS.md).)
@@ -233,7 +233,7 @@ already know what they are.
 - **Hook** — a script that runs at a fixed moment on *your* machine rather
   than GitHub's: before a commit, before a push, when a session starts. Same
   idea as a workflow, one step earlier. This repository's live in
-  [.claude/hooks/](../.claude/hooks/).
+  [.claude/hooks/](https://github.com/alex137/BestPractice/tree/staging/.claude/hooks).
 - **Webhook** — GitHub's own hooks, and they point the other way: instead of
   running something, GitHub *sends a message* to an address you gave it when
   an event happens — a push, a comment, a check finishing. Nothing runs on
@@ -245,8 +245,8 @@ already know what they are.
 - **`.gitignore`** — a list of files git should pretend are not there:
   build output, scratch files, anything private. They stay untracked
   forever unless someone deliberately overrides it.
-- **Template files** — [`.github/pull_request_template.md`](../.github/pull_request_template.md)
-  and the files under [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/) are text GitHub pre-fills into the box
+- **Template files** — [`.github/pull_request_template.md`](https://github.com/alex137/BestPractice/blob/staging/.github/pull_request_template.md)
+  and the files under [`.github/ISSUE_TEMPLATE/`](https://github.com/alex137/BestPractice/tree/staging/.github/ISSUE_TEMPLATE) are text GitHub pre-fills into the box
   when you open a pull request or an issue. A prompt to fill in, never a
   rule that blocks anything.
 - **`CODEOWNERS`** — a file naming who has to review changes to which

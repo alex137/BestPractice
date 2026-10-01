@@ -6,7 +6,7 @@ instructions load automatically.
 
 **Codex has hooks, and this adapter uses them since 2026-09-28.** Until then
 this page said Codex had no hook mechanism at all, and every hook row in
-[../LEDGER.md](../LEDGER.md) and [../PARALLELS.md](../PARALLELS.md) recorded
+[../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) and [../PARALLELS.md](../PARALLELS.md) recorded
 no transfer on that ground. It was wrong: Codex reads `hooks.json` with the
 same event names, the same payload fields and the same deny that Claude
 Code uses. [../PARALLELS.md](../PARALLELS.md) lists the sources and what was
@@ -42,7 +42,7 @@ Wiring the rest:
   4. **Not yet seen to fire in a live Codex session.** The file was written
      against the openai/codex source on 2026-09-28 and is checked by
      `check_codex_hooks_template_runs_the_claude_gates` in
-     [tools/verify_harness.py](../../../tools/verify_harness.py), which feeds
+     [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py), which feeds
      the scripts the payload Codex's source says it sends. A real run is
      still the proof. On a Codex release older than the one that made hooks
      stable, the feature was behind a `codex_hooks` flag in
@@ -66,7 +66,7 @@ Wiring the rest:
   `.claude/hooks/commit-identity.sh` automatically (since 2026-09-16), so
   this runs wherever the Bootstrap step above runs — hard with the hook or
   a cloud setup script, soft with the instructions-file directive alone. See
-  [../LEDGER.md](../LEDGER.md) for the history of this gap; if your
+  [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) for the history of this gap; if your
   environment signs commits by default in a way that collides with a
   human-only authorship policy, see
   [CLOUD_SETUP.md](../../../documentation/CLOUD_SETUP.md#when-the-containers-own-signing-collides-with-a-human-only-policy).

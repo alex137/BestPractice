@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A property of a memoized solve, which lives wherever a repository keeps its models; no common path. Reached through the occasion index, beside slow-steps-report-and-cache. Decided: 2026-09-27, when the practice landed."
-occasion:    "memoizing a heavy solve, or finding a fresh session re-running one another session already ran"
+occasion:    "writing, running or reviewing a gate, audit, cache or heavy solve"
 gates:       []
 index_clause: "share code-keyed memos on a cache branch; a peer waits on a leased solve"
 checked_by:  null

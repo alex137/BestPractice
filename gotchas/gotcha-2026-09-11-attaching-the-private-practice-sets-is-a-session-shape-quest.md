@@ -75,7 +75,7 @@ Attaching the private practice sets is a session-shape question, and what is mea
   An environment change never reaches a session already running, so test in a
   NEW one. The three-day sequence, including two readings that were right
   about the measurement and wrong about the cause, is entry 29 in
-  [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
+  [record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md).
 
 </details>
 

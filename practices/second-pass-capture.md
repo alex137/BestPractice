@@ -12,8 +12,8 @@ index_clause: "a separate capture pass after the work, not inside it"
 index_required: true
 checked_by:  null
 defines:     ["capture sweep"]
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: capture-gate
 supersedes:  []
 overrides:   null
 added:       null
@@ -69,6 +69,12 @@ of the production flow. Reading for omissions is a different cognitive act
 from writing for completeness, and it only works when it is performed as
 that different act. The cost argument closes it: minutes, against the cost
 of an idea that is simply gone.
+
+**Merged into [capture-gate](capture-gate.md), 2026-10-01**, in the
+reduction pass Morgan approved that day ("Question 3 - all are great,
+approved", strength: decided). The checklist and the separate-step rule are
+capture-gate's second paragraph now. This file stays, word for word above,
+as the record; the rule in force is capture-gate.
 
 ## Install
 Add the checklist to the session-end or pre-merge ritual, before

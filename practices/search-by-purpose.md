@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Fires at the start of work, before any file is touched. Its check enforces the findable-output half only. Decided: phase 4 routing pass."
-occasion:    "starting work the repository may already cover"
+occasion:    "starting work the repository or another session may already cover"
 gates:       []
 index_clause: "search by purpose and by mechanism before concluding nothing exists"
 checked_by:  "tools/precedent_check.py"

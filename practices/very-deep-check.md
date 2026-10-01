@@ -6,7 +6,7 @@ severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
 applies_to_why: "Not a place -- a whole-repo coherence review is invoked explicitly by a person, or after drift-inviting work, not triggered by touching any one file. Reachability comes from its occasion clause, the same as its full-practice-audit and routing-audit siblings. Decided: 2026-09-05, in the session that enumerated and wired the RepoPersonalPreferences 'very deep check'."
-occasion:    "a person explicitly asks for a \"very deep check\""
+occasion:    "a person explicitly asks for a \"very deep check\" or a \"full practice audit\""
 gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never routine"
 checked_by:  null
@@ -1044,7 +1044,7 @@ confidently.
     and a structural line match where it is not — **CI has no PyYAML, so
     the first version of that check skipped in the one environment that
     gates every pull request**, which is not a check
-    ([durable-fix](durable-fix.md)). *(Found 2026-09-21: an anchor shared one `paths:` list
+    ([upstream-fix](upstream-fix.md), point 7). *(Found 2026-09-21: an anchor shared one `paths:` list
     between a `push:` and a `pull_request:` trigger. PyYAML resolved it —
     including through the exact command this repository's own templates
     recommend — and GitHub rejects the file outright. Every local
@@ -1082,8 +1082,8 @@ confidently.
     item 12.
 
 21. **Every detector built since the last run, carried to every repo in
-    force.** [fix-the-original](https://github.com/alex137/BestPractice/blob/staging/practices/fix-the-original.md)
-    says fix the origin and then every copy. **Nothing checked that the
+    force.** [upstream-fix](https://github.com/alex137/BestPractice/blob/staging/practices/upstream-fix.md)
+    says fix the origin and then every copy (point 8). **Nothing checked that the
     second half happened**, and the failure is quiet by construction: a
     consumer running the engine it vendored before the fix reports nothing,
     correctly, and its silence reads exactly like a clean result.
@@ -1423,6 +1423,13 @@ first so this pass spends its attention on what they cannot see.
   "it earns it", and a surface over its ceiling is a number somebody already
   decided being broken. What it asks for is
   [reduction-pass](reduction-pass.md)'s menu, and **never a raise**.
+  **It reports a surface over its `target` too** (the lower number in the
+  same registry, where the file is meant to live). Over target, this pass
+  runs a reduction pass, **including its practice-by-practice review of the
+  occasion index and resident block**, and reports what it proposes; a
+  change that takes a rule out of a session waits for the person. *(Morgan,
+  2026-10-01, after the first such review: "if it's not part of Very Deep
+  Check, it absolutely should be", strength: decided.)*
   *(Added 2026-09-22, and the gap it closes is the reason to trust neither
   signal for the other's job. `precedent-individual` had AGENTS.md at 2,276
   tokens against a declared 1,800 — 476 tokens, 26% over — and every check
@@ -2403,7 +2410,7 @@ had rather than growing a second copy. And **the fix went in `_run_git`
 keyed on the git subcommand**, not at the three call sites that fetch
 today: this sweep grew three new fetches in a fortnight, and a per-caller
 fix covers whatever existed the day it was written
-([durable-fix](durable-fix.md)).
+(durable-fix, now part of [upstream-fix](upstream-fix.md)).
 
 **The generator check above came from a question, not a failure, and that is
 worth saying plainly.** Morgan asked on 2026-09-11, after reading how a
@@ -2612,6 +2619,8 @@ it landed and still unreviewed.
 - **Extended 2026-09-29, Morgan (strength: decided)**, with the review page's third list, practices that may overlap, after asking whether the check looked for redundant or very similar practices in different repos and in the same one. Nothing did mechanically: the within-source scan caught a duplicate `defines:` term or a sibling override, and pass 3's placement read asked the question by hand. The script proposes pairs; the session judges them.
 - **Extended 2026-09-29, Morgan (strength: decided)**, so a renamed repository is found wherever it is named -- every tracked file in this checkout and in every source, not only the always-loaded instructions files -- and fixed in the run: the clone's remote repointed and every current reference rewritten, history left as written. Asked as a question first ("does Very Deep Check do a check to see if any called repos are redirected ... add that to VDC if it doesn't"); it reported renames in two places and fixed none.
 - **Extended 2026-09-29, Morgan (strength: decided)**, with the GENERATED FILES lines: the reverse search for a file a tool writes that the new list of generated files does not name. Asked as a question ("does bestpractice maintain a list of all files that are auto-generated ... Is this checked in VDC and/or should it be?"); there was no single list, and todo/TODO.md had gone out of date with nothing checking it.
+- **Extended 2026-10-01, Morgan (strength: decided)**, so Pass 3 measures every always-loaded surface against its target as well as its ceiling, and over target runs a reduction pass with its practice-by-practice review of the occasion index and resident block -- "this reduction pass is great; if it's not part of Very Deep Check, it absolutely should be." -- after the first such review found about 1,040 tokens of room that the menu's lossless moves could not. The SESSION LOAD section prints an OVER TARGET finding for it.
+
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's

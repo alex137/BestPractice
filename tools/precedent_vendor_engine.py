@@ -974,6 +974,8 @@ HOOK_WIRING = {
         ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
         # Everything CI used to run on a push, run before it (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        # No wait loop on pgrep -f, which always finds itself (2026-10-01).
+        ('PreToolUse', 'Bash', 'wait-loop-gate.sh', ''),
         # The same check before a merge through GitHub, which no push gate
         # sees (spec/BRANCH_TIERS_PLAN.md, hole 1).
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
@@ -1005,6 +1007,7 @@ HOOK_WIRING = {
         # A set runs no CI at all (source-sets-run-no-ci), so this is the
         # only thing that runs its checks before a push (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        ('PreToolUse', 'Bash', 'wait-loop-gate.sh', ''),
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PostToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
@@ -2262,9 +2265,21 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 # uncommitted edits is replaced or removed, so its content stays in history,
 # and the report names every script it ran.
 #
-# A practice SOURCE is not here: it ships no workflow at all
-# (CI_WORKFLOW_TEMPLATES['source'] is empty) and runs its own on purpose.
-CI_CONVERGES_KINDS = frozenset({'consumer'})
+# A PRACTICE SOURCE CONVERGES TOO, since 2026-10-01, on the same terms as a
+# consumer: it ships no workflow (CI_WORKFLOW_TEMPLATES['source'] is empty),
+# so every workflow it still carries goes, unless removing it would stop
+# something running that nothing local runs. ONLY THEN IS THE PERSON ASKED
+# (Morgan, 2026-10-01: "Ask if genuinely in doubt"): the session says in
+# plain words what the file does and what would stop, recommends, and asks
+# keep or delete. A keep is recorded as their approval in
+# github_ci_approved, which keeps it in either kind; nothing that loses
+# nothing is ever asked about (2026-09-27: "Asking creates doubt and
+# confusion when there isn't any"). Until then a
+# set "ran its own on purpose", and a leftover there was never cleared:
+# Morgan, 2026-10-01, on finding one still in a set: make sure "in future
+# updates this is solved beforehand in the update, not just this file but
+# others".
+CI_CONVERGES_KINDS = frozenset({'consumer', 'source'})
 CI_WORKFLOW_TEMPLATES = {
     # NO WORKFLOW EXISTS SOLELY TO LINT MARKDOWN (2026-09-21). The consumer
     # side used to ship doc-lint.yml.template as bestpractice-docs.yml, and
@@ -2467,10 +2482,11 @@ def local_ci_workflows(dest_root):
     entry with an empty reason is ignored, exactly as if it were absent,
     and refresh says so rather than honouring it silently.
 
-    NOT IN A CONSUMER, since 2026-09-27 (CI_CONVERGES_KINDS): there only
-    the person's approval in github_ci_approved keeps a workflow, and a
-    declaration is reported as not honoured. What follows holds in a
-    practice source.
+    NOT IN A KIND WHOSE CI CONVERGES (CI_CONVERGES_KINDS): a consumer
+    since 2026-09-27, a practice source since 2026-10-01. There only the
+    person's approval in github_ci_approved keeps a workflow, and a
+    declaration is reported as not honoured. What follows holds where a
+    kind does not converge.
 
     A declared file is then: never overwritten, never drift, never
     "untracked" -- and PRINTED ON EVERY RUN with its reason, so the
@@ -2536,9 +2552,9 @@ def _untracked_ci_workflow_files(dest_root, manifest):
     THIS IS NOT AN ORPHAN LIST. CI_WORKFLOW_TEMPLATES names exactly one
     file per kind -- the template-installed workflow -- so almost any repo
     with more than that single file will have entries here by design: a
-    practice set's own commit-identity.yml and engine-refresh.yml are
-    untracked by this exact definition and are completely legitimate,
-    intentionally never vendored through this mechanism. A hand-authored
+    workflow the person approved in their own words is untracked by this
+    exact definition and is completely legitimate, intentionally never
+    vendored through this mechanism. A hand-authored
     check unrelated to Precedent is equally untracked and equally
     legitimate. Reports enumerate; they do not judge -- see
     spec/CI_WORKFLOW_RETIREMENT_PLAN.md's account of the false positive
@@ -2810,8 +2826,8 @@ LEGACY_CI_WORKFLOWS = {
 # was ever a template in this repository, on any branch, so there is nothing
 # to recognise them against. Never deleted here -- listed, so the session
 # running "Update Vendors" reads each one (vendor-update-runbook's "Retire
-# legacy leftovers" step). `commit-identity.yml` is a leftover only in a
-# CONSUMER; a practice set runs its own on purpose.
+# legacy leftovers" step). `commit-identity.yml` is a leftover in a consumer
+# and, since a set runs no CI (2026-09-21), in a practice set too.
 LEGACY_CI_WORKFLOWS_TO_READ = {
     '.github/workflows/practice-links-travel.yml':
         'its check now runs inside precedent-check.yml as the '
@@ -2822,7 +2838,7 @@ LEGACY_CI_WORKFLOWS_TO_READ = {
     '.github/workflows/platform-docs-check.yml': None,
     '.github/workflows/commit-identity.yml': None,
 }
-_LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer'}}
+_LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer', 'source'}}
 
 # Hook analog of RETIRED_CI_WORKFLOW_FILES + LEGACY_CI_WORKFLOWS: name ->
 # (why, content recogniser). EMPTY ON PURPOSE, and read as a decision: no
@@ -2902,6 +2918,38 @@ def _decommission_module():
                                          'read_registry')):
         return None
     return pd
+
+
+def dead_manifest_entries(root):
+    """-> [(manifest file name, entry name, local_path)] for each
+    process/manifest*.json entry whose local_path does not exist, a
+    declined entry aside (it has no local copy by design). practice_audit.py
+    fails on every one ("INTEGRITY: ... local_path missing").
+
+    THE ONE QUESTION, ASKED ONCE (2026-10-01). Each step that deletes a file
+    had to remember its manifest entry: this module's retire path did, the
+    update's rename did, and the catalogue sweep did not -- so an update
+    said DONE and the audit failed the next minute, from a consumer's
+    Update Vendors. Asking at the end, of the result, catches every deleting
+    step, including one not written yet: the update's postcondition and the
+    manifest-entries-resolve check both read this."""
+    out = []
+    proc = pathlib.Path(root) / 'process'
+    if not proc.is_dir():
+        return out
+    for m in sorted(proc.glob('manifest*.json')):
+        try:
+            entries = json.loads(m.read_text(encoding='utf-8')).get('entries')
+        except (OSError, ValueError, AttributeError):
+            continue
+        for e in entries if isinstance(entries, list) else ():
+            if not isinstance(e, dict) or e.get('status') == 'declined':
+                continue
+            rel = str(e.get('local_path') or '')
+            if rel and not (pathlib.Path(root) / rel).exists():
+                name = str(e.get('name') or e.get('practice') or rel)
+                out.append((m.name, name, rel))
+    return out
 
 
 def _drop_process_manifest_entries(dest_root, rel):
@@ -3120,8 +3168,9 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
             continue
         _uses, scripts = _workflow_facts(text)
         reason = ('upstream does not ship it, and github_ci_approved carries '
-                  'no approval of it in the person\'s words -- a consumer\'s '
-                  'CI converges to upstream (2026-09-27). Its content stays '
+                  'no approval of it in the person\'s words -- a repo\'s CI '
+                  'converges to upstream (a consumer since 2026-09-27, a '
+                  'practice set since 2026-10-01). Its content stays '
                   'in git history'
                   + (f'. It ran {", ".join(sorted(scripts))}: the local push '
                      f'check runs that already' if scripts else ''))
@@ -3523,8 +3572,8 @@ def print_left_for_you():
         for rel, lost, done, todo in _KEPT_LOUD:
             print(f"  LEFT ALONE: {rel} still runs in GitHub. It runs "
                   f"{', '.join(lost)}, which NOTHING in the local push check "
-                  f"runs, so it was NOT {done}. Move that into the local "
-                  f"check, then run Update Vendors again."
+                  f"runs, so it was NOT {done}. ASK THE PERSON whether to keep "
+                  f"it or delete it: describe what it does, and recommend."
                   + (f" Recorded as {todo}." if todo else ''))
         print(bar)
         _KEPT_LOUD.clear()
@@ -3707,22 +3756,25 @@ closed:            null
 ## What
 
 **`{rel}` was left alone by Update Vendors, and it still runs in GitHub.**
-A consumer's workflows converge to upstream: the ones upstream ships are
+This repo's workflows converge to upstream: the ones upstream ships are
 replaced with its templates, and every other one is removed. This one was
 not {done}, because it runs {', '.join(lost)}, which the local push check
 does not run. Taking it away would have stopped that running anywhere.
 
-**To finish it:** run what it runs locally -- in `tools/light_check.py`, or
-as a test under `tools/checks/tests/` -- and the next Update Vendors will
-finish the job. If it has to run in GitHub, record the person's own approval
-of it in `precedent.json`'s `github_ci_approved`, pinned by sha256 (practice:
-ci-workflow-approved). Close this item when either is done.
+**Ask the person, once:** say in plain words what it does and what would
+stop, give your recommendation, and ask whether to keep it or delete it.
+**Keep:** record their own words in `precedent.json`'s `github_ci_approved`,
+pinned by sha256 (practice: ci-workflow-approved), and no update asks again.
+**Delete:** if what it runs is still wanted, run it locally -- in
+`tools/light_check.py`, or as a test under `tools/checks/tests/` -- and the
+next Update Vendors removes the file. Close this item when either is done.
 
 ## Story
 
 Written by Update Vendors on {day}. Morgan, 2026-09-27: "If there is
 something that is not covered, leave it alone, but flag it importantly ...
-Also, make it a to-do so that it's noted."
+Also, make it a to-do so that it's noted." And 2026-10-01: "Ask if
+genuinely in doubt."
 """
     try:
         todo.mkdir(exist_ok=True)
@@ -3747,10 +3799,12 @@ def _held_back(dest_root, rel, lost, verb):
     _KEPT_LOUD.append((rel, lost, done, todo))
     _left(rel, f'LEFT ALONE, not {done}: it runs {", ".join(lost)}, which the '
                f'local push check does not run, so {verb} it would stop that '
-               f'running anywhere. It still runs in GitHub. Run it locally '
-               f'first -- tools/light_check.py, or a test under '
-               f'tools/checks/tests/ -- or record the person\'s approval of it '
-               f'in github_ci_approved; the next update then finishes this'
+               f'running anywhere. ASK THE PERSON: say in plain words what it '
+               f'does and what would stop, give your recommendation, and ask '
+               f'keep or delete. Keep: record their words in '
+               f'github_ci_approved, pinned by sha256. Delete: move what it '
+               f'runs into the local push check if it is still wanted, then '
+               f'the next update removes it'
                + (f'. Recorded as {todo}' if todo else ''))
 
 
@@ -4026,32 +4080,45 @@ def kept_template_divergences(dest_root):
     if not isinstance(declared, dict):
         return {}
     return {str(k): {'reason': str(v.get('reason') or '').strip(),
-                     'template_sha256': str(v.get('template_sha256') or '').strip()}
+                     'template_sha256': str(v.get('template_sha256') or '').strip(),
+                     'carried_sha256': str(v.get('carried_sha256') or '').strip()}
             for k, v in declared.items() if isinstance(v, dict)}
 
 
-def _kept_divergence(dest_root, item, template_sha):
+def _kept_divergence(dest_root, item, template_sha, carried_sha=None):
     """-> (verdict, reason) for one diverged item: 'kept' when precedent.json
     records it with a reason against this template text, 'stale' when it
     was recorded against older text, 'unreasoned' when it has no reason,
-    None when it is not recorded at all."""
+    None when it is not recorded at all.
+
+    `carried_sha` (an AGENTS.md section's _carried_sha) is a second way to
+    match: the decision also holds while the blocks the section carries are
+    unchanged upstream. Either match is enough, so a stale verdict means the
+    template text itself changed -- never only the consumer's own."""
     entry = kept_template_divergences(dest_root).get(item)
     if entry is None:
         return None, ''
     if not entry['reason']:
         return 'unreasoned', ''
-    if entry['template_sha256'] != template_sha:
+    if not _pin_matches(entry, template_sha, carried_sha):
         return 'stale', entry['reason']
     return 'kept', entry['reason']
 
 
-def _report_kept(dest_root, item, what, template_sha):
+def _pin_matches(entry, template_sha, carried_sha):
+    if entry['template_sha256'] == template_sha:
+        return True
+    return bool(carried_sha) and carried_sha in (entry['template_sha256'],
+                                                 entry['carried_sha256'])
+
+
+def _report_kept(dest_root, item, what, template_sha, carried_sha=None):
     """Print the kept-divergence line for a diverged `item` that lacks
     template blocks, and -> True when the declaration covers it, so the
     caller lists nothing. Otherwise prints, under the DIVERGED listing the
     caller has just printed, what recording it would take (indented, so
     precedent_update.py carries it under the item), and -> False."""
-    verdict, reason = _kept_divergence(dest_root, item, template_sha)
+    verdict, reason = _kept_divergence(dest_root, item, template_sha, carried_sha)
     if verdict == 'kept':
         print(f"KEPT ON PURPOSE: {item} differs from {what} as precedent.json's "
               f"{KEPT_DIVERGENCES_KEY} records -- \"{reason}\". Not listed "
@@ -4065,9 +4132,10 @@ def _report_kept(dest_root, item, what, template_sha):
     elif verdict == 'unreasoned':
         print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} with no "
               f"reason, so not honoured -- give it one")
-    snippet = json.dumps({KEPT_DIVERGENCES_KEY: {item: {
-        'reason': '<why this repo keeps it>', 'template_sha256': template_sha}}},
-        ensure_ascii=False)
+    pin = {'reason': '<why this repo keeps it>', 'template_sha256': template_sha}
+    if carried_sha and carried_sha != template_sha:
+        pin['carried_sha256'] = carried_sha
+    snippet = json.dumps({KEPT_DIVERGENCES_KEY: {item: pin}}, ensure_ascii=False)
     print(f"    kept on purpose? record it in precedent.json, then run again: "
           f"{snippet[1:-1]}")
     return False
@@ -4814,28 +4882,43 @@ def _carried_sha(section, lacks):
     return _sha_text('\n'.join(parts))
 
 
-def _narrow_kept_pin(dest_root, item, full_sha, carried_sha):
-    """An entry recorded before 2026-09-30 pins the whole section. When it
-    still matches, the decision covers exactly today's text, so it is
-    re-recorded against what the section carries -- the same decision,
-    narrowed -- and said once. Anything else is left as it is."""
-    if full_sha == carried_sha:
-        return
+def _repin_kept(dest_root, item, template_sha, carried_sha):
+    """A kept AGENTS.md section is pinned two ways: `template_sha256`, the
+    template's section alone, and `carried_sha256`, the blocks the section
+    carries (_carried_sha). Either still matching keeps the decision; this
+    then re-records both against today's text, so the other one follows.
+
+    Until 2026-10-01 there was one pin, and the update offered the carried
+    one. It hashes which blocks the CONSUMER'S section lacks, so adding one
+    local sentence from a missing block moved it, and removing the sentence
+    moved it back, while upstream never changed -- and the report said
+    "upstream's section has changed since" (from a consumer's Update
+    Vendors). The template pin never moves with local text; the carried pin
+    keeps the 2026-09-30 narrowing, so rewording a block the section leaves
+    out does not ask again either. An entry with one pin, of either kind,
+    is upgraded here the first time it matches."""
     path = dest_root / 'precedent.json'
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
         entry = data[KEPT_DIVERGENCES_KEY][item]
     except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
         return
-    if not isinstance(entry, dict) or entry.get('template_sha256') != full_sha:
+    if not isinstance(entry, dict) or not str(entry.get('reason') or '').strip():
         return
-    entry['template_sha256'] = carried_sha
+    have = {'template_sha256': str(entry.get('template_sha256') or '').strip(),
+            'carried_sha256': str(entry.get('carried_sha256') or '').strip()}
+    if not _pin_matches(have, template_sha, carried_sha):
+        return
+    want = {'template_sha256': template_sha, 'carried_sha256': carried_sha}
+    if all(have[k] == v for k, v in want.items()):
+        return
+    entry.update(want)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
-    print(f"PIN NARROWED: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
-          f"{item} now pins only the blocks the section carries "
-          f"(template_sha256 {carried_sha[:12]}...), so a change to a block "
-          f"it leaves out no longer asks again.")
+    print(f"PIN UPDATED: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
+          f"{item} still matches, and now records both the template's text "
+          f"and the blocks the section carries, so neither a local edit nor "
+          f"a change to a block it leaves out asks again.")
 
 
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
@@ -4897,10 +4980,11 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
         item = f'{AGENTS_MD} {key}'
         what = f'{src_rel} section "{key}"'
         section = _instantiate(raw, subs)
-        template_sha = _carried_sha(section, lacks)
-        _narrow_kept_pin(dest_root, item, _sha_text(section), template_sha)
-        if _kept_divergence(dest_root, item, template_sha)[0] == 'kept':
-            _report_kept(dest_root, item, what, template_sha)
+        template_sha = _sha_text(section)
+        carried_sha = _carried_sha(section, lacks)
+        _repin_kept(dest_root, item, template_sha, carried_sha)
+        if _kept_divergence(dest_root, item, template_sha, carried_sha)[0] == 'kept':
+            _report_kept(dest_root, item, what, template_sha, carried_sha)
             continue
         print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "
@@ -4910,7 +4994,7 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
             print(f"    {src_rel}:{t_line + offset} \"{title}\" -- {how}")
             for s in absent:
                 print(f"        lacks: \"{s if len(s) <= 160 else s[:157] + '...'}\"")
-        _report_kept(dest_root, item, what, template_sha)
+        _report_kept(dest_root, item, what, template_sha, carried_sha)
         _left(f'{AGENTS_MD} "{key}"', f'diverged from {src_rel} and lacks '
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
               f'hand, keeping this repo\'s own text, or record it as kept on '
@@ -5662,7 +5746,7 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # Hook scripts, into tmp/hooks/ -- same commit, same read-only blob
     # discipline, listed from THIS commit's tree rather than from disk so a
     # hook added or removed upstream is picked up without a code change here
-    # (practice: durable-fix -- see _hook_file_names). No skip-and-converge
+    # (practice: upstream-fix -- see _hook_file_names). No skip-and-converge
     # dance for a missing one: hooks have no self-reference problem the way
     # this tool's own file does, so a hook name from this commit's own tree
     # listing cannot fail to `git show` from the same commit.
@@ -6233,8 +6317,9 @@ def refresh(clone, force=False, ref=None):
     for rel, why in sorted(local_ci_workflows(ROOT).items()):
         if kind in CI_CONVERGES_KINDS:
             print(f"NOTE: {LOCAL_CI_WORKFLOWS_KEY} declares {rel} ({why}), but "
-                  f"a consumer keeps a workflow only by the person's approval "
-                  f"in {GITHUB_CI_APPROVED_KEY} since 2026-09-27 -- the "
+                  f"this repo keeps a workflow only by the person's approval "
+                  f"in {GITHUB_CI_APPROVED_KEY} (a consumer since 2026-09-27, a "
+                  f"practice set since 2026-10-01) -- the "
                   f"declaration was not honoured; remove it from precedent.json.")
             continue
         print(f"LOCAL (not refreshed, by declaration): {rel} -- {why}")

@@ -189,7 +189,7 @@ def commit_env(repo, env=None):
     reached published branches about a dozen times before, each time fixed
     per session or grandfathered per SHA. Stating the author on the command
     that writes the commit is the fix that does not depend on which
-    directory a session starts in (practice: durable-fix).
+    directory a session starts in (practice: upstream-fix).
 
     Only the AUTHOR is set. GIT_COMMITTER_* is left as the caller has it:
     a committer carrying the environment's signing identity is how signed

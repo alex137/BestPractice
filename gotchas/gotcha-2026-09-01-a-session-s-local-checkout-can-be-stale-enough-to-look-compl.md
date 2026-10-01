@@ -24,7 +24,7 @@ A session's local checkout can be stale enough to look complete while
   whatever the remote-tracking ref happened to be at last fetch, and no
   fetch had happened yet. Reading the tree, running the harness, anything
   short of `git fetch` first would have silently analyzed or built on a
-  months-stale snapshot. [.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh)
+  months-stale snapshot. [.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh)
   now fetches the current branch and warns loudly (never fails the
   session — a git failure here must not block startup) if local `HEAD`
   differs from origin's, distinguishing "behind" from "shares no history

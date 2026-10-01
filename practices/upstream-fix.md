@@ -1,17 +1,17 @@
 ---
 slug:        upstream-fix
-title:       "\"Upstream fix\" asks whether the change fixes what caused the problem, and gets the root fixed"
+title:       "Every fix removes its cause, lives where it survives, and reaches the origin and every copy"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "A phrase in a MESSAGE, about whatever change is in front of the session -- no file path reaches it, and its work (finding the cause, fixing the root, handing off the rest) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone. Decided: 2026-09-24, when the practice landed."
-occasion:    "a person says \"Upstream fix\" or asks if a fix reaches the cause, or a fix, check or exemption is being added"
-gates:       ["reply"]
-gates_why:   "Points 5 and 6 apply without being asked, to any fix a turn reports: the reply is where a check-only fix or a new exemption gets presented as done, so that is the moment to ask what caused it."
-index_clause: "fix the cause, not just add a check; a new exemption means look again"
+applies_to_why: "About whatever fix is in front of the session, in any file -- no path narrows it, and whether a file is a copy is a fact about its history that no glob can see. Its work (finding the cause, choosing where the fix lives, fixing the origin and the copies) happens inline. Reached through the occasion index and the `review` and `reply` gates. Decided: 2026-09-24, when the practice landed; checked again 2026-10-01, when durable-fix and fix-the-original merged into it, and the glob still holds."
+occasion:    "fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption"
+gates:       ["review", "reply"]
+gates_why:   "`review` catches it while the fix is being chosen, the only moment the origin and the durable home are cheap to pick. `reply` catches the reporting half: a band-aid called one, every copy named, a check-only fix or a new exemption not presented as done."
+index_clause: "fix the cause where it lives, and the origin and copies; name a band-aid"
+index_required: true
 checked_by:  "tools/precedent_check.py"
-defines:     ["Upstream fix"]
-command:     {"Upstream fix": "Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo."}
+defines:     ["the origin artifact"]
 status:      active
 in_force_at: null
 supersedes:  []
@@ -27,17 +27,27 @@ approved_by: "Morgan, 2026-09-24 -- coined the phrase and wrote its meaning
   the root issue (or if you see fit do it); and if you need anything in a
   session rooted in a different repo, then just follow the 'prompt please'
   instructions to give those to me.'\" Authorized in the same message:
-  \"Go update.\""
+  \"Go update.\" Command phrase retired by Morgan, 2026-10-01: \"I think
+  we should remove 'Upstream fix' and replace it with something else. I
+  never use it ... now I'm instead trying to get you to do that all the
+  time!\" durable-fix (Morgan, 2026-09-08) and fix-the-original (Morgan,
+  2026-09-12, strengthened 2026-09-28) merged in, Morgan, 2026-10-01:
+  \"Go, merge them, then Booked into pre-staging.\""
 strength:    decided
 ---
 ## Rule
-**"Upstream fix" is the clean form, not the only one.** "Will this stop it
-happening again?", "is that the real cause?" and anything else that plainly
-asks the same question get the same treatment.
+**Every fix a session reports answers this, without being asked.** "Will
+this stop it happening again?" and "is that the real cause?" ask for it out
+loud; the answer is owed either way. **A fix is not done when the symptom
+goes away. It is done when the same cause cannot produce it again**, in a
+place that survives, at the origin and in every copy. (This was the
+"Upstream fix" command until 2026-10-01; looking back over a whole session
+for causes that live upstream is [root-issues](root-issues.md).)
 
 It is about **the change in front of the session**: the one it recommended,
-the one it already made, or the one it is about to make. Answer, in this
-order:
+the one it already made, or the one it is about to make.
+
+**Where the cause lives:**
 
 1. **Does that change also fix whatever produced the problem, or only this
    instance of it?** Say which, plainly. "Yes, the cause was here and this
@@ -60,10 +70,6 @@ order:
    paste-ready block, with the seed root and the repos to attach said once
    more in plain prose outside it. Under that rule, the block carries a
    merge authorization only when the person gave one for this handoff.
-
-**Two more apply every time, without being asked** (Morgan, 2026-09-29,
-strength: decided):
-
 5. **A check that catches the problem later is not the fix. Remove what
    made the mistake possible.** Ask what let it happen in the first place:
    a second copy of something that has to be kept in step by hand, a manual
@@ -82,16 +88,36 @@ strength: decided):
    `precedent_check.py --only upstream-fix` refuses a new
    entry in a `precedent.json` exemption list without a `root_fix`.
 
+**Where the fix lives:**
+
+7. **Default to the fix that survives, and call anything less a band-aid.**
+   Ranked by how long it lasts:
+   1. **a committed file**, which reaches every machine, session and person;
+   2. **a generated file** committed alongside its generator;
+   3. **machine or container state** (a `git config`, a path outside the
+      repo, an environment variable), which dies with the container;
+   4. **this session's own memory**, gone when the session ends.
+
+   Anything below the first rung is a band-aid, however correct. When only
+   a band-aid is available right now, say so in those words, never report
+   it as the fix, and record the durable fix as an open item naming what it
+   is blocked on.
+
+**The origin and every copy:**
+
+8. **Who else has a copy?** Every other place the same file, or the same
+   mistake, went. **Fix the origin first, then the copies, and name all of
+   them in the reply.** An origin this session cannot reach is a
+   `blocked-on` item naming the repository, never a silent omission.
+9. **What should have caught it earlier, and why didn't it?** When one gate
+   passed what a later one failed (local green but GitHub red, one
+   checkout's gate green and another's red), **that difference is its own
+   bug, and its fix ships with this one.**
+
 ## Detail
-**This command is the explicit, on-demand form of two standing rules.**
-[fix-the-original](fix-the-original.md) says to fix the origin of a copied
-file, not just the copy. [durable-fix](durable-fix.md) says a fix is done
-when the cause can't produce the problem again. Both apply without being
-asked. `Upstream fix` is what the person says when they want the check done
-out loud and the answer in front of them, including the case neither rule
-names on its own: **the cause is a process, not a file**, such as a
-generator that keeps writing the bad output or a practice that keeps
-steering sessions wrong.
+**The cause can be a process, not a file**: a generator that keeps writing
+the bad output, a practice that keeps steering sessions wrong. That is the
+case a search for the broken file alone never finds.
 
 **"Upstream" means wherever the cause lives, not just the upstream repo.**
 Most often the cause is in a template or engine file this repo takes from
@@ -102,33 +128,97 @@ practices. When the root fix changes what a repo ships to others,
 say whether the fix has to reach the repos vendoring this one, and whether
 their next `Update Vendors` will actually carry it.
 
-**Doing the root fix follows the authorization already in force.** The
-command licenses making the root fix. It does not add a push or a merge
+**Two cheap questions place a fix on the ladder in point 7**: *does this
+survive a fresh container?* and *does a person who was not here get it
+without being told?* A fix that fails either is on rung 3 or below. A
+durable fix can be genuinely out of reach (it needs someone else's
+approval, a repository this session cannot push to, a decision nobody has
+made); that is a legitimate reason for a band-aid, and exactly the case
+where saying which one you applied matters most.
+
+**The case point 8 exists for is the instantiated copy**: a file born from
+a template or copied between repos, that nothing regenerates and no
+manifest tracks. It is a committed file, so point 7 passes it, and it is
+not generated, so [generated-edit-goes-upstream](generated-edit-goes-upstream.md)
+never fires on it. **"The same mistake" counts, not only the same file**: a
+wrong argument copied into five hooks is one origin and five copies even
+where the five files are otherwise unrelated. Points 2 and 8 together are
+one search, and point 9 is one comparison: what the gate that passed had,
+or lacked, that the gate that failed did not (a machine with a module
+installed, a directory with the other clones beside it). A session that
+cannot find an origin in one search says so and moves on.
+
+**Before any edit, a different rule applies.** When the bug is upstream and
+this repository only holds a copy,
+[upstream-bug-stops-here](upstream-bug-stops-here.md) stops the local edit
+and hands the fix to the owning repository. The points here are for the
+fix that does get made.
+
+**Doing the root fix follows the authorization already in force.** This
+rule licenses making the root fix. It does not add a push or a merge
 authorization of its own. When Booked (`Go update`) or an equivalent covers the
 work, the root fix lands with it. When nothing does, commit it and say it
 is ready to land.
 
-**When there is no deeper cause, say so.** A one-off typo has no upstream.
-Say "this was the cause, and the change removes it". Don't invent a
-template to blame, and don't make a change just so the answer looks
-thorough ([no-invented-specifics](no-invented-specifics.md)).
+**It is not a licence to widen scope.** The durable fix to a one-line typo
+is committing the one-line typo, not building a linter for it;
+[checkable-gets-checked](checkable-gets-checked.md) decides when a rule
+earns a mechanical check. **When there is no deeper cause, say so.** A
+one-off typo has no upstream. Don't invent a template to blame, and don't
+make a change just so the answer looks thorough
+([no-invented-specifics](no-invented-specifics.md)).
 
 ## Why
 A fix that removes the symptom and leaves its cause behind costs the
 person twice: once now, and again when the same thing breaks somewhere
-else and nobody remembers it was already diagnosed. In a setup where one
-repository vendors templates, hooks and practices into several others, the
-cause of a problem is often in a different repository from the one where
-it showed up. A session that fixes only the local copy does the easy half
-of the work and hides the harder half.
+else and nobody remembers it was already diagnosed. The diagnosis is the
+expensive part, and a band-aid throws it away while looking like progress.
+
+**The cost is paid in a different repository from the one that saves it**,
+which is why no single session sees it. In a setup where
+one repository vendors templates, hooks and practices into several others,
+the cause of a problem is often in a different repository from the one
+where it showed up, and the recurrence lands on someone else, months later,
+looking like a new bug. A session that fixes only the local copy, or only
+this container, has genuinely solved its own problem; only the person
+watching the same issue arrive for the third time can see that nothing was
+fixed.
 
 ## Story
-Coined by Morgan, 2026-09-24, as a standing phrase for a question he found
-himself asking in full after fixes: will this fix the core issue, and if
-not, what will? He named templates, generators in other repos and anything
-vendored in as the places to look, and routed any cross-repo work through
-[Prompt Please](prompt-please.md) rather than a new handoff mechanism.
-Strength: decided.
+**Three practices, merged 2026-10-01.** Each began as Morgan asking for the
+same thing from a different side, and by the time they sat side by side
+they opened with the same sentence and each paid for its own Why. He asked
+whether they were redundant and approved the merge: *"Go, merge them, then
+Booked into pre-staging."* Strength: decided.
+`durable-fix` and `fix-the-original` keep their files, with their full stories, as merged stubs pointing here.
+
+**Where the fix lives (point 7), 2026-09-08.** *"I prefer permanent fixes
+... I dislike band-aids in which hours later the same issue reappears!"* A
+session had found a stale clone of a practice source in one container,
+repointed it, and reported the problem handled. It was handled for that
+container only: the config naming the clone is per-container, so the next
+one would start stale the same way. The durable fix was one merge on the
+source's own default branch. Same problem, same session, two fixes an
+order of magnitude apart in reach, and the cheaper one was reported first.
+
+**The origin and every copy (points 8 and 9), 2026-09-12 and 2026-09-28.**
+*"I often have to remind you, make this change not just in this file, but
+in the original template that led to it."* `commit-identity.sh` had been
+found one version behind in all five private practice sets, which is what
+a template fix that never went back to the template looks like from
+outside. Point 9 came on 2026-09-28, after a shared set's check crashed on
+GitHub's runner for want of PyYAML while the local push check had passed
+the same tree, because the local machine had the package and the consumer
+CI template never installed it. Both times the bug that mattered was the
+gap between a gate that passed and one that failed. Morgan: *"can we make
+that practice stronger"* (strength: decided).
+
+**Where the cause lives (points 1 to 4), 2026-09-24.** Coined as the
+"Upstream fix" command, for a question he found himself asking in full
+after fixes: will this fix the core issue, and if not, what will? He named
+templates, generators in other repos and anything vendored in as the
+places to look, and routed cross-repo work through
+[Prompt Please](prompt-please.md). Strength: decided.
 
 **Points 5 and 6 came from one session's own misses** (2026-09-29). Five new
 practices failed a staging test for having no routing entry; the session
@@ -141,13 +231,36 @@ did not know two names were fixed by engine tools. *"Maybe whenever we need
 to add an 'exemption' of any sort anywhere, we always use that as an
 example of a root fix opportunity."* Both root fixes shipped with the rule.
 
+**Retired as a command, 2026-10-01.** Morgan had stopped saying "Upstream
+fix": he wanted the root fixed every time, and asking for it one fix at a
+time had become the wrong shape. What he did keep asking, by pasting the
+same paragraph into session after session, was whether anything the
+session had run into should go back upstream; that became
+[root-issues](root-issues.md). Points 1 to 4 became standing rules here the
+same day. Strength: decided.
+
 ## Install
-Points 1 to 4 have no mechanical check: whether a reply found the real
-cause is a judgment about the problem, not a property a script can see in
-the diff, the same as [go-update](go-update.md) and
-[write-it-up](write-it-up.md). Points 5 and 6 reach every turn through the
-`reply` gate. Point 6 is also checked: `precedent_check.py --only
-upstream-fix` compares each exemption list in
-`precedent.json` (every `*_exempt` key, and `not_binding`) with the base
-branch, and refuses an entry that is new there and has no `root_fix`.
-Entries that were there before are left alone until someone touches them.
+**Where the answer goes: [The Boildown](the-boildown.md)'s fix line**,
+which opens with "Root fix:" or "Band-aid:" whenever a reply made or
+recommended a fix and names the root fix beside every band-aid. Point 7
+decides which label is true; then apply
+[verify-postcondition](verify-postcondition.md) to the durable claim
+itself: not *"the command succeeded"* but *"a fresh checkout gets this"*.
+
+**Finding the origin** is `grep -rl "<a distinctive line from the file>"`
+across the repo and any attached sources, or a look for a `templates/` copy
+of the same basename. A fix that touched an origin and three copies is four
+entries in the reply's files list ([reply-links-files](reply-links-files.md)).
+
+**What is checked.** Point 6: `precedent_check.py --only upstream-fix`
+compares each exemption list in `precedent.json` (every `*_exempt` key, and
+`not_binding`) with the base branch, and refuses an entry that is new there
+and has no `root_fix`. Entries that were there before are left alone until
+someone touches them. The rest is a judgment about the problem, not a
+property a script can see in the diff. A check for drifted copies was built
+and run on 2026-09-12 and declined: same-basename divergence fired on a
+hundred correct files, and template-to-copy similarity was red on two
+copies that legitimately differ and say why in their own headers.
+**Divergence is not the signal; a provenance stamp would be**, and that
+design is filed in [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md).
+All nine points reach every fix through the `review` and `reply` gates.

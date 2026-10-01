@@ -75,7 +75,7 @@ In the engine, so it does not depend on where a session starts:
 
 Proven by `check_engine_commits_state_their_author` and
 `check_history_checks_never_ride_a_reused_pass` in
-[tools/verify_harness.py](../tools/verify_harness.py). Both were run
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py). Both were run
 against the `37fc3b5` engine files and went red there.
 
 **The zone still needs the environment.** In a session with no config file,

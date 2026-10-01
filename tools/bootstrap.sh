@@ -243,15 +243,11 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
     # The branch tiers (spec/BRANCH_TIERS_PLAN.md): a person whose Go update
     # lands on pre-staging has every other window's work there, so that is
     # the base -- the same answer freshness-guard.sh gives Claude Code.
-    for _pb in tools/precedent_branches.py process/upstream/tools/precedent_branches.py; do
-      if [ -f "$_pb" ]; then
-        if [ "$(python3 "$_pb" --landing 2>/dev/null | head -n1)" = "pre-staging" ] \
-           && git ls-remote --exit-code --heads origin pre-staging >/dev/null 2>&1; then
-          base_branch="pre-staging"
-        fi
-        break
-      fi
-    done
+    if [ -f tools/precedent_branches.py ] \
+       && [ "$(python3 tools/precedent_branches.py --landing 2>/dev/null | head -n1)" = "pre-staging" ] \
+       && git ls-remote --exit-code --heads origin pre-staging >/dev/null 2>&1; then
+      base_branch="pre-staging"
+    fi
     if [ -z "$base_branch" ] || [ "$base_branch" = "$branch" ]; then
       echo "NOTE: '$branch' is not on origin yet -- nothing to be behind there. No base branch resolved (set base_branch in precedent.json), so the base check is SKIPPED, not passed." >&2
     else

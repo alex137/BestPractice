@@ -83,7 +83,7 @@ UTC contributor and is wrong for whoever actually wrote the record.
 **And this is a mechanism problem, not a care problem.** The wrong answer
 is what a careful person gets by writing the obvious line, in every file,
 forever. That is the shape of defect a module fixes and a reminder does
-not ([durable-fix](durable-fix.md)).
+not ([upstream-fix](upstream-fix.md)).
 
 ## Story
 **Origin.** 2026-09-09. Morgan, after the same wrong-offset problem had
@@ -142,4 +142,4 @@ it as a fourth copy made the documented override a red check, and did until
 (this is that rule applied to the kind "a moment in time");
 [volatile-rules-carry-dates](volatile-rules-carry-dates.md) (a date in a
 document is the contributor's, not the agent's clock — this is the
-mechanism that makes it so); [durable-fix](durable-fix.md).
+mechanism that makes it so); [upstream-fix](upstream-fix.md).

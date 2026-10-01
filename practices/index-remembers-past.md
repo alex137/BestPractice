@@ -3,8 +3,8 @@ slug:        index-remembers-past
 title:       A document does not remember its past; the index does
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
-applies_to_why: "Fires on the relationship between two documents, which a path cannot see. Decided: phase 4 routing pass."
+applies_to:  ["**/*.md"]
+applies_to_why: "Fires on the relationship between two documents, which no single path names, so the glob is every Markdown document: a replacement is written in one, and that is when the Rule is printed. Before 2026-10-01 this was `**` and the occasion index carried it; the reduction pass approved that day routed it by path instead and folded its lineage sentence into document-status-header, which reaches spec/ and record/. Its change check refuses inline lineage language at push either way. Decided: phase 4 routing pass; the glob 2026-10-01."
 occasion:    "a document replaces or is replaced by an earlier one"
 gates:       []
 index_clause: "put the lineage in the index, not in either document"
@@ -59,6 +59,13 @@ accurate and decays -- the successor gets its own successor, and nothing
 updates the note. An index row is touched every time the map is maintained,
 so it stays true as a side effect of ordinary work. A document is read for
 its content; an index is read for orientation, and lineage is orientation.
+
+**2026-10-01.** The reduction pass Morgan approved that day ("Question 3 -
+all are great, approved", strength: decided) folded this rule's sentence
+into [document-status-header](document-status-header.md)'s third
+obligation and took its line out of the occasion index: it is routed by
+path now, on any Markdown document, and its change check still refuses
+inline lineage language at push in every repository that carries it.
 
 ## Install
 **Related.** The current-state rule (git is the history) this completes;

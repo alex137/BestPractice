@@ -7,9 +7,9 @@ applies_to:  ["practices/*.md", "templates/**", ".claude/hooks/*.sh"]
 applies_to_why: "A real locus for most of what it governs -- a practice file, a template, a hook script -- but not all of it: the engine files this also covers are named individually in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists rather than matched by a path glob, since that set is a curated allowlist, not every *.py file under tools/. Reached for those by the gates below instead. Decided: 2026-09-18, when the practice landed."
 occasion:    "committing a shipped practice, hook, template or engine file, before push or merge"
 gates:       ["merge", "push"]
-gates_why:   "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it."
+gates_why:   "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it. index_required: false: the push and merge gates print it before anything ships, and the vendoring-decided check refuses a new file with no vendoring rule. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 index_clause: "say whether shipped content must reach consumers, if it will, how it migrates"
-index_required: true
+index_required: false
 checked_by:  null
 defines:     []
 status:      active
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided)"
+approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 strength:    assented
 ---
 ## Rule
@@ -85,7 +85,7 @@ change is waiting on that step, so the gap is visible at the point of
 change rather than discovered downstream.
 
 ## Why
-[fix-the-original](fix-the-original.md) already names the shape of this
+[upstream-fix](upstream-fix.md) already names the shape of this
 failure: *"the cost is paid in a different repository from the one that
 saves it."* That practice is about tracing a mistake already propagated
 back to its origin; this one is about the moment before propagation --
@@ -131,6 +131,8 @@ so a new kind of file is decided by a person rather than by default.
 The environment traps went back in the next day: they are what a session
 using Precedent runs into, and environment-gotchas tells it to search them
 (Morgan, 2026-10-01).
+
+**Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines the push already covers: the push and merge gates print it before anything ships, and the vendoring-decided check refuses a new file with no rule. Its paths still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 No mechanical check, and this is a considered gap, not the first

@@ -10,7 +10,7 @@
 # assert outright; a practice SET may instead wire its own tracked
 # bootstrap/ directory, on purpose, so that one copy exists and nothing can
 # drift from it. The header then named a path the file was not installed at,
-# which is a header lying about its own location (practice: fix-the-original,
+# which is a header lying about its own location (practice: upstream-fix,
 # reported 2026-09-14 from precedent-individual).
 # The rule it implements -- verify and fast-forward the checkout before a
 # session's first write, never after -- is the universal practice
@@ -193,7 +193,7 @@ _also_resolve() {
   # /root/precedent-individual, and the entry had been resolving to nothing,
   # every session, for its whole life. Expanding makes ONE value correct
   # everywhere, which is the only version of this that survives a fresh
-  # container (practice: durable-fix).
+  # container (practice: upstream-fix).
   #
   # Done by explicit substitution rather than `eval`: this value is a path, not
   # a script, and eval on it would run whatever a mistyped entry happened to
@@ -294,7 +294,7 @@ _have_ref() { _git rev-parse --verify -q "$1" >/dev/null 2>&1; }
 # person and their zone as KEY=VALUE lines, and exits non-zero when this
 # repository is somebody's individual source and nobody resolves -- in which
 # case nothing is merged. No tool or no python3: the lines are empty and the
-# merge runs as it always did. practice: durable-fix
+# merge runs as it always did. practice: upstream-fix
 _commit_env_lines() {
   local tool="" c out
   for c in "$ROOT/tools/precedent_identity.py" "$ROOT/process/upstream/tools/precedent_identity.py"; do
@@ -452,7 +452,7 @@ _behind_base_count() {
 # on 2026-09-13: a session ran a whole thread against a day-old tree, applying
 # rules that had been superseded, and only found out when an unrelated command
 # was blocked. Deepen once and recount before believing the counts.
-# practice: durable-fix. See record/GOTCHAS.md#g12 for the merge-base shape of
+# practice: upstream-fix. See record/GOTCHAS.md#g12 for the merge-base shape of
 # the same false negative.
 _deepen_if_shallow() {
   _is_shallow || return 1
@@ -627,7 +627,7 @@ _session_start_one() {
         # a conflict is aborted so the next tool call never meets a
         # half-applied merge, and is reported for a person to settle. The
         # pre-merge tip is kept under its own ref regardless. practice:
-        # durable-fix.
+        # upstream-fix.
         local rescue_ref old_sha
         old_sha="$(_git rev-parse HEAD 2>/dev/null)"
         rescue_ref="refs/freshness-guard/pre-merge/${branch}-${old_sha:0:12}"

@@ -19,7 +19,7 @@ it never reached.
 to the branch such a repository currently has checked out — *"failed to push
 some refs"*. Only a **bare** repository accepts that push by default.
 
-Two fixtures in [tools/verify_harness.py](../tools/verify_harness.py) did
+Two fixtures in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) did
 exactly this: `git init -b main` for the upstream, clone, commit, then
 `git push origin main`. The push had never once succeeded. Nobody knew,
 because the fixture helper returned the `CompletedProcess` and every caller

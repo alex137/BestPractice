@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A rename can strand a reference in any file of any type -- a markdown link, a path inside a script, a workflow, a config -- so no narrower glob is honest. `**` is right here for the same reason it is right for no-version-suffix: the occasion is an action taken ON a file, not a property of the file being edited. Its check is scoped instead: it compares against the published default branch, so it only ever asks about renames this branch itself made. Decided: 2026-09-06, when the practice was added."
-occasion:    "renaming, moving or deleting a file others may link to, or renaming or retiring a name"
+occasion:    "renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system"
 gates:       []
-index_clause: "repoint every link, and every use of a retired name, in the same commit"
+index_clause: "repoint every link and use of a retired name in the same commit or migration"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-06"
-approved_by: "Morgan"
+approved_by: "Morgan; the migration paragraph from migration-scrubs-vocabulary added 2026-10-01, in the reduction pass Morgan approved that day: \"Question 3 - all are great, approved\" (strength: decided)"
 source_practice_number: null
 ---
 ## Rule
@@ -36,6 +36,16 @@ everything else follows the new one. The check already leaves alone a
 generated view, a closed todo item and a `## Story` section; declare any
 other whole record file (a migration record, a dated audit) in
 `precedent.json`'s `record_paths`, each with its `reason`.
+
+**A migration off an old system retires a whole vocabulary, in the same
+migration, unasked.** Every day-to-day document — instructions file,
+glossary, map, onboarding page, workflow comments — loses the old system's
+names, retired workflows and dead concepts before the migration is called
+done, not when someone notices and asks. The old vocabulary survives only in
+the migration record and genuinely historical logs, declared once in
+`process/retired_vocabulary.json`;
+[migration-scrubs-vocabulary](migration-scrubs-vocabulary.md) has that
+file's format and the check for a leftover pre-migration pack.
 
 ## Why
 A rename is the one edit that breaks files it never touches. The moved
@@ -87,6 +97,13 @@ worth.
 rule covered the leftovers. It covered the files and paths spelled with
 the name, and not the prose that still used it, which is what a reader
 actually meets; the rule now names the name as well as the path.
+
+2026-10-01: migration-scrubs-vocabulary's index line folded in here, in the
+reduction pass Morgan approved that day ("Question 3 - all are great,
+approved", strength: decided). A migration is this rule applied to a whole
+vocabulary at once, so its trigger and its core now sit in this Rule's last
+paragraph. migration-scrubs-vocabulary stays in force for its declaration
+format and its leftover-pack check, routed by the files a migration touches.
 
 ## Install
 `tools/precedent_check.py`'s `rename-updates-links` check compares the

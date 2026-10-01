@@ -3,8 +3,8 @@ slug:        two-check-levels
 title:       "Two named check levels: a fast one for every commit, a full one before merge"
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
-applies_to_why: "Fires once, when a repo names its check levels. Nothing recurring to trigger on. Decided: phase 4 routing pass."
+applies_to:  ["AGENTS.md", "CLAUDE.md", "GLOSSARY.md", "**/GLOSSARY.md"]
+applies_to_why: "The files its check reads: the instructions file (AGENTS.md, or CLAUDE.md where there is none) that names the two levels, and the glossary that defines them. Naming the levels happens in those files, so the path channel fires at that moment. Decided: phase 4 routing pass; real paths, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
 occasion:    "naming what \"run the checks\" means in a repo"
 gates:       []
 index_clause: "name a fast check and a full check; say which gates what"
@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork)"
+approved_by: "BestPractice (pre-fork); real paths, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
 source_practice_number: 44
 ---
 ## Rule
@@ -155,6 +155,8 @@ committed-manifest lesson above. Morgan approved folding the overlap in, on
 a session's recommendation (strength: assented). The set's copy stays there
 for now because it also carries that set's own implementation of the audit,
 a check script that did not move.
+
+**Real paths from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) gave this rule the files its check reads -- the instructions file and the glossary -- in place of `**`, so it leaves the occasion index and fires where the levels are named. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 ## Install
 This repo's own [tools/doc_lint.py](../tools/doc_lint.py) is

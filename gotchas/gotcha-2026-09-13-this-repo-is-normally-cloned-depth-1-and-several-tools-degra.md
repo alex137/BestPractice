@@ -24,13 +24,13 @@ your uncommitted files and nothing else. Fix both with a bounded `git fetch
 bounded fetch works either way.
 
 **Since 2026-09-14 the primary repo does this for you**, in
-[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh): a shallow
+[.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh): a shallow
 clone is deepened at session start, before anything reads history, bounded by
 `timeout` and falling back to `--deepen` where `--unshallow` is refused.
 Measured against this remote: 2.7 MB of history before, 9.5 MB after, 4
 seconds. **What it does NOT cover is every case this entry is about** — a
 sibling attached mid-session runs none of its own hooks
-([g15](../record/GOTCHAS.md#g15)), a CI checkout is its own shallow clone, and a source set has no
+([g15](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g15)), a CI checkout is its own shallow clone, and a source set has no
 such hook at all. In any of those, the manual fetch above is still the fix, and
 a tool reporting a suspiciously clean result is still the symptom.
 
@@ -44,7 +44,7 @@ again, silently: the next `git diff main...branch` failed with
 
 What rewrote it was not established. Several things in this tree fetch with
 an explicit bound and are the obvious candidates —
-[.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh)
+[.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh)
 fetches `--depth=200`, and
 [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/83819879ff3de347227bf24c3a67a7546fb07f6e/tools/precedent_upstream_check.py),
 [tools/precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)

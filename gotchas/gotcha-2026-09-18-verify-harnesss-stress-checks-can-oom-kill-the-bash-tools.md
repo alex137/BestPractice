@@ -8,7 +8,7 @@ retires_when:    "tools/precedent_resolve.py's _self_heal_stale_render() carries
 ---
 ## Symptom
 
-`python3` [`tools/verify_harness.py`](../tools/verify_harness.py) gets
+`python3` [`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) gets
 silently killed partway through (exit 137, no FAIL printed, no Python
 traceback) at a different check each time, somewhere between roughly a
 quarter and two thirds of the way through its 172 checks.
@@ -60,11 +60,11 @@ independent of whether that same run then survived to the end.
 ## Fix
 
 No fix for the fan-out itself from inside this repo — the subprocess
-fan-out is how [`verify_harness.py`](../tools/verify_harness.py)'s
+fan-out is how [`verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
 stress-style checks are written, and narrowing it is harness work, not a
 per-change fix. What worked, practically:
 
-- **`PRECEDENT_CHECK_SKIP=name1,name2 python3` [`tools/verify_harness.py`](../tools/verify_harness.py)**
+- **`PRECEDENT_CHECK_SKIP=name1,name2 python3` [`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)**
   (added 2026-09-18, alongside `PRECEDENT_CHECK_ONLY` for the inverse)
   replaces named `check_*` functions with a no-op before they run, so their
   fan-out never happens. Reproduced directly: two full runs died at exit
@@ -130,7 +130,7 @@ already inside a self-heal attempt never triggers another one for itself.
 Verified directly: `check_leak_gate_refuses_a_fresh_container` dropped from
 241.8s to 1.72s, `check_bootstrap_source_produces_resolvable_set` from an
 OOM crash to 4.50s, and a full unmodified
-[`verify_harness.py`](../tools/verify_harness.py) run completed in 149.9s
+[`verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) run completed in 149.9s
 (215 passed, 0 failed) — the first clean completion this investigation
 saw, after two runs died at exit 137 in the same spot.
 

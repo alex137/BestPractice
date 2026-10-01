@@ -2453,10 +2453,31 @@ def render_glossary_md(practices, root=None):
 # ENGINE_MANIFEST.json -- the only file that knows where this copy came
 # from -- and with no manifest and no local file the link markup is dropped
 # rather than guessed at, leaving a backticked path that misleads nobody.
+def _stays_home(root, see):
+    """True when `see` is a file this repo keeps out of the catalogue copy
+    it ships (tools/checkin.py's VENDORING_RULES), so a relative link to it
+    from a shipped file is broken in every consumer (2026-10-01)."""
+    if (pathlib.Path(root) / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        return False          # a consumer or set receives the copy, ships none
+    try:
+        import checkin
+        rule = checkin.vendoring_rule(see)
+    except Exception:                                         # noqa: BLE001
+        return False
+    return bool(rule) and rule[1] is False
+
+
 def _travel_link(root, see):
     if not see:
         return '—'
     root = pathlib.Path(root) if root else ROOT
+    if (root / see).exists() and _stays_home(root, see):
+        try:
+            branch = json.loads((root / 'precedent.json').read_text(
+                encoding='utf-8')).get('base_branch') or 'staging'
+        except (OSError, ValueError):
+            branch = 'staging'
+        return f'[{see}](https://github.com/alex137/BestPractice/blob/{branch}/{see})'
     if (root / see).exists():
         return f'[{see}]({see})'
     try:

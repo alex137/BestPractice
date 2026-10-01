@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Fires on whose figure you are quoting, which a path cannot see. Decided: phase 4 routing pass."
-occasion:    "quoting or compressing someone else's figures"
+occasion:    "computing, quoting or tabulating figures"
 gates:       []
 index_clause: "compression rounds against you; qualifiers travel with the figure"
 checked_by:  null

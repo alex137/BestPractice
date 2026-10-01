@@ -129,7 +129,7 @@ these four, and the values matter:
 
 **Whether "required approvals 0 plus code-owner review" behaves exactly this
 way is assumption 1 in
-[spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md)'s "Verify these
+[spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md)'s "Verify these
 first" and is unverified as of 2026-09-14.** It is the session's reading of
 how the two settings compose, not something read from GitHub's
 documentation. A throwaway repository exists to settle it with one pull
@@ -300,7 +300,7 @@ are simpler:
 
 [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)
 is the install step that draws the boundary;
-[spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md) is the design
+[spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md) is the design
 and the list of what is still unverified;
 [FOR_DEVELOPERS.md](FOR_DEVELOPERS.md)'s "Who May Change What" is the short
 form; [FOR_EVERYONE_ELSE.md](FOR_EVERYONE_ELSE.md)'s "What You Can't Do

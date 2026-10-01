@@ -22,9 +22,9 @@ A stale container is indistinguishable from missing work; the freshness
   origin, 51 merged commits invisible. 2026-09-06: a session started on a
   5-day-old shallow clone, 207 commits behind `precedent-beta-v01`, and
   concluded that [tools/precedent_check.py](../tools/precedent_check.py) and
-  [.github/workflows/deep-check.yml](../.github/workflows/deep-check.yml) "did
+  [.github/workflows/deep-check.yml](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/deep-check.yml) "did
   not exist" — they had landed days earlier;
-  [.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh) stayed
+  [.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh) stayed
   silent because its `git fetch` failed and it then compared the local commit
   against an unrefreshed remote-tracking ref: both were equally old, so
   nothing looked behind. Fixed then to warn when the fetch itself fails.
@@ -42,9 +42,9 @@ A stale container is indistinguishable from missing work; the freshness
   re-read the instruction files. Diverged, no-shared-history, and dirty-tree
   states still only warn — a hook that discards work is worse than any stale
   checkout. **That logic lives in
-  [.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh), and
+  [.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh), and
   only there** — it briefly also sat inline in
-  [.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh), where the
+  [.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh), where the
   two ran back to back at every startup, fetching twice and racing to
   fast-forward the same branch; the inline copy is gone rather than kept in
   sync by hand. The guard is wired three times, because one firing point

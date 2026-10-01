@@ -239,7 +239,12 @@ widening what sessions may run
    (`templates/local-practices/project-voice.md.template`'s own header has
    the reasoning), so a repo installed before that date still has the old
    shape. Declare the `level: "repo-local"` source above if step 3 has not
-   already, for this reason alone if for no other. Then:
+   already, for this reason alone if for no other. **If `VOICE.md` is still
+   the shipped default** -- a version of the retired `templates/VOICE.md.template` as it
+   shipped, its header comment aside -- it carries no decision: delete it
+   and drop its `process/manifest.json` entry, and convert nothing. Update
+   Vendors does this itself and says so in one line (2026-10-01; converting
+   one produced a practice file of `<undecided>` sections). Otherwise:
    1. Read the existing `VOICE.md` once. Carry the decisions actually
       made — a filled-in Voice Target, a real Overrides entry, a genuine
       Words table row — not what merely shipped with the template
