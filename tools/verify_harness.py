@@ -2394,6 +2394,136 @@ def check_freshness_guard_checks_declared_sets():
           f'({len(cases)} stated cases, both copies)', not failed, '; '.join(failed))
 
 
+def check_bootstrap_local_steps_run_and_dead_lines_are_named():
+    """A consumer's own session-start steps have a place that runs and that
+    no refresh touches, and steps stranded after the template's `exit 0`
+    are named (2026-09-30, a real consumer: three of its own steps landed
+    after `exit 0` in a hand merge and never ran again, unreported).
+
+    Stated cases: a tools/bootstrap.sh with commands after its top-level
+    `exit` is reported, naming the lines, under its DIVERGED block and on
+    the Left-for-you list; the same steps in tools/bootstrap.local.sh, with
+    bootstrap.sh identical to the template, run and leave it `current`."""
+    import contextlib, io, tempfile
+    import precedent_vendor_engine as pve
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='bootstrap-local-'))
+    template = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+    try:
+        dead = tmp / 'dead'
+        (dead / 'tools').mkdir(parents=True)
+        (dead / 'tools' / 'bootstrap.sh').write_text(
+            template + 'git clone -q https://example.invalid/ref ref || true\necho own step\n',
+            encoding='utf-8')
+        plan = pve._template_instance_plan(dead, 'consumer', ROOT, {})
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            pve._report_diverged_template_instances(dead, ROOT, plan)
+        out = buf.getvalue()
+        cases.append(('lines after the top-level exit are named as never running',
+                      'never run' in out and 'bootstrap.local.sh' in out, out[-400:]))
+        at, lines = pve.dead_after_exit((dead / 'tools' / 'bootstrap.sh').read_text())
+        cases.append(('and it is exactly the two commands after the exit',
+                      len(lines) == 2 and lines[0] == at + 1, f'{at} {lines}'))
+        cases.append(('the template itself has nothing after its exit',
+                      pve.dead_after_exit(template) == (None, []), ''))
+
+        live = tmp / 'live'
+        (live / 'tools').mkdir(parents=True)
+        (live / 'tools' / 'bootstrap.sh').write_text(template, encoding='utf-8')
+        (live / 'tools' / 'bootstrap.local.sh').write_text(
+            'echo ran > "$MARK"\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=live)
+        mark = tmp / 'marker'
+        r = subprocess.run(['bash', 'tools/bootstrap.sh'], cwd=live, capture_output=True,
+                           text=True, timeout=180, env=dict(os.environ, MARK=str(mark)))
+        cases.append(('the same steps in tools/bootstrap.local.sh run',
+                      mark.is_file() and r.returncode == 0, (r.stdout + r.stderr)[-300:]))
+        plan = pve._template_instance_plan(live, 'consumer', ROOT, {})
+        cases.append(('and tools/bootstrap.sh is current, not DIVERGED',
+                      [a for _s, rel, a in plan if rel == 'tools/bootstrap.sh'] == ['current'],
+                      str(plan)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a consumer\'s own bootstrap steps run from bootstrap.local.sh, and '
+          f'dead lines after exit are named ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_rename_links_leaves_dated_records_alone():
+    """rename-updates-links leaves history alone: a generated view, a closed
+    todo item, a `## Story` section and a declared record file each name a
+    deleted path as it was (2026-09-30, a consumer's promote refused on all
+    four after an Update Vendors deleted files its records cited). Nothing
+    caught it upstream: the check only ever ran on this repo's own
+    deletions, whose few records its own exemption list covers.
+
+    A throwaway consumer run through the real check. CONTROLS, which must
+    still fire: a live document, an OPEN todo item, and a gotcha's Fix
+    section naming the same deleted path."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='dated-records-'))
+    gone = 'process/upstream/templates/harness/LEDGER.md'
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'rename-updates-links.md', up / 'practices')
+        (repo / gone).parent.mkdir(parents=True, exist_ok=True)
+        (repo / gone).write_text('ledger\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}],
+            'record_paths': [{'path': 'process/MIGRATION_RECORD.md',
+                              'reason': 'the migration as it happened'}]}), encoding='utf-8')
+        files = {
+            'gotchas/INDEX.md': f'---\ngenerated_by: tools/build_gotcha_index.py\n---\n- `{gone}` tripped it\n',
+            'todo/todo-2026-09-12-closed.md': f'---\nstatus: done\n---\n## What\nRead `{gone}`.\n',
+            'todo/todo-2026-09-25-open.md': f'---\nstatus: open\n---\n## What\nE2 trips on `{gone}`:117.\n',
+            'gotchas/gotcha-2026-09-06-x.md': (f'---\nstatus: live\n---\n## Symptom\nx\n## Story\n'
+                                               f'We ran `cat {gone}`.\n## Fix\nEdit `{gone}`.\n'),
+            'process/MIGRATION_RECORD.md': f'Moved `{gone}` on 2026-09-18.\n',
+            'README.md': f'See `{gone}`.\n',
+        }
+        for rel, text in files.items():
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(text, encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'update-vendors')
+        g('rm', '-q', gone); g('commit', '-qm', 'the hop deletes it')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'rename-updates-links'], cwd=str(repo), capture_output=True,
+                           text=True, env=env, timeout=300)
+        out = r.stdout + r.stderr
+        for rel, why in (('gotchas/INDEX.md', 'a generated view'),
+                         ('todo/todo-2026-09-12-closed.md', 'a closed todo item'),
+                         ('gotchas/gotcha-2026-09-06-x.md:7', 'a Story section'),
+                         ('process/MIGRATION_RECORD.md', 'a declared record file')):
+            cases.append((f'{why} is left alone', rel not in out, out[-400:]))
+        for rel, why in (('README.md:1', 'a live document'),
+                         ('todo/todo-2026-09-25-open.md', 'an OPEN todo item'),
+                         ('gotchas/gotcha-2026-09-06-x.md:9', "a gotcha's Fix")):
+            cases.append((f'CONTROL: {why} is still flagged', rel in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'rename-updates-links leaves dated records alone, and still reads live text '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_loader_caps_unmeasured_without_a_declared_source():
     """loader-within-caps says COULD NOT VERIFY, never a violation and never a
     pass, where a declared source is not on disk (2026-09-30).
@@ -49484,6 +49614,8 @@ def main():
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
+    check_rename_links_leaves_dated_records_alone()
+    check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()

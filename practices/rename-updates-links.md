@@ -32,7 +32,10 @@ name to mean the thing is updated in the same commit, and the search is
 for the name as well as for any path spelled with it. A use that quotes or
 records the past — a dated decision, a filed or sent document, a
 changelog entry — keeps the old name on purpose and is left as it stands;
-everything else follows the new one.
+everything else follows the new one. The check already leaves alone a
+generated view, a closed todo item and a `## Story` section; declare any
+other whole record file (a migration record, a dated audit) in
+`precedent.json`'s `record_paths`, each with its `reason`.
 
 ## Why
 A rename is the one edit that breaks files it never touches. The moved

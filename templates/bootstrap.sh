@@ -383,6 +383,17 @@ if [ -f tools/precedent_check.py ] && [ -f tools/ENGINE_MANIFEST.json ] && \
   fi
 fi
 
+# THIS REPOSITORY'S OWN STEPS go in tools/bootstrap.local.sh, never in this
+# file. This file is the template's, and an Update Vendors rewrites it when it
+# is unedited; a step added here makes it a diverged copy, and a step added
+# below the `exit 0` never runs at all (2026-09-30, a real consumer's three
+# session-start steps, silently dead after a hand merge). The local file is
+# never touched by a refresh. Its failure is reported, never fatal.
+if [ -f tools/bootstrap.local.sh ]; then
+  # shellcheck source=/dev/null
+  . tools/bootstrap.local.sh || echo "WARNING: tools/bootstrap.local.sh did not finish -- some of this repository's own session-start steps may not have run" >&2
+fi
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` at the top would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.
