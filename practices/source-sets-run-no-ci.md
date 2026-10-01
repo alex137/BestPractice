@@ -34,7 +34,11 @@ is not what this rule refuses.
 **It is the default for every future set, not a cleanup of four existing
 ones.** A new set created tomorrow gets no workflows, because the engine's
 shipping list for that kind is empty, and an existing set loses the ones it
-has on its next refresh.
+has on its next refresh. **Since 2026-10-01 that refresh removes every
+workflow a set carries unless the owner approved it in their own words** in
+`github_ci_approved` (practice `ci-workflow-approved`), which is how an
+owner-asked button stays: the same rule, and the same check that nothing
+needed is lost, as a consumer's.
 
 ## Detail
 **The checks already ran, seconds earlier, on the same tree.** Every change

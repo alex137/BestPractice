@@ -54,8 +54,9 @@ when it will run: every run bills at least a minute in a private repository.
 Then record what they said, in their words. **Never write an approval they
 did not give.** If they do not want the file, delete it.
 
-**In a consuming repo, Update Vendors settles a leftover without asking**
-(since 2026-09-27). The engine owns the workflows upstream ships
+**In a consuming repo or a practice set, Update Vendors settles a leftover
+without asking** (a consumer since 2026-09-27, a practice set since
+2026-10-01, which ships no workflow at all). The engine owns the workflows upstream ships
 (`leak-gate.yml`, `light-check.yml`): each refresh writes them from the
 template over any hand edit, and removes every other workflow that has no
 approval in the person's own words. **First it checks that nothing needed is

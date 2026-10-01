@@ -2564,6 +2564,54 @@ def check_rename_links_leaves_dated_records_alone():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_practice_set_workflows_converge():
+    """A practice set converges like a consumer (2026-10-01): a refresh
+    removes a workflow the set carries unless the person approved it in
+    their own words, pinned to its content. Before, a set "ran its own on
+    purpose" and a leftover there was never cleared (Morgan: solve it "in
+    the update, not just this file but others")."""
+    import contextlib, io, shutil, tempfile, hashlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-converge-'))
+    cases = [('a practice set\'s CI converges', 'source' in pve.CI_CONVERGES_KINDS, '')]
+    try:
+        dest = tmp / 'set'
+        wfs = dest / '.github' / 'workflows'
+        wfs.mkdir(parents=True)
+        git = lambda *a: subprocess.run(['git', '-C', str(dest), *a],
+                                        capture_output=True, text=True)
+        git('init', '-q')
+        git('config', 'user.name', 'Test')
+        git('config', 'user.email', 'test@example.com')
+        left = wfs / 'leftover.yml'
+        left.write_text('on: push\njobs:\n  x:\n    runs-on: ubuntu-latest\n'
+                        '    steps:\n      - uses: actions/checkout@v4\n', encoding='utf-8')
+        kept = wfs / 'button.yml'
+        kept.write_text('on: workflow_dispatch\njobs:\n  x:\n    runs-on: ubuntu-latest\n'
+                        '    steps:\n      - uses: actions/checkout@v4\n', encoding='utf-8')
+        (dest / 'precedent.json').write_text(json.dumps({'github_ci_approved': {
+            '.github/workflows/button.yml': {
+                'sha256': hashlib.sha256(kept.read_bytes()).hexdigest(),
+                'approved_by': 'Dana, 2026-09-25: "keep the button"'}}}), encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'seed\n\nSession: none available (test)')
+        pve._LEFT_FOR_YOU.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            removed = pve._remove_unapproved_workflows(dest, {}, 'source', None)
+        cases.append(('a set\'s unapproved workflow is removed by the refresh',
+                      not left.exists() and '.github/workflows/leftover.yml' in removed,
+                      repr(removed)))
+        cases.append(('...and one the person approved in their own words is kept',
+                      kept.exists(), repr(removed)))
+    finally:
+        pve._LEFT_FOR_YOU.clear()
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a practice set\'s workflows converge, approvals kept ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_worktree_snapshot_needs_no_git_identity():
     """_ref_including_worktree() snapshots a dirty tree with no git identity
     anywhere -- empty $HOME, no global or system config -- the shape of the
@@ -49962,6 +50010,7 @@ def main():
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
     check_worktree_snapshot_needs_no_git_identity()
+    check_practice_set_workflows_converge()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()

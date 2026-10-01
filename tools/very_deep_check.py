@@ -1383,9 +1383,9 @@ def _workflow_liveness_scan(repo_dir):
     ci_workflow_files tracks has no such list to be definitive against --
     CI_WORKFLOW_TEMPLATES names exactly one file per kind, so almost any
     repo with more than that single workflow file will have entries here BY
-    DESIGN, most of them completely legitimate (a practice set's own
-    commit-identity.yml and engine-refresh.yml, or a repo's own
-    hand-authored check unrelated to Precedent entirely). Reusing
+    DESIGN, most of them completely legitimate (a workflow the person
+    approved in their own words, or a repo's own hand-authored check
+    unrelated to Precedent entirely). Reusing
     _orphan_scan's confident wording here would be the exact mistake this
     function exists to prevent repeating -- see the incident below.
 

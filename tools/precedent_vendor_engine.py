@@ -2262,9 +2262,16 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 # uncommitted edits is replaced or removed, so its content stays in history,
 # and the report names every script it ran.
 #
-# A practice SOURCE is not here: it ships no workflow at all
-# (CI_WORKFLOW_TEMPLATES['source'] is empty) and runs its own on purpose.
-CI_CONVERGES_KINDS = frozenset({'consumer'})
+# A PRACTICE SOURCE CONVERGES TOO, since 2026-10-01. It ships no workflow
+# (CI_WORKFLOW_TEMPLATES['source'] is empty) and runs no CI since 2026-09-21
+# (source-sets-run-no-ci), so converging means every workflow it still
+# carries goes, unless the person approved it in their own words -- the
+# same rule, and the same nothing-lost check, as a consumer. Until then a
+# set "ran its own on purpose", and a leftover there was never cleared:
+# Morgan, 2026-10-01, on finding one still in a set: make sure "in future
+# updates this is solved beforehand in the update, not just this file but
+# others".
+CI_CONVERGES_KINDS = frozenset({'consumer', 'source'})
 CI_WORKFLOW_TEMPLATES = {
     # NO WORKFLOW EXISTS SOLELY TO LINT MARKDOWN (2026-09-21). The consumer
     # side used to ship doc-lint.yml.template as bestpractice-docs.yml, and
@@ -2467,10 +2474,11 @@ def local_ci_workflows(dest_root):
     entry with an empty reason is ignored, exactly as if it were absent,
     and refresh says so rather than honouring it silently.
 
-    NOT IN A CONSUMER, since 2026-09-27 (CI_CONVERGES_KINDS): there only
-    the person's approval in github_ci_approved keeps a workflow, and a
-    declaration is reported as not honoured. What follows holds in a
-    practice source.
+    NOT IN A KIND WHOSE CI CONVERGES (CI_CONVERGES_KINDS): a consumer
+    since 2026-09-27, a practice source since 2026-10-01. There only the
+    person's approval in github_ci_approved keeps a workflow, and a
+    declaration is reported as not honoured. What follows holds where a
+    kind does not converge.
 
     A declared file is then: never overwritten, never drift, never
     "untracked" -- and PRINTED ON EVERY RUN with its reason, so the
@@ -2536,9 +2544,9 @@ def _untracked_ci_workflow_files(dest_root, manifest):
     THIS IS NOT AN ORPHAN LIST. CI_WORKFLOW_TEMPLATES names exactly one
     file per kind -- the template-installed workflow -- so almost any repo
     with more than that single file will have entries here by design: a
-    practice set's own commit-identity.yml and engine-refresh.yml are
-    untracked by this exact definition and are completely legitimate,
-    intentionally never vendored through this mechanism. A hand-authored
+    workflow the person approved in their own words is untracked by this
+    exact definition and is completely legitimate, intentionally never
+    vendored through this mechanism. A hand-authored
     check unrelated to Precedent is equally untracked and equally
     legitimate. Reports enumerate; they do not judge -- see
     spec/CI_WORKFLOW_RETIREMENT_PLAN.md's account of the false positive
@@ -2810,8 +2818,8 @@ LEGACY_CI_WORKFLOWS = {
 # was ever a template in this repository, on any branch, so there is nothing
 # to recognise them against. Never deleted here -- listed, so the session
 # running "Update Vendors" reads each one (vendor-update-runbook's "Retire
-# legacy leftovers" step). `commit-identity.yml` is a leftover only in a
-# CONSUMER; a practice set runs its own on purpose.
+# legacy leftovers" step). `commit-identity.yml` is a leftover in a consumer
+# and, since a set runs no CI (2026-09-21), in a practice set too.
 LEGACY_CI_WORKFLOWS_TO_READ = {
     '.github/workflows/practice-links-travel.yml':
         'its check now runs inside precedent-check.yml as the '
@@ -2822,7 +2830,7 @@ LEGACY_CI_WORKFLOWS_TO_READ = {
     '.github/workflows/platform-docs-check.yml': None,
     '.github/workflows/commit-identity.yml': None,
 }
-_LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer'}}
+_LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer', 'source'}}
 
 # Hook analog of RETIRED_CI_WORKFLOW_FILES + LEGACY_CI_WORKFLOWS: name ->
 # (why, content recogniser). EMPTY ON PURPOSE, and read as a decision: no
@@ -3120,8 +3128,9 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
             continue
         _uses, scripts = _workflow_facts(text)
         reason = ('upstream does not ship it, and github_ci_approved carries '
-                  'no approval of it in the person\'s words -- a consumer\'s '
-                  'CI converges to upstream (2026-09-27). Its content stays '
+                  'no approval of it in the person\'s words -- a repo\'s CI '
+                  'converges to upstream (a consumer since 2026-09-27, a '
+                  'practice set since 2026-10-01). Its content stays '
                   'in git history'
                   + (f'. It ran {", ".join(sorted(scripts))}: the local push '
                      f'check runs that already' if scripts else ''))
@@ -6233,8 +6242,9 @@ def refresh(clone, force=False, ref=None):
     for rel, why in sorted(local_ci_workflows(ROOT).items()):
         if kind in CI_CONVERGES_KINDS:
             print(f"NOTE: {LOCAL_CI_WORKFLOWS_KEY} declares {rel} ({why}), but "
-                  f"a consumer keeps a workflow only by the person's approval "
-                  f"in {GITHUB_CI_APPROVED_KEY} since 2026-09-27 -- the "
+                  f"this repo keeps a workflow only by the person's approval "
+                  f"in {GITHUB_CI_APPROVED_KEY} (a consumer since 2026-09-27, a "
+                  f"practice set since 2026-10-01) -- the "
                   f"declaration was not honoured; remove it from precedent.json.")
             continue
         print(f"LOCAL (not refreshed, by declaration): {rel} -- {why}")
