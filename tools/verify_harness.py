@@ -26768,11 +26768,23 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('and stays green on the next run', ok is True, detail))
 
-        # A later jump between named branches is still the finding it was.
+        # A later jump between named branches, leaving work behind on the
+        # one it started on, is still the finding it was.
+        commit('work on claude/work that main lacks')
         git('checkout', '-q', 'main')
         ok, detail = row()
-        cases.append(('a move between named branches still fails',
+        cases.append(('a move between named branches that strands work still fails',
                       ok is False and 'claude/work' in detail, detail))
+
+        # Booked merged it, and the session moved onto the branch that now
+        # carries it: carried, not stranded (2026-10-01).
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q',
+            '--no-ff', '-m', 'Booked', 'claude/work')
+        ok, detail = row()
+        cases.append(('a move onto a branch that carries all of the start '
+                      'branch passes', ok is True and 'carries all' in detail, detail))
+        cases.append(('...and that branch becomes the baseline',
+                      stamp.read_text().split()[0] == 'main', stamp.read_text()))
 
         # A named start, then the session's own new branch from it: passes.
         import time as _time
@@ -43233,6 +43245,77 @@ def _stale_ref_fixture_env(tmp):
                 PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
 
 
+def check_stop_hook_says_each_state_once():
+    """The Stop hook blocks once per dirty state, not at every turn end.
+
+    Found 2026-10-01 in a reduction-pass session: while a background helper
+    of the session was mid-edit on its branch, the same "uncommitted
+    changes" finding blocked every stop, and each block was a turn with
+    nothing to do. The rule under test: the first stop on a dirty state is
+    blocked and says why; the same session stopping on the same state is
+    not blocked again; a change to the state, or another session, is told
+    afresh. Both copies are run, the template and this repo's own."""
+    import tempfile
+    name = 'the Stop hook says each dirty state once per session'
+    hooks = [ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+             ROOT / '.claude' / 'hooks' / 'stop-git-check.sh']
+    hooks = [h for h in hooks if h.exists()]
+    if not hooks:
+        not_applicable(name, 'no stop-git-check.sh here')
+        return
+    cases = []
+    for hook in hooks:
+        label = hook.relative_to(ROOT).parts[0]
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            env = _stale_ref_fixture_env(tmp)
+
+            def git(*a):
+                return subprocess.run(['git', '-C', str(work), *a],
+                                      capture_output=True, text=True, env=env)
+            bare = tmp / 'origin.git'
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                           capture_output=True, env=env)
+            work = tmp / 'work'
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)],
+                           capture_output=True, env=env)
+            (work / 'a.txt').write_text('a\n', encoding='utf-8')
+            git('add', 'a.txt')
+            git('commit', '-q', '-m', 'a')
+            git('remote', 'add', 'origin', f'file://{bare}')
+            git('push', '-q', '-u', 'origin', 'main')
+
+            def stop(session):
+                return subprocess.run(['bash', str(hook)], cwd=str(work),
+                                      input=json.dumps({'session_id': session}),
+                                      capture_output=True, text=True, env=env)
+
+            (work / 'a.txt').write_text('a, edited\n', encoding='utf-8')
+            r = stop('s1')
+            cases.append((f'{label}: the first stop on a dirty tree is blocked, '
+                          f'and says it will not repeat',
+                          r.returncode == 2 and 'Uncommitted' in r.stderr
+                          and 'will not repeat' in r.stderr))
+            r = stop('s1')
+            cases.append((f'{label}: the same session, same state: not blocked again',
+                          r.returncode == 0))
+            (work / 'b.txt').write_text('b\n', encoding='utf-8')
+            r = stop('s1')
+            cases.append((f'{label}: a new untracked file is a new state: blocked',
+                          r.returncode == 2 and 'Untracked' in r.stderr))
+            r = stop('s2')
+            cases.append((f'{label}: another session is told afresh',
+                          r.returncode == 2))
+            git('add', '-A')
+            git('commit', '-q', '-m', 'both')
+            git('push', '-q')
+            r = stop('s2')
+            cases.append((f'{label}: clean and pushed: not blocked',
+                          r.returncode == 0))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_stop_hook_ignores_commits_another_remote_ref_has():
     """The Stop hook's "unpushed" count asks whether a commit is on ANY
     remote ref, not whether it is ahead of origin/<current branch>.
@@ -51169,6 +51252,7 @@ def main():
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_stop_hook_ignores_commits_another_remote_ref_has()
+    check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
