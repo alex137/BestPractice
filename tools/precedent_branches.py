@@ -911,19 +911,21 @@ def _run_github_test(root, sha, tests, say, gh=None):
 # keeps the repository's own value first.
 #
 # EVERY DOUBT RUNS THE TEST: a public or undeclared repository, a value of 0
-# or one that is not a number, PRECEDENT_CI_NOW=1, a batch that changes a
-# workflow or the vendored engine, no passing run found, or GitHub not
-# answering.
+# or one that is not a number, PRECEDENT_CI_NOW=1, no passing run found, a
+# newest run that failed, or GitHub not answering. A batch that changes a
+# workflow or the vendored engine is NOT forced: Morgan, 2026-10-01, "I'm
+# hesitant about forcing that, because I might update the vendored engines a
+# lot or I can quickly see this getting out of control" (strength: decided).
+#
+# ONLY A DUE PROMOTE COPY RUNS IN A PRIVATE REPOSITORY. The light check's
+# job `if:` runs a private pull request into main only when its branch is
+# a to-main- copy that is not NOT_DUE_PREFIX: GitHub cannot read anyone's
+# settings, so a pull request nobody judged is never tested there. Morgan:
+# "if and only if the setting is turned on ... AND the number of hours is
+# more than the number defined since the last successful test".
 NOT_DUE_PREFIX = 'to-main-not-due-'
 CADENCE_KEYS = ('github_ci_every_hours', 'ci_every_hours')
 FORCE_ENV = 'PRECEDENT_CI_NOW'
-# A batch touching any of these always gets the test: the workflows, and the
-# vendored engine's manifests, which move on every Update Vendors. That is
-# the change a clean machine catches and the session's own cannot -- on
-# 2026-09-28 a set's check imported PyYAML, which every session had and the
-# bare runner did not.
-ALWAYS_TESTED = ('.github/workflows/', 'tools/ENGINE_MANIFEST.json',
-                 'process/manifest.json')
 
 
 def main_test_cadence(root, user_config=None):
@@ -955,22 +957,28 @@ SWITCH_KEYS = ('github_ci_workflows', 'ci_workflows')
 
 
 def main_test_switch(root, user_config=None):
-    """-> (on, where): has the person switched GitHub tests on? Read as
-    precedent_identity.ci_preference() reads it -- the person's own
-    identity.json, the new key before the old -- and on only for "enabled"
-    or nothing declared, so a typo switches it off rather than spending
-    minutes. Morgan, 2026-10-01: "it should check the user's
+    """-> (on, where): are GitHub tests switched on? The person's own
+    identity.json first, then the repository's precedent.json, the new key
+    before the old in each; on only for "enabled" or nothing declared, so a
+    typo switches it off rather than spending minutes. Morgan, 2026-10-01: "it should check the user's
     precedent-individual (if it exists) and see if it has the variable for
     github tests turned on (assume yes)"."""
+    found = None
     for path in _identity_files(root, user_config):
         ident = _read_json(path)
         if ident and ident.get('email'):
-            value = next((ident[k] for k in SWITCH_KEYS if k in ident), '')
-            if value in ('enabled', ''):
-                return True, (f'github_ci_workflows is "enabled" in {path}' if value
-                              else f'{path} declares no github_ci_workflows')
-            return False, f'github_ci_workflows is {value!r} in {path}'
-    return True, 'no identity.json resolves, so GitHub tests count as on'
+            found = next(((ident[k], str(path)) for k in SWITCH_KEYS if k in ident), None)
+            break
+    if not found:
+        repo = precedent_json(root)
+        found = next(((repo[k], "this repo's precedent.json") for k in SWITCH_KEYS
+                      if k in repo), None)
+    if not found:
+        return True, 'github_ci_workflows is not declared anywhere, so GitHub tests count as on'
+    value, where = found
+    if value == 'enabled':
+        return True, f'github_ci_workflows is "enabled" in {where}'
+    return False, f'github_ci_workflows is {value!r} in {where}'
 
 
 def _when(root, unix_ts):
@@ -1028,9 +1036,8 @@ def last_main_test_pass(root, tests, gh=None):
     return (min(newest) if newest else None), None
 
 
-def main_test_due(root, tip, base=None, gh=None, user_config=None):
-    """-> (due, why): does a Promote of `tip` into main get its GitHub test?
-    `base` is main's tip, so a batch touching ALWAYS_TESTED can be seen."""
+def main_test_due(root, tip, gh=None, user_config=None):
+    """-> (due, why): does a Promote of `tip` into main get its GitHub test?"""
     if os.environ.get(FORCE_ENV) == '1':
         return True, f'{FORCE_ENV}=1 asks for it'
     if precedent_json(root).get('visibility') == 'private':
@@ -1041,13 +1048,6 @@ def main_test_due(root, tip, base=None, gh=None, user_config=None):
     hours, where = main_test_cadence(root, user_config)
     if not hours:
         return True, f'every Promote gets it ({where})'
-    if base:
-        changed = (_git(root, 'diff', '--name-only', base, tip) or '').splitlines()
-        hit = sorted(f for f in changed if f.startswith(ALWAYS_TESTED))
-        if hit:
-            return True, (f'this batch changes {hit[0]}' + (' and more' if len(hit) > 1 else '')
-                          + ', and a change to the workflows or the vendored engine '
-                            'always gets it')
     tests = github_tests(root, tip)
     if not tests:
         return True, 'no GitHub test is installed here'
@@ -1727,7 +1727,7 @@ def _promote_to_main(root, say=print):
             + ' Same files, so the earlier run stands.')
     else:
         say(f'the full check ran on the batch and passed, in {took:.0f}s.')
-    due, why = main_test_due(root, stip, base=mtip)
+    due, why = main_test_due(root, stip)
     copy = _to_main_copy(root, due)
     p = _run(root, 'push', '-q', 'origin', f'{stip}:refs/heads/{copy}')
     if p.returncode != 0:

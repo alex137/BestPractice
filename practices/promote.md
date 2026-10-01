@@ -227,9 +227,11 @@ Promote reads the person's value first, then the repository's, and when the
 test passed more recently than that it names the copy
 `to-main-not-due-DATE`: the light check skips that pull request before a
 runner starts, and `--wait-main-test` says **NOT DUE** and exits 0, so merge
-on the full local check. It always runs on a batch that changes a workflow
-or the vendored engine, after a failed run until one passes, and with
-`PRECEDENT_CI_NOW=1`. Say which it was -- due or not due, and the line
+on the full local check. It runs anyway after a failed run until one
+passes, when GitHub cannot be asked, and with `PRECEDENT_CI_NOW=1`; a
+change to a workflow or the vendored engine is not forced. In a private
+repository nothing but a due Promote copy runs the test: a pull request
+into main from any other branch is skipped. Say which it was -- due or not due, and the line
 Promote printed for why -- in the report.
 
 **Main takes staging by a pull request from a throwaway copy, never from

@@ -21,7 +21,8 @@ a private repository's workflow bills at least a minute.
 `github_ci_every_hours`** (since 2026-10-01). Promote decides, in the
 session: when the test passed more recently than that, it names the pull
 request's branch `to-main-not-due-DATE` and the job's `if:` skips it before
-a runner starts
+a runner starts. A private pull request into `main` from any branch but a
+due `to-main-DATE` copy is skipped the same way
 ([spec/CI_CADENCE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_CADENCE_PLAN.md),
 "Promote decides").
 

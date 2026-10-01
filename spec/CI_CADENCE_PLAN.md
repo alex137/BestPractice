@@ -63,22 +63,44 @@ and a required check counts it as passing. `--wait-main-test` says NOT DUE
 and exits 0. **The person's value wins here**, then the repository's: when
 he runs Promote, his number decides.
 
-**The switch comes first.** In a private repository Promote also reads the
-person's `github_ci_workflows` (Morgan: *"see if it has the variable for
-github tests turned on (assume yes)"*): absent or `"enabled"` is on, and
-anything else, `"disabled"` or a typo, means no GitHub test at all.
-`check_main_test_minutes_rule` in
-[verify_harness.py](../tools/verify_harness.py) holds Morgan's rule as he
-wrote it against every combination of visibility, switch, hours and time
-since the last pass, the template's own `if:`, and a real Promote.
+**The switch comes first.** In a private repository Promote also reads
+`github_ci_workflows`, the person's first and then the repository's
+(Morgan: *"see if it has the variable for github tests turned on (assume
+yes)"*): absent or `"enabled"` is on, and anything else, `"disabled"` or a
+typo, means no GitHub test at all.
 
-**It runs anyway**, every time, on any doubt: a public or undeclared
-repository, 0 or a value that is not a number, `PRECEDENT_CI_NOW=1`, a batch
-changing `.github/workflows/` or the vendored engine's manifest (so every
-Update Vendors gets it: the 2026-09-28 PyYAML break is the case), a newest
-run that failed (it stays due until one passes), no passing run found,
-GitHub not answering, and a workflow file installed before this skip
-existed, which would run anyway and must not be merged under.
+**The rule, as Morgan confirmed it on 2026-10-01** (`strength: decided`).
+GitHub minutes are only ever spent on main:
+
+1. Any other branch -- pre-staging, staging, a working branch: never. No
+   push or pull request there starts GitHub.
+2. A public repository: every push to main and every pull request into
+   main runs.
+3. A private repository, a push to main: never runs.
+4. A private repository, a Promote into main: it runs if and only if the
+   switch is on AND at least `github_ci_every_hours` have passed since the
+   last *passing* test (0 or not set: every Promote). The person's value
+   wins over the repository's.
+5. It runs inside that window anyway when the newest run failed (until one
+   passes), when GitHub cannot be asked, when the installed workflow
+   predates the skip (it would run anyway), and with `PRECEDENT_CI_NOW=1`.
+   **A batch changing a workflow or the vendored engine is not forced**:
+   *"I'm hesitant about forcing that, because I might update the vendored
+   engines a lot or I can quickly see this getting out of control."*
+6. A private repository, a pull request into main that Promote did not
+   make: never runs. Only Promote reads the settings, so only a copy it
+   named due (`to-main-DATE`, not `to-main-not-due-DATE`) is tested:
+   *"if and only if the setting is turned on ... AND the number of hours
+   is more than the number defined since the last successful test"*.
+7. 2A, the commit hook's `[skip ci]`, keeps the repository owner's value
+   first; it changes nothing today, because rule 3 already stops a private
+   push to main, and stays as a backstop.
+8. GitHub's "Run workflow" button runs whenever a person presses it.
+
+`check_main_test_minutes_rule` in
+[verify_harness.py](../tools/verify_harness.py) holds this rule against
+every combination of visibility, switch, hours and time since the last
+pass, the template's own `if:` for every event, and a real Promote.
 
 **2A, the commit hook below, is unchanged** and keeps the repository's own
 value first. A skipped run no longer reads as a failure anywhere: GitHub

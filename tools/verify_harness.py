@@ -25539,8 +25539,18 @@ def check_main_test_minutes_rule():
                   starts('pull_request', 'main', False, pb.NOT_DUE_PREFIX + '2026-10-01')))
     cases.append(('private: a Promote copy that IS due runs',
                   starts('pull_request', 'main', True, 'to-main-2026-10-01')))
-    cases.append(('a skip name is matched as a prefix only, so "x-to-main-not-due-" runs',
-                  starts('pull_request', 'main', True, 'x-' + pb.NOT_DUE_PREFIX)))
+    cases.append(('private: a pull request into main from a working branch -- not a '
+                  'Promote copy, so nobody judged it -- starts no runner',
+                  not starts('pull_request', 'main', True, 'claude/feature-x')))
+    cases.append(('...nor one from staging itself',
+                  not starts('pull_request', 'main', True, 'staging')))
+    cases.append(('...nor "x-to-main-...": the copy name is matched as a prefix',
+                  not starts('pull_request', 'main', True, 'x-to-main-2026-10-01')))
+    cases.append(('public: a pull request into main from a working branch runs',
+                  starts('pull_request', 'main', False, 'claude/feature-x')))
+    cases.append(('a run started by hand runs in either kind of repository',
+                  starts('workflow_dispatch', 'main', True)
+                  and starts('workflow_dispatch', 'main', False)))
 
     # (2) The whole table, through Promote's decision and the template.
     saved_force = os.environ.pop(pb.FORCE_ENV, None)
@@ -25638,12 +25648,6 @@ def check_main_test_minutes_rule():
         for label, fn in exceptions:
             d, why = fn()
             cases.append((f'EXCEPTION, runs inside the window: {label} ({why[:60]})', d is True))
-        pb._git = lambda root, *a: (('on: {}\n# ' + pb.NOT_DUE_PREFIX) if a[:1] == ('show',)
-                                    else '.github/workflows/light-check.yml\n'
-                                    if a[:2] == ('diff', '--name-only') else real_git(root, *a))
-        d, why = pb.main_test_due(repo, 'TIP', base='BASE', gh=GH(10), user_config=cfg)
-        cases.append(('EXCEPTION, runs inside the window: a batch changing a workflow '
-                      'or the vendored engine', d is True))
         pb._git = lambda root, *a: ('on: {}\n' if a[:1] == ('show',) else ''
                                     if a[:2] == ('diff', '--name-only') else real_git(root, *a))
         d, why = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
@@ -25753,10 +25757,9 @@ def check_main_test_cadence():
     cases = []
     tpl = (ROOT / 'templates' / 'github-actions' / 'light-check.yml.template')
     tpl_text = tpl.read_text(encoding='utf-8') if tpl.is_file() else ''
-    cases.append(('the light-check template skips a private pull request from '
-                  'the very branch prefix Promote names a not-due copy with',
-                  f"startsWith(github.head_ref, '{pb.NOT_DUE_PREFIX}')" in tpl_text
-                  and 'github.event.repository.private == true' in tpl_text))
+    cases.append(('the light-check template names the very branch prefix Promote '
+                  'gives a not-due copy',
+                  f"startsWith(github.head_ref, '{pb.NOT_DUE_PREFIX}')" in tpl_text))
     saved_env = os.environ.get(pb.FORCE_ENV)
     os.environ.pop(pb.FORCE_ENV, None)
     with tempfile.TemporaryDirectory() as td:
@@ -25836,7 +25839,7 @@ def check_main_test_cadence():
 
         def due(runs, **kw):
             return pb.main_test_due(repo, 'TIP', gh=GH(runs, kw.get('fail')),
-                                    base=kw.get('base'), user_config=cfg)
+                                    user_config=cfg)
         d, why = due([run(10), run(1, 'skipped', 'main')])
         cases.append(('a pass 10 hours ago with a 168-hour window is NOT DUE, says when '
                       'the next one is, and a newer skipped run changes nothing',
@@ -25857,21 +25860,28 @@ def check_main_test_cadence():
                       'due, so a "not due" wait never merges under a running test',
                       d is True and 'predates' in why))
         shown['text'] = skipping
-        shown['diff'] = 'README.md\n.github/workflows/light-check.yml\n'
-        d, why = due([run(10)], base='BASE')
-        cases.append(('a batch that changes a workflow is always due',
-                      d is True and '.github/workflows/' in why))
-        shown['diff'] = 'tools/ENGINE_MANIFEST.json\n'
-        d, why = due([run(10)], base='BASE')
-        cases.append(('...and so is one that moves the vendored engine (Update Vendors)',
-                      d is True and 'ENGINE_MANIFEST' in why))
-        shown['diff'] = 'README.md\n'
-        d, why = due([run(10)], base='BASE')
-        cases.append(('...while one that changes only content is not', d is False))
+        shown['diff'] = '.github/workflows/light-check.yml\ntools/ENGINE_MANIFEST.json\n'
+        d, why = due([run(10)])
+        cases.append(('a batch changing a workflow or the vendored engine is NOT forced '
+                      '(Morgan: "I might update the vendored engines a lot")', d is False))
+        shown['diff'] = ''
         os.environ[pb.FORCE_ENV] = '1'
         d, why = due([run(10)])
         os.environ.pop(pb.FORCE_ENV, None)
         cases.append((f'{pb.FORCE_ENV}=1 makes it due', d is True))
+        setup(mine=168)
+        pj = _json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            dict(pj, github_ci_workflows='disabled')), encoding='utf-8')
+        d, why = due([run(1000)])
+        cases.append(("with no personal switch, the repository's own \"disabled\" "
+                      'means no test, however long ago it passed',
+                      d is False and "this repo's precedent.json" in why))
+        (me / 'identity.json').write_text(_json.dumps(
+            {'email': 'me@example.com', 'ci_every_hours': 168,
+             'ci_workflows': 'enabled'}), encoding='utf-8')
+        d, why = due([run(1000)])
+        cases.append(("...and the person's \"enabled\" wins over it", d is True))
         setup(mine=0)
         d, why = due([run(10)])
         cases.append(('a value of 0 is every Promote', d is True))
