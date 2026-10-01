@@ -2342,7 +2342,17 @@ def is_guarded_fallback(rel, line, old):
         return True
     own = 'tools/' + old.split('/tools/', 1)[-1]
     rest = line.replace(old, ' ')
-    return re.search(r'(?<![\w./-])' + re.escape(own) + r'(?![\w-])', rest) is not None
+    # tools/X counts at the start of a path, or after the repo root spelled
+    # as a shell variable -- "$ROOT/tools/X", "${CLAUDE_PROJECT_DIR:-.}/tools/X".
+    # Refusing every "/" before it refused the guarded loops BestPractice's
+    # own hooks shipped, in every consumer, on each update (2026-10-01).
+    for m in re.finditer(re.escape(own) + r'(?![\w-])', rest):
+        before = rest[:m.start()]
+        if not before or not re.search(r'[\w./-]$', before):
+            return True
+        if before.endswith('/') and re.search(r'(\$[A-Za-z_]\w*|\})/$', before):
+            return True
+    return False
 
 
 def _withheld_from_manifest():

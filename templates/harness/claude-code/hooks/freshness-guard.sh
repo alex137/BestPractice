@@ -236,7 +236,7 @@ _also_resolve() {
 # set that is not there is a one-line NOTE, never a block.
 _declared_entries() {
   local tool="" c
-  for c in "$PROJECT_ROOT/tools/precedent_resolve.py" "$PROJECT_ROOT/process/upstream/tools/precedent_resolve.py"; do
+  for c in "$PROJECT_ROOT/tools/precedent_resolve.py"; do
     [ -f "$c" ] && { tool="$c"; break; }
   done
   [ -n "$tool" ] || return 0
@@ -297,7 +297,7 @@ _have_ref() { _git rev-parse --verify -q "$1" >/dev/null 2>&1; }
 # merge runs as it always did. practice: upstream-fix
 _commit_env_lines() {
   local tool="" c out
-  for c in "$ROOT/tools/precedent_identity.py" "$ROOT/process/upstream/tools/precedent_identity.py"; do
+  for c in "$ROOT/tools/precedent_identity.py"; do
     if [ -f "$c" ]; then tool="$c"; break; fi
   done
   [ -n "$tool" ] && command -v python3 >/dev/null 2>&1 || return 0
@@ -367,7 +367,7 @@ _widen_refspec() {
 # tool, no python3, or no pre-staging on origin keeps the old answer.
 _landing_base() {
   local tool="" c landing
-  for c in "$ROOT/tools/precedent_branches.py" "$ROOT/process/upstream/tools/precedent_branches.py"; do
+  for c in "$ROOT/tools/precedent_branches.py"; do
     if [ -f "$c" ]; then tool="$c"; break; fi
   done
   [ -n "$tool" ] || return 1
@@ -684,7 +684,7 @@ _session_start_one() {
     # request into main leaves behind.
     if [ "$base" = "pre-staging" ]; then
       local tool="" c
-      for c in "$ROOT/tools/precedent_branches.py" "$ROOT/process/upstream/tools/precedent_branches.py"; do
+      for c in "$ROOT/tools/precedent_branches.py"; do
         if [ -f "$c" ]; then tool="$c"; break; fi
       done
       if [ -n "$tool" ] && command -v python3 >/dev/null 2>&1; then
