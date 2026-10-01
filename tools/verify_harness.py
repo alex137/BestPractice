@@ -39535,6 +39535,22 @@ def check_practice_change_propagates_refuses():
 
         # CONTROLS: fix each, and the same check passes on the same tree.
         g('revert', '--no-edit', 'HEAD')
+        # Another source this repo declares, on disk, still links the
+        # practice this branch is about to retire (2026-10-01: a shared
+        # set's todo-gate.md linked second-pass-capture after the dedupe).
+        shared = tmp / 'shared-set'
+        write(shared / 'practices' / 'todo-gate.md', 'todo-gate',
+              rule='Then run the [old rule](old-rule.md) pass.')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(shared)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(shared), 'add', '-A'],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(shared), 'commit', '-qm', 'set'],
+                       capture_output=True, env=env)
+        cfg = _json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['sources'].append({'level': 'shared', 'name': 'shared-set',
+                               'path': str(shared)})
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
         write(repo / 'practices' / 'old-rule.md', 'old-rule', 'deduplicated',
               'go-update')
         (repo / 'README.md').write_text(
@@ -39543,7 +39559,13 @@ def check_practice_change_propagates_refuses():
         g('add', '-A'); g('commit', '-qm', 'retire in place, repoint')
         out = run()
         cases.append(('retired in place and repointed, the check passes',
-                      '1 passed, 0 violated' in out, out[-600:]))
+                      '1 passed, 0 violated' in out, out[-2500:]))
+        cases.append(('...and the shared set\'s link to the practice this '
+                      'branch retired is reported as a follow-up there, '
+                      'with the file and line',
+                      'FOLLOW-UP in shared-set' in out
+                      and 'shared-set:practices/todo-gate.md:1' in out
+                      and '`old-rule`' in out, out[-900:]))
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'practice-change-propagates refuses a live pointer to a renamed '
