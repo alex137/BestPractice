@@ -1053,7 +1053,7 @@ def _report_excluded_content():
     _carry_check, which walks the tree unfiltered) flagged 52 real lines as
     "lost" and nearly had them discarded by an --accept-loss call before a
     human caught it.
-    (practice: durable-fix -- this is the mechanism fix, not the one-time
+    (practice: upstream-fix -- this is the mechanism fix, not the one-time
     manual cleanup a consumer's own re-vendor would otherwise have to
     remember to do.)
 

@@ -85,7 +85,7 @@ change is waiting on that step, so the gap is visible at the point of
 change rather than discovered downstream.
 
 ## Why
-[fix-the-original](fix-the-original.md) already names the shape of this
+[upstream-fix](upstream-fix.md) already names the shape of this
 failure: *"the cost is paid in a different repository from the one that
 saves it."* That practice is about tracing a mistake already propagated
 back to its origin; this one is about the moment before propagation --

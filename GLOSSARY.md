@@ -76,6 +76,8 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
+| Root fixes | [root-issues](practices/root-issues.md) |
+| Root issues | [root-issues](practices/root-issues.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
@@ -89,13 +91,12 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Test Readiness | [debut](practices/debut.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
 | the five stages | [promote](practices/promote.md) |
-| the origin artifact | [fix-the-original](practices/fix-the-original.md) |
+| the origin artifact | [upstream-fix](practices/upstream-fix.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Tier branch | [tier-branch](practices/tier-branch.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
-| Upstream fix | [upstream-fix](practices/upstream-fix.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |

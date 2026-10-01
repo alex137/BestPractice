@@ -484,7 +484,7 @@ def _ref_including_worktree(repo):
 def _rmtree_retrying(path, attempts=5, delay=0.2):
     """Delete a directory tree, retrying a transient ENOTEMPTY instead of
     either crashing the whole run over it or silently swallowing it
-    (practice: durable-fix -- retrying is instrumentation, not suppression:
+    (practice: upstream-fix -- retrying is instrumentation, not suppression:
     a real, persistent leak still fails, now with evidence).
 
     THE INCIDENT, 2026-09-19: check_leak_gate_refuses_a_fresh_container's own
@@ -47245,7 +47245,7 @@ def check_very_deep_check_convergent_drift():
 
 def check_very_deep_check_authenticates_its_own_fetches():
     """very_deep_check's network calls carry the credential the environment
-    holds (practice: very-deep-check; durable-fix).
+    holds (practice: very-deep-check; upstream-fix).
 
     THE INCIDENT (2026-09-10). In a session where the credential route was
     working exactly as INSTALL.md section 8 describes -- all four private
@@ -50217,7 +50217,7 @@ def _print_checkout_banner():
     the wrong branch read as a clean pass on a change that was not
     actually on disk -- caught only by a separate, manual
     `git branch --show-current`.
-    (practice: durable-fix -- the checkout resetting is outside this
+    (practice: upstream-fix -- the checkout resetting is outside this
     repo's control; making a run against the wrong tree impossible to
     mistake for one against the right tree is not.)
     """
