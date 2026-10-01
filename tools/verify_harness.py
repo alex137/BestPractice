@@ -47499,6 +47499,98 @@ def check_base_branch_drift_ignores_carried_work():
                f"status={r.get('status')}") if failed else '')
 
 
+def check_branch_name_follows_the_convention():
+    """A session's feature branch is `<prefix><date>-<slug>-<id>`, the id
+    being the end of the session's ID (practice: act).
+
+    The controlling case is the session ID: given the harness's
+    `cse_<id>`, the name ends in that ID's last five characters, lowercased,
+    so the branch leads back to its session. The rest are the fallbacks the
+    rule promises -- no ID means random characters and a note saying so, a
+    name already on origin gets five more and a note, an origin that cannot
+    be asked is said rather than read as "not there" -- and the refusal of a
+    slug with no words in it, asserted by its own message."""
+    import tempfile
+    import precedent_branch_name as pbn
+
+    _git = fixture_git
+    results = []
+    saved = {k: os.environ.pop(k, None)
+             for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
+    try:
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
+        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
+                                prefix='claude/')
+        results.append(('the session ID ends the name, lowercased',
+                        name == 'claude/2026-10-01-feature-branch-naming-awpkv'
+                        and not notes))
+
+        os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
+        a, notes_a = pbn.build(['x'], date='2026-10-01')
+        b, _ = pbn.build(['x'], date='2026-10-01')
+        results.append(('no session ID: five random lowercase characters, said',
+                        re.fullmatch(r'session/2026-10-01-x-[a-z0-9]{5}', a)
+                        is not None and a != b
+                        and any('no session ID found' in n for n in notes_a)))
+
+        name, _ = pbn.build(['One two', 'three-four', 'five six SEVEN'],
+                            date='2026-10-01', prefix='', tail='abcde')
+        results.append(('the slug keeps six words, lowercase',
+                        name == '2026-10-01-one-two-three-four-five-six-abcde'))
+
+        try:
+            pbn.build(['!!', '--'], tail='abcde')
+            results.append(('a slug with no words is refused', False))
+        except ValueError as e:
+            results.append(('a slug with no words is refused',
+                            'no usable words for the slug' in str(e)))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            up = tmp / 'up'; up.mkdir()
+            _git(up, 'init', '-q', '-b', 'main')
+            _git(up, 'config', 'user.email', 'harness@example.com')
+            _git(up, 'config', 'user.name', 'Harness')
+            (up / 'f.txt').write_text('base\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+            taken = 'claude/2026-10-01-feature-branch-naming-awpkv'
+            _git(up, 'branch', taken)
+            clone = tmp / 'clone'
+            subprocess.run(['git', 'clone', '-q', f'file://{up}', str(clone)],
+                           capture_output=True, text=True)
+            exists = lambda n: pbn.on_origin(n, clone)
+            name, notes = pbn.build(['feature branch naming'], date='2026-10-01',
+                                    prefix='claude/', tail='awpkv', exists=exists)
+            results.append(('a name already on origin gets five more characters',
+                            re.fullmatch(re.escape(taken) + r'-[a-z0-9]{5}', name)
+                            is not None
+                            and any('already on origin' in n for n in notes)))
+            name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
+                                    tail='awpkv', exists=exists)
+            results.append(('a free name is left as it is (negative control)',
+                            name == 'claude/2026-10-01-fresh-awpkv' and not notes))
+
+            _git(clone, 'remote', 'set-url', 'origin', str(tmp / 'nowhere'))
+            name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
+                                    tail='awpkv',
+                                    exists=lambda n: pbn.on_origin(n, clone))
+            results.append(('an origin that cannot be asked is said, not read as free',
+                            name == 'claude/2026-10-01-fresh-awpkv'
+                            and any('could not ask origin' in n for n in notes)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    failed = [n for n, ok in results if not ok]
+    check(f'a feature branch is named <date>-<slug>-<id>, the id from the '
+          f'session ID, with the stated fallbacks ({len(results)} cases, the '
+          f'session ID the controlling one)',
+          not failed, '; '.join(failed) if failed else '')
+
+
 def check_branch_scan_sees_every_branch():
     """The branch sweep must enumerate what ORIGIN has, not what this clone
     happened to fetch (practice: very-deep-check).
@@ -51146,6 +51238,7 @@ def main():
     check_gemini_settings_template_keeps_stdout_clean()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_branch_name_follows_the_convention()
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()
     check_very_deep_check_walks_every_tier_pair()
