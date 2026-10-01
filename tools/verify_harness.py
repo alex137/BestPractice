@@ -2564,6 +2564,73 @@ def check_rename_links_leaves_dated_records_alone():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_practice_set_workflows_converge():
+    """A practice set's refresh removes a workflow nobody approved, keeps one
+    the person approved, and asks only when genuinely in doubt: a file that
+    runs something nothing local runs is held, and the session is told to
+    ask keep or delete (2026-10-01). Before, a set "ran its own on purpose"
+    and a leftover there was never cleared (Morgan: solve it "in the
+    update, not just this file but others"; "Ask if genuinely in doubt")."""
+    import contextlib, io, shutil, tempfile, hashlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-converge-'))
+    cases = [('a practice set\'s CI converges', 'source' in pve.CI_CONVERGES_KINDS, '')]
+    try:
+        dest = tmp / 'set'
+        wfs = dest / '.github' / 'workflows'
+        wfs.mkdir(parents=True)
+        git = lambda *a: subprocess.run(['git', '-C', str(dest), *a],
+                                        capture_output=True, text=True)
+        git('init', '-q')
+        git('config', 'user.name', 'Test')
+        git('config', 'user.email', 'test@example.com')
+        left = wfs / 'leftover.yml'
+        left.write_text('on: push\njobs:\n  x:\n    runs-on: ubuntu-latest\n'
+                        '    steps:\n      - uses: actions/checkout@v4\n', encoding='utf-8')
+        kept = wfs / 'button.yml'
+        kept.write_text('on: workflow_dispatch\njobs:\n  x:\n    runs-on: ubuntu-latest\n'
+                        '    steps:\n      - uses: actions/checkout@v4\n', encoding='utf-8')
+        (dest / 'precedent.json').write_text(json.dumps({'github_ci_approved': {
+            '.github/workflows/button.yml': {
+                'sha256': hashlib.sha256(kept.read_bytes()).hexdigest(),
+                'approved_by': 'Dana, 2026-09-25: "keep the button"'}}}), encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'seed\n\nSession: none available (test)')
+        pve._LEFT_FOR_YOU.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            removed = pve._remove_unapproved_workflows(dest, {}, 'source', None)
+        cases.append(('a set\'s unapproved workflow is removed by the refresh',
+                      not left.exists() and '.github/workflows/leftover.yml' in removed,
+                      repr(removed)))
+        cases.append(('...and one the person approved in their own words is kept '
+                      '(their answer, once asked)', kept.exists(), repr(removed)))
+        # Genuinely in doubt: it runs something the set's own checks do not.
+        # Held, and the session is told to ask (2026-10-01).
+        own = wfs / 'own.yml'
+        wfs.mkdir(parents=True, exist_ok=True)
+        own.write_text('on: push\njobs:\n  x:\n    runs-on: ubuntu-latest\n'
+                       '    steps:\n      - run: python3 tools/zz_only_here.py\n',
+                       encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'own\n\nSession: none available (test)')
+        pve._LEFT_FOR_YOU.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            removed = pve._remove_unapproved_workflows(dest, {}, 'source', None)
+        said = ' '.join(str(x) for x in pve._LEFT_FOR_YOU)
+        cases.append(('a workflow running something nothing local runs is kept, '
+                      'and the session is told to ask the person',
+                      own.exists() and 'ASK THE PERSON' in said, said[:300]))
+        pve._KEPT_LOUD.clear()
+    finally:
+        pve._LEFT_FOR_YOU.clear()
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a practice set\'s workflows converge, asking only when in doubt '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_worktree_snapshot_needs_no_git_identity():
     """_ref_including_worktree() snapshots a dirty tree with no git identity
     anywhere -- empty $HOME, no global or system config -- the shape of the
@@ -10931,28 +10998,23 @@ def check_legacy_leftovers_retired_by_content():
                       'only that one', [e['practice'] for e in entries]
                       == ['other'], str(entries)))
 
-        # 3. NEGATIVE: the same name, hand-authored -> kept and reported. In
-        #    a practice SOURCE: in a consumer, CI converges to upstream since
-        #    2026-09-27 and the file goes (case 4c below).
+        # 3-4. A practice SOURCE converges like a consumer (2026-10-01): a
+        #    recognised leftover goes even on a live trigger, and a file that
+        #    runs something nothing local runs is held and asked about. Until
+        #    then a source was the one kind that kept every workflow.
         r3 = make('own', {DOCS: docs_own}, {'kind': 'source'})
         res, left = sweep(r3, 'source')
-        cases.append(('NEGATIVE: a same-name hand-authored workflow is kept',
-                      (r3 / DOCS).is_file(), str(res)))
-        cases.append(('and reported under Left for you',
-                      any('NOT the old install' in w
-                          for w in left_names(left, DOCS)), str(left)))
-
-        # 4. NEGATIVE: a live trigger is kept, and the report says why.
+        cases.append(('in a practice source, a same-name hand-authored '
+                      'workflow running its own script is held, and the '
+                      'person is asked', (r3 / DOCS).is_file()
+                      and any('ASK THE PERSON' in w for w in left_names(left, DOCS)),
+                      str(left)))
         live = sync_stock.replace('  workflow_dispatch:', '  push:\n  '
                                   'workflow_dispatch:')
         r4 = make('live', {SYNC: live}, {'kind': 'source'})
         res, left = sweep(r4, 'source')
-        cases.append(('NEGATIVE: in a practice source, a stock-shaped file on '
-                      'a LIVE trigger is kept',
-                      (r4 / SYNC).is_file(), str(res)))
-        cases.append(('and the report names the live trigger',
-                      any('still live' in w for w in left_names(left, SYNC)),
-                      str(left)))
+        cases.append(('in a practice source, a stock-shaped file on a LIVE '
+                      'trigger goes too', not (r4 / SYNC).is_file(), str(res)))
 
         # 4c. In a CONSUMER both of those go (2026-09-27, CI_CONVERGES_KINDS):
         #     the checks run locally, so a live workflow nobody approved is
@@ -34533,7 +34595,7 @@ def check_ci_workflow_approved_pins_approval_to_content():
           for n in _pve.KINDS['consumer'] if n.endswith('.py')}
     try:
         def consumer(name, text=body, approved=None, tracked=None,
-                     manifest=True):
+                     manifest=True, kind='consumer'):
             # No practices/ci-workflow-approved.md on purpose: the check
             # binds any repo keeping .github/workflows (binds_when), and a
             # fixture carrying the practice would hide that gate breaking.
@@ -34546,7 +34608,7 @@ def check_ci_workflow_approved_pins_approval_to_content():
                 (c / rel).write_text(text)
             if manifest:
                 (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
-                    {'kind': 'consumer', 'source_commit': 'deadbeef',
+                    {'kind': kind, 'source_commit': 'deadbeef',
                      'files': [], 'sha256': {},
                      'ci_workflow_files': sorted(tracked or {}),
                      'ci_workflows_sha256': tracked or {}}))
@@ -34583,6 +34645,13 @@ def check_ci_workflow_approved_pins_approval_to_content():
             rel: {'sha256': sha, 'approved_by': 'Morgan: "yes"'}})
         cases.append(('an undated approval is not an approval',
                       rc != 0 and 'carries no date' in out, out[-1500:]))
+        # A practice set is judged the same way (2026-10-01).
+        rc, out = consumer('set-approved', approved=good, kind='source')
+        cases.append(('in a practice set, an approved workflow passes',
+                      rc == 0, out[-1500:]))
+        rc, out = consumer('set-unapproved', kind='source')
+        cases.append(('...and an unapproved one is a VIOLATION',
+                      rc != 0 and 'VIOLATION' in out, out[-1500:]))
         rc, out = consumer('tracked', tracked={rel: sha})
         cases.append(('CONTROL: the engine\'s own untouched copy passes '
                       'with no approval', rc == 0, out[-1500:]))
@@ -49962,6 +50031,7 @@ def main():
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
     check_worktree_snapshot_needs_no_git_identity()
+    check_practice_set_workflows_converge()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()
