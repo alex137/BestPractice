@@ -56,9 +56,8 @@ did not give.** If they do not want the file, delete it.
 
 **In a consuming repo or a practice set, Update Vendors settles a leftover
 without asking** (a consumer since 2026-09-27, a practice set since
-2026-10-01). **A practice set keeps no workflow at all, approved or not**
-(practice `source-sets-run-no-ci`): this check names any it carries, and
-the refresh deletes it. What follows is about a consumer. The engine owns the workflows upstream ships
+2026-10-01, which ships no workflow at all: practice
+`source-sets-run-no-ci`). The engine owns the workflows upstream ships
 (`leak-gate.yml`, `light-check.yml`): each refresh writes them from the
 template over any hand edit, and removes every other workflow that has no
 approval in the person's own words. **First it checks that nothing needed is
@@ -72,10 +71,13 @@ covered, deleting it. If there is something that is not covered, leave it
 alone, but flag it importantly"). So a consumer's finding here means the
 refresh has not run since the file changed, or could not touch it (untracked,
 or uncommitted edits). The answer is to run Update Vendors, not to ask the
-person. **Asking about a leftover is the failure here**, because the checks
-it ran already run locally before every push. Morgan, 2026-09-27 (strength:
-decided): *"Asking creates doubt and confusion when there isn't any."* The
-person's approval is still what keeps a workflow they actually asked for.
+person. **Asking about a leftover whose work runs locally is the failure
+here.** Morgan, 2026-09-27 (strength: decided): *"Asking creates doubt and
+confusion when there isn't any."* **Asking about one that would stop
+something running is required** (2026-10-01: *"Ask if genuinely in
+doubt"*): the session says in plain words what the file does and what would
+stop, recommends, and asks keep or delete. A keep is recorded as their
+approval, which is what keeps a workflow they actually want.
 
 **This check runs on every push** (the push gate's basic tier, seconds), in
 every full check, and at every Update Vendors and migration. **It also

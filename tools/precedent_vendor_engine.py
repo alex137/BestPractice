@@ -2262,13 +2262,16 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 # uncommitted edits is replaced or removed, so its content stays in history,
 # and the report names every script it ran.
 #
-# A PRACTICE SOURCE CONVERGES TOO, since 2026-10-01, and further than a
-# consumer: it ships no workflow (CI_WORKFLOW_TEMPLATES['source'] is empty)
-# and carries none, so EVERY workflow it still has goes -- an approval keeps
-# nothing there, and neither does the nothing-lost check, because a set's
-# checks run in its own push check (source-sets-run-no-ci). Morgan,
-# 2026-10-01, on the individual set's approved engine-refresh button:
-# "Delete it ... make clear if it's around it should be deleted". Until then a
+# A PRACTICE SOURCE CONVERGES TOO, since 2026-10-01, on the same terms as a
+# consumer: it ships no workflow (CI_WORKFLOW_TEMPLATES['source'] is empty),
+# so every workflow it still carries goes, unless removing it would stop
+# something running that nothing local runs. ONLY THEN IS THE PERSON ASKED
+# (Morgan, 2026-10-01: "Ask if genuinely in doubt"): the session says in
+# plain words what the file does and what would stop, recommends, and asks
+# keep or delete. A keep is recorded as their approval in
+# github_ci_approved, which keeps it in either kind; nothing that loses
+# nothing is ever asked about (2026-09-27: "Asking creates doubt and
+# confusion when there isn't any"). Until then a
 # set "ran its own on purpose", and a leftover there was never cleared:
 # Morgan, 2026-10-01, on finding one still in a set: make sure "in future
 # updates this is solved beforehand in the update, not just this file but
@@ -3109,7 +3112,7 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         if rel in shipped:
             continue
         entry = approved.get(rel)
-        if kind != 'source' and (isinstance(entry, dict) and approval_problem(entry) is None
+        if (isinstance(entry, dict) and approval_problem(entry) is None
                 and not entry.get('template')
                 and entry.get('sha256') == _sha256(path)):
             continue                  # the person asked for this one
@@ -3124,19 +3127,16 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         # what it ran is not needed; anything else is checked first.
         legacy = LEGACY_CI_WORKFLOWS.get(rel)
         known_retired = bool(legacy and legacy[1](text))
-        # A practice set carries no workflow at all: nothing it ran is the
-        # set's to keep in CI (see CI_CONVERGES_KINDS).
-        lost = [] if known_retired or kind == 'source' else _would_lose(dest_root, kind, text)
+        lost = [] if known_retired else _would_lose(dest_root, kind, text)
         if lost:
             _held_back(dest_root, rel, lost, 'removing')
             continue
         _uses, scripts = _workflow_facts(text)
-        reason = (('a practice set carries no workflow at all, approved or not '
-                   '(source-sets-run-no-ci, 2026-10-01)' if kind == 'source' else
-                   'upstream does not ship it, and github_ci_approved carries '
-                   'no approval of it in the person\'s words -- a consumer\'s '
-                   'CI converges to upstream (2026-09-27)')
-                  + '. Its content stays in git history'
+        reason = ('upstream does not ship it, and github_ci_approved carries '
+                  'no approval of it in the person\'s words -- a repo\'s CI '
+                  'converges to upstream (a consumer since 2026-09-27, a '
+                  'practice set since 2026-10-01). Its content stays '
+                  'in git history'
                   + (f'. It ran {", ".join(sorted(scripts))}: the local push '
                      f'check runs that already' if scripts else ''))
         if pd is not None:
@@ -3537,8 +3537,8 @@ def print_left_for_you():
         for rel, lost, done, todo in _KEPT_LOUD:
             print(f"  LEFT ALONE: {rel} still runs in GitHub. It runs "
                   f"{', '.join(lost)}, which NOTHING in the local push check "
-                  f"runs, so it was NOT {done}. Move that into the local "
-                  f"check, then run Update Vendors again."
+                  f"runs, so it was NOT {done}. ASK THE PERSON whether to keep "
+                  f"it or delete it: describe what it does, and recommend."
                   + (f" Recorded as {todo}." if todo else ''))
         print(bar)
         _KEPT_LOUD.clear()
@@ -3721,22 +3721,25 @@ closed:            null
 ## What
 
 **`{rel}` was left alone by Update Vendors, and it still runs in GitHub.**
-A consumer's workflows converge to upstream: the ones upstream ships are
+This repo's workflows converge to upstream: the ones upstream ships are
 replaced with its templates, and every other one is removed. This one was
 not {done}, because it runs {', '.join(lost)}, which the local push check
 does not run. Taking it away would have stopped that running anywhere.
 
-**To finish it:** run what it runs locally -- in `tools/light_check.py`, or
-as a test under `tools/checks/tests/` -- and the next Update Vendors will
-finish the job. If it has to run in GitHub, record the person's own approval
-of it in `precedent.json`'s `github_ci_approved`, pinned by sha256 (practice:
-ci-workflow-approved). Close this item when either is done.
+**Ask the person, once:** say in plain words what it does and what would
+stop, give your recommendation, and ask whether to keep it or delete it.
+**Keep:** record their own words in `precedent.json`'s `github_ci_approved`,
+pinned by sha256 (practice: ci-workflow-approved), and no update asks again.
+**Delete:** if what it runs is still wanted, run it locally -- in
+`tools/light_check.py`, or as a test under `tools/checks/tests/` -- and the
+next Update Vendors removes the file. Close this item when either is done.
 
 ## Story
 
 Written by Update Vendors on {day}. Morgan, 2026-09-27: "If there is
 something that is not covered, leave it alone, but flag it importantly ...
-Also, make it a to-do so that it's noted."
+Also, make it a to-do so that it's noted." And 2026-10-01: "Ask if
+genuinely in doubt."
 """
     try:
         todo.mkdir(exist_ok=True)
@@ -3761,10 +3764,12 @@ def _held_back(dest_root, rel, lost, verb):
     _KEPT_LOUD.append((rel, lost, done, todo))
     _left(rel, f'LEFT ALONE, not {done}: it runs {", ".join(lost)}, which the '
                f'local push check does not run, so {verb} it would stop that '
-               f'running anywhere. It still runs in GitHub. Run it locally '
-               f'first -- tools/light_check.py, or a test under '
-               f'tools/checks/tests/ -- or record the person\'s approval of it '
-               f'in github_ci_approved; the next update then finishes this'
+               f'running anywhere. ASK THE PERSON: say in plain words what it '
+               f'does and what would stop, give your recommendation, and ask '
+               f'keep or delete. Keep: record their words in '
+               f'github_ci_approved, pinned by sha256. Delete: move what it '
+               f'runs into the local push check if it is still wanted, then '
+               f'the next update removes it'
                + (f'. Recorded as {todo}' if todo else ''))
 
 

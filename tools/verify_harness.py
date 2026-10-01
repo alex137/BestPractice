@@ -2565,11 +2565,12 @@ def check_rename_links_leaves_dated_records_alone():
 
 
 def check_practice_set_workflows_converge():
-    """A practice set's refresh removes every workflow it carries, approved
-    or not (2026-10-01); a consumer still keeps one the person approved.
-    Before, a set "ran its own on purpose" and a leftover there was never
-    cleared (Morgan: solve it "in the update, not just this file but
-    others"; and of the one approved button, "delete it")."""
+    """A practice set's refresh removes a workflow nobody approved, keeps one
+    the person approved, and asks only when genuinely in doubt: a file that
+    runs something nothing local runs is held, and the session is told to
+    ask keep or delete (2026-10-01). Before, a set "ran its own on purpose"
+    and a leftover there was never cleared (Morgan: solve it "in the
+    update, not just this file but others"; "Ask if genuinely in doubt")."""
     import contextlib, io, shutil, tempfile, hashlib
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as pve
@@ -2602,18 +2603,31 @@ def check_practice_set_workflows_converge():
         cases.append(('a set\'s unapproved workflow is removed by the refresh',
                       not left.exists() and '.github/workflows/leftover.yml' in removed,
                       repr(removed)))
-        cases.append(('...and so is one the person approved: a set keeps no '
-                      'workflow at all', not kept.exists(), repr(removed)))
-        git('reset', '-q', '--hard')
+        cases.append(('...and one the person approved in their own words is kept '
+                      '(their answer, once asked)', kept.exists(), repr(removed)))
+        # Genuinely in doubt: it runs something the set's own checks do not.
+        # Held, and the session is told to ask (2026-10-01).
+        own = wfs / 'own.yml'
+        wfs.mkdir(parents=True, exist_ok=True)
+        own.write_text('on: push\njobs:\n  x:\n    runs-on: ubuntu-latest\n'
+                       '    steps:\n      - run: python3 tools/zz_only_here.py\n',
+                       encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'own\n\nSession: none available (test)')
+        pve._LEFT_FOR_YOU.clear()
         with contextlib.redirect_stdout(io.StringIO()):
-            removed = pve._remove_unapproved_workflows(dest, {}, 'consumer', None)
-        cases.append(('CONTROL: in a consumer the approved one is kept',
-                      kept.exists() and not left.exists(), repr(removed)))
+            removed = pve._remove_unapproved_workflows(dest, {}, 'source', None)
+        said = ' '.join(str(x) for x in pve._LEFT_FOR_YOU)
+        cases.append(('a workflow running something nothing local runs is kept, '
+                      'and the session is told to ask the person',
+                      own.exists() and 'ASK THE PERSON' in said, said[:300]))
+        pve._KEPT_LOUD.clear()
     finally:
         pve._LEFT_FOR_YOU.clear()
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'a practice set keeps no workflow, approved or not ({len(cases)} stated cases)',
+    check(f'a practice set\'s workflows converge, asking only when in doubt '
+          f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
@@ -10984,14 +10998,17 @@ def check_legacy_leftovers_retired_by_content():
                       'only that one', [e['practice'] for e in entries]
                       == ['other'], str(entries)))
 
-        # 3-4. In a practice SOURCE every workflow goes, hand-authored or on
-        #    a live trigger (2026-10-01: a set carries no workflow at all,
-        #    source-sets-run-no-ci). Until then a source was the one kind
-        #    that kept them, and these cases asserted the keeping.
+        # 3-4. A practice SOURCE converges like a consumer (2026-10-01): a
+        #    recognised leftover goes even on a live trigger, and a file that
+        #    runs something nothing local runs is held and asked about. Until
+        #    then a source was the one kind that kept every workflow.
         r3 = make('own', {DOCS: docs_own}, {'kind': 'source'})
         res, left = sweep(r3, 'source')
         cases.append(('in a practice source, a same-name hand-authored '
-                      'workflow goes', not (r3 / DOCS).is_file(), str(res)))
+                      'workflow running its own script is held, and the '
+                      'person is asked', (r3 / DOCS).is_file()
+                      and any('ASK THE PERSON' in w for w in left_names(left, DOCS)),
+                      str(left)))
         live = sync_stock.replace('  workflow_dispatch:', '  push:\n  '
                                   'workflow_dispatch:')
         r4 = make('live', {SYNC: live}, {'kind': 'source'})
@@ -34628,12 +34645,13 @@ def check_ci_workflow_approved_pins_approval_to_content():
             rel: {'sha256': sha, 'approved_by': 'Morgan: "yes"'}})
         cases.append(('an undated approval is not an approval',
                       rc != 0 and 'carries no date' in out, out[-1500:]))
-        # A practice set keeps no workflow at all, approved or not
-        # (source-sets-run-no-ci, 2026-10-01).
+        # A practice set is judged the same way (2026-10-01).
         rc, out = consumer('set-approved', approved=good, kind='source')
-        cases.append(('in a practice set even an approved workflow is a '
-                      'VIOLATION, sent to Update Vendors',
-                      rc != 0 and 'carries no workflow' in out, out[-1500:]))
+        cases.append(('in a practice set, an approved workflow passes',
+                      rc == 0, out[-1500:]))
+        rc, out = consumer('set-unapproved', kind='source')
+        cases.append(('...and an unapproved one is a VIOLATION',
+                      rc != 0 and 'VIOLATION' in out, out[-1500:]))
         rc, out = consumer('tracked', tracked={rel: sha})
         cases.append(('CONTROL: the engine\'s own untouched copy passes '
                       'with no approval', rc == 0, out[-1500:]))
