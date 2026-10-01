@@ -6051,16 +6051,33 @@ def check_default_blocklist_runs_the_vocabulary_layer():
                   not lg.is_texty('tools/leak-blocklist.default.txt')
                   and lg.is_texty('tools/leak_gate.py')))
 
+    # The two planted files below go in a throwaway worktree, never in ROOT.
+    # --as-ci runs its shards side by side in ONE checkout, and a file
+    # planted in ROOT was visible to every other shard for as long as this
+    # gate ran: a shard that snapshotted the tree in that window
+    # (_ref_including_worktree) found it dirty and had to commit it, which
+    # with --isolated's empty $HOME has no identity and fails the run.
+    # Found 2026-10-01: two isolated runs out of two lost a shard to
+    # ZZ_leakprobe_fixture.md once a change shifted the shards' timing.
+    _wt_dir = _tf.mkdtemp(prefix='precedent-leakprobe-')
+    wt = pathlib.Path(_wt_dir) / 'wt'
+    subprocess.run(['git', '-C', str(ROOT), 'worktree', 'add', '-q', '--detach',
+                    str(wt), _ref_including_worktree(ROOT)], capture_output=True)
+
+    def gate_wt(env=None):
+        return subprocess.run([sys.executable, str(wt / 'tools' / 'leak_gate.py'),
+                               '--structural-only'],
+                              capture_output=True, text=True, env=env or env_clean,
+                              cwd=str(wt))
+
     # It genuinely blocks a push, not merely matches in a unit test.
-    probe = ROOT / 'ZZ_leakprobe_fixture.md'
-    try:
-        probe.write_text(f'# Fixture\n\nThis {word}ing line must be caught.\n',
-                         encoding='utf-8')
-        r = gate()
-        cases.append(('a planted instance FAILS the whole gate, not just a regex',
-                      r.returncode == 1 and 'LEAK' in r.stdout))
-    finally:
-        probe.unlink(missing_ok=True)
+    probe = wt / 'ZZ_leakprobe_fixture.md'
+    probe.write_text(f'# Fixture\n\nThis {word}ing line must be caught.\n',
+                     encoding='utf-8')
+    r = gate_wt()
+    cases.append(('a planted instance FAILS the whole gate, not just a regex',
+                  r.returncode == 1 and 'LEAK' in r.stdout))
+    probe.unlink(missing_ok=True)
 
     # A private list is merged with the default, never replaces it.
     import tempfile
@@ -6080,16 +6097,19 @@ def check_default_blocklist_runs_the_vocabulary_layer():
 
     # A private list inside the repo is still refused -- the guard that makes
     # the whole split safe.
-    inside = ROOT / 'ZZ_inside_blocklist.txt'
+    inside = wt / 'ZZ_inside_blocklist.txt'
     try:
         inside.write_text('secret-term\n', encoding='utf-8')
-        r = gate(env={**env_clean, 'PRECEDENT_LEAK_BLOCKLIST': str(inside)})
+        r = gate_wt(env={**env_clean, 'PRECEDENT_LEAK_BLOCKLIST': str(inside)})
         cases.append(('a PRIVATE blocklist located inside this repo is still '
                       'refused -- the guard that makes a committed default safe '
                       'is that only the default may live here',
                       r.returncode == 1 and 'INSIDE' in (r.stdout + r.stderr)))
     finally:
-        inside.unlink(missing_ok=True)
+        subprocess.run(['git', '-C', str(ROOT), 'worktree', 'remove', '--force',
+                        str(wt)], capture_output=True)
+        import shutil as _sh
+        _sh.rmtree(_wt_dir, ignore_errors=True)
 
     bad = [n for n, ok in cases if not ok]
     check(f'the default blocklist makes the vocabulary layer actually run, and '

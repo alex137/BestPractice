@@ -728,6 +728,33 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # four tranches). A consumer's own tools are what reshape its tree, so
     # the tool lives in the consumer half; a practice set moves nothing.
     'move_paths.py',
+    # PRACTICE ENGINES A CONSUMER'S HOST SHIMS LOAD (2026-10-01). Until
+    # 2026-09-30 a consumer ran these from the catalogue copy's tools/; when
+    # the copy stopped carrying tools/ (ONE COPY OF THE TOOLS, above) they
+    # were on neither list, so an update deleted them out from under the
+    # shims that load them -- found taking that update into a consumer whose
+    # renders, formatter, model audit, lease board and shared result cache
+    # all load one of these by path. Each is a named practice's mechanism:
+    #   doc_html.py      -- tabular-shared-renderer
+    #   table_fmt.py     -- one-formatter-per-quantity
+    #   model_audit.py   -- scripts-assert-properties (precedent_check runs
+    #                       tools/model_audit.py; a consumer's own list is
+    #                       tools/model_audit_host.json, never this file)
+    #   lease_board.py   -- lease-in-flight-work
+    #   branch_store.py  -- the git store under the lease board and the cache
+    #   result_cache.py  -- shared-result-cache
+    #   reach_key.py     -- the memo key shared-result-cache keys on
+    #   fact_ledger.py   -- gate-ledger (doc_sync and model_audit import it)
+    #   content_record.py -- the file hashes fact_ledger checks reads with
+    'doc_html.py',
+    'table_fmt.py',
+    'model_audit.py',
+    'lease_board.py',
+    'branch_store.py',
+    'result_cache.py',
+    'reach_key.py',
+    'fact_ledger.py',
+    'content_record.py',
     # title_case.py was listed here until 2026-09-19 and is now in
     # ENGINE_FILES -- build_todo_index.py imports it at module level and
     # moved into the shared list the same day, so a source set that got one

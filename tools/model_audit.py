@@ -60,6 +60,7 @@ ignores everything else.
 
 import argparse
 import io
+import json
 import os
 import tempfile
 import pathlib
@@ -94,6 +95,47 @@ INSTRUMENTED = [
     # Add a script here when it starts consuming or re-deriving a quantity
     # another script or an authoritative document owns.
 ]
+
+# A CONSUMER'S AUDIT IS ITS OWN FILE (2026-10-01). The list above is
+# BestPractice's, and this file is vendored: a consumer that copied it into
+# its tools/ had precedent_check.py's scripts-assert-properties audit
+# BestPractice's list there ("tools/catalogue_stats.py ... absent"), and a
+# hand edit of the list is refused by the engine refresh. So where this repo
+# holds a vendored engine (tools/ENGINE_MANIFEST.json), its configuration is
+# read from tools/model_audit_host.json, the same shape as doc_sync's
+# tools/doc_sync_pairs.json:
+#   {"scripts": [...]}  -- the repo's INSTRUMENTED list, or
+#   {"shim": "path/to/shim.py"} -- a host shim that loads this engine and
+#                          sets everything itself; running this file runs it.
+# A repo with no such file has nothing instrumented. BestPractice, which
+# vendors nothing into itself, keeps the list above.
+HOST_FILE = "tools/model_audit_host.json"
+
+
+def _host_config():
+    """-> the consumer's configuration dict, or None where the list above is
+    this repo's own (BestPractice itself)."""
+    if not (ROOT / "tools" / "ENGINE_MANIFEST.json").is_file():
+        return None
+    f = ROOT / HOST_FILE
+    if not f.is_file():
+        return {}
+    try:
+        cfg = json.loads(f.read_text(encoding="utf-8"))
+    except ValueError as e:
+        sys.exit(f"model_audit FAIL: {HOST_FILE} is not valid JSON ({e})")
+    if not isinstance(cfg, dict) or not (
+            isinstance(cfg.get("scripts", []), list)
+            and all(isinstance(x, str) and x for x in cfg.get("scripts", []))
+            and isinstance(cfg.get("shim", ""), str)):
+        sys.exit(f"model_audit FAIL: {HOST_FILE} must be an object with a "
+                 f"\"scripts\" list of paths or a \"shim\" path")
+    return cfg
+
+
+_HOST = _host_config()
+if _HOST is not None:
+    INSTRUMENTED = list(_HOST.get("scripts") or [])
 
 
 def load(path: Path):
@@ -526,5 +568,16 @@ def main():
 if __name__ == "__main__":
     if len(sys.argv) == 4 and sys.argv[1] == "--_one":
         _run_one(Path(sys.argv[2]), sys.argv[3])
+        sys.exit(0)
+    if _HOST and _HOST.get("shim"):
+        # The shim loads this file under its own module name, so this branch
+        # never runs twice.
+        import runpy
+        _shim = ROOT / _HOST["shim"]
+        if not _shim.is_file():
+            sys.exit(f"model_audit FAIL: {HOST_FILE} names shim {_HOST['shim']}, "
+                     f"which does not exist")
+        sys.argv[0] = str(_shim)
+        runpy.run_path(str(_shim), run_name="__main__")
         sys.exit(0)
     sys.exit(main())
