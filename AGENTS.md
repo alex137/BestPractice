@@ -384,10 +384,12 @@ place — nothing is ever deleted, and nothing moves.
 - **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
-  before push or merge. **Run bare, it checks at your landing branch's
-  tier**: seconds for `pre-staging`. The full suite (about 11 minutes) is
-  `--tier full`, and the Debut runs it for you. What matters is `0 failed`
-  and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  before push or merge, **always run bare**: it checks at your landing
+  branch's tier, seconds for `pre-staging`. **Booked into `pre-staging`
+  never needs the full suite, however risky the change** -- a pull request
+  into `pre-staging` gets the quick check too; the full suite belongs to the
+  Debut, which runs it for you, and `--tier full` is refused there without
+  a stated reason. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
   source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 

@@ -240,7 +240,10 @@ instant; skipping it makes the push wait for it. **Run bare, with no
 destination named, it checks what a push to your landing branch gets**
 (Morgan, 2026-10-01, strength: assented: a session ran it bare before every
 landing on pre-staging and paid the full suite each time); `--tier full`
-asks for everything. **Which of the two a push
+asks for everything, and where the landing branch takes the quick tier it is
+refused unless given a reason, `--because "<why>"` (Morgan, 2026-10-01,
+strength: decided: the same day, a session still typed `--tier full` before
+every pre-staging landing, and wrote it into its helpers' briefs). **Which of the two a push
 gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
 a push to `staging` or `main` runs the deep check; a
 push to any other branch runs the basic tier -- the lint, the leak gate
