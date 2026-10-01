@@ -1036,6 +1036,22 @@ RESIDUE_PATTERNS = [
      "named"),
     (re.compile(r"retired from the (menu|table|study|set)", re.I),
      "history lore belongs in the record doc or version control"),
+    # The same leaks written as prose rather than as a bracketed flag: each
+    # of these reached a published page that the bracketed patterns above
+    # passed (2026-10-01). (practice: deliverables-look-like-output)
+    (re.compile(r"\b(?:from memory|as recalled)\b", re.I),
+     "a figure recalled rather than sourced is a verify-later flag in prose "
+     "-- verify now, or list it in the record doc's open tail"),
+    (re.compile(r"\b(?:until|not yet) (?:checked|verified)\b", re.I),
+     "verify-later flag in prose -- same rule"),
+    (re.compile(r"\b(?:next|a later|a future) revision\b", re.I),
+     "a note about the document's own future belongs in the record doc"),
+    (re.compile(r"search.engine snippets?|egress.blocked", re.I),
+     "how a figure was checked is verification bookkeeping; it belongs in "
+     "the record doc"),
+    (re.compile(r"\bopen tail\b|\bthe record carries\b", re.I),
+     "pointing the reader at the record's apparatus -- the footer's one "
+     "link to the record is enough"),
 ]
 
 

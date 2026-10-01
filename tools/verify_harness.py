@@ -4350,6 +4350,28 @@ def check_doc_lint_fires():
         cases.append(('a genuine verify-later flag is still caught',
                       bool(residue2)))
 
+        # 2026-10-01, a consumer's published pages: the same leaks written
+        # as prose passed the bracketed patterns and reached readers. Each
+        # line below is the leaked sentence, shortened; each must fire, and
+        # the plain prose beside them must not.
+        leaked = [
+            "public figures carried from memory, ROM, until checked.",
+            "The receiver figures stay ROM until checked against sources.",
+            "and the coast without a port, which the next revision opens with.",
+            "every figure checked against search-engine snippets of the page.",
+            "the land version is open. The record carries the tail.",
+        ]
+        for n, line in enumerate(leaked):
+            (tmp / f'prose{n}.md').write_text(line + "\n", encoding='utf-8')
+            cases.append((f'a prose verify-later or record note is caught: '
+                          f'{line[:40]}...',
+                          bool(dl.check_residue(f'prose{n}.md'))))
+        (tmp / 'prose-clean.md').write_text(
+            "The craft revisits the site on the next pass; the pilot recalled "
+            "the checklist and the tail fin was checked.\n", encoding='utf-8')
+        cases.append(('plain prose near those words is not residue',
+                      not dl.check_residue('prose-clean.md')))
+
         # REF_RE's `[^`]+` swallows a whole command line, so a backticked
         # invocation counted as an unlinked file reference -- 177 of 2,323
         # findings in this tree on 2026-09-21, none of them fixable by a
@@ -35633,6 +35655,68 @@ def check_source_shape_is_verified():
           f'({len(cases)} stated cases)', not bad)
 
 
+def check_render_names_files_by_title():
+    """A render shows a linked file's title, never its bare filename.
+
+    The repo convention links a document by its filename
+    (`[x_model.py](x_model.py)`), which reads fine on the forge and means
+    nothing to a reader of the rendered page, who never sees the
+    repository. On 2026-10-01 a consumer's published pages showed a dozen
+    model filenames in every "numbers by" footer. render() now retitles a
+    link whose text IS the target's filename (alone, or followed by a
+    section mark): a markdown target by its `# ` title, anything else by a
+    humanized filename. A link written with words keeps them.
+    (practice: deliverables-look-like-output)"""
+    import importlib.util, tempfile, shutil
+    spec = importlib.util.spec_from_file_location(
+        '_doc_html_titles', ROOT / 'tools' / 'doc_html.py')
+    try:
+        dh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dh)
+    except Exception as e:
+        not_applicable('a render names linked files by title',
+                       f'tools/doc_html.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-titles-',
+                                        dir=ROOT))
+    cases = []
+    try:
+        (tmp / 'study.md').write_text("# The Cable Study — what binds\n\nBody.\n",
+                                      encoding='utf-8')
+        (tmp / 'cable_sizing_model_v1.py').write_text('"""x"""\n',
+                                                     encoding='utf-8')
+        (tmp / 'page.md').write_text(
+            "# Page\n\n"
+            "Numbers by: [cable_sizing_model_v1.py](cable_sizing_model_v1.py).\n\n"
+            "See [study.md](study.md) and [study.md §3](study.md#x).\n\n"
+            "Also [the study itself](study.md) and "
+            "[a site](https://example.com/a.md).\n", encoding='utf-8')
+        out = tmp / 'page.html'
+        dh.render(tmp / 'page.md', out, 'Page')
+        body = out.read_text(encoding='utf-8').split('<main>', 1)[1]
+        cases.append(('a code link shows its humanized name',
+                      '>Cable sizing model</a>' in body))
+        cases.append(('a markdown link shows its title',
+                      '>The Cable Study — what binds</a>' in body))
+        cases.append(('a filename-and-section link keeps the section',
+                      '>The Cable Study — what binds §3</a>' in body))
+        cases.append(('a link written with words keeps them',
+                      '>the study itself</a>' in body))
+        cases.append(('an external link is untouched',
+                      '>a site</a>' in body))
+        cases.append(('no bare filename is left as link text',
+                      '>study.md' not in body
+                      and '>cable_sizing_model_v1.py<' not in body))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    for n in bad:
+        print(f"  render-title case did not behave as stated: {n}")
+    check(f'a render names linked files by title, never by filename '
+          f'({len(cases)} stated cases)', not bad)
+
+
 def check_rendered_docs_are_current():
     """Every committed HTML render still matches its markdown source.
 
@@ -50484,6 +50568,7 @@ def main():
     check('two diverged copies of the individual set are reported, never '
           'clobbered',
           *check_individual_set_diverged_copies_are_reported_not_clobbered())
+    check_render_names_files_by_title()
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
