@@ -25448,6 +25448,288 @@ def check_promote_keeps_the_old_name_in_step():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _gh_if(expr, event_name, private, head_ref=''):
+    """Evaluate a GitHub Actions job `if:` the way GitHub does, for the few
+    operators the light check uses (&&, ||, !, ==, !=, startsWith, true),
+    against one event. Strict on purpose: anything else in the expression
+    raises, so a template edit this cannot read fails loudly, never reads as
+    "skips"."""
+    import types
+    e = expr.replace('!=', ' __NE__ ').replace('==', ' __EQ__ ')
+    e = e.replace('&&', ' and ').replace('||', ' or ').replace('!', ' not ')
+    e = e.replace('__NE__', '!=').replace('__EQ__', '==')
+    e = re.sub(r'\btrue\b', 'True', re.sub(r'\bfalse\b', 'False', e))
+    left = re.sub(r"'[^']*'", '', e)
+    names = set(re.findall(r'[A-Za-z_][\w.]*', left)) - {
+        'and', 'or', 'not', 'True', 'False', 'startsWith', 'github.event_name',
+        'github.head_ref', 'github.event.repository.private'}
+    if names:
+        raise ValueError(f'the job if: uses {sorted(names)}, which this evaluator does not model')
+    ns = types.SimpleNamespace
+    github = ns(event_name=event_name, head_ref=head_ref,
+                event=ns(repository=ns(private=private)))
+    return bool(eval(e, {'__builtins__': {}}, {
+        'github': github,
+        'startsWith': lambda a, b: str(a or '').lower().startswith(str(b).lower())}))
+
+
+def check_main_test_minutes_rule():
+    """Morgan, 2026-10-01: "I really want to make sure that github minutes
+    only run if it's main AND (it's a public repo OR (that user's
+    precedent-individual has it enabled AND it's been the # of hours or more
+    listed in ci_every_hours))".
+
+    Three independent views of the same rule, so one cannot hide a mistake
+    in another: (1) the light-check template's own `on:` and job `if:`,
+    evaluated against every event that could start it; (2) every combination
+    of visibility, switch, hours and time since the last pass, through
+    Promote's decision AND the template together, compared with the rule;
+    (3) a real Promote into main in a scratch repository, reading the branch
+    name it actually pushed. The deliberate exceptions -- where it runs
+    although the rule alone would not -- are asserted separately and named,
+    so a change to any of them is a visible decision, not drift."""
+    import importlib.util, itertools, json as _json, shutil as _shutil, tempfile
+    import time as _time
+    name = "GitHub minutes run only on main, and in a private repo only when switched on and due"
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    try:
+        import yaml as _yaml
+    except ImportError:
+        not_applicable(name, 'PyYAML is not installed, and the template is read with it')
+        return
+    if not src.exists() or not tpl.is_file():
+        not_applicable(name, 'tools/precedent_branches.py or the light-check template is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_minutes', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    cases = []
+    doc = _yaml.safe_load(tpl.read_text(encoding='utf-8'))
+    on = doc.get('on', doc.get(True)) or {}
+    expr = doc['jobs']['light-check']['if']
+
+    def starts(event, branch, private, head_ref=''):
+        """-> True when GitHub would start a runner: a trigger matches, then
+        the job's if: holds. `branch` is the pushed branch, or the pull
+        request's base."""
+        trig = on.get(event, None) if isinstance(on, dict) else None
+        if event not in on:
+            return False
+        branches = (trig or {}).get('branches') if isinstance(trig, dict) else None
+        if branches is not None and branch not in branches:
+            return False
+        return _gh_if(expr, event, private, head_ref)
+
+    # (1) Every event shape, against the rule's first half: never off main.
+    for private in (False, True):
+        kind = 'private' if private else 'public'
+        for b in ('pre-staging', 'staging', 'claude/feature-x'):
+            cases.append((f'{kind}: a push to {b} starts no runner',
+                          not starts('push', b, private)))
+            cases.append((f'{kind}: a pull request into {b} starts no runner',
+                          not starts('pull_request', b, private, 'claude/feature-x')))
+    cases.append(('public: a push to main runs (a public repo tests every push to main)',
+                  starts('push', 'main', False)))
+    cases.append(('private: a push to main starts no runner, ever',
+                  not starts('push', 'main', True)))
+    cases.append(('private: a Promote copy that is NOT DUE starts no runner',
+                  not starts('pull_request', 'main', True, pb.NOT_DUE_PREFIX + '2026-10-01')))
+    cases.append(('public: a not-due name is ignored, and the test runs',
+                  starts('pull_request', 'main', False, pb.NOT_DUE_PREFIX + '2026-10-01')))
+    cases.append(('private: a Promote copy that IS due runs',
+                  starts('pull_request', 'main', True, 'to-main-2026-10-01')))
+    cases.append(('a skip name is matched as a prefix only, so "x-to-main-not-due-" runs',
+                  starts('pull_request', 'main', True, 'x-' + pb.NOT_DUE_PREFIX)))
+
+    # (2) The whole table, through Promote's decision and the template.
+    saved_force = os.environ.pop(pb.FORCE_ENV, None)
+    WF = '.github/workflows/light-check.yml'
+    now = _time.time()
+
+    class GH:
+        def __init__(self, hours_ago):
+            self.hours_ago = hours_ago
+
+        def call(self, path, cache=True):
+            if self.hours_ago is None:
+                return {'workflow_runs': []}, None
+            return {'workflow_runs': [{
+                'path': WF, 'status': 'completed', 'conclusion': 'success',
+                'head_branch': 'to-main-2026-09-20', 'html_url': 'U',
+                'created_at': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(
+                    now - self.hours_ago * 3600))}]}, None
+    pb._slug = lambda root: 'o/r'
+    pb.github_tests = lambda root, sha: [(WF, True)]
+    real_git = pb._git
+    pb._git = lambda root, *a: (('on: {}\n# ' + pb.NOT_DUE_PREFIX) if a[:1] == ('show',)
+                                else '' if a[:2] == ('diff', '--name-only')
+                                else real_git(root, *a))
+    wrong = []
+    rows = 0
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+        visibilities = ('public', 'private', None)
+        switches = ('enabled', 'disabled', 'disable', None)      # None = not declared
+        hours_set = (0, 24, 168, None, 'weekly')                 # None = not declared
+        last_pass = (1, 23, 25, 167, 169, 1000, None)            # hours ago; None = never
+        for vis, sw, hrs, ago in itertools.product(visibilities, switches, hours_set, last_pass):
+            pj = {'base_branch': 'main'}
+            if vis:
+                pj['visibility'] = vis
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if sw is not None:
+                ident['ci_workflows'] = sw
+            if hrs is not None:
+                ident['ci_every_hours'] = hrs
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+            private = vis == 'private'
+            due, why = pb.main_test_due(repo, 'TIP', gh=GH(ago), user_config=cfg)
+            copy = ('to-main-' if due else pb.NOT_DUE_PREFIX) + '2026-10-01'
+            ran = starts('pull_request', 'main', private, copy)
+            # The rule, written out as Morgan wrote it. An undeclared or
+            # non-numeric hours value is 0 (every Promote); an undeclared
+            # switch is on (his "assume yes"); a typo is off.
+            on_ = sw in ('enabled', None)
+            h = hrs if isinstance(hrs, (int, float)) and not isinstance(hrs, bool) else 0
+            elapsed = ago is None or ago >= h
+            expected = (not private) or (on_ and elapsed)
+            rows += 1
+            if ran != expected:
+                wrong.append(f'{vis}/{sw}/{hrs}h/last {ago}h ago: ran={ran}, rule says '
+                             f'{expected} ({why})')
+        cases.append((f'all {rows} combinations of visibility, switch, hours and time '
+                      f'since the last pass run exactly when the rule says',
+                      not wrong))
+
+        # The deliberate exceptions: each RUNS although the rule alone would
+        # not, because its inputs say the window cannot be trusted. Asserted,
+        # so dropping one is a decision someone makes in this file.
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'visibility': 'private'}), encoding='utf-8')
+        (me / 'identity.json').write_text(_json.dumps(
+            {'email': 'me@example.com', 'ci_workflows': 'enabled', 'ci_every_hours': 168}),
+            encoding='utf-8')
+        d, _ = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
+        cases.append(('baseline for the exceptions: enabled, 168h, passed 10h ago -> not due',
+                      d is False))
+
+        class FailGH(GH):
+            def call(self, path, cache=True):
+                data, _ = super().call(path)
+                data['workflow_runs'].insert(0, dict(data['workflow_runs'][0],
+                                                     conclusion='failure', created_at=_time.strftime(
+                                                         '%Y-%m-%dT%H:%M:%SZ', _time.gmtime(now - 3600))))
+                return data, None
+
+        class DownGH:
+            def call(self, path, cache=True):
+                return None, 'HTTP 503'
+        exceptions = [
+            ('a failed newest run', lambda: pb.main_test_due(repo, 'TIP', gh=FailGH(10), user_config=cfg)),
+            ('GitHub not answering', lambda: pb.main_test_due(repo, 'TIP', gh=DownGH(), user_config=cfg)),
+        ]
+        for label, fn in exceptions:
+            d, why = fn()
+            cases.append((f'EXCEPTION, runs inside the window: {label} ({why[:60]})', d is True))
+        pb._git = lambda root, *a: (('on: {}\n# ' + pb.NOT_DUE_PREFIX) if a[:1] == ('show',)
+                                    else '.github/workflows/light-check.yml\n'
+                                    if a[:2] == ('diff', '--name-only') else real_git(root, *a))
+        d, why = pb.main_test_due(repo, 'TIP', base='BASE', gh=GH(10), user_config=cfg)
+        cases.append(('EXCEPTION, runs inside the window: a batch changing a workflow '
+                      'or the vendored engine', d is True))
+        pb._git = lambda root, *a: ('on: {}\n' if a[:1] == ('show',) else ''
+                                    if a[:2] == ('diff', '--name-only') else real_git(root, *a))
+        d, why = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
+        cases.append(('EXCEPTION, runs inside the window: an installed workflow older '
+                      'than the skip (it would run anyway)', d is True))
+        pb._git = real_git
+        os.environ[pb.FORCE_ENV] = '1'
+        d, why = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
+        os.environ.pop(pb.FORCE_ENV, None)
+        cases.append((f'EXCEPTION, a person asking: {pb.FORCE_ENV}=1 runs it', d is True))
+
+        # (3) A real Promote into main, in a scratch repository with a bare
+        # origin: which branch name does it actually push?
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / '.github' / 'workflows').mkdir(parents=True)
+        _shutil.copy2(tpl, work / '.github' / 'workflows' / 'light-check.yml')
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', pb.STAGING_KEY: 'staging',
+             'visibility': 'private'}), encoding='utf-8')
+        (work / 'notes.md').write_text('one\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-qm', 'start')
+        git(work, 'remote', 'add', 'origin', str(bare))
+        git(work, 'push', '-q', 'origin', 'main')
+        git(work, 'push', '-q', 'origin', 'main:staging')
+        saved_env = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
+        pb2 = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pb2)
+        pb2.sync_pre_staging = lambda root, say=print, check=False: True
+        pb2._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+        pb2._slug = lambda root: 'o/r'
+        pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
+        pb2.DEFAULT_USER_CONFIG = cfg
+        pushed = {}
+        try:
+            for label, ago in (('passed 10h ago', 10), ('passed 200h ago', 200)):
+                git(work, 'checkout', '-q', '-B', 'staging', 'origin/staging')
+                (work / 'notes.md').write_text(f'{label}\n', encoding='utf-8')
+                git(work, 'commit', '-qam', f'work: {label}')
+                git(work, 'push', '-q', 'origin', 'staging')
+                before = set(git(work, 'ls-remote', '--heads', 'origin').stdout.split())
+                pb2.last_main_test_pass = (lambda a: lambda root, tests, gh=None:
+                                           (_time.time() - a * 3600, None))(ago)
+                said = []
+                rc = pb2._promote_to_main(str(work), said.append)
+                after = set(git(work, 'ls-remote', '--heads', 'origin').stdout.split())
+                pushed[label] = (rc, sorted(r[len('refs/heads/'):] for r in after - before
+                                            if r.startswith('refs/heads/')), said)
+        finally:
+            for k, v in saved_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        rc, refs, said = pushed['passed 10h ago']
+        cases.append(('a real Promote, test passed 10h ago with 168h set: pushes a '
+                      'to-main-not-due-* copy and says NOT DUE',
+                      rc == pb2.PROMOTE_MAIN_NOT_MOVED and len(refs) == 1
+                      and refs[0].startswith(pb2.NOT_DUE_PREFIX)
+                      and any('NOT DUE' in x for x in said)
+                      and not starts('pull_request', 'main', True, refs[0])))
+        rc, refs, said = pushed['passed 200h ago']
+        cases.append(('...and with the test 200h old: pushes a plain to-main-* copy, '
+                      'says DUE, and GitHub would run it',
+                      rc == pb2.PROMOTE_MAIN_NOT_MOVED and len(refs) == 1
+                      and refs[0].startswith('to-main-')
+                      and not refs[0].startswith(pb2.NOT_DUE_PREFIX)
+                      and any('GitHub test: DUE' in x for x in said)
+                      and starts('pull_request', 'main', True, refs[0])))
+    if saved_force is not None:
+        os.environ[pb.FORCE_ENV] = saved_force
+    failed = [n for n, ok in cases if not ok]
+    detail = '; '.join(failed) + ((' | ' + ' | '.join(wrong[:5])) if wrong else '')
+    check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
+
+
 def check_main_test_cadence():
     """Main's GitHub test runs at most once every github_ci_every_hours in a
     private repository, decided by Promote before GitHub starts anything
@@ -51885,6 +52167,7 @@ def main():
     check_promote_keeps_the_old_name_in_step()
     check_sync_copies_work_from_above_once_checked()
     check_main_test_cadence()
+    check_main_test_minutes_rule()
     check_source_clone_is_pinned_to_a_branch()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()

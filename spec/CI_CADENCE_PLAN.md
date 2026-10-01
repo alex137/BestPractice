@@ -63,6 +63,15 @@ and a required check counts it as passing. `--wait-main-test` says NOT DUE
 and exits 0. **The person's value wins here**, then the repository's: when
 he runs Promote, his number decides.
 
+**The switch comes first.** In a private repository Promote also reads the
+person's `github_ci_workflows` (Morgan: *"see if it has the variable for
+github tests turned on (assume yes)"*): absent or `"enabled"` is on, and
+anything else, `"disabled"` or a typo, means no GitHub test at all.
+`check_main_test_minutes_rule` in
+[verify_harness.py](../tools/verify_harness.py) holds Morgan's rule as he
+wrote it against every combination of visibility, switch, hours and time
+since the last pass, the template's own `if:`, and a real Promote.
+
 **It runs anyway**, every time, on any doubt: a public or undeclared
 repository, 0 or a value that is not a number, `PRECEDENT_CI_NOW=1`, a batch
 changing `.github/workflows/` or the vendored engine's manifest (so every

@@ -951,6 +951,28 @@ def main_test_cadence(root, user_config=None):
     return float(value), where
 
 
+SWITCH_KEYS = ('github_ci_workflows', 'ci_workflows')
+
+
+def main_test_switch(root, user_config=None):
+    """-> (on, where): has the person switched GitHub tests on? Read as
+    precedent_identity.ci_preference() reads it -- the person's own
+    identity.json, the new key before the old -- and on only for "enabled"
+    or nothing declared, so a typo switches it off rather than spending
+    minutes. Morgan, 2026-10-01: "it should check the user's
+    precedent-individual (if it exists) and see if it has the variable for
+    github tests turned on (assume yes)"."""
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email'):
+            value = next((ident[k] for k in SWITCH_KEYS if k in ident), '')
+            if value in ('enabled', ''):
+                return True, (f'github_ci_workflows is "enabled" in {path}' if value
+                              else f'{path} declares no github_ci_workflows')
+            return False, f'github_ci_workflows is {value!r} in {path}'
+    return True, 'no identity.json resolves, so GitHub tests count as on'
+
+
 def _when(root, unix_ts):
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -1011,6 +1033,11 @@ def main_test_due(root, tip, base=None, gh=None, user_config=None):
     `base` is main's tip, so a batch touching ALWAYS_TESTED can be seen."""
     if os.environ.get(FORCE_ENV) == '1':
         return True, f'{FORCE_ENV}=1 asks for it'
+    if precedent_json(root).get('visibility') == 'private':
+        on, where = main_test_switch(root, user_config)
+        if not on:
+            return False, (f'{where}, so a private repository gets no GitHub test. '
+                           f'To run it anyway: {FORCE_ENV}=1 before the Promote')
     hours, where = main_test_cadence(root, user_config)
     if not hours:
         return True, f'every Promote gets it ({where})'
