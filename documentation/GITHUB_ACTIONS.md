@@ -6,10 +6,10 @@ This is especially important when working through GitHub-connected ChatGPT. A no
 
 ## Precedent's Own Workflows (This Repo, Not a Template)
 
-Three workflows run on this repo itself, in [.github/workflows/](../.github/workflows/):
+Two workflows run on this repo itself, in [.github/workflows/](../.github/workflows/).
+(A third, `docs.yml`, ran the Markdown lint here until that left CI on
+2026-09-21; see the next section.)
 
-- **`docs.yml`** — pre-fork BestPractice content: the Markdown lint job
-  described below, running here rather than only shipped as a template.
 - **`deep-check.yml`** — added by a 2026-09-03 deep-check audit. Runs
   [tools/verify_harness.py](../tools/verify_harness.py),
   [tools/precedent_check.py](../tools/precedent_check.py) and
@@ -133,11 +133,11 @@ it scans accordingly — full account, including why this has to be a
 job-level runtime check rather than a scoped trigger (GitHub Actions cannot
 read repo config before a trigger fires), in
 [templates/github-actions/README.md](../templates/github-actions/README.md)'s
-"The leak gate template" section. Gated by `github_ci_workflows`, same as
-`doc-lint.yml.template`; `precedent_install.py` and
-`precedent_bootstrap_source.py` both install it automatically once that
-preference is enabled, and "Update Vendors" refreshes an already-installed
-copy the same way it refreshes the other two CI templates.
+"The leak gate template" section. `precedent_install.py` writes it into a
+consuming repo by default, beside `light-check.yml`, unless a source declares
+`"github_ci_workflows": "disabled"`, and every Update Vendors rewrites it from
+the template. A practice set gets no workflow at all (see "A Practice Set
+Runs No CI" below).
 
 ## Controlling Actions Minutes
 
@@ -208,17 +208,13 @@ individual's own practice set or dependent project.
   case.
 - **A scheduled cadence instead of per-push billing** —
   `doc-lint-scheduled.yml.template` (retired 2026-09-21) —
-  is the actual fix for a repo pushed to constantly, direct to its default
-  branch, with no pull request in the loop: however many saves land in one
-  window, they cost one run. It is **not** installed by either default —
-  `precedent_install.py` never writes it, and turning `github_ci_workflows` on
-  does not choose it over the per-push template — because a `schedule:`
-  is a clock in somebody else's repository that they never picked (this
-  file's own Limits section says the same about an inherited schedule).
-  Copy it over `bestpractice-docs.yml` deliberately, and set your own cron
-  cadence in it; its header explains why it gates the whole tracked
-  Markdown corpus each run rather than "what changed", and what that
-  trades away.
+  was the fix for a repo pushed to constantly, direct to its default
+  branch, with no pull request in the loop: however many saves landed in one
+  window, they cost one run. `precedent_install.py` never wrote it, because a `schedule:` is a clock
+  in somebody else's repository that they never picked (this file's own
+  Limits section says the same about an inherited schedule). It was retired
+  with the Markdown workflow it replaced, and there is no scheduled
+  template to copy any more.
 - **One job per workflow — the lever that replaced the debounce**
   (2026-09-20, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md) item
   13). GitHub bills **per job, rounded up to a whole minute**, so what a
@@ -227,10 +223,10 @@ individual's own practice set or dependent project.
   [precedent_check.py](../tools/precedent_check.py) takes **0.35s** and
   [build_views.py](../tools/build_views.py) `--check` **0.12s** — 0.47 seconds of
   work that the three-job shape billed as **three minutes**, paying for
-  three checkouts and three Python setups to carry it. Both
-  `doc-lint.yml.template` (retired 2026-09-21)
-  and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-  now ship **one job**, and a trigger that fires bills one minute.
+  three checkouts and three Python setups to carry it. Both templates of
+  that day (the Markdown lint, retired 2026-09-21, and the practice-set
+  check, retired 2026-10-01) were cut to **one job**, and the light check
+  and leak gate are one job each: a trigger that fires bills one minute.
 - **The `debounce` job and `ci_debounce_minutes` are RETIRED** (2026-09-20).
   A debounce job skipped the check job(s) that `needs:` it when the last
   completed run on the branch was recent. A skipped job really is unbilled —
@@ -265,8 +261,8 @@ individual's own practice set or dependent project.
   running both wide open.
 - **A `PRECEDENT_RUNNER` repository variable, for an adopter who already
   operates a self-hosted runner** (2026-09-20). Every job in
-  `doc-lint.yml.template` (retired 2026-09-21)
-  and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+  [light-check.yml.template](../templates/github-actions/light-check.yml.template)
+  and [leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template)
   reads `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` — set the
   variable (**Settings → Secrets and variables → Actions → Variables**) to a
   self-hosted runner label, and every job in that workflow runs there
@@ -284,181 +280,38 @@ individual's own practice set or dependent project.
 
 ## Install in a Dependent Repository
 
-`precedent_install.py` (INSTALL.md §0) does this automatically, when it is
-this repo's turn per "Controlling Actions Minutes" above. For a manual or
-§1-style install, copy:
+Nothing to copy by hand. `precedent_install.py` (INSTALL.md §0) writes
+`.github/workflows/leak-gate.yml` and `.github/workflows/light-check.yml`
+from [templates/github-actions/](../templates/github-actions/) by default,
+and records both in `tools/ENGINE_MANIFEST.json`. A source that declares
+`"github_ci_workflows": "disabled"` switches both off. The engine owns them
+from then on: see "Updating an Installed Repository" below, and
+"Controlling Actions Minutes" above for what each costs.
 
-```text
-process/upstream/templates/github-actions/doc-lint.yml.template
-```
+The Markdown lint is not among them. It left CI on 2026-09-21 (the section
+above) and runs before every commit instead.
 
-to:
+## A Practice Set Runs No CI
 
-```text
-.github/workflows/bestpractice-docs.yml
-```
-
-Commit the workflow together with the other installed Precedent files. The template runs the vendored linter at:
-
-```text
-process/upstream/tools/doc_lint.py
-```
-
-If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
-
-The same install step, when `github_ci_workflows` is enabled, also writes
-`leak-gate.yml` from
-[leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template) —
-see "The Leak Gate Template" above.
-
-## Install in a Practice-Set Repository
-
-A practice set gets **one** workflow, `precedent-check.yml`, and it answers
-two questions: whether the whole check suite passes over the set's
-catalogue, and whether its generated views still match a fresh
-regeneration (the `precedent-check` and `views-drift` jobs, respectively —
-see "The Views Drift Gate" below; through 2026-09-19 this was two separate
-files, merged the same day as the trigger change above). Sets created by
+**An individual or shared practice set carries no GitHub workflow**
+(practice `source-sets-run-no-ci`, decided 2026-09-21 on a usage export in
+which four sets running two workflows each were 127 of 143 billed minutes
+in one day). Its checks run in the session before every push:
+`python3 tools/precedent_check.py --full-sweep`, which includes the
+generated-views drift check (`generated-artifact-provenance`, the same
+comparison `python3 tools/build_views.py --check` makes). A set created by
 [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
-get it installed automatically; older sets need the copy below, and
-`python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
-missing until it is there.
-
-**A set also gets `leak-gate.yml`**, same tool, same `github_ci_workflows` gate —
-see "The Leak Gate Template" above for why a set is always treated as
-`visibility: private` there.
-
-### The Check Suite
-
-Copy:
-
-```text
-templates/github-actions/precedent-check.yml.template
-```
-
-to:
-
-```text
-.github/workflows/precedent-check.yml
-```
-
-**Why this exists.** Every source set had the same hole: the only workflows
-any of them carried called a *single* check's function directly — written
-that way precisely because `precedent_check.py` skipped that check in a
-source set — and nothing ran the suite. A set was gated on one or two rules
-it had hand-wired and silent on the rest of its own catalogue.
-`binds_publishers` (#261) removed the reason those hand-wired workflows
-existed, which is what makes running the suite here worth doing.
-
-**It is deliberately not `--strict`.** Most registered checks belong to
-practices a source set does not resolve and skip by design — measured in a
-freshly bootstrapped set on 2026-09-13, 41 of them. `--strict` turns every
-one into a failure, leaving the gate permanently red and teaching everyone
-to ignore it. Violations and errors fail the run on their own.
-
-**Two things in it are load-bearing and easy to drop.** `fetch-depth: 0`,
-because several checks are scope `tree` and walk `git log`: on the default
-shallow checkout they report SKIPPED rather than running, and a skip does
-not fail the run, so a shallow checkout silently shrinks coverage while the
-job stays green — the same bug [deep-check.yml](../.github/workflows/deep-check.yml)
-carries its own `fetch-depth: 0` for. And the PyYAML install, because a
-check script a practice names in `checked_by:` may import it: those scripts
-run as subprocesses under an exit contract where an uncaught
-`ModuleNotFoundError` exits 1, so a missing dependency is reported as a
-**violation with a traceback**, not a skip.
-
-**It refuses rather than passing blind**, in three situations. No
-`tools/precedent_check.py` (distinguishing the `process/upstream/` consumer
-layout, which this workflow is not for); a vendored engine predating
-`binds_publishers`, which in a source set skips the checks whose practice
-lives upstream and still exits 0 — measured `5 passed, 44 skipped` against
-`8 passed, 41 skipped` on the same tree, so it is *quietly* green rather
-than obviously broken, and `--verify` now reports it too; and a run that
-reports `0 passed`, which is the backstop against any other route to zero
-coverage.
-
-### The Views Drift Gate
-
-An individual or shared practice set generates its own views — `AGENTS.md`'s
-loader block, [MAP.md](../MAP.md) and [GLOSSARY.md](../GLOSSARY.md) — from its
-`practices/` directory and the engine vendored into its own `tools/`.
-**No separate copy step** — installing `precedent-check.yml.template`
-above installs this too, as its `views-drift` job.
-
-That job runs `python3 tools/build_views.py --repo . --check`, which exits
-non-zero when any of the three has drifted from a fresh regeneration.
-Every set created before 2026-09-11 needs `precedent-check.yml` installed
-(which now carries this job); see this section's opening for how it is
-installed and verified.
-
-**Why a source set needs its own gate.** Until 2026-09-11 nothing checked a
-generated view anywhere but in this repo, where
-[deep-check.yml](../.github/workflows/deep-check.yml) runs
-[tools/verify_harness.py](../tools/verify_harness.py) — and `verify_harness.py`
-is deliberately not vendored into a source set. Worse, the generated header
-on each view *said* a check was failing the build on drift, so a session
-that wondered read the header instead of running anything. Measured in a
-real individual set: `MAP.md` sat three practices stale, one of them missing
-from its table from the day it landed, under that header. The header now
-names `build_views.py --check`, which exists wherever the view does; this
-workflow is the half that makes something actually look.
-
-**The reason this paragraph used to give expired on 2026-09-12.** It said
-the engine's own drift check could not substitute, because
-[tools/precedent_check.py](../tools/precedent_check.py) skips any check whose
-practice is not in force in the repo it runs in — and a source set's
-`practices/` holds only its own practices, never the universal one
-`generated-artifact-provenance` belongs to. That was true, and measured: run
-against a real individual set on 2026-09-11 it reported `1 skipped`, and a
-skip is not a pass. `binds_publishers` (#261, merged 2026-09-12) ended it. A
-check whose subject is the practice a repo *publishes* now runs in the repo
-publishing it, and that check is one of the three carrying the flag.
-
-**What is true now, measured 2026-09-13** against a set freshly bootstrapped
-by [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
-and given a loader block: `--only generated-artifact-provenance` reports
-`1 passed` where it reported `1 skipped` before, and planted drift turns it
-red in each of the three views separately — [MAP.md](../MAP.md),
-[GLOSSARY.md](../GLOSSARY.md), and inside `AGENTS.md`'s loader block. In a
-source set the two now look at the same three files, by the same
-`build_views.py --check` subprocess. The
-coverage argument for keeping this workflow is gone.
-
-**What it still does is fire without being asked.** A vendored check runs
-when somebody types the command; this job is attached to the same
-`pull_request`/branch-scoped-`push` trigger as `precedent-check` (see
-"Controlling Actions Minutes" above) — it was `pull_request` alone until
-2026-09-14, which meant a session pushing straight to a source set's own
-branch, the normal way work lands in a private single-owner set, ran no
-check at all. "The check runs natively now" and "the rule is gated" remain
-different claims, and only the second one is what a generated view
-drifting silently needs.
-
-**Whether a set that gains a workflow running the whole suite should then
-drop this check was an open question, settled 2026-09-19**: keep both, but
-as jobs in one workflow file rather than two — see
-[TODO.md](../TODO.md)'s
-[`views-drift-vs-suite-workflow`](../todo/todo-2026-09-13-views-drift-vs-suite-workflow.md)
-for the record. Folding the two files together removed the actual cost
-that item named (two workflows reporting the same fact, two places to
-update the drift story) without losing what it named as worth keeping —
-each check's own distinct failure message, and `precedent-check`'s
-deliberate non-`--strict` leniency staying independent of this job's own
-refusal logic.
-
-This job **gates and does not fix**: regenerating in CI would leave the
-branch's own diff wrong and put a runner bot in the authorship path that
-[practices/ci-commits-carry-identity.md](../practices/ci-commits-carry-identity.md)
-exists to keep clean. The fix is one `python3 tools/build_views.py` on the
-branch.
+gets no workflow, and the engine refresh deletes one an older set still
+carries. The workflow template sets used to run was retired on
+2026-10-01.
 
 ## Enable GitHub Actions
 
 GitHub Actions is normally available automatically, but an organization or repository administrator can restrict it. After merging the workflow onto the default branch:
 
 1. open the repository's **Actions** tab and confirm that the workflow is allowed to run;
-2. open a pull request that changes a Markdown file;
-3. confirm that **Markdown lint** appears in the pull request checks; and
+2. open a pull request into `main`;
+3. confirm that **Light check** appears in the pull request checks; and
 4. inspect the job log if the check fails or reports warnings.
 
 The first pull request that introduces a workflow may be subject to GitHub's normal approval or security controls, especially for contributions from forks.
@@ -466,11 +319,11 @@ The first pull request that introduces a workflow may be subject to GitHub's nor
 Two further settings belong to the same moment and are worth mentioning
 when an install finishes ([INSTALL.md](../INSTALL.md) §1 step 10): the
 **default branch should be named `main`** (**Settings → General → Default
-branch**), since the supplied template's `push` trigger names `main` as a
+branch**), since the light check's `pull_request` trigger names `main` as a
 literal string and a differently-named default branch runs no check on
 merges; and **workflow permissions should allow Actions to open pull
 requests** (**Settings → Actions → General → Workflow permissions**), which
-the supplied Markdown check does not need but anything opening a pull
+the supplied workflows do not need but anything opening a pull
 request for the project does. *(Click-paths as of 2026-09-10.)*
 
 **Optional: turn Actions off where a repository needs no GitHub check.**
@@ -484,35 +337,25 @@ never as a step the install needs.
 
 ## Make the Check Required
 
-Once the workflow has run successfully at least once, add its **Markdown lint** job to the default branch's ruleset or branch-protection required checks.
+Once the workflow has run successfully at least once, add its **Light check** job to the default branch's ruleset or branch-protection required checks.
 
-That changes the rule from advice into enforcement: a pull request cannot merge while the Markdown gate is failing, regardless of whether the change came from ChatGPT, Claude Code, Codex, another agent, or a human editing GitHub directly.
+That changes the rule from advice into enforcement: a pull request cannot merge into `main` while the light check is failing, regardless of whether the change came from ChatGPT, Claude Code, Codex, another agent, or a human editing GitHub directly.
 
 Repository rules vary by account and organization. Use the repository's current **Settings → Rules** or branch-protection controls and select the status check produced by this workflow. The rest of what belongs on that same page — a pull request required, review from code owners, no bypass — and what each setting does for a Precedent project is [documentation/GITHUB_SETTINGS.md](GITHUB_SETTINGS.md).
 
 ## Updating an Installed Repository
 
-When Precedent updates the workflow template:
-
-1. compare the new template with `.github/workflows/bestpractice-docs.yml`;
-2. preserve any dependent-repository adaptations, such as a different default branch or linter path;
-3. update the installed workflow;
-4. run it through a pull request; and
-5. update the corresponding manifest baseline.
-
-Treat the workflow as an installed Precedent artifact. A typical manifest entry is:
-
-```json
-{
-  "practice": "doc-lint-action",
-  "upstream_path": "templates/github-actions/doc-lint.yml.template",
-  "local_path": ".github/workflows/bestpractice-docs.yml",
-  "granularity": "file",
-  "status": "synced",
-  "local_sha256": "<filled by practice_audit --update-baseline>",
-  "notes": "Runs the vendored linter; preserve repository-specific branch names or paths"
-}
-```
+**Update Vendors does it; there is nothing to compare by hand.** Every
+refresh writes `leak-gate.yml` and `light-check.yml` from the templates over
+whatever the repository has, hand-made or hand-edited, and removes every
+other workflow upstream does not ship that the person did not approve in
+their own words (practice `ci-workflow-approved`). It checks first that
+nothing needed is lost: a workflow running something the local push check
+does not is left alone, under a loud banner, with what to move named and an
+open item written to `todo/`. A retired workflow, such as
+`bestpractice-docs.yml`, is deleted the same way
+(`RETIRED_CI_WORKFLOW_FILES` in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)).
 
 ## Limits
 
@@ -548,18 +391,15 @@ commit was the first thing they flagged. **Two silent failures were holding
 each other up**, which is the general shape worth remembering: a check that
 cannot run is not evidence that what it checks is fine.
 
-**A CONSUMING repo's generated views cannot be gated in CI at all, and
-the drift gate above refuses rather than pretending.** A consuming repo's
+**A CONSUMING repo's generated views cannot be gated in CI at all.** A consuming repo's
 `practices/` is materialized from the sources it resolves: a shared source is
 a sibling clone outside the repo, an individual source resolves through a
 private user-level config. Neither exists in a bare CI checkout, so there is
 nothing on the runner to regenerate the views *from* — and
 [tools/build_views.py](../tools/build_views.py) deliberately exits 0 rather
 than writing a block from an incomplete source set, which is the shape a
-green-but-blind check would take. So the `views-drift` job in
-[precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-exits non-zero when it finds the vendored `process/upstream/` layout instead
-of running. What covers a consuming repo today is a session running
+green-but-blind check would take. So no workflow a consuming repo gets
+checks its views. What covers a consuming repo today is a session running
 `python3 tools/precedent_sync_views.py --repo . --check` where the sources
 do resolve; [TODO.md](../TODO.md)'s
 `consumer-views-drift-uncheckable-in-ci` item holds the question of whether

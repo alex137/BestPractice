@@ -40,6 +40,11 @@
       "path": "local/tools/checks/tests/test_merge_target_is_beta_branch.sh",
       "reason": "merge-target-is-beta-branch's branch-graph check assumed main never contains staging; under pre-staging -> staging -> main every Promote into main does exactly that, so it fired after each one. The targeting rule stays, carried by go-update and promote (Morgan, 2026-09-27: \"please fix or remove etc and go update that\")",
       "decommissioned_at": "2026-09-27"
+    },
+    {
+      "path": "templates/github-actions/precedent-check.yml.template",
+      "reason": "A practice set runs no CI since 2026-09-21 (source-sets-run-no-ci), so this template shipped to no kind of repo; its checks, the generated-views drift check included, run in the set's own full sweep before every push. Retired on Morgan's yes, 2026-10-01.",
+      "decommissioned_at": "2026-10-01"
     }
   ],
   "exempt_files": [
@@ -60,6 +65,15 @@
     "todo/todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md",
     "spec/OPEN_ITEM_AND_GOTCHA_PLAN.md",
     "spec/PRELAUNCH_AUDIT.md",
-    "todo/todo-2026-09-21-pass-2-mechanism-findings.md"
+    "todo/todo-2026-09-21-pass-2-mechanism-findings.md",
+    "spec/BILLING_FLOOR.md",
+    "spec/CI_MINUTES_PLAN.md",
+    "spec/CI_WORKFLOW_RETIREMENT_PLAN.md",
+    "todo/todo-2026-09-07-loader-comment-names-an-unvendored-check.md",
+    "todo/todo-2026-09-11-views-drift-gate-rollout-to-existing-sets.md",
+    "todo/todo-2026-09-13-views-drift-vs-suite-workflow.md",
+    "todo/todo-2026-09-14-source-set-push-triggers.md",
+    "todo/todo-2026-09-14-set-ci-skips-vendored-tests.md",
+    "todo/todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos.md"
   ]
 }

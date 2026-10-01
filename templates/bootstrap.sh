@@ -80,8 +80,6 @@ fi
 # declares a shared set and wires nothing that clones it.
 if [ -f precedent.json ] && [ -f tools/precedent_source_bootstrap.py ]; then
   python3 tools/precedent_source_bootstrap.py --sources-from . --remote-only false || true
-elif [ -f precedent.json ] && [ -f process/upstream/tools/precedent_source_bootstrap.py ]; then
-  python3 process/upstream/tools/precedent_source_bootstrap.py --sources-from . --remote-only false || true
 fi
 
 # Repair a single-branch clone's refspec before anything tries to fetch.
@@ -320,9 +318,10 @@ fi
 # compare against, which a fresh session has no reason to have. That one
 # stays a deliberate step -- INSTALL.md section 2, "Keep the vendored
 # engine current (consumer repos)".
-# The repo's own tools/ first: the catalogue copy leaves tools/ out once
-# the vendored engine carries checkin.py (2026-09-30).
-for _ck in tools/checkin.py process/upstream/tools/checkin.py; do
+# The repo's own tools/ only: the catalogue copy leaves tools/ out once the
+# vendored engine carries checkin.py, and only an update writes this file,
+# so no repo running it still has process/upstream/tools/ (2026-09-30).
+for _ck in tools/checkin.py; do
   if [ -f process/manifest.json ] && [ -f "$_ck" ]; then
     python3 "$_ck" fresh || \
       echo "WARN: upstream freshness check failed - not verified" >&2
@@ -338,7 +337,7 @@ done
 # to stdout on purpose, so the SessionStart hook puts it in front of the
 # session rather than only the terminal. Guarded on the flag, because an
 # older vendored audit without it would run the whole audit here instead.
-for _pa in tools/practice_audit.py process/upstream/tools/practice_audit.py; do
+for _pa in tools/practice_audit.py; do
   if [ -d process/upstream ] && [ -f "$_pa" ] && \
      grep -q -- '--loader-notice' "$_pa"; then
     python3 "$_pa" --loader-notice || true
@@ -381,6 +380,17 @@ if [ -f tools/precedent_check.py ] && [ -f tools/ENGINE_MANIFEST.json ] && \
     { grep -E '^    \.github/workflows/' <<<"$_wf_out" | cut -c1-400 >&2; } || true
     echo "  Show the person each one and ask before doing anything else (practice: ci-workflow-approved)." >&2
   fi
+fi
+
+# THIS REPOSITORY'S OWN STEPS go in tools/bootstrap.local.sh, never in this
+# file. This file is the template's, and an Update Vendors rewrites it when it
+# is unedited; a step added here makes it a diverged copy, and a step added
+# below the `exit 0` never runs at all (2026-09-30, a real consumer's three
+# session-start steps, silently dead after a hand merge). The local file is
+# never touched by a refresh. Its failure is reported, never fatal.
+if [ -f tools/bootstrap.local.sh ]; then
+  # shellcheck source=/dev/null
+  . tools/bootstrap.local.sh || echo "WARNING: tools/bootstrap.local.sh did not finish -- some of this repository's own session-start steps may not have run" >&2
 fi
 
 # A bootstrap that blocks startup is worse than anything it protects against,

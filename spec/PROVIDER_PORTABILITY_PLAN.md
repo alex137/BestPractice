@@ -151,13 +151,13 @@ which Phase 2 gave this repo). This is a conversational-default fix, not a
 code change — the actual value still gets recorded by whoever conducts the
 install, same as before.
 
-**Still open**: a plain dependent project repo gets `doc-lint.yml.template`
-(markdown lint only) by default, never the full `precedent-check.yml.template`
-suite a practice-set repo gets, so a project repo's own practice compliance
-(not just its markdown) still goes unchecked in CI even when `ci_workflows`
-is on. Whether that gap is worth closing, and how, is not decided here —
-picking it up should start from the CI-minutes plan's own "Sequencing and
-status" section, not from scratch. This phase still traces back to
+**Closed since this was written**: a dependent project repo used to get a
+Markdown lint only, so its own practice compliance went unchecked in CI.
+Since 2026-09-25 it gets `light-check.yml` by default, which runs the
+vendored practice checks on a pull request into `main`, and the Markdown
+workflow was retired on 2026-09-21
+([documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)).
+This phase still traces back to
 [todo/todo-2026-09-06-actions-as-enforcement-layer.md](../todo/todo-2026-09-06-actions-as-enforcement-layer.md),
 whose core reasoning stands regardless of the corrections above: a required
 GitHub Actions check binds every path to the default branch — human,

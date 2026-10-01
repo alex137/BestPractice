@@ -5,9 +5,8 @@
      not a working list. Create the `todo/` directory (it can start empty;
      nothing here needs pre-populating for a fresh install) and write new
      open items directly inside it, one file per item, per
-     spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 1 (vendored at
-     process/upstream/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md in a classic-vendor
-     install, or the universal source's own copy in a loader-model install).
+     Precedent's spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 1 (linked below;
+     the catalogue copy does not carry spec/, so there is no local copy).
      Do not rewrite this file into a checkbox list — that is the format this
      template replaced. -->
 

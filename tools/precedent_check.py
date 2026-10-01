@@ -274,11 +274,17 @@ class Finding:
     """`where` is what prints; the file a finding is about is `path` when a
     check passes one, else `where` up to its first colon (the "file:line"
     most checks write). The runner reads it to drop findings on files this
-    repo received, and --changed-files-only to keep findings on the change."""
+    repo received, and --changed-files-only to keep findings on the change.
 
-    def __init__(self, where, detail, path=None):
+    `cause` is the path whose change produced the finding, when that is not
+    the file it sits in: a stranded mention sits in a file the change never
+    touches, and is still that change's doing. --changed-files-only keeps a
+    finding whose cause this change deleted or renamed."""
+
+    def __init__(self, where, detail, path=None, cause=None):
         self.where, self.detail = where, detail
         self.path = path
+        self.cause = cause
 
     def file(self):
         if self.path is not None:
@@ -5747,6 +5753,130 @@ _APPROVAL_DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
 _APPROVAL_QUOTE = re.compile(r'"[^"]{3,}"|“[^”]{3,}”')
 
 
+# What a workflow can be made to run more of: a new event, a branch or type
+# or path it now fires on, a schedule, a job (EXPAND, a new one is growth);
+# and the filters that keep it from firing (NARROW, losing one is growth).
+_WF_LIST_KEYS = ('branches', 'types', 'paths', 'tags')
+_WF_NARROW_KEYS = ('branches-ignore', 'paths-ignore', 'tags-ignore')
+
+
+def _workflow_reach(text):
+    """-> (expand, narrow): two sets of atoms describing what a workflow (or
+    a workflow template) runs and when, read from its text without a YAML
+    library (the engine needs none). Indentation decides the nesting, the
+    way every workflow this repo ships is written."""
+    expand, narrow = set(), set()
+    lines = [l.split(' #', 1)[0].rstrip() for l in text.splitlines()
+             if l.strip() and not l.lstrip().startswith('#')]
+    section, event, key = None, None, None
+    for line in lines:
+        ind = len(line) - len(line.lstrip(' '))
+        body = line.strip()
+        if ind == 0:
+            section, event, key = None, None, None
+            m = re.match(r'["\']?(on|jobs)["\']?:\s*(.*)$', body)
+            if m:
+                section = m.group(1)
+                inline = m.group(2).strip()
+                if section == 'on' and inline:
+                    for ev in re.findall(r'[\w-]+', inline):
+                        expand.add(f'event:{ev}')
+            continue
+        if section == 'jobs' and ind == 2 and body.endswith(':'):
+            expand.add(f'job:{body[:-1].strip()}')
+        elif section == 'on' and ind == 2:
+            m = re.match(r'([\w-]+):\s*(.*)$', body)
+            if m:
+                event, key = m.group(1), None
+                expand.add(f'event:{event}')
+        elif section == 'on' and event and ind == 4:
+            m = re.match(r'([\w-]+):\s*(.*)$', body)
+            key = m.group(1) if m else None
+            if key in _WF_LIST_KEYS:
+                narrow.add(f'{event}:has-{key}')
+            items = re.findall(r'[^\[\],\s"\']+', m.group(2)) if m and m.group(2) else []
+            for it in items:
+                if key in _WF_LIST_KEYS:
+                    expand.add(f'{event}:{key}:{it}')
+                elif key in _WF_NARROW_KEYS:
+                    narrow.add(f'{event}:{key}:{it}')
+        elif section == 'on' and event and ind >= 6 and key:
+            it = body.lstrip('- ').strip().strip('"\'')
+            if body.startswith('- cron:') or 'cron:' in body:
+                expand.add(f'cron:{body.split("cron:", 1)[1].strip()}')
+            elif key in _WF_LIST_KEYS and body.startswith('-'):
+                expand.add(f'{event}:{key}:{it}')
+            elif key in _WF_NARROW_KEYS and body.startswith('-'):
+                narrow.add(f'{event}:{key}:{it}')
+    return expand, narrow
+
+
+def _workflow_growth(before, after):
+    """-> what `after` runs that `before` did not: new expand atoms, and
+    narrowing filters `before` had that `after` dropped for an event it
+    still has. None for `before` means a new file, all of it growth."""
+    exp_a, nar_a = _workflow_reach(after)
+    if before is None:
+        return sorted(exp_a)
+    exp_b, nar_b = _workflow_reach(before)
+    events = {a.split(':', 1)[1] for a in exp_a if a.startswith('event:')}
+    lost = {n for n in nar_b - nar_a if n.split(':', 1)[0] in events}
+    return sorted((exp_a - exp_b) | {f'no longer {n}' for n in lost})
+
+
+# Where a workflow lives, or the template a workflow is written from.
+_WORKFLOW_PATHS = re.compile(r'^(?:\.github/workflows/[^/]+\.ya?ml|'
+                             r'templates/(?:.+/)?[^/]+\.ya?ml(?:\.template)?)$')
+
+
+def _workflow_growth_findings(ctx, approved):
+    """Findings for each workflow or workflow template this change makes
+    run more -- a new event, branch, type, path, schedule or job, or a
+    narrowing filter dropped -- that carries no approval of its current
+    content in github_ci_approved. A fix that adds no CI work is not one
+    (practice: ci-workflow-approved, 2026-09-30)."""
+    import hashlib
+    if ctx.range:
+        base = ctx.range.split('...')[0].split('..')[0]
+    else:
+        base = _published_default_branch()
+    if not base:
+        return []
+    mb = _git('merge-base', base, 'HEAD')
+    if mb.returncode != 0:
+        return []
+    mb = mb.stdout.strip()
+    r = _git('diff', '--name-only', '--diff-filter=AM', mb)
+    # The engine's own copy of a shipped workflow, untouched since the
+    # manifest recorded it, is upstream's to grow: its template was judged
+    # where it was written. So is any file this repo received.
+    tracked = (_engine_manifest() or {}).get('ci_workflows_sha256') or {}
+    out = []
+    for rel in sorted(set(r.stdout.split()) if r.returncode == 0 else ()):
+        if not _WORKFLOW_PATHS.match(rel) or not (ctx.root / rel).is_file():
+            continue
+        if _received_owner(rel) is not None:
+            continue
+        if tracked.get(rel) == hashlib.sha256((ctx.root / rel).read_bytes()).hexdigest():
+            continue
+        after = (ctx.root / rel).read_text(encoding='utf-8', errors='replace')
+        old = _git('show', f'{mb}:{rel}')
+        grew = _workflow_growth(old.stdout if old.returncode == 0 else None, after)
+        if not grew:
+            continue
+        entry = approved.get(rel)
+        sha = hashlib.sha256((ctx.root / rel).read_bytes()).hexdigest()
+        if isinstance(entry, dict) and _approval_problem(entry) is None \
+                and entry.get('sha256') == sha:
+            continue
+        out.append(Finding(rel, f'this change makes it run more ({", ".join(grew[:6])}'
+                                f'{", ..." if len(grew) > 6 else ""}) without the '
+                                f'person\'s approval of this content in precedent.json\'s '
+                                f'{GITHUB_CI_APPROVED_KEY}: say when it will run and what '
+                                f'it costs, and record their own words, pinned by sha256'))
+    return out
+
+
 def _approval_problem(entry):
     """-> None when `entry` is a usable approval, else what is wrong with it.
     Usable means a sha256, and an approved_by carrying a date and the
@@ -5873,21 +6003,17 @@ def workflow_triggers_text(text):
        "An engine-tracked file re-baselined with `record-ci` reads as "
        "untouched. A workflow file added through the GitHub API or web "
        "editor never passes through a session's push gate, so only this "
-       "check running in CI, or the next local run, sees it. Never "
-       "applies in BestPractice itself, which has no manifest.",
-       binds_when=('.github/workflows',))
+       "check running in CI, or the next local run, sees it. In "
+       "BestPractice itself, which has no manifest, it judges only growth: "
+       "a change that makes a workflow or a workflow template run more (a "
+       "new event, branch, type, path, schedule or job, or a narrowing "
+       "filter dropped). That reading is of the file's text, indentation "
+       "and all, the way every workflow here is written; a matrix that "
+       "widens, or a job made longer, is not counted.",
+       binds_when=('.github/workflows', 'templates/github-actions'))
 def _ci_workflow_approved(ctx):
     import hashlib
 
-    manifest = _engine_manifest()
-    if not manifest:
-        raise NotApplicable('no tools/ENGINE_MANIFEST.json -- this repo has '
-                            'never vendored the engine, or is the engine\'s '
-                            'own origin')
-    wf_dir = ctx.root / '.github' / 'workflows'
-    if not wf_dir.is_dir():
-        return []
-    tracked = manifest.get('ci_workflows_sha256') or {}
     try:
         cfg = json.loads((ctx.root / 'precedent.json').read_text(
             encoding='utf-8'))
@@ -5896,6 +6022,17 @@ def _ci_workflow_approved(ctx):
         approved = {}
     if not isinstance(approved, dict):
         approved = {}
+    # Every repo, this one included: a change that makes a workflow or a
+    # workflow template run more needs the person's words. A manifest pins
+    # a consumer's files below; nothing pinned this repo's own templates.
+    growth = _workflow_growth_findings(ctx, approved)
+    manifest = _engine_manifest()
+    if not manifest:
+        return growth
+    wf_dir = ctx.root / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return growth
+    tracked = manifest.get('ci_workflows_sha256') or {}
 
     # In a consumer the refresh settles every workflow itself, so the
     # finding sends the session there instead of to the person
@@ -5908,7 +6045,7 @@ def _ci_workflow_approved(ctx):
     except Exception:                          # practice: fail-gracefully
         converges, shipped = False, set()
 
-    findings = []
+    findings = list(growth)
     for path in sorted(wf_dir.iterdir()):
         if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
             continue
@@ -6222,7 +6359,8 @@ def _shipped_template_carries_its_script(ctx):
         # COMMAND POSITION, NOT MERE MENTION -- and this precision was not
         # designed in, it was forced. The first version of this check
         # matched any `tools/NAME.py` in a non-comment line and fired on its
-        # own first run against precedent-check.yml.template, which names
+        # own first run against the practice-set workflow template (retired
+        # 2026-10-01), which named
         # `'python3 tools/precedent_sync_views.py --repo . --check'` INSIDE
         # an echo, as advice to a human reading a failure message. Nothing
         # executes it; that template is correct.
@@ -7145,7 +7283,10 @@ PINNED_PERMALINK_RE = re.compile(
        'each of which is overwritten by its own next sync. It also says '
        'nothing about a file the decommissioning registry exempts -- the record OF a deletion naming what went is not a reference left behind '
        'by one -- or about a path inside a permalink pinned to a 40-hex '
-       'commit, which cites the file as it was and cannot go stale.')
+       'commit, which cites the file as it was and cannot go stale. Nor '
+       'about history, which names a path as it was: a generated view (its '
+       'source is read), a closed todo item, a `## Story` section, or a '
+       'record file precedent.json declares in `record_paths`.')
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -7189,6 +7330,7 @@ def _rename_updates_links(ctx):
         withheld = _withheld
 
     _retired_exempt = _decommissioning_record_exemptions()
+    _records = _declared_record_paths()
 
     old_paths = []
     for line in r.stdout.splitlines():
@@ -7240,6 +7382,8 @@ def _rename_updates_links(ctx):
                 # the registry and were being flagged for doing their job.
                 # See _decommissioning_record_exemptions() for the incident.
                 continue
+            if any(_exempt_matches(rel, e) for e in _records):
+                continue      # a declared record: it names what was, then
             f = ROOT / rel
             if not f.is_file():
                 continue
@@ -7247,9 +7391,14 @@ def _rename_updates_links(ctx):
                 text = f.read_text(encoding='utf-8', errors='ignore')
             except OSError:
                 continue
+            if _is_history(rel, text):
+                continue      # a generated view, or a closed todo item
             lines = text.splitlines()
+            in_story = _story_mask(lines) if rel.endswith('.md') else [False] * len(lines)
             for i, (line, in_generated) in enumerate(
                     zip(lines, generated_blocks.mask(lines)), 1):
+                if in_story[i - 1]:
+                    continue  # a Story section: what happened, named as it was
                 # The loader block is rewritten wholesale by build_views.py
                 # from the practice sources, so a reference inside it is the
                 # sources' to fix, exactly like the materialized files it is
@@ -7269,11 +7418,96 @@ def _rename_updates_links(ctx):
                         f'{rel}:{i}',
                         f'still references {old!r}, which this branch '
                         f'{where} -- repoint it in the same change, or the '
-                        f'repository is broken at every commit in between'))
+                        f'repository is broken at every commit in between',
+                        cause=old))
                     break
     if not out and skipped:
         print(f'  (rename-updates-links: {skipped} single-segment path(s) '
               f'skipped as too generic to search)')
+    return out
+
+
+# A line that itself says the thing is gone is history, not a live pointer:
+# "`x.template` (retired 2026-09-21)", "since removed", "was folded into".
+_SAYS_GONE = re.compile(r'\b(retired|removed|deleted|folded|renamed|tombstoned|'
+                        r'no longer|used to|was|until 20\d\d)\b', re.I)
+
+
+def _paths_this_repo_removed():
+    """-> every path this repository's history deleted or renamed away and
+    that is still gone, with a directory in it (a bare `README.md` means a
+    different file in every directory). A shallow clone sees less history,
+    which only finds less."""
+    r = _git('log', '--diff-filter=DR', '-M', '--name-status', '--format=', 'HEAD')
+    if r.returncode != 0:
+        return set()
+    tracked = set(_git('ls-files').stdout.split())
+    gone = set()
+    for line in r.stdout.splitlines():
+        parts = line.split('\t')
+        if len(parts) >= 2 and parts[0][:1] in ('D', 'R'):
+            gone.add(parts[1])
+    return {g for g in gone if '/' in g and g not in tracked
+            and not (ROOT / g).exists() and not _lives_on_in_own_engine(g)}
+
+
+@check('change-updates-its-docs', 'tree',
+       'no live document names a path this repository once had and has '
+       'since deleted or renamed away',
+       'a document that is wrong in any other way: this sees only a path '
+       'that history shows is gone, never a wrong claim, a retired command, '
+       'or a path this repository never had (a consuming repo\'s own layout, '
+       'which docs here describe on purpose). History is left alone, as '
+       'rename-updates-links leaves it: a generated view, a closed todo '
+       'item, a `## Story` section, a declared record file, a commit-pinned '
+       'permalink, and a line that itself says the thing was retired or '
+       'removed. A shallow clone sees less history, so finds less.')
+def _docs_name_no_removed_path(ctx):
+    gone = _paths_this_repo_removed()
+    if not gone:
+        raise NotApplicable('this repository\'s history deletes no path that '
+                            'is still gone')
+    # One pattern per path, on a boundary, so `other-repo/practices/x.md`
+    # is not `practices/x.md`.
+    pats = [(g, re.compile(r'(?<![\w./-])' + re.escape(g) + r'(?![\w-])'))
+            for g in sorted(gone)]
+    exempt = _declared_record_paths() + _decommissioning_record_exemptions()
+    # A link to this repository's own branch names a path here too:
+    # `https://github.com/<this>/blob/staging/practices/x.md` is x.md.
+    slug = _origin_slug()
+    own_url = (re.compile(r'https://github\.com/' + re.escape(slug)
+                          + r'/(?:blob|tree)/[^/\s)]+/') if slug else None)
+    out = []
+    for rel in _git('ls-files', '*.md').stdout.split():
+        if _received_owner(rel) is not None or rel == DECOMMISSIONED_PATHS_REGISTRY \
+                or any(_exempt_matches(rel, e) for e in exempt):
+            continue
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        if _is_history(rel, text):
+            continue
+        lines = text.splitlines()
+        story = _story_mask(lines)
+        for i, (line, generated) in enumerate(
+                zip(lines, generated_blocks.mask(lines)), 1):
+            if story[i - 1] or generated or '/' not in line \
+                    or _SAYS_GONE.search(line):
+                continue
+            live = PINNED_PERMALINK_RE.sub('', line)
+            if own_url:
+                live = own_url.sub(' ', live)
+            # A consumer's mirror of this repository's own file, as
+            # INSTALL-era docs name it: `process/upstream/<path here>`.
+            live += ' ' + live.replace('process/upstream/', ' ')
+            hit = next((g for g, pat in pats if pat.search(live)), None)
+            if hit:
+                out.append(Finding(
+                    f'{rel}:{i}', f'names {hit!r}, which this repository no '
+                    f'longer has -- say what is true now, or that it was '
+                    f'retired (practice: change-updates-its-docs)',
+                    cause=hit))
     return out
 
 
@@ -8554,6 +8788,73 @@ RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'
 # would fail on its own planted fixtures every time it runs against a copy
 # of this repo -- the one file excluded, mechanically, not a content carve-out.
 RETIRED_VOCAB_SKIP_FILES = {'tools/verify_harness.py'}
+
+
+# DATED RECORDS NAME THE PATH AS IT WAS (2026-09-30, a consumer's promote).
+# rename-updates-links asks every mention of a deleted or renamed path to be
+# repointed, which is right for a live document and wrong for history: a
+# closed todo item, a gotcha's Story, a migration record or a dated audit
+# names the old path because that was the path when it was written, and a
+# really deleted path has nowhere to be repointed to. Four kinds are left
+# alone, agreed with that consumer's session. Open items and live documents,
+# a gotcha's Symptom and Fix included, are still read.
+TODO_CLOSED_STATUSES = ('done', 'dropped')
+
+
+def _declared_record_paths():
+    """-> precedent.json's `record_paths` entries ({"path", "reason"}), as
+    path strings; an entry ending in "/" covers a directory. A whole record
+    file names paths as they were -- a migration record, a dated audit --
+    and is declared, with its reason, rather than folded into the
+    decommissioning registry's exempt_files, which is for records OF a
+    decommissioning."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for e in (cfg.get('record_paths') if isinstance(cfg, dict) else None) or []:
+        path = e.get('path') if isinstance(e, dict) else e
+        if isinstance(path, str) and path.strip():
+            out.append(path.strip())
+    return out
+
+
+# A document whose lifecycle header says it is finished is a record of what
+# was, like a closed todo item (spec/DOCUMENT_LIFECYCLE.md's statuses).
+DOCUMENT_DONE_STATUSES = ('closed', 'executed', 'superseded', 'expired', 'declined')
+
+
+def _is_history(rel, text):
+    """-> True for a whole file that is not live text: a generated view (its
+    source is read instead, and the fix belongs there), a todo item whose
+    status is closed, or a document whose lifecycle header says it is
+    finished."""
+    if rel.endswith('.md') and _generated_label(rel, text):
+        return True
+    if rel.endswith('.md') and not rel.startswith('todo/'):
+        m = re.match(r'---\n(.*?)\n---', text, re.S)
+        if m and re.search(r'^kind:', m.group(1), re.M):
+            st = re.search(r'^status:\s*"?(\w+)', m.group(1), re.M)
+            if st and st.group(1) in DOCUMENT_DONE_STATUSES:
+                return True
+    if rel.startswith('todo/') and rel.endswith('.md'):
+        m = re.match(r'---\n(.*?)\n---', text, re.S)
+        st = re.search(r'^status:\s*"?(\w+)', m.group(1), re.M) if m else None
+        if st and st.group(1) in TODO_CLOSED_STATUSES:
+            return True
+    return False
+
+
+def _story_mask(lines):
+    """-> one bool per line: True inside a `## Story` section, heading
+    included, up to the next level-2 heading."""
+    out, inside = [], False
+    for line in lines:
+        if line.startswith('## '):
+            inside = line.strip().lower() == '## story'
+        out.append(inside)
+    return out
 
 
 def _exempt_matches(rel, exempt_entry):
@@ -10012,6 +10313,26 @@ def _touched_files():
     return sorted(out)
 
 
+def _gone_in_change(ctx):
+    """-> the paths the change in scope deleted or renamed away: its range
+    when it has one, else what the working tree and index changed against
+    HEAD. Empty when git cannot say."""
+    if ctx.range:
+        diffs = [['diff', '--name-status', '--find-renames', ctx.range]]
+    else:
+        diffs = [['diff', '--name-status', '--find-renames', 'HEAD']]
+    gone = set()
+    for args in diffs:
+        r = _git(*args)
+        if r.returncode != 0:
+            continue
+        for line in r.stdout.splitlines():
+            parts = line.split('\t')
+            if len(parts) >= 2 and parts[0][:1] in ('D', 'R'):
+                gone.add(parts[1])
+    return gone
+
+
 def _scoped_tree_slugs(tree_slugs, buckets=None):
     """-> the subset of `tree_slugs` (all `scope: 'tree'` CHECKS keys) to
     actually run this invocation, per Morgan's 2026-09-18 direction: don't
@@ -10352,13 +10673,22 @@ def main():
                     and _manifest_entry(c) is not None:
                 in_change.discard(c)
                 materialized += 1
+        # A path this change deleted or renamed away is the change's own
+        # doing wherever the mention it strands sits, and that is never in
+        # the change: the pre-staging check could not see a stranded
+        # reference at all, so a consumer's Update Vendors passed Booked and
+        # the Debut into staging refused on about 15 files no earlier run
+        # had named (2026-09-30). Narrows the rule above, it does not undo
+        # it: what the push brings includes what it takes away.
+        gone_in_change = _gone_in_change(ctx)
         kept_results = []
         for slug, status, findings, why, uv in results:
             if status == 'VIOLATION':
                 kept = [f for f in findings
                         if (f.file() if hasattr(f, 'file') else
                             str(getattr(f, 'where', '') or '').split(':', 1)[0])
-                        in in_change]
+                        in in_change
+                        or getattr(f, 'cause', None) in gone_in_change]
                 outside_change += len(findings) - len(kept)
                 status = 'VIOLATION' if kept else 'PASS'
                 findings = kept
