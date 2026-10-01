@@ -2,7 +2,7 @@
 
 *Humans should do what humans do best, and leave the rest to the
 machines. ([Humans at our
-Best](philosophy/HUMANS_AT_OUR_BEST.md))*
+Best](https://github.com/alex137/BestPractice/blob/staging/philosophy/HUMANS_AT_OUR_BEST.md))*
 
 Attempts to Describe Precedent in <40 words:
 
@@ -44,9 +44,9 @@ angle:
   up for approval, never landed unapproved: problems happen once, but
   then rules are made for the future.
 
-Learn more about it: [Reasons Why](philosophy/REASONS_WHY.md),
-[Our Philosophy](philosophy/OUR_PHILOSOPHY.md), [Core
-Pillars](philosophy/CORE_PILLARS.md).
+Learn more about it: [Reasons Why](https://github.com/alex137/BestPractice/blob/staging/philosophy/REASONS_WHY.md),
+[Our Philosophy](https://github.com/alex137/BestPractice/blob/staging/philosophy/OUR_PHILOSOPHY.md), [Core
+Pillars](https://github.com/alex137/BestPractice/blob/staging/philosophy/CORE_PILLARS.md).
 
 ## What This Looks Like in Practice
 
@@ -72,8 +72,8 @@ Here's what you'll actually see:
    provider or held in one person's head.
 
 Learn more about it: [The Working
-Loop](philosophy/THE_WORKING_LOOP.md), [The Talmudic
-Method](philosophy/THE_TALMUDIC_METHOD.md), [Ten Things to Know About How
+Loop](https://github.com/alex137/BestPractice/blob/staging/philosophy/THE_WORKING_LOOP.md), [The Talmudic
+Method](https://github.com/alex137/BestPractice/blob/staging/philosophy/THE_TALMUDIC_METHOD.md), [Ten Things to Know About How
 Precedent Works](documentation/TEN_THINGS.md).
 
 ## Why This Matters
@@ -100,7 +100,7 @@ Precedent Works](documentation/TEN_THINGS.md).
 Learn more about it: [What This Is (and Why Explore Using
 Precedent)](documentation/WHY_PRECEDENT.md), [Ten Things to Know About How
 Precedent Works](documentation/TEN_THINGS.md), [Core
-Pillars](philosophy/CORE_PILLARS.md).
+Pillars](https://github.com/alex137/BestPractice/blob/staging/philosophy/CORE_PILLARS.md).
 
 ## How
 
@@ -120,8 +120,8 @@ patterns and rules emerge that you keep in your open system.
   catches everything that comes out of that.
 
 Learn more about it: [Company Building
-Rules](philosophy/COMPANY_BUILDING_RULES.md), [AI Governance to
-Co-Create](philosophy/AI_GOVERNANCE_TO_COCREATE.md), [How to Use This
+Rules](https://github.com/alex137/BestPractice/blob/staging/philosophy/COMPANY_BUILDING_RULES.md), [AI Governance to
+Co-Create](https://github.com/alex137/BestPractice/blob/staging/philosophy/AI_GOVERNANCE_TO_COCREATE.md), [How to Use This
 Day to Day](documentation/DAILY_HABITS.md).
 
 ## The Philosophy Behind This
@@ -130,12 +130,12 @@ The three ideas above aren't just this project's engineering choices —
 they're one working expression of a broader philosophy about how people
 and AI should work together. **That fuller argument lives in
 [philosophy/](philosophy/)**, starting at
-[philosophy/README.md](philosophy/README.md). It is argument and
+[philosophy/README.md](https://github.com/alex137/BestPractice/blob/staging/philosophy/README.md). It is argument and
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](practices/) is for.
 
-Here are the [core pillars](philosophy/CORE_PILLARS.md) of [our
-philosophy](philosophy/OUR_PHILOSOPHY.md):
+Here are the [core pillars](https://github.com/alex137/BestPractice/blob/staging/philosophy/CORE_PILLARS.md) of [our
+philosophy](https://github.com/alex137/BestPractice/blob/staging/philosophy/OUR_PHILOSOPHY.md):
 
 - **Human-led for human collaboration.** A person sets the direction,
   decides what "right" looks like, and owns the outcome while the agents
@@ -154,11 +154,11 @@ philosophy](philosophy/OUR_PHILOSOPHY.md):
   it directly.
 
 The individual pages, if you want to go deeper on any one idea:
-[Reasons Why](philosophy/REASONS_WHY.md),
-[The Talmudic Method](philosophy/THE_TALMUDIC_METHOD.md),
-[Company Building Rules](philosophy/COMPANY_BUILDING_RULES.md),
-[AI Governance to Co-Create](philosophy/AI_GOVERNANCE_TO_COCREATE.md), and
-[Humans at Our Best](philosophy/HUMANS_AT_OUR_BEST.md).
+[Reasons Why](https://github.com/alex137/BestPractice/blob/staging/philosophy/REASONS_WHY.md),
+[The Talmudic Method](https://github.com/alex137/BestPractice/blob/staging/philosophy/THE_TALMUDIC_METHOD.md),
+[Company Building Rules](https://github.com/alex137/BestPractice/blob/staging/philosophy/COMPANY_BUILDING_RULES.md),
+[AI Governance to Co-Create](https://github.com/alex137/BestPractice/blob/staging/philosophy/AI_GOVERNANCE_TO_COCREATE.md), and
+[Humans at Our Best](https://github.com/alex137/BestPractice/blob/staging/philosophy/HUMANS_AT_OUR_BEST.md).
 
 ## Get Started
 
@@ -200,6 +200,6 @@ per-assistant setups: [documentation/MOBILE.md](documentation/MOBILE.md).
 Automatic repository checks:
 [documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md). Git in
 eight ideas: [documentation/GIT.md](documentation/GIT.md). Open items and roadmap:
-[todo/TODO.md](todo/TODO.md). Repository index for agents:
-[AGENTS.md](AGENTS.md). The pitch and how-to guides for people outside
+[todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md). Repository index for agents:
+[AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md). The pitch and how-to guides for people outside
 the project: [documentation/](documentation/).

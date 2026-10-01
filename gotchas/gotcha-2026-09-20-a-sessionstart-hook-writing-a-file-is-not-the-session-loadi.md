@@ -58,7 +58,7 @@ worked version is
 [templates/harness/claude-code/hooks/precedent-universal-catalogue.sh](../templates/harness/claude-code/hooks/precedent-universal-catalogue.sh),
 and the whole story — including the four reasons it survived seven days of
 fixes — is
-[spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
+[spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
 
 **Test it from outside the session**, since from inside there is no reliable
 way to tell what was loaded: run the hook and check that its stdout parses as

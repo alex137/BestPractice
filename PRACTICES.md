@@ -14,7 +14,7 @@ summary: The single-file, numbered catalogue that phase 1 converted into practic
 > **SUPERSEDED, and frozen at 53 practices since 2026-08-31.** This file was
 > the *source* for phase 1's conversion into one file per practice, and it
 > stopped being the catalogue the moment that conversion landed. **The live
-> catalogue is [practices/](practices/)**, indexed by [MAP.md](MAP.md); read
+> catalogue is [practices/](practices/)**, indexed by [MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md); read
 > a rule with `python3 tools/precedent_show.py SLUG`. Roughly twenty
 > practices minted since the conversion have never appeared here and never
 > will.
@@ -22,7 +22,7 @@ summary: The single-file, numbered catalogue that phase 1 converted into practic
 > **Why it is kept rather than deleted.** Every entry here carries prose the
 > per-practice files were split out of, and the numbering (`## 12.`) is cited
 > by `source_practice_number` in every converted file and by
-> [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md). It is a record, not a
+> [spec/CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md). It is a record, not a
 > leftover — which is exactly the distinction
 > [decommission-deletes-files](practices/decommission-deletes-files.md) draws
 > between a file with no remaining job and one whose job is to be read later.

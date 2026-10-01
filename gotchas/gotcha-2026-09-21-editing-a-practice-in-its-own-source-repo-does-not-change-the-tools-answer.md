@@ -75,7 +75,7 @@ local file's content when a resolved source supplies the same slug from a
 different path, and prints one line naming the slug, both paths and the
 winner. `--resolved-view` restores the old precedence deliberately. The item
 is closed:
-[todo/todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md](../todo/todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md).
+[todo/todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md).
 
 **The workaround above still earns its place**, for two reasons. Every other
 engine tool reads the resolved view *exclusively* — it never builds a local

@@ -62,7 +62,7 @@ write that one untracked, gitignored file.
 **Retired 2026-09-18.** `tools/precedent_resolve.py`'s `load_config()` now
 self-heals a stale or absent render on its own — `_self_heal_stale_render()`,
 added in commit `ef5838b1` (PR #452), built from the shape this entry's own
-brief, [`spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md`](../spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md),
+brief, [`spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md`](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md),
 recommended. The manual commands below are no longer necessary once a repo
 has taken that engine refresh; kept here, unedited, for a repo that hasn't
 yet and for the story of how the gap was found. Whether a given pack has the
@@ -105,6 +105,6 @@ which names this particular fix**:
 (the single-repo, rooted-one-directory-above case) and
 [`practices/session-bootstrap.md`](../practices/session-bootstrap.md)'s
 2026-09-18 addition (a session scoped to several repos from the start).
-[`todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md`](../todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md)
+[`todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md`](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md)
 tracks the underlying rollout as still open (`disposition: wait`); this
 entry is the manual workaround until that lands, not a substitute for it.

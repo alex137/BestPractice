@@ -224,7 +224,7 @@ commit days old — diverged from live origin — which then tripped the
 freshness guard and the Stop hook on every session as if real unpushed work
 existed. Recreating the environment cleared it that one time; whether the
 same environment drifts again on a schedule is still open
-([TODO.md's `check-default-cc-environment-staleness` item](../todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
+([TODO.md's `check-default-cc-environment-staleness` item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
 
 Add a fetch-and-fast-forward to the environment's **Setup command** field — same
 screen as the environment variables above — to bring the checkout current

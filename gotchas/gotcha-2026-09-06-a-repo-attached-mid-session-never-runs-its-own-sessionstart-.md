@@ -21,7 +21,7 @@ A repo attached mid-session never runs its own SessionStart hook, so
   repo only. A sibling attached with `add_repo` — which is how this repo
   is present whenever a dependent repo's session needs it for a vendor
   refresh or a check-in — is just a directory on disk: its
-  [.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh) is
+  [.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh) is
   never executed, no matter that it is committed, executable, and correct.
   2026-09-06, working here from a dependent repo's session:
   `python3 tools/verify_harness.py` reported `FAIL: every tool answers

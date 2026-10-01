@@ -51,7 +51,7 @@ account can hold two environments with the SAME NAME and the selector cannot
 tell them apart, which is what it was three times. The setting-up half of this
 now lives where someone setting the variables reads it,
 [PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)'s environment table; the three-day sequence is
-[record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) entry 29.
+[record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md) entry 29.
 
 ## Fix
 

@@ -35,7 +35,7 @@ control expects exit 0**. Three of the four wiring cases passed for exactly
 the wrong reason and only the positive case failed — and it failed silently
 for a further day, because the check itself had never been wired into the
 harness's own call list (see `check_every_verdict_returning_check_is_recorded`
-in [tools/verify_harness.py](../tools/verify_harness.py), widened the same
+in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py), widened the same
 day to catch that).
 
 ## Fix

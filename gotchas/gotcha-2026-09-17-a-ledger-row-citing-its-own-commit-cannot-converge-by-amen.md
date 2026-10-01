@@ -8,7 +8,7 @@ retires_when:    null
 ---
 ## Symptom
 
-Writing [templates/harness/LEDGER.md](../templates/harness/LEDGER.md)'s own row for the commit it belongs to, then running `git commit --amend --no-edit` to fold the row into that same commit (per the ledger's "in the same commit" rule), changes the commit's hash — which makes the row's own citation stale again. Amending a second time to fix the citation changes the hash a second time, and so on: the row is content inside the very object whose identity it names, so no amend can ever make it correct.
+Writing [templates/harness/LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md)'s own row for the commit it belongs to, then running `git commit --amend --no-edit` to fold the row into that same commit (per the ledger's "in the same commit" rule), changes the commit's hash — which makes the row's own citation stale again. Amending a second time to fix the citation changes the hash a second time, and so on: the row is content inside the very object whose identity it names, so no amend can ever make it correct.
 
 ## Story
 
@@ -19,7 +19,7 @@ citation needs to name.** Hit this 2026-09-17 finishing a commit that
 touched `commit-identity.sh`, two adapter READMEs, and a new
 [grok-build/README.md](../templates/harness/grok-build/README.md): committed first (hash `b475621f5`), added the
 required ledger row citing that hash, amended to fold the row in (per
-[templates/harness/LEDGER.md](../templates/harness/LEDGER.md)'s own "add a
+[templates/harness/LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md)'s own "add a
 row here in the same commit" instruction) — new hash `73a4292eb`, row now
 stale. Fixed the citation and amended again — new hash `e956e66bf`, row
 stale again. The pattern repeats every time, because the object being

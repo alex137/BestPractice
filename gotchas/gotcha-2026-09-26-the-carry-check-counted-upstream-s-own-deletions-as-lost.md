@@ -59,7 +59,7 @@ In the tool ([tools/checkin.py](../tools/checkin.py), `_carry_check`), two mecha
    the base branch again. The file's own upstream history can.
 
 A line upstream never had is still refused and named. Pinned by
-[tools/verify_harness.py](../tools/verify_harness.py)'s `check_carry_check_never_counts_upstream_deletions`,
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s `check_carry_check_never_counts_upstream_deletions`,
 which fails five of its six original cases against the first fix, and its two newest against the second.
 **A consumer gets the fix on its next Update Vendors**; until then a
 refusal of this shape is almost certainly this bug, and running the new

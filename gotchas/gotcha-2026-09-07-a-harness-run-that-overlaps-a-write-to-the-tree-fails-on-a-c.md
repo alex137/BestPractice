@@ -17,7 +17,7 @@ A harness run that overlaps a write to the tree fails on a change
 
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**
-  [tools/verify_harness.py](../tools/verify_harness.py) reads the tree as it
+  [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) reads the tree as it
   goes, over more than a hundred checks and several minutes. On 2026-09-07 a
   run came back `1 failed` because a negative-control test — for a fix being
   made in that same session — had briefly planted a failing check into

@@ -29,7 +29,7 @@ reason and says so in one line among fifty.
 imports it at module level, so `--help` exits 1 and the deck engine cannot
 render `.md` slides.
 
-**Where it actually bites is [tools/verify_harness.py](../tools/verify_harness.py),
+**Where it actually bites is [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py),
 which does NOT degrade.** It fails the checks that need them, and each failure
 describes what it was *testing* — strikethrough cases, a planted
 `doc-references-are-links` violation, a `--help` sweep across 56 tools — never
@@ -41,13 +41,13 @@ again in the closing recap, so the shortest reading of its output says
 "environment", not "your diff".
 
 **Both are installed by
-[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh)** (only
+[.claude/hooks/session-start.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/session-start.sh)** (only
 when `CLAUDE_CODE_REMOTE=true` — a local shell has to do it), and by both CI
 workflows. **So a container missing them is telling you the hook never ran**,
 which is a much larger fact than two absent packages: the same session had
 neither the generated session-practices file the private sources write, nor
 the commit backstop. That session
-was rooted one directory ABOVE this repository — see [g17](../record/GOTCHAS.md#g17) — so none of
+was rooted one directory ABOVE this repository — see [g17](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g17) — so none of
 its hooks fired, silently. [`python3 tools/precedent_session_check.py`](../tools/precedent_session_check.py) reports
 all of those guarantees at once, and its packages row now names `pip install`
 as the remedy rather than `--apply`, because `--apply` re-runs the hook that

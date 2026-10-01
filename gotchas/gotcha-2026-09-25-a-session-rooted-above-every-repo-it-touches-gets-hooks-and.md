@@ -25,11 +25,11 @@ them `$CLAUDE_PROJECT_DIR`.
 
 **Every hook, in every repo, all session.** `$CLAUDE_PROJECT_DIR` was empty
 the whole time; neither `/home/user/.claude` nor `/root/.claude/settings.json`
-existed. [commit-identity.sh](../.claude/hooks/commit-identity.sh),
-[freshness-guard.sh](../.claude/hooks/freshness-guard.sh),
-[doc-lint-gate.sh](../.claude/hooks/doc-lint-gate.sh),
-[push-check-gate.sh](../.claude/hooks/push-check-gate.sh) and
-[precedent-paths.sh](../.claude/hooks/precedent-paths.sh) -- SessionStart
+existed. [commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/commit-identity.sh),
+[freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh),
+[doc-lint-gate.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/doc-lint-gate.sh),
+[push-check-gate.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/push-check-gate.sh) and
+[precedent-paths.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/precedent-paths.sh) -- SessionStart
 and PreToolUse alike -- never fired, for any of the four repos. The
 existing gotcha
 ([The session's PRIMARY repo does not run its SessionStart hooks either](gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md))
@@ -45,7 +45,7 @@ per-repo override. It started the session as `Claude <noreply@anthropic.com>`
 (the harness's default signing identity). Hand-running `commit-identity.sh`
 fixed it to the session's own resolved individual identity (name and email,
 per the identity resolution order in
-[commit-identity.sh](../.claude/hooks/commit-identity.sh)) and turned off
+[commit-identity.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/commit-identity.sh)) and turned off
 `commit.gpgsign`. Later in the *same* session, with no `git config` command
 run in between, the same global file was back to
 `Claude <noreply@anthropic.com>` when checked from a different repo.
