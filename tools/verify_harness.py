@@ -29676,6 +29676,87 @@ def check_repo_reference_allowlist():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_leak_gate_honors_a_declared_public_email_domain():
+    """An address at a domain its owner declared public passes the email rule.
+
+    2026-10-01: a public browser add-on's Firefox ID must be shaped like an
+    address, and its real one sat at its owner's domain, in the manifest and
+    in the store-listing copy. The built-in "an email address" rule refused
+    every push, and nothing a consuming repo could declare reached it. The
+    owner decided the domain is public; this is that decision, written once
+    in the person's own blocklist, reaching the content rule and nothing
+    else.
+    """
+    import tempfile
+    gate = ROOT / 'tools' / 'leak_gate.py'
+    if not gate.exists():
+        not_applicable('the leak gate honors a declared public email domain',
+                       'tools/leak_gate.py is not present here')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import importlib
+    lg = importlib.import_module('leak_gate')
+
+    def email_hits(text, domains, blocklist=()):
+        hits = lg.scan([('f.json', 'f.json', text)], list(blocklist),
+                       private_names=set(), structural_exempt={},
+                       public_email_domains=domains)
+        return [h for h in hits if h[2] == 'an email address' or
+                h[2].startswith('blocklist')]
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        bl = pathlib.Path(td) / 'blocklist.txt'
+        bl.write_text(
+            '# leak-gate: public-email-domain owner-domain.org -- '
+            'the owner publishes it\n'
+            '# leak-gate: public-email-domain no-reason.org --\n',
+            encoding='utf-8')
+        doms = lg.parse_public_email_domains(bl)
+        cases.append(('the declaration parses, with its reason',
+                      doms.get('owner-domain.org') == 'the owner publishes it'))
+        cases.append(('a declaration with no reason declares nothing',
+                      'no-reason.org' not in doms))
+        cases.append(('and the gate refuses that line as unparsed',
+                      [n for n, _l, _w in lg.repo_policy_errors(bl)] == [2]))
+
+        # The prefix is the rollout: an engine that predates the directive
+        # must read the line as a comment, never as an unparsed
+        # `visibility-audit:` directive, or one line in a person's list
+        # fails every older repo's push check.
+        cases.append(('the directive does not wear the visibility-audit '
+                      'prefix older engines refuse when unknown',
+                      not any(lg.VIS_AUDIT_ANNOUNCE_RE.match(l.strip())
+                              for l in bl.read_text().splitlines())))
+
+        # Every address is assembled here, never written whole: this file
+        # is in a public tree, and a whole one would trip the rule it tests.
+        at = '@'
+        addon = '"id": "an-addon' + at + 'owner-domain.org"'
+        cases.append(('undeclared, the address is refused',
+                      len(email_hits(addon, {})) == 1))
+        cases.append(('declared, the address passes',
+                      email_hits(addon, doms) == []))
+        cases.append(('a subdomain of a declared domain passes',
+                      email_hits('x' + at + 'mail.owner-domain.org', doms) == []))
+        cases.append(('another domain is still refused',
+                      len(email_hits('x' + at + 'other-domain.org', doms)) == 1))
+        cases.append(('a lookalike ending is still refused',
+                      len(email_hits('x' + at + 'notowner-domain.org', doms)) == 1))
+        cases.append(('the declared domain inside a longer one is still refused',
+                      len(email_hits('x' + at + 'owner-domain.org.evil.io', doms)) == 1))
+        banned = [re.compile(r'owner-domain\.org')]
+        cases.append(('a blocklist term naming the domain still refuses it',
+                      len(email_hits(addon, doms, banned)) == 1))
+        cases.append(('scan with no declaration argument refuses, as before',
+                      len([h for h in lg.scan([('f', 'f', addon)], [],
+                                              private_names=set(),
+                                              structural_exempt={})
+                           if h[2] == 'an email address']) == 1))
+    for name, ok in cases:
+        check(f'leak gate public email domain: {name}', ok)
+
+
 def check_leak_gate_scans_the_consuming_repo():
     """The leak gate scans the repo it is INSTALLED IN, not its own vendor dir.
 
@@ -51641,6 +51722,7 @@ def main():
     check_tier_branches_are_never_a_pull_requests_source()
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
+    check_leak_gate_honors_a_declared_public_email_domain()
     check_update_refuses_while_a_branch_is_pinned()
     check_carry_check_never_counts_upstream_deletions()
     check_bare_sync_warning_ignores_prose_mentions()

@@ -121,3 +121,17 @@
 #
 # A REASON IS MANDATORY on every allow line. An accepted exposure nobody
 # argued for is the same silence this whole file exists to replace.
+
+# --- YOUR EMAIL DOMAIN, if it is public -----------------------------------
+# The gate's built-in rule refuses every email address. If your own domain
+# is public and a repository you work in carries an address there on
+# purpose -- a browser add-on's Firefox ID has to be shaped like one -- say
+# so once, here, with a reason:
+#
+#   # leak-gate: public-email-domain YOUR-DOMAIN.EXAMPLE -- why it is public
+#
+# (Doubly commented for the same reason as the allow line above.) Addresses
+# at that domain and its subdomains then pass the email rule in every repo
+# whose gate reads this file; a pattern above that names the domain still
+# refuses it. An engine older than this directive reads the line as a
+# comment and keeps refusing the address until that repo's next update.
