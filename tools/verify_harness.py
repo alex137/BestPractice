@@ -3067,17 +3067,21 @@ def check_whats_new_log_mechanics():
         no_line = good.replace(pwn.HEADLINE, '**Merges got safer.**')
         no_bold = good.replace('**A change**', 'A change')
         backticked = good.replace('safer-merges', '`safer-merges`')
+        mid_bold = good.replace('**A change** (a name)', 'A **change** (a name)')
         cases.append(('an entry in the shape passes, and the old shape, a wrong '
                       'weekday, a summary headline, a bullet with no bold key '
-                      'phrase and a backticked slug are each flagged',
+                      'phrase, one whose bold is mid-sentence and a backticked '
+                      'slug are each flagged',
                       pwn.shape_problems(good) == []
                       and len(pwn.shape_problems(old)) == 3
                       and len(pwn.shape_problems(wrong_day)) == 1
                       and len(pwn.shape_problems(no_line)) == 1
                       and len(pwn.shape_problems(no_bold)) == 1
-                      and len(pwn.shape_problems(backticked)) == 1,
+                      and len(pwn.shape_problems(backticked)) == 1
+                      and len(pwn.shape_problems(mid_bold)) == 1,
                       str([pwn.shape_problems(t) for t in
-                           (good, old, wrong_day, no_line, no_bold, backticked)])))
+                           (good, old, wrong_day, no_line, no_bold, backticked,
+                            mid_bold)])))
         import title_case as _tc
         kept = _tc.title_case('Wednesday 2026-09-30: safer-merges')
         compound = _tc.title_case('a lock-in for safer-merges')

@@ -6679,7 +6679,8 @@ def _headline_capitalization(ctx):
 @check('whats-new', 'change',
        'a changed What\'s New log has every entry in the shape: a heading '
        '"<Weekday> <date>: <slug>" whose weekday is the date\'s own, the '
-       'fixed opening line word for word, a bold key phrase in every bullet, '
+       'fixed opening line word for word, every bullet opening with a bold '
+       'key phrase, '
        'and no approver named',
        'whether the bullets are the day\'s most noteworthy changes, whether '
        'a figure is real, whether every missing day was written and the '

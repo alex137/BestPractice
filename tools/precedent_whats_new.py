@@ -47,7 +47,7 @@ AN ENTRY'S SHAPE is fixed where it can be checked: a heading
 a few lowercase words joined by hyphens, plain text at the date's size,
 not a link -- title_case.DATED_SLUG_HEADING, which also keeps the
 headline-capitalization check off it), then HEADLINE as its first line,
-word for word, then bullets that each carry a bold key phrase.
+word for word, then bullets that each open with a bold key phrase.
 
 Standard library and precedent_time only, so it runs in any repo that
 vendors the engine (practice: whats-new).
@@ -74,8 +74,10 @@ HEADLINE = ("Some top highlights from the day's activity; ask if you want to lea
 WEEKDAYS = title_case.WEEKDAYS
 ENTRY_HEADING = re.compile(r'^## (?P<rest>.*)$')
 HEADING_SHAPE = title_case.DATED_SLUG_HEADING
-# A bullet's key phrase is bold, so a skimmer reads the spine of the day.
-BOLD_PHRASE = re.compile(r'\*\*[^*\s][^*]*\*\*')
+# A bullet OPENS with its key phrase in bold, so a skimmer reads the spine
+# of the day down the left edge. Bold mid-sentence was tried first and was
+# easy to miss on the page.
+BOLD_OPENING = re.compile(r'^- \*\*[^*\s][^*]*\*\*')
 HEADER = ("# What's New\n\n"
           "A running log of what changed in this project, newest first: one "
           "entry per day on which something did.\n")
@@ -266,8 +268,8 @@ def heading_for(day, slug='<slug>'):
 def shape_problems(text):
     """-> [(line number, problem)] for entries not in the fixed shape: a
     heading `## <Weekday> <date>: <slug>` whose weekday is the date's own,
-    then HEADLINE as the first line under it, then bullets that each carry
-    a bold key phrase."""
+    then HEADLINE as the first line under it, then bullets that each open
+    with a bold key phrase."""
     lines = (text or '').splitlines()
     out = []
     for i, line in enumerate(lines):
@@ -294,8 +296,8 @@ def shape_problems(text):
         for j in range(i + 1, len(lines)):
             if ENTRY_HEADING.match(lines[j]):
                 break
-            if lines[j].startswith('- ') and not BOLD_PHRASE.search(lines[j]):
-                out.append((j + 1, 'bullet has no bold key phrase'))
+            if lines[j].startswith('- ') and not BOLD_OPENING.match(lines[j]):
+                out.append((j + 1, 'bullet does not open with its key phrase in bold'))
     return out
 
 
@@ -424,8 +426,8 @@ def main(argv):
         if days:
             print(f'\nWrite one entry per day above, newest first: the heading as '
                   f'shown with a slug in place of <slug>, then this line word for '
-                  f'word, then about three bullets, each with its key phrase in '
-                  f'bold:\n  {HEADLINE}')
+                  f'word, then about three bullets, each opening with its key phrase '
+                  f'in bold:\n  {HEADLINE}')
         print(f'\nThen run: python3 tools/precedent_whats_new.py --mark {last}'
               f'{" && python3 tools/precedent_whats_new.py --check" if days else ""}')
         return 0

@@ -30,7 +30,9 @@ approved_by: "Morgan, 2026-09-30 -- the plan from a brainstorm session, the entr
   again 2026-10-01: the slug in plain text, the size of the date beside it
   (in a code span one viewer showed it far larger); the opening line
   reworded; a bold key phrase in every bullet; and all of it enforced.
-  \"Act.\""
+  \"Act.\" Then: the bold phrase opens each bullet, since mid-sentence it
+  was not seen; every change asked for in the session a practice, applied
+  to the entries already there."
 strength:    decided
 ---
 ## Rule
@@ -75,9 +77,10 @@ important of those, the same way.
   day's activity; ask if you want to learn more details or the full list
   of everything done."* Never a sentence summing up the bullets: in
   something this short it only says them twice.
-- **About three bullets, each with its key phrase in bold**, so a skimmer
-  can read the day from the bold alone
-  ([bold-key-phrases](bold-key-phrases.md)). Each says the change plainly
+- **About three bullets, each opening with its key phrase in bold**, so a
+  skimmer reads the day down the left edge from the bold alone
+  ([bold-key-phrases](bold-key-phrases.md)). Bold in the middle of a
+  sentence is easy to miss on the page; the phrase leads. Each says the change plainly
   first, then the technical version in parentheses, with a real figure or a real technical
   name: *"**The instructions every session reads first got much shorter** (the
   opening of AGENTS.md went from about 3,460 tokens to about 980)."* Lead
@@ -87,8 +90,8 @@ be real, not exact ([no-invented-specifics](no-invented-specifics.md)).
 **Never name who approved or signed off on anything.**
 
 **The shape is enforced.** `python3 tools/precedent_whats_new.py --check`
-flags an entry whose heading, weekday, opening line or bullets are off the
-shape, or that names an approver, and the push check runs the same test
+flags an entry whose heading, weekday, opening line or bullets (each
+opening in bold) are off the shape, or that names an approver, and the push check runs the same test
 on any change to the log, so an entry out of shape cannot land. An older
 entry it flags is rewritten into the shape once. The reply check refuses
 a reply that shows the log without the log's link on its first line.
