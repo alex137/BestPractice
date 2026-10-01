@@ -113,9 +113,10 @@ used to read on turn one.
   handed-off work, that repository's routine branch and its own checks
   passing.
 - **"Root issues"** / **"Root fixes"** ([root-issues](../practices/root-issues.md))
-  — look back over **everything this session has done**, warnings included,
-  and hand back every bug, issue or warning whose cause lives in Precedent
-  or a precedent-* repo, **each as a `Prompt Please` block**. Ones he may
+  — look back over **everything this session has done**, warnings and its
+  own fixes and band-aids included, and hand back each one that also
+  belongs in Precedent, a precedent-* repo, the template that generates the
+  file, or another related repo, **each as a `Prompt Please` block**. Ones he may
   already have passed on are given anyway, marked if this session raised
   them before; none found is said in one line. It replaced **"Upstream
   fix"** on 2026-10-01: whether a fix removes its cause is now answered for

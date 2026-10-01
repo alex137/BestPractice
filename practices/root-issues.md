@@ -5,13 +5,13 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, about the whole session so far -- no file path reaches it. Routed by the occasion index and the `reply` gate. Decided: 2026-10-01, when the practice landed."
-occasion:    "a person says \"Root issues\" or \"Root fixes\", or asks what this session found that should go back to Precedent"
+occasion:    "a person says \"Root issues\" or \"Root fixes\", or asks what this session found or fixed that should go back upstream"
 gates:       ["reply"]
 gates_why:   "The whole obligation is one reply: every finding from the session that belongs upstream, each as a Prompt Please block, or a plain none."
 index_clause: "what this session hit that belongs upstream, each as a Prompt Please"
 checked_by:  null
 defines:     ["Root issues", "Root fixes"]
-command:     {"Root issues": "Look back over everything this session has done so far and hand you every bug, issue or warning it ran into that should be fixed in Precedent or one of the precedent-* repos, each as a paste-ready Prompt Please -- including ones you may already have passed on from another session.", "Root fixes": "The same as **Root issues**."}
+command:     {"Root issues": "Look back over everything this session has done so far -- every bug, issue or warning it ran into, and every fix or band-aid it applied -- and hand you each one that should also be fixed in Precedent, a precedent-* repo, the template that generates the file, or another related repo, each as a paste-ready Prompt Please -- including ones you may already have passed on from another session.", "Root fixes": "The same as **Root issues**."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -20,7 +20,10 @@ added:       "2026-10-01"
 approved_by: "Morgan, 2026-10-01 -- coined both names and wrote the meaning
   himself, in the message that retired \"Upstream fix\" as a command:
   \"let's remove or replace it with something like 'Root issues' or maybe
-  'Root fixes' or maybe one as a synonym for the other\""
+  'Root fixes' or maybe one as a synonym for the other\"; widened by
+  Morgan the same day to take in the fixes and band-aids a session applied
+  and the templates and related repos they reach, by replacing the
+  quoted paragraph with his new wording"
 strength:    decided
 ---
 ## Rule
@@ -35,20 +38,35 @@ this:
 > warning upstream? I might have already given some that you mentioned
 > before, and I might have encountered similar issues in other simultaneous
 > sessions and already passed it upstream, but maybe not. If there are any,
-> then give them to me as a Prompt Please.
+> then give them to me as a Prompt Please. This includes looking at fixes
+> and band-aids you applied here, that would apply to other repos,
+> including the original templates that generate other files and in
+> other, related repos.
 
 **The whole session, not the last change.** Go back over every turn: tool
 output, hook output at session start, check results, a warning that scrolled
 past and was never mentioned, a rule that steered you wrong, a step you had
 to work around. A warning counts as much as a failure; the question is
-whether its cause lives in Precedent (BestPractice, the engine every repo
-vendors) or a precedent-* source, not how loud it was.
+whether its cause lives somewhere other than here, not how loud it was.
 
-**Upstream means those repositories.** A bug in the repo this session works
-in, with its cause there too, is ordinary work, not a root issue. A
-vendored copy is upstream's: fixing the copy here does not fix it, and the
-next `Update Vendors` brings it back
-([upstream-fix](upstream-fix.md)).
+**Your own fixes count too, band-aids above all.** Every fix this session
+made or recommended gets the same question: does it also belong somewhere
+else? A band-aid applied here is the clearest case, since by definition
+its root is still open.
+
+**Upstream means anywhere the same fix also belongs**, in at least these
+places:
+- **Precedent** (BestPractice, the engine every repo vendors) and the
+  **precedent-* practice sets**;
+- **the original template** a file here was generated or copied from,
+  wherever it lives;
+- **other, related repos** that carry the same file, the same mistake or
+  the same template's output.
+
+A bug in the repo this session works in, with its cause there too and
+nowhere else, is ordinary work, not a root issue. A vendored or generated
+copy is its origin's: fixing the copy here does not fix it, and the next
+update brings it back ([upstream-fix](upstream-fix.md), points 2 and 8).
 
 **Include the ones that may already be known.** The person may have passed
 the same thing on from this session or another one. Say so on the item when
@@ -76,7 +94,8 @@ this session cannot do.
 **This is not [upstream-fix](upstream-fix.md).** That practice is about the
 fix in front of the session and applies to every fix it reports, asked or
 not. Root issues looks back over the whole session for anything whose cause
-lives upstream, fixed or not, and returns it as handoffs.
+or fix belongs elsewhere, fixed here or not, and returns it as handoffs; it
+is the sweep that catches what upstream-fix missed at the time.
 
 ## Why
 A session working in a consuming repository runs into Precedent's bugs as
@@ -96,6 +115,14 @@ asking instead, by pasting the same paragraph into session after session,
 was the question quoted above. He offered "Root issues" and "Root fixes"
 and left it open which was the synonym; the session that built this made
 "Root issues" the main name, as the one he listed first. Strength: decided.
+
+**Widened the same day.** Morgan replaced the quoted paragraph with a
+longer one adding *"fixes and band-aids you applied here, that would apply
+to other repos, including the original templates that generate other files
+and in other, related repos."* The first version only looked for problems
+whose cause was in Precedent; a session's own band-aids, and the templates
+and sibling repos they also apply to, are where the cause most often stays
+behind. Strength: decided.
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether

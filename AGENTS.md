@@ -56,8 +56,9 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   paste-ready block for a new session, never a session-creating tool; no
   merge authorization unless he gave one for this handoff.
 - **"Root issues"** / **"Root fixes"** ([root-issues](practices/root-issues.md))
-  — every bug, issue or warning this session hit whose cause lives in
-  Precedent or a precedent-* repo, each as a Prompt Please block.
+  — every bug, warning, fix or band-aid from this session that also belongs
+  in Precedent, a precedent-* repo, a template or a related repo, each as a
+  Prompt Please block.
 - **"My options"** ([my-options](practices/my-options.md)) — every real
   choice in plain words, costs said flatly, then your pick and why.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — read the list
@@ -231,7 +232,7 @@ When a person says "Produce", "Make live" or "Promote 5":
   produce — stage 5: Promote staging into main (production); read strictly
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
-When a person says "Root issues" or "Root fixes", or asks what this session found that should go back to Precedent:
+When a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream:
   root-issues — what this session hit that belongs upstream, each as a Prompt Please
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance

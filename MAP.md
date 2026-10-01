@@ -127,7 +127,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [review-against-a-contract](practices/review-against-a-contract.md) | on-demand | reviewing code that decides what is skipped, cached, held or refused |
-| [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues" or "Root fixes", or asks what this session found that should go back to Precedent |
+| [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
 | [rule-level-by-reach](practices/rule-level-by-reach.md) | on-demand | deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal |
 | [scripts-assert-properties](practices/scripts-assert-properties.md) | on-demand | writing a script whose numbers a document will cite |
