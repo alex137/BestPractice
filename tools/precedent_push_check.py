@@ -144,7 +144,10 @@ TAIL_LINES = 40
 # tail alone can hold nothing but noise. On 2026-09-25 a merge gate refused a
 # consumer's pull request over one unbumped version header, and the session it
 # refused could not see why: all forty lines it was shown said SKIPPED.
-FINDING = re.compile(r'^\s*(VIOLATION|ERROR|FAIL(ED|URE)?)\b')
+# A tool name or SHARD may come first: the harness's isolated run prints
+# "SHARD FAILED" and "verify_harness FAIL: ..." for a shard that broke, and
+# until 2026-09-30 neither was picked, so a full check failed naming nothing.
+FINDING = re.compile(r'^\s*(?:[\w.-]+ )?(VIOLATION|ERROR|FAIL(ED|URE)?)\b')
 FINDING_LINES = 30
 
 

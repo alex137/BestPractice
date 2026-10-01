@@ -304,14 +304,14 @@ bills for roughly one full run instead of one per push.
 
 **Checked, directly in this repo's templates:**
 
-- `templates/github-actions/doc-lint.yml.template` **already has it**
+- `templates/github-actions/doc-lint.yml.template` (retired 2026-09-21) **already had it**
   (`group: docs-${{ github.ref }}`, `cancel-in-progress: true`, added
   2026-09-15) — its own comment is honest about the limit: the job runs
   "well under a minute," so it only helps when two pushes land close enough
   together to actually overlap, which is the burst case and not the steady
   drip case (that's what item 4's debounce is for).
 - `templates/github-actions/precedent-check.yml.template` and
-  `templates/github-actions/views-drift.yml.template` **do not have it** —
+  `templates/github-actions/views-drift.yml.template` (retired 2026-09-19) **did not have it** —
   a real gap, and the more valuable one of the two: `precedent-individual`
   alone spent 218 minutes across `views-drift.yml`, `commit-identity.yml`,
   and `precedent-check.yml` in this window, and the three team repos spent

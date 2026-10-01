@@ -67,7 +67,10 @@ loud, not one:
    landing branch, whether it ships, and the rule in
    [tools/checkin.py](../tools/checkin.py)'s `VENDORING_RULES` that says so.
    **A file ships only if a consumer runs it, instantiates it, or its
-   people read it to adopt and use Precedent.** How this repo is built
+   people read it to adopt and use Precedent. Ship the machinery, never
+   this project's own records:** a consumer gets the tools that keep an
+   open-items list and a news log, and keeps its own; it never gets our
+   todo items or our What's New (Morgan, 2026-09-30). How this repo is built
    stays here: plans, open items, decisions, reasoning, tests, run
    records, environment traps, repo-local rules, its own settings and
    instructions. For each SHIPS line, say whether that holds; when it does

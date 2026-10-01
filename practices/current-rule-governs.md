@@ -33,7 +33,18 @@ read them to decide whether to do what was just asked.
 want to. **Never decline silently:** if you are not doing what was asked,
 the first line of the reply says so, and why.
 
+**When obeying a rule to the letter would leave something broken or wrong,
+ask, with your pick.** Never comply silently and never override silently.
+
 ## Detail
+**Asking when the letter is wrong** (Morgan, 2026-09-30). A session left two
+workflow templates with dead paths because a rule said a workflow is never
+edited without his words, a rule written to stop new CI minutes, not fixes:
+*"In ambiguous cases like this, you should decide what is best and if you
+think my rule contradicts what you think is best then ASK ME."* A rule's
+purpose decides the ambiguous case. Where the purpose and the letter
+plainly part, the person hears it, with what you would do.
+
 **Finding the rule in force.** Through the loader this is already done for
 you: the occasion index lists every command, and
 [tools/precedent_show.py](../tools/precedent_show.py) prints a

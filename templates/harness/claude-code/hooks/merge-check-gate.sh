@@ -121,8 +121,7 @@ sys.stdout.write("".join(out))
 esac
 
 engine=""
-for candidate in "$project_dir/tools/precedent_merge_check.py" \
-                 "$project_dir/process/upstream/tools/precedent_merge_check.py"; do
+for candidate in "$project_dir/tools/precedent_merge_check.py"; do
     if [[ -f "$candidate" ]]; then
         engine="$candidate"
         break

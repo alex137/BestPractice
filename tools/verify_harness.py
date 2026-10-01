@@ -463,6 +463,15 @@ def _ref_including_worktree(repo):
         if tree_sha == head_tree:
             return head_sha  # clean tree -- nothing uncommitted to capture
 
+        # Its own identity: the commit is never pushed or checked out, and a
+        # bare runner (the isolated --as-ci run, GitHub's) has none to give
+        # it. Found 2026-09-30: shards share one checkout, a file one shard
+        # wrote for a moment made another's tree read as dirty, and
+        # commit-tree failed with "Author identity unknown" -- a full check
+        # that failed without naming a test.
+        env.update(GIT_AUTHOR_NAME='verify_harness', GIT_AUTHOR_EMAIL='harness@localhost',
+                   GIT_COMMITTER_NAME='verify_harness',
+                   GIT_COMMITTER_EMAIL='harness@localhost')
         commit = _git('commit-tree', tree_sha, '-p', head_sha, '-m',
                       'verify_harness: scratch snapshot of the working tree '
                       '(never pushed, never checked out)', env=env)
@@ -2451,6 +2460,37 @@ def check_bootstrap_local_steps_run_and_dead_lines_are_named():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_update_written_files_name_no_mirrored_engine():
+    """A file only an update writes names no `process/upstream/tools/`
+    path: every update since the catalogue copy left tools/ out removes that
+    directory, so a fallback to it is dead text (2026-09-30, found by a
+    consumer's session reading its own bootstrap.sh). The individual-set
+    hook is different: it also arrives by a set's sync, which can reach a
+    repo that has not updated, so it keeps the fallback -- but tries the
+    repo's own tools/ first."""
+    cases = []
+    for rel in ('templates/bootstrap.sh',
+                'templates/harness/claude-code/hooks/push-check-gate.sh',
+                'templates/harness/claude-code/hooks/merge-check-gate.sh',
+                'templates/github-actions/light-check.yml.template',
+                'templates/harness/codex/README.md',
+                'templates/harness/gemini-cli/README.md'):
+        hits = [n for n, l in enumerate((ROOT / rel).read_text(
+                    encoding='utf-8').splitlines(), 1)
+                if 'process/upstream/tools/' in l and not l.lstrip().startswith('#')]
+        cases.append((f'{rel} runs nothing from process/upstream/tools/',
+                      not hits, f'lines {hits}'))
+    hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
+            'individual-source-bootstrap.sh.template').read_text(encoding='utf-8')
+    engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-\.\}/(\S+?)"', hook, re.M)
+    cases.append(('the individual-set hook tries tools/ before the mirror',
+                  engines[:1] == ['tools/precedent_source_bootstrap.py'], str(engines)))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'files only an update writes run no mirrored engine '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_rename_links_leaves_dated_records_alone():
     """rename-updates-links leaves history alone: a generated view, a closed
     todo item, a `## Story` section and a declared record file each name a
@@ -2521,6 +2561,228 @@ def check_rename_links_leaves_dated_records_alone():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'rename-updates-links leaves dated records alone, and still reads live text '
           f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_worktree_snapshot_needs_no_git_identity():
+    """_ref_including_worktree() snapshots a dirty tree with no git identity
+    anywhere -- empty $HOME, no global or system config -- the shape of the
+    isolated --as-ci run and of GitHub's runner (2026-09-30: a full check
+    failed with "Author identity unknown" and named no test)."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='snapshot-identity-'))
+    saved = {k: os.environ.get(k) for k in ('HOME', 'GIT_CONFIG_NOSYSTEM',
+                                              'GIT_CONFIG_GLOBAL', 'GIT_AUTHOR_NAME',
+                                              'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME',
+                                              'GIT_COMMITTER_EMAIL', 'EMAIL')}
+    try:
+        repo = tmp / 'r'
+        repo.mkdir()
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env)
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                        'user.email=t@t', 'commit', '-qm', 'base'], env=env)
+        (repo / 'b.txt').write_text('new\n', encoding='utf-8')
+        os.environ.update(HOME=str(tmp / 'empty-home'), GIT_CONFIG_NOSYSTEM='1',
+                          GIT_CONFIG_GLOBAL=os.devnull)
+        for k in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME',
+                  'GIT_COMMITTER_EMAIL', 'EMAIL'):
+            os.environ.pop(k, None)
+        try:
+            ref = _ref_including_worktree(repo)
+            ok, det = True, ref
+        except SystemExit as e:
+            ok, det = False, str(e)
+        cases.append(('a dirty tree is snapshotted with no identity configured',
+                      ok, det[-200:]))
+        if ok:
+            listed = subprocess.run(['git', '-C', str(repo), 'ls-tree', '--name-only',
+                                     ref], capture_output=True, text=True).stdout.split()
+            cases.append(('...and the snapshot holds the new file',
+                          'b.txt' in listed, str(listed)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    # ...and when a shard does fail, the push check's report names it.
+    import precedent_push_check as ppc
+    out = ['  SHARD FAILED (exit 1)', '  last 20 line(s) of its stderr:',
+           '      SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): check_x',
+           '    verify_harness FAIL: could not create a scratch commit: why',
+           '    *** Please tell me who you are.']
+    found = ppc._finding_lines(out)
+    cases.append(('the push check\'s report picks a failed shard and its reason',
+                  out[0] in found and out[3] in found and out[2] not in found,
+                  str(found), ))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the working-tree snapshot needs no git identity ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+
+def check_workflow_growth_needs_the_persons_words():
+    """ci-workflow-approved, everywhere: a change that makes a workflow or a
+    workflow template run more -- a new event, branch, type, schedule or
+    job, or a narrowing filter dropped -- is refused until the person's
+    words are pinned to its content; a fix that adds no CI work passes
+    (Morgan, 2026-09-30: permission is for adding workflows or CI minutes,
+    and "we clearly shouldn't have broken workflows"). Until then nothing
+    pinned BestPractice's own templates at all."""
+    import tempfile, hashlib
+    import precedent_check as pc
+    cases = []
+    base = ('on:\n  pull_request:\n    branches: [main]\n    types: [opened]\n'
+            '  push:\n    branches: [main]\n'
+            'jobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n'
+            '      - run: python3 tools/x.py\n')
+    for name, after, grows in (
+            ('a fixed path in a step', base.replace('tools/x.py', 'tools/y.py'), False),
+            ('a comment', '# why\n' + base, False),
+            ('a branch added', base.replace('branches: [main]\n    types',
+                                            'branches: [main, dev]\n    types'), True),
+            ('a type added', base.replace('[opened]', '[opened, synchronize]'), True),
+            ('a push filter dropped', base.replace('  push:\n    branches: [main]\n',
+                                                   '  push:\n'), True),
+            ('a schedule added', base.replace('  push:\n', '  schedule:\n    - cron: "0 3 * * *"\n  push:\n'), True),
+            ('a job added', base + '  more:\n    runs-on: ubuntu-latest\n', True),
+            ('an event removed', base.replace('  push:\n    branches: [main]\n', ''), False)):
+        got = pc._workflow_growth(base, after)
+        cases.append((f'{name}: {"grows" if grows else "adds no CI work"}',
+                      bool(got) == grows, str(got)))
+    cases.append(('a new workflow is all growth', bool(pc._workflow_growth(None, base)), ''))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='workflow-growth-'))
+    try:
+        repo = tmp / 'proj'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'ci-workflow-approved.md', up / 'practices')
+        cfg = {'sources': [{'level': 'universal', 'name': 'precedent',
+                            'path': 'process/upstream'}]}
+        (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        tpl = repo / 'templates' / 'github-actions' / 'w.yml.template'
+        tpl.parent.mkdir(parents=True)
+        tpl.write_text(base, encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def run():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'ci-workflow-approved'], cwd=str(repo),
+                               capture_output=True, text=True, env=env, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'work')
+        tpl.write_text(base.replace('tools/x.py', 'tools/y.py'), encoding='utf-8')
+        g('commit', '-qam', 'fix a path')
+        rc, out = run()
+        cases.append(('a template fix that adds no CI work passes', rc == 0, out[-300:]))
+        tpl.write_text(base + '  more:\n    runs-on: ubuntu-latest\n', encoding='utf-8')
+        g('commit', '-qam', 'add a job')
+        rc, out = run()
+        cases.append(('a template given a new job is refused, naming it',
+                      rc == 1 and 'job:more' in out, out[-400:]))
+        cfg['github_ci_approved'] = {'templates/github-actions/w.yml.template': {
+            'sha256': hashlib.sha256(tpl.read_bytes()).hexdigest(),
+            'approved_by': 'Dana, 2026-09-30: "yes, add the second job"'}}
+        (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        g('commit', '-qam', 'approved')
+        rc, out = run()
+        cases.append(('...and passes once the person\'s words are pinned to it',
+                      rc == 0, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a workflow change that adds CI work needs the person\'s words, and a '
+          f'fix does not ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_docs_name_no_path_this_repo_removed():
+    """change-updates-its-docs: a live document naming a path this repo's
+    history deleted is refused, in plain text and as a link to this repo's
+    own branch; history is left alone (2026-09-30: a session found a section
+    describing a retired workflow and left it, as "a doc fix, not a broken
+    path"). A path this repo never had -- a consumer's layout, another
+    repo's file -- is never flagged."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='removed-paths-'))
+    gone = 'docs/old/guide.md'
+    try:
+        repo = tmp / 'proj'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'change-updates-its-docs.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'process/upstream'}]}), encoding='utf-8')
+        (repo / gone).parent.mkdir(parents=True)
+        (repo / gone).write_text('old\n', encoding='utf-8')
+        files = {
+            'README.md': f'Read `{gone}` first.\n',
+            'docs/link.md': f'[guide](https://github.com/acme/widget/blob/main/{gone})\n',
+            'docs/other-repo.md': f'[theirs](https://github.com/else/where/blob/main/{gone})\n',
+            'docs/retired.md': f'`{gone}` (retired 2026-09-01) is gone.\n',
+            'docs/story.md': f'# X\n## Story\nWe read `{gone}`.\n',
+            'docs/plan.md': f'---\nkind: plan\nstatus: closed\n---\nEdit `{gone}`.\n',
+            'docs/consumer.md': 'A consumer keeps `local/practices/x.md`.\n',
+        }
+        for rel, text in files.items():
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(text, encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def run():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'change-updates-its-docs'], cwd=str(repo),
+                               capture_output=True, text=True, env=env, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('remote', 'add', 'origin', 'https://github.com/acme/widget')
+        rc, out = run()
+        cases.append(('nothing deleted yet: nothing to judge', rc == 0
+                      and 'README.md:1' not in out, out[-300:]))
+        g('rm', '-q', gone); g('commit', '-qm', 'delete the guide')
+        rc, out = run()
+        cases.append(('a live document naming the deleted path is refused',
+                      rc == 1 and 'README.md:1' in out, out[-400:]))
+        cases.append(('...and so is a link to it on this repo\'s own branch',
+                      'docs/link.md:1' in out, out[-400:]))
+        for rel, why in (('docs/other-repo.md', 'the same path in another repo'),
+                         ('docs/retired.md', 'a line that says it was retired'),
+                         ('docs/story.md', 'a Story section'),
+                         ('docs/plan.md', 'a closed document'),
+                         ('docs/consumer.md', 'a path this repo never had')):
+            cases.append((f'{why} is left alone', rel not in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a live document naming a path this repo removed is refused, and '
+          f'history is not ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
@@ -8854,6 +9116,29 @@ def check_changed_files_only_judges_the_change():
         git('checkout', '-q', start, '--', str(practice.relative_to(wt)))
         git('commit', '-qam', 'undo the materialized fixture')
 
+        # A deletion strands its mentions in files the change never touches.
+        # Those are still this change's doing, and must be refused here, not
+        # one stage later (2026-09-30: a consumer's Update Vendors passed
+        # Booked and the Debut into staging refused on about 15 files).
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        git('rm', '-q', 'documentation/CLOUD_SETUP.md')
+        git('commit', '-qm', 'delete a file other files cite')
+        rc, out = run_check(start)
+        cases.append(('a change that deletes a file an untouched file cites is refused',
+                      rc == 1 and 'rename-updates-links' in out
+                      and 'documentation/CLOUD_SETUP.md' in out, out[-800:]))
+        deleted = git('rev-parse', 'HEAD').stdout.strip()
+        # .gitignore cites nothing; README.md does, and a change touching it
+        # would rightly be refused for the mention it carries.
+        with open(wt / '.gitignore', 'a', encoding='utf-8') as f:
+            f.write('\n# an unrelated line\n')
+        git('commit', '-qam', 'touch another file after the deletion')
+        rc, out = run_check(deleted)
+        cases.append(('...and a later change that deletes nothing is not refused for it',
+                      rc == 0, out[-800:]))
+        git('checkout', '-q', start, '--', 'documentation/CLOUD_SETUP.md', '.gitignore')
+        git('commit', '-qm', 'undo the deletion fixture')
+
         # The file-level checks (checks-follow-the-tier): only the changed
         # files, and the views a changed practice feeds.
         def files_check(since):
@@ -13031,6 +13316,14 @@ def check_precedent_check_fires():
             git(repo, 'mv', 'spec/LOADER.md', 'spec/LOADER_MOVED.md')
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
+
+        # change-updates-its-docs -- a file deleted in an earlier commit,
+        # every document that names it left as it was. The unplanted
+        # fixture's history deletes nothing, so it has nothing to judge.
+        def _plant_removed_path(repo):
+            git(repo, 'rm', '-q', 'spec/LOADER.md')
+            git(repo, 'commit', '-qm', 'delete a file other documents name')
+        case('change-updates-its-docs', _plant_removed_path)
 
         # checks-use-generated-blocks -- a repo's own check that finds
         # generated text by spelling a marker itself, the shape a shared
@@ -25618,7 +25911,11 @@ def check_catalogue_copy_is_an_allowlist():
                  '.claude/settings.json', '.github/workflows/w.yml', 'MAP.md',
                  'WHERE_THINGS_ARE.md', 'TODO.md', 'AGENTS.md', 'spec/s.md',
                  'todo/t.md', 'templates/harness/LEDGER.md',
-                 'tools/verify_harness.py', 'something-new/n.md']
+                 'tools/verify_harness.py', 'something-new/n.md',
+                 # This project's own open items and news log: a consumer
+                 # gets the machinery (tools/, templates/) and writes its own
+                 # (Morgan, 2026-09-30).
+                 'WHATS_NEW.md', 'todo/INDEX.md']
         cases.append(('what a consumer uses is in the copy',
                       all(ck._in_copy(r) for r in goes),
                       [r for r in goes if not ck._in_copy(r)]))
@@ -25645,7 +25942,8 @@ def check_catalogue_copy_is_an_allowlist():
             src = tmp / 'src'
             for tree in (ck.UPSTREAM, src):
                 for rel in ('gotchas/g.md', 'local/l.md', 'tools/y.py',
-                            'practices/p.md'):
+                            'practices/p.md', 'todo/todo-x.md', 'TODO.md',
+                            'WHATS_NEW.md'):
                     (tree / rel).parent.mkdir(parents=True, exist_ok=True)
                     (tree / rel).write_text('upstream\n', encoding='utf-8')
             (ck.UPSTREAM / 'local' / 'l.md').write_text('ours\n', encoding='utf-8')
@@ -25653,7 +25951,9 @@ def check_catalogue_copy_is_an_allowlist():
                 dropped, kept = ck._drop_what_the_copy_no_longer_carries(tmp, src)
             cases.append(('what the copy no longer carries is removed when it '
                           'is upstream\'s text, and kept when edited here',
-                          sorted(map(str, dropped)) == ['gotchas/g.md', 'tools/y.py']
+                          sorted(map(str, dropped)) == ['TODO.md', 'WHATS_NEW.md',
+                                                        'gotchas/g.md', 'todo/todo-x.md',
+                                                        'tools/y.py']
                           and list(map(str, kept)) == ['local/l.md']
                           and (ck.UPSTREAM / 'practices' / 'p.md').is_file()
                           and not (ck.UPSTREAM / 'gotchas').exists(),
@@ -25666,6 +25966,11 @@ def check_catalogue_copy_is_an_allowlist():
                       {'checkin.py', 'practice_audit.py',
                        'precedent_local_edits.py'} <= set(pve.CONSUMER_ENGINE_FILES),
                       ''))
+        cases.append(('...and the machinery for a consumer\'s own open items and '
+                      'news log ships, though ours does not',
+                      {'build_todo_index.py', 'todo_migrate.py',
+                       'precedent_whats_new.py'} <= set(pve.CONSUMER_ENGINE_FILES)
+                      and ck._in_copy('templates/TODO.md.template'), ''))
     finally:
         ck.ROOT = saved
         shutil.rmtree(tmp, ignore_errors=True)
@@ -34319,9 +34624,12 @@ def check_ci_workflow_approved_pins_approval_to_content():
         cases.append(('an approval whose file is gone is reported',
                       rc != 0 and 'no longer exists' in out, out[-1500:]))
         rc, out = consumer('no-manifest', manifest=False)
-        cases.append(('CONTROL: no manifest (BestPractice\'s shape) is '
-                      'SKIPPED, never a pass or a crash',
-                      rc == 0 and 'SKIPPED' in out, out[-1500:]))
+        # Since 2026-09-30 a repo with no manifest is judged on growth only
+        # (a change that makes a workflow run more), so it runs, never
+        # crashes, and a repo whose change grows nothing passes.
+        cases.append(('CONTROL: no manifest (BestPractice\'s shape) is judged '
+                      'on growth only: no crash, and nothing grown passes',
+                      rc == 0 and 'Traceback' not in out, out[-1500:]))
 
         # Since 2026-09-27 the light check is an engine file like the leak
         # gate: shipped through CI_WORKFLOW_TEMPLATES, tracked in the
@@ -39223,6 +39531,20 @@ def check_push_check_skips_a_set_check_older_than_push_time_judging():
         shown = pu.tail(red)
         cases.append(('a red update report shows the finding, not the last '
                       'notices', 'commit 0123abcd' in shown, shown[-300:]))
+        # ...and every finding, never the first 22 then "..." (2026-09-30: a
+        # consumer's update ended FAILED three times running, each showing a
+        # few more stranded files than the last).
+        many = '\n'.join(['      | VIOLATION: rename-updates-links'] +
+                         [f'      |     doc{i}.md:3: still references x'
+                          for i in range(60)] + ['      notice'] * 40)
+        shown = pu.tail(many, repo=tmp)
+        saved = tmp / pu.FULL_OUTPUT_NAME
+        cases.append(('...every finding of it, not the first few',
+                      all(f'doc{i}.md:3' in shown for i in range(60)),
+                      shown[-300:]))
+        cases.append(('...and the whole output is saved, and named',
+                      saved.is_file() and saved.read_text() == many
+                      and pu.FULL_OUTPUT_NAME in shown, shown[-200:]))
         # ...and the stand-in itself carries a Session: trailer, because the
         # session-trailer check also runs inside precedent_check.py and in
         # the set's own test, which judge the commit and not the variable
@@ -43231,6 +43553,37 @@ def check_update_vendors_rehearsal_findings():
                       left[-800:]))
         cases.append(('...and nothing for a tool this repo already budgets',
                       'github_api_budgets.json: github_budget.py' not in left, ''))
+        # A consumer whose GLOSSARY.md build_views.py generates gets the full
+        # build after the sync, which renders the loader block only: a
+        # practice the update stopped materializing stayed linked from it,
+        # and the lint failed on the dead link (2026-09-30). A hand-written
+        # one is the repo's and is not rebuilt.
+        for name, header in (('generated-views', '---\ngenerated_by: '
+                              'tools/build_views.py\n---\n'),
+                             ('hand-views', '')):
+            repo = planted(name, tip)
+            (repo / 'tools' / 'precedent_sync_views.py').write_text(
+                'print("synced")\n', encoding='utf-8')
+            (repo / 'tools' / 'build_views.py').write_text(
+                'import pathlib\n'
+                'p = pathlib.Path("GLOSSARY.md")\n'
+                'p.write_text(p.read_text().replace("[Plan it](practices/plan-it.md)",'
+                ' ""))\n', encoding='utf-8')
+            (repo / 'GLOSSARY.md').write_text(
+                header + '# Glossary\n\n[Plan it](practices/plan-it.md)\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'views')
+            rc, text = run_update(repo)
+            linked = 'practices/plan-it.md' in (repo / 'GLOSSARY.md').read_text()
+            if header:
+                cases.append(('a consumer\'s generated GLOSSARY.md is rebuilt by the '
+                              'update, so a withdrawn practice is no longer linked',
+                              not linked and 'GLOSSARY.md, which build_views.py '
+                              'generates here' in text, text[-800:]))
+            else:
+                cases.append(('...and a hand-written one is left as it is',
+                              linked, text[-800:]))
         elsewhere = planted('landed-elsewhere', '1' * 40)
         rc, text = run_update(elsewhere)
         cases.append(('an engine that landed off the fetched tip FAILS, saying '
@@ -49636,6 +49989,10 @@ def main():
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
+    check_update_written_files_name_no_mirrored_engine()
+    check_docs_name_no_path_this_repo_removed()
+    check_workflow_growth_needs_the_persons_words()
+    check_worktree_snapshot_needs_no_git_identity()
     check_freshness_guard_checks_declared_sets()
     check_source_base_url_defaults_to_the_token_account()
     check_session_check_suggests_anchored_also_list()

@@ -28,7 +28,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [build-buy-decompose](practices/build-buy-decompose.md) | on-demand | deciding whether to build or buy a component |
 | [capture-gate](practices/capture-gate.md) | on-demand | merging a branch |
 | [catalogue-carries-stories](practices/catalogue-carries-stories.md) | on-demand | landing practices in bulk -- a migration, an import, or a move between sources |
-| [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism, a workflow or a behaviour that some document describes |
+| [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism some document describes, or finding a document that no longer matches what is true |
 | [check-source-architecture](practices/check-source-architecture.md) | on-demand | comparing an option against a baseline |
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
 | [checks-carry-a-declared-decline](practices/checks-carry-a-declared-decline.md) | on-demand | writing or changing a check that can report a deliberate state |
