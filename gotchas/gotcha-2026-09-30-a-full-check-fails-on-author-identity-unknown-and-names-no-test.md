@@ -42,5 +42,9 @@ The push check's report now picks `SHARD FAILED` and a line like
 that began with `FAIL`, so it showed nothing. **If a full check still fails
 naming no test, read the isolated run itself:**
 `python3 tools/verify_harness.py --as-ci --isolated`, and look for
-`SHARD FAILED`. The shard that briefly writes into the shared copy was not found;
-a full check that passes is the current evidence it does no harm.
+`SHARD FAILED`.
+
+The writer was the leak-probe check, which wrote `ZZ_leakprobe_fixture.md`
+into the shared copy while its gate ran. Another session found it the same
+night and moved those fixtures into a throwaway worktree (`3e7da369`), so
+the race and its cause are both closed.
