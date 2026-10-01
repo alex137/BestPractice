@@ -2999,7 +2999,8 @@ def check_whats_new_log_mechanics():
     repo's declared zone): a day with a change, an empty day, a day whose
     only commit touches the log itself, and a day that adds a document.
     Stated cases: the first run lists exactly the two real days, newest
-    document named; --mark covers them and a second run lists none; a day
+    document named, and names the quiet ones; an entry's heading carries
+    its weekday, and --check flags an entry not in the shape; --mark covers them and a second run lists none; a day
     that has not finished cannot be marked; the later of this checkout's
     log and main's is read; an entry naming an approval is flagged; the
     log never ships to another project."""
@@ -3047,6 +3048,28 @@ def check_whats_new_log_mechanics():
         got_back = [d.isoformat() for d, _ in back]
         cases.append(('--since backfills a first run from the day it names',
                       got_back == ['2026-08-01', '2026-09-05', '2026-09-08'], str(got_back)))
+        _tz, _t, _active, quiet = pwn.scan_days(repo, today=today)
+        got_quiet = [d.isoformat() for d in quiet]
+        cases.append(('a quiet day, and one whose only change is the log, is named '
+                      'as quiet rather than dropped silently',
+                      got_quiet == ['2026-09-03', '2026-09-04', '2026-09-06',
+                                    '2026-09-07', '2026-09-09'], str(got_quiet)))
+        cases.append(('a heading carries its weekday',
+                      pwn.heading_for(_dt.date(2026, 9, 30), 'a-slug')
+                      == '## Wednesday 2026-09-30: `a-slug`',
+                      pwn.heading_for(_dt.date(2026, 9, 30), 'a-slug')))
+        good = (f'## Wednesday 2026-09-30: `safer-merges`\n\n{pwn.HEADLINE}\n\n'
+                f'- A change (a name)\n')
+        old = '## 2026-09-30\n\n**A summary of the bullets.**\n\n- A change\n'
+        wrong_day = good.replace('Wednesday', 'Tuesday')
+        no_line = good.replace(pwn.HEADLINE, '**Merges got safer.**')
+        cases.append(('an entry in the shape passes, and the old shape, a wrong '
+                      'weekday and a summary headline are each flagged',
+                      pwn.shape_problems(good) == []
+                      and len(pwn.shape_problems(old)) == 2
+                      and len(pwn.shape_problems(wrong_day)) == 1
+                      and len(pwn.shape_problems(no_line)) == 1,
+                      str([pwn.shape_problems(t) for t in (good, old, wrong_day, no_line)])))
         added = dict((d.isoformat(), ch['added']) for d, ch in days).get('2026-09-08', [])
         cases.append(('a day\'s new document is listed', 'docs/PHILOSOPHY.md' in added,
                       str(added)))

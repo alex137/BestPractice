@@ -123,7 +123,7 @@ each one saves you a paragraph of explaining:
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes and what each one does, then the words worth knowing to follow a conversation about it. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
-| **What's new?** | Write an entry for each finished day that changed the project and has none yet, then show the log: its link, the newest entries, what changed today so far, and ask what you want to know more about. |
+| **What's new?** | Write an entry for every finished day that changed the project and has none yet, say which days were quiet and skipped, then show the log: its link first, the newest entries, what changed today so far, and ask what you want to know more about. |
 | **Write it up** | Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link. Also said as "Spec it out": the largest plan size stage 1, Consider, can choose. |
 <!--/gen:vocabulary-->
 
