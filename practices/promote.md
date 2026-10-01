@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, like go-update's and push-directly's entries -- no file path reaches it. Routed by the `merge` gate. Decided: 2026-09-25, when the practice landed."
-occasion:    "a message says \"Promote\" or \"Promote N\", or asks to move work up a tier"
+occasion:    "a person says \"Promote\", \"Promote N\" or a stage word (\"Consider\", \"Act\", \"Debut\", \"Produce\", \"Make live\"), or asks to plan, build or move work up a tier"
 gates:       ["merge"]
 gates_why:   "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
-index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
+index_clause: "the next tier up, chosen from the work and said first; \"Promote N\" does stage N"
 checked_by:  null
 defines:     ["Promote", "pre-staging", "Promote N", "Graduate", "the five stages"]
 command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass. \"Promote N\" does stage N of the five-stage ladder: 1 Consider, 2 Act, 3 Booked, 4 Debut, 5 Produce."}

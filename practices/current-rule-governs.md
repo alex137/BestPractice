@@ -21,20 +21,18 @@ approved_by: "Morgan, 2026-09-24 -- asked for a root-cause fix after a session
 strength:    decided
 ---
 ## Rule
-**A standing command means what the rule in force says today, and you do
-it.** Resolve the command to its active practice
-(`precedent_show.py SLUG` follows a deduplicated copy to the live one) and
-carry it out. **Superseded, deduplicated and retired entries, `## Story`
-sections, old deferrals and past decisions are history.** Read them to
-investigate a failure, or to back a proposal to reconsider a rule. Never
-read them to decide whether to do what was just asked.
+**A standing command means what the rule in force says today: do it.**
+`precedent_show.py SLUG` resolves it, following a deduplicated copy to the
+live one. **Superseded, deduplicated and retired entries, `## Story`
+sections, old deferrals and past decisions are history**: read them to
+investigate a failure or to back a proposal to reconsider a rule, never to
+decide whether to do what was just asked.
 
-**Do it first, and propose reconsidering after**, in the same reply if you
-want to. **Never decline silently:** if you are not doing what was asked,
-the first line of the reply says so, and why.
+**Do it first, and propose reconsidering after. Never decline silently:** if
+you are not doing what was asked, the reply's first line says so, and why.
 
 **When obeying a rule to the letter would leave something broken or wrong,
-ask, with your pick.** Never comply silently and never override silently.
+ask, with your pick.** Never comply or override silently.
 
 ## Detail
 **Asking when the letter is wrong** (Morgan, 2026-09-30). A session left two
@@ -155,6 +153,10 @@ The stale reading got in through three gaps, and each is closed somewhere:
 None of those gaps would have mattered if the session had done what the
 current rule said and then raised the conflict. That is the rule this
 practice adds.
+
+**Tightened 2026-10-01** in the reduction pass Morgan approved that day
+("all are great, approved", strength: decided): the same four parts in fewer
+words, since this Rule loads on every turn.
 
 ## Install
 Resident, so every repository running the loader carries it in its

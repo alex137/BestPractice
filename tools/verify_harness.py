@@ -13626,8 +13626,7 @@ def check_precedent_check_fires():
         # fixture can resolve.
         def _plant_unreachable(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
-                r'\nWhen quoting or compressing someone else.s figures:\n'
-                r'  quote-discipline[^\n]*\n', '\n', t))
+                r'\n  quote-discipline [^\n]*', '', t))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
 
         # quick-index -- the table removed from the instructions
@@ -39951,6 +39950,28 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
     cases.append(('a file INSIDE its declared ceiling raises nothing, however '
                   'many sections it has', hits == [],
                   f'total={total} hits={hits!r}'))
+
+    # A TARGET below the ceiling (practice: very-deep-check, Morgan
+    # 2026-10-01): over it asks for a reduction pass, under it says nothing.
+    def targeted(target):
+        d = repo(5, 40, 20000)
+        (d / 'tools' / 'session_load_budgets.json').write_text(
+            json.dumps({'surfaces': {'AGENTS.md': {'ceiling': 20000,
+                                                   'target': target}}}),
+            encoding='utf-8')
+        try:
+            _rows, msgs = vdc._session_load(d)
+            return [m for m in msgs if m.startswith('OVER TARGET')]
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+    hits = targeted(1800)
+    cases.append(('a file inside its ceiling but over its declared TARGET is '
+                  'reported, and the finding asks for the practice-by-practice '
+                  'review', hits and 'practice-by-practice' in hits[0]
+                  and '1,800' in hits[0], repr(hits)))
+    hits = targeted(20000)
+    cases.append(('a file under its target raises no target finding',
+                  hits == [], repr(hits)))
 
     total, _largest, hits = run(repo(5, 40, 1800, registry=False))
     cases.append(('a repo that declares NO ceiling is not tested against an '

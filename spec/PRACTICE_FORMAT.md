@@ -834,6 +834,13 @@ the mistake.
 | `verify-decomposition` | trusting a model's total without checking its parts | reporting a computed total or a negative feasibility result |
 | `search-by-purpose` | concluding that no prior work exists on a question | starting work the repository may already cover |
 
+**Practices in one family can share one occasion string**, and the index
+then prints a single "When ..." line over all of them. The 2026-10-01
+reduction pass did that for both rows above: `verify-decomposition` now sits
+under "computing, quoting or tabulating figures" and `search-by-purpose`
+under "starting work the repository or another session may already cover".
+Each clause still has to make sense read under the shared line.
+
 ## `command:` — The Standing Phrases A Practice Defines
 
 **Optional, and empty for all but a dozen practices.** A practice that

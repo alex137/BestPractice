@@ -25,7 +25,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Booked | [go-update](practices/go-update.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
-| capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
+| capture sweep | [capture-gate](practices/capture-gate.md) |
 | Chief of Staff | [chief-of-staff](practices/chief-of-staff.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Consider | [consider](practices/consider.md) |

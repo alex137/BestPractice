@@ -6,9 +6,9 @@ severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
 applies_to_why: "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause. Decided: 2026-09-03, full-practice-audit / routing-audit session."
-occasion:    "a person explicitly asks for a full practice audit"
+occasion:    "a person explicitly asks for a \"very deep check\" or a \"full practice audit\""
 gates:       []
-index_clause: "every source's catalogue, one practice at a time; on request only"
+index_clause: "the very deep check's Pass 4 alone: every source's practices, one at a time"
 checked_by:  null
 defines:     ["full practice audit"]
 command:     {"Full practice audit": "Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. Once also called a \"practice check\"."}
@@ -30,8 +30,12 @@ mechanical check and no gate (the set that can only be judged). Judge each
 one against the actual repo state with a closed question, one practice at
 a time — *does this apply; if so, is it satisfied, yes or no, with the
 specific file and line* — never the open "which of these might apply."
+For each one, also ask [judgment-check-or-tool](judgment-check-or-tool.md)'s
+question: should it stay judgment, get a check, or become one shared tool?
 On-demand only, invoked explicitly by a person; never a routine or
-automated gate.
+automated gate. It is also Pass 4's catalogue read inside a
+[very deep check](very-deep-check.md), which is why the two share one line
+in the occasion index.
 
 ## Detail
 Practices already covered by a `checked_by` script or a `gates` entry are
@@ -84,6 +88,13 @@ Built anyway, on request, but disclosed honestly as an unvalidated
 detective control rather than presented as a solved problem — building it
 silently, without surfacing that history, would have repeated the exact
 failure this repository's own research already found once.
+
+**2026-10-01.** The reduction pass Morgan approved that day ("Question 3 -
+all are great, approved", strength: decided) put this practice under the
+very deep check's occasion line, since it is that check's Pass 4 run on its
+own, and moved judgment-check-or-tool's question into the Rule above, where
+judgment-check-or-tool's own occasion used to say "or a full practice audit
+runs".
 
 ## Install
 [tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/full_practice_audit.py) is the

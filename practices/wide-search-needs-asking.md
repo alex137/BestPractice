@@ -11,8 +11,8 @@ index_clause: "never sweep every clone unasked; fix the known source, ask for an
 index_required: true
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: grep-before-search
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
@@ -67,6 +67,13 @@ at all; I've stopped asking that question, and if you happen to find an
 example or it happens again, tell me' - that would have been 1000x better
 than all the tokens and time and wait."* He asked for it as a practice in
 the same message. (strength: decided)
+
+**Merged into [grep-before-search](grep-before-search.md), 2026-10-01**, in
+the reduction pass Morgan approved that day ("Question 3 - all are great,
+approved", strength: decided). Every part of the Rule above is there now:
+the go-ahead, fixing the known source and asking for an example, and
+stopping a sweep already running. This file stays, word for word above, as
+the record; the rule in force is grep-before-search.
 
 ## Install
 Nothing to install. The occasion index lists it, so it reaches a session

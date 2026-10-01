@@ -63,7 +63,7 @@ was certainly not the reader's.
 
 ## Install
 A vocabulary pass, run as a **separate step after drafting**,
-in the shape of [second-pass-capture](second-pass-capture.md)'s capture sweep: write the intended reader down
+in the shape of [capture-gate](capture-gate.md)'s capture sweep: write the intended reader down
 as a plain sentence, then walk every category-naming noun against *"would
 this reader define this unprompted?"* Where the answer is no, apply one of
 the three verdicts. Do it after the framing check of [frame-from-audience-question](frame-from-audience-question.md), since
