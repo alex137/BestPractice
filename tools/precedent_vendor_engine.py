@@ -2917,6 +2917,38 @@ def _decommission_module():
     return pd
 
 
+def dead_manifest_entries(root):
+    """-> [(manifest file name, entry name, local_path)] for each
+    process/manifest*.json entry whose local_path does not exist, a
+    declined entry aside (it has no local copy by design). practice_audit.py
+    fails on every one ("INTEGRITY: ... local_path missing").
+
+    THE ONE QUESTION, ASKED ONCE (2026-10-01). Each step that deletes a file
+    had to remember its manifest entry: this module's retire path did, the
+    update's rename did, and the catalogue sweep did not -- so an update
+    said DONE and the audit failed the next minute, from a consumer's
+    Update Vendors. Asking at the end, of the result, catches every deleting
+    step, including one not written yet: the update's postcondition and the
+    manifest-entries-resolve check both read this."""
+    out = []
+    proc = pathlib.Path(root) / 'process'
+    if not proc.is_dir():
+        return out
+    for m in sorted(proc.glob('manifest*.json')):
+        try:
+            entries = json.loads(m.read_text(encoding='utf-8')).get('entries')
+        except (OSError, ValueError, AttributeError):
+            continue
+        for e in entries if isinstance(entries, list) else ():
+            if not isinstance(e, dict) or e.get('status') == 'declined':
+                continue
+            rel = str(e.get('local_path') or '')
+            if rel and not (pathlib.Path(root) / rel).exists():
+                name = str(e.get('name') or e.get('practice') or rel)
+                out.append((m.name, name, rel))
+    return out
+
+
 def _drop_process_manifest_entries(dest_root, rel):
     """Remove every process/manifest*.json entry whose local_path is `rel`,
     which was just deleted -> [manifest names touched]. practice_audit.py

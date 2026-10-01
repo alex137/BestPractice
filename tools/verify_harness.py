@@ -15252,6 +15252,20 @@ def check_precedent_check_fires():
 
         case('open-items-outside-todo', _plant_item_outside_todo)
 
+        # manifest-entries-resolve -- an entry left naming a file a sweep
+        # deleted (2026-10-01).
+        def _plant_dead_manifest_entry(repo):
+            m = repo / 'process' / 'manifest.json'
+            m.parent.mkdir(parents=True, exist_ok=True)
+            data = json.loads(m.read_text(encoding='utf-8')) if m.is_file() else {}
+            data.setdefault('entries', []).append(
+                {'name': 'planted', 'local_path': 'process/upstream/tools/gone.py'})
+            m.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted dead manifest entry')
+
+        case('manifest-entries-resolve', _plant_dead_manifest_entry)
+
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
         # real vendored repo would carry) but whose TODO.md was never
@@ -26346,8 +26360,36 @@ def check_catalogue_copy_is_an_allowlist():
                     (tree / rel).parent.mkdir(parents=True, exist_ok=True)
                     (tree / rel).write_text('upstream\n', encoding='utf-8')
             (ck.UPSTREAM / 'local' / 'l.md').write_text('ours\n', encoding='utf-8')
+            # A manifest entry for a file the sweep removes goes with it:
+            # practice_audit.py fails "local_path missing" on one left behind
+            # (2026-10-01, from a consumer's Update Vendors: doc-lint ->
+            # process/upstream/tools/doc_lint.py).
+            planted = [{'name': 'upstream:doc-lint',
+                        'local_path': 'process/upstream/tools/y.py'},
+                       {'name': 'upstream:p', 'local_path': 'process/upstream/practices/p.md'},
+                       {'name': 'upstream:l', 'local_path': 'process/upstream/local/l.md'}]
+            (tmp / 'process' / 'manifest.json').write_text(
+                json.dumps({'entries': planted}), encoding='utf-8')
             with contextlib.redirect_stdout(io.StringIO()):
                 dropped, kept = ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            left = [e['name'] for e in json.loads((tmp / 'process' / 'manifest.json')
+                                                  .read_text(encoding='utf-8'))['entries']]
+            cases.append(('a manifest entry for a removed file is dropped with it; '
+                          'one for a file still there, or kept as edited, stays',
+                          left == ['upstream:p', 'upstream:l'], str(left)))
+            # A consumer an older update already left that way is healed on
+            # the next run, when there is nothing left to remove.
+            (tmp / 'process' / 'manifest.json').write_text(json.dumps({'entries': [
+                {'name': 'upstream:gone', 'local_path': 'process/upstream/tools/gone.py'},
+                {'name': 'own', 'local_path': 'docs/missing-but-ours.md'}]}),
+                encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            left = [e['name'] for e in json.loads((tmp / 'process' / 'manifest.json')
+                                                  .read_text(encoding='utf-8'))['entries']]
+            cases.append(('an entry an older update left inside the mirror is '
+                          'cleared on the next run; one for the repo\'s own file '
+                          'is the audit\'s to report', left == ['own'], str(left)))
             cases.append(('what the copy no longer carries is removed when it '
                           'is upstream\'s text, and kept when edited here',
                           sorted(map(str, dropped)) == ['TODO.md', 'WHATS_NEW.md',
@@ -44299,6 +44341,77 @@ def check_update_in_force_nowhere_asks_once():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_leaves_no_dead_manifest_entry():
+    """Update Vendors never says DONE over a manifest entry naming a missing
+    file, whichever step deleted it (2026-10-01, from a consumer's Update
+    Vendors: the catalogue sweep removed a tree, its doc-lint entry stayed,
+    and practice_audit.py failed after DONE). Asked of the result, so a
+    deleting step written later is covered too.
+
+    Stated cases: an entry inside the mirrored tree, and one for a file
+    this update deleted, go with their files; one for the repo's own file,
+    missing for no reason this update knows, is left for the person; a
+    declined entry and one whose file exists are untouched."""
+    import contextlib, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dead-manifest-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'process').mkdir(parents=True)
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'here.md').write_text('x\n', encoding='utf-8')
+        (repo / 'docs' / 'removed.md').write_text('x\n', encoding='utf-8')
+        (repo / 'process' / 'upstream' / 'practices').mkdir(parents=True)
+        (repo / 'process' / 'upstream' / 'practices' / 'p.md').write_text('x\n',
+                                                                        encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        entries = [
+            {'name': 'upstream:doc-lint', 'local_path': 'process/upstream/tools/doc_lint.py'},
+            {'name': 'removed', 'local_path': 'docs/removed.md'},
+            {'name': 'own', 'local_path': 'docs/never-there.md'},
+            {'name': 'declined', 'local_path': 'docs/declined.md', 'status': 'declined',
+             'notes': 'not for us'},
+            {'name': 'here', 'local_path': 'docs/here.md'}]
+        (repo / 'process' / 'manifest.json').write_text(
+            json.dumps({'entries': entries}), encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        for a in (['init', '-q'], ['add', '-A'], ['commit', '-qm', 'base'],
+                  ['rm', '-q', 'docs/removed.md']):
+            subprocess.run(['git', '-C', str(repo), *a], capture_output=True, env=env)
+        cases.append(('the shared question sees the three dead entries, not the '
+                      'declined one',
+                      sorted(n for _m, n, _r in pve.dead_manifest_entries(repo))
+                      == ['own', 'removed', 'upstream:doc-lint'],
+                      str(pve.dead_manifest_entries(repo))))
+        rep = pu.Report()
+        with contextlib.redirect_stdout(io.StringIO()):
+            pu.manifest_postcondition(repo, rep)
+        left = [e['name'] for e in json.loads((repo / 'process' / 'manifest.json')
+                                              .read_text(encoding='utf-8'))['entries']]
+        cases.append(('entries in the mirror, and for a file this update deleted, '
+                      'go with their files', left == ['own', 'declined', 'here'],
+                      str(left)))
+        cases.append(('...said in one step line', any(n == 'manifest' for n, _o in rep.steps),
+                      str(rep.steps)))
+        cases.append(('the repo\'s own missing file is left for the person, so '
+                      'the run cannot say DONE',
+                      [w for w, _y in rep.left] == ['process/manifest.json: own'],
+                      str(rep.left)))
+        cases.append(('the update runs the postcondition',
+                      'manifest_postcondition(' in __import__('inspect').getsource(pu.update),
+                      ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors leaves no manifest entry naming a missing file '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_done_names_the_check_it_ran():
     """Update Vendors' DONE says which check it ran, that the full check did
     not run, and passes on a size-cap warning the check printed.
@@ -50790,6 +50903,7 @@ def main():
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
     check_update_done_names_the_check_it_ran()
+    check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
     check_update_vendors_dropped_wording_reads_placeholders_filled()
