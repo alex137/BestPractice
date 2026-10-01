@@ -48,7 +48,7 @@ vendors) or a precedent-* source, not how loud it was.
 in, with its cause there too, is ordinary work, not a root issue. A
 vendored copy is upstream's: fixing the copy here does not fix it, and the
 next `Update Vendors` brings it back
-([fix-the-original](fix-the-original.md)).
+([upstream-fix](upstream-fix.md)).
 
 **Include the ones that may already be known.** The person may have passed
 the same thing on from this session or another one. Say so on the item when

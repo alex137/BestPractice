@@ -794,7 +794,7 @@ def _commit(repo, message, *paths):
     `git config` the clone happens to hold. A set this refreshes is a
     sibling clone no SessionStart hook of its own configured, which is the
     exact shape that produced bot-authored engine commits on 2026-09-26
-    (practice: durable-fix). -> (ok, output); refused, (False, why)."""
+    (practice: upstream-fix). -> (ok, output); refused, (False, why)."""
     sys.path.insert(0, str(HERE))
     try:
         import precedent_identity
@@ -1174,7 +1174,7 @@ def main(argv):
     for e in stale:
         e['tip'] = tip
         print(f"\n--- {_label(e['repo'])}")
-        # practice: durable-fix -- session-start.sh now calls --apply
+        # practice: upstream-fix -- session-start.sh now calls --apply
         # unconditionally, every session, so this guard is what keeps that
         # safe. Without it, a person's own uncommitted edit in this source
         # (a new practice file, a hand fix mid-review) would be sitting in

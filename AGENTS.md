@@ -106,7 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~915 of 2000 token budget, 10 of 169 practices (10 universal))
+## Resident block (~915 of 2000 token budget, 10 of 167 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -197,8 +197,6 @@ When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a fix, check or exemption is being added, or a person asks whether a fix reaches the cause:
-  upstream-fix — fix the cause, not just add a check; a new exemption means look again
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
@@ -293,6 +291,8 @@ When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
 When finishing substantial work, before the merge capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
+When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
+  upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:

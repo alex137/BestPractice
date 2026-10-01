@@ -103,7 +103,7 @@ def _on_plain(text):
     when an event has none). GitHub's runner has no PyYAML, and there every
     `push:` read as never firing: the 2026-09-26 pull request of staging
     into main went red on this, green in every session (practice:
-    durable-fix; precedent_check._workflow_triggers_plain is the same fix
+    upstream-fix; precedent_check._workflow_triggers_plain is the same fix
     for the trigger text)."""
     lines = text.splitlines()
     start = next((i for i, l in enumerate(lines)

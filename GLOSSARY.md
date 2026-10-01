@@ -91,7 +91,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Test Readiness | [debut](practices/debut.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
 | the five stages | [promote](practices/promote.md) |
-| the origin artifact | [fix-the-original](practices/fix-the-original.md) |
+| the origin artifact | [upstream-fix](practices/upstream-fix.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Tier branch | [tier-branch](practices/tier-branch.md) |

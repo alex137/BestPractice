@@ -196,7 +196,7 @@ SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
 # a second. On 2026-09-26 a Promote reused another checkout's pass for the
 # same tree in four repositories, and the bot-authored merge commits it had
 # just made went out unjudged; one of those repositories' own full sweep
-# failed on its staging afterwards (practice: durable-fix).
+# failed on its staging afterwards (practice: upstream-fix).
 HISTORY_CHECKS = {'commit_author', 'commit_dates', 'session_trailer'}
 # session_trailer (2026-09-29): a repository that declares the shared set
 # carrying check_session_trailer.py gets it materialized beside the other

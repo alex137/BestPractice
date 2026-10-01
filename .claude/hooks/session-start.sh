@@ -65,7 +65,7 @@ fi
 
 # Make this checkout's HISTORY complete, not just its files.
 #
-# practice: durable-fix. The container clones this repo `--depth 1`, so every
+# practice: upstream-fix. The container clones this repo `--depth 1`, so every
 # file of the branch is present and current and almost none of the past is.
 # The files are what a person notices; the past is what the TOOLS read, and
 # three of them degrade on a truncated one without ever failing:
@@ -168,7 +168,7 @@ fi
 # credential the ENVIRONMENT carries is under no such ordering: git can use
 # it here, before anything else runs, which is why setting
 # PRECEDENT_GIT_TOKEN is the durable fix and `add_repo` is the per-session
-# one (practice: durable-fix).
+# one (practice: upstream-fix).
 #
 # The shared sets are cloned as SIBLINGS, from $PRECEDENT_SOURCE_BASE_URL/<name>
 # (or /<repo>, when the declaration says the repository is called something

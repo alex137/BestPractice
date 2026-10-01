@@ -12,8 +12,8 @@ index_clause: "prefer the fix that survives a fresh container; name a band-aid a
 index_required: false
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: upstream-fix
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
@@ -99,6 +99,12 @@ The same shape had already been recorded twice in this repository's own
 gotchas without being generalised: a timezone fix that lived in a settings
 block nothing read, and a "resolved for this machine" note that was false in
 every other container the moment it was written.
+
+**Merged into [upstream-fix](upstream-fix.md), 2026-10-01.** Morgan asked
+whether this, fix-the-original and upstream-fix were saying the same thing
+three times, and approved folding them into one: *"Go, merge them, then
+Booked into pre-staging."* Its ladder of where a fix lives is upstream-fix's point 7. This file stays, word for word above, as
+the record; the rule in force is upstream-fix.
 
 ## Install
 Before reporting anything fixed, ask **where the fix lives** and say so:

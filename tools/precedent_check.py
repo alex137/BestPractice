@@ -399,7 +399,7 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     `dogfooded-hooks-match-template` exists for precisely that, was not in
     that commit's rotation slice, and stayed silent. It surfaced only
     because a session ran it by name on a hunch -- which is not a mechanism
-    (practice: durable-fix). One commit later and the drifted template
+    (practice: upstream-fix). One commit later and the drifted template
     would have shipped.
 
     An over-broad glob costs a little runtime; a missing one leaves the
@@ -1996,7 +1996,7 @@ def _technical_describes_people(ctx):
     # precedent.json's `universal` source points. In a §0 consumer the only
     # path this check ever flagged was Precedent's own
     # technical-describes-people.md, inside a mirror the consumer may not
-    # edit and cannot rename. Ask the engine (practice: durable-fix).
+    # edit and cannot rename. Ask the engine (practice: upstream-fix).
     skip = ('practices/', 'record/') + _mirrored(ROOT)
     # The WHOLE tree, not ctx.changed. This is a tree-scope check, and
     # --full-sweep builds no whole-tree ctx (only --all does), so on a clean
@@ -4810,7 +4810,7 @@ def _workflow_yaml_github_can_parse(ctx):
                             'neither runs nor ships a workflow file')
     # THE FALLBACK IS NOT A CONVENIENCE, IT IS THE POINT. CI does not
     # install PyYAML, and the first version of this check skipped there and
-    # failed its own planted case on its first run (practice: durable-fix).
+    # failed its own planted case on its first run (practice: upstream-fix).
     # So: the token stream where PyYAML exists, and where it does not, a
     # STRUCTURAL match that only accepts `<<:` where YAML would read it as a
     # key. `cat <<EOF` in a run step matches neither.
@@ -7421,7 +7421,7 @@ def _rename_updates_links(ctx):
             # materialized files are copied wholesale, and an edit is
             # overwritten by the next refresh. run() drops those findings
             # for every check; asking the same one answer here as well only
-            # saves reading the files (practice: durable-fix).
+            # saves reading the files (practice: upstream-fix).
             if _received_owner(rel) is not None \
                     or rel == DECOMMISSIONED_PATHS_REGISTRY \
                     or any(_exempt_matches(rel, e) for e in _retired_exempt):
