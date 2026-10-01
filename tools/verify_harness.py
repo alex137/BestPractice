@@ -17190,7 +17190,17 @@ def check_source_sets_can_learn_they_are_stale():
             if tip:
                 current = fake_set('current-set', tip)
                 stale = fake_set('stale-set', '0' * 40)
-                _t, _r, found = prs.survey([str(current), str(stale)])
+                # Refreshed in the working tree, older engine committed: the
+                # state every set clone is in after a session-start refresh.
+                held = fake_set('uncommitted-set', '1' * 40)
+                for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                          ['-c', 'user.name=t', '-c', 'user.email=t@t',
+                           'commit', '-qm', 'older engine']):
+                    subprocess.run(['git', '-C', str(held), *a], capture_output=True)
+                (held / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    json.dumps({'format_version': 1, 'kind': 'source',
+                                'source_commit': tip}), encoding='utf-8')
+                _t, _r, found = prs.survey([str(current), str(stale), str(held)])
                 by = {e['repo'].name: e for e in found}
                 cases.append(('a set recording this tip reports as current',
                               by.get('current-set', {}).get('stale') is False,
@@ -17220,6 +17230,18 @@ def check_source_sets_can_learn_they_are_stale():
                               len(lines) == 2 and all('BestPractice' in l
                                                       for l in lines),
                               said[-600:]))
+                held_line = next((l for l in said.splitlines()
+                                  if 'uncommitted-set' in l), '')
+                cases.append(('a refreshed working tree over an older committed '
+                              'engine says both (2026-10-01)',
+                              'working tree current' in held_line
+                              and 'committed engine is 111111111111' in held_line,
+                              held_line))
+                cur_line = next((l for l in said.splitlines()
+                                 if 'current-set' in l and 'uncommitted' not in l), '')
+                cases.append(('...and a clone with nothing committed to compare '
+                              'says engine current, as before',
+                              'engine current' in cur_line, cur_line))
             else:
                 cases.append(('the staleness fixtures could run (needs '
                               f'origin/{prs.SOURCE_BRANCH} fetched)', False,

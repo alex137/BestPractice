@@ -266,6 +266,23 @@ def read_manifest(repo):
         return {'_error': str(exc)}
 
 
+def committed_engine(repo):
+    """-> the engine commit the clone's COMMITTED manifest records, or ''.
+
+    The refresh leaves what it writes uncommitted, by design, so the working
+    tree can be current while what the clone's branch holds is older; the
+    "engine current" line used to say only the first, about a tree nobody
+    had committed (2026-10-01, from a reduction-pass session)."""
+    r = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:{MANIFEST}'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return ''
+    try:
+        return str(json.loads(r.stdout).get('source_commit') or '')
+    except (ValueError, AttributeError):
+        return ''
+
+
 def survey(extra_paths=()):
     """-> (tip, [{repo, kind, recorded, stale, error}]). One entry per repo
     that actually carries a vendored engine; everything else is not this
@@ -289,6 +306,7 @@ def survey(extra_paths=()):
         stale = None if not tip else (recorded != tip)
         found.append({'repo': repo, 'kind': man.get('kind', '?'),
                       'recorded': recorded, 'stale': stale, 'error': None,
+                      'committed': committed_engine(repo),
                       'hooks': hook_state(repo),
                       'branch': branch_state(repo)})
     return tip, tip_ref, found
@@ -1042,6 +1060,10 @@ def main(argv):
             print(f"  STALE  {_label(e['repo'])} ({e['kind']}): has engine "
                   f"{e['recorded'][:12] or '(none)'}, BestPractice {tip_ref} "
                   f"is {tip[:12]}")
+        elif e.get('committed') and e['committed'] != e['recorded']:
+            print(f"  ok     {_label(e['repo'])} ({e['kind']}): working tree "
+                  f"current at BestPractice {tip[:12]}; committed engine is "
+                  f"{e['committed'][:12]}, until the refresh is committed")
         else:
             print(f"  ok     {_label(e['repo'])} ({e['kind']}): engine current "
                   f"at BestPractice {tip[:12]}")
