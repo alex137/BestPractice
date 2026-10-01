@@ -299,9 +299,7 @@ def repoint_moved_engine_mentions(repo):
         mask = generated_blocks.mask(lines) if rel.endswith('.md') else [False] * len(lines)
         n = 0
         for i, line in enumerate(lines):
-            # A shell comment is history, not a call: the template's own
-            # comments name the mirrored path to say why it is gone.
-            if mask[i] or (rel.endswith('.sh') and line.lstrip().startswith('#')):
+            if mask[i]:
                 continue
 
             def swap(m, line=line, i=i):

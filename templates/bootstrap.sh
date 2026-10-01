@@ -312,9 +312,9 @@ fi
 # section 2) because installs are adaptive and unattended mirrors are the
 # mechanism class that loses content.
 #
-# GUARDED, not silenced. This line used to be an unconditional
-# `python3 process/upstream/tools/checkin.py fresh 2>/dev/null || true`,
-# which in a Precedent-loader install (no process/upstream/ at all) failed
+# GUARDED, not silenced. This line used to run the mirrored copy's
+# checkin.py `fresh` unconditionally, its errors thrown away, which in a
+# Precedent-loader install (no process/upstream/ at all) failed
 # on every session start and said nothing -- so a whole class of install
 # got no freshness check and no notice that it had none. Silence has to
 # mean "checked and current", never "there was nothing to run": that is
