@@ -477,6 +477,11 @@ ENGINE_FILES = [
     # anyway (2026-09-28). Every repo carries it, so the hook finds a copy
     # in whichever clones a session has.
     'precedent_run_session_hooks.py',
+    # The one place a session's feature branch name is built (2026-10-01).
+    # act's Rule names it, so every repo resolving act needs the file; it
+    # reads the session ID through precedent_detect and the date through
+    # precedent_time, both already here.
+    'precedent_branch_name.py',
     # The generator and the one-time converter for the 2026-09-16 todo/gotcha
     # migration's per-item TODO.md format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
     # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
