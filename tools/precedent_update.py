@@ -238,6 +238,58 @@ _MENTION = re.compile(r"^WARN: precedent_vendor_engine: (?P<gone>\S+) was .+?, "
                       r"and (?P<path>\S+?):(?P<line>\d+) still names it -- ")
 
 
+# Files whose mentions of a mirrored engine path are commands a session
+# runs or a harness allows, not prose about the past.
+MOVED_ENGINE_FILES = ('AGENTS.md', 'CLAUDE.md', '.claude/settings.json')
+MIRRORED_TOOL_RE = re.compile(r'(?<![\w./-])process/upstream/tools/([\w.-]+)')
+
+
+def repoint_moved_engine_mentions(repo):
+    """-> [(rel, n)]: rewrite `process/upstream/tools/X` to `tools/X` in
+    AGENTS.md, CLAUDE.md and .claude/settings.json, wherever tools/X is
+    there and the mirrored copy is gone. A guarded fallback (a `[ -f` test,
+    or a line naming tools/X beside it) is left alone, and so is a
+    generated block, which build_views.py rewrites.
+
+    2026-10-01, from a consumer's Update Vendors: the catalogue copy dropped
+    process/upstream/tools/, and AGENTS.md went on telling sessions to run
+    practice_audit.py at that mirrored path in three places,
+    with .claude/settings.json allowing it -- found only by running it and
+    getting "No such file". The new path is certain, so it is written, and
+    the staged diff shows it."""
+    import generated_blocks
+    import precedent_check as pc
+    done = []
+    for rel in MOVED_ENGINE_FILES:
+        f = repo / rel
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        lines = text.split('\n')
+        mask = generated_blocks.mask(lines) if rel.endswith('.md') else [False] * len(lines)
+        n = 0
+        for i, line in enumerate(lines):
+            if mask[i]:
+                continue
+
+            def swap(m, line=line):
+                name = m.group(1)
+                if not (repo / 'tools' / name).is_file() \
+                        or (repo / 'process' / 'upstream' / 'tools' / name).exists() \
+                        or pc.is_guarded_fallback(rel, line, m.group(0)):
+                    return m.group(0)
+                return f'tools/{name}'
+            new = MIRRORED_TOOL_RE.sub(swap, line)
+            if new != line:
+                n += 1
+                lines[i] = new
+        if n:
+            f.write_text('\n'.join(lines), encoding='utf-8')
+            done.append((rel, n))
+    return done
+
+
 def retired_mentions(repo, engine_out):
     """-> [(where, gone)] for each file that still names something the
     engine refresh deleted, and still does now that the rest of the update
@@ -862,6 +914,8 @@ class Report:
         self.asks = []    # (what, question) -- for the person, not this repo
         self.edits = []   # (outcome, rel, text) -- precedent_local_edits.resolve()
         self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
+        self.not_run = None  # what the closing check left to a later tier
+        self.warnings = []   # passed now, refused at a later tier
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -880,8 +934,9 @@ class Report:
 
     def _questions(self):
         if self.asks:
-            print("\nQUESTIONS FOR THE PERSON -- nothing here blocks the update, "
-                  "and none is this repo's call; ask before Go update:")
+            print("\nQUESTIONS FOR THE PERSON -- the update is complete "
+                  "without these; only the person can answer them, so put "
+                  "them in your reply:")
             for what, question in self.asks:
                 print(f"  - {what}: {question}")
 
@@ -954,13 +1009,17 @@ class Report:
             if self.loud:
                 self._banner()
             return LEFT
+        for line in self.warnings:
+            print(f"\nWARNING: {line}")
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
                   "question(s) above, review the staged diff, commit, then run "
                   "Go update's chain.")
-            return DONE
-        print("\nDONE -- nothing left to decide. Review the staged diff, "
-              "commit, then run Go update's chain.")
+        else:
+            print("\nDONE -- nothing left to decide. Review the staged diff, "
+                  "commit, then run Go update's chain.")
+        if self.not_run:
+            print(self.not_run)
         return DONE
 
 
@@ -1074,6 +1133,48 @@ def in_force_nowhere(out):
     mark = 'IN FORCE NOWHERE -- '
     return list(dict.fromkeys(l.split(mark, 1)[1].strip()
                               for l in out.splitlines() if mark in l))
+
+
+# precedent.json's record of rules that bind nowhere here ON PURPOSE: a key
+# is a practice slug, or the name of the set its live copy is in.
+NOT_IN_FORCE_KEY = 'not_in_force_here'
+_IN_FORCE_IN_RE = re.compile(r'in force (?:only )?(?:in|from the \w+ set) `([^`]+)`')
+
+
+def in_force_nowhere_step(repo, rep, out):
+    """Ask about each rule the view sync found in force nowhere -- once.
+    A rule precedent.json's `not_in_force_here` records, by slug or by the
+    set it lives in, is said in one step line and never asked again.
+
+    2026-10-01, from a consumer's Update Vendors: sixteen deduplicated
+    rules whose live copy is in a shared set the consumer had dropped on
+    purpose were asked about on every update, under a header that said
+    both "none is this repo's call" and "ask before Go update"."""
+    try:
+        kept = json.loads((repo / 'precedent.json').read_text(
+            encoding='utf-8')).get(NOT_IN_FORCE_KEY) or {}
+    except (OSError, ValueError, AttributeError):
+        kept = {}
+    if not isinstance(kept, dict):
+        kept = {}
+    quiet = []
+    for found in in_force_nowhere(out):
+        slug = found.split(' (', 1)[0].strip()
+        m = _IN_FORCE_IN_RE.search(found)
+        where = m.group(1) if m else None
+        if slug in kept or (where and where in kept):
+            quiet.append(slug)
+            continue
+        key = where or slug
+        rep.ask('IN FORCE NOWHERE',
+                f'{found} -- it binds nowhere in this repo. Declare '
+                + (f'`{where}`' if where else 'the set it forwards to')
+                + f' in precedent.json, or record that it does not apply '
+                f'here: "{NOT_IN_FORCE_KEY}": {{"{key}": "<why>"}}')
+    if quiet:
+        rep.step('not in force here, on purpose',
+                 f'{len(quiet)} rule(s) precedent.json\'s {NOT_IN_FORCE_KEY} '
+                 f'records: {", ".join(quiet)}')
 
 
 def lost_files(out):
@@ -1518,8 +1619,8 @@ def update(repo, skip_check=False, ref=None):
     for line in dict.fromkeys(l.strip() for l in out.splitlines()):
         if line.startswith('KEPT ON PURPOSE: '):
             rep.step('kept on purpose', line[len('KEPT ON PURPOSE: '):])
-        elif line.startswith('PIN NARROWED: '):
-            rep.step('kept pin narrowed', line[len('PIN NARROWED: '):])
+        elif line.startswith(('PIN NARROWED: ', 'PIN UPDATED: ')):
+            rep.step('kept pin updated', line.split(': ', 1)[1])
         elif line.startswith('precedent_vendor_engine refresh: REPLACED '):
             rep.step('replaced', line.split('REPLACED ', 1)[1])
     # A consumer's CI converges to upstream without asking (2026-09-27, see
@@ -1671,10 +1772,7 @@ def update(repo, skip_check=False, ref=None):
         rep.step('views', 'regenerated (loader block, MAP.md, GLOSSARY.md)')
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
-        for found in in_force_nowhere(out):
-            rep.ask('IN FORCE NOWHERE', f'{found} -- the rule binds nowhere in '
-                    f'this repo. Declare the set it forwards to, or accept that '
-                    f'it does not apply here?')
+        in_force_nowhere_step(repo, rep, out)
         if rc != 0:
             # A declared source whose clone answers to another name is a
             # call about this repo's own precedent.json, so it is left for
@@ -1747,6 +1845,15 @@ def update(repo, skip_check=False, ref=None):
                   f'repoint or remove the mention; the full check '
                   f'(rename-updates-links) refuses it at the Promote to staging')
 
+    # 4c. Commands that name an engine file at the mirrored path the
+    # catalogue copy no longer carries (repoint_moved_engine_mentions).
+    moved = repoint_moved_engine_mentions(repo)
+    if moved:
+        rep.step('repointed', 'process/upstream/tools/ is gone and tools/ holds '
+                 'the engine, so these now name tools/: '
+                 + ', '.join(f'{rel} ({n} line{"s" if n != 1 else ""})'
+                             for rel, n in moved))
+
     # Citations of what the update withdrew or reworded, in THIS repo's
     # own files. A consumer is where a renamed practice's old name survives
     # longest: its AGENTS.md and docs were written against the name it had
@@ -1769,6 +1876,11 @@ def update(repo, skip_check=False, ref=None):
                     f'or name the old slug: '
                     + ', '.join(read) if read else ''))
 
+    return closing_check(repo, rep, skip_check)
+
+
+def closing_check(repo, rep, skip_check=False):
+    """Step 5, and the report's close: -> the exit code."""
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into pre-staging that is the fast
     # checks on what the update changed; the full check waits for the
@@ -1784,7 +1896,17 @@ def update(repo, skip_check=False, ref=None):
     argv = [sys.executable, str(check)]
     if landing:
         argv += ['--push-command', f'origin HEAD:{landing}']
-    label = f'check for {landing}' if landing else 'deep check'
+    # DONE says which check it was. The basic tier is right for
+    # pre-staging, but "check for pre-staging: passed" read as the push
+    # gate's all-clear, and a consumer's full check then failed three ways
+    # on the same tree (2026-10-01, from a consumer's Update Vendors).
+    tier = pb.FULL
+    if landing:
+        try:
+            tier = pb.tier_for_branch(repo, landing)[0]
+        except Exception:                                      # noqa: BLE001
+            tier = pb.FULL
+    label = f'{tier} check for {landing}' if landing else 'deep check'
     if skip_check:
         rep.step(label, 'skipped (--skip-check) -- run it before pushing')
     elif check.is_file():
@@ -1796,6 +1918,18 @@ def update(repo, skip_check=False, ref=None):
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out, repo=repo)}")
         rep.step(label, 'passed')
+        # A size cap over -- this update's own regenerated block can be what
+        # pushed it -- passes the basic tier and is refused at the Debut.
+        cap = next((l.strip() for l in out.splitlines()
+                    if l.startswith('WARNING: over a session-load size cap')), None)
+        if cap:
+            rep.warnings.append(cap[len('WARNING: '):] + ' This update\'s own '
+                                'regenerated blocks count toward it.')
+        if tier != pb.FULL:
+            rep.not_run = (f"Only the {tier} check ran, the one {landing} takes. "
+                           f"The full check was NOT run; "
+                           f"`python3 tools/precedent_push_check.py --tier full` "
+                           f"shows what the Debut into staging will refuse.")
     else:
         rep.step(label, 'this repo has no tools/precedent_push_check.py')
     return rep.close()

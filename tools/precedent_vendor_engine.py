@@ -4045,32 +4045,45 @@ def kept_template_divergences(dest_root):
     if not isinstance(declared, dict):
         return {}
     return {str(k): {'reason': str(v.get('reason') or '').strip(),
-                     'template_sha256': str(v.get('template_sha256') or '').strip()}
+                     'template_sha256': str(v.get('template_sha256') or '').strip(),
+                     'carried_sha256': str(v.get('carried_sha256') or '').strip()}
             for k, v in declared.items() if isinstance(v, dict)}
 
 
-def _kept_divergence(dest_root, item, template_sha):
+def _kept_divergence(dest_root, item, template_sha, carried_sha=None):
     """-> (verdict, reason) for one diverged item: 'kept' when precedent.json
     records it with a reason against this template text, 'stale' when it
     was recorded against older text, 'unreasoned' when it has no reason,
-    None when it is not recorded at all."""
+    None when it is not recorded at all.
+
+    `carried_sha` (an AGENTS.md section's _carried_sha) is a second way to
+    match: the decision also holds while the blocks the section carries are
+    unchanged upstream. Either match is enough, so a stale verdict means the
+    template text itself changed -- never only the consumer's own."""
     entry = kept_template_divergences(dest_root).get(item)
     if entry is None:
         return None, ''
     if not entry['reason']:
         return 'unreasoned', ''
-    if entry['template_sha256'] != template_sha:
+    if not _pin_matches(entry, template_sha, carried_sha):
         return 'stale', entry['reason']
     return 'kept', entry['reason']
 
 
-def _report_kept(dest_root, item, what, template_sha):
+def _pin_matches(entry, template_sha, carried_sha):
+    if entry['template_sha256'] == template_sha:
+        return True
+    return bool(carried_sha) and carried_sha in (entry['template_sha256'],
+                                                 entry['carried_sha256'])
+
+
+def _report_kept(dest_root, item, what, template_sha, carried_sha=None):
     """Print the kept-divergence line for a diverged `item` that lacks
     template blocks, and -> True when the declaration covers it, so the
     caller lists nothing. Otherwise prints, under the DIVERGED listing the
     caller has just printed, what recording it would take (indented, so
     precedent_update.py carries it under the item), and -> False."""
-    verdict, reason = _kept_divergence(dest_root, item, template_sha)
+    verdict, reason = _kept_divergence(dest_root, item, template_sha, carried_sha)
     if verdict == 'kept':
         print(f"KEPT ON PURPOSE: {item} differs from {what} as precedent.json's "
               f"{KEPT_DIVERGENCES_KEY} records -- \"{reason}\". Not listed "
@@ -4084,9 +4097,10 @@ def _report_kept(dest_root, item, what, template_sha):
     elif verdict == 'unreasoned':
         print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} with no "
               f"reason, so not honoured -- give it one")
-    snippet = json.dumps({KEPT_DIVERGENCES_KEY: {item: {
-        'reason': '<why this repo keeps it>', 'template_sha256': template_sha}}},
-        ensure_ascii=False)
+    pin = {'reason': '<why this repo keeps it>', 'template_sha256': template_sha}
+    if carried_sha and carried_sha != template_sha:
+        pin['carried_sha256'] = carried_sha
+    snippet = json.dumps({KEPT_DIVERGENCES_KEY: {item: pin}}, ensure_ascii=False)
     print(f"    kept on purpose? record it in precedent.json, then run again: "
           f"{snippet[1:-1]}")
     return False
@@ -4833,28 +4847,43 @@ def _carried_sha(section, lacks):
     return _sha_text('\n'.join(parts))
 
 
-def _narrow_kept_pin(dest_root, item, full_sha, carried_sha):
-    """An entry recorded before 2026-09-30 pins the whole section. When it
-    still matches, the decision covers exactly today's text, so it is
-    re-recorded against what the section carries -- the same decision,
-    narrowed -- and said once. Anything else is left as it is."""
-    if full_sha == carried_sha:
-        return
+def _repin_kept(dest_root, item, template_sha, carried_sha):
+    """A kept AGENTS.md section is pinned two ways: `template_sha256`, the
+    template's section alone, and `carried_sha256`, the blocks the section
+    carries (_carried_sha). Either still matching keeps the decision; this
+    then re-records both against today's text, so the other one follows.
+
+    Until 2026-10-01 there was one pin, and the update offered the carried
+    one. It hashes which blocks the CONSUMER'S section lacks, so adding one
+    local sentence from a missing block moved it, and removing the sentence
+    moved it back, while upstream never changed -- and the report said
+    "upstream's section has changed since" (from a consumer's Update
+    Vendors). The template pin never moves with local text; the carried pin
+    keeps the 2026-09-30 narrowing, so rewording a block the section leaves
+    out does not ask again either. An entry with one pin, of either kind,
+    is upgraded here the first time it matches."""
     path = dest_root / 'precedent.json'
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
         entry = data[KEPT_DIVERGENCES_KEY][item]
     except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
         return
-    if not isinstance(entry, dict) or entry.get('template_sha256') != full_sha:
+    if not isinstance(entry, dict) or not str(entry.get('reason') or '').strip():
         return
-    entry['template_sha256'] = carried_sha
+    have = {'template_sha256': str(entry.get('template_sha256') or '').strip(),
+            'carried_sha256': str(entry.get('carried_sha256') or '').strip()}
+    if not _pin_matches(have, template_sha, carried_sha):
+        return
+    want = {'template_sha256': template_sha, 'carried_sha256': carried_sha}
+    if all(have[k] == v for k, v in want.items()):
+        return
+    entry.update(want)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
-    print(f"PIN NARROWED: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
-          f"{item} now pins only the blocks the section carries "
-          f"(template_sha256 {carried_sha[:12]}...), so a change to a block "
-          f"it leaves out no longer asks again.")
+    print(f"PIN UPDATED: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
+          f"{item} still matches, and now records both the template's text "
+          f"and the blocks the section carries, so neither a local edit nor "
+          f"a change to a block it leaves out asks again.")
 
 
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
@@ -4916,10 +4945,11 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
         item = f'{AGENTS_MD} {key}'
         what = f'{src_rel} section "{key}"'
         section = _instantiate(raw, subs)
-        template_sha = _carried_sha(section, lacks)
-        _narrow_kept_pin(dest_root, item, _sha_text(section), template_sha)
-        if _kept_divergence(dest_root, item, template_sha)[0] == 'kept':
-            _report_kept(dest_root, item, what, template_sha)
+        template_sha = _sha_text(section)
+        carried_sha = _carried_sha(section, lacks)
+        _repin_kept(dest_root, item, template_sha, carried_sha)
+        if _kept_divergence(dest_root, item, template_sha, carried_sha)[0] == 'kept':
+            _report_kept(dest_root, item, what, template_sha, carried_sha)
             continue
         print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "
@@ -4929,7 +4959,7 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
             print(f"    {src_rel}:{t_line + offset} \"{title}\" -- {how}")
             for s in absent:
                 print(f"        lacks: \"{s if len(s) <= 160 else s[:157] + '...'}\"")
-        _report_kept(dest_root, item, what, template_sha)
+        _report_kept(dest_root, item, what, template_sha, carried_sha)
         _left(f'{AGENTS_MD} "{key}"', f'diverged from {src_rel} and lacks '
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
               f'hand, keeping this repo\'s own text, or record it as kept on '
