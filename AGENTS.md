@@ -187,8 +187,6 @@ When a branch has done its job, or a person says to delete branches:
   never-delete-a-remote-branch — never delete a remote branch; hand over the one-click link
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
-When a document replaces or is replaced by an earlier one:
-  index-remembers-past — put the lineage in the index, not in either document
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
@@ -284,8 +282,6 @@ When fixing anything -- a bug, a stale or copied file, a broken environment -- o
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When handing work or advice to the person or a fresh session, or work needs a repo this session cannot reach:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
-When migrating a repo onto Precedent from an old system:
-  migration-scrubs-vocabulary — scrub the old vocabulary in the same session, unasked
 When naming or adding a file:
   filename-separator — beside others of its kind: one word separator; never both - and _
   no-version-suffix — name a file for what it is; the repository is the version
@@ -295,8 +291,8 @@ When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — PRs target pre-staging or staging; main moves only by a Promote or when the person names main
-When renaming, moving or deleting a file others may link to, or renaming or retiring a name:
-  rename-updates-links — repoint every link, and every use of a retired name, in the same commit
+When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
+  rename-updates-links — repoint every link and use of a retired name in the same commit or migration
 When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When setting up a project a session works in, or a session reporting that its checkout is behind:

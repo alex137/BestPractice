@@ -122,7 +122,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
-| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to, or renaming or retiring a name |
+| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system |
 | [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing anything that automatically repairs a state it found wrong |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
