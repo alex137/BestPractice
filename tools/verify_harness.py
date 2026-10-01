@@ -22682,6 +22682,90 @@ def check_retirement_record_is_not_a_stranded_link():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_shipped_hooks_pass_rename_links_without_the_mirror():
+    """Every hook BestPractice ships passes rename-updates-links in a
+    consumer whose process/upstream/tools/ was just deleted.
+
+    2026-10-01, from a consumer's Update Vendors: the shipped
+    freshness-guard.sh and the individual-source bootstrap still fell back
+    to process/upstream/tools/X, the check refused the fallback lines, and
+    the update rewrote the hooks on every run, so a consumer could not fix
+    them and re-run. The hooks now name only tools/X, and the check counts
+    "$ROOT/tools/X" as this repo's own. Run as a repository runs it: the
+    mirror committed, then deleted in the change that installs every
+    shipped hook. CONTROLS: an unguarded call to the deleted path is still
+    refused, and a consumer's own guarded loop of the same shape is spared."""
+    import tempfile, json as _json, shutil as _shutil
+    checker = ROOT / 'tools' / 'precedent_check.py'
+    name = ('every shipped hook passes rename-updates-links in a consumer '
+            'with no process/upstream/tools/')
+    hooks = sorted((ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks').glob('*'))
+    if not checker.exists() or not hooks:
+        not_applicable(name, 'no checker or no shipped hooks here')
+        return
+    tools = ('precedent_identity.py', 'precedent_branches.py', 'precedent_resolve.py',
+             'precedent_source_bootstrap.py', 'precedent_source_credentials.py')
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td) / 'repo'
+        (base / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        (base / 'tools').mkdir()
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(base), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        (base / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
+                      base / 'practices' / 'rename-updates-links.md')
+        _shutil.copy2(checker, base / 'tools' / 'precedent_check.py')
+        (base / 'precedent.json').write_text(
+            _json.dumps({'format_version': 1, 'sources': [],
+                         'visibility': 'private'}), encoding='utf-8')
+        for t in tools:
+            (base / 'process' / 'upstream' / 'tools' / t).write_text('', encoding='utf-8')
+            (base / 'tools' / t).write_text('', encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(base), *a],
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 'h@example.com')
+        g('config', 'user.name', 'H')
+        g('add', '-A'); g('commit', '-qm', 'base: the mirror still there')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        _shutil.rmtree(base / 'process' / 'upstream' / 'tools')
+        (base / '.claude' / 'hooks').mkdir(parents=True, exist_ok=True)
+        for h in hooks:
+            _shutil.copy2(h, base / '.claude' / 'hooks' / h.name.replace('.template', ''))
+        (base / 'scripts').mkdir()
+        (base / 'scripts' / 'unguarded.sh').write_text(
+            'python3 process/upstream/tools/precedent_identity.py --commit-env .\n',
+            encoding='utf-8')
+        (base / 'scripts' / 'own_loop.sh').write_text(
+            'for c in "$ROOT/tools/precedent_branches.py" '
+            '"$ROOT/process/upstream/tools/precedent_branches.py"; do\n'
+            '  [ -f "$c" ] && break\ndone\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'drop the mirror, install the hooks')
+        r = subprocess.run(
+            [sys.executable, 'tools/precedent_check.py',
+             '--only', 'rename-updates-links'],
+            capture_output=True, text=True, cwd=str(base), timeout=300, env=env)
+        out = r.stdout + r.stderr
+    flagged = sorted({l.split(':')[0].strip() for l in out.splitlines()
+                      if '.claude/hooks/' in l and 'process/upstream/tools/' in l})
+    cases = [
+        ('no shipped hook is refused', not flagged, ', '.join(flagged)),
+        ('CONTROL: an unguarded call to the deleted path is still refused',
+         'scripts/unguarded.sh' in out, ''),
+        ("a consumer's own guarded loop rooted at \"$ROOT/tools/X\" is spared",
+         'scripts/own_loop.sh' not in out, ''),
+    ]
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} {d}' for n, d in bad) + ('' if not bad else f' -- {out[-800:]}'))
+
+
 def check_rename_links_spares_a_commit_pinned_permalink():
     """A permalink pinned to a 40-hex commit is how a file that no longer
     exists is cited correctly: it names the file as it was, and cannot go
@@ -51697,6 +51781,7 @@ def main():
     check_checkin_ignores_files_git_does_not_track_in_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
     check_rename_links_spares_a_commit_pinned_permalink()
+    check_shipped_hooks_pass_rename_links_without_the_mirror()
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
