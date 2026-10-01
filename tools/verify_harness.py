@@ -26346,8 +26346,36 @@ def check_catalogue_copy_is_an_allowlist():
                     (tree / rel).parent.mkdir(parents=True, exist_ok=True)
                     (tree / rel).write_text('upstream\n', encoding='utf-8')
             (ck.UPSTREAM / 'local' / 'l.md').write_text('ours\n', encoding='utf-8')
+            # A manifest entry for a file the sweep removes goes with it:
+            # practice_audit.py fails "local_path missing" on one left behind
+            # (2026-10-01, from a consumer's Update Vendors: doc-lint ->
+            # process/upstream/tools/doc_lint.py).
+            planted = [{'name': 'upstream:doc-lint',
+                        'local_path': 'process/upstream/tools/y.py'},
+                       {'name': 'upstream:p', 'local_path': 'process/upstream/practices/p.md'},
+                       {'name': 'upstream:l', 'local_path': 'process/upstream/local/l.md'}]
+            (tmp / 'process' / 'manifest.json').write_text(
+                json.dumps({'entries': planted}), encoding='utf-8')
             with contextlib.redirect_stdout(io.StringIO()):
                 dropped, kept = ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            left = [e['name'] for e in json.loads((tmp / 'process' / 'manifest.json')
+                                                  .read_text(encoding='utf-8'))['entries']]
+            cases.append(('a manifest entry for a removed file is dropped with it; '
+                          'one for a file still there, or kept as edited, stays',
+                          left == ['upstream:p', 'upstream:l'], str(left)))
+            # A consumer an older update already left that way is healed on
+            # the next run, when there is nothing left to remove.
+            (tmp / 'process' / 'manifest.json').write_text(json.dumps({'entries': [
+                {'name': 'upstream:gone', 'local_path': 'process/upstream/tools/gone.py'},
+                {'name': 'own', 'local_path': 'docs/missing-but-ours.md'}]}),
+                encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                ck._drop_what_the_copy_no_longer_carries(tmp, src)
+            left = [e['name'] for e in json.loads((tmp / 'process' / 'manifest.json')
+                                                  .read_text(encoding='utf-8'))['entries']]
+            cases.append(('an entry an older update left inside the mirror is '
+                          'cleared on the next run; one for the repo\'s own file '
+                          'is the audit\'s to report', left == ['own'], str(left)))
             cases.append(('what the copy no longer carries is removed when it '
                           'is upstream\'s text, and kept when edited here',
                           sorted(map(str, dropped)) == ['TODO.md', 'WHATS_NEW.md',

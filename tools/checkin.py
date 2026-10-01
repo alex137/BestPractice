@@ -1156,6 +1156,7 @@ def update(clone, force=False, allow_pinned=False):
             return 0
         for p in vendored_only:
             (UPSTREAM / p).unlink()
+        _drop_manifest_entries(UPSTREAM.relative_to(ROOT) / p for p in vendored_only)
         for p in differing + src_only:
             (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src / p, UPSTREAM / p)
@@ -1167,6 +1168,63 @@ def update(clone, force=False, allow_pinned=False):
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
     _report_excluded_content()
     return 0
+
+
+def _missing_mirrored_entries():
+    """-> local_paths of manifest entries inside the mirrored tree whose
+    file is already gone: an update before 2026-10-01 removed the file and
+    left the entry, so the consumer's audit is red until one run clears it.
+    Only inside the mirror, which this repo does not own; an entry for a
+    file of its own is the audit's to report."""
+    prefix = UPSTREAM.relative_to(ROOT).as_posix().rstrip('/') + '/'
+    out = []
+    for m in sorted((ROOT / 'process').glob('manifest*.json')):
+        try:
+            entries = json.loads(m.read_text(encoding='utf-8')).get('entries')
+        except (OSError, ValueError, AttributeError):
+            continue
+        for e in entries if isinstance(entries, list) else ():
+            rel = str(e.get('local_path') or '') if isinstance(e, dict) else ''
+            if rel.startswith(prefix) and not (ROOT / rel).exists():
+                out.append(rel)
+    return out
+
+
+def _drop_manifest_entries(paths):
+    """Remove each process/manifest*.json entry whose local_path is one of
+    `paths`, files this run just deleted. practice_audit.py fails on an
+    entry whose local file is gone ("INTEGRITY: ... local_path missing"),
+    so a correct deletion left one behind reads as a red check.
+
+    2026-10-01, from a consumer's Update Vendors: the sweep below removed
+    process/upstream/tools/, the manifest kept its doc-lint entry pointing
+    at process/upstream/tools/doc_lint.py, the update said DONE, and the
+    audit failed. The same rule precedent_vendor_engine's
+    _drop_process_manifest_entries keeps for a file the engine deletes."""
+    gone = {pathlib.PurePosixPath(p).as_posix() for p in paths}
+    proc = ROOT / 'process'
+    if not gone or not proc.is_dir():
+        return
+    for m in sorted(proc.glob('manifest*.json')):
+        try:
+            data = json.loads(m.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        entries = data.get('entries')
+        if not isinstance(entries, list):
+            continue
+        out = [e for e in entries
+               if not (isinstance(e, dict) and e.get('local_path') in gone)]
+        if len(out) == len(entries):
+            continue
+        names = [str(e.get('name') or e.get('local_path')) for e in entries
+                 if isinstance(e, dict) and e.get('local_path') in gone]
+        data['entries'] = out
+        m.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                     encoding='utf-8')
+        print(f"checkin update: dropped {len(names)} entr"
+              f"{'y' if len(names) == 1 else 'ies'} from {m.relative_to(ROOT)} "
+              f"whose file this run deleted: {', '.join(names)}")
 
 
 def _drop_what_the_copy_no_longer_carries(clone, src):
@@ -1192,6 +1250,7 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
                    and p.suffix not in ('.pyc', '.pyo')
                    and not _in_copy(p.relative_to(UPSTREAM)))
     if not stale:
+        _drop_manifest_entries(_missing_mirrored_entries())
         return [], []
     dropped, kept = [], []
     with tempfile.TemporaryDirectory() as td:
@@ -1217,6 +1276,8 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
             d.rmdir()             # only when now empty
         except OSError:
             pass
+    _drop_manifest_entries([UPSTREAM.relative_to(ROOT) / rel for rel in dropped]
+                           + _missing_mirrored_entries())
     if dropped:
         print(f"checkin update: removed {len(dropped)} file(s) the copy no "
               f"longer carries (it holds what a consumer uses since "
