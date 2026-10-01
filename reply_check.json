@@ -109,5 +109,17 @@
   ],
   "why": "Morgan, 2026-09-21 (strength: decided), in capitals, after asking roughly twenty times across two days what session a block he had just been handed was for: 'EVERY TIME YOU GIVE ME SOMETHING TO PASTE, ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN WHAT REPO AND WHAT ATTACHED, OR WHAT EXISTING SESSION.' fence-block-for-paste already made the FENCE mandatory, which is exactly why every one of those blocks was correctly fenced and not one of them said where it went -- the practice enforced the container and said nothing about the address. BLOCKING rather than advisory, deliberately, because he asked for a strong rule and because the failure is cheap to fix in the moment and expensive afterwards: a paste block without a destination costs a whole round trip before anything can happen with it. The escape hatch keeps it honest -- a reply whose only fences are measured output says 'not for pasting' once, which is a sentence, not a ceremony.",
   "checks_practice_at": "practices/fence-block-for-paste.md"
+ },
+ {
+  "practice": "whats-new",
+  "require_paired_with": [
+   {
+    "if_matches": "check here daily|Some top highlights from the day's activity",
+    "must_also_match": "\\A[^\\n]*WHATS_NEW\\.md",
+    "why": "a reply that shows the What's New log opens with the log's link, on its first line, before anything else"
+   }
+  ],
+  "why": "Morgan, 2026-10-01 (strength: decided): the first What's New reply opened with the log's link and he asked for that always. The reply carries the log's own words -- \"check here daily\" or the fixed opening line of an entry -- so that is what marks a What's New reply here; the checker cannot see the message it answers.",
+  "checks_practice_at": "practices/whats-new.md"
  }
 ]

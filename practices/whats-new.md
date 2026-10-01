@@ -8,7 +8,7 @@ applies_to_why: "A phrase in a MESSAGE -- no file path reaches it. The log's own
 occasion:    "a person asks \"What's new?\", or what has changed in the project lately"
 gates:       []
 index_clause: "write every missing day, quiet ones named; the reply opens with the link"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     ["What's new"]
 command:     {"What's new?": "Write an entry for every finished day that changed the project and has none yet, say which days were quiet and skipped, then show the log: its link first, the newest entries, what changed today so far, and ask what you want to know more about."}
 status:      active
@@ -26,7 +26,11 @@ approved_by: "Morgan, 2026-09-30 -- the plan from a brainstorm session, the entr
   link; write every missing day, not only yesterday; a quiet day gets no
   entry and the reply says so; a fixed opening line instead of a summary
   headline; a weekday and a slug in each heading; any change counts, a
-  content day included; rewrite the past entries once. \"Act\""
+  content day included; rewrite the past entries once. \"Act\" Amended
+  again 2026-10-01: the slug in plain text, the size of the date beside it
+  (in a code span one viewer showed it far larger); the opening line
+  reworded; a bold key phrase in every bullet; and all of it enforced.
+  \"Act.\""
 strength:    decided
 ---
 ## Rule
@@ -45,7 +49,7 @@ second "What's new?" the same day skips straight to half 2. Commit the log
 like any other change.
 
 **2. Show it.** **The reply opens with the log's link** (*"check here
-daily"*), before anything else. Show the newest entries, then what changed
+daily"*), on its first line, before anything else. Show the newest entries, then what changed
 today so far (`--today`), which no entry covers yet. Then ask what they want
 to know more about.
 
@@ -60,27 +64,34 @@ important of those, the same way.
 
 **An entry's shape:**
 
-- **The heading:** the weekday, the date, and a slug in backticks, as in
-  *Wednesday 2026-09-30: `daily-log-and-safer-merges`*. The slug is a few
-  lowercase words joined by hyphens naming the day's top highlight. It is
-  not a link; the backticks mark it as a name, and keep
-  [headline-capitalization](headline-capitalization.md) from capitalizing
-  it.
+- **The heading:** the weekday, the date, and a slug, as in
+  *Wednesday 2026-09-30: daily-log-and-safer-merges*. The slug is a few
+  lowercase words joined by hyphens naming the day's top highlight, in
+  plain text: not a link, and not in backticks, which every viewer sizes
+  its own way and one showed far larger than the date.
+  [headline-capitalization](headline-capitalization.md) knows a dated
+  heading's slug is a name and leaves it alone.
 - **The opening line, word for word:** *"Some top highlights from the
-  day's activity, ask if you want to learn everything done."* Never a
-  sentence summing up the bullets: in something this short it only says
-  them twice.
-- **About three bullets.** Each says the change plainly first, then the
-  technical version in parentheses, with a real figure or a real technical
-  name: *"The instructions every session reads first got much shorter (the
+  day's activity; ask if you want to learn more details or the full list
+  of everything done."* Never a sentence summing up the bullets: in
+  something this short it only says them twice.
+- **About three bullets, each with its key phrase in bold**, so a skimmer
+  can read the day from the bold alone
+  ([bold-key-phrases](bold-key-phrases.md)). Each says the change plainly
+  first, then the technical version in parentheses, with a real figure or a real technical
+  name: *"**The instructions every session reads first got much shorter** (the
   opening of AGENTS.md went from about 3,460 tokens to about 980)."* Lead
   with what a reader would most want to know, not with command words.
 **Approximate is fine** ("about 800 tokens per session"): the figure has to
 be real, not exact ([no-invented-specifics](no-invented-specifics.md)).
 **Never name who approved or signed off on anything.**
-`python3 tools/precedent_whats_new.py --check` flags an entry that does,
-and one whose heading or opening line is not in the shape above; an older
-entry it flags is rewritten into the shape once.
+
+**The shape is enforced.** `python3 tools/precedent_whats_new.py --check`
+flags an entry whose heading, weekday, opening line or bullets are off the
+shape, or that names an approver, and the push check runs the same test
+on any change to the log, so an entry out of shape cannot land. An older
+entry it flags is rewritten into the shape once. The reply check refuses
+a reply that shows the log without the log's link on its first line.
 
 ## Detail
 **Where the log lives.** `WHATS_NEW.md` at the root (the tool: [tools/precedent_whats_new.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_whats_new.py)), or wherever

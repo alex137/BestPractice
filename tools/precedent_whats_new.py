@@ -43,11 +43,11 @@ names it so the session can say it was skipped. The first run, with no
 log yet, covers the last seven finished days.
 
 AN ENTRY'S SHAPE is fixed where it can be checked: a heading
-"## <Weekday> <YYYY-MM-DD>: " and then the slug in backticks (the weekday
-the date's own; the slug a few lowercase words joined by hyphens, not a
-link, and the code span keeps the headline-capitalization check off it),
-then HEADLINE as its first line, word for word, then the bullets the
-session writes.
+`## <Weekday> <YYYY-MM-DD>: <slug>` (the weekday the date's own; the slug
+a few lowercase words joined by hyphens, plain text at the date's size,
+not a link -- title_case.DATED_SLUG_HEADING, which also keeps the
+headline-capitalization check off it), then HEADLINE as its first line,
+word for word, then bullets that each carry a bold key phrase.
 
 Standard library and precedent_time only, so it runs in any repo that
 vendors the engine (practice: whats-new).
@@ -61,6 +61,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import title_case  # noqa: E402
 
 DEFAULT_PATH = 'WHATS_NEW.md'
 PRODUCTION = 'main'
@@ -68,12 +69,13 @@ FIRST_RUN_DAYS = 7
 BODY_CHARS = 400
 # Every entry opens with this line, word for word. The bullets under it
 # are the highlights; a sentence summing them up would only repeat them.
-HEADLINE = "Some top highlights from the day's activity, ask if you want to learn everything done."
-WEEKDAYS = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
-            'Saturday', 'Sunday')
+HEADLINE = ("Some top highlights from the day's activity; ask if you want to learn "
+            "more details or the full list of everything done.")
+WEEKDAYS = title_case.WEEKDAYS
 ENTRY_HEADING = re.compile(r'^## (?P<rest>.*)$')
-HEADING_SHAPE = re.compile(r'^(?P<weekday>[A-Z][a-z]+) (?P<date>\d{4}-\d{2}-\d{2}): '
-                           r'`(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)`$')
+HEADING_SHAPE = title_case.DATED_SLUG_HEADING
+# A bullet's key phrase is bold, so a skimmer reads the spine of the day.
+BOLD_PHRASE = re.compile(r'\*\*[^*\s][^*]*\*\*')
 HEADER = ("# What's New\n\n"
           "A running log of what changed in this project, newest first: one "
           "entry per day on which something did.\n")
@@ -258,13 +260,14 @@ def scan_days(root, today=None, since=None):
 
 def heading_for(day, slug='<slug>'):
     """-> an entry's heading line for `day`."""
-    return f'## {WEEKDAYS[day.weekday()]} {day.isoformat()}: `{slug}`'
+    return f'## {WEEKDAYS[day.weekday()]} {day.isoformat()}: {slug}'
 
 
 def shape_problems(text):
     """-> [(line number, problem)] for entries not in the fixed shape: a
     heading `## <Weekday> <date>: <slug>` whose weekday is the date's own,
-    then HEADLINE as the first line under it."""
+    then HEADLINE as the first line under it, then bullets that each carry
+    a bold key phrase."""
     lines = (text or '').splitlines()
     out = []
     for i, line in enumerate(lines):
@@ -274,8 +277,8 @@ def shape_problems(text):
         rest = m.group('rest').strip()
         h = HEADING_SHAPE.match(rest)
         if not h:
-            out.append((i + 1, 'heading is not "## <Weekday> <YYYY-MM-DD>: `<slug>`" '
-                               '(slug: lowercase words joined by hyphens, in backticks)'))
+            out.append((i + 1, 'heading is not "## <Weekday> <YYYY-MM-DD>: <slug>" '
+                               '(slug: lowercase words joined by hyphens, plain text)'))
         else:
             try:
                 day = datetime.date.fromisoformat(h.group('date'))
@@ -288,6 +291,11 @@ def shape_problems(text):
         first = next((l.strip() for l in lines[i + 1:] if l.strip()), '')
         if first != HEADLINE:
             out.append((i + 1, f'the first line under it is not, word for word: {HEADLINE}'))
+        for j in range(i + 1, len(lines)):
+            if ENTRY_HEADING.match(lines[j]):
+                break
+            if lines[j].startswith('- ') and not BOLD_PHRASE.search(lines[j]):
+                out.append((j + 1, 'bullet has no bold key phrase'))
     return out
 
 
@@ -415,8 +423,9 @@ def main(argv):
         last = max([d for d, _ in days] + quiet)
         if days:
             print(f'\nWrite one entry per day above, newest first: the heading as '
-                  f'shown with a slug in place of <slug>, backticks kept, then this line word for '
-                  f'word, then about three bullets:\n  {HEADLINE}')
+                  f'shown with a slug in place of <slug>, then this line word for '
+                  f'word, then about three bullets, each with its key phrase in '
+                  f'bold:\n  {HEADLINE}')
         print(f'\nThen run: python3 tools/precedent_whats_new.py --mark {last}'
               f'{" && python3 tools/precedent_whats_new.py --check" if days else ""}')
         return 0

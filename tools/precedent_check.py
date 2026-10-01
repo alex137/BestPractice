@@ -6676,6 +6676,32 @@ def _headline_capitalization(ctx):
     return out
 
 
+@check('whats-new', 'change',
+       'a changed What\'s New log has every entry in the shape: a heading '
+       '"<Weekday> <date>: <slug>" whose weekday is the date\'s own, the '
+       'fixed opening line word for word, a bold key phrase in every bullet, '
+       'and no approver named',
+       'whether the bullets are the day\'s most noteworthy changes, whether '
+       'a figure is real, whether every missing day was written and the '
+       'quiet ones said in the reply -- judgment, the session\'s; and a log '
+       'nobody changed, so an old entry is only flagged once a session '
+       'touches the log, which is when the practice has it rewritten.')
+def _whats_new(ctx):
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_whats_new as pwn
+    except Exception as e:
+        raise NotApplicable(f'tools/precedent_whats_new.py did not import: {e}')
+    rel = pwn.feed_path(ROOT)
+    if rel not in ctx.changed or not (ROOT / rel).is_file():
+        raise NotApplicable(f'{rel} is not changed here')
+    text = (ROOT / rel).read_text(encoding='utf-8')
+    out = [Finding(f'{rel}:{n}', problem) for n, problem in pwn.shape_problems(text)]
+    out += [Finding(f'{rel}:{n}', f'names an approval: {line.strip()[:100]}')
+            for n, line in pwn.approval_lines(text)]
+    return out
+
+
 def _unglossed(text, known, path=None):
     """[(line, TOKEN)] via doc_lint's own acronym scan, so this check and the
     warning it replaces never drift apart -- one detector, two callers.
