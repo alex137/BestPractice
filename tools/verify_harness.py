@@ -40612,6 +40612,68 @@ def check_todo_index_check_survives_midnight():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_landed_reduction_quiets_the_reduction_ask():
+    """An over-target file whose reduction has already landed on the landing
+    branch is reported as waiting on a Promote, not as needing another pass.
+
+    Found 2026-10-01 in a reduction-pass session: the reply gate kept
+    requiring a Reduction pass after the pass had landed on pre-staging,
+    because the file it measures is built from main. The rule under test:
+    AGENTS.md smaller on origin/pre-staging than on origin/main marks the
+    over-target line; the same size, or no landing branch, leaves it as
+    the plain ask. Driven against a throwaway repository."""
+    import tempfile
+    import precedent_gate as pg
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        bare, work = tmp / 'origin.git', tmp / 'work'
+
+        def git(*a, cwd=None):
+            return subprocess.run(['git', '-C', str(cwd or work), *a],
+                                  capture_output=True, text=True, env=env)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)],
+                       capture_output=True, env=env)
+        (work / 'tools').mkdir()
+        (work / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+            {'surfaces': {'AGENTS.md': {'target': 50}}}), encoding='utf-8')
+        (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 400, encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'big')
+        git('remote', 'add', 'origin', f'file://{bare}')
+        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:pre-staging')
+        git('fetch', '-q', 'origin')
+
+        got = pg._over_target(work, siblings=False)
+        cases.append(('over target, same size on pre-staging: the plain ask',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK not in got[0],
+                      repr(got)))
+        git('checkout', '-q', '-b', 'pre-staging', 'origin/pre-staging')
+        (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 200, encoding='utf-8')
+        git('commit', '-qam', 'reduction pass')
+        git('push', '-q', 'origin', 'pre-staging')
+        git('fetch', '-q', 'origin')
+        git('checkout', '-q', 'main')
+        got = pg._over_target(work, siblings=False)
+        cases.append(('a smaller AGENTS.md on pre-staging marks the line as '
+                      'waiting on a Promote, with both sizes',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
+                      and 'on main' in got[0] and 'on pre-staging' in got[0],
+                      repr(got)))
+        git('push', '-q', 'origin', '--delete', 'pre-staging')
+        git('fetch', '-q', '--prune', 'origin')
+        cases.append(('no landing branch on origin: no mark',
+                      pg._landed_reduction(work) is None,
+                      repr(pg._landed_reduction(work))))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a reduction already on the landing branch is reported as waiting '
+          f'on a Promote ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_budget_approvals_see_computed_raises():
     """The budgets in force stay within the person's approvals, however a
     number got bigger, and the session-start file's hard ceiling is enforced
@@ -51203,6 +51265,7 @@ def main():
     check_todo_index_check_survives_midnight()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
+    check_landed_reduction_quiets_the_reduction_ask()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
     check_refresh_judges_workflows_once_the_engine_is_whole()
