@@ -7771,6 +7771,45 @@ def _new_entries(parent, before):
     return sorted(set(p.name for p in pathlib.Path(parent).iterdir()) - set(before))
 
 
+def _carry_uncommitted(src, dst):
+    """-> how many uncommitted paths of `src` were written into the clone
+    `dst` (0 when there were none), or None when they could not be.
+
+    The copy used to be committed work only, while every other step of the
+    full check reads the working tree. Run before a commit, the harness
+    then judged the commit BEFORE the change and the rest judged the
+    change: on 2026-10-01 a new check with no planted case (whats-new) went
+    green in the full check and was refused by the merge gate's quick one,
+    which reads the files. Tracked edits travel as a binary diff against
+    HEAD; untracked files that are not ignored are copied as they are."""
+    import shutil
+    diff = subprocess.run(['git', '-C', str(src), 'diff', 'HEAD', '--binary'],
+                          capture_output=True)
+    if diff.returncode != 0:
+        return None
+    n = 0
+    if diff.stdout.strip():
+        r = subprocess.run(['git', '-C', str(dst), 'apply', '--binary',
+                            '--whitespace=nowarn', '-'], input=diff.stdout,
+                           capture_output=True)
+        if r.returncode != 0:
+            return None
+        names = subprocess.run(['git', '-C', str(src), 'diff', 'HEAD',
+                                '--name-only'], capture_output=True, text=True)
+        n += len(names.stdout.split())
+    extra = subprocess.run(['git', '-C', str(src), 'ls-files', '--others',
+                            '--exclude-standard', '-z'], capture_output=True)
+    for rel in [x for x in extra.stdout.decode('utf-8', 'replace').split('\0') if x]:
+        target = pathlib.Path(dst) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(pathlib.Path(src) / rel, target)
+        except OSError:
+            return None
+        n += 1
+    return n
+
+
 def run_as_ci_isolated():
     """-> exit status. --as-ci, from a copy of this commit laid out the way
     GitHub's runner lays it out, then the not-applicable slice again here.
@@ -7785,7 +7824,9 @@ def run_as_ci_isolated():
     nothing else, with this checkout's remote-tracking refs and origin URL
     (actions/checkout's fetch-depth: 0 gives the runner every branch), run
     under _isolated_env(): an empty $HOME, no user config, no source token,
-    UTC. Committed work only -- the runner checks out a commit too.
+    UTC. The checkout's uncommitted changes are carried into it
+    (_carry_uncommitted), so it judges what the rest of the check judges;
+    a commit pushed later is what the runner checks out.
 
     THE SECOND RUN. A test that needs what only this machine has -- a
     private source, a sibling clone -- goes not-applicable in the copy.
@@ -7821,12 +7862,21 @@ def run_as_ci_isolated():
         if url:
             subprocess.run(['git', '-C', str(repo), 'remote', 'set-url',
                             'origin', url], capture_output=True)
+        carried = _carry_uncommitted(ROOT, repo)
+        if carried is None:
+            print('--as-ci --isolated: could not carry this checkout\'s '
+                  'uncommitted changes into the copy, so it would test the '
+                  'last commit instead of them. Commit, then run it again.')
+            return 1
         before = [p.name for p in parent.iterdir()]
         na_file = work / 'not-applicable.txt'
         env = _isolated_env(os.environ, home)
         env['PRECEDENT_NA_FUNCTIONS_FILE'] = str(na_file)
-        print(f'=== isolated: {repo} at {head[:12]} (no siblings, empty '
-              f'$HOME, no source token, UTC) ===', flush=True)
+        print(f'=== isolated: {repo} at {head[:12]}'
+              + (f' plus {carried} uncommitted path(s) from this checkout'
+                 if carried else '')
+              + ' (no siblings, empty $HOME, no source token, UTC) ===',
+              flush=True)
         rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
                              '--as-ci'], cwd=repo, env=env).returncode
         grown = _new_entries(parent, before)
@@ -7859,6 +7909,66 @@ def run_as_ci_isolated():
         return 1 if rc or rc2 else 0
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def check_isolated_copy_carries_uncommitted_changes():
+    """The isolated harness judges what the rest of the full check judges.
+
+    2026-10-01: a full check run before a commit went green while the
+    commit it was about to make added a check with no planted case. The
+    isolated copy was a clone of HEAD, so the harness judged the commit
+    before the change; reproduced on that commit, committed, the same run
+    fails with "untested: ['whats-new']". _carry_uncommitted now writes the
+    checkout's uncommitted state into the copy. The rule under test: a
+    tracked edit, a deletion and an untracked file reach the copy, an
+    ignored file does not, and a clean checkout carries nothing. Driven
+    against a throwaway repository (a whole planted --as-ci run costs
+    about nine minutes)."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        src, dst = tmp / 'src', tmp / 'dst'
+
+        def git(repo, *a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)],
+                       capture_output=True, env=env)
+        (src / 'kept.py').write_text('A = 1\n', encoding='utf-8')
+        (src / 'gone.py').write_text('B = 1\n', encoding='utf-8')
+        (src / '.gitignore').write_text('scratch/\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'base')
+
+        def copy():
+            import shutil
+            shutil.rmtree(dst, ignore_errors=True)
+            subprocess.run(['git', 'clone', '-q', str(src), str(dst)],
+                           capture_output=True, env=env)
+            return _carry_uncommitted(src, dst)
+        cases.append(('a clean checkout carries nothing', copy() == 0, ''))
+        (src / 'kept.py').write_text('A = 2\n', encoding='utf-8')
+        (src / 'gone.py').unlink()
+        (src / 'new_check.py').write_text('C = 3\n', encoding='utf-8')
+        (src / 'scratch').mkdir()
+        (src / 'scratch' / 'notes.txt').write_text('x', encoding='utf-8')
+        n = copy()
+        cases.append(('the edit, the deletion and the new file are counted',
+                      n == 3, repr(n)))
+        cases.append(('the tracked edit reaches the copy',
+                      (dst / 'kept.py').read_text(encoding='utf-8') == 'A = 2\n', ''))
+        cases.append(('the deletion reaches the copy',
+                      not (dst / 'gone.py').exists(), ''))
+        cases.append(('the untracked file reaches the copy',
+                      (dst / 'new_check.py').is_file(), ''))
+        cases.append(('an ignored file does not',
+                      not (dst / 'scratch').exists(), ''))
+    bad = [(n_, d) for n_, ok, d in cases if not ok]
+    check(f'the isolated harness copy carries the checkout\'s uncommitted '
+          f'changes ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n_}: {d}' for n_, d in bad))
 
 
 def check_isolated_run_matches_the_runner():
@@ -51182,6 +51292,7 @@ def main():
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
     check_isolated_run_matches_the_runner()
+    check_isolated_copy_carries_uncommitted_changes()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
