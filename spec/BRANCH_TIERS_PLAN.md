@@ -55,7 +55,7 @@ the batch is promoted.
   staging or staging into main from the work just done, and prints which
   before it starts; into main it runs the full check and pushes a throwaway
   copy for the pull request (Morgan, strength: decided;
-  [practices/promote.md](../practices/promote.md)).
+  practices/promote.md (`promote`)).
 - **Superseded, 2026-09-25 -- Step 8's behaviour was held for a decision**, because landing any part of
   it alone costs money: "never tag staging" would, today, start a runner on
   every push to staging in a private repo that has `leak-gate.yml`
@@ -180,7 +180,7 @@ changes, and the generated files a changed practice feeds. **Into `staging`:
 the full suite, on every file. Into `main`: the full suite, plus the
 repository's GitHub test.** A new check states its tier when it is added.
 The rule, and why the split is this one:
-[checks-follow-the-tier](../practices/checks-follow-the-tier.md) (Morgan,
+`checks-follow-the-tier` (Morgan,
 2026-09-27, strength: decided).
 
 ## What a working day looks like
@@ -371,7 +371,7 @@ since it changes where his sessions land their work.
 
 ## The primary branch is pre-staging
 
-[primary-branch](../practices/primary-branch.md) defines the primary branch
+`primary-branch` defines the primary branch
 as *"the one shared branch regular work pushes to and pull requests
 target"*. Under this plan that is **pre-staging**, in every repository:
 `Go update`, `Push directly` with no branch named, and a session's pull
@@ -444,9 +444,9 @@ In order. Each step leaves every repository working.
 6. **`Go update` and `Push directly` land on pre-staging**, unless the
    person's `landing_branch` says staging; **a new `Promote` command** does
    the merge and push to staging, as a new practice file; and
-   [primary-branch](../practices/primary-branch.md),
-   [go-update](../practices/go-update.md) and
-   [push-directly](../practices/push-directly.md) are rewritten to say so.
+   `primary-branch`,
+   `go-update` and
+   `push-directly` are rewritten to say so.
    Alex hears about it first.
 7. **The Boildown's "not yet landed" line becomes a Promote reminder**:
    commits on pre-staging and not on staging are named, with the
@@ -490,7 +490,7 @@ In order. Each step leaves every repository working.
     staging-into-pre-staging merge, Promote's `--no-ff`, and the rename
     transition.
 
-**This is high-risk work** under [go-update](../practices/go-update.md): it
+**This is high-risk work** under `go-update`: it
 changes gating code and a governance rule. Each step goes through a pull
 request. It also changes content other repositories vendor, so it reaches
 them only through Update Vendors

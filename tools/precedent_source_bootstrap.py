@@ -726,7 +726,8 @@ def _clone_elsewhere_on_disk(name, clone_path, repo_path):
 
 
 def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
-                      retry_delay=DEFAULT_RETRY_DELAY, branch=None):
+                      retry_delay=DEFAULT_RETRY_DELAY, branch=None, skip=None,
+                      only_marked=False, existing_only=False):
     """Clone every TEAM and UNIVERSAL source a repo's precedent.json declares,
     to the sibling path it declares.
 
@@ -752,6 +753,19 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     from its own sentence saying it must not). The NAME is already declared
     in the open and that was a deliberate decision -- see precedent.json's
     own comment. Building `<base>/<name>` keeps it that way.
+
+    `skip` maps a resolved clone path to the reason it is not touched this
+    call -- already synced by an earlier call this session start, or a
+    checkout a session is working in (sources_from_attached_sets below).
+    A skipped source is still on disk and in force, so it reports ok.
+    `only_marked` leaves alone, the same way, any checkout already on disk
+    that this tool did not clone (CLONE_MARKER): the attached-set walk pulls
+    only its own clones, since the project directory is not always named in
+    the environment that runs it. `existing_only` refreshes what is on disk
+    and clones nothing new: a missing source stays the resolver's to clone
+    when something first reads it, so a session start in a repository whose
+    sets never needed their own universal clone does not start paying for
+    one.
 
     -> [(name, ok, output)], one per declared shared source. Never raises: a
     set that cannot be cloned degrades the session (practice:
@@ -794,6 +808,19 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             results.append((name, True, 'declared inside this repository -- '
                                         'nothing to clone or pull'))
             continue
+        if skip and clone_path in skip:
+            results.append((name, True, skip[clone_path]))
+            continue
+        if only_marked and (clone_path / '.git').exists() \
+                and not _is_marked_clone(clone_path):
+            # practice: repair-cannot-discard-work
+            results.append((name, True, 'not cloned by this tool, so it may '
+                            'be a session\'s working copy -- left as it is'))
+            continue
+        if existing_only and not (clone_path / '.git').exists():
+            results.append((name, True, 'not on disk here; cloned when '
+                            'something first reads it, not at session start'))
+            continue
         if (clone_path / 'practices').is_dir():
             # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
             # returned 'already on disk' and stopped -- so a shared-set clone was
@@ -816,8 +843,16 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                                     'get-url', 'origin'])
             ok_before, before = _run_git(['-C', str(clone_path), 'rev-parse',
                                           'HEAD'])
+            # THE SAME PIN AS A FRESH CLONE (2026-10-02). This call passed no
+            # branch, so _sync_once fell back to the clone's OWN declared
+            # base_branch -- for a universal clone, BestPractice's working
+            # branch (staging), not the main its manifest pins. It never
+            # showed while nothing re-synced a set's universal clone; the
+            # first run that did moved /root/BestPractice from main onto
+            # staging.
             ok, out = _try_sync(url if ok_url else _clone_url(
-                repo_path, level, name, base, repo) or '', clone_path)
+                repo_path, level, name, base, repo) or '', clone_path,
+                branch=branch or _clone_branch(repo_path, level))
             if not ok:
                 # A source that is present but could not be refreshed is
                 # still IN FORCE -- it is on disk and resolvable -- so this
@@ -880,6 +915,180 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     return results
 
 
+
+# THE SOURCES OF EVERY ATTACHED SET, NOT ONLY THE ROOT'S (2026-10-02).
+#
+# Session start called sources_from_repo() on the session's own repository
+# and nothing else. A practice set reads its universal rules from the
+# `../BestPractice` IT declares, and when the set sits under a different
+# parent from the project -- the individual set at $HOME/precedent-individual
+# beside a project at /home/user/BestPractice -- that path is a clone of its
+# own, which nothing ever pulled again. Measured 2026-10-02: /root/BestPractice
+# had one reflog entry, its clone at the previous day's session start, and
+# was 131 commits behind origin/main. The set's session file was rendered
+# from it, and the reply gate reported a session load of about 4,900 tokens
+# that measured about 4,000 once the clone was fast-forwarded and the file
+# rebuilt. The set's shared sets escaped only because they were symlinks to
+# the copies the root does sync (_clone_elsewhere_on_disk).
+#
+# So, after the root's own sources, every practice set the root declares and
+# the individual set have their own declared sources synced too, by the same
+# _try_sync (fast-forward only; a clone this tool did not make is never moved
+# off its branch). Two kinds of path are skipped: one already synced this
+# run, so a symlinked set is pulled once, and a checkout a session is working
+# in -- a set beside the project declares ../BestPractice, which IS the
+# project, possibly on a feature branch with work in it (practice:
+# repair-cannot-discard-work). Then each set's .precedent/SESSION_PRACTICES.md
+# is re-rendered if a source it reads moved since it was written
+# (precedent_resolve._self_heal_stale_render), which is the other half of the
+# same stale number: the shared sets moved at a resume and the set's file did
+# not follow.
+#
+# One level deep, deliberately: a set's sources are universal and shared
+# sets, and those declare nothing this walk needs.
+
+
+def _session_working_trees():
+    """-> {resolved path: reason} for every checkout a session is working
+    in: the project directory, read from the engine's own variable first and
+    the provider's second (the same pair attach_workspace reads)."""
+    out = {}
+    for var in ('PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR'):
+        proj = os.environ.get(var, '').strip()
+        if not proj:
+            continue
+        try:
+            out[pathlib.Path(proj).resolve()] = (
+                'a session is working in this checkout, so it is not pulled '
+                'from here -- its own git workflow keeps it current')
+        except OSError:
+            continue
+    return out
+
+
+def attached_sets(repo_path):
+    """-> [Path] every practice set this session reads beyond the root: the
+    shared sets the root declares and the person's individual set, resolved
+    and deduplicated, each present on disk with a precedent.json of its own.
+    Never the root itself or a universal clone. [] when the resolver is not
+    beside this file -- an engine older than it simply keeps the root-only
+    behaviour."""
+    try:
+        import precedent_resolve as pr
+        declared = pr.declared_source_paths(repo_path)
+    except Exception:                                       # noqa: BLE001
+        return []
+    root = pathlib.Path(repo_path).resolve()
+    out, seen = [], set()
+    for path, level, _name, note in declared:
+        if note or level not in ('shared', 'individual') or not path:
+            continue
+        real = pathlib.Path(path).resolve()
+        if real == root or real in seen:
+            continue
+        seen.add(real)
+        try:
+            json.loads((real / 'precedent.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            # Unreadable or broken: the resolver and the session check report
+            # a broken set already, so the walk adds no second message.
+            continue
+        out.append(real)
+    return out
+
+
+def sources_from_attached_sets(repo_path, base_url=None,
+                               retries=DEFAULT_RETRIES,
+                               retry_delay=DEFAULT_RETRY_DELAY):
+    """Sync the sources each attached practice set declares, then re-render
+    each set's session file if what it reads moved. See the comment above.
+
+    The sources the root repository declares were synced just before this
+    by sources_from_repo(repo_path), so they are skipped rather than pulled
+    twice. -> [(set path, name, ok, output)]. Never raises."""
+    root = pathlib.Path(repo_path).resolve()
+    skip = _session_working_trees()
+    skip.setdefault(root, 'the root repository is not pulled by this tool')
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+        for src in cfg.get('sources', []) or []:
+            rel = str(src.get('path') or '').strip()
+            if rel:
+                skip.setdefault((root / rel).resolve(),
+                                'already synced from the root repository '
+                                'this session start')
+    except Exception:                                       # noqa: BLE001
+        pass
+    out = []
+    for set_path in attached_sets(root):
+        try:
+            res = sources_from_repo(set_path, base_url=base_url,
+                                    retries=retries, retry_delay=retry_delay,
+                                    skip=skip, only_marked=True,
+                                    existing_only=True)
+        except Exception as e:                              # noqa: BLE001
+            res = [(None, False, f'{type(e).__name__}: {e}')]
+        for name, ok, msg in res:
+            out.append((set_path, name, ok, msg))
+        # Whatever this set declares is now synced: a second set declaring
+        # the same clone (by a symlink, usually) skips it.
+        try:
+            scfg = json.loads((set_path / 'precedent.json')
+                              .read_text(encoding='utf-8'))
+            for src in scfg.get('sources', []) or []:
+                rel = str(src.get('path') or '').strip()
+                if rel:
+                    skip.setdefault((set_path / rel).resolve(),
+                                    'already synced from another practice '
+                                    'set this session start')
+        except Exception:                                   # noqa: BLE001
+            pass
+        try:
+            import precedent_resolve as pr
+            pr._self_heal_stale_render(set_path)
+        except Exception:                                   # noqa: BLE001
+            pass
+    return out
+
+
+def sources_from_brings(retries=DEFAULT_RETRIES):
+    """Clone or pull every set the person's individual set BRINGS
+    (spec/LADDER_OPT_IN_PLAN.md D2): beside the individual set, from the full
+    URL the entry names. A set already on disk elsewhere is linked rather
+    than cloned twice (_clone_elsewhere_on_disk). Runs before
+    sources_from_attached_sets, so what a brought set declares is refreshed
+    in the same session start. -> [(name, ok, output)]. Never raises."""
+    try:
+        import precedent_resolve as pr
+        ucfg = pathlib.Path(os.environ.get(
+            pr.USER_CONFIG_ENV, str(pr.DEFAULT_USER_CONFIG))).expanduser()
+        ind = json.loads(ucfg.read_text(encoding='utf-8')).get('individual')
+        ind_path = pathlib.Path(ind['path']).expanduser() \
+            if isinstance(ind, dict) and ind.get('path') else None
+        brought = pr.brought_sources(ind_path, warn=False) if ind_path else []
+    except Exception:                                       # noqa: BLE001
+        return []
+    out = []
+    for b in brought:
+        name, url = b['name'], b['repo']
+        clone_path = pathlib.Path(b['path'])
+        try:
+            if not (clone_path / '.git').exists() and not clone_path.exists():
+                existing = _clone_elsewhere_on_disk(name, clone_path.resolve(),
+                                                    ind_path)
+                if existing is not None:
+                    clone_path.parent.mkdir(parents=True, exist_ok=True)
+                    clone_path.symlink_to(existing, target_is_directory=True)
+                    out.append((name, True, f'linked to the copy already on '
+                                            f'disk at {existing}'))
+                    continue
+            ok, msg = _try_sync(url, clone_path.resolve() if clone_path.exists()
+                                else clone_path)
+            out.append((name, ok, msg or 'cloned'))
+        except Exception as e:                              # noqa: BLE001
+            out.append((name, False, f'{type(e).__name__}: {e}'))
+    return out
+
 def _declared_inside(repo_path, clone_path):
     """True when a declared source path is this repository itself, or a
     directory inside it with no .git of its own -- a vendored copy. Neither
@@ -921,7 +1130,11 @@ def _clone_branch(repo_path, level):
     silently landed on an older tree (AGENTS.md's gotchas section)."""
     if level != 'universal':
         return None
-    return _engine_manifest(repo_path).get('source_branch') or None
+    # Never the universal repository's OWN base_branch: that names where its
+    # contributors work (staging), and a consumer reads the catalogue at main
+    # (2026-10-02 -- a set with no manifest, or one without source_branch,
+    # had its universal clone moved onto staging by the fallback).
+    return _engine_manifest(repo_path).get('source_branch') or SOURCE_BRANCH_DEFAULT
 
 
 def _engine_manifest(repo_path):
@@ -975,6 +1188,10 @@ def main(argv=None):
                    help="clone every shared source REPO's precedent.json "
                         f'declares, from ${BASE_URL_ENV}/<name>. Mutually '
                         'exclusive with the single-source arguments above')
+    p.add_argument('--root-only', action='store_true',
+                   help='with --sources-from: sync only the sources REPO '
+                        'declares, not those of the practice sets it '
+                        'attaches (the behaviour before 2026-10-02)')
     p.add_argument('--branch', default=None, metavar='NAME',
                    help='the branch to clone and keep the source on. '
                         'Defaults to the source\'s own declared base_branch, '
@@ -992,14 +1209,36 @@ def main(argv=None):
         return 0
 
     if args.teams_from:
-        for name, ok, out in sources_from_repo(args.teams_from,
-                                             retries=args.retries,
-                                             retry_delay=args.retry_delay,
-                                             branch=args.branch):
+        root_results = sources_from_repo(args.teams_from,
+                                         retries=args.retries,
+                                         retry_delay=args.retry_delay,
+                                         branch=args.branch)
+        for name, ok, out in root_results:
             if not ok:
                 print(f"precedent_source_bootstrap: shared source "
                       f"{name!r} is not on disk -- {out[-500:]}. Its practices "
                       f"are NOT in force this session.", file=sys.stderr)
+        for name, ok, out in sources_from_brings(retries=args.retries):
+            if not ok:
+                print(f"precedent_source_bootstrap: {name!r}, a set your own "
+                      f"practice set brings, could not be fetched -- "
+                      f"{out[-300:]}. Its practices are NOT in force this "
+                      f"session.", file=sys.stderr)
+        if not args.root_only:
+            for set_path, name, ok, out in sources_from_attached_sets(
+                    args.teams_from, retries=args.retries,
+                    retry_delay=args.retry_delay):
+                # A source still in force but NOT refreshed reports ok=True
+                # (sources_from_repo), and staying quiet about it is the
+                # silent staleness this walk exists to end: say it once.
+                stale = out.startswith('already on disk, but could NOT')
+                if not ok or stale:
+                    why = out.split(': ', 1)[1] if stale else out
+                    print(f"precedent_source_bootstrap: the copy of {name!r} "
+                          f"that the practice set at {set_path} reads was not "
+                          f"brought up to date ({why[-300:]}), so that set may "
+                          f"be reading older rules this session.",
+                          file=sys.stderr)
         return 0
 
     missing = [f'--{n}' for n, v in (('level', args.level), ('name', args.name),

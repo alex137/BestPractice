@@ -597,11 +597,28 @@ def remind(root=None, user_config=None):
     nagged about a config problem it cannot fix would be exactly the noise
     this file exists to avoid; `main()` below is where that belongs, once
     per session."""
+    if _off_ladder(root or REPO, user_config):
+        return None
     try:
         status, _lines, alert = check(root=root, user_config=user_config)
     except Exception:
         return None
     return alert if status == 'alert' else None
+
+
+def _off_ladder(root, user_config=None):
+    """True for a person off the ladder. It watches what other people land
+    on the staging tier, which only a person on the ladder has
+    (spec/LADDER_OPT_IN_PLAN.md D4): for anyone else it has nothing to watch
+    and says nothing. Asked here, by every entry point, because the reply
+    gate calls remind() directly: until 2026-10-02 only main() asked, and a
+    colleague's reply gate named who had pushed to staging."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_ladder
+        return precedent_ladder.ladder_in_force(root, user_config) is False
+    except Exception:                                            # noqa: BLE001
+        return False
 
 
 def main():
@@ -611,6 +628,8 @@ def main():
     parser.add_argument('--no-push', action='store_true',
                          help='write and commit the watermark locally, skip the push')
     args = parser.parse_args()
+    if _off_ladder(REPO):
+        return 0
     status, lines, _alert = check(no_fetch=args.no_fetch, no_push=args.no_push)
     prefix = {'ok': 'beta-branch watermark',
               'alert': 'BETA-BRANCH WATERMARK',

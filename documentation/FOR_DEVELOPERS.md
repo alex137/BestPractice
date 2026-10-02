@@ -306,7 +306,7 @@ runs at each one:
    Issue body for `alex137/BestPractice`, labeled `precedent-candidate`,
    since nothing world-readable is ever committed to a `candidates/`
    directory here (see [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md)).
-2. **Promote it.** `precedent_promote.py` runs the candidate against four
+2. **Check and draft it.** `precedent_promote.py` runs the candidate against four
    criteria — recurrence or real cost, reachability (a check, a narrow
    `applies_to`, or an occasion), non-duplication, and resident-budget fit
    — and drafts a practice file only if all four pass:
@@ -330,7 +330,7 @@ runs at each one:
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
    Precedent, merged once its own deep check passes — no second sign-off
-   required, same as any other PR into `staging`.
+   required, same as any other PR.
 
 ## Who May Change What
 
@@ -340,7 +340,8 @@ Three roles, and each is a list in a file rather than a label on a person
 
 - **Collaborator** — anyone invited to the project repository with GitHub's
   Write role. They write, change and merge the project's content, through
-  their AI Assistant, with **Booked** (`Go update`).
+  their AI Assistant, which saves the work to GitHub and merges it into
+  main.
 - **Maintainer** — named under `maintainers` in the project's
   `precedent.json`. Their review is required before a change to the
   machinery lands: `.github/`, `.claude/`, `tools/`, the vendored catalogue,
@@ -393,7 +394,7 @@ has to say yes?*
   around needing someone else's agreement.
 - **Everyone's (universal):** goes up as a PR against the shared
   Precedent repository, merged once its own deep check passes — the same
-  branch-level gate as any other PR into `staging`, not a
+  branch-level gate as any other PR, not a
   second reviewer's sign-off.
 
 ## How Enforcement Works

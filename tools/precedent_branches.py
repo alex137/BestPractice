@@ -185,13 +185,24 @@ REPO_LANDING_COMMENT = [
 ]
 
 
-def ensure_repo_landing(root):
+def ensure_repo_landing(root, new_install=False):
     """Give precedent.json a `landing_branch` when it has none. -> True when
     it wrote one. Never changes a value that is there, and never creates the
-    file: a repository without a precedent.json is not an install."""
+    file: a repository without a precedent.json is not an install.
+
+    Only for a person on the ladder, and only where the repository asks for
+    tiers -- a fresh install by that person, or a repository that already
+    has them (spec/LADDER_OPT_IN_PLAN.md D3: nothing creates tiers in a
+    repository that did not ask for them)."""
     path = pathlib.Path(root) / 'precedent.json'
     data = _read_json(path)
     if not isinstance(data, dict) or LANDING_SETTING in data:
+        return False
+    # Tiers are written only by a person on the ladder (D3): anyone else
+    # installing or updating leaves the repository on its main branch alone.
+    ladder = ladder_in_force(root)
+    if ladder is False or (ladder and not new_install
+                           and not repo_has_tiers(root)):
         return False
     # Appended as text before the closing brace, so the rest of a
     # hand-kept file -- its order, its escapes, its comments' wrapping --
@@ -313,9 +324,65 @@ def person_first_setting(root, key, user_config=None):
     return None, None
 
 
+def ladder_in_force(root, user_config=None):
+    """-> True or False from tools/precedent_ladder.py, or None when that
+    helper is not beside this file (an engine older than it): the caller
+    then keeps the behaviour from before the ladder became opt-in. Imported
+    here, not at the top, because this module must import cleanly with
+    nothing else vendored beside it."""
+    try:
+        here = str(pathlib.Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import precedent_ladder
+    except Exception:                                       # noqa: BLE001
+        return None
+    try:
+        return bool(precedent_ladder.ladder_in_force(root, user_config))
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def repo_has_tiers(root):
+    """True when this repository has tiers: precedent.json names a tier as
+    its landing_branch or base_branch, or a staging_branch of its own, or
+    origin already carries pre-staging. A repository with none of these has
+    only its main branch, and nothing here gives it more."""
+    data = precedent_json(root)
+    if data.get(LANDING_SETTING) in (PRE_STAGING, STAGING):
+        return True
+    if base_branch(root) in (PRE_STAGING, STAGING, LEGACY_STAGING):
+        return True
+    explicit = data.get(STAGING_KEY)
+    if isinstance(explicit, str) and explicit.strip():
+        return True
+    try:
+        r = subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify',
+                            '-q', f'refs/remotes/origin/{PRE_STAGING}'],
+                           capture_output=True, text=True)
+        return r.returncode == 0
+    except OSError:
+        return False
+
+
 def landing_branch(root, user_config=None):
-    """-> (branch, why): where this person's `Go update` lands. The person's
-    own setting first, then the repository's, then DEFAULT_LANDING."""
+    """-> (branch, why): where this person's work lands
+    (spec/LADDER_OPT_IN_PLAN.md D3, Morgan 2026-10-02, strength: decided).
+
+    1. The person's own landing_branch, else the repository's main branch.
+    2. A tier value -- pre-staging or staging, the person's or the
+       repository's -- counts only while the ladder is in force for this
+       person AND the repository declares tiers. Otherwise it is ignored and
+       never edited: a person off the ladder has no tiers, and a ladder user
+       never creates them in a repository that did not ask for them.
+    3. On the ladder, in a repository with tiers: the person, then the
+       repository, then pre-staging.
+
+    With no tools/precedent_ladder.py beside this file, the order from before
+    the ladder became opt-in: the person, the repository, DEFAULT_LANDING."""
+    ladder = ladder_in_force(root, user_config)
+    if ladder is not None:
+        return _landing_by_ladder(root, ladder, user_config)
     value, where = person_first_setting(root, LANDING_SETTING, user_config)
     if value is None:
         tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
@@ -338,6 +405,36 @@ def landing_branch(root, user_config=None):
     return staging_branch(root), why
 
 
+def _landing_by_ladder(root, ladder, user_config=None):
+    """landing_branch's rule once the ladder can be asked about."""
+    person, where = None, None
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and LANDING_SETTING in ident:
+            person, where = ident[LANDING_SETTING], str(path)
+            break
+    repo = precedent_json(root).get(LANDING_SETTING)
+    tiers = bool(ladder) and repo_has_tiers(root)
+    if person is not None and person not in (PRE_STAGING, STAGING, MAIN):
+        person = None                     # a typo: as if it were not set
+    if person == MAIN:
+        return MAIN, f'{LANDING_SETTING} is "main" in {where}'
+    if person in (PRE_STAGING, STAGING):
+        if tiers:
+            return (PRE_STAGING if person == PRE_STAGING else staging_branch(root),
+                    f'{LANDING_SETTING} is "{person}" in {where}')
+        return MAIN, (f'{LANDING_SETTING} is "{person}" in {where}, a branch '
+                      f'this repository does not use for you, so work lands '
+                      f'on {MAIN}')
+    if tiers:
+        if repo == STAGING:
+            return staging_branch(root), (f'{LANDING_SETTING} is "staging" in '
+                                          f"this repo's precedent.json")
+        return PRE_STAGING, (f'{LANDING_SETTING} is "pre-staging" in this '
+                             f"repo's precedent.json")
+    return MAIN, f'work lands on {MAIN} here'
+
+
 # PROMOTE ONLY -- a per-person setting, off unless that person turns it on
 # (Morgan, 2026-09-25: "please make this an INDIVIDUAL rule for me, because I
 # believe that Alex and others won't necessarily use this system"). With it
@@ -357,8 +454,18 @@ PROMOTE_ONLY_SETTING = 'promote_only'
 
 
 def promote_only(root, user_config=None):
-    """-> (on, where). Only a literal `true` turns it on."""
+    """-> (on, where). Only a literal `true` turns it on, and only while the
+    ladder is in force for this person (spec/LADDER_OPT_IN_PLAN.md D3.4):
+    off the ladder, and in a session started with PRECEDENT_NO_LADDERS, the
+    setting is ignored, never edited."""
     value, where = personal_setting(root, PROMOTE_ONLY_SETTING, user_config)
+    if value is True:
+        ladder = ladder_in_force(root, user_config)
+        # Off the ladder, or in a repository with no tiers to promote
+        # through, main is where work lands -- refusing pushes there would
+        # leave the person nowhere to put it.
+        if ladder is False or (ladder and not repo_has_tiers(root)):
+            return False, where
     return value is True, where
 
 
@@ -424,7 +531,7 @@ def tier_branches(root):
                    staging_branch(root)})
 
 
-def ensure_tiers(root, apply=False, say=print):
+def ensure_tiers(root, apply=False, say=print, new_install=False):
     """Make origin carry pre-staging and a real staging branch. -> 0 when
     both exist (or were just made), 1 when something is missing and
     `apply` is off, or could not be made.
@@ -438,6 +545,13 @@ def ensure_tiers(root, apply=False, say=print):
     left alone (see STAGING_KEY). Then pre-staging is made from staging by
     sync_pre_staging, the same way first use makes it everywhere else."""
     root = pathlib.Path(root)
+    # Only a person on the ladder makes tiers (spec/LADDER_OPT_IN_PLAN.md D3):
+    # for anyone else a repository has its main branch and nothing to make,
+    # and saying so would be the ladder's words in their session.
+    ladder = ladder_in_force(root)
+    if ladder is False or (ladder and not new_install
+                           and not repo_has_tiers(root)):
+        return 0
     staging = staging_branch(root)
     missing = []
     wants_staging_branch = staging == MAIN
@@ -1165,11 +1279,16 @@ def tier_check_state(root, branch, tip, gh=None):
     return ok, '; '.join(parts)
 
 
-def _check_tier(root, branch, tip, say, gh=None):
+def _check_tier(root, branch, tip, say, gh=None, wait=True):
     """Give `tip`, on tier `branch`, whatever of its tier's checks it lacks,
     and -> (ok, detail). The full local check (a published receipt makes it
     instant), then on main the GitHub test: found on the commit or its pull
-    request, else started and awaited."""
+    request, else started and awaited.
+
+    `wait=False` (a Debut, spec/LADDER_OPT_IN_PLAN.md D10, Morgan
+    2026-10-02, strength: decided) takes main's GitHub test as it stands:
+    passed counts, anything else holds the copy-down without starting the
+    test or waiting on it, so the person's own work still goes up."""
     with _Worktree(root, tip) as wt:
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL)
@@ -1190,6 +1309,9 @@ def _check_tier(root, branch, tip, say, gh=None):
         due, why = main_test_due(root, tip, gh=gh)
         if not due:
             return True, f'{local}; GitHub test not due: {why}'
+    if not wait and state != 'passed':
+        return False, (f'{local}, but the GitHub test is {state} on it ({detail}), '
+                       f'and this step does not wait for it')
     if state == 'none':
         state, detail = _run_github_test(root, tip, tests, say, gh)
     elif state == 'running':
@@ -1247,7 +1369,7 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
     return 1
 
 
-def sync_pre_staging(root, say=print, check=False):
+def sync_pre_staging(root, say=print, check=False, wait_main=True):
     """Make origin's pre-staging exist and hold what reached staging or main
     without climbing through it. -> True on success, False when pre-staging
     could not be brought current (a conflict, a race, a failing basic check
@@ -1297,11 +1419,18 @@ def sync_pre_staging(root, say=print, check=False):
         what = (f'{branch} has {len(commits)} commit(s) with changes '
                 f'{PRE_STAGING} lacks, up to {tip[:12]}')
         if check:
-            ok, detail = _check_tier(root, branch, tip, say)
+            ok, detail = _check_tier(root, branch, tip, say,
+                                     wait=wait_main or branch != MAIN)
         else:
             ok, detail = tier_check_state(root, branch, tip)
         if ok:
             ready.append((branch, tip))
+            continue
+        if check and branch == MAIN and not wait_main and 'does not wait' in detail:
+            say(f'NOT COPIED YET: {what}, and its GitHub test has not passed on '
+                f'them ({detail}). This step does not wait for it: your own work '
+                f'goes up now, and {MAIN}\'s newer work comes down at a later '
+                f'Promote once that test passes.')
             continue
         if not check:
             say(f'NOT COPIED YET: {what}, and it has not had all of the '
@@ -1599,6 +1728,16 @@ def promote(root, say=print, to=None, work=None):
     promoting; 1 refused (a failing check, a conflict, a race);
     PROMOTE_MAIN_NOT_MOVED when staging into main is ready for its pull
     request and main has not moved yet."""
+    if not repo_has_tiers(root) and not _git(
+            root, 'rev-parse', '--verify', '--quiet',
+            f'refs/remotes/origin/{staging_branch(root)}'):
+        # Nothing ever creates tiers in a repository that did not ask for
+        # them (spec/LADDER_OPT_IN_PLAN.md, Morgan 2026-10-02: "Yes"). Before
+        # this, a Promote here announced a move, failed on the missing
+        # staging branch, and left its lock branch behind on origin.
+        say(f'this repository has only {MAIN}, and work lands there '
+            f'directly, so there is nothing to promote.')
+        return 0
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
     above = _drifted_from_above(root) if step is None else []
@@ -1739,6 +1878,38 @@ def _to_main_copy(root, due=True):
 PROMOTE_MAIN_NOT_MOVED = 3
 
 
+def main_test_holds_produce(root, say=print, gh=None):
+    """-> None when a move into main may go ahead, else why not. Main's
+    GitHub test on its own tip: failing holds it, still running is waited
+    for (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-02, strength:
+    decided: "Produce waits until main's test passes"). No test installed,
+    none on this tip, or one GitHub cannot be asked about holds nothing:
+    the pull request's own test is still the last gate."""
+    if not _gets_github_test(root, MAIN):
+        return None
+    mtip = _remote_tip(root, MAIN)
+    tests = github_tests(root, mtip) if mtip else []
+    if not tests:
+        return None
+    state, detail = github_test_state(root, mtip, tests, gh)
+    if state == 'running':
+        say(f'the GitHub test on {MAIN} ({mtip[:12]}) is still running; a move '
+            f'into {MAIN} waits for it...')
+        deadline = time.monotonic() + GITHUB_TEST_WAIT_SECONDS
+        while state == 'running' and time.monotonic() < deadline:
+            time.sleep(GITHUB_POLL_SECONDS)
+            state, detail = github_test_state(root, mtip, tests, gh)
+    if state == 'failed':
+        return (f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
+                f'{detail}). Nothing moves into {MAIN} until it passes: fix it, '
+                f'then Promote again.')
+    if state == 'running':
+        return (f'{MAIN}\'s GitHub test on {mtip[:12]} was still running after '
+                f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes ({detail}); Promote '
+                f'again once it finishes.')
+    return None
+
+
 def _promote_to_main(root, say=print):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
@@ -1748,6 +1919,10 @@ def _promote_to_main(root, say=print):
     the copy is ready and main has not moved yet; 0 nothing to promote; 1
     refused."""
     staging = staging_branch(root)
+    held = main_test_holds_produce(root, say)
+    if held:
+        say(f'PROMOTE REFUSED: {held}')
+        return 1
     # What reached main or staging by another route is checked and copied
     # down first, the same as before the step into staging.
     if not sync_pre_staging(root, say, check=True):
@@ -1818,7 +1993,7 @@ def _promote_unlocked(root, say=print):
     """Pre-staging into staging, fully checked. -> 0 promoted or nothing to
     promote; 1 refused (a failing check, a conflict, a race)."""
     staging = staging_branch(root)
-    if not sync_pre_staging(root, say, check=True):
+    if not sync_pre_staging(root, say, check=True, wait_main=False):
         return 1
     stip, ptip = _remote_tip(root, staging), _remote_tip(root, PRE_STAGING)
     _run(root, 'fetch', '-q', 'origin', staging, PRE_STAGING)
@@ -2032,12 +2207,21 @@ def _main(argv):
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)
+    landing, lwhy = landing_branch(root)
+    if ladder_in_force(root) is False or not repo_has_tiers(root):
+        # Off the ladder there are no tiers to list (spec/LADDER_OPT_IN_PLAN.md
+        # D3), and a repository without them has none to list for anyone:
+        # the main branch, how pushes are checked, where work lands.
+        print(f'main         {MAIN}')
+        print(f'checked fully: {MAIN}')
+        print(f'every other branch: {tier} ({why})')
+        print(f'your work lands on: {landing} ({lwhy})')
+        return 0
     print(f'pre-staging  {PRE_STAGING}')
     print(f'staging      {staging_branch(root)}')
     print(f'main         {MAIN}')
     print(f'always checked fully: {", ".join(sorted(full_branches(root)))}')
     print(f'every other branch: {tier} ({why})')
-    landing, lwhy = landing_branch(root)
     print(f'Booked (Go update) lands on: {landing} ({lwhy})')
     return 0
 

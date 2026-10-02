@@ -209,7 +209,7 @@ paragraph, and it is the only shape that carries.
 
 **`Session Text` and `Go merge` in the same message is the unambiguous
 case, and the phrase travels.** When the person says both -- or `Approved`,
-which is the same command ([go-update](go-update.md)) -- the authorization they
+which is the same command (`go-update`) -- the authorization they
 just gave is for the work, and the work is about to move to a window they
 are not typing in yet. So it moves with it: the pasted text carries the
 `Go merge` verbatim, quoted and attributed, and the session they open by
@@ -224,7 +224,7 @@ opened session decides to do next, and not a second merge after it. It
 names **the branch that repository's own rules say routine work lands on**,
 never a branch behind review or a release branch: a restriction the
 destination repository declares is not something a relayed phrase can lift,
-exactly as [go-update](go-update.md) already says. And it is **conditional on
+exactly as `go-update` already says. And it is **conditional on
 that repository's own checks passing** -- the pasted text says which ones,
 so the session that opens it does not have to guess.
 
@@ -252,7 +252,7 @@ human said no.** If nobody did, a wall is just a wall.
 
 **Whether the receiving session can ACT on the relayed authorization is
 not the sender's call, and since 2026-09-14 it has an answer:
-[relayed-authorization](relayed-authorization.md).** The receiver acts only
+`relayed-authorization`.** The receiver acts only
 where the authorizing person's own `identity.json` declares that they accept
 relays; otherwise it does the work, opens the pull request and stops. **Relay
 it either way** -- an authorization that arrives with the work is what lets
@@ -415,7 +415,7 @@ existing session."* The rule already said exactly that. What it did not do
 was carry it anywhere a session looks: the generated index clause named only
 the cross-repository check and the link, so a session that never opened this
 file never learned the step existed — **the same failure
-[go-update](go-update.md) records, an answer sitting in a file nobody fetched.**
+`go-update` records, an answer sitting in a file nobody fetched.**
 Two further gaps came out with it. The rule said *wake a live one* and named
 no tool to do it with, so the instruction had no mechanism; and the paragraph
 after it opened flat with *"If a different session is needed ... Create the
@@ -609,7 +609,7 @@ adopter installs nothing and every session reads the phrase whether or not
 any private source resolved.
 
 No mechanical check, and the reason is the same one
-[go-update](go-update.md) records: this governs what a session does *before*
+`go-update` records: this governs what a session does *before*
 it touches the tree, and a session that skipped the check leaves behind
 exactly what a session that ran it and found nothing leaves behind — the
 work, committed normally. The one artifact it produces, a link in a chat

@@ -31,7 +31,7 @@ exactly why a reader will not find it on their own.
 
 **The list opens with where the files are: `Files touched in
 owner/repo/branch:`** -- for example *Files touched in
-alex137/BestPractice/pre-staging:* -- and the entries follow. A reply that
+alex137/BestPractice/main:* -- and the entries follow. A reply that
 touched more than one repository or branch gives each its own preface and
 its own list, so every entry sits under the place it lives.
 

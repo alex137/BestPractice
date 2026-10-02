@@ -12,11 +12,11 @@ The symptom.
 
 ## Story
 
-**The symptom.** [go-update](../practices/go-update.md) and
+**The symptom.** `go-update` and
 [spawn-session](../practices/session-text.md) both say a relayed `Go merge`
 travels with a seeded prompt: the receiving session merges without asking
 again, bounded by
-[relayed-authorization](../practices/relayed-authorization.md)'s check on the
+`relayed-authorization`'s check on the
 target repository's own `identity.json`. A `create_session` call seeding a
 cross-owner repository with a prompt that said, in effect, "commit, push,
 open the pull request, and merge it" was refused before the new session ever

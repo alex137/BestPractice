@@ -25,9 +25,9 @@ source_practice_number: null
 When the person says **"Vocabulary"**, begin the answer with one line making
 clear that these are not exact-keyword triggers: a session recognizes the
 phrase, but it also reads plain language for the same intent and triggers on
-that, the way [go-update](go-update.md) itself is read (*"sold, ship it"* counts
-as much as the phrase does). Then give **two lists, and nothing else**
-beyond that opening line:
+that, the way [weak-yes](weak-yes.md) itself is read (agreeing without
+conviction counts as much as the phrase does). Then give **two lists, and
+nothing else** beyond that opening line:
 
 1. **Commands** -- the standing commands in force here, each phrase and one
    plain sentence saying what it does.
@@ -83,14 +83,14 @@ is ever offered).
 declares its own phrases in frontmatter:
 
 ```
-command:     {"Go update": "Save the work, publish it, and tell you where it went."}
+command:     {"Drop it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}
 ```
 
 an object mapping each trigger phrase to the plain sentence a person who is
 not a developer reads ([readers-vocabulary](readers-vocabulary.md) governs
 that sentence -- it is written for them, not for a session). Two phrases for
-one command are two entries in one object, never two practices: `Booked`,
-`Go update` and `Approved` are one rule with several triggers.
+one command are two entries in one object, never two practices: `Root
+issues` and `Root fixes` are one rule with two triggers.
 
 **Alphabetical, always.** Every other order -- by date coined, by how often
 it is used, by how important someone thinks it is -- is a judgment that goes
@@ -120,8 +120,8 @@ re-derived a third time. Measured on that date:
 | less names collapsed as a SYNONYM onto another line | −2 |
 | **lines the tool prints** | **18** |
 
-The two synonyms are `Approved` (printed under `Go update`) and `Archive?`
-(under `Archive`). The three inactive ones are `archive-command`,
+The two synonyms are `Approved` (printed under the other phrase of its own
+command) and `Archive?` (under `Archive`). The three inactive ones are `archive-command`,
 `brief-it` and `session-text`, each `status: deduplicated` — folded into a
 surviving practice, so their word still works and their entry is not a
 second rule.
@@ -155,7 +155,7 @@ are the same fact.
 
 ## Story
 **Coined by Morgan, 2026-09-13**, in the same message that added `Approved`
-to [go-update](go-update.md) and pushed the merge authorization into spawned
+to `go-update` and pushed the merge authorization into spawned
 sessions: *"maybe we can add in yet another vocabulary word: 'vocabulary' if
 I type it, it then returns a list of the commands we have defined: go merge,
 my options, spawn session, etc."*

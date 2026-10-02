@@ -94,6 +94,7 @@ FIELD_ORDER = (
     'status',
     'in_force_at',
     'expires',
+    'requires',
     'supersedes',
     'overrides',
     'added',

@@ -116,18 +116,16 @@ following, every time:
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
-- **Where the work stops.** Without the person's Booked for this handoff
-  (below), **the prompt ends at Act**: *"Build it on your feature branch,
-  push it there, and stop; the person lands it with Booked and promotes it
-  from there."* It names no tier branch -- not `pre-staging`, `staging` or
-  `main` -- as somewhere to land, merge or open a pull request, since
-  landing is Booked's and needs the person's word. With Booked, it names
-  the person's landing branch -- what `python3 tools/precedent_branches.py
-  --landing` answers in the seed repo, `pre-staging` for a person who lands
-  there -- and never `staging` or `main`, which only the person's Promote
-  reaches. A repository's declared base branch is not the answer either,
-  because it names staging. When you cannot run the command, write "your
-  landing branch" and let the receiving session resolve it.
+- **Where the work stops.** Without the person's own go-ahead for this
+  handoff (below), **the prompt ends on a feature branch**: *"Build it on
+  your feature branch, push it there, and stop. Open no pull request and
+  merge nothing unless the person said to."* It names no branch -- not
+  `main`, not the repository's declared base branch -- as somewhere to
+  land, merge or open a pull request, since landing needs the person's
+  word. With that word, it names the branch the person's work lands on --
+  what `python3 tools/precedent_branches.py --landing` answers in the seed
+  repo. When you cannot run the command, write "the branch your work lands
+  on" and let the receiving session resolve it.
 - **When the recommended action would itself change something this repo
   ships to other repos** -- a practice file, a template, a hook, a vendored
   engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
@@ -197,19 +195,19 @@ paste block needs nothing from any one provider's tool surface).
 this handoff**, exactly as `session-text` drew this line before this
 absorbed it. Absent that, the default text says so directly:
 
-> **STOP AT ACT: build it on your feature branch, push it there, and stop.
-> Open no pull request and merge nothing; the person lands it with Booked.**
+> **Build it on your feature branch, push it there, and stop. Open no
+> pull request and merge nothing unless the person said to.**
 
-When the person says `Prompt Please` together with Booked (`Go update`) (or
-`Approved`) -- or anything that plainly gives both in the same breath -- the
-authorization travels with the prompt, bounded exactly as
-[go-update](go-update.md) already bound it (and `session-text` bound it
-before this absorbed it): the handed-off work only, the branch that
-repository's own rules say
-routine work lands on, and conditional on that repository's own checks
-passing. Whether the receiving session may act on it is
-[relayed-authorization](relayed-authorization.md)'s question, not this
-practice's.
+When the person says `Prompt Please` together with a go-ahead to land it --
+"merge it", "push it", "land it", or anything that plainly gives both in
+the same breath -- the authorization travels with the prompt, and **only as
+the person's own words, quoted and dated in the block**: a paraphrase in
+this session's voice carries no authority to land. It is bounded exactly as
+`session-text` bound it before this absorbed it: the handed-off work only,
+the branch that repository's own rules say routine work lands on, and
+conditional on that repository's own checks passing. Whether the receiving
+session may act on it is that session's question, under its own
+repository's rules, not this practice's.
 
 **Write the block so the receiving session can check it, not just obey
 it.** Text that shows up claiming another session's authority looks like
@@ -239,17 +237,11 @@ session handed a fix by relay was stopped by its harness as possible
 instruction poisoning, which is where this paragraph comes from.
 
 ## Detail
-**Where this differs from [Write it up](write-it-up.md).** That command's
-deliverable is a file, committed to the repo and reached later by a link --
-built for the durable record, and bigger: the full context, sequence of
-events and proposed fix, written to last. This command's deliverable is the
-prompt itself, meant to be pasted directly into a new window with nothing to
-click through and nothing to memorialize. Use `Write it up` when the issue
-needs a record that outlives this conversation; use `Prompt Please` when all
-that's needed is to hand the next step to a session that can act on it now.
-Nothing stops using both on the same issue -- write it up for the record,
-then `Prompt Please` for the actual handoff -- but this practice does not
-depend on a commit existing first, and does not make one.
+**This command makes no file.** Its deliverable is the prompt itself,
+meant to be pasted directly into a new window with nothing to click through
+and nothing to memorialize. When the issue also needs a record that
+outlives this conversation, commit that record separately; this practice
+does not depend on a commit existing first, and does not make one.
 
 **The cross-repository check is the same check `session-text` ran, carried
 forward rather than dropped.**
@@ -294,8 +286,8 @@ Coined by Morgan, 2026-09-20. He named the gap directly: something like
 but for the case where a recommendation already exists and he just wants to
 move ahead on it -- distinguishing it from `My options`, which he uses to
 see the choices first and will usually follow the recommendation anyway once
-he has. He drew the second contrast himself, against [Write it
-up](write-it-up.md): that command is bigger and formally committed to
+he has. He drew the second contrast himself, against Write it
+up (`write-it-up`): that command is bigger and formally committed to
 GitHub; this one is smaller, and just a prompt. Asked to help name it, the
 session proposed "Prompt Please"; he took it.
 
@@ -315,7 +307,7 @@ block rather than a paragraph that merely reads as paste-ready. Both
 practices now name the mechanism directly. Strength: decided.
 
 **Extended again the same day**, on Morgan's instruction to this practice,
-[My options](my-options.md) and [Write it up](write-it-up.md) together:
+[My options](my-options.md) and Write it up (`write-it-up`) together:
 *"Any change that would effect other repos must take into account the
 original templates in the mother system that organizes the other repos,
 and must be rolled out cleanly in updated templates/migrations to the
@@ -395,13 +387,22 @@ local container ("Act") and then I'll authorize it to go to pre-staging via
 reply check refuses a paste block that tells a session to land on a tier
 branch without his quoted word.
 
+2026-10-02: a pasted prompt's landing authority is said here in plain
+words now, since the ladder became a set a person brings
+(spec/LADDER_OPT_IN_PLAN.md); the set that provides it keeps this rule's
+earlier wording under the same slug, for the people who bring it. Edit both.
+
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
 from this file, so the phrase reaches every session regardless of whether
 any private source resolved.
 
-No mechanical check, matching [my-options](my-options.md) and
-[write-it-up](write-it-up.md): the artifact is a chat reply, not a file the
-tree holds, so whether a given reply recognized
+One mechanical check: `prompt-please-landing-authority` in
+`reply_check.json` refuses a paste block that tells
+another session to land, merge, push or open a pull request onto the main
+branch without the person's own words for this handoff quoted in it.
+Otherwise, matching [my-options](my-options.md), there is none: the
+artifact is a chat reply, not a file the tree holds, so whether a given
+reply recognized
 the request and assembled the required pieces is a judgment call on the
 conversation, not a property a script watching a diff could read off.

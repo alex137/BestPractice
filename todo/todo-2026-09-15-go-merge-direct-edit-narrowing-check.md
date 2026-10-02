@@ -18,7 +18,7 @@ closed:            null
 
 - <a id="go-merge-direct-edit-narrowing-check"></a>**A mechanical check
     could narrow the trivial/substantial judgment `Go merge` now makes, and
-    it is not built.** [go-update](../practices/go-update.md) forks on a
+    it is not built.** `go-update` forks on a
     session's own read of whether a pending change is trivial
     (direct-push-eligible) or substantial (needs the full PR chain) — a
     judgment call, the same shape as the phrase-recognition it has always

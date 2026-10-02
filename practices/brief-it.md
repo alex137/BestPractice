@@ -35,7 +35,7 @@ Produce one self-contained briefing, with all of the following, every time:
 
 1. **The situation.** What happened and the context that led to it, written
    for a reader with none of this conversation -- the same completeness
-   [write-it-up](write-it-up.md) asks for.
+   `write-it-up` asks for.
 2. **This session's own id and title, with a link, and that a session wrote
    it rather than a person** -- the same header
    [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
@@ -63,10 +63,10 @@ reader's to compose.
 it names.** Producing the briefing is not committing, pushing, or merging
 anything -- whatever the receiving session goes on to do there follows
 whatever authorization already governs that repository, exactly as
-[write-it-up](write-it-up.md) draws the same line around its own report.
+`write-it-up` draws the same line around its own report.
 
 ## Detail
-**Where this differs from [Write it up](write-it-up.md).** That command's
+**Where this differs from Write it up (`write-it-up`).** That command's
 deliverable is a file committed to the repo, reached by a link -- durable,
 but a click away. This command's deliverable is the text itself, meant to be
 pasted directly into a different window with nothing to click through.
@@ -92,7 +92,7 @@ lays out the situation and stops has handed the comparison back to whoever
 reads it, with less context than the session that just did the work.
 
 ## Why
-The reason to ask for this is the same one [write-it-up](write-it-up.md)
+The reason to ask for this is the same one `write-it-up`
 already names: handing a problem to someone who was not in the conversation
 means the write-up has to stand on its own. What write-it-up does not cover
 is the shape asked for here -- a chat-delivered, paste-ready block that
@@ -115,7 +115,7 @@ about laying out decision choices, nothing to do with briefing another
 session on an issue. AGENTS.md's own precedent-commands section states the
 design this would break: "each has a phrase that is always sufficient and
 never ambiguous." "Brief it" was used instead, matching the "<verb> it"
-shape [Drop it](park-it.md) and [Write it up](write-it-up.md) already use,
+shape [Drop it](park-it.md) and Write it up (`write-it-up`) already use,
 and checked against every trigger phrase already in force in this catalogue.
 
 **Deduplicated the same day, into [my-options](my-options.md), on Morgan's
@@ -139,7 +139,7 @@ the generated occasion index, the same as any other command declared with a
 `command:` field.
 
 **No mechanical check, and the reason matches
-[write-it-up](write-it-up.md) and [my-options](my-options.md).** The thing
+`write-it-up` and [my-options](my-options.md).** The thing
 this governs is a chat reply, never a file the tree holds, so whether a
 given reply actually recognized the request and assembled the five required
 pieces is a judgment call on the conversation -- not a property

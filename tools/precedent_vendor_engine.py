@@ -421,6 +421,15 @@ ENGINE_FILES = [
     # design without precedent_resolve.py -- which a source set does not get
     # -- reading that repo's own practices/ and saying so.
     'precedent_vocabulary.py',
+    # Whether the five-stage ladder is in force for the person here
+    # (spec/LADDER_OPT_IN_PLAN.md D5, 2026-10-02). In ENGINE_FILES because
+    # every engine line that says a ladder word asks it first, in a practice
+    # set as much as a consumer, and the hooks call its --in-force exit code.
+    # It imports precedent_resolve, which is in this list too.
+    'precedent_ladder.py',
+    # The one matcher for the ladder's own words (D7), which precedent_check's
+    # ladder-words-stay-in-the-ladder-set imports in every practice set.
+    'ladder_words.py',
     # Its second list, "Our language" (2026-09-29,
     # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
     # loader precedent_vocabulary.py imports to read it. They travel with it

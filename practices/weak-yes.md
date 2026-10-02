@@ -67,7 +67,7 @@ thing scoped down they will say so.
 ## Why
 A phrase costs two words instead of a paragraph, and it survives the session
 that heard it — which is the argument
-[go-update](go-update.md) and [park-it](park-it.md) already made and won here.
+[park-it](park-it.md) already made and won here.
 
 This one is worth having as a phrase rather than left to inference for a
 specific reason: **the person is the only party who knows how convinced they

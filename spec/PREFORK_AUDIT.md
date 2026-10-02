@@ -78,7 +78,7 @@ nothing pre-fork to compare them against.
 | [verify-decomposition](../practices/verify-decomposition.md) | 42 | active-as-is | — | `occasion` wording rewritten (minor routing fix); citation-link logged |
 | [affordance-is-shared](../practices/affordance-is-shared.md) | 43 | active-as-is | — | Citation-link only (one of the four fixed wrong-citation cases, already logged) |
 | [two-check-levels](../practices/two-check-levels.md) | 44 | rewritten | yes (below) | Gained a real `checked_by` |
-| [merge-authorization-keyword](../practices/merge-authorization-keyword.md) | 45 | active-as-is | — | Citation-link only |
+| `merge-authorization-keyword` | 45 | active-as-is | — | Citation-link only |
 | [tabular-shared-renderer](../practices/tabular-shared-renderer.md) | 46 | active-as-is | — | Citation-link only (one of the four fixed wrong-citation cases, already logged) |
 | [permutation-frontier-column](../practices/permutation-frontier-column.md) | 47 | active-as-is | — | Citation-link only (one of the four fixed wrong-citation cases, already logged) |
 | [index-remembers-past](../practices/index-remembers-past.md) | 48 | rewritten | yes (below) | Gained a real `checked_by` |

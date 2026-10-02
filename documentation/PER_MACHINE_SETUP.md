@@ -39,8 +39,8 @@ interrupting you for a value you can change in one sentence later
 | `PRECEDENT_COMMIT_TZ`, and `identity.json`'s `timezone` | This repository's declared `fallback_timezone`, `America/New_York`, and the author-date check downgrades from enforced to guessed |
 | `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](../practices/declared-pronouns.md)) |
 | `identity.json`'s `relayed_authorization` | `refused` — your approval does not travel to a session you are not typing in |
-| `identity.json`'s `landing_branch` | The repository's `precedent.json` `landing_branch`, else `staging` — where Booked (`Go update`) lands your work ([tier-branch](../practices/tier-branch.md)) |
-| `identity.json`'s `branch_push_checks` | `basic` on every branch except `staging` and `main`, which always get the full check |
+| `identity.json`'s `landing_branch` | The repository's main branch — where your work lands when you save it to GitHub |
+| `identity.json`'s `branch_push_checks` | `basic` on every branch except `main`, which always gets the full check |
 | `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` | No private set resolves, so your own and your team's practices are silently absent — **the one row here whose default is genuinely bad**, and the reason the rest of this page exists |
 
 **The defaults are cheap to be wrong about; the last row is not.** A record
@@ -116,8 +116,7 @@ repository is out of this one's reach — may the session holding your words
 act on them there? `"refused"`, and an absent field, mean no: that session
 does the work, opens the pull request, and you approve again in the other
 window. `"accepted"` means it merges on the relay, still bounded to the named
-work, that repository's routine branch and its checks passing. The rule is
-[practices/relayed-authorization.md](../practices/relayed-authorization.md), and
+work, that repository's routine branch and its checks passing.
 `python3 tools/precedent_identity.py --relay` is what reads it.
 
 **4. The leak gate's vocabulary layer**, if your private sources resolve.
@@ -398,17 +397,6 @@ none of them is a token. It exits 0, because nothing is in the wrong state;
 on a hosted session an absent or empty config still reads as `MISSING` or
 `SET`, since the bootstrap writes that file only after a clone succeeds, so
 a clone that failed leaves exactly the same fingerprint.
-
-## Claude Code's Auto Mode and a Promote Into `main`
-
-Not a Precedent setting, and nothing breaks without it: in auto mode,
-Claude Code's own safety check stops a bare "Promote" into `main` as a
-production deploy, and "Produce" gets through. To let a plain "Promote"
-through too, add the allow rule in
-[CLOUD_SETUP.md](CLOUD_SETUP.md#let-a-promote-into-main-through-claude-codes-safety-check)
-to `~/.claude/settings.json` on your own computer, or to your
-organization's managed settings for cloud sessions. A session never adds
-it itself.
 
 ## Optional, and Each One an Escape Hatch
 

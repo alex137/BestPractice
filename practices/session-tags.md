@@ -34,7 +34,7 @@ many as apply:
 
 **`subject:` is the one that earns its keep, and it is the one that cannot be
 added later.** Two live sessions sharing a `subject:` is the collision signal
-[chief-of-staff](chief-of-staff.md) exists to catch — and a collision is only
+a sweep of the person's sessions exists to catch — and a collision is only
 worth catching *before* both sessions have run. A tag applied afterwards
 describes work that is already duplicated.
 

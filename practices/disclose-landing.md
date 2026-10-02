@@ -71,11 +71,9 @@ The three shapes this actually takes:
   otherwise it is a proposal sitting where an approver will see it, and the
   reply names both the set and, if known, who has to say yes.
 - **Universal** — never in force yet on landing; it is a draft that needs a
-  pull request (PR) merged into this repository's landing branch
-  (`pre-staging` or `staging`), gated by that branch's own check tier
-  rather than a second reviewer
-  ([merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)).
-  Say so explicitly rather than letting "landed" read as "done."
+  pull request (PR) merged into this repository's landing branch, gated
+  by that branch's own checks rather than a second reviewer. Say so
+  explicitly rather than letting "landed" read as "done."
 
 ## Why
 Asked directly whether this was happening — "do you clearly tell the human,

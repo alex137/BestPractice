@@ -4,7 +4,7 @@
 Precedent actually mean?**
 
 Conversations about Precedent lean on a handful of words -- "the
-individual set", "pre-staging", "in force". None of them is hard, but each
+individual set", "landing branch", "in force". None of them is hard, but each
 one means something specific here, and a conversation is hard to follow
 until you know them. This is the short list. A **repository** below just
 means a project's folder of files, kept on GitHub.
@@ -27,11 +27,8 @@ means a project's folder of files, kept on GitHub.
 | **decided** | How a decision was made: the person running the session actively wanted it, in their own words. Its counterpart is **assented**; every recorded decision is one or the other, or unknown. |
 | **assented** | How a decision was made: the person running the session went along with a recommendation the session made, without pushing for it themselves. Its counterpart is **decided**. |
 | **primary branch** | The one shared branch regular work lands on. (A branch is a separate line of work in a repository.) |
-| **landing branch** | The branch your saved work lands on when you say "Booked" (or "Go update"): pre-staging if you use all three branch tiers, otherwise staging, or main. |
+| **landing branch** | The branch your saved work lands on: the repository's main branch, unless your own settings name another. |
 | **feature branch** | The short-lived branch one session works on, on GitHub -- the kind named like `claude/2026-10-01-feature-branch-naming-awpkv`: the day it was made, what the work is, and the end of the session's ID. GitHub's own word for it; some teams say "topic branch". It survives a lost session but is easy to forget, and it is deleted once its work is merged. |
-| **pre-staging, staging, main** | The three branches work climbs through, in that order. Pre-staging is where saved work waits, staging is where it is fully checked, and main is production -- what everyone gets. |
-| **tier branch** | One of these branches: pre-staging, staging or main, plus the two that travel with them -- staging's old name `precedent-beta-v01` and Promote's lock branch `precedent-promote-lock`. A tier branch is never offered for deletion. |
-| **stage** | One of the five steps work climbs from idea to production: Consider, Act, Booked, Debut, Produce. "Promote 3" means stage 3, and each stage is read back before it runs. |
 <!--/gen:words-->
 
 *This table is built from one list, so it cannot drift from what the AI
@@ -52,7 +49,7 @@ of the past keeps the old word.
 
 *Built from the same list. Numbers by: our_language.py.*
 
-For the phrases you can say to your AI Assistant -- "Go update", "Three
+For the phrases you can say to your AI Assistant -- "Drop it", "Three
 Things" and the rest -- see [How to Use This Day to
 Day](DAILY_HABITS.md), or just say **"Vocabulary"**. For every term the
 project defines, not just these, see the full

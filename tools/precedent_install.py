@@ -227,10 +227,14 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'always written explicitly here.',
         ],
         'sources': sources,
-        precedent_branches.LANDING_SETTING: precedent_branches.REPO_LANDING_DEFAULT,
-        '_' + precedent_branches.LANDING_SETTING + '_comment':
-            precedent_branches.REPO_LANDING_COMMENT,
     }
+    # The tiered default only when the person installing is on the ladder
+    # (spec/LADDER_OPT_IN_PLAN.md D3): for anyone else a repository has its
+    # main branch, and its precedent.json says nothing about tiers.
+    if precedent_branches.ladder_in_force(path.parent) is not False:
+        doc[precedent_branches.LANDING_SETTING] = precedent_branches.REPO_LANDING_DEFAULT
+        doc['_' + precedent_branches.LANDING_SETTING + '_comment'] = \
+            precedent_branches.REPO_LANDING_COMMENT
     if output_paths:
         doc['output_paths'] = output_paths
         doc['_output_paths_comment'] = [
@@ -611,12 +615,17 @@ def _tiers(dest):
         return f'branch tiers: no origin yet -- {later}'
     lines = []
     try:
-        rc = precedent_branches.ensure_tiers(dest, apply=True, say=lines.append)
+        rc = precedent_branches.ensure_tiers(dest, apply=True, say=lines.append,
+                                             new_install=True)
     except Exception as e:                                     # noqa: BLE001
         rc, lines = 1, [f'{type(e).__name__}: {e}']
     if rc != 0:
         return f'branch tiers: not made yet ({" ".join(lines)[-200:]}) -- {later}'
     made = [l for l in lines if l.startswith(('created ', 'wrote '))]
+    if not made and not lines:
+        # Nothing was asked of the tiers: the person installing is not on
+        # the ladder, so this repository has its main branch and no more.
+        return ''
     return 'branch tiers: ' + ('; '.join(made) if made
                                else 'pre-staging, staging and main all present')
 
@@ -670,7 +679,9 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  {_record_hooks(dest)}')
     for line in _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         say(f'  {line}')
-    say(f'  {_tiers(dest)}')
+    _tier_note = _tiers(dest)
+    if _tier_note:
+        say(f'  {_tier_note}')
 
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
     if r.returncode != 0:

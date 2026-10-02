@@ -47,13 +47,12 @@ Three things follow from this that are worth knowing:
   automatic checks and its rules wait for whoever maintains the project —
   see [What you can't do (on purpose)](#what-you-cant-do-on-purpose)
   below, which is a deliberate wall, not a comment on you. **When the yes
-  is yours**, and you want the AI Assistant to stop asking every time, say
-  **"Go update"** — a standing phrase this project understands to mean *do
-  all of it, including the merge, without checking back.* ("Approved"
-  means the same thing.)
+  is yours**, and you want the AI Assistant to stop asking every time, tell
+  it to save your work to GitHub and merge it into main without checking
+  back.
 
-There are a few more of those standing phrases — **"Drop it"**, **"Plain
-words"**, **"Three Things"** — and [How to Use This Day to
+There are a few standing phrases this project understands — **"Drop
+it"**, **"Plain words"**, **"Three Things"** — and [How to Use This Day to
 Day](DAILY_HABITS.md) lists them.
 
 ## Personal, Team, and Universal — And Moving Between Them
