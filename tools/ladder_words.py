@@ -127,7 +127,9 @@ def _is_record_line_block(lines):
     decision as it was made, in the words of the day, which is a record."""
     out, in_ab = [], False
     for i, line in enumerate(lines):
-        if line.startswith('approved_by:'):
+        # approved_by, and the *_why fields beside a field: each quotes the
+        # decision that set it, dated, in the words of the day.
+        if line.startswith(('approved_by:', 'applies_to_why:', 'gates_why:')):
             in_ab = True
             out.append('')
             continue
@@ -139,6 +141,13 @@ def _is_record_line_block(lines):
     return out
 
 
+def _ladder_only(text):
+    """A practice whose frontmatter says `requires: ["ladder"]` is in force
+    only for a person on the ladder, so its words are the ladder's own."""
+    m = re.search(r'^requires:\s*(.+)$', text, re.M)
+    return bool(m) and 'ladder' in m.group(1)
+
+
 def _inactive_practice(text):
     """A practice that is not `status: active` is history: not in force."""
     m = re.search(r'^status:\s*(\S+)', text, re.M)
@@ -148,7 +157,8 @@ def _inactive_practice(text):
 def file_hits(path):
     path = pathlib.Path(path)
     text = path.read_text(encoding='utf-8', errors='replace')
-    if path.suffix == '.md' and text.startswith('---') and _inactive_practice(text):
+    if path.suffix == '.md' and text.startswith('---') and (
+            _inactive_practice(text) or _ladder_only(text)):
         return []
     if path.suffix == '.md' and text.startswith('---'):
         text = '\n'.join(_is_record_line_block(text.splitlines()))

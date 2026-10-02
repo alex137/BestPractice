@@ -167,7 +167,7 @@ out loud first, naming the repository and the branches:
 When one request covers several stages, the read-back names all of them:
 *"Now Promote 3 then 4: Booked, the Shared Save, into pre-staging, then
 Debut, Test Readiness, into staging (BestPractice)."* The existing
-[Promote](../practices/promote.md) already opens with *"Now promoting from
+Promote (`promote`) already opens with *"Now promoting from
 pre-staging to staging"*; this extends that to every stage and adds the
 stage's name.
 
@@ -177,7 +177,7 @@ stage's name.
 session *"should not just do a simple grep for that exact word ... I might
 use it in a slightly different grammatical way or ... I may not use that
 exact word ... you have to apply your intelligence."* That is how every
-command here is already read ([practices/go-update.md](../practices/go-update.md)),
+command here is already read (`go-update`),
 and it matters most at step 5, which changes main. Where a message
 could honestly go either way, the session says its reading and confirms
 before any shared-branch step.
@@ -230,9 +230,9 @@ wrong pick is corrected in one word.
 | Size | What it produces | When |
 |---|---|---|
 | **One-line plan** | One sentence in the reply: what will change and where. Then straight to Act. | Tiny changes -- a typo, a link, a one-line fix. Most work. |
-| **Brainstorm** | The existing command: think it through in the session and write nothing to the repository ([practices/brainstorm-holds-commits.md](../practices/brainstorm-holds-commits.md)). | The idea itself is still open. |
+| **Brainstorm** | The existing command: think it through in the session and write nothing to the repository (`brainstorm-holds-commits`). | The idea itself is still open. |
 | **Plan it** *(new)* | The middle ground: a written plan in the session -- numbered steps, the risks, what "done" looks like, what is out of scope. More than a brainstorm, far less than a write-up. No file: it is handed back as **one paste-ready prompt**, so it can be copied into another session for a second opinion. | Real work, clear enough to build in this session. |
-| **Write it up** / **Spec it out** | The existing command: a full report committed to the repository, as [practices/write-it-up.md](../practices/write-it-up.md) says -- like this file. | A detailed plan is needed: big or cross-session work, or anything someone else will pick up. |
+| **Write it up** / **Spec it out** | The existing command: a full report committed to the repository, as `write-it-up` says -- like this file. | A detailed plan is needed: big or cross-session work, or anything someone else will pick up. |
 
 **The one-line plan is fine, and it matters most.** Morgan: *"Very, very,
 very important. We don't want to have lots of documents ... when it's not
@@ -272,10 +272,10 @@ change, lands it on the person's landing branch -- directly, or through a
 pull request for a high-risk change -- confirms on GitHub that it arrived,
 and never asks a second time. It also means "finish whatever this needs"
 when the work is not a branch move at all. Around 30 other practice files
-lean on it: [Promote](../practices/promote.md) runs it first,
+lean on it: Promote (`promote`) runs it first,
 [Update Vendors](../practices/vendor-update-runbook.md) ends by running its
 chain, [Prompt Please](../practices/prompt-please.md) hands its
-authorization to another session, and [Push directly](../practices/push-directly.md)
+authorization to another session, and Push directly (`push-directly`)
 is its override.
 
 **On the ladder, Go update is step 3, Booked.** "Go update", "Approved",
@@ -300,14 +300,14 @@ won't be lost. For Morgan that is pre-staging. What that changes:
   move.
 
 **What Go update does today, and where each piece goes.** Everything
-[practices/go-update.md](../practices/go-update.md) does today is kept;
+`go-update` does today is kept;
 most of it moves into a new Booked practice file, four pieces become common
 to every stage, and one becomes its own small practice because two commands
 share it.
 
 | What Go update does today | Where it goes |
 |---|---|
-| **Decides whether the change is high-risk.** High-risk means it touches enforcement or gating code, changes a governance or authorization practice, is hard to reverse once live, or the session is not confident it is none of those. | **Its own small practice**, referenced by both Booked and [Push directly](../practices/push-directly.md), because both depend on it and it should be written once. The four tests do not change. |
+| **Decides whether the change is high-risk.** High-risk means it touches enforcement or gating code, changes a governance or authorization practice, is hard to reverse once live, or the session is not confident it is none of those. | **Its own small practice**, referenced by both Booked and Push directly (`push-directly`), because both depend on it and it should be written once. The four tests do not change. |
 | **Ordinary change: pushes straight to the landing branch, no pull request** (the default since 2026-09-20). | **Booked**, unchanged. |
 | **High-risk change: the full chain** -- sync, say the branch, commit, push, open a pull request into the landing branch, merge it. | **Booked**, unchanged. For Morgan the pull request targets pre-staging, as it already does. |
 | **A direct instruction about this one change wins** ("skip the PR", "open a PR for this"). | **Booked**, unchanged. `Push directly` stays the named form of "skip the PR". |
@@ -317,14 +317,14 @@ share it.
 | **Says the target branch out loud** before pushing or merging. | **Every stage**, as the read-back ("Now Promote 3: Booked ... into pre-staging (BestPractice)"). |
 | **Says which path it took and why**, in one clause ("pushed directly -- a plan document"). | **Booked**, unchanged. |
 | **Confirms on GitHub that the work arrived** before saying where it went. | **Every stage** -- a stage is not done until a fetch shows the branch carries the work. |
-| **Hands off a step it cannot perform** as a Prompt Please block, the authorization travelling with it, after finishing everything it can. | **Every stage**, unchanged ([practices/prompt-please.md](../practices/prompt-please.md), [practices/relayed-authorization.md](../practices/relayed-authorization.md)). |
+| **Hands off a step it cannot perform** as a Prompt Please block, the authorization travelling with it, after finishing everything it can. | **Every stage**, unchanged ([practices/prompt-please.md](../practices/prompt-please.md), practices/relayed-authorization.md (`relayed-authorization`)). |
 | **Reads intent, not the phrase**; says its reading and confirms when a message could honestly go either way; commits locally regardless. | **Every stage**, as the ladder's own reading rule (above). |
 | **"Approved" means the same thing.** | **Booked**: "Go update", "Approved", "Booked", "Shared Save" and "Promote 3" are its names. |
 | **"Finish whatever this needs"** when the work is not a branch move at all. | **Booked**, as its meaning when there is no branch to move -- so "Go update" keeps working for that too. |
 | **One plain Boildown line** when a high-risk change landed on pre-staging, saying how far pre-staging is ahead of staging. | **Stays in** [practices/the-boildown.md](../practices/the-boildown.md), repointed to Booked. |
 | **"Go merge" is retired**, kept only as history. | Stays history, in the old file's story. |
 
-**What happens to the old file.** [practices/go-update.md](../practices/go-update.md)
+**What happens to the old file.** practices/go-update.md (`go-update`)
 is marked `deduplicated` into Booked -- the existing mechanism
 ([practices/current-rule-governs.md](../practices/current-rule-governs.md))
 by which `precedent_show.py go-update` follows the old name to the live
@@ -363,7 +363,7 @@ asked:
   made.
 - **Chief of Staff** ends on Promotion Reviews, which read the week's stale
   branches and judge each keep or discard
-  ([practices/chief-of-staff.md](../practices/chief-of-staff.md)).
+  (`chief-of-staff`).
 
 The archive guard stops new cases. These two find old ones.
 
@@ -500,12 +500,12 @@ Each numbered item is its own landing, through the ladder itself.
    repointed. *Changes an authorization practice (Go
    update, Promote): high-risk.*
    **As built (2026-09-29), two departures, both smaller:** Booked lives in
-   [practices/go-update.md](../practices/go-update.md) itself -- the file
+   practices/go-update.md (`go-update`) itself -- the file
    gains the names Booked, Shared Save and Promote 3 and the stage
    read-back -- rather than in a new file with go-update.md deduplicated
    into it. The behaviour is the same and none of the roughly 30 practices
    that link to it had to move. For the same reason the high-risk test
-   stays in that file, where [Push directly](../practices/push-directly.md)
+   stays in that file, where Push directly (`push-directly`)
    already reads it. Booked's readiness question lives in Morgan's own
    individual set (step 6), since it applies only where the ladder is
    required.
@@ -517,8 +517,8 @@ Each numbered item is its own landing, through the ladder itself.
    deleted by a session (practice: never-delete-a-remote-branch).
    **Done 2026-09-29:** item 5 carries both words, and the branch's
    approval quotes for them (Morgan, 2026-09-26) were folded into
-   [practices/promote.md](../practices/promote.md) and
-   [practices/write-it-up.md](../practices/write-it-up.md) with them.
+   practices/promote.md (`promote`) and
+   practices/write-it-up.md (`write-it-up`) with them.
    Nothing on the branch is left unlanded, so it is safe to delete:
    [that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Fgraduate-synonym).
 

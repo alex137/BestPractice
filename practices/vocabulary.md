@@ -155,7 +155,7 @@ are the same fact.
 
 ## Story
 **Coined by Morgan, 2026-09-13**, in the same message that added `Approved`
-to [go-update](go-update.md) and pushed the merge authorization into spawned
+to `go-update` and pushed the merge authorization into spawned
 sessions: *"maybe we can add in yet another vocabulary word: 'vocabulary' if
 I type it, it then returns a list of the commands we have defined: go merge,
 my options, spawn session, etc."*

@@ -72,23 +72,11 @@
     },
     {
       "word": "landing branch",
-      "meaning": "The branch your saved work lands on when you say \"Booked\" (or \"Go update\"): pre-staging if you use all three branch tiers, otherwise staging, or main."
+      "meaning": "The branch your saved work lands on: the repository's main branch, unless your own settings name another."
     },
     {
       "word": "feature branch",
       "meaning": "The short-lived branch one session works on, on GitHub -- the kind named like `claude/2026-10-01-feature-branch-naming-awpkv`: the day it was made, what the work is, and the end of the session's ID. GitHub's own word for it; some teams say \"topic branch\". It survives a lost session but is easy to forget, and it is deleted once its work is merged."
-    },
-    {
-      "word": "pre-staging, staging, main",
-      "meaning": "The three branches work climbs through, in that order. Pre-staging is where saved work waits, staging is where it is fully checked, and main is production -- what everyone gets."
-    },
-    {
-      "word": "tier branch",
-      "meaning": "One of these branches: pre-staging, staging or main, plus the two that travel with them -- staging's old name `precedent-beta-v01` and Promote's lock branch `precedent-promote-lock`. A tier branch is never offered for deletion."
-    },
-    {
-      "word": "stage",
-      "meaning": "One of the five steps work climbs from idea to production: Consider, Act, Booked, Debut, Produce. \"Promote 3\" means stage 3, and each stage is read back before it runs."
     }
   ],
   "retired": [

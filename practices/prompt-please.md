@@ -286,8 +286,8 @@ Coined by Morgan, 2026-09-20. He named the gap directly: something like
 but for the case where a recommendation already exists and he just wants to
 move ahead on it -- distinguishing it from `My options`, which he uses to
 see the choices first and will usually follow the recommendation anyway once
-he has. He drew the second contrast himself, against [Write it
-up](write-it-up.md): that command is bigger and formally committed to
+he has. He drew the second contrast himself, against Write it
+up (`write-it-up`): that command is bigger and formally committed to
 GitHub; this one is smaller, and just a prompt. Asked to help name it, the
 session proposed "Prompt Please"; he took it.
 
@@ -307,7 +307,7 @@ block rather than a paragraph that merely reads as paste-ready. Both
 practices now name the mechanism directly. Strength: decided.
 
 **Extended again the same day**, on Morgan's instruction to this practice,
-[My options](my-options.md) and [Write it up](write-it-up.md) together:
+[My options](my-options.md) and Write it up (`write-it-up`) together:
 *"Any change that would effect other repos must take into account the
 original templates in the mother system that organizes the other repos,
 and must be rolled out cleanly in updated templates/migrations to the

@@ -120,7 +120,7 @@ branch, a spawned session still running. **That artifact is the row, named as
 the artifact**, and the dead session's summary asking for something is not
 evidence the artifact exists. Go look at it.
 
-The rule is [practices/chief-of-staff.md](../practices/chief-of-staff.md).
+The rule is `chief-of-staff`.
 
 ## The command
 
@@ -333,7 +333,7 @@ the problem it was created for.
 
 It also **does not merge anything on Morgan's behalf.** A merge
 authorization is his to give in the session that holds the work
-([go-update](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md)),
+(`go-update`),
 and routing him to the right window to say it is the whole job.
 
 One asymmetry is deliberate: **only Chief of Staff spawns sessions.** A tree
@@ -362,7 +362,7 @@ them.
 
 Built 2026-09-14, on Morgan's authorization:
 
-- **The universal practice**, [practices/chief-of-staff.md](../practices/chief-of-staff.md) —
+- **The universal practice**, `chief-of-staff` —
   the command, the link-every-session requirement, and the state-not-prose
   filter above.
 - **Nothing scheduled.** Both Routines built on 2026-09-14 were deleted the

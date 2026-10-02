@@ -97,7 +97,7 @@ closed:            "2026-09-16"
   phrase removes doubt outright, and doubt otherwise gets a stated
   confirmation rather than a silent guess in either direction. Recorded in
   [AGENTS.md](../AGENTS.md)'s "Go merge" and "Weak yes" paragraphs and in
-  [go-update.md](../practices/go-update.md),
+  go-update.md (`go-update`),
   [weak-yes.md](../practices/weak-yes.md) and
   [decision-strength.md](../practices/decision-strength.md) directly.
 

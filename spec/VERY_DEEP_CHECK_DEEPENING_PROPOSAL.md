@@ -244,7 +244,7 @@ costs nothing.
 
 **The boundary matters and should be stated in the practice**: the *fleet*
 version of this — every Precedent repository Morgan owns — belongs to
-[chief-of-staff](../practices/chief-of-staff.md), which took the fleet branch
+`chief-of-staff`, which took the fleet branch
 sweep on 2026-09-21 for exactly this reason. What belongs here is **the
 repositories this run already has open**, which is the same scoping rule the
 branch sweep now follows.

@@ -745,6 +745,7 @@ def _regenerate(set_root):
 # (--withdraw-from-universal). Read by people and by mentions_only; the
 # resolver never needs it, because a deleted file is simply not there.
 WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
+DECOMMISSION_REGISTRY = 'process/decommissioned_paths.json'
 WITHDRAWN_RECORD_HEADER = (
     '---\n'
     'title:         Rules withdrawn from the universal set on purpose\n'
@@ -946,6 +947,13 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                      f'there.\n')
             plan.append(('delete', src, None))
             plan.append(('append', record, entry))
+            plan.append(('decommission', pathlib.Path(from_path) / DECOMMISSION_REGISTRY,
+                         {'path': f'practices/{slug}.md',
+                          'reason': (f'withdrawn from universal with precedent_move.py '
+                                     f'--withdraw-from-universal; in force from the '
+                                     f'{to_level} set {to_name} for the people who '
+                                     f'bring or declare it; {WITHDRAWN_RECORD}'),
+                          'decommissioned_at': today}))
         else:
             plan.append(('write', src, src_new))
     elif duplicate_from_universal:
@@ -990,6 +998,26 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if op == 'delete':
             path.unlink()
             say(f'deleted {path}')
+            continue
+        if op == 'decommission':
+            # The deletion is recorded where the checks look for deletions
+            # made on purpose (practice-change-propagates,
+            # rename-updates-links), with the withdrawal record exempt as the
+            # file that names it.
+            if not path.is_file():
+                say(f'no {DECOMMISSION_REGISTRY} in {from_path}, so the deletion '
+                    f'is recorded only in {WITHDRAWN_RECORD}')
+                continue
+            reg = json.loads(path.read_text(encoding='utf-8'))
+            done = {e.get('path') for e in reg.get('decommissioned') or []}
+            if content['path'] not in done:
+                reg.setdefault('decommissioned', []).append(content)
+            ex = reg.setdefault('exempt_files', [])
+            if WITHDRAWN_RECORD not in ex:
+                ex.append(WITHDRAWN_RECORD)
+            path.write_text(json.dumps(reg, indent=2, ensure_ascii=False) + '\n',
+                            encoding='utf-8')
+            say(f'recorded the deletion in {path}')
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         if op == 'append':

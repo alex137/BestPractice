@@ -35,10 +35,10 @@ repository), the shared sets a repository declares in
 [precedent.json](../precedent.json), the person's individual set, and
 repo-local practices.
 
-The five-stage ladder ([promote](../practices/promote.md)) is written into
+The five-stage ladder (`promote`) is written into
 the universal set, so it reaches everyone. That covers the stage words, the
 "(step N of 5)" labels, the Boildown's step wording, the release commands
-([go-update](../practices/go-update.md) and its synonyms), and the three
+(`go-update` and its synonyms), and the three
 branch tiers. A person who is not on the ladder finds the step numbers
 confusing and experiences the ladder as enforced, though
 [the plan that introduced it](FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md) called
@@ -88,7 +88,7 @@ GitHub mechanics, and every rule that exists to serve one.
 
 The reviewer's sort of all 202 active practices, which this plan adopts:
 - **Moves to the ladder set**, beyond the stage practices and the release
-  cluster in D1: [chief-of-staff](../practices/chief-of-staff.md) (Morgan
+  cluster in D1: `chief-of-staff` (Morgan
   confirmed, 2026-10-02), and the retired stubs `go-merge`, `push-directly`,
   `merge-authorization-keyword` and `plan-it`.
 - **Stays universal, with ladder wording removed:**

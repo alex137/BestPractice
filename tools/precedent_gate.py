@@ -1140,7 +1140,7 @@ def main():
                 print(f"- {_line}. Do NOT recommend, suggest or mention a "
                       f"Promote for it in this reply -- not in The Boildown, "
                       f"not as a plain line. At most say that one is already "
-                      f"running (practice: promote; Morgan, 2026-09-27).")
+                      f"running (Morgan, 2026-09-27).")
                 continue
             if 'a Promote can move them' in _line:
                 # Not a hard requirement and not a call to action: one plain

@@ -9342,20 +9342,20 @@ def check_section0_catalogue_resolves_a_committed_edit():
         head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
                               capture_output=True, text=True).stdout.strip()
         base = subprocess.run(['git', '-C', str(ROOT), 'show',
-                               f'{head}:practices/go-update.md'],
+                               f'{head}:practices/park-it.md'],
                               capture_output=True).stdout
         lines = base.decode().splitlines(True)
         after = next(i for i, l in enumerate(lines) if i and l.strip() == '---') + 2
         record = json.dumps({'source_commit': head}).encode()
 
         # Merge: this repo added a line near the top, upstream one at the end.
-        rev = fx.upstream(head, {'practices/go-update.md': base + b'\nUpstream: end.\n'})
+        rev = fx.upstream(head, {'practices/park-it.md': base + b'\nUpstream: end.\n'})
         d = _section0_repo(fx.tmp, {
-            'practices/go-update.md': _insert(base, 'Mine: near the top.\n', at=after),
+            'practices/park-it.md': _insert(base, 'Mine: near the top.\n', at=after),
             'CATALOGUE_SYNC.json': record}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
-        f = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        f = d / 'precedent' / 'universal' / 'practices' / 'park-it.md'
         got = f.read_bytes()
         cases.append(('a committed edit merges with upstream\'s change, not refused',
                       ok is True and not rep.left and b'Mine: near the top.' in got
@@ -9364,14 +9364,14 @@ def check_section0_catalogue_resolves_a_committed_edit():
                       (rep.left, rep.edits, rep.steps)))
 
         # Conflict: both changed the same line.
-        rev = fx.upstream(head, {'practices/go-update.md':
+        rev = fx.upstream(head, {'practices/park-it.md':
                                  _replace_line(base, 'Upstream: this line.\n', at=after)})
         d = _section0_repo(fx.tmp, {
-            'practices/go-update.md': _replace_line(base, 'Mine: this line.\n', at=after),
+            'practices/park-it.md': _replace_line(base, 'Mine: this line.\n', at=after),
             'CATALOGUE_SYNC.json': record}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
-        f = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        f = d / 'precedent' / 'universal' / 'practices' / 'park-it.md'
         took = [t for o, _r, t in rep.edits if o == 'took-upstream']
         cases.append(('a conflict takes upstream\'s version and names the commit '
                       'holding this repo\'s', ok is True and not rep.left
@@ -47407,7 +47407,7 @@ def check_move_tool_lands_then_deduplicates():
         (indiv / 'practices' / 'zz-links.md').write_text(
             practice('zz-links', 'See [`zz-left-behind`](zz-left-behind.md), '
                      '[the rule](zz-left-behind.md#rule), '
-                     '[go-update](go-update.md) and `[kept](zz-left-behind.md)`.'),
+                     '[park-it](park-it.md) and `[kept](zz-left-behind.md)`.'),
             encoding='utf-8')
         r = run([tool, '--slug', 'zz-links', '--from', 'individual', '--from-path', str(indiv),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
@@ -47418,7 +47418,7 @@ def check_move_tool_lands_then_deduplicates():
                       'and a link inside a code span untouched',
                       r.returncode == 0
                       and 'See `zz-left-behind`, the rule (`zz-left-behind`)' in ltext
-                      and '/practices/go-update.md)' in ltext
+                      and '/practices/park-it.md)' in ltext
                       and '`[kept](zz-left-behind.md)`' in ltext
                       and str(indiv) not in ltext and 'precedent-individual/blob' not in ltext
                       and 'rewrote a sibling link' in r.stdout,

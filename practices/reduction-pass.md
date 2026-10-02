@@ -143,7 +143,7 @@ there — the occasion index had grown every day for a fortnight, to 29% of
 the file, and no reduction pass was allowed to touch a token of it.
 
 **Placed at universal from the start**, on the same reasoning as
-[go-update](go-update.md) and [park-it](park-it.md): a phrase that lives in one
+`go-update` and [park-it](park-it.md): a phrase that lives in one
 person's private set is a phrase a session that has not attached that set
 cannot read, and it will go and ask what it means — the exact interruption
 the phrase exists to prevent. Any repository with an always-loaded

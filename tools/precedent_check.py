@@ -2623,6 +2623,13 @@ def _practice_change_propagates(ctx):
                 old = parts[1]
                 if _manifest_entry(old) is not None:
                     continue                    # materialized output, not ours
+                if parts[0] == 'D' and old in _decommissioned_paths():
+                    # A deletion somebody recorded on purpose: the
+                    # decommissioning registry says what went and why
+                    # (precedent_decommission.py, or precedent_move.py
+                    # --withdraw-from-universal, which deletes a rule meant
+                    # only for the people who bring another set, 2026-10-02).
+                    continue
                 if parts[0].startswith('R') and len(parts) > 2 and \
                         pathlib.Path(parts[1]).name == pathlib.Path(parts[2]).name:
                     continue                    # same slug, moved directory
@@ -9070,6 +9077,18 @@ def _exempt_matches(rel, exempt_entry):
     if exempt_entry.endswith('/'):
         return rel == exempt_entry.rstrip('/') or rel.startswith(exempt_entry)
     return rel == exempt_entry
+
+
+def _decommissioned_paths():
+    """-> the set of paths the decommissioning registry records as deleted
+    on purpose, or an empty set."""
+    try:
+        cfg = json.loads(
+            (ROOT / DECOMMISSIONED_PATHS_REGISTRY).read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return set()
+    return {e.get('path') for e in cfg.get('decommissioned') or []
+            if isinstance(e, dict) and e.get('path')}
 
 
 def _decommissioning_record_exemptions():

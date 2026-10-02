@@ -256,7 +256,7 @@ practice?!?!?!? It should be)"*.
 It was not, and the near-misses are the reason it reads like it should have
 been. This rule already required the link, and required the branch to be named
 as a candidate. A separate rule in Morgan's own set already required any branch
-mentioned to be named literally rather than by role-word. [go-update](go-update.md)
+mentioned to be named literally rather than by role-word. `go-update`
 already required the merge target to be said out loud before a merge — which
 that reply did, at the top, naming `precedent-beta-v01` and `main` for the two
 merges it had just performed. Every neighbouring rule held, and the deletion

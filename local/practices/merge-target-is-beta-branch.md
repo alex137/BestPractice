@@ -5,14 +5,15 @@ tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
-index_required: true
 gates:       ["merge"]
 index_clause: "PRs target pre-staging or staging; main moves only by a Promote or when the person names main"
+index_required: true
 checked_by:  null
 defines:     []
-expires:     null
 status:      active
 in_force_at: null
+expires:     null
+requires:    ["ladder"]
 supersedes:  []
 overrides:   null
 added:       null
@@ -24,7 +25,7 @@ branch, never `main`**: `pre-staging` for a person whose landing branch is
 `pre-staging`, `staging` otherwise
 (`python3 tools/precedent_branches.py --landing` says which). Work moves on
 from there only by a Promote: `pre-staging` into `staging`, then `staging`
-into `main` ([promote](../../practices/promote.md);
+into `main` (`promote`;
 [spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)). **Check the
 base branch explicitly before opening or merging** — never assume `main`
 because it is the repository's configured default branch.
@@ -40,7 +41,7 @@ decided; Alex's word relayed by Morgan). Once a PR's own deep check
 
 **This rule is this repository's alone and is never vendored**: a
 repository that takes updates from here works on its own primary branch,
-usually `main` ([primary-branch](../../practices/primary-branch.md)).
+usually `main` (`primary-branch`).
 Consuming repositories vendor from `main` (`SOURCE_BRANCH` in
 `tools/precedent_vendor_engine.py`, since 2026-09-25).
 
@@ -114,8 +115,8 @@ file's git history.
 
 ## Install
 **No mechanical check, since 2026-09-27.** The rule is carried by the tools
-that pick a branch: [promote](../../practices/promote.md) and
-[go-update](../../practices/go-update.md) land work on the branch
+that pick a branch: `promote` and
+`go-update` land work on the branch
 `python3 tools/precedent_branches.py --landing` names, and only a Promote
 moves `staging` into `main`. `gates: ["merge"]` surfaces this Rule through
 `python3 tools/precedent_gate.py merge`, which is the check-before step.

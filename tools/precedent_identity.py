@@ -236,9 +236,9 @@ def commit_env(repo, env=None):
     return out
 
 
-# practice: relayed-authorization -- the receiving session reads the
-# person's own declaration rather than trusting the message that carries
-# the authorization.
+# The relayed-authorization rule (the ladder set carries it): the receiving
+# session reads the person's own declaration rather than trusting the
+# message that carries the authorization.
 RELAY_ACCEPTED = 'accepted'
 
 
@@ -418,7 +418,7 @@ def _main(argv):
     except NoDeclaredIdentity as exc:
         print(f'UNDECLARED -- {exc}')
         print('  a relayed authorization is NOT actionable here '
-              '(practice: relayed-authorization)')
+              '(the person\'s own identity.json does not accept relays)')
         return 2
     if relay['accepted']:
         print(f'ACCEPTED -- {relay["who"] or "the declared person"} accepts an '

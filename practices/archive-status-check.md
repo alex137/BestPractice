@@ -113,7 +113,7 @@ your internal prompt but that's what I'm thinking. And as always, not just
 that phrase, but if you think I'm feeling that, or I use other words to
 imply something like that."* The intent-reading clause is his own, stated
 in the same breath as the phrase itself rather than added later the way
-[go-update](go-update.md)'s was.
+`go-update`'s was.
 
 **Amended 2026-09-19**, folding the bare `"Archive"` trigger in under the
 same check. Morgan: *"Note that 'Archive' and 'Archive?'

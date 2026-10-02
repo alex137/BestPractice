@@ -105,7 +105,49 @@ def words():
         return [], f'the "Our language" list could not be read ({e}).'
 
 
-def collect(root=ROOT, resolved_view=False):
+def all_words(root=ROOT):
+    """-> ([(word, meaning, where)], notes): the "Our language" words from
+    EVERY source in force for the person here (spec/LADDER_OPT_IN_PLAN.md
+    D12, 2026-10-02) -- universal's tools/our_language.json, then an
+    our_language.json at the root of each other source, weakest first, so a
+    stronger source's meaning for the same word replaces the weaker one in
+    its place and both sources are named. A set a person brings is read too:
+    its words are theirs to look up. Committed documents never read this:
+    they render universal's list alone (emit_words in our_language.py)."""
+    base, note = words()
+    out = [(w, m, 'universal') for w, m in base]
+    notes = [note] if note else []
+    try:
+        import precedent_resolve as pr
+        sources = pr.load_config(root)
+    except Exception as e:                                      # noqa: BLE001
+        return out, notes + [f'the other sources\' words could not be read ({e})']
+    index = {w.lower(): i for i, (w, _m, _s) in enumerate(out)}
+    for src in sources:
+        if src['level'] == 'universal':
+            continue
+        reg = pathlib.Path(src['path']) / 'our_language.json'
+        if not reg.is_file():
+            continue
+        where = f"{src['level']}/{src['name']}"
+        try:
+            got = ol.load(reg) if ol is not None else []
+        except (SystemExit, OSError, ValueError) as e:
+            notes.append(f"{where}'s our_language.json could not be read ({e})")
+            continue
+        for word, meaning in got:
+            k = word.lower()
+            if k in index:
+                i = index[k]
+                prev = out[i][2]
+                out[i] = (word, meaning, f'{where}, over {prev}')
+            else:
+                index[k] = len(out)
+                out.append((word, meaning, where))
+    return out, notes
+
+
+def collect(root=ROOT, resolved_view=False, committed=False):
     """-> (entries, notes). entries are
     (phrase, gloss, slug, level, source, synonyms), sorted by phrase,
     case-insensitively. `phrase` is the first key declared in the
@@ -158,7 +200,12 @@ def collect(root=ROOT, resolved_view=False):
     try:
         import precedent_resolve as pr
         sources = pr.load_config(root)
+        if committed:
+            # A committed document is read by everyone here: never what one
+            # person brings (spec/LADDER_OPT_IN_PLAN.md D6, D12).
+            sources = [s for s in sources if not s.get('brought')]
         res = pr.resolve(sources)
+        own = _own_source_name(root)
         for m in res.get('missing', []):
             notes.append(
                 f"{m['level']}/{m['name']} did NOT resolve this session "
@@ -168,6 +215,14 @@ def collect(root=ROOT, resolved_view=False):
         for slug, practice in res['practices'].items():
             resolved_file = pathlib.Path(practice['file']).resolve()
             local_file = local_files.get(slug)
+            # A STRONGER SOURCE'S RULE OF THE SAME NAME is not the same
+            # practice read twice: it replaces this repo's rule for the
+            # person who loads it, by design (a set a person brings may
+            # restate a universal rule in its own words). Only a copy of THIS
+            # repo's own source in another checkout is the case below.
+            if local_file is not None and local_file != resolved_file \
+                    and practice.get('source', '') not in ('', own):
+                local_file = None
             if local_file is not None and local_file != resolved_file:
                 # Same practice, two checkouts. Keep the local CONTENT and
                 # the resolved LABEL, and say so -- see this function's
@@ -195,7 +250,7 @@ def collect(root=ROOT, resolved_view=False):
         notes.append(f'the declared sources could not be resolved ({e}), so '
                      "only this repo's own practices/ was read.")
 
-    word_names = {w.lower() for w, _ in words()[0]}
+    word_names = {w.lower() for w, _m, _s in all_words(root)[0]}
     entries = []
     for slug, (level, source, fm) in found.items():
         if not bv.is_in_force(fm):
@@ -219,9 +274,21 @@ def collect(root=ROOT, resolved_view=False):
     return entries, notes
 
 
+def _own_source_name(root):
+    """The source name this repository's own practices/ carry: its
+    precedent-source.json name for a practice set, else the universal
+    source's name."""
+    try:
+        return json.loads((pathlib.Path(root) / 'precedent-source.json')
+                          .read_text(encoding='utf-8')).get('name') or 'precedent'
+    except (OSError, ValueError):
+        return 'precedent'
+
+
 def emit_vocabulary(root=ROOT):
-    """The generated block for the reader-facing vocabulary table."""
-    entries, _notes = collect(root)
+    """The generated block for the reader-facing vocabulary table: what
+    everyone here reads, so never a set one person brings."""
+    entries, _notes = collect(root, committed=True)
     lines = ['| Say this | And it will |', '|---|---|']
     for phrase, gloss, _slug, _level, _source, synonyms in entries:
         syn = f' Synonym: {", ".join(synonyms)}' if synonyms else ''
@@ -255,12 +322,12 @@ def main(argv=None):
         # every Precedent repo ships `Go merge` (practice: fail-gracefully).
         print('No commands found. That is a failure to read the practices, '
               'not a repository without a vocabulary -- every Precedent '
-              'catalogue carries at least `Go merge`.')
+              'catalogue carries at least `Drop it`.')
         for n in notes:
             print(f'  note: {n}')
         return 1
 
-    word_list, word_note = words()
+    word_list, word_notes = all_words(root)
     width = max(len(p) for p, *_ in entries)
     print('Commands')
     for phrase, gloss, slug, level, source, synonyms in entries:
@@ -271,12 +338,14 @@ def main(argv=None):
             where = f'{level}/{source}' if source else level
             print(f'{phrase.ljust(width)}  {gloss}{syn}  [{slug}, {where}]')
     if word_list:
-        wwidth = max(len(w) for w, _ in word_list)
+        wwidth = max(len(w) for w, *_ in word_list)
         print('\nOur language')
-        for word, meaning in word_list:
-            print(f'{word.ljust(wwidth)}  {meaning}')
-    if word_note:
-        notes = notes + [word_note]
+        for word, meaning, where in word_list:
+            if args.plain:
+                print(f'{word.ljust(wwidth)}  {meaning}')
+            else:
+                print(f'{word.ljust(wwidth)}  {meaning}  [{where}]')
+    notes = notes + word_notes
     for n in notes:
         print(f'\nnote: {n}')
     return 0

@@ -160,7 +160,7 @@ closed:            null
 
   **A SEPARATE ONE-LINE CHANGE IN `precedent-individual`, same day, same
   wall:** `identity.json` has no `relayed_authorization` field, so
-  [relayed-authorization](../practices/relayed-authorization.md) reads `refused`
+  `relayed-authorization` reads `refused`
   and every cross-repository handoff costs Morgan a second approval in a
   second window. He asked for `accepted` on 2026-09-14 (*"yes that should be
   in both precedent-individual as well as the template"*). **Strength:**
