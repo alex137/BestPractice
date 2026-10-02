@@ -248,8 +248,13 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # reaches ANY branch GitHub runs it on; light_check is the repo's own fast
 # check, and its secret scan wants every push (practice: ci-workflow-approved;
 # Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
+# The practice audit's two checks join it for a consumer (2026-10-02): a
+# classic install migrated onto the loader carried stale manifest baselines
+# and no scrub blocklist, both full-tier findings, so its pre-staging pushes
+# passed and the first Debut failed on both. They run in seconds.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
-                'session_trailer', 'ci_workflows', 'light_check'}
+                'session_trailer', 'ci_workflows', 'light_check',
+                'scrub_gate', 'practice_export_loop'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
 # consumer session could not push its claude/* branch: commit_author refused
@@ -263,7 +268,8 @@ BASIC, FULL = 'basic', 'full'
 # check prints at the commit this push forked from -- is printed and does
 # not refuse. A finding the push brings still refuses, and a push to a tier
 # branch is judged exactly as before.
-RANGE_JUDGED = {'commit_author', 'commit_dates', 'ci_workflows'}
+RANGE_JUDGED = {'commit_author', 'commit_dates', 'ci_workflows',
+                'scrub_gate', 'practice_export_loop'}
 COMMIT_IN_FINDING = re.compile(r'\bcommit ([0-9a-f]{7,40})\b')
 PUSH_CHECKS = {
     'upstream': (
@@ -311,6 +317,13 @@ PUSH_CHECKS = {
         # light-check.yml ran on GitHub, run here instead of there.
         ('light_check', ['tools/light_check.py'],
          "the repo's own light-check.yml"),
+        # The practice audit, at every tier (BASIC_CHECKS says why); also
+        # inside the full sweep, where it always ran.
+        ('scrub_gate', ['{engine}/precedent_check.py', '--only', 'scrub-gate'],
+         'nothing -- it ran only inside the full sweep, at the Debut'),
+        ('practice_export_loop', ['{engine}/precedent_check.py', '--only',
+                                  'practice-export-loop'],
+         'nothing -- it ran only inside the full sweep, at the Debut'),
         DEEP_CHECK_SUITE,
         *IDENTITY_CHECKS,
     ),
