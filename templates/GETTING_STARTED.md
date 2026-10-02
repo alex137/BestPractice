@@ -191,7 +191,7 @@ Code or Codex.
 
 ### Grok Users
 
-Not yet verified with this workflow *(as of 2026-08)*. If Grok can reach
+Grok hasn't been tried with this workflow *(as of 2026-08)*. If Grok can reach
 the repository, use the same starting instruction as ChatGPT users above.
 Otherwise, treat Grok as a disconnected AI Assistant: paste in the documents
 you're discussing, work out what you want changed, and hand the change
