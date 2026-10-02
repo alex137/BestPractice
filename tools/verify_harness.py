@@ -44839,6 +44839,161 @@ def check_stale_render_self_heals():
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+
+def check_attached_sets_sources_are_synced():
+    """Session start syncs what every ATTACHED practice set reads, not only
+    the root's own sources (2026-10-02). Measured that day: the individual set
+    at $HOME read its universal rules from a clone of its own,
+    $HOME/BestPractice, made at one session start and never pulled again --
+    131 commits behind, and the set's session file and the reply gate's
+    session-load figure were built from it.
+
+    Two-parent fixture: a project under one parent, the individual set under
+    a fake $HOME, the set declaring universal at ../BestPractice. Cases, each
+    asserting the tool's own words or the clone's own state:
+      1. the set's universal clone is fast-forwarded by the walk;
+      2. it stays on the branch its manifest pins (main), not the universal
+         repo's own declared base_branch (staging) -- the existing-clone
+         path used to pass no branch and moved it;
+      3. the set's session file is re-rendered because a source it reads
+         moved, though it was minutes old;
+      4. with nothing moved, a second run leaves that render alone;
+      5. a checkout the tool did not clone is left as it is, and says so;
+      6. a checkout named as the session's project is skipped, and says so."""
+    import shutil, tempfile
+    import precedent_source_bootstrap as psb
+    import precedent_resolve as pr
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def commit(repo, name, text):
+        (repo / name).write_text(text, encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit',
+            '-qm', name)
+
+    stub = ('#!/usr/bin/env python3\n'
+            'import pathlib, sys\n'
+            'repo = sys.argv[sys.argv.index("--repo") + 1]\n'
+            'out = pathlib.Path(repo) / ".precedent"\n'
+            'out.mkdir(parents=True, exist_ok=True)\n'
+            '(out / "SESSION_PRACTICES.md").write_text("rendered", encoding="utf-8")\n')
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+        pr.SELF_HEAL_RENDER_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='attached-sets-sync-'))
+    cases = []
+    try:
+        # The universal origin: main and staging, base_branch staging.
+        up = tmp / 'origin-bp'
+        up.mkdir()
+        git(up, 'init', '-q', '-b', 'main')
+        (up / 'practices').mkdir()
+        (up / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'staging', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        commit(up, 'practices/rule.md', 'v1\n')
+        git(up, 'branch', 'staging')
+        url = f'file://{up}'
+
+        home = tmp / 'home'
+        proj_parent = tmp / 'work'
+        home.mkdir()
+        proj_parent.mkdir()
+        project = proj_parent / 'project'
+        project.mkdir()
+        git(project, 'init', '-q', '-b', 'main')
+        (project / 'precedent.json').write_text(json.dumps({'sources': []}),
+                                                encoding='utf-8')
+
+        indiv = home / 'precedent-individual'
+        (indiv / 'tools').mkdir(parents=True)
+        git(indiv, 'init', '-q', '-b', 'main')
+        (indiv / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent',
+             'path': '../BestPractice'}]}), encoding='utf-8')
+        (indiv / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'source_branch': 'main'}), encoding='utf-8')
+        tool = indiv / 'tools' / 'precedent_session_practices.py'
+        tool.write_text(stub, encoding='utf-8')
+        tool.chmod(0o755)
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(indiv)}}),
+            encoding='utf-8')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+
+        # The set's universal clone, made by the tool, then left behind.
+        clone = home / 'BestPractice'
+        ok, out = psb._try_sync(url, clone, branch='main')
+        commit(up, 'practices/rule.md', 'v2, the newer rule\n')
+        render = indiv / '.precedent' / 'SESSION_PRACTICES.md'
+        render.parent.mkdir()
+        render.write_text('old render', encoding='utf-8')
+        past = time.time() - 120          # minutes old: fresh by age alone
+        os.utime(render, (past, past))
+
+        res = psb.sources_from_attached_sets(project)
+        head = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        tip = git(up, 'rev-parse', 'main').stdout.strip()
+        branch = git(clone, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+        cases.append(('the attached set\'s universal clone is fast-forwarded',
+                      ok and head == tip, f'head={head[:8]} tip={tip[:8]} {res!r}'))
+        cases.append(('and stays on its pinned main, not the universal '
+                      'repo\'s own base_branch (staging)',
+                      branch == 'main', f'branch={branch!r}'))
+        cases.append(('the set\'s render is rebuilt because a source it reads '
+                      'moved, though it was minutes old',
+                      render.read_text(encoding='utf-8') == 'rendered',
+                      render.read_text(encoding='utf-8')))
+
+        render.write_text('kept', encoding='utf-8')
+        os.utime(render, None)
+        psb.sources_from_attached_sets(project)
+        cases.append(('with nothing moved, a second run leaves the render '
+                      'alone',
+                      render.read_text(encoding='utf-8') == 'kept',
+                      render.read_text(encoding='utf-8')))
+
+        os.remove(clone / '.git' / psb.CLONE_MARKER)
+        commit(up, 'practices/rule.md', 'v3\n')
+        res = psb.sources_from_attached_sets(project)
+        msgs = ' | '.join(m for _s, _n, _o, m in res)
+        cases.append(('a checkout the tool did not clone is left as it is, and '
+                      'says so',
+                      git(clone, 'rev-parse', 'HEAD').stdout.strip() == tip
+                      and 'not cloned by this tool' in msgs, msgs))
+
+        psb._mark_clone(clone)
+        os.environ['CLAUDE_PROJECT_DIR'] = str(clone)
+        res = psb.sources_from_attached_sets(project)
+        msgs = ' | '.join(m for _s, _n, _o, m in res)
+        cases.append(('a checkout named as the session\'s project is skipped, '
+                      'and says so',
+                      git(clone, 'rev-parse', 'HEAD').stdout.strip() == tip
+                      and 'a session is working in this checkout' in msgs, msgs))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'session start syncs the sources every attached practice set reads, '
+          f'pinned, skipping working copies, and re-renders a set whose '
+          f'sources moved ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
 def check_self_heal_skips_a_scratch_copy():
     """precedent_resolve.py's source repairs cloned every declared source
     beside ANY repository that resolved, including a test's `git clone
@@ -53061,6 +53216,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_attached_sets_sources_are_synced()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()

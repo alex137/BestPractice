@@ -255,6 +255,60 @@ def _stale_render_hours(repo_root):
     return hours if isinstance(hours, int) and hours > 0 else 1
 
 
+def _ref_mtime(clone):
+    """-> the mtime of the ref a clone has checked out, or None. Read off the
+    filesystem, never from git: this runs on every load_config(), so it must
+    cost a stat or two. A pull or a checkout rewrites that ref (or HEAD
+    itself); a packed ref falls back to packed-refs. Follows a `.git` FILE
+    (a worktree or submodule) to its gitdir."""
+    try:
+        git = pathlib.Path(clone) / '.git'
+        if git.is_file():
+            line = git.read_text(encoding='utf-8').strip()
+            if not line.startswith('gitdir:'):
+                return None
+            git = (pathlib.Path(clone) / line[len('gitdir:'):].strip()).resolve()
+        head = git / 'HEAD'
+        stamps = [head.stat().st_mtime]
+        text = head.read_text(encoding='utf-8').strip()
+        if text.startswith('ref:'):
+            ref = text[4:].strip()
+            common = git
+            cfile = git / 'commondir'
+            if cfile.is_file():
+                common = (git / cfile.read_text(encoding='utf-8').strip()).resolve()
+            loose = common / ref
+            packed = common / 'packed-refs'
+            if loose.is_file():
+                stamps.append(loose.stat().st_mtime)
+            elif packed.is_file():
+                stamps.append(packed.stat().st_mtime)
+        return max(stamps)
+    except (OSError, ValueError):
+        return None
+
+
+def _render_older_than_sources(repo_root, rendered_at):
+    """-> the declared source whose checkout moved after the render was
+    written, or None. The render is built FROM those checkouts, so one that
+    moved since makes it stale however young it is (2026-10-02: a resume
+    fast-forwarded the shared sets an individual set reads, its render stayed
+    as it was, and the reply gate reported a session load about 300 tokens
+    over what a rebuild measured). Read off declared_source_paths(), which
+    never clones or fetches."""
+    try:
+        declared = declared_source_paths(repo_root)
+    except Exception:                                       # noqa: BLE001
+        return None
+    for path, _level, name, note in declared:
+        if note or not path:
+            continue
+        moved = _ref_mtime(path)
+        if moved is not None and moved > rendered_at:
+            return name
+    return None
+
+
 # Set in the environment of the renderer _self_heal_stale_render spawns, so
 # the renderer's own load_config() never spawns a second one.
 SELF_HEAL_RENDER_ENV = 'PRECEDENT_SELF_HEAL_RENDER'
@@ -273,8 +327,9 @@ def _self_heal_stale_render(repo_root):
     spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md (Shape C, the shape this
     implements) for the fuller account.
 
-    Fires when the rendered file is ABSENT or older than
-    _stale_render_hours() above. Judged from the file's mtime ON DISK,
+    Fires when the rendered file is ABSENT, older than
+    _stale_render_hours() above, or older than a checkout it was rendered
+    from (_render_older_than_sources, 2026-10-02). Judged from mtimes ON DISK,
     never from session state: there is no reliable in-session signal for
     whether SessionStart actually ran (CLAUDE_PROJECT_DIR being unset
     proves nothing either way, per tools/precedent_session_check.py's own
@@ -306,10 +361,12 @@ def _self_heal_stale_render(repo_root):
     target = repo_root / '.precedent' / 'SESSION_PRACTICES.md'
     if target.is_file():
         try:
-            age_hours = (time.time() - target.stat().st_mtime) / 3600
+            rendered_at = target.stat().st_mtime
+            age_hours = (time.time() - rendered_at) / 3600
         except OSError:
-            age_hours = None
-        if age_hours is not None and age_hours < _stale_render_hours(repo_root):
+            rendered_at = age_hours = None
+        if age_hours is not None and age_hours < _stale_render_hours(repo_root) \
+                and _render_older_than_sources(repo_root, rendered_at) is None:
             return 'fresh'
     try:
         subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],

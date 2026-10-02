@@ -1070,6 +1070,31 @@ def _declared_source_clones():
             continue
         out.append((str(path), 'main' if src.get('level') == 'universal'
                     else None))
+    # AND THE UNIVERSAL CLONE EACH ATTACHED SET READS (2026-10-02). A set
+    # under another parent -- the individual set in $HOME beside a project
+    # elsewhere -- declares ../BestPractice as a clone of its own, which this
+    # row never named from the project: /root/BestPractice sat 131 commits
+    # behind while every row here passed. Session start now pulls it
+    # (precedent_source_bootstrap.sources_from_attached_sets); this is the
+    # row that says so when it could not.
+    for shown, _base in _attachable_sources():
+        set_root = pathlib.Path(_expand_source_path(shown)).resolve()
+        try:
+            scfg = json.loads((set_root / 'precedent.json')
+                              .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for src in (scfg.get('sources') if isinstance(scfg, dict) else None) or []:
+            if not isinstance(src, dict) or src.get('level') != 'universal':
+                continue
+            raw = src.get('path')
+            if not isinstance(raw, str) or not raw:
+                continue
+            path = pathlib.Path(os.path.expandvars(raw)).expanduser()
+            path = (path if path.is_absolute() else set_root / path).resolve()
+            if path in (ROOT.resolve(), set_root) or not (path / '.git').exists():
+                continue
+            out.append((str(path), 'main'))
     return out
 
 
