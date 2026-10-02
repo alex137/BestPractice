@@ -34,6 +34,8 @@ public repo is **public from its first commit** — content is authored fresh
 as public-safe, never migrated from private history, because visibility
 flips expose everything a private repo ever casually committed.
 
+## Detail
+
 **The same holds for work carried straight into the public repo**, not just
 the vendored copy: code written first in the dependent repo and copied up,
 test inputs taken from its documents, and a practice's story told with its
@@ -42,8 +44,6 @@ fresh in the public repo, make test inputs up, and tell the story without
 names or quotes. A private repo keeps a `leak-blocklist.txt` at its root
 naming what identifies it, matched inside identifiers too, and the public
 repo's leak gate reads the list of every repository checked out beside it.
-
-## Detail
 
 ## Why
 The abstraction step ([practice-export-loop](practice-export-loop.md)) is a judgment call performed
