@@ -251,9 +251,17 @@ says so, both from the vendored tree under `process/upstream/`.
    `freshness-guard.sh` from an individual source) was skipped, never
    recorded, and still counted as missing, so the notice repeated on every
    refresh and every engine file was rewritten; seeing it twice in a row now
-   is a bug to report. `.claude/settings.json` is still never
-   touched — only the hook scripts it calls are vendored engine code, and a
-   consumer's own hook wiring is its own.
+   is a bug to report. `.claude/settings.json` is only ever **added to**,
+   never edited: since 2026-09-25 the refresh adds the entries its kind's
+   `HOOK_WIRING` lists and the repo lacks, and since 2026-10-02 it also
+   gives `freshness-guard.sh` the branch in `precedent.json`'s
+   `base_branch` when no existing entry names one. For a consumer, the same
+   refresh writes and wires the individual-set bootstrap hook, first in
+   `SessionStart`, when the person running it has an individual set (no
+   repository URL is written into it), and merges
+   `templates/gitignore.template` into `.gitignore`. A consumer's own hook
+   wiring stays its own: decline any of these in `precedent.json`'s
+   `declined_adapters` with the reason.
    **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
    vendored from `templates/github-actions/*.template` — a dependent repo's
    `.github/workflows/bestpractice-docs.yml` (from `doc-lint.yml.template`),

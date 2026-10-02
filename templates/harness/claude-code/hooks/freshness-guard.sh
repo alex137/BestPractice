@@ -735,7 +735,23 @@ _pw_block() {
     echo "WARN: freshness-guard: declared practice set $ROOT: $1 (not blocking: this session writes elsewhere)." >&2
     return 0
   fi
-  _block "$1"
+  _block "$(_which_checkout)$1"
+}
+
+# Names the checkout a finding is about whenever it is not the project.
+# mode_pre_write runs _pre_write_one for the project and then for every
+# attached repository, and every message speaks of '$branch' and
+# origin/$base alone -- so a block on, say, an individual-set clone left on
+# that set's pre-staging read as being about the project's own branch, and
+# cost a consumer session a diagnosis round on 2026-10-02 (it could not even
+# read this script to find out: every non-git command is refused while the
+# block stands). Empty for the project itself, whose messages read as before.
+_which_checkout() {
+  local here project
+  here="$(cd "$ROOT" 2>/dev/null && pwd -P)" || here="$ROOT"
+  project="$(cd "$PROJECT_ROOT" 2>/dev/null && pwd -P)" || project="$PROJECT_ROOT"
+  [ "$here" = "$project" ] && return 0
+  printf 'in %s -- an attached repository, NOT this project (%s); run the git command below there, as git -C %s ... : ' "$ROOT" "$PROJECT_ROOT" "$ROOT"
 }
 
 _block() {
