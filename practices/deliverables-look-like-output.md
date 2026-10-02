@@ -51,18 +51,18 @@ Three rules:
    doc, or in the dated decision record where the repo keeps those. "Per a
    user decision" in a deliverable is doubly wrong: it is process residue,
    and it is unattributed.
-4. **The leak is the same in plain prose.** "Carried from memory until
-   checked" is a verify-later flag; "which the next revision opens with" is
-   a note about the document; "checked against search-engine snippets" is
-   verification bookkeeping; "the record carries the tail" points the
-   reader at apparatus. Each belongs in the record, however it is worded.
+4. **The leak is the same in plain prose.** A figure "recalled, to be
+   checked later" is a verify-later flag; a sentence about what the next
+   revision will add is a note about the document; a line saying how a
+   figure was looked up is verification bookkeeping; a sentence pointing
+   the reader at the record is apparatus. Each belongs in the record,
+   however it is worded.
 5. **A rendered page names things by title, never by repository path.**
    Linking a file by its filename is right on the forge, where the reader
    is in the repository; the reader of a render never is, and
-   `fulton_configuration_model.py` tells them nothing. The renderer
-   replaces a link whose text is the bare filename with the target's
-   title, so the source keeps the repo convention and the page reads as
-   output.
+   `cost_model_v2.py` tells them nothing. The renderer replaces a link
+   whose text is the bare filename with the target's title, so the source
+   keeps the repo convention and the page reads as output.
 
 ## Why
 **Why a lint check and not a rule.** This practice failed as prose four
@@ -107,19 +107,17 @@ asks. The same class of miss as the 2026-08-31 fix that exempted
 apparatus they document: each time, a new home for record-class content was
 created and the check that protects deliverables was not told about it.
 
-**The prose-form amendment's incident, 2026-10-01.** A consumer's three
-most-read pages were republished after a model change and read in full on
-the way out. Check 6 had passed every one of them, and they still carried
-"public figures carried from memory … until checked against primary
-sources", "the coast without a port, which the next revision opens with",
-a comparator note ending "checked against search-engine snippets of the
-maker's page, the page itself egress-blocked from the session (record, open
-tail)", and "The record carries the tail." closing seven sections. Every
-pattern check 6 knew was a bracketed flag or a fixed phrase, so the same
-apparatus written as a sentence went straight through. The same read found
-a dozen model filenames in each page's footer, shown to readers who have no
-repository: the repo's link convention (filename as link text) was right in
-the source and wrong in the render, and nothing turned one into the other.
+**The prose-form amendment's incident, 2026-10-01.** A consumer's most-read
+pages were read in full on the way out after check 6 had passed them, and
+still carried apparatus written as ordinary sentences: a figure marked as
+recalled and awaiting a check, a promise about what the next revision would
+open with, a note on how a figure had been looked up, and a closing line
+pointing at the record in section after section. Every pattern check 6 knew
+was a bracketed flag or a fixed phrase, so a sentence went straight through.
+The same read found code filenames in every page's footer, shown to readers
+who have no repository: the link convention (filename as link text) was
+right in the source and wrong in the render, and nothing turned one into the
+other.
 
 ## Install
 **Related.** The current-state rule (git is the history) and [index-remembers-past](index-remembers-past.md)

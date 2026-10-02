@@ -1391,7 +1391,7 @@ def rewrite_links(body, src_dir):
 # `# ` title, anything else by its humanized filename. Only links whose text
 # IS the target's filename are touched; a link written with words keeps them.
 # Host knobs: LINK_TITLES maps a repo-relative path to the title to show;
-# TITLE_WORDS maps a filename word to its display form ("fulton" -> "Fulton").
+# TITLE_WORDS maps a filename word to its display form ("acme" -> "ACME").
 # (practice: deliverables-look-like-output)
 LINK_TITLES = {}
 TITLE_WORDS = {}

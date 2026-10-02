@@ -1921,6 +1921,101 @@ def check_leak_gate_discovers_the_individual_blocklist():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_leak_gate_reads_neighbour_blocklists():
+    """Every repository checked out beside this one contributes its list.
+
+    WHAT IT GUARDS (2026-10-01). A session working in a private repository
+    carried that repository's names into this public tree through a pull
+    request, and the gate passed it: the only private list it read was the
+    person's individual source's, and the private repository's own
+    `leak-blocklist.txt`, checked out beside it, was never consulted. The
+    same day it refused a clean merge because a private shared set's list,
+    on disk beside it, was never read either.
+
+    Stated cases, from one fixture that owns its state: a neighbour clone's
+    list is found; a neighbour without one adds nothing; a loose directory
+    (no .git) is not a repository and is not read; the gate itself is not
+    its own neighbour; and with no variable and no individual source,
+    load_blocklist() still applies the neighbour's patterns and reports the
+    private half as configured. The fixture's pattern is the kind that
+    failed: a name inside an identifier, which `\b` let through.
+    (practice: scrub-gate)"""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as _lg
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-neighbours-'))
+    saved_env = {k: os.environ.get(k) for k in ('HOME', 'PRECEDENT_LEAK_BLOCKLIST')}
+    saved_root = _lg.ROOT
+    try:
+        repo = tmp / 'public-tree'
+        private = tmp / 'private-repo'
+        plain = tmp / 'plain-repo'
+        loose = tmp / 'loose-dir'
+        for d in (repo, private, plain):
+            (d / '.git').mkdir(parents=True)
+        loose.mkdir()
+        (private / 'leak-blocklist.txt').write_text(
+            '(?<![a-z])zqxcorp(?![a-z])\n', encoding='utf-8')
+        (loose / 'leak-blocklist.txt').write_text('\\bnotread\n', encoding='utf-8')
+        (repo / 'leak-blocklist.txt').write_text('\\bself\n', encoding='utf-8')
+        (tmp / 'home').mkdir()
+
+        found = _lg.discovered_neighbour_blocklists(root=repo)
+        # From a throwaway worktree elsewhere -- where the merge check runs
+        # -- the main clone's neighbours are the ones that count.
+        real = tmp / 'nest' / 'real-tree'
+        (tmp / 'nest' / 'private-neighbour').mkdir(parents=True)
+        (tmp / 'nest' / 'private-neighbour' / '.git').mkdir()
+        (tmp / 'nest' / 'private-neighbour' / 'leak-blocklist.txt').write_text(
+            'zqxother\n', encoding='utf-8')
+        real.mkdir()
+        _git = lambda *a: subprocess.run(['git', '-C', str(real), *a],
+                                         capture_output=True, text=True)
+        _git('init', '-q')
+        (real / 'f.txt').write_text('x\n', encoding='utf-8')
+        _git('add', 'f.txt')
+        _git('-c', 'user.name=f', '-c', 'user.email=f@example.invalid',
+             'commit', '-q', '-m', 'f')
+        wt = tmp / 'elsewhere' / 'wt'
+        wt.parent.mkdir()
+        _git('worktree', 'add', '-q', '--detach', str(wt))
+        from_wt = _lg.discovered_neighbour_blocklists(root=wt)
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        _lg.ROOT = repo
+        pats, desc, configured = _lg.load_blocklist()
+        catches = any(p.search('see zqxcorp_cost_model.py') for p in pats)
+        cases = [
+            ('a neighbour clone\'s leak-blocklist.txt is found',
+             private / 'leak-blocklist.txt' in found),
+            ('a neighbour with no list adds nothing, a loose directory is '
+             'not a repository, and the tree is not its own neighbour',
+             found == [private / 'leak-blocklist.txt']),
+            ('with no variable and no individual source, the neighbour\'s '
+             'list is applied and the private half reports configured',
+             configured and str(private / 'leak-blocklist.txt') in desc),
+            ('a name inside an identifier is caught', catches),
+            ('from a worktree elsewhere, the main clone\'s neighbour is read',
+             tmp / 'nest' / 'private-neighbour' / 'leak-blocklist.txt'
+             in [p.resolve() for p in from_wt]),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  neighbour discovery did NOT behave as stated: {name}")
+        check(f'the leak gate reads the blocklists of repositories checked '
+              f'out beside it ({len(cases)} stated cases)', ok)
+    finally:
+        _lg.ROOT = saved_root
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_leak_gate_names_a_stale_blocklist_clone():
     """The gate says where its blocklist came from when it FAILS, and --
     since 2026-09-20 -- tries one bounded fast-forward before saying so.
@@ -4475,14 +4570,14 @@ def check_doc_lint_fires():
 
         # 2026-10-01, a consumer's published pages: the same leaks written
         # as prose passed the bracketed patterns and reached readers. Each
-        # line below is the leaked sentence, shortened; each must fire, and
-        # the plain prose beside them must not.
+        # line below has the shape of one that leaked (the words are made
+        # up); each must fire, and the plain prose beside them must not.
         leaked = [
-            "public figures carried from memory, ROM, until checked.",
-            "The receiver figures stay ROM until checked against sources.",
-            "and the coast without a port, which the next revision opens with.",
+            "unit prices carried from memory, rough, until checked.",
+            "The vendor figures stay rough until checked against sources.",
+            "and the second warehouse, which the next revision opens with.",
             "every figure checked against search-engine snippets of the page.",
-            "the land version is open. The record carries the tail.",
+            "the export case is open. The record carries the rest.",
         ]
         for n, line in enumerate(leaked):
             (tmp / f'prose{n}.md').write_text(line + "\n", encoding='utf-8')
@@ -37178,7 +37273,7 @@ def check_render_names_files_by_title():
     (`[x_model.py](x_model.py)`), which reads fine on the forge and means
     nothing to a reader of the rendered page, who never sees the
     repository. On 2026-10-01 a consumer's published pages showed a dozen
-    model filenames in every "numbers by" footer. render() now retitles a
+    code filenames in every footer. render() now retitles a
     link whose text IS the target's filename (alone, or followed by a
     section mark): a markdown target by its `# ` title, anything else by a
     humanized filename. A link written with words keeps them.
@@ -52633,6 +52728,7 @@ def main():
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
+    check_leak_gate_reads_neighbour_blocklists()
     check_leak_gate_names_a_stale_blocklist_clone()
     check_leak_gate_refresh_declines_a_dirty_clone()
     check_freshness_covers_every_declared_source()

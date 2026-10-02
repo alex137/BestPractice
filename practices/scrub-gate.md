@@ -34,6 +34,15 @@ public repo is **public from its first commit** — content is authored fresh
 as public-safe, never migrated from private history, because visibility
 flips expose everything a private repo ever casually committed.
 
+**The same holds for work carried straight into the public repo**, not just
+the vendored copy: code written first in the dependent repo and copied up,
+test inputs taken from its documents, and a practice's story told with its
+real text are each how its vocabulary arrives. Write the upstream change
+fresh in the public repo, make test inputs up, and tell the story without
+names or quotes. A private repo keeps a `leak-blocklist.txt` at its root
+naming what identifies it, matched inside identifiers too, and the public
+repo's leak gate reads the list of every repository checked out beside it.
+
 ## Detail
 
 ## Why
@@ -65,6 +74,18 @@ public repo's own tracked files -- exactly what a gate that runs only at
 check-in would have let through.
 
 **Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) found this built on `process/upstream/**` and `process/scrub_blocklist.txt`, which no repository here has any more, and Morgan approved merging it with the repo-maintenance set's private-repo-scrub around what is in force now. That merge spans two repositories and a rewrite, so this step only drops the index line; its merge and push gates and its path still reach it, and the merge is recorded as still to do in the open item. Morgan (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
+
+**The direct-contribution incident, 2026-10-01.** A session in a private
+dependent repo opened a pull request here that carried the dependent's
+product name in an engine comment and a practice's example filename, and
+lightly edited sentences from its documents in the tests and the story. The
+scrub never saw it -- it guards the vendored copy, not a session's pushes
+here -- and the leak gate passed it, because it read no list but the
+individual source's. Its private list also matched whole words only, so the
+example filename, joined to the name by an underscore, would have passed
+that too. The content was scrubbed the same day; the gate now reads every
+neighbouring repository's list, and the dependent's list matches inside
+identifiers.
 
 ## Install
 Blocklist format and gate wiring in [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md).
