@@ -1297,8 +1297,8 @@ def record_staged_output(repo, paths):
 def vendored_layer_paths(repo, paths):
     """-> those of `paths` that belong to the two vendored layers: the
     engine (tools/, its vendored hooks, the paths precedent.json declares
-    under engine_paths) and the mirrored catalogue (process/upstream/ and
-    its manifest)."""
+    under engine_paths) and the mirrored catalogue (what
+    precedent_resolve.mirrored_prefixes() names, and its manifest)."""
     declared = set()
     for spec in ('HEAD:tools/' + pve.MANIFEST_NAME, None):
         try:
@@ -1308,8 +1308,13 @@ def vendored_layer_paths(repo, paths):
             declared |= set((json.loads(text) or {}).get(pve.ENGINE_PATHS_KEY) or {})
         except (OSError, ValueError, AttributeError):
             pass
-    return [p for p in paths
-            if p.startswith(('tools/', f'{pve.HOOK_DEST_DIR}/', 'process/upstream/'))
+    try:
+        import precedent_resolve as pr
+        mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    except Exception:                                          # noqa: BLE001
+        mirrors = ()
+    engine = ('tools/', f'{pve.HOOK_DEST_DIR}/') + mirrors
+    return [p for p in paths if p.startswith(engine)
             or p == 'process/manifest.json' or p in declared]
 
 
