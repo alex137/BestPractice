@@ -9039,6 +9039,214 @@ def check_update_vendors_resolves_local_edits():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_rerun_after_failed_takes_its_own_output():
+    """A rerun of Update Vendors after a FAILED one recognises what the
+    failed run staged as its own output, puts it back and writes it again,
+    instead of refusing it as "a vendored file edited here and not
+    committed" (2026-10-02: a consumer's run failed its deep check with an
+    engine file it had merged with the repo's committed local edit still
+    staged, and the rerun the FAILED message asked for stopped on that very
+    file). A staged file the person changed after the failure is still
+    theirs, and still refused.
+
+    Negative control, measured 2026-10-02 against staging at 1c2403f: the
+    rerun stops with "not committed" naming tools/precedent_show.py, so the
+    second case fails."""
+    fx = _LocalEditsFixture('precedent-update-rerun-')
+    cases = []
+
+    def red_update(repo, ref):
+        # The real update, with its closing check stubbed red, so the run
+        # ends FAILED with its output staged exactly as a red check leaves it.
+        return fx.sh(sys.executable, '-c', (
+            'import sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu\n'
+            'pu.judged_as_committed = lambda _r, _a: (1, "stubbed red check")\n'
+            f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--from-ref", {ref!r}]))\n'),
+            cwd=repo)
+    try:
+        for name, touch in (('untouched', False), ('touched', True)):
+            repo = fx.consumer(name)
+            seeded = fx.seeded_from(repo)
+            # Answer the bare fixture's first-run questions, so the run
+            # below reaches its check rather than stopping short of it.
+            fx.update(repo, seeded)
+            fx.commit(repo, 'first update')
+            f = repo / 'tools' / 'precedent_show.py'
+            b = f.read_bytes()
+            f.write_bytes(_insert(b, '# a local fix\n'))
+            fx.commit(repo, 'a local fix to a received engine file')
+            ref = fx.upstream(seeded, {'tools/precedent_show.py': b + b'\n# upstream\n'})
+            rc, out = red_update(repo, ref)
+            merged = f.read_bytes()
+            if not touch:
+                cases.append(('the first run ends FAILED on its check, with the merged '
+                              'engine file staged', rc == 2 and 'FAILED' in out
+                              and b'# a local fix' in merged and b'# upstream' in merged
+                              and 'tools/precedent_show.py' in fx.git(
+                                  repo, 'diff', '--cached', '--name-only'), out[-1500:]))
+                rc, out = fx.update(repo, ref)
+                cases.append(('the rerun takes that file as its own output and does not '
+                              'refuse it', 'not committed' not in out and rc != 2
+                              and 'earlier run' in out and f.read_bytes() == merged,
+                              out[-1500:]))
+            else:
+                f.write_bytes(merged + b'# the person fixed something here\n')
+                rc, out = fx.update(repo, ref)
+                cases.append(('a staged file changed after the failure is the person\'s: '
+                              'refused, and left as they wrote it',
+                              rc == 1 and 'not committed' in out
+                              and 'tools/precedent_show.py' in out.split('LEFT FOR YOU', 1)[-1]
+                              and f.read_bytes().endswith(b'fixed something here\n'),
+                              out[-1500:]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_reports_every_blocker_before_the_slow_check():
+    """Update Vendors reports every blocker it can find cheaply in one run
+    and starts the slow check only when there are none (2026-10-02: a large
+    consumer's run 1 spent half an hour on its full check, failed it, and
+    only run 3 stopped on a template divergence known before run 1's check
+    began). Two independent items left for the person: both named in one
+    run, and the check never started. None left but the basic tier red: its
+    findings reported, the full tier never started. Both green: the full
+    tier runs. The check is stubbed, so each case is decided by what the
+    stub was asked.
+
+    Negative control, measured 2026-10-02 against staging at 1c2403f: the
+    check runs with items left (the first case fails), and only the full
+    tier is ever asked for (the second fails)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-blockers-'))
+    cases = []
+    real = pu.judged_as_committed, pu.pb.landing_branch, pu.pb.tier_for_branch
+    try:
+        repo = tmp / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], capture_output=True)
+        (repo / 'tools' / 'precedent_push_check.py').write_text('', encoding='utf-8')
+        pu.pb.landing_branch = lambda _r, *a, **k: ('staging', 'fixture')
+        pu.pb.tier_for_branch = lambda _r, _b, *a, **k: (pu.pb.FULL, 'fixture')
+        asked = []
+
+        def stub(red_tiers):
+            def judged(_repo, argv):
+                tier = argv[argv.index('--tier') + 1] if '--tier' in argv else 'full'
+                asked.append(tier)
+                return (1, f'{tier} finding') if tier in red_tiers else (0, 'green')
+            return judged
+
+        def run(red_tiers, left=()):
+            asked.clear()
+            pu.judged_as_committed = stub(red_tiers)
+            rep = pu.Report()
+            for what, why in left:
+                rep.leave(what, why)
+            import contextlib, io
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = pu.closing_check(repo, rep)
+            return rc, buf.getvalue()
+
+        rc, out = run({'full'}, [('tools/bootstrap.sh', 'diverged from the template'),
+                                 ('AGENTS.md "Session setup"', 'missing a template section')])
+        left = out.split('LEFT FOR YOU', 1)[-1]
+        cases.append(('two items left: both named in one run, and no check started',
+                      rc == pu.LEFT and 'tools/bootstrap.sh' in left
+                      and 'AGENTS.md "Session setup"' in left and asked == [],
+                      (asked, out[-1200:])))
+        rc, out = run({'basic', 'full'})
+        cases.append(('none left, the basic tier red: its finding reported, the full '
+                      'tier never started', rc == pu.FAILED and 'basic finding' in out
+                      and asked == ['basic'], (asked, out[-1200:])))
+        rc, out = run(set())
+        cases.append(('none left, both green: the full tier runs after the basic',
+                      rc == pu.DONE and asked == ['basic', 'full'], (asked, out[-1200:])))
+    finally:
+        pu.judged_as_committed, pu.pb.landing_branch, pu.pb.tier_for_branch = real
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_gone_path_matcher_matches_one_regex_per_path():
+    """change-updates-its-docs finds a removed path by a prefix lookup
+    (precedent_check.gone_path_matcher) where it used to try one regex per
+    removed path on every line -- five to ten minutes on a large consumer.
+    The answer must be the same, line for line: the first path in sorted
+    order that the line names on the same boundaries. Compared here with
+    that old loop on a seeded fixture of paths and lines built to sit on
+    every boundary (a longer path, a suffix, a prefix directory, a trailing
+    dot or dash, a non-ASCII word, paths with characters outside a path
+    run)."""
+    import random
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    rnd = random.Random(7)
+    words = ['practices', 'tools', 'spec', 'todo', 'x', 'a-b', 'v1', 'foo_bar', 'ü']
+
+    def path():
+        return ('/'.join(rnd.choice(words) for _ in range(rnd.randint(2, 4)))
+                + rnd.choice(['.md', '.py', '', '.json', '.md.bak']))
+    gone = {path() for _ in range(400)} | {'odd dir/x.md', 'a+b/c.md'}
+    pool = sorted(gone)
+    lines = []
+    for _ in range(3000):
+        toks = []
+        for _ in range(rnd.randint(1, 10)):
+            r = rnd.random()
+            if r < 0.25:
+                toks.append(rnd.choice(pool))
+            elif r < 0.45:
+                toks.append(rnd.choice(['', 'other/', '`', '(', 'x', '.', '-'])
+                            + path() + rnd.choice(['', '.', '-x', '/', '`', ')', ',', '_']))
+            else:
+                toks.append(rnd.choice(words))
+        lines.append(rnd.choice([' ', '', '/']).join(toks))
+    lines += ['see odd dir/x.md here', 'a+b/c.md', 'xa+b/c.md', 'odd dir/x.mdz']
+    pats = [(g, re.compile(r'(?<![\w./-])' + re.escape(g) + r'(?![\w-])')) for g in pool]
+    want = [next((g for g, p in pats if p.search(l)), None) for l in lines]
+    first = pc.gone_path_matcher(gone)
+    got = [first(l) for l in lines]
+    diff = [(l, w, g) for l, w, g in zip(lines, want, got) if w != g]
+    hits = sum(1 for w in want if w)
+    return (not diff and hits > 1000, f'{len(lines)} lines, {hits} with a hit, '
+            f'{len(gone)} removed paths', f'{len(diff)} differ, first: {diff[:2]}')
+
+
+def check_model_audit_changed_selects_only_what_a_change_reaches():
+    """model_audit --changed audits only the models a change can reach: a
+    manifest or blocklist change selects none, an engine no model loads
+    selects none, the engine a shim loads by path selects the model behind
+    that shim, and memo plumbing the host lists selects none (2026-10-02: a
+    consumer's merges carried vendored engine files under tools/ that no
+    model loads, and each re-audited all 59 of its models). The engine's
+    own self-check builds the scratch repository and states the cases.
+
+    Negative control, measured 2026-10-02: with the old rule (any .py
+    changed under tools/ or process/ audits everything) the self-check
+    fails on the unloaded engine and the path-loaded one."""
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'model_audit.py'),
+                        '--self-check'], capture_output=True, text=True, cwd=str(ROOT))
+    out = r.stdout + r.stderr
+    return (r.returncode == 0 and 'self-check OK' in out, 'model_audit --self-check',
+            out[-1200:])
+
+
 def check_update_vendors_resolves_a_catalogue_edit():
     """The same resolution for process/upstream/, a pre-2026-09-14 install's
     mirrored catalogue: a committed, pushed local edit to a vendored
@@ -52483,6 +52691,14 @@ def main():
           *check_update_vendors_survives_an_upstream_deletion())
     check('Update Vendors resolves a committed local edit to an engine file by rule',
           *check_update_vendors_resolves_local_edits())
+    check('a rerun after a FAILED Update Vendors takes the staged output as its own',
+          *check_update_rerun_after_failed_takes_its_own_output())
+    check('Update Vendors reports every blocker before it starts the slow check',
+          *check_update_reports_every_blocker_before_the_slow_check())
+    check('change-updates-its-docs finds the same removed paths without a regex per path',
+          *check_gone_path_matcher_matches_one_regex_per_path())
+    check('model_audit --changed selects only the models a change reaches',
+          *check_model_audit_changed_selects_only_what_a_change_reaches())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
