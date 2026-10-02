@@ -142,10 +142,13 @@ ANCHORS = [
     # command rather than an instruction, and saying what that command does
     # not prove. Moved by the very deep check's own CI-shard fix, and caught
     # by this anchor on that change's first deep check -- which is the
-    # mechanism working on its own author.
+    # mechanism working on its own author. Then 23->24 on 2026-10-01 when
+    # scrub-gate gained one: the paragraph on work carried straight into the
+    # public repo, added to its Rule that day, took the Rule past 150 words,
+    # and moved word for word into a Detail it did not have yet.
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     23, 23, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     24, 24, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
