@@ -9249,6 +9249,94 @@ def check_model_audit_changed_selects_only_what_a_change_reaches():
             out[-1200:])
 
 
+def check_merge_takes_the_vendor_update():
+    """tools/precedent_merge_vendors.py, run at a merge, takes Update Vendors
+    as a commit of its own when the update finishes, and takes everything it
+    wrote back when it does not -- never blocking the merge, exit 0 every
+    time (2026-10-02, Alex: "Can we set up a system so merge also does
+    vendor updates?"). Each outcome is asserted by its own words and by the
+    repository's state after it (practice: control-asserts-which-failure):
+
+      - an upstream change, the update DONE: HEAD gains exactly one commit,
+        it carries the change, and nothing is left staged or changed;
+      - the update leaving calls for the person: HEAD unmoved, nothing left
+        staged or changed, and the reason printed;
+      - a tracked file changed and not committed: refused before anything
+        runs, the person's edit untouched;
+      - freshness saying nothing is behind: nothing runs at all.
+
+    Negative control: before this tool existed the merge only printed the
+    freshness notice, so every case fails for want of the file."""
+    fx = _LocalEditsFixture('precedent-merge-vendors-')
+    tool = ROOT / 'tools' / 'precedent_merge_vendors.py'
+    cases = []
+
+    def merge_vendors(repo, *extra):
+        return fx.sh(sys.executable, str(tool), '--repo', str(repo), '--source',
+                     str(ROOT), '--always', '--skip-check', *extra, cwd=repo)
+
+    def clean(repo):
+        return fx.git(repo, 'status', '--porcelain', '--untracked-files=no') == ''
+    try:
+        # --- DONE: committed on its own -------------------------------------
+        repo = fx.consumer('done')
+        seeded = fx.seeded_from(repo)
+        fx.update(repo, seeded)          # answer the bare fixture's questions
+        fx.commit(repo, 'first update')
+        f = repo / 'tools' / 'precedent_show.py'
+        up = f.read_bytes() + b'\n# upstream, taken at a merge\n'
+        ref = fx.upstream(seeded, {'tools/precedent_show.py': up})
+        head = fx.git(repo, 'rev-parse', 'HEAD')
+        rc, out = merge_vendors(repo, '--from-ref', ref)
+        parent = fx.git(repo, 'rev-parse', 'HEAD~1')
+        msg = fx.git(repo, 'log', '-1', '--format=%B')
+        cases.append(('an update that finishes is one commit of its own on top, '
+                      'carrying the change, with nothing left over',
+                      rc == 0 and 'VENDORS: updated, in commit' in out
+                      and parent == head and f.read_bytes() == up and clean(repo)
+                      and msg.startswith('Update Vendors at merge'),
+                      out[-1500:]))
+
+        # --- LEFT: everything taken back -------------------------------------
+        repo = fx.consumer('left')     # bare AGENTS.md: the first run asks
+        head = fx.git(repo, 'rev-parse', 'HEAD')
+        rc, out = merge_vendors(repo, '--from-ref', fx.seeded_from(repo))
+        cases.append(('an update that leaves calls for the person is taken back '
+                      'whole, the reason printed, the merge not blocked',
+                      rc == 0 and 'VENDORS: NOT TAKEN' in out and 'calls for the person' in out
+                      and 'LEFT FOR YOU' in out
+                      and fx.git(repo, 'rev-parse', 'HEAD') == head and clean(repo)
+                      and fx.git(repo, 'diff', '--cached', '--name-only') == '',
+                      out[-1500:]))
+
+        # --- a person's uncommitted edit: refused, untouched -----------------
+        repo = fx.consumer('dirty')
+        readme = repo / 'AGENTS.md'
+        mine = readme.read_text(encoding='utf-8') + '\nmy unfinished edit\n'
+        readme.write_text(mine, encoding='utf-8')
+        rc, out = merge_vendors(repo, '--from-ref', fx.seeded_from(repo))
+        cases.append(('a tracked file changed and not committed: refused before '
+                      'anything runs, the edit left as it was',
+                      rc == 0 and 'NOT TAKEN' in out and 'Nothing was run' in out
+                      and readme.read_text(encoding='utf-8') == mine, out[-800:]))
+
+        # --- current: nothing runs -------------------------------------------
+        rc, out = fx.sh(sys.executable, '-c', (
+            'import sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_merge_vendors as mv\n'
+            'mv.vendors_behind = lambda _r: ([], [])\n'
+            'mv.subprocess.run = None  # running anything would raise\n'
+            f'sys.exit(mv.run({str(repo)!r}))\n'), cwd=repo)
+        cases.append(('nothing behind: says current and runs nothing',
+                      rc == 0 and 'VENDORS: current' in out, out[-800:]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_resolves_a_catalogue_edit():
     """The same resolution for process/upstream/, a pre-2026-09-14 install's
     mirrored catalogue: a committed, pushed local edit to a vendored
@@ -53015,6 +53103,8 @@ def main():
           *check_gone_path_matcher_matches_one_regex_per_path())
     check('model_audit --changed selects only the models a change reaches',
           *check_model_audit_changed_selects_only_what_a_change_reaches())
+    check('a merge takes the vendor update as its own commit, or takes it back whole',
+          *check_merge_takes_the_vendor_update())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',

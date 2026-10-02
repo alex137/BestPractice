@@ -475,8 +475,10 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
         # "Update Vendors" moves a vendored engine or catalogue; a live
         # clone behind its own origin takes the pull named on its own line,
         # and pointing it here sent sessions to the wrong fix (2026-09-30).
-        print('  Nothing has been changed -- this is a notice. To take it: '
-              '"Update Vendors" (practices/vendor-update-runbook.md).', file=out)
+        print('  Nothing has been changed -- this is a notice. At a merge, '
+              'python3 tools/precedent_merge_vendors.py takes it as a commit '
+              'of its own (practices/go-update.md); otherwise "Update '
+              'Vendors" (practices/vendor-update-runbook.md).', file=out)
     if quiet and unverified_sources:
         print(f'freshness: NOT VERIFIED -- {unverified_sources} source(s) '
               f'could not be checked this session; run python3 '
