@@ -28328,6 +28328,97 @@ def _individual_two_routes_fixture(tmp):
     return url, rewrite, git, run_main, row
 
 
+def check_individual_hook_run_by_hand_links_the_attached_set():
+    """The individual-set bootstrap hook, run BY HAND from a session's own
+    shell -- where neither CLAUDE_PROJECT_DIR nor PRECEDENT_PROJECT_DIR is
+    set -- links $HOME/precedent-individual to the copy the attach tool
+    already cloned beside the project, instead of cloning a second one.
+
+    Measured 2026-10-02 in a sandbox shaped like a consumer session: the
+    set attached at <workspace>/precedent-individual, no user config, the
+    hook run first with CLAUDE_PROJECT_DIR set (linked) and then without it
+    (a second full clone). A consumer's session whose hook was not wired had
+    to run it by hand, and got the second copy. The engine finds the attach
+    copy through the project dir (attach_workspace), so the hook now works
+    its repo out from its own path and exports it.
+
+    Hermetic: the attached copy sits on a working branch, which the engine
+    uses as it stands and never pulls, so nothing reaches the network; its
+    origin is a hosted-looking URL on a reserved domain only so the engine
+    treats it as a hosted source. CONTROL: the same run with the project dir
+    pointed at an unrelated directory finds no attach copy and does not
+    link -- otherwise the case would pass however the link was made."""
+    import tempfile
+    tmpl = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            / 'individual-source-bootstrap.sh.template')
+    if not tmpl.is_file():
+        not_applicable('a hand-run individual hook links the attached set',
+                       'no hook template in this tree')
+        return
+    url = 'https://example.invalid/acct/precedent-individual'
+    env0 = {k: v for k, v in os.environ.items()
+            if k not in ('CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+                         'PRECEDENT_INDIVIDUAL_REPO', 'PRECEDENT_GIT_TOKEN',
+                         'XDG_CONFIG_HOME')}
+    env0.update(CLAUDE_CODE_REMOTE='true', GIT_TERMINAL_PROMPT='0',
+                PRECEDENT_SOURCE_BASE_URL='https://example.invalid/acct',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+        ws, home = w / 'ws', w / 'home'
+        proj = ws / 'proj'
+        (proj / 'tools').mkdir(parents=True)
+        (proj / '.claude' / 'hooks').mkdir(parents=True)
+        home.mkdir()
+        for name in ('precedent_source_bootstrap.py',
+                     'precedent_source_credentials.py'):
+            shutil.copy(ROOT / 'tools' / name, proj / 'tools' / name)
+        hook = proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        hook.write_text(tmpl.read_text(encoding='utf-8')
+                        .replace('{{SOURCE_NAME}}', 'precedent-individual')
+                        .replace('{{SOURCE_REPO_URL_SUBSTITUTED}}', 'yes')
+                        .replace('{{SOURCE_REPO_URL}}', ''), encoding='utf-8')
+        attached = ws / 'precedent-individual'
+        subprocess.run(['git', 'init', '-q', '-b', 'work', str(attached)],
+                       env=env0, capture_output=True)
+        (attached / 'practices').mkdir()
+        (attached / 'practices' / 'x.md').write_text('x\n')
+        subprocess.run(['git', '-C', str(attached), 'add', '-A'], env=env0,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(attached), 'commit', '-qm', 'x'],
+                       env=env0, capture_output=True)
+        subprocess.run(['git', '-C', str(attached), 'remote', 'add', 'origin',
+                        url], env=env0, capture_output=True)
+
+        def run(extra=None):
+            env = dict(env0, HOME=str(home), **(extra or {}))
+            return subprocess.run(['bash', str(hook)], env=env, cwd=str(w),
+                                  capture_output=True, text=True, timeout=120)
+
+        r = run()
+        link = home / 'precedent-individual'
+        cases.append(('run by hand with no project dir in the environment, '
+                      'the hook links $HOME/precedent-individual to the '
+                      'attached copy instead of cloning a second one',
+                      link.is_symlink() and link.resolve() == attached.resolve(),
+                      (r.stdout + r.stderr)[-500:]))
+        if link.is_symlink():
+            link.unlink()
+        shutil.rmtree(home / '.config', ignore_errors=True)
+        other = w / 'elsewhere'
+        other.mkdir()
+        r = run({'PRECEDENT_PROJECT_DIR': str(other)})
+        cases.append(('CONTROL: with the project dir pointed elsewhere there '
+                      'is no attach copy to find, and nothing is linked',
+                      not link.is_symlink(), (r.stdout + r.stderr)[-500:]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a hand-run individual-set hook links the attached set '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
 def check_individual_set_has_one_tree_whichever_route_cloned_it():
     """The individual set got cloned twice, reported by two consumer sessions
     on 2026-09-28. The source bootstrap clones it to $HOME/precedent-
@@ -53009,6 +53100,7 @@ def main():
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
     check_consumer_basic_tier_runs_the_practice_audit()
+    check_individual_hook_run_by_hand_links_the_attached_set()
     check_update_vendors_defaults_headroom_floor()
     check_engine_fetch_reaches_main_in_a_single_branch_clone()
     check_update_vendors_leaves_mentions_of_a_deleted_file()
