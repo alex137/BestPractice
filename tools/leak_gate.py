@@ -21,7 +21,10 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   individual or shared set, a practice whose frontmatter claims a non-
   universal source, a personal email address, an absolute home directory.
   These patterns are safe to publish because they describe SHAPES, not
-  anyone's actual vocabulary.
+  anyone's actual vocabulary. A person whose own domain is public says so
+  in their private list --
+  `# leak-gate: public-email-domain <domain> -- why` -- and addresses
+  there pass the email rule; nothing else about it changes.
 
   VOCABULARY, in two halves. This layer catches WORDS rather than shapes.
 
@@ -574,6 +577,33 @@ STEM_NOTES_RE = re.compile(
 AUTO_COVER_RE = re.compile(
     r'#\s*visibility-audit:\s*auto-cover-bare-names\s+(on|off)\s*--\s*(.+)$')
 
+# A fifth directive, and the only one that narrows a CONTENT rule. The
+# built-in "an email address" rule refuses every address, because Precedent's
+# own tree should carry none. A consuming repo's product can carry one on
+# purpose: a browser add-on's Firefox ID must be shaped like an address, and a
+# real one carried its owner's domain into the manifest and its store listing,
+# so its push check refused every push with nothing wrong in the repo
+# (2026-10-01). The owner then decided the domain is public anyway.
+#
+# Whether a person's domain is private is a fact about that PERSON, so it is
+# declared in that person's own list, beside the allow lines above -- not
+# per consuming repo, where it would have to be repeated in each one and could
+# disagree. A subdomain counts (mail.<domain>); a domain that merely ENDS in
+# the same letters does not. It never touches a blocklist pattern: a term
+# somebody banned stays banned, whatever this line says.
+#
+# ITS OWN PREFIX, `# leak-gate:`, not `# visibility-audit:`, and that is the
+# rollout. One person's list is read by the gate vendored in every repo they
+# work in, at whatever engine each carries, and an engine that predates a
+# directive refuses an unknown `visibility-audit:` line as unparsed -- one new
+# line in the list would have turned every older repo's push check red. An
+# older engine reads `# leak-gate:` as a comment, so the address is refused
+# there exactly as before until that repo's next update.
+PUBLIC_EMAIL_DOMAIN_RE = re.compile(
+    r'#\s*leak-gate:\s*public-email-domain\s+'
+    r'([A-Za-z0-9][\w-]*(?:\.[\w-]+)+)\s*--\s*(.+)$')
+LEAK_GATE_ANNOUNCE_RE = re.compile(r'#\s*leak-gate:')
+
 VIS_AUDIT_ANNOUNCE_RE = re.compile(r'#\s*visibility-audit:')
 
 
@@ -590,6 +620,12 @@ def repo_policy_errors(path):
         return out
     for i, raw in enumerate(text.splitlines(), 1):
         line = raw.strip()
+        if LEAK_GATE_ANNOUNCE_RE.match(line):
+            if not PUBLIC_EMAIL_DOMAIN_RE.match(line):
+                out.append((i, line, 'not a recognized directive. Expected '
+                                     '`leak-gate: public-email-domain <domain> '
+                                     '-- reason`, the reason on the same line'))
+            continue
         if not VIS_AUDIT_ANNOUNCE_RE.match(line):
             continue
         if PRIVATE_OWNER_RE.match(line):
@@ -643,6 +679,31 @@ def parse_repo_policy(path):
         if m:
             allowed[m.group(1).lower()] = m.group(2).strip()
     return owners, allowed
+
+
+def parse_public_email_domains(path):
+    """-> {domain: reason} the blocklist declares public. A line with no
+    reason does not parse, so it declares nothing."""
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return out
+    for line in text.splitlines():
+        m = PUBLIC_EMAIL_DOMAIN_RE.match(line.strip())
+        if m:
+            out[m.group(1).lower().rstrip('.')] = m.group(2).strip()
+    return out
+
+
+def _address_is_public(address, public_domains):
+    """True when the address's domain is a declared public domain or a
+    subdomain of one. The same domain with more after it, or with more
+    letters before it, is neither."""
+    if not public_domains or '@' not in address:
+        return False
+    dom = address.rsplit('@', 1)[1].lower().rstrip('.')
+    return any(dom == d or dom.endswith('.' + d) for d in public_domains)
 
 
 def stem_notes_enabled(path):
@@ -1098,6 +1159,60 @@ def discovered_blocklist_path():
     return path if path.is_file() else None
 
 
+def discovered_neighbour_blocklists(root=None):
+    """-> [path] the `leak-blocklist.txt` of every repository checked out
+    beside this one.
+
+    WHY THIS EXISTS (2026-10-01). A session working in a private repository
+    carried that repository's names into this public tree through a pull
+    request: a filename and a comment in an engine, test sentences and a
+    practice's story all quoted the private repo. This gate passed it,
+    because the only private list it reads is the person's individual
+    source's -- it had never heard the private repo's vocabulary. The same
+    day it refused a clean merge because a private shared set was cloned
+    beside it and its list, on disk the whole time, was never read.
+
+    Whatever text a session holds came from the repositories on its disk,
+    and the repositories checked out beside this one are those. So every
+    neighbour that keeps a `leak-blocklist.txt` at its root -- an individual
+    source, a shared set, a private consumer -- contributes its list.
+    Adding a list can only make the gate stricter, never quieter.
+    """
+    root = pathlib.Path(root or ROOT).resolve()
+    # A worktree's siblings are the wrong ones (local_clone_refs says why):
+    # the merge check runs in a throwaway worktree under the temp directory,
+    # so the main clone's siblings are read too, and the main clone is not
+    # its own neighbour either.
+    selves, parents = {root}, [root.parent]
+    try:
+        r = subprocess.run(['git', '-C', str(root), 'rev-parse',
+                            '--path-format=absolute', '--git-common-dir'],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and r.stdout.strip():
+            main_root = pathlib.Path(r.stdout.strip()).resolve().parent
+            selves.add(main_root)
+            if main_root.parent not in parents:
+                parents.append(main_root.parent)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    out = []
+    for parent in parents:
+        try:
+            siblings = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in siblings:
+            try:
+                if d.resolve() in selves or not (d / '.git').exists():
+                    continue
+            except OSError:
+                continue
+            p = d / INDIVIDUAL_BLOCKLIST_NAME
+            if p.is_file() and p not in out:
+                out.append(p)
+    return out
+
+
 def resolve_blocklist_path():
     """-> (path, how) where how is 'env', 'individual source' or None.
 
@@ -1121,7 +1236,24 @@ def load_blocklist():
     the reporting below key off -- the default half is never in question."""
     default_pats = load_default_blocklist()
     path, how = resolve_blocklist_path()
+    # Neighbours' lists add to whichever private list is in force; a path
+    # already named by the environment or the individual source is not read
+    # twice.
+    named = path.resolve() if path is not None and path.exists() else None
+    extra = [p for p in discovered_neighbour_blocklists()
+             if p.resolve() != named]
+    extra_pats, extra_desc = [], []
+    for p in extra:
+        pp = _parse_blocklist(p)
+        if pp:
+            extra_pats += pp
+            extra_desc.append(f'{p} ({len(pp)})')
     if path is None:
+        if extra_pats:
+            return (default_pats + extra_pats,
+                    ' + '.join([f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)})']
+                               + extra_desc),
+                    True)
         return default_pats, f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)} pattern(s))', False
     if not path.exists():
         sys.exit(f"leak gate FAIL: {BLOCKLIST_ENV} points at {path}, which does not "
@@ -1157,8 +1289,9 @@ def load_blocklist():
                  f"while checking nothing, which is the one outcome this gate must "
                  f"never produce. Add at least one term, or unset {BLOCKLIST_ENV} "
                  f"deliberately and rely on the default list alone.")
-    return (default_pats + pats,
-            f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)}) + {path} ({len(pats)})',
+    return (default_pats + pats + extra_pats,
+            ' + '.join([f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)})',
+                        f'{path} ({len(pats)})'] + extra_desc),
             True)
 
 
@@ -1230,7 +1363,7 @@ def _path_is_exempt(rel, exemptions):
 
 
 def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
-         private_names=None, structural_exempt=None):
+         private_names=None, structural_exempt=None, public_email_domains=None):
     owners, allowed = repo_policy
     if private_names is None:
         private_names = private_set_names()
@@ -1268,6 +1401,9 @@ def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
             if owner_manifest and why == 'an email address':
                 continue          # see OWNER_MANIFESTS_AT_ROOT above
             for m in pat.finditer(text):
+                if why == 'an email address' and _address_is_public(
+                        m.group(0).strip(), public_email_domains):
+                    continue      # see PUBLIC_EMAIL_DOMAIN_RE above
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, why, m.group(0).strip()[:70]))
         for pat in blocklist:
@@ -1530,7 +1666,9 @@ def main():
                                         _policy[1])
              if (not structural_only and _policy[0] and _bl_path is not None
                  and auto_cover_enabled(_bl_path)) else [])
-    hits = scan(units, blocklist, _policy, _auto)
+    _public = (parse_public_email_domains(_bl_path)
+               if _bl_path is not None and _bl_path.is_file() else {})
+    hits = scan(units, blocklist, _policy, _auto, public_email_domains=_public)
 
     # SELF-CORRECT THE COMMON CASE. A private blocklist clone that is
     # simply behind makes a real tree look like it leaks something that
@@ -1558,7 +1696,8 @@ def main():
             _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
                                                 _policy[1])
                      if (_policy[0] and auto_cover_enabled(_bl_path)) else [])
-        hits = scan(units, blocklist, _policy, _auto)
+            _public = parse_public_email_domains(_bl_path)
+        hits = scan(units, blocklist, _policy, _auto, public_email_domains=_public)
 
     # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
     # declares an owner private-by-default, and a clone that never did would

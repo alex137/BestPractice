@@ -376,9 +376,59 @@ def _over_target(root, siblings=True):
         for rel, n, target, ceiling in rows:
             hard = (f', hard ceiling {ceiling:,}' if isinstance(ceiling, int)
                     else '')
-            out.append(f'{name}: {rel} is {n:,} tokens, over its {target:,}-'
-                       f'token target{hard}')
+            line = (f'{name}: {rel} is {n:,} tokens, over its {target:,}-'
+                    f'token target{hard}')
+            # The session-start file is built from every source on disk, so
+            # a reduction in any of them counts; a tracked file, only its own.
+            looked = roots if rel == '.precedent/SESSION_PRACTICES.md' else [repo]
+            landed = [r for r in (_landed_reduction(x) for x in looked) if r]
+            if landed:
+                line += ('; ' + LANDED_REDUCTION_MARK + ' '
+                         + '; '.join(landed))
+            out.append(line)
     return out
+
+
+# The over-target line's mark when a reduction already waits on a Promote.
+LANDED_REDUCTION_MARK = 'a reduction has landed and takes effect after a Promote:'
+
+
+def _landed_reduction(repo):
+    """-> "<repo>: AGENTS.md ~A on main, ~B on <landing>" when the repo's
+    AGENTS.md is smaller on its landing branch than on main, else None.
+
+    code-cites-practice: session-load-budget
+
+    A practice set's clone is checked out at main, and the session-start
+    file is built from those clones, so a reduction pass that has landed on
+    pre-staging changes nothing measured until a Promote carries it to main.
+    Until then the reply gate asked for another Reduction pass on every
+    reply (2026-10-01, from a reduction-pass session). Each set's AGENTS.md
+    carries its generated resident block and occasion index, the parts a
+    reduction pass cuts, so a smaller one on the landing branch is the
+    sign. Two `git show`s per repo; nothing is fetched."""
+    try:
+        import session_load_trend as _slt
+    except Exception:                                         # noqa: BLE001
+        return None
+    repo = pathlib.Path(repo)
+
+    def show(ref):
+        p = subprocess.run(['git', '-C', str(repo), 'show', f'{ref}:AGENTS.md'],
+                           capture_output=True, text=True)
+        return p.stdout if p.returncode == 0 else None
+    main = show('origin/main')
+    if main is None:
+        return None
+    for landing in ('pre-staging', 'staging'):
+        text = show(f'origin/{landing}')
+        if text is None:
+            continue
+        a, b = _slt.approx_tokens(main), _slt.approx_tokens(text)
+        if b < a:
+            return f'{repo.name}: AGENTS.md ~{a:,} tokens on main, ~{b:,} on {landing}'
+        return None
+    return None
 
 
 def _unlanded_work(root, siblings=True):
@@ -1090,6 +1140,12 @@ def main():
         except Exception:                                     # noqa: BLE001
             _over = []
         for _line in _over:
+            if LANDED_REDUCTION_MARK in _line:
+                print(f"- SESSION LOAD OVER TARGET: {_line}. The Boildown says "
+                      f"so in one line: a reduction is already on its way and "
+                      f"takes effect after a Promote. Do NOT recommend another "
+                      f"Reduction pass for it (practice: session-load-budget).")
+                continue
             print(f"- SESSION LOAD OVER TARGET: {_line}. The Boildown MUST say "
                   f"so in one line and recommend a Reduction pass. Never "
                   f"raise the target or the ceiling without the person's own "

@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Let Morgan push as often as he likes to a private repo while GitHub Actions runs at most once every X hours, X set once in precedent-individual. The decision is made on the commit, before GitHub starts a runner, so it costs nothing -- unlike the 2026-09-16 debounce, which paid a minute to decide not to spend one."
+summary:       "Since 2026-10-01 Promote decides main's GitHub test by the same number (section 'Promote decides'). Let Morgan push as often as he likes to a private repo while GitHub Actions runs at most once every X hours, X set once in precedent-individual. The decision is made on the commit, before GitHub starts a runner, so it costs nothing -- unlike the 2026-09-16 debounce, which paid a minute to decide not to spend one."
 ---
 
 # Run CI at most once every X hours in private repos
@@ -39,6 +39,121 @@ the same day -- see "The branch switch" below.
 **The default is 0.** Nobody's CI changes until they write a number above 0
 into their own `identity.json` or a repo's `precedent.json`. An absent,
 unreadable or invalid value is 0 too.
+
+## Promote decides (2026-10-01)
+
+**The commit hook below stopped mattering for main on 2026-09-25**, when
+[BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md) made a private repository's
+one GitHub test the pull request into main, on every Promote, and said the
+hours setting "never skips the main test". One private consuming repo then
+ran it 11 times in 5 days. Morgan, 2026-10-01: *"if they do it on a push to main once per week
+or something like that, that keeps the cost under control"*, then, on the
+plan: *"Act, but ... do both 2A and 2B (so that, if it conflicts, and I run
+promote, it still skips it but the repo owner's wins on the 2A method
+including it or not), flip the switch and enable my ci_workflows, 168
+hours"* (`strength: decided`).
+
+**2B, Promote, decides for main's test.** In a private repository,
+[precedent_branches.py](../tools/precedent_branches.py)'s `main_test_due`
+asks whether the test passed, on main or on a pull request from a to-main
+copy, within `github_ci_every_hours`. Not due, it names the copy
+`to-main-not-due-DATE`, and the light check's job `if:` skips that pull
+request before a runner starts: GitHub shows it as skipped, bills nothing,
+and a required check counts it as passing. `--wait-main-test` says NOT DUE
+and exits 0. **The person's value wins here**, then the repository's: when
+he runs Promote, his number decides.
+
+**The switch comes first.** In a private repository Promote also reads
+`github_ci_workflows`, the person's first and then the repository's
+(Morgan: *"see if it has the variable for github tests turned on (assume
+yes)"*): absent or `"enabled"` is on, and anything else, `"disabled"` or a
+typo, means no GitHub test at all.
+
+**The rule, as Morgan confirmed it on 2026-10-01** (`strength: decided`).
+GitHub minutes are only ever spent on main:
+
+1. Any other branch -- pre-staging, staging, a working branch: never. No
+   push or pull request there starts GitHub.
+2. A public repository: every push to main and every pull request into
+   main runs.
+3. A private repository, a push to main: never runs.
+4. A private repository, a Promote into main: **the repository's own
+   `github_ci_main_test` has the final say** (below). Left at "individual",
+   it runs if and only if the switch is on AND at least
+   `github_ci_every_hours` have passed since the last *passing* test (0 or
+   not set: every Promote), and the person's value wins over the
+   repository's.
+5. It runs inside that window anyway when the newest run failed (until one
+   passes), when GitHub cannot be asked, when the installed workflow
+   predates the skip (it would run anyway), and with `PRECEDENT_CI_NOW=1`.
+   **A batch changing a workflow or the vendored engine is not forced**:
+   *"I'm hesitant about forcing that, because I might update the vendored
+   engines a lot or I can quickly see this getting out of control."*
+6. A private repository, a pull request into main that Promote did not
+   make: never runs. Only Promote reads the settings, so only a copy it
+   named due (`to-main-DATE`, not `to-main-not-due-DATE`) is tested:
+   *"if and only if the setting is turned on ... AND the number of hours
+   is more than the number defined since the last successful test"*.
+7. 2A, the commit hook's `[skip ci]`, reads the repository's
+   `github_ci_main_test` first, then its own `github_ci_every_hours`; on
+   "always" it tags nothing on main. Under any other setting it changes
+   nothing, because rule 3 already stops a private push to main, and stays
+   as a backstop.
+8. GitHub's "Run workflow" button runs whenever a person presses it.
+
+## The repository decides (2026-10-01)
+
+**A repository's owner can take the decision for that repository** with
+`github_ci_main_test` in its `precedent.json`, and it has the final say
+there. Morgan: *"the repo owner can define whether these run with a
+variable like "always" / "never" / "sometimes" / "individual" and that
+variable has the final say for that repo"*; then, on Alex never running
+Promote: *"is there a way to make it run when there's a push to main, even
+if not through a promote?"*; then, on that costing two runs: *"no we don't
+want it run twice, no no no, not at all"* (`strength: decided`).
+
+| Value | In a private repository |
+|---|---|
+| `"individual"`, or not set | rules 4 to 6: the person's switch and hours, decided by Promote |
+| `"never"` | no GitHub test at all; only the "Run workflow" button |
+| `"always"` | **every push to main is tested, by any route, and no pull request is** -- one run per change that lands, after it lands |
+| a number | Promote decides with that many hours, whatever the person's switch and hours say |
+| anything else | read as `"never"`, and Promote says so: a typo costs a missed test, never minutes |
+
+**"Always" is the only value written into the workflow file**, because it
+is the only one GitHub must act on with no session involved -- a push to
+main from someone who never runs Promote. Install and Update Vendors put
+`always` in place of the main-test marker in `light-check.yml`
+(`precedent_vendor_engine.render_ci_workflow`); every other value leaves
+the file byte-identical to the template. Until the file says so, Promote
+decides an "always" repository as "individual" and says to run Update
+Vendors, so it is never left with no test at all. Changing the value needs
+an Update Vendors to reach the file.
+
+**Why never on the pull request under "always":** testing the pull request
+and then the push it lands would bill twice for one change, and nothing
+GitHub can read before a runner starts tells a hand-merged or squashed
+pull request's push apart from any other.
+
+Public repositories are unaffected: their minutes are free, and every push
+to main there is tested (rule 2).
+
+`check_main_test_repo_setting` in
+[verify_harness.py](../tools/verify_harness.py) walks every route -- a
+Promote, a hand-made pull request, a direct push -- through the installed
+workflow and Promote's decision for all 1080 combinations of the
+repository's setting, the person's switch and hours, and the time since the
+last pass, asserts no change in a private repository is tested twice, and
+runs the real refresh both ways on a scratch consumer.
+`check_main_test_minutes_rule` in
+[verify_harness.py](../tools/verify_harness.py) holds this rule against
+every combination of visibility, switch, hours and time since the last
+pass, the template's own `if:` for every event, and a real Promote.
+
+**2A, the commit hook below, is unchanged** and keeps the repository's own
+value first. A skipped run no longer reads as a failure anywhere: GitHub
+records one, free, for every private push to main, and from 2026-09-25 that
+had made main's test read "failed" in every private repository.
 
 ## Why the obvious version loses money
 

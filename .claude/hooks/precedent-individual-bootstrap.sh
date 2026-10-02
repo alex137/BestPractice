@@ -35,12 +35,10 @@
 # normally.
 set -uo pipefail
 
-ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
-if [ ! -f "$ENGINE" ]; then
-  # Precedent checking itself, or a repo-root install with no
-  # process/upstream/ vendor tree of its own.
-  ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
-fi
+# This repo's own engine. No install still has the catalogue copy's tools/
+# (2026-09-30), and a fallback to it named a path a consumer's own check
+# then refused as a stale reference (2026-10-01).
+ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
 
 # WHOSE individual set. An individual set belongs to ONE person, but this
 # hook is committed to a SHARED project -- so the account baked in at
@@ -158,7 +156,7 @@ _pbase="${PRECEDENT_SOURCE_BASE_URL:-}"
 # Unset, the engine works it out: the value kept in the user config, else the
 # account the token belongs to (precedent_source_credentials.py --base-url).
 if [ -z "$_pbase" ] && [ -z "${DEFAULT_REPO_URL:-}" ] && command -v python3 >/dev/null 2>&1; then
-  for _pc in "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_credentials.py" "${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_credentials.py"; do
+  for _pc in "${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_credentials.py"; do
     if [ -f "$_pc" ]; then _pbase="$(python3 "$_pc" --base-url 2>/dev/null || true)"; break; fi
   done
   unset _pc

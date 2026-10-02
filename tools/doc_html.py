@@ -1384,6 +1384,71 @@ def rewrite_links(body, src_dir):
     return re.sub(r'href="([^"]+)"', sub, body)
 
 
+# A rendered document is read by people who never see the repository, so a
+# link whose visible text is a bare filename (`[x_model.py](x_model.py)`,
+# the repo's own linking convention, right on GitHub) shows them a path that
+# means nothing. The render names the target instead: a markdown file by its
+# `# ` title, anything else by its humanized filename. Only links whose text
+# IS the target's filename are touched; a link written with words keeps them.
+# Host knobs: LINK_TITLES maps a repo-relative path to the title to show;
+# TITLE_WORDS maps a filename word to its display form ("acme" -> "ACME").
+# (practice: deliverables-look-like-output)
+LINK_TITLES = {}
+TITLE_WORDS = {}
+_LINK_RE = re.compile(r'<a href="([^"]+)">([^<]+)</a>')
+
+
+def _md_title(path):
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        if line.startswith("# "):
+            title = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line[2:])
+            return re.sub(r"[*`]", "", title).strip() or None
+    return None
+
+
+def _humanized(path):
+    stem = re.sub(r"_v\d+$", "", path.stem)
+    words = " ".join(TITLE_WORDS.get(w, w) for w in stem.split("_") if w)
+    return words[:1].upper() + words[1:]
+
+
+def link_title(rel, target):
+    """The words a render shows for a link to repo file `rel`."""
+    if rel in LINK_TITLES:
+        return LINK_TITLES[rel]
+    if target.suffix == ".md":
+        title = _md_title(target)
+        if title:
+            return title
+    return _humanized(target)
+
+
+def retitle_file_links(body, src_dir):
+    """Links whose visible text is the target's bare filename -> its title."""
+    def sub(m):
+        href, text = m.group(1), m.group(2)
+        if href.startswith(("http://", "https://", "#", "mailto:")):
+            return m.group(0)
+        path = href.split("#", 1)[0]
+        name, text = Path(path).name, text.strip()
+        # the filename alone, or the filename and a section ("x.md §5c")
+        if not path or not (text == name or text.startswith(name + " ")):
+            return m.group(0)
+        rest = text[len(name):]
+        target = (src_dir / path).resolve()
+        try:
+            rel = target.relative_to(ROOT).as_posix()
+        except ValueError:
+            return m.group(0)
+        shown = html_mod.escape(link_title(rel, target), quote=False)
+        return f'<a href="{href}">{shown}{rest}</a>'
+    return _LINK_RE.sub(sub, body)
+
+
 def _wire_frontier_specs(body):
     """Attach each <!--frontier: ...--> spec comment (see the module
     docstring) to the table that follows it as a data-frontier attribute
@@ -1555,6 +1620,7 @@ def render(src, out_path, title):
     body = markdown.markdown(md_text, extensions=["tables"])
     body = _add_heading_ids(body)
     body = _wire_contents(body)
+    body = retitle_file_links(body, src.parent)
     body = rewrite_links(body, src.parent)
     body = _wire_note_backlinks(body)
     # wide-table wrapper + prose-width class for the small tables

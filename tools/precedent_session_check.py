@@ -212,6 +212,23 @@ def _session_branch_row(stamp, git):
         return (name, True, f'started on {started!r} and moved onto {cur!r}, a '
                             f'branch this session created from where it started '
                             f'-- its own feature branch; {cur!r} is now the baseline')
+    # The branch it started on is wholly inside the one it is on now: work
+    # carried, not stranded. Measured 2026-10-01: a container restarted
+    # while the checkout sat on a feature branch, so the stamp named that
+    # branch; after Booked merged it into pre-staging and the session moved
+    # there, every turn said the SessionStart guarantee was not in effect.
+    # The start branch's tip as it is NOW, so a commit made there after the
+    # stamp counts too; its recorded commit when the branch is gone. Only a
+    # start on a working branch: a start on a tier branch moving onto an
+    # older one that holds it is still the jump this row exists for.
+    if started != 'HEAD' and cur != 'HEAD' and not _is_tier_ref(git, started):
+        rc_t, tip, _ = git('rev-parse', '--verify', '-q', f'refs/heads/{started}')
+        tip = tip if rc_t == 0 and tip else start_sha
+        if tip and git('merge-base', '--is-ancestor', tip, 'HEAD')[0] == 0:
+            write()
+            return (name, True, f'started on {started!r} and moved onto {cur!r}, '
+                                f'which carries all of it -- nothing is stranded; '
+                                f'{cur!r} is now the baseline')
     return (name, False,
             f'started on {started!r}, now on {cur!r}. Work committed before '
             f'the move is on {started!r} and is NOT lost -- `git checkout '

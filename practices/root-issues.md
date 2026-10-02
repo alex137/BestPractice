@@ -1,17 +1,17 @@
 ---
 slug:        root-issues
-title:       "\"Root issues\" asks what this session found that should be fixed upstream, as Prompt Please blocks"
+title:       "\"Root issues\" asks what this session found that should be fixed upstream, as one Prompt Please for every repo it touches"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A phrase in a MESSAGE, about the whole session so far -- no file path reaches it. Routed by the occasion index and the `reply` gate. Decided: 2026-10-01, when the practice landed."
 occasion:    "a person says \"Root issues\" or \"Root fixes\", or asks what this session found or fixed that should go back upstream"
 gates:       ["reply"]
-gates_why:   "The whole obligation is one reply: every finding from the session that belongs upstream, each as a Prompt Please block, or a plain none."
-index_clause: "what this session hit that belongs upstream, each as a Prompt Please"
+gates_why:   "The whole obligation is one reply: every finding from the session that belongs upstream, in one Prompt Please block for a session rooted in all their repos, or a plain none."
+index_clause: "what this session hit that belongs upstream, in one prompt across those repos"
 checked_by:  null
 defines:     ["Root issues", "Root fixes"]
-command:     {"Root issues": "Look back over everything this session has done so far -- every bug, issue or warning it ran into, and every fix or band-aid it applied -- and hand you each one that should also be fixed in Precedent, a precedent-* repo, the template that generates the file, or another related repo, each as a paste-ready Prompt Please -- including ones you may already have passed on from another session.", "Root fixes": "The same as **Root issues**."}
+command:     {"Root issues": "Look back over everything this session has done so far -- every bug, issue or warning it ran into, and every fix or band-aid it applied -- and hand you each one that should also be fixed in Precedent, a precedent-* repo, the template that generates the file, or another related repo, all in one paste-ready Prompt Please for a single session rooted in every repo they touch, with those repos named first -- including ones you may already have passed on from another session.", "Root fixes": "The same as **Root issues**."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -23,7 +23,9 @@ approved_by: "Morgan, 2026-10-01 -- coined both names and wrote the meaning
   'Root fixes' or maybe one as a synonym for the other\"; widened by
   Morgan the same day to take in the fixes and band-aids a session applied
   and the templates and related repos they reach, by replacing the
-  quoted paragraph with his new wording"
+  quoted paragraph with his new wording; and again the same day, to one
+  prompt for a session rooted in every relevant repo instead of one block
+  per finding"
 strength:    decided
 ---
 ## Rule
@@ -41,7 +43,9 @@ this:
 > then give them to me as a Prompt Please. This includes looking at fixes
 > and band-aids you applied here, that would apply to other repos,
 > including the original templates that generate other files and in
-> other, related repos.
+> other, related repos. Assume there is one session rooted in all the
+> relevant repos together, and give it to me as one prompt (as always,
+> telling me beforehand which sessions to root it in).
 
 **The whole session, not the last change.** Go back over every turn: tool
 output, hook output at session start, check results, a warning that scrolled
@@ -74,11 +78,14 @@ you mentioned it earlier in this session, and give it anyway; a duplicate
 costs them one glance, a dropped finding costs another round of the same
 bug.
 
-**Each finding is one [Prompt Please](prompt-please.md) block**, in that
-practice's form: situation, problem, recommendation, origin, seed root and
-attachments. Related findings bound for the same repo may share a block.
-Under that rule a block carries no merge authorization unless the person
-gave one for this handoff.
+**All the findings go in one [Prompt Please](prompt-please.md) block**,
+for one session that holds every repo they touch. **Before the block**, in
+plain prose, say which repo to root that session in and which others to
+attach, the way Prompt Please always does. Inside it, one section per
+finding: the situation, the problem, the recommendation and the repo it
+lands in, plus the block's origin line once. Under that rule the block
+carries no merge authorization unless the person gave one for this
+handoff.
 
 **When there are none, say so in one line**, and say what you looked at.
 Never manufacture a finding so the answer has something in it
@@ -123,6 +130,13 @@ and in other, related repos."* The first version only looked for problems
 whose cause was in Precedent; a session's own band-aids, and the templates
 and sibling repos they also apply to, are where the cause most often stays
 behind. Strength: decided.
+
+**One prompt, not one per finding, also 2026-10-01.** Morgan added the last
+sentence of the quoted paragraph: *"Assume there is one session rooted in
+all the relevant repos together, and give it to me as one prompt."* Several
+blocks meant several new sessions for findings that often touch the same
+two or three repos, and each block repeated the same setup. Strength:
+decided.
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether
