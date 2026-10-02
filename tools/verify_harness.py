@@ -47838,6 +47838,269 @@ def check_move_withdrawal_from_universal_leaves_universal_green():
           not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+
+def check_ladder_opt_in_loader():
+    """spec/LADDER_OPT_IN_PLAN.md steps 2-4, tested in a fixture world (never a
+    real profile: a real one would carry private set text into the harness).
+
+    A person's individual set BRINGS a shared set that provides the ladder.
+    Cases, each naming the behaviour it guards:
+      1. the brought set loads, at the shared level, beside the individual set;
+      2. a person who brings nothing does not get it -- the same repository,
+         another person;
+      3. a malformed `brings` entry is skipped with one line, never fatal;
+      4. build_views never writes a brought set into a committed view, in a
+         private repository, a public one, or a practice set;
+      5. precedent_ladder: in force for the person who brings it, not for one
+         who does not, not under PRECEDENT_NO_LADDERS, and the --in-force
+         exit code agrees;
+      6. PRECEDENT_NO_LADDERS drops the set from load_config, and a brought
+         set that provides nothing is NOT dropped by it;
+      7. session start clones a brought set from its repo_url, beside the
+         individual set, and pulls it on the next run;
+      8. --withdraw-from-universal deletes the universal copy, records the
+         withdrawal once, and a consumer of universal alone sees no IN FORCE
+         NOWHERE for it; refused without --approved-by."""
+    import contextlib, io, shutil, tempfile
+    import precedent_resolve as pr
+    import precedent_ladder as pl
+    import precedent_source_bootstrap as psb
+    import build_views as bv
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def commit_all(repo, msg='x'):
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', msg)
+
+    def make_set(path, name, provides=None, level='shared'):
+        (path / 'practices').mkdir(parents=True, exist_ok=True)
+        man = {'name': name, 'level': level, 'visibility': 'public',
+               'subject': 'a fixture', 'code': []}
+        if provides is not None:
+            man['provides'] = provides
+        (path / 'precedent-source.json').write_text(json.dumps(man),
+                                                    encoding='utf-8')
+        (path / 'practices' / f'{name}-rule.md').write_text(
+            _move_fixture_practice(f'{name}-rule'), encoding='utf-8')
+        return path
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV, 'CLAUDE_PROJECT_DIR',
+        'PRECEDENT_PROJECT_DIR', pr.SELF_HEAL_RENDER_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='ladder-opt-in-'))
+    cases = []
+    try:
+        home = tmp / 'home'
+        # The ladder set's origin, a real repository so session start can
+        # clone it from a URL.
+        origin = make_set(tmp / 'origin-ladder', 'fixture-ladder', ['ladder'])
+        git(origin, 'init', '-q', '-b', 'main')
+        commit_all(origin)
+        url = f'file://{origin}'
+        ind = home / 'precedent-individual'
+        (ind / 'practices').mkdir(parents=True)
+        git(ind, 'init', '-q', '-b', 'main')
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'precedent-individual', 'level': 'individual',
+            'brings': [{'name': 'fixture-ladder', 'repo_url': url},
+                       {'name': 'Not A Slug', 'repo_url': url},
+                       'not-a-dict',
+                       # git would read this as an option, not a repository
+                       {'name': 'evil', 'repo_url': '--upload-pack=touch /tmp/x'},
+                       # the set itself, which would load it twice
+                       {'name': 'precedent-individual', 'repo_url': url}]}),
+            encoding='utf-8')
+        brings_cfg = tmp / 'brings.json'
+        brings_cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+        plain_ind = tmp / 'other' / 'precedent-individual'
+        (plain_ind / 'practices').mkdir(parents=True)
+        git(plain_ind, 'init', '-q')
+        plain_cfg = tmp / 'plain.json'
+        plain_cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(plain_ind)}}),
+            encoding='utf-8')
+        repo = tmp / 'work' / 'consumer'
+        repo.mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'sources': []}),
+            encoding='utf-8')
+
+        # 7 first: session start puts the brought set on disk.
+        os.environ['PRECEDENT_USER_CONFIG'] = str(brings_cfg)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            res = psb.sources_from_brings()
+        clone = home / 'fixture-ladder'
+        cases.append(('session start clones a brought set from its repo_url, '
+                      'beside the individual set',
+                      any(n == 'fixture-ladder' and ok for n, ok, _m in res)
+                      and (clone / 'practices').is_dir(), repr(res)))
+        (origin / 'practices' / 'later.md').write_text(
+            _move_fixture_practice('later'), encoding='utf-8')
+        commit_all(origin, 'later')
+        with contextlib.redirect_stderr(io.StringIO()):
+            psb.sources_from_brings()
+        cases.append(('and pulls it on the next run',
+                      (clone / 'practices' / 'later.md').is_file(), ''))
+
+        # 1 and 3
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            srcs = pr.load_config(repo)
+        got = [s for s in srcs if s['name'] == 'fixture-ladder']
+        cases.append(('the brought set loads at the shared level, beside the '
+                      'individual set, marked as brought',
+                      len(got) == 1 and got[0]['level'] == 'shared'
+                      and got[0].get('brought') is True
+                      and pathlib.Path(got[0]['path']).resolve() == clone.resolve(),
+                      repr(srcs)))
+        cases.append(('each malformed brings entry -- a bad name, not a dict, a URL '
+                      'git would read as an option, the set itself -- is skipped '
+                      'with one line',
+                      err.getvalue().count('`brings` entry') == 4
+                      and not [s for s in srcs if s['name'] in
+                               ('Not A Slug', 'evil')]
+                      and len([s for s in srcs
+                               if s['name'] == 'precedent-individual']) == 1,
+                      err.getvalue()))
+        dsp = [n for _p, _l, n, _note in pr.declared_source_paths(repo)]
+        cases.append(('declared_source_paths names it, so the freshness guard '
+                      'and the refresh check it', 'fixture-ladder' in dsp, repr(dsp)))
+
+        # 4
+        for vis in ('private', 'public'):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'format_version': 1, 'visibility': vis, 'sources': []}),
+                encoding='utf-8')
+            with contextlib.redirect_stderr(io.StringIO()):
+                srcs = pr.load_config(repo)
+            tracked, deferred, _n = bv.sources_for_tracked_block(repo, srcs)
+            cases.append((f'a {vis} repository\'s committed view never carries '
+                          f'the brought set',
+                          not [s for s in tracked if s.get('brought')]
+                          and [s for s in deferred if s.get('brought')],
+                          repr(tracked)))
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(ind)
+        tracked, deferred, _n = bv.sources_for_tracked_block(ind, srcs)
+        cases.append(('nor does a practice set\'s',
+                      not [s for s in tracked if s.get('brought')], repr(tracked)))
+
+        # 5
+        cases.append(('the ladder is in force for the person who brings it',
+                      pl.ladder_in_force(repo), pl.status_sentence(repo)))
+        cli = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_ladder.py'),
+                              '--in-force', '--repo', str(repo)],
+                             capture_output=True, text=True,
+                             env=dict(os.environ))
+        cases.append(('--in-force exits 0 for them', cli.returncode == 0,
+                      cli.stdout + cli.stderr))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(plain_cfg)
+        cases.append(('and not for a person who brings nothing, in the same '
+                      'repository', not pl.ladder_in_force(repo),
+                      pl.status_sentence(repo)))
+        cli = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_ladder.py'),
+                              '--in-force', '--repo', str(repo)],
+                             capture_output=True, text=True, env=dict(os.environ))
+        cases.append(('--in-force exits 1 for them', cli.returncode == 1,
+                      cli.stdout + cli.stderr))
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(repo)
+        cases.append(('and load_config gives them no such set',
+                      not [s for s in srcs if s['name'] == 'fixture-ladder'],
+                      repr(srcs)))
+
+        # 6
+        os.environ['PRECEDENT_USER_CONFIG'] = str(brings_cfg)
+        os.environ[pr.NO_LADDERS_ENV] = '1'
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(repo)
+        cases.append(('PRECEDENT_NO_LADDERS drops the ladder set from the session',
+                      not [s for s in srcs if s['name'] == 'fixture-ladder']
+                      and not pl.ladder_in_force(repo)
+                      and 'switched off' in pl.status_sentence(repo), repr(srcs)))
+        man = json.loads((clone / 'precedent-source.json').read_text(encoding='utf-8'))
+        man.pop('provides')
+        (clone / 'precedent-source.json').write_text(json.dumps(man), encoding='utf-8')
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(repo)
+        cases.append(('but keeps a brought set that provides nothing',
+                      [s for s in srcs if s['name'] == 'fixture-ladder'], repr(srcs)))
+        os.environ.pop(pr.NO_LADDERS_ENV, None)
+
+        # 8
+        env = _move_fixture_env(tmp)
+        team = tmp / 'precedent-team-fixture'
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'team', '--name', 'precedent-team-fixture', '--dest', str(team),
+                        '--approver', 'Fixture Approver:fixture-gh'],
+                       capture_output=True, text=True, env=env)
+        uclone = tmp / 'precedent'
+        (uclone / 'practices').mkdir(parents=True)
+        (uclone / 'tools').mkdir()
+        (uclone / 'practices' / 'zz-gone.md').write_text(
+            _move_fixture_practice('zz-gone', install='Nothing.'), encoding='utf-8')
+        (uclone / 'practices' / 'zz-stays.md').write_text(
+            _move_fixture_practice('zz-stays'), encoding='utf-8')
+
+        def move(*args):
+            return subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                                   *args], cwd=str(ROOT), capture_output=True,
+                                  text=True, env=env)
+        move('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+             '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver')
+        r = move('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--withdraw-from-universal')
+        cases.append(('--withdraw-from-universal is refused without --approved-by, '
+                      'and writes nothing',
+                      r.returncode == 1 and '--approved-by' in r.stderr
+                      and (uclone / 'practices' / 'zz-gone.md').is_file(), r.stderr[-300:]))
+        r = move('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--withdraw-from-universal',
+                 '--approved-by', 'Fixture Approver')
+        record = uclone / 'record' / 'WITHDRAWN_FROM_UNIVERSAL.md'
+        cases.append(('it deletes the universal copy and records the withdrawal once',
+                      r.returncode == 0
+                      and not (uclone / 'practices' / 'zz-gone.md').exists()
+                      and record.is_file()
+                      and record.read_text(encoding='utf-8').count('`zz-gone` withdrawn') == 1,
+                      (r.stdout + r.stderr)[-500:]))
+        consumer = tmp / 'consumer-u'
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uclone)}]}),
+            encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True, env=env)
+        try:
+            dangling = json.loads(r.stdout).get('dangling') or []
+        except json.JSONDecodeError:
+            dangling = None
+        cases.append(('a consumer of universal alone sees no IN FORCE NOWHERE for it',
+                      dangling == [], (r.stdout + r.stderr)[-400:]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a set a person brings loads for that person only, never reaches a '
+          f'committed view, answers precedent_ladder, and a universal rule can be '
+          f'withdrawn to it cleanly ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:400]}" for n, d in bad))
+
 def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
     """The mention fix judges history a list item at a time, and names a
     current mention it could not rewrite instead of passing over it.
@@ -53395,6 +53658,7 @@ def main():
     check_stale_render_self_heals()
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
+    check_ladder_opt_in_loader()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()

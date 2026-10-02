@@ -711,6 +711,94 @@ def _declared_path(repo_root, raw):
     return entry_path
 
 
+# SETS A PERSON BRINGS (spec/LADDER_OPT_IN_PLAN.md D2, 2026-10-02).
+#
+# A repository declares the shared sets everyone working in it reads. A
+# PERSON may want more than that -- a working method of their own team, say
+# -- without putting it on everyone else in every repository they touch. So
+# the individual set's own precedent-source.json may list `brings`: shared
+# sets that load wherever that person works, at the shared level, cloned
+# beside the individual set. Nobody else's session ever sees them, and they
+# are never rendered into a committed file (build_views defers them, D6).
+#
+# Each entry is {"name": <slug>, "repo_url": <full URL>}. A full URL, not a
+# bare name: a teammate who brings somebody else's set would otherwise look
+# for it under their own account.
+#
+# A set may say what it PROVIDES (`provides` in its own
+# precedent-source.json). One capability is named today, "ladder": the
+# five-stage working method. PRECEDENT_NO_LADDERS=1 drops every source that
+# provides it, so a person on the ladder can start a session that sees what
+# a person off it sees (D13) -- before the session reads anything, which is
+# the only point at which leaving text out of a session is possible.
+NO_LADDERS_ENV = 'PRECEDENT_NO_LADDERS'
+LADDER_CAPABILITY = 'ladder'
+
+
+def no_ladders():
+    """True when this session was started with the ladder switched off."""
+    return os.environ.get(NO_LADDERS_ENV, '').strip().lower() not in (
+        '', '0', 'false', 'no', 'off')
+
+
+def source_provides(path):
+    """-> the capabilities a source's own precedent-source.json declares, as
+    a set of strings; empty when it declares none or cannot be read."""
+    try:
+        man = json.loads((pathlib.Path(path) / SOURCE_MANIFEST).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    got = man.get('provides') if isinstance(man, dict) else None
+    return {str(x) for x in got} if isinstance(got, list) else set()
+
+
+# What a `brings` URL may look like. Anything else -- above all a string that
+# starts with "-", which git would read as an option to `git clone` rather
+# than a repository -- is skipped, never handed to git.
+_BRING_URL_RE = re.compile(r'^(?:(?:https?|ssh|git|file)://[^\s]+|git@[^\s:]+:[^\s]+)$')
+
+
+def brought_sources(individual_path, warn=True):
+    """-> [{'level': 'shared', 'name', 'path', 'repo', 'brought': True}] for
+    every set the individual set at `individual_path` brings, at the path it
+    is cloned to: beside the individual set, named for the set. Entries that
+    are not a dict with a valid slug name and a repo_url are skipped, with a
+    one-line note on stderr: a typo in one person's file must not take every
+    session of theirs down."""
+    if not individual_path:
+        return []
+    ind = pathlib.Path(individual_path).expanduser()
+    try:
+        man = json.loads((ind / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    raw = man.get('brings') if isinstance(man, dict) else None
+    if not isinstance(raw, list):
+        return []
+    out, seen = [], set()
+    for item in raw:
+        name = item.get('name') if isinstance(item, dict) else None
+        url = item.get('repo_url') if isinstance(item, dict) else None
+        target = (ind.resolve().parent / name).resolve() \
+            if isinstance(name, str) and SLUG_RE.match(name or '') else None
+        if not isinstance(name, str) or not SLUG_RE.match(name or '') \
+                or not isinstance(url, str) or not _BRING_URL_RE.match(url.strip()) \
+                or name in seen or target == ind.resolve():
+            if warn:
+                print(f"precedent resolve: {ind / SOURCE_MANIFEST} has a "
+                      f"`brings` entry that is not {{\"name\": <slug>, "
+                      f"\"repo_url\": <url>}}, or that names this set "
+                      f"itself ({item!r}); it is skipped.",
+                      file=sys.stderr)
+            continue
+        seen.add(name)
+        out.append({'level': 'shared', 'name': name,
+                    'path': str((ind.resolve().parent / name)),
+                    'repo': url.strip(), 'brought': True})
+    return out
+
+
 def declared_source_paths(repo, user_config=None):
     """-> [(path, level, name, note)] for every practice source this repo and
     this person DECLARE, at the paths load_config() resolves -- without
@@ -754,6 +842,15 @@ def declared_source_paths(repo, user_config=None):
             note = '' if (path / '.git').exists() else 'not cloned here yet'
             out.append((str(path), 'individual',
                         ind.get('name') or DEFAULT_INDIVIDUAL_NAME, note))
+        have = {pathlib.Path(p).resolve() for p, *_ in out if p}
+        for b in brought_sources(path, warn=False):
+            bp = pathlib.Path(b['path']).resolve()
+            if bp == repo_root or bp in have:
+                continue
+            if no_ladders() and LADDER_CAPABILITY in source_provides(bp):
+                continue
+            note = '' if (bp / '.git').exists() else 'not cloned here yet'
+            out.append((str(bp), 'shared', b['name'], note))
     return out
 
 
@@ -948,6 +1045,22 @@ def load_config(repo, user_config=None):
         warn_name_matches_path('individual', entry['name'], entry['path'],
                                str(user_cfg_path))
         sources.append(entry)
+        if usable:
+            have = {s['name'] for s in sources}
+            for b in brought_sources(entry['path']):
+                # A repository that already declares the set wins: it is the
+                # same set, and the repository's declaration is the one
+                # everybody there reads.
+                if b['name'] in have:
+                    continue
+                if pathlib.Path(b['path']).resolve() == repo_root:
+                    continue
+                sources.append(b)
+    if no_ladders():
+        # D13: everything that provides the ladder leaves the session,
+        # wherever it was declared.
+        sources = [s for s in sources
+                   if LADDER_CAPABILITY not in source_provides(s['path'])]
     sources.sort(key=lambda s: _precedence_rank(s['level']))
     # practice: session-bootstrap -- every load_config() caller (_check,
     # _paths, _show, _gate) is a chance to notice the rendered catalogue is

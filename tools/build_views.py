@@ -1714,6 +1714,25 @@ def sources_for_tracked_block(root, declared):
     tree the text lives in, not what the level is called.
     """
     notes = []
+    # A set a PERSON brings (spec/LADDER_OPT_IN_PLAN.md D2, D6) is never
+    # rendered into a committed file, whatever the repository: it is in force
+    # for that one person, so writing it into a tracked view would hand it to
+    # everyone who works here -- and make the view differ by who regenerated
+    # it last.
+    brought = [s for s in declared if s.get('brought')]
+    if brought:
+        declared = [s for s in declared if not s.get('brought')]
+        notes.append(
+            f"{', '.join(s['name'] for s in brought)} deferred to "
+            f".precedent/SESSION_PRACTICES.md -- brought by the person "
+            f"working here, not declared by this repository")
+    tracked, deferred, more = _split_declared(root, declared)
+    return tracked, brought + deferred, notes + more
+
+
+def _split_declared(root, declared):
+    """sources_for_tracked_block's split of what the repository DECLARES."""
+    notes = []
     if repo_is_practice_source(root):
         deferred = [s for s in declared if s['level'] != 'repo-local'
                     and not _same_repository(s['path'], root)]
@@ -2349,6 +2368,7 @@ TOOLS_DESCRIPTIONS = {
     'routing_reasons.py': "Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md",
     'our_language.py': "Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)",
     'precedent_which_repo.py': "Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory",
+    'precedent_ladder.py': "Says whether the five-stage ladder is in force for the person working here -- a set they bring provides it, and PRECEDENT_NO_LADDERS is not set -- so every engine line chooses the ladder wording or the plain one from one answer (spec/LADDER_OPT_IN_PLAN.md)",
     'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",

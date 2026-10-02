@@ -157,13 +157,13 @@ great", strength: decided):
    order is person, then repository, then pre-staging.
 4. **No ladders:** tier values and `promote_only` are ignored the same way.
 
-**Open, for Morgan (disposition: ask):** a ladder user working in a
-repository whose owner is off the ladder. Read literally, the order above
-lands that work on pre-staging and Booked creates tiers in someone else's
-repository. Pick: a ladder user lands on pre-staging only where the
-repository already has tiers (its `precedent.json` says so); elsewhere they
-land on the production branch like everyone else, and nothing creates tiers
-in a repository that did not ask for them.
+**A ladder user in a repository without tiers** (Morgan, 2026-10-02:
+"Yes", strength: decided). A ladder user lands on pre-staging only where
+the repository already has tiers, which its `precedent.json` declares.
+Elsewhere they land on the production branch like everyone else, and
+nothing creates tiers in a repository that did not ask for them. Read
+literally, the order above would have created tiers in the repository of
+someone off the ladder.
 
 There is no migration. The tiers step in Update Vendors and
 `ensure_repo_landing` run only for a person on the ladder. Off-ladder output
@@ -278,9 +278,9 @@ The figures are session-hours, from the reviewer's sizing.
 | Step | Work | Size |
 |---|---|---|
 | 1 | D17, tests first; ships on its own | 2-3 (built, with its adversarial pass) |
-| 2 | Fixture profiles plus an untracked real-profile baseline | 1-2 |
-| 3 | Helper, bash entry point, `PRECEDENT_NO_LADDERS` | 1-2 |
-| 4 | `brings` in the four tools, the build_views deferral, and a `--withdraw-from-universal` mode for [precedent_move.py](../tools/precedent_move.py) (deletes the universal copy, keeps the Story in the set, records the deliberate withdrawal once) | 4-6 |
+| 2 | Fixture profiles plus an untracked real-profile baseline | 1-2 (built) |
+| 3 | Helper, bash entry point, `PRECEDENT_NO_LADDERS` | 1-2 (built) |
+| 4 | `brings` in the four tools, the build_views deferral, and a `--withdraw-from-universal` mode for [precedent_move.py](../tools/precedent_move.py) (deletes the universal copy, keeps the Story in the set, records the deliberate withdrawal once) | 4-6 (built) |
 | 5 | Create the set; move D1 with the move tool; split the reply check; carve the allowance; set glossary | 5-6 |
 | 6 | Engine strings, hooks, templates, gotchas, the universal files and links that name moved practices, and the D14(b) documents | 5-7 |
 | 7 | D3 landing, the gated tiers step, and D10's drift wording and red-main rule | 2-3 |

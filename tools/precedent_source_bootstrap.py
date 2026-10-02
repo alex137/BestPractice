@@ -1050,6 +1050,45 @@ def sources_from_attached_sets(repo_path, base_url=None,
             pass
     return out
 
+
+def sources_from_brings(retries=DEFAULT_RETRIES):
+    """Clone or pull every set the person's individual set BRINGS
+    (spec/LADDER_OPT_IN_PLAN.md D2): beside the individual set, from the full
+    URL the entry names. A set already on disk elsewhere is linked rather
+    than cloned twice (_clone_elsewhere_on_disk). Runs before
+    sources_from_attached_sets, so what a brought set declares is refreshed
+    in the same session start. -> [(name, ok, output)]. Never raises."""
+    try:
+        import precedent_resolve as pr
+        ucfg = pathlib.Path(os.environ.get(
+            pr.USER_CONFIG_ENV, str(pr.DEFAULT_USER_CONFIG))).expanduser()
+        ind = json.loads(ucfg.read_text(encoding='utf-8')).get('individual')
+        ind_path = pathlib.Path(ind['path']).expanduser() \
+            if isinstance(ind, dict) and ind.get('path') else None
+        brought = pr.brought_sources(ind_path, warn=False) if ind_path else []
+    except Exception:                                       # noqa: BLE001
+        return []
+    out = []
+    for b in brought:
+        name, url = b['name'], b['repo']
+        clone_path = pathlib.Path(b['path'])
+        try:
+            if not (clone_path / '.git').exists() and not clone_path.exists():
+                existing = _clone_elsewhere_on_disk(name, clone_path.resolve(),
+                                                    ind_path)
+                if existing is not None:
+                    clone_path.parent.mkdir(parents=True, exist_ok=True)
+                    clone_path.symlink_to(existing, target_is_directory=True)
+                    out.append((name, True, f'linked to the copy already on '
+                                            f'disk at {existing}'))
+                    continue
+            ok, msg = _try_sync(url, clone_path.resolve() if clone_path.exists()
+                                else clone_path)
+            out.append((name, ok, msg or 'cloned'))
+        except Exception as e:                              # noqa: BLE001
+            out.append((name, False, f'{type(e).__name__}: {e}'))
+    return out
+
 def _declared_inside(repo_path, clone_path):
     """True when a declared source path is this repository itself, or a
     directory inside it with no .git of its own -- a vendored copy. Neither
@@ -1179,6 +1218,12 @@ def main(argv=None):
                 print(f"precedent_source_bootstrap: shared source "
                       f"{name!r} is not on disk -- {out[-500:]}. Its practices "
                       f"are NOT in force this session.", file=sys.stderr)
+        for name, ok, out in sources_from_brings(retries=args.retries):
+            if not ok:
+                print(f"precedent_source_bootstrap: {name!r}, a set your own "
+                      f"practice set brings, could not be fetched -- "
+                      f"{out[-300:]}. Its practices are NOT in force this "
+                      f"session.", file=sys.stderr)
         if not args.root_only:
             for set_path, name, ok, out in sources_from_attached_sets(
                     args.teams_from, retries=args.retries,
