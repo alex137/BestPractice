@@ -14174,7 +14174,7 @@ def check_precedent_check_fires():
         case('practice-change-propagates',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
                                   '\nBefore merging, read '
-                                  '`python3 tools/precedent_show.py go-merge`.\n'))
+                                  '`python3 tools/precedent_show.py brief-it`.\n'))
 
         # rename-updates-links, the other direction: a stranded reference the
         # consuming repo CANNOT repoint must leave the check silent, and the
@@ -15487,7 +15487,7 @@ def check_precedent_check_fires():
         case('scripts-assert-properties',
              lambda repo: rewrite(repo, 'tools/session_load_budgets.json',
                                   lambda t: t.replace(
-                                      '"resident_block_tokens": 2000',
+                                      '"resident_block_tokens": 1750',
                                       '"resident_block_tokens": 10')))
 
         # Regression: an INSTRUMENTED script with neither self_check() nor
@@ -18631,19 +18631,19 @@ def check_contradiction_requirement_blocks():
 
 
 def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
-    """A paste block that tells another session to land on a tier branch
-    carries the person's quoted Booked, or the reply is refused.
+    """A paste block that tells another session to land work on main
+    carries the person's quoted approval, or the reply is refused.
 
     2026-10-01: two prompts a session wrote ended "Land it on staging per
-    this repo's conventions". Morgan had not said Booked, and routine work
-    lands on pre-staging, never staging; fence-block-for-paste passed both,
-    since it checks where a block goes, not what it authorizes. Driven
-    against the rule as reply_check.json ships it (practice: prompt-please),
-    both ways: the instructions that must fire, and the blocks that must
-    stay clean -- a quoted Booked, an Act ending, a negated line, the
-    reply's own prose to the person, and a shell command."""
+    this repo's conventions", with no approval given; fence-block-for-paste
+    passed both, since it checks where a block goes, not what it
+    authorizes. Since 2026-10-02 the universal rule speaks of main, where
+    work lands for a person off the ladder, and accepts any quoted approval;
+    the tier branches and the quoted "Booked" are the ladder set's own copy
+    of the rule (spec/LADDER_OPT_IN_PLAN.md D11). Driven against the rule
+    as reply_check.json ships it (practice: prompt-please), both ways."""
     import precedent_reply_check as prc
-    name = 'a paste block that lands on a tier branch needs the quoted Booked'
+    name = 'a paste block that lands on main needs a quoted approval'
     try:
         reqs = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
             encoding='utf-8')) if r.get('require_in_fence_paired_with')]
@@ -18657,22 +18657,23 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         text = prose + '```\n' + body + '\n```\n'
         return [v for v in prc.violations(text, reqs) if v['kind'] == 'in_fence_paired']
     must_fire = {
-        'land it on staging': "Do the work.\nLand it on staging per this repo's conventions.",
-        'a pull request into pre-staging': 'Open a pull request into pre-staging and merge it.',
         'merge into main': 'When the checks pass, merge it into `main`.',
-        'push to pre-staging': 'Push it to pre-staging once it is green.',
+        'land it on main': "Do the work.\nLand it on main per this repo's conventions.",
+        'a pull request into main': 'Open a pull request into main and merge it.',
     }
     clean = {
-        "the person's quoted Booked": 'Morgan, 2026-10-01: "Booked".\nOpen a pull request into pre-staging and merge it.',
-        'an Act ending': 'Build it on your feature branch, push it there, and stop.',
-        'a negated line': 'Open no pull request and merge nothing into pre-staging.',
+        "the person's quoted approval": 'Morgan, 2026-10-01: "Approved".\nOpen a pull request into main and merge it.',
+        'a feature-branch ending': 'Build it on your feature branch, push it there, and stop.',
+        'a negated line': 'Open no pull request and merge nothing into main.',
         'a shell command': 'git push -u origin main',
+        'a tier branch, which off the ladder is not a landing':
+            'Push it to pre-staging once it is green.',
     }
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
-    cases.append(("clean: the reply's own prose saying Booked lands it on pre-staging",
+    cases.append(("clean: the reply's own prose saying where work lands",
                   not fires('push it there and stop',
-                            prose='Booked lands it on pre-staging.\nPaste into: x\n'), ''))
+                            prose='Approved work lands on main.\nPaste into: x\n'), ''))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} {d}' for n, d in bad))
@@ -31424,18 +31425,24 @@ def check_sync_views_cross_source():
         # ran last. build_views.py now reads the levels back out of
         # MANIFEST.json, so the two agree by construction.
         bv_tool = str(ROOT / 'tools' / 'build_views.py')
-        subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
-                       capture_output=True, text=True)
+        # Both writers read the fixture's own person, never the real one:
+        # build_views.py takes it from the environment, and with the real
+        # config it rendered whoever was running the harness (2026-10-02).
+        own_env = dict(os.environ, PRECEDENT_USER_CONFIG=str(user_cfg))
+        subprocess.run([sys.executable, sync_tool, '--repo', str(consumer),
+                        '--user-config', str(user_cfg)],
+                       capture_output=True, text=True, env=own_env)
         r_agree = subprocess.run([sys.executable, bv_tool, '--repo', str(consumer),
                                   '--agents-only', '--check'],
-                                 capture_output=True, text=True)
+                                 capture_output=True, text=True, env=own_env)
         cases.append(('build_views.py --check agrees with the block '
                       'precedent_sync_views.py just wrote (one loader block, '
                       'two documented writers)',
                       r_agree.returncode == 0, r_agree.stdout + r_agree.stderr))
         before_agents = (consumer / 'AGENTS.md').read_text(encoding='utf-8')
         subprocess.run([sys.executable, bv_tool, '--repo', str(consumer),
-                        '--agents-only'], capture_output=True, text=True)
+                        '--agents-only'], capture_output=True, text=True,
+                       env=own_env)
         cases.append(('and running build_views.py for real changes nothing',
                       (consumer / 'AGENTS.md').read_text(encoding='utf-8')
                       == before_agents))
@@ -42558,7 +42565,7 @@ def check_budget_approvals_see_computed_raises():
         cases.append(('a raised ceiling field is refused, naming the number '
                       'and the approval it exceeds',
                       rc != 0 and 'surfaces/AGENTS.md is 9,000 in force, above '
-                      'the 7,650' in out, out[-600:]))
+                      'the 6,950' in out, out[-600:]))
         reset()
 
         bv_p.write_text(pristine[bv_p].replace(
@@ -44907,6 +44914,12 @@ def check_stale_render_self_heals():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stale-render-'))
     cases = []
+    # The fixture owns who is working here: nobody. The real person's sets
+    # are sources too, and since 2026-10-02 a source checkout that moved
+    # after the render makes it stale, so their clones' mtimes decided
+    # these cases (practice: fixture-owns-its-state).
+    _saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-user-config.json')
     try:
         # --- case 1: absent render -> the stub is invoked, file appears --
         repo1 = _repo(tmp)
@@ -44971,6 +44984,10 @@ def check_stale_render_self_heals():
                       result6 == 'no-tool', f'result={result6!r}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        if _saved_cfg is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = _saved_cfg
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the stale-render self-heal fires on absent-or-stale, not just '
