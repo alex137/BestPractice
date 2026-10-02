@@ -2146,12 +2146,20 @@ def _main(argv):
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)
+    landing, lwhy = landing_branch(root)
+    if ladder_in_force(root) is False:
+        # Off the ladder there are no tiers to list (spec/LADDER_OPT_IN_PLAN.md
+        # D3): the main branch, how pushes are checked, where work lands.
+        print(f'main         {MAIN}')
+        print(f'checked fully: {MAIN}')
+        print(f'every other branch: {tier} ({why})')
+        print(f'your work lands on: {landing} ({lwhy})')
+        return 0
     print(f'pre-staging  {PRE_STAGING}')
     print(f'staging      {staging_branch(root)}')
     print(f'main         {MAIN}')
     print(f'always checked fully: {", ".join(sorted(full_branches(root)))}')
     print(f'every other branch: {tier} ({why})')
-    landing, lwhy = landing_branch(root)
     print(f'Booked (Go update) lands on: {landing} ({lwhy})')
     return 0
 

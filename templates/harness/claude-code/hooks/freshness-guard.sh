@@ -373,8 +373,15 @@ _landing_base() {
   [ -n "$tool" ] || return 1
   command -v python3 >/dev/null 2>&1 || return 1
   landing="$(cd "$ROOT" && python3 "$tool" --landing 2>/dev/null | head -n1)"
-  [ "$landing" = "pre-staging" ] || return 1
-  _git ls-remote --exit-code --heads origin pre-staging >/dev/null 2>&1 || return 1
+  # pre-staging for a person on the ladder; main for anyone off it, whose
+  # work lands nowhere else (spec/LADDER_OPT_IN_PLAN.md D3) -- measuring
+  # them against the repository's own staging would name a branch they
+  # never use.
+  case "$landing" in
+    pre-staging|main) ;;
+    *) return 1 ;;
+  esac
+  _git ls-remote --exit-code --heads origin "$landing" >/dev/null 2>&1 || return 1
   printf '%s' "$landing"
 }
 

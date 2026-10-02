@@ -176,6 +176,15 @@ import build_views as bv
 import catalogue_stats as cs
 
 FAILED = []
+
+# THE HARNESS RUNS ON THE LADDER BY DEFAULT (2026-10-02). Most of its cases
+# test the tier machinery -- Promote, promote_only, a pre-staging landing --
+# through fixture people who bring no set, and since the ladder became a set
+# a person brings (spec/LADDER_OPT_IN_PLAN.md) such a person is off it. This
+# keeps those cases testing what they always tested. Every case about the
+# off-ladder world clears it explicitly (check_ladder_opt_in_loader,
+# check_attached_sets_*, check_ladder_off_*).
+os.environ.setdefault('PRECEDENT_ASSUME_LADDER', '1')
 PASSED = []
 NA = []
 
@@ -8641,12 +8650,29 @@ def check_update_vendors_is_one_command():
         cases.append(('an install on the retired pin finishes with nothing asked: '
                       'exit 0 and DONE', rc == 0 and 'DONE -- nothing left' in out,
                       out[-1500:]))
+        # A repository with only main asked for no tiers: an update -- even
+        # one run by a person on the ladder -- leaves it on main (Morgan,
+        # 2026-10-02, strength: decided: "nothing creates tiers in a
+        # repository that did not ask for them").
         landing = json.loads((done / 'precedent.json').read_text()).get('landing_branch')
-        cases.append(('...its precedent.json now names pre-staging as the landing '
-                      'branch, since it named none', landing == 'pre-staging', landing))
+        cases.append(('...its precedent.json, which named no landing branch, still '
+                      'names none: the update gives a repository without tiers none',
+                      landing is None, landing))
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
-        cases.append(('...and origin, which had only main, now has staging and '
-                      'pre-staging', 'refs/heads/staging' in heads
+        cases.append(('...and origin, which had only main, still has only main',
+                      'refs/heads/staging' not in heads
+                      and 'refs/heads/pre-staging' not in heads, heads[-400:]))
+        # A repository that does ask -- its landing_branch names a tier --
+        # gets whichever tier branch origin is missing.
+        _pj = json.loads((done / 'precedent.json').read_text())
+        _pj['landing_branch'] = 'pre-staging'
+        (done / 'precedent.json').write_text(json.dumps(_pj, indent=2) + '\n')
+        sh('git', 'commit', '-qam', 'asks for tiers', cwd=done)
+        update(done)
+        _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
+        cases.append(('...and once its precedent.json asks for tiers, the update '
+                      'makes staging and pre-staging on origin',
+                      'refs/heads/staging' in heads
                       and 'refs/heads/pre-staging' in heads, heads[-400:]))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
@@ -8732,11 +8758,11 @@ def check_update_vendors_is_one_command():
         sh('git', 'fetch', '-q', 'origin', cwd=classic)
         rc, out = update(classic)
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=classic)
-        cases.append(('a repo still to be migrated is sent to the migration AND leaves '
-                      'with staging and pre-staging on origin',
+        cases.append(('a repo still to be migrated is sent to the migration, and an '
+                      'update gives it no tiers it did not ask for',
                       rc == 1 and 'this is a migration' in out
-                      and 'refs/heads/staging' in heads
-                      and 'refs/heads/pre-staging' in heads, (out + heads)[-800:]))
+                      and 'refs/heads/staging' not in heads
+                      and 'refs/heads/pre-staging' not in heads, (out + heads)[-800:]))
 
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(ROOT), cwd=ROOT)
@@ -24230,11 +24256,18 @@ def check_branch_tiers():
             'landing_branch') == 'staging'
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
-        wrote = pb.ensure_repo_landing(repo)
-        again = pb.ensure_repo_landing(repo)
-        cases.append(('the repo default is written once, as pre-staging, and never '
-                      'over a value the repo already has',
-                      kept and wrote and not again and
+        # A repository with no tiers asked for none: an update by a ladder
+        # user leaves it on main (Morgan, 2026-10-02, strength: decided --
+        # "nothing creates tiers in a repository that did not ask for
+        # them"); a fresh install by that person is the asking.
+        not_on_update = not pb.ensure_repo_landing(repo) and \
+            'landing_branch' not in pb.precedent_json(repo)
+        wrote = pb.ensure_repo_landing(repo, new_install=True)
+        again = pb.ensure_repo_landing(repo, new_install=True)
+        cases.append(('the repo default is written once, as pre-staging, at a fresh '
+                      'install, never by an update into a repository without '
+                      'tiers, and never over a value the repo already has',
+                      kept and not_on_update and wrote and not again and
                       pb.precedent_json(repo).get('landing_branch') == 'pre-staging'
                       and pb.precedent_json(repo).get('base_branch') == 'main'))
         (repo / 'precedent.json').write_text(_json.dumps(
@@ -25434,8 +25467,12 @@ def check_promote_only_and_tier_branches():
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         # A repository whose staging tier is main: the shape every practice
         # source and most installs had on 2026-09-25.
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'main'}),
-                                             encoding='utf-8')
+        # The repository asks for tiers (its landing_branch names one):
+        # promote_only means something only where there are tiers to
+        # promote through (Morgan, 2026-10-02, strength: decided).
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
@@ -44883,7 +44920,7 @@ def check_attached_sets_sources_are_synced():
             '(out / "SESSION_PRACTICES.md").write_text("rendered", encoding="utf-8")\n')
 
     saved = {k: os.environ.get(k) for k in (
-        'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
         pr.SELF_HEAL_RENDER_ENV)}
     for k in saved:                       # practice: fixture-owns-its-state
         os.environ.pop(k, None)
@@ -45041,7 +45078,7 @@ def check_attached_sets_sync_is_safe_for_everyone():
         return rc, err.getvalue().strip()
 
     saved = {k: os.environ.get(k) for k in (
-        'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
         pr.SELF_HEAL_RENDER_ENV, 'PRECEDENT_SOURCE_BASE_URL')}
     for k in saved:                       # practice: fixture-owns-its-state
         os.environ.pop(k, None)
@@ -47889,7 +47926,7 @@ def check_ladder_opt_in_loader():
         return path
 
     saved = {k: os.environ.get(k) for k in (
-        'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV, 'CLAUDE_PROJECT_DIR',
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV, 'CLAUDE_PROJECT_DIR',
         'PRECEDENT_PROJECT_DIR', pr.SELF_HEAL_RENDER_ENV)}
     for k in saved:                       # practice: fixture-owns-its-state
         os.environ.pop(k, None)
@@ -48100,6 +48137,57 @@ def check_ladder_opt_in_loader():
           f'committed view, answers precedent_ladder, and a universal rule can be '
           f'withdrawn to it cleanly ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {str(d)[:400]}" for n, d in bad))
+
+
+def check_ladder_off_engine_says_no_ladder_words():
+    """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
+    person with no practice set of their own -- the ladder not in force --
+    runs the tools a session runs, in this repository, and none of them
+    prints a ladder word (tools/ladder_words.py's output matcher). Measured
+    2026-10-02 before the change: about 450 such words across these outputs.
+
+    `PRECEDENT_ASSUME_LADDER` (the harness default) is cleared for every run
+    here: this is the off-ladder world, as a person off the ladder meets it.
+    One phrase is excused by name, the ordinary English "staging document"."""
+    import ladder_words as lw
+    import tempfile
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
+    env['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(tempfile.gettempdir())
+                                       / 'no-such-precedent-config.json')
+    runs = [
+        ('the reply gate', ['tools/precedent_gate.py', 'reply']),
+        ('the merge gate', ['tools/precedent_gate.py', 'merge']),
+        ('the push gate', ['tools/precedent_gate.py', 'push']),
+        ('the review gate', ['tools/precedent_gate.py', 'review']),
+        ('the reply check\'s requirements', ['tools/precedent_reply_check.py', '--explain']),
+        ('Vocabulary', ['tools/precedent_vocabulary.py']),
+        ('the landing branch', ['tools/precedent_branches.py', '--landing']),
+        ('the branch status', ['tools/precedent_branches.py']),
+        ('the deep check\'s listing', ['tools/precedent_push_check.py', '--list']),
+        ('the staging watermark', ['tools/precedent_beta_watermark_check.py',
+                                   '--no-push', '--no-fetch']),
+        ('the ladder helper', ['tools/precedent_ladder.py', '--status']),
+    ]
+    excused = ('staging document',)
+    cases = []
+    for what, argv in runs:
+        r = subprocess.run([sys.executable, *argv], cwd=str(ROOT), env=env,
+                           capture_output=True, text=True, timeout=600)
+        text = r.stdout + r.stderr
+        lines = [l for l in text.splitlines()
+                 if not any(x in l for x in excused)]
+        found = lw.output_hits('\n'.join(lines))
+        cases.append((f'{what} says no ladder word to a person off the ladder',
+                      not found, repr(found[:6])))
+    r = subprocess.run([sys.executable, 'tools/precedent_branches.py', '--landing'],
+                       cwd=str(ROOT), env=env, capture_output=True, text=True)
+    cases.append(('their work lands on main',
+                  r.stdout.splitlines()[:1] == ['main'], r.stdout[:200]))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'off the ladder, the engine prints none of the ladder\'s words '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
 
 def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
     """The mention fix judges history a list item at a time, and names a
@@ -53659,6 +53747,7 @@ def main():
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
+    check_ladder_off_engine_says_no_ladder_words()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()

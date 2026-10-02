@@ -735,6 +735,16 @@ NO_LADDERS_ENV = 'PRECEDENT_NO_LADDERS'
 LADDER_CAPABILITY = 'ladder'
 
 
+# For a test fixture of the tier machinery itself -- Promote, promote_only,
+# a pre-staging landing -- whose person brings no set: treat the ladder as
+# in force. Never set in a session; PRECEDENT_NO_LADDERS wins over it.
+ASSUME_LADDER_ENV = 'PRECEDENT_ASSUME_LADDER'
+
+
+def assume_ladder():
+    return os.environ.get(ASSUME_LADDER_ENV, '').strip() == '1'
+
+
 def no_ladders():
     """True when this session was started with the ladder switched off."""
     return os.environ.get(NO_LADDERS_ENV, '').strip().lower() not in (

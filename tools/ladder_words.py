@@ -62,7 +62,9 @@ PATTERNS = (
 # or a record of a repository's own branch; in a message printed to a
 # person off the ladder it is a tier they do not have.
 OUTPUT_PATTERNS = PATTERNS + (
-    ('a branch tier', re.compile(r'\bstaging\b')),
+    # Not inside a URL: a link into a repository's own staging branch is
+    # where its files live, not a word a person reads.
+    ('a branch tier', re.compile(r'(?<![/\w-])staging\b(?![/\w-]*\.md)')),
 )
 
 

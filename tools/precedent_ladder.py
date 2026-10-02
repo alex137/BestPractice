@@ -86,6 +86,8 @@ def ladder_in_force(repo=None, user_config=None):
     """True when the ladder is in force for this person in `repo`."""
     if pr.no_ladders():
         return False
+    if pr.assume_ladder():
+        return True
     return bool(ladder_sources(repo, user_config))
 
 

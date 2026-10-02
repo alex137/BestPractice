@@ -1951,10 +1951,10 @@ BUDGETS_NOT_VERIFIED = 'build_views --budgets NOT VERIFIED'
 def _over_cap_warning(msg):
     """Say that a loader cap is exceeded, and that it is allowed onto
     pre-staging but not staging (see render_agents_md)."""
-    print(f"build_views WARNING: {msg} Written anyway: this may land on "
-          f"pre-staging, but it must be brought under the cap before it "
-          f"can go to staging -- the full check at the Debut refuses it "
-          f"(loader-within-caps). Tell the person.", file=sys.stderr)
+    print(f"build_views WARNING: {msg} Written anyway: the quick check lets "
+          f"it through, but the full check refuses it (loader-within-caps), "
+          f"so bring it under the cap before it goes further. Tell the "
+          f"person.", file=sys.stderr)
 
 
 def render_agents_md(practices, agents_md=None, source_levels=None,

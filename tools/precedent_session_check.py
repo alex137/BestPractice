@@ -68,6 +68,15 @@ def _git(*args):
 
 
 def _declared_branch():
+    """The branch this checkout is measured against: the repository's
+    declared base_branch -- or, for a person off the ladder, main, the only
+    branch their work lands on (spec/LADDER_OPT_IN_PLAN.md D3)."""
+    try:
+        import precedent_branches as _pb
+        if _pb.ladder_in_force(ROOT) is False:
+            return _pb.MAIN
+    except Exception:                                       # noqa: BLE001
+        pass
     try:
         cfg = json.loads((ROOT / 'precedent.json').read_text())
         return cfg.get('base_branch')

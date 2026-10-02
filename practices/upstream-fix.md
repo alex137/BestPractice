@@ -77,7 +77,7 @@ the one it already made, or the one it is about to make.
    someone has to remember to update. Remove that. Add a check only for the
    part that cannot be removed, and say which part that is. Example: new
    practices kept arriving without an entry in a second routing file, and a
-   test caught it at staging; the fix was to move the reason into the
+   full check caught it later; the fix was to move the reason into the
    practice file itself, so there is no second file to forget.
 6. **Any new exemption is a sign the root fix has not been made.** Before
    adding an exemption, allowlist or waiver entry to any check, ask why the

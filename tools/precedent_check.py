@@ -10154,8 +10154,8 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
        'the occasion index and this source\'s own occasion share, as '
        '`build_views.py --budgets` measures them',
        'anything outside the loader block -- the whole instructions file is '
-       'session-load-budget\'s. On the way into pre-staging a finding here '
-       'warns and does not refuse (SIZE_CAP_CHECKS); the full check refuses',
+       'session-load-budget\'s. At the quick check a finding here warns and '
+       'does not refuse (SIZE_CAP_CHECKS); the full check refuses',
        practice_backed=False,
        selects_on=('practices/*.md', 'local/practices/*.md', 'AGENTS.md',
                    _BUDGET_REGISTRY, 'precedent-source.json',
@@ -11015,10 +11015,10 @@ def main():
             print(f'    {line}')
 
     for slug, _st, findings, _why, _uv in held_for_staging:
-        print(f'\nWARNING    {slug} — over a size cap. Allowed onto '
-              f'pre-staging; the full check refuses it at the Debut, so it '
-              f'must be brought under the cap before this can go to staging. '
-              f'Tell the person (practice: reduction-pass).')
+        print(f'\nWARNING    {slug} — over a size cap. The quick check '
+              f'lets it through; the full check refuses it, so it must be '
+              f'brought under the cap before it goes further. Tell the '
+              f'person (practice: reduction-pass).')
         for f in findings:
             print(f'    {f}')
 

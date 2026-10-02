@@ -154,6 +154,16 @@ FINDING = re.compile(r'^\s*(?:[\w.-]+ )?(VIOLATION|ERROR|FAIL(ED|URE)?)\b')
 FINDING_LINES = 30
 
 
+
+def _ladder_off():
+    """True only when tools/precedent_ladder.py is here and says the ladder
+    is not in force for this person; without it, the old wording stands."""
+    try:
+        import precedent_ladder
+        return precedent_ladder.ladder_in_force(Path(__file__).resolve().parent.parent) is False
+    except Exception:                                       # noqa: BLE001
+        return False
+
 def _finding_lines(out):
     """The finding headers in `out`, each with the indented lines under it
     (its findings, not the rule text after them), capped at FINDING_LINES."""
@@ -794,13 +804,13 @@ def changed_files_check(root, since):
                 f'tests/test_{name}.sh, invoking check_{name}.py by name; '
                 f'run_all.sh runs only test_*.sh, so without it the deep '
                 f'check never runs this check and check_deep_check.py '
-                f'refuses the next Promote')
+                f'refuses the next full check')
         elif f'check_{name}.py' not in (root / test).read_text(
                 encoding='utf-8', errors='replace'):
             problems.append(
                 f'{test}: never names check_{name}.py -- a check\'s test must '
                 f'invoke it by name, or check_deep_check.py refuses the next '
-                f'Promote')
+                f'full check')
         text = path.read_text(encoding='utf-8', errors='replace')
         if not re.search(r'^SOURCE_ROOT\s*=', text, re.M) \
                 or not re.search(r'PRECEDENT_CHECK_ROOT["\']', text):
@@ -811,7 +821,7 @@ def changed_files_check(root, since):
                 f'.parent` and `ROOT = pathlib.Path(os.environ.get('
                 f'"PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)`, and resolve '
                 f'PRACTICE_FILE against SOURCE_ROOT, or check_deep_check.py '
-                f'refuses the next Promote')
+                f'refuses the next full check')
     if repo_kind(HERE) == 'upstream' and any(
             rel in ('tools/precedent_check.py', 'tools/verify_harness.py')
             or re.match(r'(?:local/)?tools/checks/check_\w+\.py$', rel)
@@ -822,7 +832,7 @@ def changed_files_check(root, since):
                 f"case('{slug}', <plant>) to check_precedent_check_fires in "
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
-                f'the full check at the next Debut runs it')
+                f'the next full check runs it')
     for test in tests:
         try:
             r = subprocess.run(['bash', test], cwd=root, capture_output=True,
@@ -928,9 +938,15 @@ def _default_destination(root, argv):
         sys.path.pop(0)
     if not landing:
         return argv
-    print(f'precedent_push_check: no destination named, so this checks what '
-          f'a push to {landing}, your landing branch, gets. The full check is the Debut\'s: '
-          f'--tier full --because "<reason>".', flush=True)
+    if _ladder_off():
+        # Off the ladder a person lands on main, which IS the full check
+        # (spec/LADDER_OPT_IN_PLAN.md D3) -- there is no later step to name.
+        print(f'precedent_push_check: no destination named, so this checks what '
+              f'a push to {landing}, your landing branch, gets.', flush=True)
+    else:
+        print(f'precedent_push_check: no destination named, so this checks what '
+              f'a push to {landing}, your landing branch, gets. The full check is the Debut\'s: '
+              f'--tier full --because "<reason>".', flush=True)
     return list(argv) + ['--push-command', f'origin HEAD:{landing}']
 
 
@@ -1401,7 +1417,7 @@ def main(argv):
 
     if '--list' in argv:
         print(f'{root.name} is {"an" if kind[0] in "aeiou" else "a"} {kind} '
-              f'repository. Before a push to staging or main (full); a push '
+              f'repository. Before a push to {"main" if _ladder_off() else "staging or main"} (full); a push '
               f'to any other branch runs only the checks marked basic:')
         for name, a, replaces in plan(root, tier=FULL)[1]:
             mark = 'basic' if name in BASIC_CHECKS else 'full '
