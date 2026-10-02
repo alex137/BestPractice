@@ -283,7 +283,7 @@ The figures are session-hours, from the reviewer's sizing.
 | 4 | `brings` in the four tools, the build_views deferral, and a `--withdraw-from-universal` mode for [precedent_move.py](../tools/precedent_move.py) (deletes the universal copy, keeps the Story in the set, records the deliberate withdrawal once) | 4-6 (built) |
 | 5 | Create the set; move D1 with the move tool; split the reply check; carve the allowance; set glossary | 5-6 (built) |
 | 6 | Engine strings, hooks, templates, gotchas, the universal files and links that name moved practices, and the D14(b) documents | 5-7 (built) |
-| 7 | D3 landing, the gated tiers step, and D10's drift wording and red-main rule | 2-3 (built, except the red-main rule: below) |
+| 7 | D3 landing, the gated tiers step, and D10's drift wording and red-main rule | 2-3 (built) |
 | 8 | D14(a) explainer | 1-2 (built) |
 | 9 | Vocabulary (D12) | 1 (built) |
 | 10 | D8 rows | 1 (built) |
@@ -337,14 +337,13 @@ the move tool refuses.
   original.
 - **A No ladders session pushes and merges nothing**: the push and merge
   gates refuse it by name.
-- **The red-main rule** (D10) is half there already. When main's test has
-  failed, a Debut already carries the person's own work up to staging and
-  says main's newer work was not copied down, and why; a Produce already
-  needs the GitHub test to pass on its pull request. Not built: a Debut
-  still waits, up to half an hour, for a main test that is still running
-  before it copies main down. That changes how a Promote behaves for the
-  people who use one, so it gets its own step and its own adversarial pass
-  after this release.
+- **The red-main rule** (D10) is built. A Debut takes main's GitHub test
+  as it stands: main's newer work comes down only if that test already
+  passed on it, and otherwise the Debut says so, never starts or waits on
+  the test, and carries the person's own work up to staging. A Promote
+  into main waits while main's own test is running and refuses while it
+  is failing. Before this, a Debut could wait up to half an hour for
+  main's test, and a move into main went ahead on a red main.
 
 ### What the adversarial pass after steps 5 to 12 found
 

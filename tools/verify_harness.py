@@ -25999,7 +25999,7 @@ def check_main_test_minutes_rule():
         os.environ.update(env)
         pb2 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pb2)
-        pb2.sync_pre_staging = lambda root, say=print, check=False: True
+        pb2.sync_pre_staging = lambda root, say=print, check=False, **_kw: True
         pb2._check = lambda root, wt, tier: (True, 'this exact tree already passed')
         pb2._slug = lambda root: 'o/r'
         pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
@@ -26902,6 +26902,38 @@ def check_sync_copies_work_from_above_once_checked():
             cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
                           'started, and that holds the copy and is said',
                           not ok and not gh.posted and 'no workflow_dispatch' in detail))
+
+            # A Debut takes main's GitHub test as it stands (D10, Morgan
+            # 2026-10-02): it neither starts the test nor waits on it, and
+            # only a passed test lets main's work come down.
+            pb.github_tests = lambda root, sha: tests
+            gh = GH([])
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh, wait=False)
+            cases.append(('a Debut does not start a missing GitHub test on main, '
+                          'and holds the copy-down',
+                          not ok and not gh.posted and 'does not wait' in detail))
+            running = dict(ok_run, status='in_progress', conclusion=None)
+            gh = GH([running])
+            calls = []
+            real_state = pb.github_test_state
+            pb.github_test_state = lambda *a, **k: (calls.append(1), real_state(*a, **k))[1]
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh, wait=False)
+            pb.github_test_state = real_state
+            cases.append(('...nor waits on one still running: one look, then on',
+                          not ok and len(calls) == 1 and 'running' in detail))
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, GH([ok_run]),
+                                        wait=False)
+            cases.append(('...and a passed test lets main\'s work come down', ok))
+
+            # A Produce refuses while main's own test is failing, and lets a
+            # passed or absent one through (D10).
+            failed = dict(ok_run, conclusion='failure', html_url='U')
+            held = pb.main_test_holds_produce(two, said.append, GH([failed]))
+            cases.append(('a Produce is held while main\'s own GitHub test is failing',
+                          bool(held) and 'failing' in held and 'U' in held))
+            cases.append(('...and goes ahead once it passed, or where none ran',
+                          pb.main_test_holds_produce(two, said.append, GH([ok_run])) is None
+                          and pb.main_test_holds_produce(two, said.append, GH([])) is None))
 
             # --wait-main-test: the wait a Promote into main hands the session.
             pb.github_tests = lambda root, sha: tests

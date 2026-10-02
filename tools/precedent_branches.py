@@ -1279,11 +1279,16 @@ def tier_check_state(root, branch, tip, gh=None):
     return ok, '; '.join(parts)
 
 
-def _check_tier(root, branch, tip, say, gh=None):
+def _check_tier(root, branch, tip, say, gh=None, wait=True):
     """Give `tip`, on tier `branch`, whatever of its tier's checks it lacks,
     and -> (ok, detail). The full local check (a published receipt makes it
     instant), then on main the GitHub test: found on the commit or its pull
-    request, else started and awaited."""
+    request, else started and awaited.
+
+    `wait=False` (a Debut, spec/LADDER_OPT_IN_PLAN.md D10, Morgan
+    2026-10-02, strength: decided) takes main's GitHub test as it stands:
+    passed counts, anything else holds the copy-down without starting the
+    test or waiting on it, so the person's own work still goes up."""
     with _Worktree(root, tip) as wt:
         t0 = time.monotonic()
         ok, out = _check(root, wt, FULL)
@@ -1304,6 +1309,9 @@ def _check_tier(root, branch, tip, say, gh=None):
         due, why = main_test_due(root, tip, gh=gh)
         if not due:
             return True, f'{local}; GitHub test not due: {why}'
+    if not wait and state != 'passed':
+        return False, (f'{local}, but the GitHub test is {state} on it ({detail}), '
+                       f'and this step does not wait for it')
     if state == 'none':
         state, detail = _run_github_test(root, tip, tests, say, gh)
     elif state == 'running':
@@ -1361,7 +1369,7 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
     return 1
 
 
-def sync_pre_staging(root, say=print, check=False):
+def sync_pre_staging(root, say=print, check=False, wait_main=True):
     """Make origin's pre-staging exist and hold what reached staging or main
     without climbing through it. -> True on success, False when pre-staging
     could not be brought current (a conflict, a race, a failing basic check
@@ -1411,11 +1419,18 @@ def sync_pre_staging(root, say=print, check=False):
         what = (f'{branch} has {len(commits)} commit(s) with changes '
                 f'{PRE_STAGING} lacks, up to {tip[:12]}')
         if check:
-            ok, detail = _check_tier(root, branch, tip, say)
+            ok, detail = _check_tier(root, branch, tip, say,
+                                     wait=wait_main or branch != MAIN)
         else:
             ok, detail = tier_check_state(root, branch, tip)
         if ok:
             ready.append((branch, tip))
+            continue
+        if check and branch == MAIN and not wait_main and 'does not wait' in detail:
+            say(f'NOT COPIED YET: {what}, and its GitHub test has not passed on '
+                f'them ({detail}). This step does not wait for it: your own work '
+                f'goes up now, and {MAIN}\'s newer work comes down at a later '
+                f'Promote once that test passes.')
             continue
         if not check:
             say(f'NOT COPIED YET: {what}, and it has not had all of the '
@@ -1863,6 +1878,38 @@ def _to_main_copy(root, due=True):
 PROMOTE_MAIN_NOT_MOVED = 3
 
 
+def main_test_holds_produce(root, say=print, gh=None):
+    """-> None when a move into main may go ahead, else why not. Main's
+    GitHub test on its own tip: failing holds it, still running is waited
+    for (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-02, strength:
+    decided: "Produce waits until main's test passes"). No test installed,
+    none on this tip, or one GitHub cannot be asked about holds nothing:
+    the pull request's own test is still the last gate."""
+    if not _gets_github_test(root, MAIN):
+        return None
+    mtip = _remote_tip(root, MAIN)
+    tests = github_tests(root, mtip) if mtip else []
+    if not tests:
+        return None
+    state, detail = github_test_state(root, mtip, tests, gh)
+    if state == 'running':
+        say(f'the GitHub test on {MAIN} ({mtip[:12]}) is still running; a move '
+            f'into {MAIN} waits for it...')
+        deadline = time.monotonic() + GITHUB_TEST_WAIT_SECONDS
+        while state == 'running' and time.monotonic() < deadline:
+            time.sleep(GITHUB_POLL_SECONDS)
+            state, detail = github_test_state(root, mtip, tests, gh)
+    if state == 'failed':
+        return (f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
+                f'{detail}). Nothing moves into {MAIN} until it passes: fix it, '
+                f'then Promote again.')
+    if state == 'running':
+        return (f'{MAIN}\'s GitHub test on {mtip[:12]} was still running after '
+                f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes ({detail}); Promote '
+                f'again once it finishes.')
+    return None
+
+
 def _promote_to_main(root, say=print):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
@@ -1872,6 +1919,10 @@ def _promote_to_main(root, say=print):
     the copy is ready and main has not moved yet; 0 nothing to promote; 1
     refused."""
     staging = staging_branch(root)
+    held = main_test_holds_produce(root, say)
+    if held:
+        say(f'PROMOTE REFUSED: {held}')
+        return 1
     # What reached main or staging by another route is checked and copied
     # down first, the same as before the step into staging.
     if not sync_pre_staging(root, say, check=True):
@@ -1942,7 +1993,7 @@ def _promote_unlocked(root, say=print):
     """Pre-staging into staging, fully checked. -> 0 promoted or nothing to
     promote; 1 refused (a failing check, a conflict, a race)."""
     staging = staging_branch(root)
-    if not sync_pre_staging(root, say, check=True):
+    if not sync_pre_staging(root, say, check=True, wait_main=False):
         return 1
     stip, ptip = _remote_tip(root, staging), _remote_tip(root, PRE_STAGING)
     _run(root, 'fetch', '-q', 'origin', staging, PRE_STAGING)
