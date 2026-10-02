@@ -333,7 +333,11 @@ absolutely (`practice-links-travel`) — and to 20 practices and 4,169 words, on
 catalogue lookup its proportionality guard now requires. It moved again, to 21
 practices and 4,347 words, on 2026-09-13, when `environment-gotchas` gained a
 Detail saying when a gotchas section should split into an index plus a record,
-and what the index line has to carry to stay findable. (The table cell and the
+and what the index line has to carry to stay findable. The count of the
+original practices carrying a Detail fell by one on 2026-10-02, when
+`merge-authorization-keyword` left the universal set for the set that
+provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)).
+(The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures
 [`tools/catalogue_stats.py`](../tools/catalogue_stats.py) prints an anchor for — the Rule-share-derived
