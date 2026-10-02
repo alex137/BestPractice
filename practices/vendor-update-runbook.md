@@ -64,6 +64,12 @@ command disagree, the command is the current code, and the step is what
 needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/ONE_COMMAND_UPDATE_PLAN.md),
 Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 
+**Booked runs it for you when anything is behind**
+([go-update](go-update.md)): `python3 tools/precedent_merge_vendors.py`
+commits a finished update as a commit of its own, or takes a run that left
+calls or failed back whole and names why. Say "Update Vendors" yourself to
+work through what a NOT TAKEN run listed.
+
 **This does not lift the gate the chain already runs through**, and it does
 not add one. Booked (`Go update`) publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all. Step 6 below is the
