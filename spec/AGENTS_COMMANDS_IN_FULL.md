@@ -101,7 +101,9 @@ used to read on turn one.
   starting what he just asked for, check whether it belongs in a different
   session, repositories first; then hand back **one paste-ready block** he
   opens a new window with, naming the repository to root it in and the ones
-  to attach, plus one ordinary unfenced sentence outside the block saying
+  to attach, inviting the receiving session to push back with a stronger
+  counter-proposal, and asking for any reply as its own paste-back block
+  signed with that session's name and link, plus one ordinary unfenced sentence outside the block saying
   where to paste it. **Never call a session-creating or session-messaging
   tool for this, and never wake a live session either** — both have come
   back rejected often enough that the mechanism is retired outright, and a
@@ -116,7 +118,9 @@ used to read on turn one.
   — look back over **everything this session has done**, warnings and its
   own fixes and band-aids included, and hand back each one that also
   belongs in Precedent, a precedent-* repo, the template that generates the
-  file, or another related repo, **each as a `Prompt Please` block**. Ones he may
+  file, or another related repo, **in one `Prompt Please` block** for a
+  session rooted in all of those repos, naming the root and the repos to
+  attach before the block. Ones he may
   already have passed on are given anyway, marked if this session raised
   them before; none found is said in one line. It replaced **"Upstream
   fix"** on 2026-10-01: whether a fix removes its cause is now answered for

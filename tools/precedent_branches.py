@@ -78,6 +78,12 @@ main; that pull request's GitHub test is main's last gate, so main itself
 is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 0, and says first that main has not moved: exit 0 means the branch moved.
 
+IN A PRIVATE REPOSITORY THAT GITHUB TEST RUNS AT MOST ONCE EVERY
+github_ci_every_hours (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
+decides"; see main_test_due). When it is not due, the copy is named
+to-main-not-due-DATE, the light check's job skips that pull request before
+a runner starts, and --wait-main-test says NOT DUE and exits 0.
+
 CLI:
   precedent_branches.py                     the tiers, as this repo resolves them
   precedent_branches.py --tier BRANCH       prints `basic` or `full`
@@ -90,7 +96,8 @@ CLI:
                                             --check, whatever passes them once run
   precedent_branches.py --wait-main-test COPY
                                             wait for main's GitHub test on the to-main
-                                            copy's pull request; 0 only when it passed
+                                            copy's pull request; 0 only when it passed,
+                                            or when the copy is to-main-not-due-*
   precedent_branches.py --drift             what staging and main carry that pre-staging
                                             lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
@@ -103,6 +110,7 @@ CLI:
                                             report (or make) pre-staging and a real
                                             staging branch on origin -- the migration step
 """
+import calendar
 import json
 import os
 import pathlib
@@ -796,9 +804,16 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True):
     wanted = {p for p, _ in tests}
 
     def _newest(runs):
+        # A SKIPPED run did not happen. GitHub records one, free, for every
+        # push to main in a private repository and for a Promote that was not
+        # due a test; counted as a failure, it read main's test as failed
+        # in every private repository from 2026-09-25, and would hold every
+        # copy-down of main behind a test that was never meant to run.
         newest = {}
         for r in runs:
             path = r.get('path')
+            if r.get('conclusion') == 'skipped':
+                continue
             if path in wanted and (path not in newest or (r.get('created_at') or '')
                                    > (newest[path].get('created_at') or '')):
                 newest[path] = r
@@ -876,6 +891,248 @@ def _run_github_test(root, sha, tests, say, gh=None):
                                f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes')
 
 
+# MAIN'S GITHUB TEST, AT MOST ONCE EVERY X HOURS IN A PRIVATE REPOSITORY
+# (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote decides"). Morgan: "if
+# those number of hours or more has passed ... these tests will happen
+# BEFORE the github workflow yaml is triggered so that, if it's not being
+# run, it doesn't even get to the github point", then "Act ... 168 hours"
+# (strength: decided).
+#
+# THE DECISION IS MADE HERE, IN THE SESSION, WHERE IT COSTS NOTHING. The
+# retired ci_debounce_minutes made it inside a GitHub job, which billed a
+# minute to decide not to spend one (spec/BILLING_FLOOR.md). Promote names
+# the pull request's branch NOT_DUE_PREFIX... when no test is due, and the
+# light-check template's job `if:` skips on that name before a runner
+# starts.
+#
+# THE PERSON'S VALUE WINS HERE, the reverse of the commit hook. Morgan: "if
+# it conflicts, and I run promote, it still skips it but the repo owner's
+# wins on the 2A method" -- the commit hook's [skip ci] (precedent-ci-cadence)
+# keeps the repository's own value first.
+#
+# EVERY DOUBT RUNS THE TEST: a public or undeclared repository, a value of 0
+# or one that is not a number, PRECEDENT_CI_NOW=1, no passing run found, a
+# newest run that failed, or GitHub not answering. A batch that changes a
+# workflow or the vendored engine is NOT forced: Morgan, 2026-10-01, "I'm
+# hesitant about forcing that, because I might update the vendored engines a
+# lot or I can quickly see this getting out of control" (strength: decided).
+#
+# ONLY A DUE PROMOTE COPY RUNS IN A PRIVATE REPOSITORY. The light check's
+# job `if:` runs a private pull request into main only when its branch is
+# a to-main- copy that is not NOT_DUE_PREFIX: GitHub cannot read anyone's
+# settings, so a pull request nobody judged is never tested there. Morgan:
+# "if and only if the setting is turned on ... AND the number of hours is
+# more than the number defined since the last successful test".
+NOT_DUE_PREFIX = 'to-main-not-due-'
+CADENCE_KEYS = ('github_ci_every_hours', 'ci_every_hours')
+FORCE_ENV = 'PRECEDENT_CI_NOW'
+
+
+def main_test_cadence(root, user_config=None):
+    """-> (hours, where): at most how often main's GitHub test runs on a
+    Promote. 0 means every Promote. The person's identity.json first, then
+    the repository's precedent.json; the new key before the old in each."""
+    if precedent_json(root).get('visibility') != 'private':
+        return 0.0, 'this repository is not declared private'
+    found = None
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email'):
+            found = next(((ident[k], str(path)) for k in CADENCE_KEYS if k in ident), None)
+            if found:
+                break
+    if not found:
+        repo = precedent_json(root)
+        found = next(((repo[k], "this repo's precedent.json") for k in CADENCE_KEYS
+                      if k in repo), None)
+    if not found:
+        return 0.0, 'github_ci_every_hours is not set anywhere'
+    value, where = found
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        return 0.0, f'github_ci_every_hours is {value!r} in {where}, which is not a number of hours'
+    return float(value), where
+
+
+SWITCH_KEYS = ('github_ci_workflows', 'ci_workflows')
+
+
+def main_test_switch(root, user_config=None):
+    """-> (on, where): are GitHub tests switched on? The person's own
+    identity.json first, then the repository's precedent.json, the new key
+    before the old in each; on only for "enabled" or nothing declared, so a
+    typo switches it off rather than spending minutes. Morgan, 2026-10-01: "it should check the user's
+    precedent-individual (if it exists) and see if it has the variable for
+    github tests turned on (assume yes)"."""
+    found = None
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email'):
+            found = next(((ident[k], str(path)) for k in SWITCH_KEYS if k in ident), None)
+            break
+    if not found:
+        repo = precedent_json(root)
+        found = next(((repo[k], "this repo's precedent.json") for k in SWITCH_KEYS
+                      if k in repo), None)
+    if not found:
+        return True, 'github_ci_workflows is not declared anywhere, so GitHub tests count as on'
+    value, where = found
+    if value == 'enabled':
+        return True, f'github_ci_workflows is "enabled" in {where}'
+    return False, f'github_ci_workflows is {value!r} in {where}'
+
+
+def _when(root, unix_ts):
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_time
+        return precedent_time.from_unix(unix_ts, root).strftime('%Y-%m-%d %H:%M %z')
+    except Exception:
+        return time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime(unix_ts))
+    finally:
+        sys.path.pop(0)
+
+
+def _parse_iso(text):
+    try:
+        return float(calendar.timegm(time.strptime(text, '%Y-%m-%dT%H:%M:%SZ')))
+    except (TypeError, ValueError):
+        return None
+
+
+def last_main_test_pass(root, tests, gh=None):
+    """-> (unix time or None, problem or None): when main's GitHub test last
+    passed -- on main itself, or on a pull request into it from a to-main
+    copy. With several test workflows, the OLDEST of their newest passes,
+    so each must be within the window. A problem is anything that makes the
+    test due whatever the clock says: GitHub not answering, or the newest
+    run that finished having FAILED, so a failure stays due until a run
+    passes. Skipped runs did not happen and are left out. One API call per
+    workflow."""
+    gh = gh or _sibling('github_budget')
+    slug = _slug(root)
+    if gh is None or not slug:
+        return None, ('no github.com origin could be read here' if not slug
+                      else 'github_budget.py is not beside this file')
+    newest = []
+    for path, _ in tests:
+        data, err = gh.call(f'repos/{slug}/actions/workflows/{path.rsplit("/", 1)[-1]}'
+                            f'/runs?per_page=50', cache=False)
+        if err or not isinstance(data, dict):
+            return None, err or 'GitHub gave an answer this could not read'
+        done = sorted(
+            ((_parse_iso(r.get('created_at')), r) for r in data.get('workflow_runs') or []
+             if r.get('status') == 'completed' and r.get('conclusion') != 'skipped'
+             and (r.get('head_branch') == MAIN
+                  or str(r.get('head_branch') or '').startswith('to-main-'))),
+            key=lambda tr: tr[0] or 0, reverse=True)
+        if done and done[0][1].get('conclusion') != 'success':
+            r = done[0][1]
+            return None, (f'its newest run, on {r.get("head_branch")}, ended '
+                          f'{r.get("conclusion")} ({r.get("html_url", "")})')
+        times = [t for t, r in done if t is not None and r.get('conclusion') == 'success']
+        if not times:
+            return None, None
+        newest.append(max(times))
+    return (min(newest) if newest else None), None
+
+
+MAIN_TEST_KEY = 'github_ci_main_test'
+# The same marker precedent_vendor_engine.render_ci_workflow writes; text,
+# because this module must import with nothing vendored beside it.
+MAIN_TEST_ALWAYS_TEXT = "'main-test:always' == 'main-test:always'"
+
+
+def main_test_mode(root):
+    """-> (mode, hours, why): the repository's own say over main's GitHub
+    test, from precedent.json's `github_ci_main_test` (2026-10-01,
+    spec/CI_CADENCE_PLAN.md, "The repository decides"). mode is
+    'individual' (the default: the person's switch and hours decide),
+    'never', 'always' or 'hours' (this many, whatever the person says).
+    Anything else is 'never', and says so: a typo costs a missed test,
+    never minutes."""
+    cfg = precedent_json(root)
+    if MAIN_TEST_KEY not in cfg:
+        return 'individual', None, f'{MAIN_TEST_KEY} is not set in this repo'
+    value = cfg[MAIN_TEST_KEY]
+    if value in ('individual', 'never', 'always'):
+        return value, None, f'{MAIN_TEST_KEY} is "{value}" in this repo\'s precedent.json'
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return 'hours', float(value), (f'{MAIN_TEST_KEY} is {value:g} in this repo\'s '
+                                       f'precedent.json')
+    return 'never', None, (f'{MAIN_TEST_KEY} is {value!r} in this repo\'s precedent.json, '
+                           f'which is not "individual", "never", "always" or a number of '
+                           f'hours -- read as "never" until it is fixed')
+
+
+def _always_installed(root, tip, tests):
+    """True when every installed test workflow carries the marker set to
+    always -- what Update Vendors writes for "always". Until it does, an
+    "always" repo is decided as "individual", so it is never left with no
+    test at all."""
+    return bool(tests) and all(
+        MAIN_TEST_ALWAYS_TEXT in (_git(root, 'show', f'{tip}:{p}') or '') for p, _ in tests)
+
+
+def main_test_due(root, tip, gh=None, user_config=None):
+    """-> (due, why): does a Promote of `tip` into main get its GitHub test
+    on its pull request? In a private repository the repository's own
+    github_ci_main_test has the final say; "individual" hands it to the
+    person's switch and hours."""
+    private = precedent_json(root).get('visibility') == 'private'
+    note = ''
+    mode = 'individual'
+    if private:
+        mode, mode_hours, mode_why = main_test_mode(root)
+        if mode == 'never':
+            return False, f'{mode_why}, so this repository gets no GitHub test'
+        if mode == 'always':
+            if _always_installed(root, tip, github_tests(root, tip)):
+                return False, (f'{mode_why}: GitHub tests the push to {MAIN} once this '
+                               f'merges, and never the pull request, so it runs once')
+            mode = 'individual'
+            note = (f'{mode_why}, but this repo\'s light-check.yml does not say so yet '
+                    f'-- run Update Vendors; until then it is decided as "individual": ')
+    if os.environ.get(FORCE_ENV) == '1':
+        return True, f'{note}{FORCE_ENV}=1 asks for it'
+    if private and mode == 'hours':
+        hours, where = mode_hours, "this repo's precedent.json"
+        key = MAIN_TEST_KEY
+    else:
+        if private:
+            on, where = main_test_switch(root, user_config)
+            if not on:
+                return False, (f'{note}{where}, so a private repository gets no GitHub '
+                               f'test. To run it anyway: {FORCE_ENV}=1 before the Promote')
+        hours, where = main_test_cadence(root, user_config)
+        key = 'github_ci_every_hours'
+    if not hours:
+        return True, f'{note}every Promote gets it ({where})'
+    tests = github_tests(root, tip)
+    if not tests:
+        return True, f'{note}no GitHub test is installed here'
+    # A workflow installed before 2026-10-01 has no skip on the not-due name,
+    # so it would run anyway and a "not due" wait would merge under it.
+    old = [p for p, _ in tests
+           if NOT_DUE_PREFIX not in (_git(root, 'show', f'{tip}:{p}') or '')]
+    if old:
+        return True, (f'{note}{old[0]} predates the not-due skip, so it runs on every '
+                      f'pull request into {MAIN} until Update Vendors brings the '
+                      f'current one')
+    when, problem = last_main_test_pass(root, tests, gh)
+    if problem:
+        return True, note + problem
+    if when is None:
+        return True, f'{note}no passing run of it was found'
+    age = time.time() - when
+    if age >= hours * 3600:
+        return True, (f'{note}it last passed {_when(root, when)}, {age / 3600:.0f}h ago, '
+                      f'and {where} sets {key} {hours:g}')
+    return False, (f'{note}it last passed {_when(root, when)}, {age / 3600:.0f}h ago; '
+                   f'{where} sets {key} {hours:g}, so the next one '
+                   f'is due {_when(root, when + hours * 3600)}. To run it anyway: '
+                   f'{FORCE_ENV}=1 before the Promote')
+
+
 def _gets_github_test(root, branch):
     """Main's GitHub test belongs to main as a tier of its own. Where main
     IS the staging tier, Promote pushes into it with no pull request, so the
@@ -899,8 +1156,12 @@ def tier_check_state(root, branch, tip, gh=None):
             parts.append('no GitHub test is installed here')
         else:
             state, detail = github_test_state(root, tip, tests, gh)
+            if state != 'passed':
+                due, why = main_test_due(root, tip, gh=gh)
+                if not due:
+                    state, detail = 'not due', why
             parts.append(f'GitHub test {state}: {detail}')
-            ok = ok and state == 'passed'
+            ok = ok and state in ('passed', 'not due')
     return ok, '; '.join(parts)
 
 
@@ -925,6 +1186,10 @@ def _check_tier(root, branch, tip, say, gh=None):
         return True, (f'{local}; no GitHub test is installed in this repository, '
                       f'so the local check is the whole check')
     state, detail = github_test_state(root, tip, tests, gh)
+    if state != 'passed':
+        due, why = main_test_due(root, tip, gh=gh)
+        if not due:
+            return True, f'{local}; GitHub test not due: {why}'
     if state == 'none':
         state, detail = _run_github_test(root, tip, tests, say, gh)
     elif state == 'running':
@@ -938,7 +1203,7 @@ def _check_tier(root, branch, tip, say, gh=None):
     return False, f'{local}, but the GitHub test is {state}: {detail}'
 
 
-def wait_for_main_test(root, sha, say=print, gh=None):
+def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
     """Wait for main's GitHub test on `sha` -- the to-main copy's tip, once
     its pull request into main is open -- and -> 0 passed, 1 anything else.
 
@@ -953,6 +1218,15 @@ def wait_for_main_test(root, sha, say=print, gh=None):
     if not tests:
         say(f'no GitHub test is installed here, so there is nothing to wait for '
             f'on {sha[:12]}: the full local check at the Promote was the whole check.')
+        return 0
+    if copy and copy.startswith(NOT_DUE_PREFIX):
+        say(f'GitHub test NOT DUE on {sha[:12]}: Promote named this copy {copy} '
+            f'because main\'s GitHub test is not due on its pull request (the '
+            f'Promote printed why), so the pull request shows the test as skipped '
+            f'and no runner started. The full local check at the Promote stands; '
+            f'in a repo set to github_ci_main_test "always", GitHub tests the push '
+            f'to {MAIN} once this merges. Merge the pull request into {MAIN} with '
+            f'a merge commit.')
         return 0
     say(f'waiting for the GitHub test on {sha[:12]} (up to '
         f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes): ' + ', '.join(p for p, _ in tests))
@@ -1437,12 +1711,13 @@ def _drifted_from_above(root):
     return out
 
 
-def _to_main_copy(root):
+def _to_main_copy(root, due=True):
     """The throwaway branch a pull request into main comes FROM: never
     staging itself, whose pull request page offers to delete it (gotchas/
     gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md). Named
     as precedent_merge_check.py's refusal names it, with a suffix when that
-    name is taken."""
+    name is taken -- and NOT_DUE_PREFIX instead when main's GitHub test is
+    not due, which is the name the light check's job skips on."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_time
@@ -1451,8 +1726,9 @@ def _to_main_copy(root):
         day, moment = 'copy', str(int(time.time()))
     finally:
         sys.path.pop(0)
-    base = f'to-main-{day}'
-    return base if not _remote_tip(root, base) else f'to-main-{moment}'
+    prefix = 'to-main-' if due else NOT_DUE_PREFIX
+    base = f'{prefix}{day}'
+    return base if not _remote_tip(root, base) else f'{prefix}{moment}'
 
 
 # Exit 0 from a Promote means the branch it names has moved. Into main it
@@ -1512,7 +1788,8 @@ def _promote_to_main(root, say=print):
             + ' Same files, so the earlier run stands.')
     else:
         say(f'the full check ran on the batch and passed, in {took:.0f}s.')
-    copy = _to_main_copy(root)
+    due, why = main_test_due(root, stip)
+    copy = _to_main_copy(root, due)
     p = _run(root, 'push', '-q', 'origin', f'{stip}:refs/heads/{copy}')
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
@@ -1521,12 +1798,19 @@ def _promote_to_main(root, say=print):
         f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
         f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
         f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
+        + (f'GitHub test: DUE -- {why}.\n\n' if due else
+           f'GitHub test: ON THE PUSH TO {MAIN.upper()} -- {why}. Its pull request '
+           f'shows the test as skipped, which starts no runner and costs nothing.\n\n'
+           if 'never the pull request' in why else
+           f'GitHub test: NOT DUE -- {why}. Its pull request shows the test as '
+           f'skipped, which starts no runner and costs nothing.\n\n') +
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
         f'commit(s))", wait for its GitHub test with\n'
         f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
-        f'and merge it with a merge commit once that says PASSED. Never open '
-        f'it from {staging} itself.')
+        f'and merge it with a merge commit once that says PASSED'
+        + ('' if due else ' (or, for this not-due copy, NOT DUE)') +
+        f'. Never open it from {staging} itself.')
     return PROMOTE_MAIN_NOT_MOVED
 
 
@@ -1744,7 +2028,7 @@ def _main(argv):
             print(f'precedent_branches: {argv[1]} names no branch or commit here.',
                   file=sys.stderr)
             return 2
-        return wait_for_main_test(root, sha)
+        return wait_for_main_test(root, sha, copy=argv[1])
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)

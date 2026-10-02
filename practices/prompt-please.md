@@ -11,7 +11,7 @@ gates_why:   "The reply is the whole artifact: the prompt either appears there, 
 index_clause: "one paste-ready prompt for a new session; never a session-creating tool"
 checked_by:  null
 defines:     ["Prompt Please"]
-command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach."}
+command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening with an invitation to push back with a stronger counter-proposal, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link."}
 status:      active
 in_force_at: null
 supersedes:  ["session-text"]
@@ -56,7 +56,10 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   intended existing session is known, a line right after the seed-root
   line names it and links it; when it is not known, or there is none, or
   the session is new, nothing is written there at all. Authorized: \"Go
-  update.\""
+  update.\" Extended 2026-10-01, Morgan: an opening invitation to analyze
+  the prompt and push back with a stronger counter-proposal, and a closing
+  request that any reply come back in its own copyable block with the
+  replying session's name and link. Authorized: \"Act and Booked.\""
 strength:    decided
 source_practice_number: null
 ---
@@ -101,6 +104,11 @@ following, every time:
   it rather than a person** --
   [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s
   header, required of any prompt one session hands to another.
+- **An invitation to push back**, beside that origin line: *"Analyze what
+  follows rather than just carrying it out. Find what problems you can in
+  it, and where you see a stronger approach, push back with a
+  counter-proposal."* The receiving session has its own repo open and
+  often sees what this one could not.
 - **The recommended action, and why.** Not a survey -- the thing to do,
   named plainly, with the reasoning behind it.
 - **Which repository has to be the primary seed root** -- the one the new
@@ -108,14 +116,18 @@ following, every time:
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
-- **The branch the work lands on is the person's landing branch** -- what
-  `python3 tools/precedent_branches.py --landing` answers in the seed repo,
-  `pre-staging` for a person who lands there. Never name `staging` or
-  `main` as where to work or where the pull request goes: the person's
-  Promote moves work up to those. A repository's declared base branch is
-  not the answer either, because it names staging. When you cannot run the
-  command, write "your landing branch" and let the receiving session
-  resolve it.
+- **Where the work stops.** Without the person's Booked for this handoff
+  (below), **the prompt ends at Act**: *"Build it on your feature branch,
+  push it there, and stop; the person lands it with Booked and promotes it
+  from there."* It names no tier branch -- not `pre-staging`, `staging` or
+  `main` -- as somewhere to land, merge or open a pull request, since
+  landing is Booked's and needs the person's word. With Booked, it names
+  the person's landing branch -- what `python3 tools/precedent_branches.py
+  --landing` answers in the seed repo, `pre-staging` for a person who lands
+  there -- and never `staging` or `main`, which only the person's Promote
+  reaches. A repository's declared base branch is not the answer either,
+  because it names staging. When you cannot run the command, write "your
+  landing branch" and let the receiving session resolve it.
 - **When the recommended action would itself change something this repo
   ships to other repos** -- a practice file, a template, a hook, a vendored
   engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
@@ -125,12 +137,18 @@ following, every time:
   whether the change needs a clean rollout through an updated template and
   [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
   them, when that's relevant.
+- **A way to answer, as the block's last lines:** *"If you have a reply for
+  the session that sent this, put it in its own fence block, ready to paste
+  back, and include your own session's name and link in it."* Without it,
+  an answer or a counter-proposal comes back as prose the person has to
+  carve out and label before the sending session can use it.
 
 **Two of those items are required at a fixed position, not just required
 content.** [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
 already fixes the provenance line -- this session's id and title, its link,
 and that a session wrote it -- as the block's literal first line, and that
-does not change here. **The seed root and the attach list come immediately
+does not change here. **The invitation to push back is that line's second
+sentence**, so it never displaces the seed root from second place. **The seed root and the attach list come immediately
 after it: second, before the situation, the problem, the recommendation, or
 anything else in the list above.** A requirement that is just one bullet
 among several in an unordered list is easy to satisfy and easy to bury --
@@ -179,8 +197,8 @@ paste block needs nothing from any one provider's tool surface).
 this handoff**, exactly as `session-text` drew this line before this
 absorbed it. Absent that, the default text says so directly:
 
-> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go update" in
-> this session before merging.**
+> **STOP AT ACT: build it on your feature branch, push it there, and stop.
+> Open no pull request and merge nothing; the person lands it with Booked.**
 
 When the person says `Prompt Please` together with Booked (`Go update`) (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
@@ -357,6 +375,25 @@ live session is already holding the context had no place in the block to be
 told so. Making the outside sentence name the same session, rather than
 still saying "open a new session", was this session's call, so the two
 routings cannot disagree. Strength: decided.
+
+**Push-back and a way to answer, 2026-10-01.** Morgan asked for two more
+parts: an opening line telling the receiving session to analyze the prompt,
+find its problems and push back with a stronger counter-proposal, and a
+closing line asking for any reply to the sending session in its own
+copyable block, with the replying session's name and link. A handoff had
+been read as orders; these make it a conversation the person can carry both
+ways. Strength: decided.
+
+**2026-10-01: a prompt that granted landing nobody gave.** Two prompts a
+session wrote that day each ended "Land it on staging per this repo's
+conventions." Wrong twice: Morgan had not said Booked, so the prompt
+carried no landing authority, and routine work lands on pre-staging, never
+staging. The default ending then said to stop at the pull request, which is
+itself the start of landing. Morgan: *"No, we always want to do it in the
+local container ("Act") and then I'll authorize it to go to pre-staging via
+"Promote" etc."* So a prompt without his Booked now ends at Act, and the
+reply check refuses a paste block that tells a session to land on a tier
+branch without his quoted word.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

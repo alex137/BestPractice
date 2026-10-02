@@ -1466,8 +1466,18 @@ def main(argv):
         print(f'precedent_push_check: {kind} repository {root.name}, the '
               f'basic check, {len(checks)} check(s) ({why}). Staging and main '
               f'get everything.', flush=True)
+    # The tree is read BEFORE the run as well as after, and a pass is
+    # recorded only when the two agree. Read only afterwards, a commit made
+    # while the suite ran was credited with a pass the suite never gave it:
+    # the isolated harness had copied the commit before it, so a new check
+    # with no planted case (whats-new, 2026-10-01) went green in the full
+    # check and was refused minutes later by the merge gate's quick one.
+    tree_before = clean_tree(root)
     failed, missing, total, findings = run(root, checks, landed, reported)
     tree = clean_tree(root)
+    moved = tree is not None and tree != tree_before
+    if moved:
+        tree = None
     if failed:
         # Said again at the very end, because the end is what every caller
         # that truncates -- the push gate, the merge gate -- keeps.
@@ -1500,6 +1510,12 @@ def main(argv):
               f'for tree {tree[:12]} ({tier}), so a push of this commit will '
               f'not re-run them.')
         publish_pass(root, rec)
+    elif moved:
+        print(f'\nprecedent_push_check: all passed in {total:.0f}s, but the '
+              f'commit changed while it ran -- NOT recorded. Part of the run '
+              f'copied the commit it started on, so this pass says nothing '
+              f'about the one checked out now. Run it again, without '
+              f'committing until it ends.')
     else:
         print(f'\nprecedent_push_check: all passed in {total:.0f}s, over a '
               f'working tree with uncommitted changes -- NOT recorded, since '

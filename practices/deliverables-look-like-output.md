@@ -51,6 +51,18 @@ Three rules:
    doc, or in the dated decision record where the repo keeps those. "Per a
    user decision" in a deliverable is doubly wrong: it is process residue,
    and it is unattributed.
+4. **The leak is the same in plain prose.** A figure "recalled, to be
+   checked later" is a verify-later flag; a sentence about what the next
+   revision will add is a note about the document; a line saying how a
+   figure was looked up is verification bookkeeping; a sentence pointing
+   the reader at the record is apparatus. Each belongs in the record,
+   however it is worded.
+5. **A rendered page names things by title, never by repository path.**
+   Linking a file by its filename is right on the forge, where the reader
+   is in the repository; the reader of a render never is, and
+   `cost_model_v2.py` tells them nothing. The renderer replaces a link
+   whose text is the bare filename with the target's title, so the source
+   keeps the repo convention and the page reads as output.
 
 ## Why
 **Why a lint check and not a rule.** This practice failed as prose four
@@ -60,7 +72,9 @@ The portable `doc_lint` therefore carries a residue check (check 6): a
 changed deliverable containing verify-later flags, verification/claims
 apparatus, unattributed decision references, or retirement lore fails the
 gate; record-class files (by name pattern) are exempt. The written rule says
-why; the check is what holds.
+why; the check is what holds. The check matches the prose forms as well
+as the bracketed ones (rule 4), and the shared renderer retitles filename
+links (rule 5), so neither depends on the author remembering.
 
 ## Story
 The inherited incident this practice was minted from is not recorded here —
@@ -92,6 +106,18 @@ asks. The same class of miss as the 2026-08-31 fix that exempted
 `practices/` and `spec/` after they failed check 6 for describing the
 apparatus they document: each time, a new home for record-class content was
 created and the check that protects deliverables was not told about it.
+
+**The prose-form amendment's incident, 2026-10-01.** A consumer's most-read
+pages were read in full on the way out after check 6 had passed them, and
+still carried apparatus written as ordinary sentences: a figure marked as
+recalled and awaiting a check, a promise about what the next revision would
+open with, a note on how a figure had been looked up, and a closing line
+pointing at the record in section after section. Every pattern check 6 knew
+was a bracketed flag or a fixed phrase, so a sentence went straight through.
+The same read found code filenames in every page's footer, shown to readers
+who have no repository: the link convention (filename as link text) was
+right in the source and wrong in the render, and nothing turned one into the
+other.
 
 ## Install
 **Related.** The current-state rule (git is the history) and [index-remembers-past](index-remembers-past.md)

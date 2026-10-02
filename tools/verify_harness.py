@@ -1921,6 +1921,101 @@ def check_leak_gate_discovers_the_individual_blocklist():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_leak_gate_reads_neighbour_blocklists():
+    """Every repository checked out beside this one contributes its list.
+
+    WHAT IT GUARDS (2026-10-01). A session working in a private repository
+    carried that repository's names into this public tree through a pull
+    request, and the gate passed it: the only private list it read was the
+    person's individual source's, and the private repository's own
+    `leak-blocklist.txt`, checked out beside it, was never consulted. The
+    same day it refused a clean merge because a private shared set's list,
+    on disk beside it, was never read either.
+
+    Stated cases, from one fixture that owns its state: a neighbour clone's
+    list is found; a neighbour without one adds nothing; a loose directory
+    (no .git) is not a repository and is not read; the gate itself is not
+    its own neighbour; and with no variable and no individual source,
+    load_blocklist() still applies the neighbour's patterns and reports the
+    private half as configured. The fixture's pattern is the kind that
+    failed: a name inside an identifier, which `\b` let through.
+    (practice: scrub-gate)"""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as _lg
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-neighbours-'))
+    saved_env = {k: os.environ.get(k) for k in ('HOME', 'PRECEDENT_LEAK_BLOCKLIST')}
+    saved_root = _lg.ROOT
+    try:
+        repo = tmp / 'public-tree'
+        private = tmp / 'private-repo'
+        plain = tmp / 'plain-repo'
+        loose = tmp / 'loose-dir'
+        for d in (repo, private, plain):
+            (d / '.git').mkdir(parents=True)
+        loose.mkdir()
+        (private / 'leak-blocklist.txt').write_text(
+            '(?<![a-z])zqxcorp(?![a-z])\n', encoding='utf-8')
+        (loose / 'leak-blocklist.txt').write_text('\\bnotread\n', encoding='utf-8')
+        (repo / 'leak-blocklist.txt').write_text('\\bself\n', encoding='utf-8')
+        (tmp / 'home').mkdir()
+
+        found = _lg.discovered_neighbour_blocklists(root=repo)
+        # From a throwaway worktree elsewhere -- where the merge check runs
+        # -- the main clone's neighbours are the ones that count.
+        real = tmp / 'nest' / 'real-tree'
+        (tmp / 'nest' / 'private-neighbour').mkdir(parents=True)
+        (tmp / 'nest' / 'private-neighbour' / '.git').mkdir()
+        (tmp / 'nest' / 'private-neighbour' / 'leak-blocklist.txt').write_text(
+            'zqxother\n', encoding='utf-8')
+        real.mkdir()
+        _git = lambda *a: subprocess.run(['git', '-C', str(real), *a],
+                                         capture_output=True, text=True)
+        _git('init', '-q')
+        (real / 'f.txt').write_text('x\n', encoding='utf-8')
+        _git('add', 'f.txt')
+        _git('-c', 'user.name=f', '-c', 'user.email=f@example.invalid',
+             'commit', '-q', '-m', 'f')
+        wt = tmp / 'elsewhere' / 'wt'
+        wt.parent.mkdir()
+        _git('worktree', 'add', '-q', '--detach', str(wt))
+        from_wt = _lg.discovered_neighbour_blocklists(root=wt)
+        os.environ['HOME'] = str(tmp / 'home')
+        os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        _lg.ROOT = repo
+        pats, desc, configured = _lg.load_blocklist()
+        catches = any(p.search('see zqxcorp_cost_model.py') for p in pats)
+        cases = [
+            ('a neighbour clone\'s leak-blocklist.txt is found',
+             private / 'leak-blocklist.txt' in found),
+            ('a neighbour with no list adds nothing, a loose directory is '
+             'not a repository, and the tree is not its own neighbour',
+             found == [private / 'leak-blocklist.txt']),
+            ('with no variable and no individual source, the neighbour\'s '
+             'list is applied and the private half reports configured',
+             configured and str(private / 'leak-blocklist.txt') in desc),
+            ('a name inside an identifier is caught', catches),
+            ('from a worktree elsewhere, the main clone\'s neighbour is read',
+             tmp / 'nest' / 'private-neighbour' / 'leak-blocklist.txt'
+             in [p.resolve() for p in from_wt]),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  neighbour discovery did NOT behave as stated: {name}")
+        check(f'the leak gate reads the blocklists of repositories checked '
+              f'out beside it ({len(cases)} stated cases)', ok)
+    finally:
+        _lg.ROOT = saved_root
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_leak_gate_names_a_stale_blocklist_clone():
     """The gate says where its blocklist came from when it FAILS, and --
     since 2026-09-20 -- tries one bounded fast-forward before saying so.
@@ -4472,6 +4567,28 @@ def check_doc_lint_fires():
         residue2 = dl.check_residue('flagged.md')
         cases.append(('a genuine verify-later flag is still caught',
                       bool(residue2)))
+
+        # 2026-10-01, a consumer's published pages: the same leaks written
+        # as prose passed the bracketed patterns and reached readers. Each
+        # line below has the shape of one that leaked (the words are made
+        # up); each must fire, and the plain prose beside them must not.
+        leaked = [
+            "unit prices carried from memory, rough, until checked.",
+            "The vendor figures stay rough until checked against sources.",
+            "and the second warehouse, which the next revision opens with.",
+            "every figure checked against search-engine snippets of the page.",
+            "the export case is open. The record carries the rest.",
+        ]
+        for n, line in enumerate(leaked):
+            (tmp / f'prose{n}.md').write_text(line + "\n", encoding='utf-8')
+            cases.append((f'a prose verify-later or record note is caught: '
+                          f'{line[:40]}...',
+                          bool(dl.check_residue(f'prose{n}.md'))))
+        (tmp / 'prose-clean.md').write_text(
+            "The craft revisits the site on the next pass; the pilot recalled "
+            "the checklist and the tail fin was checked.\n", encoding='utf-8')
+        cases.append(('plain prose near those words is not residue',
+                      not dl.check_residue('prose-clean.md')))
 
         # REF_RE's `[^`]+` swallows a whole command line, so a backticked
         # invocation counted as an unlinked file reference -- 177 of 2,323
@@ -7749,6 +7866,45 @@ def _new_entries(parent, before):
     return sorted(set(p.name for p in pathlib.Path(parent).iterdir()) - set(before))
 
 
+def _carry_uncommitted(src, dst):
+    """-> how many uncommitted paths of `src` were written into the clone
+    `dst` (0 when there were none), or None when they could not be.
+
+    The copy used to be committed work only, while every other step of the
+    full check reads the working tree. Run before a commit, the harness
+    then judged the commit BEFORE the change and the rest judged the
+    change: on 2026-10-01 a new check with no planted case (whats-new) went
+    green in the full check and was refused by the merge gate's quick one,
+    which reads the files. Tracked edits travel as a binary diff against
+    HEAD; untracked files that are not ignored are copied as they are."""
+    import shutil
+    diff = subprocess.run(['git', '-C', str(src), 'diff', 'HEAD', '--binary'],
+                          capture_output=True)
+    if diff.returncode != 0:
+        return None
+    n = 0
+    if diff.stdout.strip():
+        r = subprocess.run(['git', '-C', str(dst), 'apply', '--binary',
+                            '--whitespace=nowarn', '-'], input=diff.stdout,
+                           capture_output=True)
+        if r.returncode != 0:
+            return None
+        names = subprocess.run(['git', '-C', str(src), 'diff', 'HEAD',
+                                '--name-only'], capture_output=True, text=True)
+        n += len(names.stdout.split())
+    extra = subprocess.run(['git', '-C', str(src), 'ls-files', '--others',
+                            '--exclude-standard', '-z'], capture_output=True)
+    for rel in [x for x in extra.stdout.decode('utf-8', 'replace').split('\0') if x]:
+        target = pathlib.Path(dst) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(pathlib.Path(src) / rel, target)
+        except OSError:
+            return None
+        n += 1
+    return n
+
+
 def run_as_ci_isolated():
     """-> exit status. --as-ci, from a copy of this commit laid out the way
     GitHub's runner lays it out, then the not-applicable slice again here.
@@ -7763,7 +7919,9 @@ def run_as_ci_isolated():
     nothing else, with this checkout's remote-tracking refs and origin URL
     (actions/checkout's fetch-depth: 0 gives the runner every branch), run
     under _isolated_env(): an empty $HOME, no user config, no source token,
-    UTC. Committed work only -- the runner checks out a commit too.
+    UTC. The checkout's uncommitted changes are carried into it
+    (_carry_uncommitted), so it judges what the rest of the check judges;
+    a commit pushed later is what the runner checks out.
 
     THE SECOND RUN. A test that needs what only this machine has -- a
     private source, a sibling clone -- goes not-applicable in the copy.
@@ -7799,12 +7957,21 @@ def run_as_ci_isolated():
         if url:
             subprocess.run(['git', '-C', str(repo), 'remote', 'set-url',
                             'origin', url], capture_output=True)
+        carried = _carry_uncommitted(ROOT, repo)
+        if carried is None:
+            print('--as-ci --isolated: could not carry this checkout\'s '
+                  'uncommitted changes into the copy, so it would test the '
+                  'last commit instead of them. Commit, then run it again.')
+            return 1
         before = [p.name for p in parent.iterdir()]
         na_file = work / 'not-applicable.txt'
         env = _isolated_env(os.environ, home)
         env['PRECEDENT_NA_FUNCTIONS_FILE'] = str(na_file)
-        print(f'=== isolated: {repo} at {head[:12]} (no siblings, empty '
-              f'$HOME, no source token, UTC) ===', flush=True)
+        print(f'=== isolated: {repo} at {head[:12]}'
+              + (f' plus {carried} uncommitted path(s) from this checkout'
+                 if carried else '')
+              + ' (no siblings, empty $HOME, no source token, UTC) ===',
+              flush=True)
         rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
                              '--as-ci'], cwd=repo, env=env).returncode
         grown = _new_entries(parent, before)
@@ -7837,6 +8004,66 @@ def run_as_ci_isolated():
         return 1 if rc or rc2 else 0
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def check_isolated_copy_carries_uncommitted_changes():
+    """The isolated harness judges what the rest of the full check judges.
+
+    2026-10-01: a full check run before a commit went green while the
+    commit it was about to make added a check with no planted case. The
+    isolated copy was a clone of HEAD, so the harness judged the commit
+    before the change; reproduced on that commit, committed, the same run
+    fails with "untested: ['whats-new']". _carry_uncommitted now writes the
+    checkout's uncommitted state into the copy. The rule under test: a
+    tracked edit, a deletion and an untracked file reach the copy, an
+    ignored file does not, and a clean checkout carries nothing. Driven
+    against a throwaway repository (a whole planted --as-ci run costs
+    about nine minutes)."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        src, dst = tmp / 'src', tmp / 'dst'
+
+        def git(repo, *a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)],
+                       capture_output=True, env=env)
+        (src / 'kept.py').write_text('A = 1\n', encoding='utf-8')
+        (src / 'gone.py').write_text('B = 1\n', encoding='utf-8')
+        (src / '.gitignore').write_text('scratch/\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'base')
+
+        def copy():
+            import shutil
+            shutil.rmtree(dst, ignore_errors=True)
+            subprocess.run(['git', 'clone', '-q', str(src), str(dst)],
+                           capture_output=True, env=env)
+            return _carry_uncommitted(src, dst)
+        cases.append(('a clean checkout carries nothing', copy() == 0, ''))
+        (src / 'kept.py').write_text('A = 2\n', encoding='utf-8')
+        (src / 'gone.py').unlink()
+        (src / 'new_check.py').write_text('C = 3\n', encoding='utf-8')
+        (src / 'scratch').mkdir()
+        (src / 'scratch' / 'notes.txt').write_text('x', encoding='utf-8')
+        n = copy()
+        cases.append(('the edit, the deletion and the new file are counted',
+                      n == 3, repr(n)))
+        cases.append(('the tracked edit reaches the copy',
+                      (dst / 'kept.py').read_text(encoding='utf-8') == 'A = 2\n', ''))
+        cases.append(('the deletion reaches the copy',
+                      not (dst / 'gone.py').exists(), ''))
+        cases.append(('the untracked file reaches the copy',
+                      (dst / 'new_check.py').is_file(), ''))
+        cases.append(('an ignored file does not',
+                      not (dst / 'scratch').exists(), ''))
+    bad = [(n_, d) for n_, ok, d in cases if not ok]
+    check(f'the isolated harness copy carries the checkout\'s uncommitted '
+          f'changes ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n_}: {d}' for n_, d in bad))
 
 
 def check_isolated_run_matches_the_runner():
@@ -17190,7 +17417,17 @@ def check_source_sets_can_learn_they_are_stale():
             if tip:
                 current = fake_set('current-set', tip)
                 stale = fake_set('stale-set', '0' * 40)
-                _t, _r, found = prs.survey([str(current), str(stale)])
+                # Refreshed in the working tree, older engine committed: the
+                # state every set clone is in after a session-start refresh.
+                held = fake_set('uncommitted-set', '1' * 40)
+                for a in (['init', '-q', '-b', 'main'], ['add', '-A'],
+                          ['-c', 'user.name=t', '-c', 'user.email=t@t',
+                           'commit', '-qm', 'older engine']):
+                    subprocess.run(['git', '-C', str(held), *a], capture_output=True)
+                (held / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    json.dumps({'format_version': 1, 'kind': 'source',
+                                'source_commit': tip}), encoding='utf-8')
+                _t, _r, found = prs.survey([str(current), str(stale), str(held)])
                 by = {e['repo'].name: e for e in found}
                 cases.append(('a set recording this tip reports as current',
                               by.get('current-set', {}).get('stale') is False,
@@ -17220,6 +17457,21 @@ def check_source_sets_can_learn_they_are_stale():
                               len(lines) == 2 and all('BestPractice' in l
                                                       for l in lines),
                               said[-600:]))
+                held_line = next((l for l in said.splitlines()
+                                  if 'uncommitted-set' in l), '')
+                cases.append(('a refreshed working tree over an older committed '
+                              'engine says both, and how it lands: Update '
+                              'Vendors in that set (2026-10-01)',
+                              'working tree current' in held_line
+                              and 'committed engine is 111111111111' in held_line
+                              and 'only in this container' in held_line
+                              and '"Update Vendors" in uncommitted-set' in held_line,
+                              held_line))
+                cur_line = next((l for l in said.splitlines()
+                                 if 'current-set' in l and 'uncommitted' not in l), '')
+                cases.append(('...and a clone with nothing committed to compare '
+                              'says engine current, as before',
+                              'engine current' in cur_line, cur_line))
             else:
                 cases.append(('the staleness fixtures could run (needs '
                               f'origin/{prs.SOURCE_BRANCH} fetched)', False,
@@ -18197,6 +18449,54 @@ def check_contradiction_requirement_blocks():
           f'the archive contradiction ({len(cases)} stated cases, each with its control)',
           not bad_cases,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
+def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
+    """A paste block that tells another session to land on a tier branch
+    carries the person's quoted Booked, or the reply is refused.
+
+    2026-10-01: two prompts a session wrote ended "Land it on staging per
+    this repo's conventions". Morgan had not said Booked, and routine work
+    lands on pre-staging, never staging; fence-block-for-paste passed both,
+    since it checks where a block goes, not what it authorizes. Driven
+    against the rule as reply_check.json ships it (practice: prompt-please),
+    both ways: the instructions that must fire, and the blocks that must
+    stay clean -- a quoted Booked, an Act ending, a negated line, the
+    reply's own prose to the person, and a shell command."""
+    import precedent_reply_check as prc
+    name = 'a paste block that lands on a tier branch needs the quoted Booked'
+    try:
+        reqs = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('require_in_fence_paired_with')]
+    except (OSError, ValueError):
+        reqs = []
+    if not reqs:
+        check(name, False, 'reply_check.json declares no require_in_fence_paired_with')
+        return
+
+    def fires(body, prose='Paste into: a new session rooted in x.\n'):
+        text = prose + '```\n' + body + '\n```\n'
+        return [v for v in prc.violations(text, reqs) if v['kind'] == 'in_fence_paired']
+    must_fire = {
+        'land it on staging': "Do the work.\nLand it on staging per this repo's conventions.",
+        'a pull request into pre-staging': 'Open a pull request into pre-staging and merge it.',
+        'merge into main': 'When the checks pass, merge it into `main`.',
+        'push to pre-staging': 'Push it to pre-staging once it is green.',
+    }
+    clean = {
+        "the person's quoted Booked": 'Morgan, 2026-10-01: "Booked".\nOpen a pull request into pre-staging and merge it.',
+        'an Act ending': 'Build it on your feature branch, push it there, and stop.',
+        'a negated line': 'Open no pull request and merge nothing into pre-staging.',
+        'a shell command': 'git push -u origin main',
+    }
+    cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
+    cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
+    cases.append(("clean: the reply's own prose saying Booked lands it on pre-staging",
+                  not fires('push it there and stop',
+                            prose='Booked lands it on pre-staging.\nPaste into: x\n'), ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} {d}' for n, d in bad))
 
 
 def check_reply_check_requires_a_destination_for_a_fence_block():
@@ -22525,6 +22825,90 @@ def check_retirement_record_is_not_a_stranded_link():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_shipped_hooks_pass_rename_links_without_the_mirror():
+    """Every hook BestPractice ships passes rename-updates-links in a
+    consumer whose process/upstream/tools/ was just deleted.
+
+    2026-10-01, from a consumer's Update Vendors: the shipped
+    freshness-guard.sh and the individual-source bootstrap still fell back
+    to process/upstream/tools/X, the check refused the fallback lines, and
+    the update rewrote the hooks on every run, so a consumer could not fix
+    them and re-run. The hooks now name only tools/X, and the check counts
+    "$ROOT/tools/X" as this repo's own. Run as a repository runs it: the
+    mirror committed, then deleted in the change that installs every
+    shipped hook. CONTROLS: an unguarded call to the deleted path is still
+    refused, and a consumer's own guarded loop of the same shape is spared."""
+    import tempfile, json as _json, shutil as _shutil
+    checker = ROOT / 'tools' / 'precedent_check.py'
+    name = ('every shipped hook passes rename-updates-links in a consumer '
+            'with no process/upstream/tools/')
+    hooks = sorted((ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks').glob('*'))
+    if not checker.exists() or not hooks:
+        not_applicable(name, 'no checker or no shipped hooks here')
+        return
+    tools = ('precedent_identity.py', 'precedent_branches.py', 'precedent_resolve.py',
+             'precedent_source_bootstrap.py', 'precedent_source_credentials.py')
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td) / 'repo'
+        (base / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        (base / 'tools').mkdir()
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(base), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        (base / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
+                      base / 'practices' / 'rename-updates-links.md')
+        _shutil.copy2(checker, base / 'tools' / 'precedent_check.py')
+        (base / 'precedent.json').write_text(
+            _json.dumps({'format_version': 1, 'sources': [],
+                         'visibility': 'private'}), encoding='utf-8')
+        for t in tools:
+            (base / 'process' / 'upstream' / 'tools' / t).write_text('', encoding='utf-8')
+            (base / 'tools' / t).write_text('', encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(base), *a],
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 'h@example.com')
+        g('config', 'user.name', 'H')
+        g('add', '-A'); g('commit', '-qm', 'base: the mirror still there')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        _shutil.rmtree(base / 'process' / 'upstream' / 'tools')
+        (base / '.claude' / 'hooks').mkdir(parents=True, exist_ok=True)
+        for h in hooks:
+            _shutil.copy2(h, base / '.claude' / 'hooks' / h.name.replace('.template', ''))
+        (base / 'scripts').mkdir()
+        (base / 'scripts' / 'unguarded.sh').write_text(
+            'python3 process/upstream/tools/precedent_identity.py --commit-env .\n',
+            encoding='utf-8')
+        (base / 'scripts' / 'own_loop.sh').write_text(
+            'for c in "$ROOT/tools/precedent_branches.py" '
+            '"$ROOT/process/upstream/tools/precedent_branches.py"; do\n'
+            '  [ -f "$c" ] && break\ndone\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'drop the mirror, install the hooks')
+        r = subprocess.run(
+            [sys.executable, 'tools/precedent_check.py',
+             '--only', 'rename-updates-links'],
+            capture_output=True, text=True, cwd=str(base), timeout=300, env=env)
+        out = r.stdout + r.stderr
+    flagged = sorted({l.split(':')[0].strip() for l in out.splitlines()
+                      if '.claude/hooks/' in l and 'process/upstream/tools/' in l})
+    cases = [
+        ('no shipped hook is refused', not flagged, ', '.join(flagged)),
+        ('CONTROL: an unguarded call to the deleted path is still refused',
+         'scripts/unguarded.sh' in out, ''),
+        ("a consumer's own guarded loop rooted at \"$ROOT/tools/X\" is spared",
+         'scripts/own_loop.sh' not in out, ''),
+    ]
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} {d}' for n, d in bad) + ('' if not bad else f' -- {out[-800:]}'))
+
+
 def check_rename_links_spares_a_commit_pinned_permalink():
     """A permalink pinned to a 40-hex commit is how a file that no longer
     exists is cited correctly: it names the file as it was, and cannot go
@@ -23107,6 +23491,27 @@ def check_commit_identity_ci_cadence():
         h = _commit(work, env, 'H')
         cases.append(('a repo declaring its own cadence is honoured over a '
                       'personal 0', SKIP in h))
+
+        # github_ci_main_test, the repository's final say (2026-10-01).
+        work, env = _setup('main-test-always', personal=48,
+                           repo_cfg={'github_ci_main_test': 'always'})
+        _commit(work, env, 'old'); _push(work, env)
+        m1 = _commit(work, env, 'M1')
+        cases.append(('github_ci_main_test "always" never tags a commit on main, '
+                      'whatever the personal hours: every push there is tested',
+                      SKIP not in m1))
+        work, env = _setup('main-test-hours', personal=0,
+                           repo_cfg={'github_ci_main_test': 48})
+        _commit(work, env, 'old'); _push(work, env)
+        m2 = _commit(work, env, 'M2')
+        cases.append(('github_ci_main_test 48 is the hours, over a personal 0',
+                      SKIP in m2))
+        work, env = _setup('main-test-individual', personal=48,
+                           repo_cfg={'github_ci_main_test': 'individual'})
+        _commit(work, env, 'old'); _push(work, env)
+        m3 = _commit(work, env, 'M3')
+        cases.append(('github_ci_main_test "individual" hands it to the personal hours',
+                      SKIP in m3))
 
         # Doubt runs CI.
         work, env = _setup('public', personal=48, repo_cfg={'visibility': None})
@@ -25159,6 +25564,822 @@ def check_promote_keeps_the_old_name_in_step():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _gh_if(expr, event_name, private, head_ref=''):
+    """Evaluate a GitHub Actions job `if:` the way GitHub does, for the few
+    operators the light check uses (&&, ||, !, ==, !=, startsWith, true),
+    against one event. Strict on purpose: anything else in the expression
+    raises, so a template edit this cannot read fails loudly, never reads as
+    "skips"."""
+    import types
+    e = expr.replace('!=', ' __NE__ ').replace('==', ' __EQ__ ')
+    e = e.replace('&&', ' and ').replace('||', ' or ').replace('!', ' not ')
+    e = e.replace('__NE__', '!=').replace('__EQ__', '==')
+    e = re.sub(r'\btrue\b', 'True', re.sub(r'\bfalse\b', 'False', e))
+    left = re.sub(r"'[^']*'", '', e)
+    names = set(re.findall(r'[A-Za-z_][\w.]*', left)) - {
+        'and', 'or', 'not', 'True', 'False', 'startsWith', 'github.event_name',
+        'github.head_ref', 'github.event.repository.private'}
+    if names:
+        raise ValueError(f'the job if: uses {sorted(names)}, which this evaluator does not model')
+    ns = types.SimpleNamespace
+    github = ns(event_name=event_name, head_ref=head_ref,
+                event=ns(repository=ns(private=private)))
+    return bool(eval(e, {'__builtins__': {}}, {
+        'github': github,
+        'startsWith': lambda a, b: str(a or '').lower().startswith(str(b).lower())}))
+
+
+def check_main_test_minutes_rule():
+    """Morgan, 2026-10-01: "I really want to make sure that github minutes
+    only run if it's main AND (it's a public repo OR (that user's
+    precedent-individual has it enabled AND it's been the # of hours or more
+    listed in ci_every_hours))".
+
+    Three independent views of the same rule, so one cannot hide a mistake
+    in another: (1) the light-check template's own `on:` and job `if:`,
+    evaluated against every event that could start it; (2) every combination
+    of visibility, switch, hours and time since the last pass, through
+    Promote's decision AND the template together, compared with the rule;
+    (3) a real Promote into main in a scratch repository, reading the branch
+    name it actually pushed. The deliberate exceptions -- where it runs
+    although the rule alone would not -- are asserted separately and named,
+    so a change to any of them is a visible decision, not drift."""
+    import importlib.util, itertools, json as _json, shutil as _shutil, tempfile
+    import time as _time
+    name = "GitHub minutes run only on main, and in a private repo only when switched on and due"
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    try:
+        import yaml as _yaml
+    except ImportError:
+        not_applicable(name, 'PyYAML is not installed, and the template is read with it')
+        return
+    if not src.exists() or not tpl.is_file():
+        not_applicable(name, 'tools/precedent_branches.py or the light-check template is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_minutes', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    cases = []
+    doc = _yaml.safe_load(tpl.read_text(encoding='utf-8'))
+    on = doc.get('on', doc.get(True)) or {}
+    expr = doc['jobs']['light-check']['if']
+
+    def starts(event, branch, private, head_ref=''):
+        """-> True when GitHub would start a runner: a trigger matches, then
+        the job's if: holds. `branch` is the pushed branch, or the pull
+        request's base."""
+        trig = on.get(event, None) if isinstance(on, dict) else None
+        if event not in on:
+            return False
+        branches = (trig or {}).get('branches') if isinstance(trig, dict) else None
+        if branches is not None and branch not in branches:
+            return False
+        return _gh_if(expr, event, private, head_ref)
+
+    # (1) Every event shape, against the rule's first half: never off main.
+    for private in (False, True):
+        kind = 'private' if private else 'public'
+        for b in ('pre-staging', 'staging', 'claude/feature-x'):
+            cases.append((f'{kind}: a push to {b} starts no runner',
+                          not starts('push', b, private)))
+            cases.append((f'{kind}: a pull request into {b} starts no runner',
+                          not starts('pull_request', b, private, 'claude/feature-x')))
+    cases.append(('public: a push to main runs (a public repo tests every push to main)',
+                  starts('push', 'main', False)))
+    cases.append(('private: a push to main starts no runner, ever',
+                  not starts('push', 'main', True)))
+    cases.append(('private: a Promote copy that is NOT DUE starts no runner',
+                  not starts('pull_request', 'main', True, pb.NOT_DUE_PREFIX + '2026-10-01')))
+    cases.append(('public: a not-due name is ignored, and the test runs',
+                  starts('pull_request', 'main', False, pb.NOT_DUE_PREFIX + '2026-10-01')))
+    cases.append(('private: a Promote copy that IS due runs',
+                  starts('pull_request', 'main', True, 'to-main-2026-10-01')))
+    cases.append(('private: a pull request into main from a working branch -- not a '
+                  'Promote copy, so nobody judged it -- starts no runner',
+                  not starts('pull_request', 'main', True, 'claude/feature-x')))
+    cases.append(('...nor one from staging itself',
+                  not starts('pull_request', 'main', True, 'staging')))
+    cases.append(('...nor "x-to-main-...": the copy name is matched as a prefix',
+                  not starts('pull_request', 'main', True, 'x-to-main-2026-10-01')))
+    cases.append(('public: a pull request into main from a working branch runs',
+                  starts('pull_request', 'main', False, 'claude/feature-x')))
+    cases.append(('a run started by hand runs in either kind of repository',
+                  starts('workflow_dispatch', 'main', True)
+                  and starts('workflow_dispatch', 'main', False)))
+
+    # (2) The whole table, through Promote's decision and the template.
+    saved_force = os.environ.pop(pb.FORCE_ENV, None)
+    WF = '.github/workflows/light-check.yml'
+    now = _time.time()
+
+    class GH:
+        def __init__(self, hours_ago):
+            self.hours_ago = hours_ago
+
+        def call(self, path, cache=True):
+            if self.hours_ago is None:
+                return {'workflow_runs': []}, None
+            return {'workflow_runs': [{
+                'path': WF, 'status': 'completed', 'conclusion': 'success',
+                'head_branch': 'to-main-2026-09-20', 'html_url': 'U',
+                'created_at': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(
+                    now - self.hours_ago * 3600))}]}, None
+    pb._slug = lambda root: 'o/r'
+    pb.github_tests = lambda root, sha: [(WF, True)]
+    real_git = pb._git
+    pb._git = lambda root, *a: (('on: {}\n# ' + pb.NOT_DUE_PREFIX) if a[:1] == ('show',)
+                                else '' if a[:2] == ('diff', '--name-only')
+                                else real_git(root, *a))
+    wrong = []
+    rows = 0
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+        visibilities = ('public', 'private', None)
+        switches = ('enabled', 'disabled', 'disable', None)      # None = not declared
+        hours_set = (0, 24, 168, None, 'weekly')                 # None = not declared
+        last_pass = (1, 23, 25, 167, 169, 1000, None)            # hours ago; None = never
+        for vis, sw, hrs, ago in itertools.product(visibilities, switches, hours_set, last_pass):
+            pj = {'base_branch': 'main'}
+            if vis:
+                pj['visibility'] = vis
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if sw is not None:
+                ident['ci_workflows'] = sw
+            if hrs is not None:
+                ident['ci_every_hours'] = hrs
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+            private = vis == 'private'
+            due, why = pb.main_test_due(repo, 'TIP', gh=GH(ago), user_config=cfg)
+            copy = ('to-main-' if due else pb.NOT_DUE_PREFIX) + '2026-10-01'
+            ran = starts('pull_request', 'main', private, copy)
+            # The rule, written out as Morgan wrote it. An undeclared or
+            # non-numeric hours value is 0 (every Promote); an undeclared
+            # switch is on (his "assume yes"); a typo is off.
+            on_ = sw in ('enabled', None)
+            h = hrs if isinstance(hrs, (int, float)) and not isinstance(hrs, bool) else 0
+            elapsed = ago is None or ago >= h
+            expected = (not private) or (on_ and elapsed)
+            rows += 1
+            if ran != expected:
+                wrong.append(f'{vis}/{sw}/{hrs}h/last {ago}h ago: ran={ran}, rule says '
+                             f'{expected} ({why})')
+        cases.append((f'all {rows} combinations of visibility, switch, hours and time '
+                      f'since the last pass run exactly when the rule says',
+                      not wrong))
+
+        # The deliberate exceptions: each RUNS although the rule alone would
+        # not, because its inputs say the window cannot be trusted. Asserted,
+        # so dropping one is a decision someone makes in this file.
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'visibility': 'private'}), encoding='utf-8')
+        (me / 'identity.json').write_text(_json.dumps(
+            {'email': 'me@example.com', 'ci_workflows': 'enabled', 'ci_every_hours': 168}),
+            encoding='utf-8')
+        d, _ = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
+        cases.append(('baseline for the exceptions: enabled, 168h, passed 10h ago -> not due',
+                      d is False))
+
+        class FailGH(GH):
+            def call(self, path, cache=True):
+                data, _ = super().call(path)
+                data['workflow_runs'].insert(0, dict(data['workflow_runs'][0],
+                                                     conclusion='failure', created_at=_time.strftime(
+                                                         '%Y-%m-%dT%H:%M:%SZ', _time.gmtime(now - 3600))))
+                return data, None
+
+        class DownGH:
+            def call(self, path, cache=True):
+                return None, 'HTTP 503'
+        exceptions = [
+            ('a failed newest run', lambda: pb.main_test_due(repo, 'TIP', gh=FailGH(10), user_config=cfg)),
+            ('GitHub not answering', lambda: pb.main_test_due(repo, 'TIP', gh=DownGH(), user_config=cfg)),
+        ]
+        for label, fn in exceptions:
+            d, why = fn()
+            cases.append((f'EXCEPTION, runs inside the window: {label} ({why[:60]})', d is True))
+        pb._git = lambda root, *a: ('on: {}\n' if a[:1] == ('show',) else ''
+                                    if a[:2] == ('diff', '--name-only') else real_git(root, *a))
+        d, why = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
+        cases.append(('EXCEPTION, runs inside the window: an installed workflow older '
+                      'than the skip (it would run anyway)', d is True))
+        pb._git = real_git
+        os.environ[pb.FORCE_ENV] = '1'
+        d, why = pb.main_test_due(repo, 'TIP', gh=GH(10), user_config=cfg)
+        os.environ.pop(pb.FORCE_ENV, None)
+        cases.append((f'EXCEPTION, a person asking: {pb.FORCE_ENV}=1 runs it', d is True))
+
+        # (3) A real Promote into main, in a scratch repository with a bare
+        # origin: which branch name does it actually push?
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / '.github' / 'workflows').mkdir(parents=True)
+        _shutil.copy2(tpl, work / '.github' / 'workflows' / 'light-check.yml')
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', pb.STAGING_KEY: 'staging',
+             'visibility': 'private'}), encoding='utf-8')
+        (work / 'notes.md').write_text('one\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-qm', 'start')
+        git(work, 'remote', 'add', 'origin', str(bare))
+        git(work, 'push', '-q', 'origin', 'main')
+        git(work, 'push', '-q', 'origin', 'main:staging')
+        saved_env = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
+        pb2 = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pb2)
+        pb2.sync_pre_staging = lambda root, say=print, check=False: True
+        pb2._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+        pb2._slug = lambda root: 'o/r'
+        pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
+        pb2.DEFAULT_USER_CONFIG = cfg
+        pushed = {}
+        try:
+            for label, ago in (('passed 10h ago', 10), ('passed 200h ago', 200)):
+                git(work, 'checkout', '-q', '-B', 'staging', 'origin/staging')
+                (work / 'notes.md').write_text(f'{label}\n', encoding='utf-8')
+                git(work, 'commit', '-qam', f'work: {label}')
+                git(work, 'push', '-q', 'origin', 'staging')
+                before = set(git(work, 'ls-remote', '--heads', 'origin').stdout.split())
+                pb2.last_main_test_pass = (lambda a: lambda root, tests, gh=None:
+                                           (_time.time() - a * 3600, None))(ago)
+                said = []
+                rc = pb2._promote_to_main(str(work), said.append)
+                after = set(git(work, 'ls-remote', '--heads', 'origin').stdout.split())
+                pushed[label] = (rc, sorted(r[len('refs/heads/'):] for r in after - before
+                                            if r.startswith('refs/heads/')), said)
+        finally:
+            for k, v in saved_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        rc, refs, said = pushed['passed 10h ago']
+        cases.append(('a real Promote, test passed 10h ago with 168h set: pushes a '
+                      'to-main-not-due-* copy and says NOT DUE',
+                      rc == pb2.PROMOTE_MAIN_NOT_MOVED and len(refs) == 1
+                      and refs[0].startswith(pb2.NOT_DUE_PREFIX)
+                      and any('NOT DUE' in x for x in said)
+                      and not starts('pull_request', 'main', True, refs[0])))
+        rc, refs, said = pushed['passed 200h ago']
+        cases.append(('...and with the test 200h old: pushes a plain to-main-* copy, '
+                      'says DUE, and GitHub would run it',
+                      rc == pb2.PROMOTE_MAIN_NOT_MOVED and len(refs) == 1
+                      and refs[0].startswith('to-main-')
+                      and not refs[0].startswith(pb2.NOT_DUE_PREFIX)
+                      and any('GitHub test: DUE' in x for x in said)
+                      and starts('pull_request', 'main', True, refs[0])))
+    if saved_force is not None:
+        os.environ[pb.FORCE_ENV] = saved_force
+    failed = [n for n, ok in cases if not ok]
+    detail = '; '.join(failed) + ((' | ' + ' | '.join(wrong[:5])) if wrong else '')
+    check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
+
+
+def check_main_test_repo_setting():
+    """The repository's own github_ci_main_test has the final say over
+    main's GitHub test (2026-10-01, spec/CI_CADENCE_PLAN.md, "The repository
+    decides"): "individual" (the default), "never", "always" or a number of
+    hours. Morgan: "I don't want the big bills to come back", and on two runs
+    for one change: "no we don't want it run twice, no no no, not at all".
+
+    THE INVARIANT THAT MATTERS MOST: in a private repository no change that
+    lands on main is tested more than once, by any route -- a Promote, a
+    pull request merged by hand, a direct push. Counted here by walking each
+    route's events through the installed workflow (the template, or the
+    template as Update Vendors writes it for "always") and Promote's own
+    decision, for every combination of the repository's setting, the
+    person's switch and hours, and the time since the last pass. Then the
+    real refresh is run on a scratch consumer, both directions."""
+    import importlib.util, itertools, json as _json, tempfile, time as _time
+    name = 'the repository decides main\'s GitHub test, and no change is tested twice'
+    try:
+        import yaml as _yaml
+    except ImportError:
+        not_applicable(name, 'PyYAML is not installed, and the template is read with it')
+        return
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    srcs = {m: ROOT / 'tools' / f'{m}.py' for m in ('precedent_branches', 'precedent_vendor_engine')}
+    if not tpl.is_file() or not all(p.exists() for p in srcs.values()):
+        not_applicable(name, 'the light-check template or an engine module is absent')
+        return
+
+    def load(mod, alias):
+        spec = importlib.util.spec_from_file_location(alias, srcs[mod])
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+    pb = load('precedent_branches', '_pb_repo_setting')
+    pve = load('precedent_vendor_engine', '_pve_repo_setting')
+    cases = []
+    raw = tpl.read_bytes()
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        always_repo = tmp / 'always-repo'
+        always_repo.mkdir()
+        (always_repo / 'precedent.json').write_text(_json.dumps(
+            {'github_ci_main_test': 'always'}), encoding='utf-8')
+        rendered = pve.render_ci_workflow(always_repo, raw)
+        cases.append(('only "always" changes the file: the marker, and nothing else',
+                      rendered != raw
+                      and rendered == raw.replace(pve.MAIN_TEST_MARKER, pve.MAIN_TEST_ALWAYS)
+                      and len([1 for a, b in zip(raw.splitlines(), rendered.splitlines())
+                               if a != b]) == raw.count(pve.MAIN_TEST_MARKER)
+                      and pb.MAIN_TEST_ALWAYS_TEXT.encode() in rendered
+                      and pb.MAIN_TEST_ALWAYS_TEXT.encode() not in raw))
+        for value in ('individual', 'never', 48, 0, 'Always', 'bogus', None):
+            other = tmp / f'repo-{value}'
+            other.mkdir()
+            (other / 'precedent.json').write_text(_json.dumps(
+                {} if value is None else {'github_ci_main_test': value}), encoding='utf-8')
+            cases.append((f'github_ci_main_test {value!r} leaves the file byte-identical '
+                          f'to the template', pve.render_ci_workflow(other, raw) == raw))
+
+        def wf(text):
+            doc = _yaml.safe_load(text)
+            return doc.get('on', doc.get(True)) or {}, doc['jobs']['light-check']['if']
+
+        def starts(text, event, branch, private, head_ref=''):
+            on, expr = wf(text)
+            if event not in on:
+                return False
+            trig = on.get(event)
+            branches = trig.get('branches') if isinstance(trig, dict) else None
+            if branches is not None and branch not in branches:
+                return False
+            return _gh_if(expr, event, private, head_ref)
+
+        RAW, REN = raw.decode('utf-8'), rendered.decode('utf-8')
+        for private in (True, False):
+            kind = 'private' if private else 'public'
+            for b in ('pre-staging', 'staging', 'claude/feature-x'):
+                cases.append((f'"always", {kind}: a push to {b} still starts no runner',
+                              not starts(REN, 'push', b, private)))
+        cases.append(('"always", private: a push to main runs',
+                      starts(REN, 'push', 'main', True)))
+        cases.append(('"always", private: NO pull request into main runs -- not a due '
+                      'copy, not a not-due one, not a hand-made one',
+                      not any(starts(REN, 'pull_request', 'main', True, h) for h in
+                              ('to-main-2026-10-01', pb.NOT_DUE_PREFIX + '2026-10-01',
+                               'claude/feature-x', 'staging'))))
+
+        # The table: every route a change takes to main, counted.
+        saved_force = os.environ.pop(pb.FORCE_ENV, None)
+        WF = '.github/workflows/light-check.yml'
+        now = _time.time()
+
+        class GH:
+            def __init__(self, hours_ago):
+                self.hours_ago = hours_ago
+
+            def call(self, path, cache=True):
+                if self.hours_ago is None:
+                    return {'workflow_runs': []}, None
+                return {'workflow_runs': [{
+                    'path': WF, 'status': 'completed', 'conclusion': 'success',
+                    'head_branch': 'to-main-2026-09-20', 'html_url': 'U',
+                    'created_at': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(
+                        now - self.hours_ago * 3600))}]}, None
+        pb._slug = lambda root: 'o/r'
+        pb.github_tests = lambda root, sha: [(WF, True)]
+        installed = {'text': RAW}
+        real_git = pb._git
+        pb._git = lambda root, *a: (installed['text'] if a[:1] == ('show',)
+                                    else real_git(root, *a))
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+        wrong, twice, rows = [], [], 0
+        modes = (None, 'individual', 'never', 'always', 'always-not-installed', 0, 48, 'bogus')
+        for vis, mode, sw, hrs, ago in itertools.product(
+                ('public', 'private', None), modes, ('enabled', 'disabled', None),
+                (0, 168, None), (1, 47, 49, 200, None)):
+            private = vis == 'private'
+            pj = {'base_branch': 'main'}
+            if vis:
+                pj['visibility'] = vis
+            if mode is not None:
+                pj['github_ci_main_test'] = 'always' if mode == 'always-not-installed' else mode
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if sw is not None:
+                ident['ci_workflows'] = sw
+            if hrs is not None:
+                ident['ci_every_hours'] = hrs
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+            text = REN if mode == 'always' else RAW
+            installed['text'] = text
+            due, why = pb.main_test_due(repo, 'TIP', gh=GH(ago), user_config=cfg)
+            copy = ('to-main-' if due else pb.NOT_DUE_PREFIX) + '2026-10-01'
+            promote = (int(starts(text, 'pull_request', 'main', private, copy))
+                       + int(starts(text, 'push', 'main', private)))
+            hand = (int(starts(text, 'pull_request', 'main', private, 'claude/feature-x'))
+                    + int(starts(text, 'push', 'main', private)))
+            direct = int(starts(text, 'push', 'main', private))
+            rows += 1
+            # The rule, written out. Public: tested (its minutes are free, and
+            # every push to main there is tested by decision of 2026-09-27).
+            # Private: the repository's word, unless it says "individual".
+            if not private:
+                exp_promote_pr, exp_push = True, True
+            else:
+                eff = 'individual' if mode in (None, 'individual', 'always-not-installed') \
+                    else 'never' if mode == 'bogus' else mode
+                on_ = sw in ('enabled', None)
+                if eff == 'never':
+                    exp_promote_pr, exp_push = False, False
+                elif eff == 'always':
+                    exp_promote_pr, exp_push = False, True
+                elif isinstance(eff, (int, float)):
+                    exp_promote_pr = ago is None or ago >= eff
+                    exp_push = False
+                else:
+                    h = hrs if isinstance(hrs, (int, float)) else 0
+                    exp_promote_pr = on_ and (ago is None or ago >= h)
+                    exp_push = False
+            exp_promote = int(exp_promote_pr) + int(exp_push)
+            label = f'{vis}/{mode}/{sw}/{hrs}h/last {ago}h'
+            if promote != exp_promote or direct != int(exp_push) or (
+                    private and hand != int(exp_push)):
+                wrong.append(f'{label}: promote={promote} hand={hand} direct={direct}, '
+                             f'expected promote={exp_promote} push={int(exp_push)} ({why[:80]})')
+            if private and (promote > 1 or hand > 1 or direct > 1):
+                twice.append(label)
+        pb._git = real_git
+        if saved_force is not None:
+            os.environ[pb.FORCE_ENV] = saved_force
+        cases.append((f'all {rows} combinations run exactly when the rule says, by '
+                      f'every route: a Promote, a hand-made pull request, a direct push',
+                      not wrong))
+        cases.append(('in a private repository, NO route tests one change twice',
+                      not twice))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'visibility': 'private', 'github_ci_main_test': 'bogus'}), encoding='utf-8')
+        mode, _h, why = pb.main_test_mode(repo)
+        cases.append(('a value that is none of the four reads as "never", and says so',
+                      mode == 'never' and 'not "individual"' in why))
+
+        # Update Vendors, for real, on a scratch consumer: "always" is written
+        # into the file and recorded, and taken back out when it changes.
+        import hashlib as _hl
+        dest = tmp / 'consumer'
+        (dest / 'tools').mkdir(parents=True)
+        (dest / '.github' / 'workflows').mkdir(parents=True)
+        # As a real consumer has it: the template installed, recorded in the
+        # manifest, and committed -- the refresh replaces only a file git holds.
+        (dest / 'tools' / 'ENGINE_MANIFEST.json').write_text(_json.dumps(
+            {'kind': 'consumer', 'ci_workflow_files': ['.github/workflows/light-check.yml'],
+             'ci_workflows_sha256': {'.github/workflows/light-check.yml':
+                                     _hl.sha256(raw).hexdigest()}}), encoding='utf-8')
+        installed_wf = dest / '.github' / 'workflows' / 'light-check.yml'
+        installed_wf.write_bytes(raw)
+        genv = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                    GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                    GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        for a in (['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-qm', 'install']):
+            subprocess.run(['git', '-C', str(dest), *a], capture_output=True, env=genv)
+        (dest / 'precedent.json').write_text(_json.dumps(
+            {'visibility': 'private', 'github_ci_main_test': 'always'}), encoding='utf-8')
+        tdir = ROOT / 'templates' / 'github-actions'
+        man = _json.loads((dest / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        pve._refresh_ci_workflow_files(dest, 'consumer', tdir, man)
+        got = installed_wf.read_bytes()
+        man = _json.loads((dest / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        cases.append(('Update Vendors writes "always" into a repo that asks for it, and '
+                      'records that file, so the workflow-approval check sees it as '
+                      "the engine's own",
+                      got == rendered and man.get('ci_workflows_sha256', {}).get(
+                          '.github/workflows/light-check.yml') == _hl.sha256(got).hexdigest()))
+        (dest / 'precedent.json').write_text(_json.dumps(
+            {'visibility': 'private', 'github_ci_main_test': 'individual'}), encoding='utf-8')
+        pve._refresh_ci_workflow_files(dest, 'consumer', tdir, man)
+        cases.append(('...and takes it back out when the repo changes its mind',
+                      installed_wf.read_bytes() == raw))
+    failed = [n for n, ok in cases if not ok]
+    detail = '; '.join(failed) + ((' | ' + ' | '.join(wrong[:4])) if wrong else '')
+    check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
+
+
+def check_main_test_without_individual_source():
+    """Main's GitHub test with NO individual source at all -- someone who has
+    never set up a precedent-individual, or whose config names one that is
+    not there. Morgan, 2026-10-01: "does this version still work if the
+    user has no precedent-individual file? Did you test for that?"
+
+    Nothing personal is declared, so the defaults apply: GitHub tests count
+    as on and the hours are 0, which in a private repository means every
+    Promote is tested (what it did before any of this), and the
+    repository's own github_ci_main_test still has the final say. Also a
+    broken identity.json, and one with no email (never read as a person's),
+    and the commit hook's cadence script writing a personal 0."""
+    import importlib.util, json as _json, tempfile
+    name = 'with no individual source, main\'s GitHub test falls back to the defaults'
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'commit-identity.sh'
+    try:
+        import yaml as _yaml
+    except ImportError:
+        not_applicable(name, 'PyYAML is not installed, and the template is read with it')
+        return
+    if not (tpl.is_file() and src.exists() and hook.is_file()):
+        not_applicable(name, 'the template, precedent_branches.py or commit-identity.sh is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_no_individual', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    doc = _yaml.safe_load(tpl.read_text(encoding='utf-8'))
+    on = doc.get('on', doc.get(True)) or {}
+    expr = doc['jobs']['light-check']['if']
+    raw = tpl.read_text(encoding='utf-8')
+    rendered = raw.replace("'main-test:individual'", "'main-test:always'")
+
+    def runs(text, event, private, head_ref=''):
+        e = _yaml.safe_load(text)['jobs']['light-check']['if']
+        return event in on and _gh_if(e, event, private, head_ref)
+
+    WF = '.github/workflows/light-check.yml'
+
+    class GH:
+        def call(self, path, cache=True):
+            return {'workflow_runs': [{
+                'path': WF, 'status': 'completed', 'conclusion': 'success',
+                'head_branch': 'to-main-2026-09-30', 'created_at': '2099-01-01T00:00:00Z'}]}, None
+    pb._slug = lambda root: 'o/r'
+    pb.github_tests = lambda root, sha: [(WF, True)]
+    installed = {'text': raw}
+    real_git = pb._git
+    pb._git = lambda root, *a: installed['text'] if a[:1] == ('show',) else real_git(root, *a)
+    saved_force = os.environ.pop(pb.FORCE_ENV, None)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo = tmp / 'repo'
+        repo.mkdir()
+        broken, noemail = tmp / 'broken', tmp / 'noemail'
+        broken.mkdir()
+        noemail.mkdir()
+        (broken / 'identity.json').write_text('{ this is not json', encoding='utf-8')
+        (noemail / 'identity.json').write_text(_json.dumps(
+            {'ci_workflows': 'disabled', 'ci_every_hours': 168}), encoding='utf-8')
+        configs = {'no config file at all': tmp / 'nonexistent.json'}
+        for label, target in (('a config naming a set that is not there', tmp / 'gone'),
+                              ('an identity.json that is not valid JSON', broken),
+                              ('an identity.json with no email', noemail)):
+            c = tmp / f'cfg-{target.name}.json'
+            c.write_text(_json.dumps({'individual': {'path': str(target)}}), encoding='utf-8')
+            configs[label] = c
+        # The passing run is in the future, so every hours value is "not due":
+        # anything that still runs is running because the hours are 0.
+        for label, cfg in configs.items():
+            on_, _ = pb.main_test_switch(repo, cfg)
+            hours, _ = pb.main_test_cadence(repo, cfg)
+            for mode, exp_pr, exp_push in (
+                    (None, True, False), ('individual', True, False), ('never', False, False),
+                    (48, False, False), (0, True, False), ('always', False, True)):
+                pj = {'base_branch': 'main', 'visibility': 'private'}
+                if mode is not None:
+                    pj['github_ci_main_test'] = mode
+                (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+                installed['text'] = rendered if mode == 'always' else raw
+                due, why = pb.main_test_due(repo, 'TIP', gh=GH(), user_config=cfg)
+                copy = ('to-main-' if due else pb.NOT_DUE_PREFIX) + '2026-10-01'
+                pr = runs(installed['text'], 'pull_request', True, copy)
+                push = runs(installed['text'], 'push', True)
+                cases.append((f'{label}, github_ci_main_test {mode!r}: pull request '
+                              f'{"runs" if exp_pr else "skipped"}, push to main '
+                              f'{"runs" if exp_push else "skipped"}',
+                              pr == exp_pr and push == exp_push and on_ is True and hours == 0))
+            (repo / 'precedent.json').write_text(_json.dumps(
+                {'base_branch': 'main', 'visibility': 'public'}), encoding='utf-8')
+            installed['text'] = raw
+            due, _ = pb.main_test_due(repo, 'TIP', gh=GH(), user_config=cfg)
+            cases.append((f'{label}, a public repo: still tested',
+                          due and runs(raw, 'push', False)))
+        # The commit hook's cadence script, written with no individual source.
+        home = tmp / 'home'
+        work = tmp / 'work'
+        home.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)], capture_output=True)
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'visibility': 'private'}), encoding='utf-8')
+        env = dict(os.environ, HOME=str(home), TZ='UTC',
+                   PRECEDENT_GLOBAL_HOOKS=str(home / 'git-hooks'),
+                   PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'nonexistent.json'),
+                   CLAUDE_PROJECT_DIR=str(work))
+        for k in ('PRECEDENT_COMMIT_TZ', 'PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME'):
+            env.pop(k, None)
+        r = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                           timeout=120, env=env)
+        scripts = list(tmp.rglob('precedent-ci-cadence'))
+        body = scripts[0].read_text(encoding='utf-8') if scripts else ''
+        cases.append(('with no individual source the session-start hook still runs, and '
+                      'its cadence script carries a personal 0 hours and branches on',
+                      r.returncode == 0 and 'PERSONAL_CI_EVERY_HOURS = 0' in body
+                      and 'PERSONAL_CI_ON_BRANCHES = True' in body))
+    pb._git = real_git
+    if saved_force is not None:
+        os.environ[pb.FORCE_ENV] = saved_force
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_main_test_cadence():
+    """Main's GitHub test runs at most once every github_ci_every_hours in a
+    private repository, decided by Promote before GitHub starts anything
+    (spec/CI_CADENCE_PLAN.md, "Promote decides", 2026-10-01).
+
+    THE NEGATIVE CASES ARE THE POINT: a skip that fires wrongly is main
+    going untested. Each "not due" is paired with the shape where it must
+    run -- a public repo, an expired window, a failed newest run, GitHub not
+    answering, a workflow that cannot skip yet, a batch that changes a
+    workflow, PRECEDENT_CI_NOW=1. And a skipped run must never read as a
+    failure: GitHub records one, free, on every private push to main."""
+    import importlib.util, json as _json, tempfile, time as _time
+    name = "main's GitHub test runs at most once every github_ci_every_hours"
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    if not src.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_cadence', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    cases = []
+    tpl = (ROOT / 'templates' / 'github-actions' / 'light-check.yml.template')
+    tpl_text = tpl.read_text(encoding='utf-8') if tpl.is_file() else ''
+    cases.append(('the light-check template names the very branch prefix Promote '
+                  'gives a not-due copy',
+                  f"startsWith(github.head_ref, '{pb.NOT_DUE_PREFIX}')" in tpl_text))
+    saved_env = os.environ.get(pb.FORCE_ENV)
+    os.environ.pop(pb.FORCE_ENV, None)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo, me = tmp / 'repo', tmp / 'me'
+        repo.mkdir()
+        me.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(me)}}), encoding='utf-8')
+
+        def setup(visibility='private', mine=None, theirs=None):
+            pj = {'base_branch': 'main'}
+            if visibility:
+                pj['visibility'] = visibility
+            if theirs is not None:
+                pj['github_ci_every_hours'] = theirs
+            (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+            ident = {'email': 'me@example.com'}
+            if mine is not None:
+                ident['ci_every_hours'] = mine
+            (me / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+
+        setup('public', mine=168)
+        cases.append(('a public repository is tested on every Promote, whatever '
+                      'the person sets', pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(None, mine=168)
+        cases.append(('...and so is one that declares no visibility',
+                      pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(mine=168, theirs=0)
+        h, where = pb.main_test_cadence(repo, cfg)
+        cases.append(("in Promote the person's value wins over the repository's 0 "
+                      '(Morgan: "if it conflicts, and I run promote, it still skips it")',
+                      h == 168 and str(me) in where))
+        setup(theirs=6)
+        cases.append(("with no personal value, the repository's own applies",
+                      pb.main_test_cadence(repo, cfg)[0] == 6))
+        setup(mine='weekly')
+        cases.append(('a value that is not a number means every Promote',
+                      pb.main_test_cadence(repo, cfg)[0] == 0))
+        setup(mine=True)
+        cases.append(('...and so does true', pb.main_test_cadence(repo, cfg)[0] == 0))
+
+        WF = '.github/workflows/light-check.yml'
+        now = _time.time()
+
+        def iso(hours_ago):
+            return _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(now - hours_ago * 3600))
+
+        def run(hours_ago, conclusion='success', branch='to-main-2026-09-30'):
+            return {'path': WF, 'status': 'completed', 'conclusion': conclusion,
+                    'head_branch': branch, 'created_at': iso(hours_ago),
+                    'html_url': 'U'}
+
+        class GH:
+            def __init__(self, runs, fail=None):
+                self.runs, self.fail = runs, fail
+
+            def call(self, path, cache=True):
+                if self.fail:
+                    return None, self.fail
+                return {'workflow_runs': self.runs}, None
+
+        pb._slug = lambda root: 'o/r'
+        skipping = 'on: {}\n# ' + pb.NOT_DUE_PREFIX + '\n'
+        shown = {'text': skipping, 'diff': ''}
+        real_git = pb._git
+
+        def fake_git(root, *args):
+            if args[:1] == ('show',):
+                return shown['text']
+            if args[:2] == ('diff', '--name-only'):
+                return shown['diff']
+            return real_git(root, *args)
+        pb._git = fake_git
+        pb.github_tests = lambda root, sha: [(WF, True)]
+        setup(mine=168)
+
+        def due(runs, **kw):
+            return pb.main_test_due(repo, 'TIP', gh=GH(runs, kw.get('fail')),
+                                    user_config=cfg)
+        d, why = due([run(10), run(1, 'skipped', 'main')])
+        cases.append(('a pass 10 hours ago with a 168-hour window is NOT DUE, says when '
+                      'the next one is, and a newer skipped run changes nothing',
+                      d is False and 'next one is due' in why))
+        d, why = due([run(200)])
+        cases.append(('a pass 200 hours ago is due', d is True and '200h ago' in why))
+        d, why = due([run(1, 'failure', 'main'), run(10)])
+        cases.append(('a failed newest run keeps it due inside the window, with its link',
+                      d is True and 'failure' in why and 'U' in why))
+        d, why = due([run(10, branch='claude/some-feature')])
+        cases.append(('a pass on a working branch does not count for main',
+                      d is True and 'no passing run' in why))
+        d, why = due([], fail='HTTP 403')
+        cases.append(('GitHub not answering means it runs', d is True and '403' in why))
+        shown['text'] = 'on: {}\n'
+        d, why = due([run(10)])
+        cases.append(('a workflow installed before the not-due skip existed is always '
+                      'due, so a "not due" wait never merges under a running test',
+                      d is True and 'predates' in why))
+        shown['text'] = skipping
+        shown['diff'] = '.github/workflows/light-check.yml\ntools/ENGINE_MANIFEST.json\n'
+        d, why = due([run(10)])
+        cases.append(('a batch changing a workflow or the vendored engine is NOT forced '
+                      '(Morgan: "I might update the vendored engines a lot")', d is False))
+        shown['diff'] = ''
+        os.environ[pb.FORCE_ENV] = '1'
+        d, why = due([run(10)])
+        os.environ.pop(pb.FORCE_ENV, None)
+        cases.append((f'{pb.FORCE_ENV}=1 makes it due', d is True))
+        setup(mine=168)
+        pj = _json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            dict(pj, github_ci_workflows='disabled')), encoding='utf-8')
+        d, why = due([run(1000)])
+        cases.append(("with no personal switch, the repository's own \"disabled\" "
+                      'means no test, however long ago it passed',
+                      d is False and "this repo's precedent.json" in why))
+        (me / 'identity.json').write_text(_json.dumps(
+            {'email': 'me@example.com', 'ci_every_hours': 168,
+             'ci_workflows': 'enabled'}), encoding='utf-8')
+        d, why = due([run(1000)])
+        cases.append(("...and the person's \"enabled\" wins over it", d is True))
+        setup(mine=0)
+        d, why = due([run(10)])
+        cases.append(('a value of 0 is every Promote', d is True))
+
+        said = []
+        rc = pb.wait_for_main_test(repo, 'TIP', said.append, GH([]),
+                                   copy=pb.NOT_DUE_PREFIX + '2026-10-01')
+        cases.append(('--wait-main-test on a not-due copy exits 0 at once and says '
+                      'NOT DUE', rc == 0 and said and 'NOT DUE' in said[-1]))
+        pb._remote_tip = lambda root, branch: None
+        cases.append(('a not-due copy is named with the prefix the template skips on',
+                      pb._to_main_copy(repo, due=False).startswith(pb.NOT_DUE_PREFIX)
+                      and not pb._to_main_copy(repo).startswith(pb.NOT_DUE_PREFIX)))
+        ok_run = {'path': WF, 'status': 'completed', 'conclusion': 'success',
+                  'created_at': '2026-09-30T10:00:00Z', 'head_sha': 'SHA'}
+        skipped = dict(ok_run, conclusion='skipped', created_at='2026-09-30T11:00:00Z')
+
+        class RunsGH:
+            def call(self, path, cache=True):
+                if '/pulls' in path:
+                    return [], None
+                return {'workflow_runs': [ok_run, skipped]}, None
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)], RunsGH())
+        cases.append(('a skipped run newer than a pass reads "passed", never "failed" '
+                      '(every private push to main records one)', st == 'passed'))
+    if saved_env is not None:
+        os.environ[pb.FORCE_ENV] = saved_env
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_copies_work_from_above_once_checked():
     """What reached staging or main without climbing through pre-staging --
     a workflow's bot commit on main, a web edit, a direct push -- is copied
@@ -26768,11 +27989,23 @@ def check_session_check_adopts_a_detached_start():
         ok, detail = row()
         cases.append(('and stays green on the next run', ok is True, detail))
 
-        # A later jump between named branches is still the finding it was.
+        # A later jump between named branches, leaving work behind on the
+        # one it started on, is still the finding it was.
+        commit('work on claude/work that main lacks')
         git('checkout', '-q', 'main')
         ok, detail = row()
-        cases.append(('a move between named branches still fails',
+        cases.append(('a move between named branches that strands work still fails',
                       ok is False and 'claude/work' in detail, detail))
+
+        # Booked merged it, and the session moved onto the branch that now
+        # carries it: carried, not stranded (2026-10-01).
+        git('-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q',
+            '--no-ff', '-m', 'Booked', 'claude/work')
+        ok, detail = row()
+        cases.append(('a move onto a branch that carries all of the start '
+                      'branch passes', ok is True and 'carries all' in detail, detail))
+        cases.append(('...and that branch becomes the baseline',
+                      stamp.read_text().split()[0] == 'main', stamp.read_text()))
 
         # A named start, then the session's own new branch from it: passes.
         import time as _time
@@ -29373,6 +30606,87 @@ def check_repo_reference_allowlist():
     failed = [n for n, ok in cases if not ok]
     check(f'the repo-reference allowlist refuses an undeclared private name '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_leak_gate_honors_a_declared_public_email_domain():
+    """An address at a domain its owner declared public passes the email rule.
+
+    2026-10-01: a public browser add-on's Firefox ID must be shaped like an
+    address, and its real one sat at its owner's domain, in the manifest and
+    in the store-listing copy. The built-in "an email address" rule refused
+    every push, and nothing a consuming repo could declare reached it. The
+    owner decided the domain is public; this is that decision, written once
+    in the person's own blocklist, reaching the content rule and nothing
+    else.
+    """
+    import tempfile
+    gate = ROOT / 'tools' / 'leak_gate.py'
+    if not gate.exists():
+        not_applicable('the leak gate honors a declared public email domain',
+                       'tools/leak_gate.py is not present here')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import importlib
+    lg = importlib.import_module('leak_gate')
+
+    def email_hits(text, domains, blocklist=()):
+        hits = lg.scan([('f.json', 'f.json', text)], list(blocklist),
+                       private_names=set(), structural_exempt={},
+                       public_email_domains=domains)
+        return [h for h in hits if h[2] == 'an email address' or
+                h[2].startswith('blocklist')]
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        bl = pathlib.Path(td) / 'blocklist.txt'
+        bl.write_text(
+            '# leak-gate: public-email-domain owner-domain.org -- '
+            'the owner publishes it\n'
+            '# leak-gate: public-email-domain no-reason.org --\n',
+            encoding='utf-8')
+        doms = lg.parse_public_email_domains(bl)
+        cases.append(('the declaration parses, with its reason',
+                      doms.get('owner-domain.org') == 'the owner publishes it'))
+        cases.append(('a declaration with no reason declares nothing',
+                      'no-reason.org' not in doms))
+        cases.append(('and the gate refuses that line as unparsed',
+                      [n for n, _l, _w in lg.repo_policy_errors(bl)] == [2]))
+
+        # The prefix is the rollout: an engine that predates the directive
+        # must read the line as a comment, never as an unparsed
+        # `visibility-audit:` directive, or one line in a person's list
+        # fails every older repo's push check.
+        cases.append(('the directive does not wear the visibility-audit '
+                      'prefix older engines refuse when unknown',
+                      not any(lg.VIS_AUDIT_ANNOUNCE_RE.match(l.strip())
+                              for l in bl.read_text().splitlines())))
+
+        # Every address is assembled here, never written whole: this file
+        # is in a public tree, and a whole one would trip the rule it tests.
+        at = '@'
+        addon = '"id": "an-addon' + at + 'owner-domain.org"'
+        cases.append(('undeclared, the address is refused',
+                      len(email_hits(addon, {})) == 1))
+        cases.append(('declared, the address passes',
+                      email_hits(addon, doms) == []))
+        cases.append(('a subdomain of a declared domain passes',
+                      email_hits('x' + at + 'mail.owner-domain.org', doms) == []))
+        cases.append(('another domain is still refused',
+                      len(email_hits('x' + at + 'other-domain.org', doms)) == 1))
+        cases.append(('a lookalike ending is still refused',
+                      len(email_hits('x' + at + 'notowner-domain.org', doms)) == 1))
+        cases.append(('the declared domain inside a longer one is still refused',
+                      len(email_hits('x' + at + 'owner-domain.org.evil.io', doms)) == 1))
+        banned = [re.compile(r'owner-domain\.org')]
+        cases.append(('a blocklist term naming the domain still refuses it',
+                      len(email_hits(addon, doms, banned)) == 1))
+        cases.append(('scan with no declaration argument refuses, as before',
+                      len([h for h in lg.scan([('f', 'f', addon)], [],
+                                              private_names=set(),
+                                              structural_exempt={})
+                           if h[2] == 'an email address']) == 1))
+    for name, ok in cases:
+        check(f'leak gate public email domain: {name}', ok)
 
 
 def check_leak_gate_scans_the_consuming_repo():
@@ -33723,7 +35037,18 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
                 rc = prs.main(['--apply'])
             return rc, buf.getvalue()
 
-        # CONTROL first: dirty, so it must stay behind and say so.
+        # CONTROL first: dirty, so it must stay behind and say so. A clean
+        # consumer is reported after it, so its row is the last one printed
+        # before the note (2026-10-01: the note sat under a consumer's row,
+        # unnamed, and was read as that consumer's).
+        consumer = tmp / 'consumer'
+        (consumer / 'tools').mkdir(parents=True)
+        (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'consumer', 'source_commit': 'an-older-engine'}),
+            encoding='utf-8')
+        g(tmp, 'init', '-q', '-b', 'main', str(consumer))
+        g(consumer, 'add', '-A'); g(consumer, 'commit', '-qm', 'consumer')
+        prs.candidate_dirs = lambda extra=(): [clone.resolve(), consumer.resolve()]
         (clone / 'scratch.txt').write_text('mine\n', encoding='utf-8')
         rc, out = run()
         cases.append(('CONTROL: a dirty clone behind its origin is left where it is',
@@ -33731,6 +35056,13 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
         cases.append(('...and the run says why, pointing at a re-run',
                       'uncommitted changes of its own' in out and '--apply' in out,
                       out[-400:]))
+        note = next((l for l in out.splitlines()
+                     if 'uncommitted changes of its own' in l), '')
+        cases.append(('...on a line that names the set it is about, never the '
+                      'consumer whose row was printed last',
+                      prs._label(clone.resolve()) in note
+                      and prs._label(consumer.resolve()) not in note, note))
+        prs.candidate_dirs = lambda extra=(): [clone.resolve()]
         (clone / 'scratch.txt').unlink()
 
         rc, out = run()
@@ -36056,6 +37388,68 @@ def check_source_shape_is_verified():
     for n in bad:
         print(f"  source-shape case did not behave as stated: {n}")
     check(f'a source is verified for shape AND well-formedness '
+          f'({len(cases)} stated cases)', not bad)
+
+
+def check_render_names_files_by_title():
+    """A render shows a linked file's title, never its bare filename.
+
+    The repo convention links a document by its filename
+    (`[x_model.py](x_model.py)`), which reads fine on the forge and means
+    nothing to a reader of the rendered page, who never sees the
+    repository. On 2026-10-01 a consumer's published pages showed a dozen
+    code filenames in every footer. render() now retitles a
+    link whose text IS the target's filename (alone, or followed by a
+    section mark): a markdown target by its `# ` title, anything else by a
+    humanized filename. A link written with words keeps them.
+    (practice: deliverables-look-like-output)"""
+    import importlib.util, tempfile, shutil
+    spec = importlib.util.spec_from_file_location(
+        '_doc_html_titles', ROOT / 'tools' / 'doc_html.py')
+    try:
+        dh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dh)
+    except Exception as e:
+        not_applicable('a render names linked files by title',
+                       f'tools/doc_html.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-titles-',
+                                        dir=ROOT))
+    cases = []
+    try:
+        (tmp / 'study.md').write_text("# The Cable Study — what binds\n\nBody.\n",
+                                      encoding='utf-8')
+        (tmp / 'cable_sizing_model_v1.py').write_text('"""x"""\n',
+                                                     encoding='utf-8')
+        (tmp / 'page.md').write_text(
+            "# Page\n\n"
+            "Numbers by: [cable_sizing_model_v1.py](cable_sizing_model_v1.py).\n\n"
+            "See [study.md](study.md) and [study.md §3](study.md#x).\n\n"
+            "Also [the study itself](study.md) and "
+            "[a site](https://example.com/a.md).\n", encoding='utf-8')
+        out = tmp / 'page.html'
+        dh.render(tmp / 'page.md', out, 'Page')
+        body = out.read_text(encoding='utf-8').split('<main>', 1)[1]
+        cases.append(('a code link shows its humanized name',
+                      '>Cable sizing model</a>' in body))
+        cases.append(('a markdown link shows its title',
+                      '>The Cable Study — what binds</a>' in body))
+        cases.append(('a filename-and-section link keeps the section',
+                      '>The Cable Study — what binds §3</a>' in body))
+        cases.append(('a link written with words keeps them',
+                      '>the study itself</a>' in body))
+        cases.append(('an external link is untouched',
+                      '>a site</a>' in body))
+        cases.append(('no bare filename is left as link text',
+                      '>study.md' not in body
+                      and '>cable_sizing_model_v1.py<' not in body))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    for n in bad:
+        print(f"  render-title case did not behave as stated: {n}")
+    check(f'a render names linked files by title, never by filename '
           f'({len(cases)} stated cases)', not bad)
 
 
@@ -39523,6 +40917,22 @@ def check_practice_change_propagates_refuses():
 
         # CONTROLS: fix each, and the same check passes on the same tree.
         g('revert', '--no-edit', 'HEAD')
+        # Another source this repo declares, on disk, still links the
+        # practice this branch is about to retire (2026-10-01: a shared
+        # set's todo-gate.md linked second-pass-capture after the dedupe).
+        shared = tmp / 'shared-set'
+        write(shared / 'practices' / 'todo-gate.md', 'todo-gate',
+              rule='Then run the [old rule](old-rule.md) pass.')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(shared)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(shared), 'add', '-A'],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(shared), 'commit', '-qm', 'set'],
+                       capture_output=True, env=env)
+        cfg = _json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['sources'].append({'level': 'shared', 'name': 'shared-set',
+                               'path': str(shared)})
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
         write(repo / 'practices' / 'old-rule.md', 'old-rule', 'deduplicated',
               'go-update')
         (repo / 'README.md').write_text(
@@ -39531,7 +40941,13 @@ def check_practice_change_propagates_refuses():
         g('add', '-A'); g('commit', '-qm', 'retire in place, repoint')
         out = run()
         cases.append(('retired in place and repointed, the check passes',
-                      '1 passed, 0 violated' in out, out[-600:]))
+                      '1 passed, 0 violated' in out, out[-2500:]))
+        cases.append(('...and the shared set\'s link to the practice this '
+                      'branch retired is reported as a follow-up there, '
+                      'with the file and line',
+                      'FOLLOW-UP in shared-set' in out
+                      and 'shared-set:practices/todo-gate.md:1' in out
+                      and '`old-rule`' in out, out[-900:]))
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'practice-change-propagates refuses a live pointer to a renamed '
@@ -40598,6 +42014,68 @@ def check_todo_index_check_survives_midnight():
     check(f'the TODO index check does not go stale at midnight '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
+def check_landed_reduction_quiets_the_reduction_ask():
+    """An over-target file whose reduction has already landed on the landing
+    branch is reported as waiting on a Promote, not as needing another pass.
+
+    Found 2026-10-01 in a reduction-pass session: the reply gate kept
+    requiring a Reduction pass after the pass had landed on pre-staging,
+    because the file it measures is built from main. The rule under test:
+    AGENTS.md smaller on origin/pre-staging than on origin/main marks the
+    over-target line; the same size, or no landing branch, leaves it as
+    the plain ask. Driven against a throwaway repository."""
+    import tempfile
+    import precedent_gate as pg
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = _stale_ref_fixture_env(tmp)
+        bare, work = tmp / 'origin.git', tmp / 'work'
+
+        def git(*a, cwd=None):
+            return subprocess.run(['git', '-C', str(cwd or work), *a],
+                                  capture_output=True, text=True, env=env)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)],
+                       capture_output=True, env=env)
+        (work / 'tools').mkdir()
+        (work / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+            {'surfaces': {'AGENTS.md': {'target': 50}}}), encoding='utf-8')
+        (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 400, encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'big')
+        git('remote', 'add', 'origin', f'file://{bare}')
+        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:pre-staging')
+        git('fetch', '-q', 'origin')
+
+        got = pg._over_target(work, siblings=False)
+        cases.append(('over target, same size on pre-staging: the plain ask',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK not in got[0],
+                      repr(got)))
+        git('checkout', '-q', '-b', 'pre-staging', 'origin/pre-staging')
+        (work / 'AGENTS.md').write_text('# A\n' + 'word ' * 200, encoding='utf-8')
+        git('commit', '-qam', 'reduction pass')
+        git('push', '-q', 'origin', 'pre-staging')
+        git('fetch', '-q', 'origin')
+        git('checkout', '-q', 'main')
+        got = pg._over_target(work, siblings=False)
+        cases.append(('a smaller AGENTS.md on pre-staging marks the line as '
+                      'waiting on a Promote, with both sizes',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
+                      and 'on main' in got[0] and 'on pre-staging' in got[0],
+                      repr(got)))
+        git('push', '-q', 'origin', '--delete', 'pre-staging')
+        git('fetch', '-q', '--prune', 'origin')
+        cases.append(('no landing branch on origin: no mark',
+                      pg._landed_reduction(work) is None,
+                      repr(pg._landed_reduction(work))))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a reduction already on the landing branch is reported as waiting '
+          f'on a Promote ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_budget_approvals_see_computed_raises():
@@ -43231,6 +44709,77 @@ def _stale_ref_fixture_env(tmp):
                 GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
                 GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0',
                 PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+
+def check_stop_hook_says_each_state_once():
+    """The Stop hook blocks once per dirty state, not at every turn end.
+
+    Found 2026-10-01 in a reduction-pass session: while a background helper
+    of the session was mid-edit on its branch, the same "uncommitted
+    changes" finding blocked every stop, and each block was a turn with
+    nothing to do. The rule under test: the first stop on a dirty state is
+    blocked and says why; the same session stopping on the same state is
+    not blocked again; a change to the state, or another session, is told
+    afresh. Both copies are run, the template and this repo's own."""
+    import tempfile
+    name = 'the Stop hook says each dirty state once per session'
+    hooks = [ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+             ROOT / '.claude' / 'hooks' / 'stop-git-check.sh']
+    hooks = [h for h in hooks if h.exists()]
+    if not hooks:
+        not_applicable(name, 'no stop-git-check.sh here')
+        return
+    cases = []
+    for hook in hooks:
+        label = hook.relative_to(ROOT).parts[0]
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            env = _stale_ref_fixture_env(tmp)
+
+            def git(*a):
+                return subprocess.run(['git', '-C', str(work), *a],
+                                      capture_output=True, text=True, env=env)
+            bare = tmp / 'origin.git'
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                           capture_output=True, env=env)
+            work = tmp / 'work'
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)],
+                           capture_output=True, env=env)
+            (work / 'a.txt').write_text('a\n', encoding='utf-8')
+            git('add', 'a.txt')
+            git('commit', '-q', '-m', 'a')
+            git('remote', 'add', 'origin', f'file://{bare}')
+            git('push', '-q', '-u', 'origin', 'main')
+
+            def stop(session):
+                return subprocess.run(['bash', str(hook)], cwd=str(work),
+                                      input=json.dumps({'session_id': session}),
+                                      capture_output=True, text=True, env=env)
+
+            (work / 'a.txt').write_text('a, edited\n', encoding='utf-8')
+            r = stop('s1')
+            cases.append((f'{label}: the first stop on a dirty tree is blocked, '
+                          f'and says it will not repeat',
+                          r.returncode == 2 and 'Uncommitted' in r.stderr
+                          and 'will not repeat' in r.stderr))
+            r = stop('s1')
+            cases.append((f'{label}: the same session, same state: not blocked again',
+                          r.returncode == 0))
+            (work / 'b.txt').write_text('b\n', encoding='utf-8')
+            r = stop('s1')
+            cases.append((f'{label}: a new untracked file is a new state: blocked',
+                          r.returncode == 2 and 'Untracked' in r.stderr))
+            r = stop('s2')
+            cases.append((f'{label}: another session is told afresh',
+                          r.returncode == 2))
+            git('add', '-A')
+            git('commit', '-q', '-m', 'both')
+            git('push', '-q')
+            r = stop('s2')
+            cases.append((f'{label}: clean and pushed: not blocked',
+                          r.returncode == 0))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_stop_hook_ignores_commits_another_remote_ref_has():
@@ -47116,6 +48665,98 @@ def check_base_branch_drift_ignores_carried_work():
                f"status={r.get('status')}") if failed else '')
 
 
+def check_branch_name_follows_the_convention():
+    """A session's feature branch is `<prefix><date>-<slug>-<id>`, the id
+    being the end of the session's ID (practice: act).
+
+    The controlling case is the session ID: given the harness's
+    `cse_<id>`, the name ends in that ID's last five characters, lowercased,
+    so the branch leads back to its session. The rest are the fallbacks the
+    rule promises -- no ID means random characters and a note saying so, a
+    name already on origin gets five more and a note, an origin that cannot
+    be asked is said rather than read as "not there" -- and the refusal of a
+    slug with no words in it, asserted by its own message."""
+    import tempfile
+    import precedent_branch_name as pbn
+
+    _git = fixture_git
+    results = []
+    saved = {k: os.environ.pop(k, None)
+             for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
+    try:
+        os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
+        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
+                                prefix='claude/')
+        results.append(('the session ID ends the name, lowercased',
+                        name == 'claude/2026-10-01-feature-branch-naming-awpkv'
+                        and not notes))
+
+        os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
+        a, notes_a = pbn.build(['x'], date='2026-10-01')
+        b, _ = pbn.build(['x'], date='2026-10-01')
+        results.append(('no session ID: five random lowercase characters, said',
+                        re.fullmatch(r'session/2026-10-01-x-[a-z0-9]{5}', a)
+                        is not None and a != b
+                        and any('no session ID found' in n for n in notes_a)))
+
+        name, _ = pbn.build(['One two', 'three-four', 'five six SEVEN'],
+                            date='2026-10-01', prefix='', tail='abcde')
+        results.append(('the slug keeps six words, lowercase',
+                        name == '2026-10-01-one-two-three-four-five-six-abcde'))
+
+        try:
+            pbn.build(['!!', '--'], tail='abcde')
+            results.append(('a slug with no words is refused', False))
+        except ValueError as e:
+            results.append(('a slug with no words is refused',
+                            'no usable words for the slug' in str(e)))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            up = tmp / 'up'; up.mkdir()
+            _git(up, 'init', '-q', '-b', 'main')
+            _git(up, 'config', 'user.email', 'harness@example.com')
+            _git(up, 'config', 'user.name', 'Harness')
+            (up / 'f.txt').write_text('base\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+            taken = 'claude/2026-10-01-feature-branch-naming-awpkv'
+            _git(up, 'branch', taken)
+            clone = tmp / 'clone'
+            subprocess.run(['git', 'clone', '-q', f'file://{up}', str(clone)],
+                           capture_output=True, text=True)
+            exists = lambda n: pbn.on_origin(n, clone)
+            name, notes = pbn.build(['feature branch naming'], date='2026-10-01',
+                                    prefix='claude/', tail='awpkv', exists=exists)
+            results.append(('a name already on origin gets five more characters',
+                            re.fullmatch(re.escape(taken) + r'-[a-z0-9]{5}', name)
+                            is not None
+                            and any('already on origin' in n for n in notes)))
+            name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
+                                    tail='awpkv', exists=exists)
+            results.append(('a free name is left as it is (negative control)',
+                            name == 'claude/2026-10-01-fresh-awpkv' and not notes))
+
+            _git(clone, 'remote', 'set-url', 'origin', str(tmp / 'nowhere'))
+            name, notes = pbn.build(['fresh'], date='2026-10-01', prefix='claude/',
+                                    tail='awpkv',
+                                    exists=lambda n: pbn.on_origin(n, clone))
+            results.append(('an origin that cannot be asked is said, not read as free',
+                            name == 'claude/2026-10-01-fresh-awpkv'
+                            and any('could not ask origin' in n for n in notes)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    failed = [n for n, ok in results if not ok]
+    check(f'a feature branch is named <date>-<slug>-<id>, the id from the '
+          f'session ID, with the stated fallbacks ({len(results)} cases, the '
+          f'session ID the controlling one)',
+          not failed, '; '.join(failed) if failed else '')
+
+
 def check_branch_scan_sees_every_branch():
     """The branch sweep must enumerate what ORIGIN has, not what this clone
     happened to fetch (practice: very-deep-check).
@@ -50763,6 +52404,7 @@ def main():
     check_gemini_settings_template_keeps_stdout_clean()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_branch_name_follows_the_convention()
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()
     check_very_deep_check_walks_every_tier_pair()
@@ -50895,6 +52537,7 @@ def main():
           *check_every_verdict_returning_check_is_recorded())
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
+    check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
     check('the reply check requires the Boildown to open with where the work is',
           *check_reply_check_requires_the_boildown_first_line())
     check_endgame_merge_finds_the_silent_drop()
@@ -50909,6 +52552,7 @@ def main():
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
     check_isolated_run_matches_the_runner()
+    check_isolated_copy_carries_uncommitted_changes()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
@@ -50999,6 +52643,10 @@ def main():
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
     check_sync_copies_work_from_above_once_checked()
+    check_main_test_cadence()
+    check_main_test_minutes_rule()
+    check_main_test_repo_setting()
+    check_main_test_without_individual_source()
     check_source_clone_is_pinned_to_a_branch()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
@@ -51010,6 +52658,7 @@ def main():
     check_tier_branches_are_never_a_pull_requests_source()
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
+    check_leak_gate_honors_a_declared_public_email_domain()
     check_update_refuses_while_a_branch_is_pinned()
     check_carry_check_never_counts_upstream_deletions()
     check_bare_sync_warning_ignores_prose_mentions()
@@ -51120,6 +52769,7 @@ def main():
     check_todo_index_check_survives_midnight()
     check_session_load_target_is_reported_each_reply()
     check_budget_approvals_see_computed_raises()
+    check_landed_reduction_quiets_the_reduction_ask()
     check_headroom_notice_watches_the_resident_block()
     check_universal_occasion_share_is_capped()
     check_refresh_judges_workflows_once_the_engine_is_whole()
@@ -51169,6 +52819,7 @@ def main():
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_stop_hook_ignores_commits_another_remote_ref_has()
+    check_stop_hook_says_each_state_once()
     check_promote_into_main_exits_nonzero_until_main_moves()
     check_reply_gate_refreshes_the_landing_branch()
     check_tools_answer_help_without_writing()
@@ -51197,11 +52848,13 @@ def main():
     check_checkin_ignores_files_git_does_not_track_in_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
     check_rename_links_spares_a_commit_pinned_permalink()
+    check_shipped_hooks_pass_rename_links_without_the_mirror()
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_boildown_contradiction_spares_work_waiting_upstream()
     check_leak_gate_discovers_the_individual_blocklist()
+    check_leak_gate_reads_neighbour_blocklists()
     check_leak_gate_names_a_stale_blocklist_clone()
     check_leak_gate_refresh_declines_a_dirty_clone()
     check_freshness_covers_every_declared_source()
@@ -51212,6 +52865,7 @@ def main():
     check('two diverged copies of the individual set are reported, never '
           'clobbered',
           *check_individual_set_diverged_copies_are_reported_not_clobbered())
+    check_render_names_files_by_title()
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()

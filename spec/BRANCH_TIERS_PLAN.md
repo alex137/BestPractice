@@ -263,7 +263,10 @@ where both appear:
   on pushes to pre-staging, staging and other branches, for someone who wants
   them.
 - **`github_ci_every_hours`** (was `ci_every_hours`) -- still caps how often those opted-in runs happen
-  in a private repo. **It never skips the main test.**
+  in a private repo. ~~It never skips the main test.~~ **Since 2026-10-01 it
+  also caps main's test in a private repo, decided by Promote**
+  ([CI_CADENCE_PLAN.md](CI_CADENCE_PLAN.md), "Promote decides"; Morgan:
+  *"Act ... 168 hours"*, strength: decided).
 
 ## Five holes this has to close
 

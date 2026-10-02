@@ -57,8 +57,8 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   merge authorization unless he gave one for this handoff.
 - **"Root issues"** / **"Root fixes"** ([root-issues](practices/root-issues.md))
   — every bug, warning, fix or band-aid from this session that also belongs
-  in Precedent, a precedent-* repo, a template or a related repo, each as a
-  Prompt Please block.
+  in Precedent, a precedent-* repo, a template or a related repo, in one
+  Prompt Please block for a session rooted in all of them.
 - **"My options"** ([my-options](practices/my-options.md)) — every real
   choice in plain words, costs said flatly, then your pick and why.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — read the list
@@ -195,7 +195,7 @@ When a person says "Prompt Please", or work belongs in a new session or needs a 
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
 When a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream:
-  root-issues — what this session hit that belongs upstream, each as a Prompt Please
+  root-issues — what this session hit that belongs upstream, in one prompt across those repos
 When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:

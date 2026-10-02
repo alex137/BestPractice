@@ -512,7 +512,8 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         if ci_enabled:
             wf.parent.mkdir(parents=True, exist_ok=True)
             if not wf.exists() or force:
-                shutil.copy2(TEMPLATES / 'github-actions' / _wf_template, wf)
+                wf.write_bytes(precedent_vendor_engine.render_ci_workflow(
+                    dest, (TEMPLATES / 'github-actions' / _wf_template).read_bytes()))
                 out.append(f'{_wf_rel}: written ({ci_note})')
         else:
             out.append(f'{_wf_rel}: NOT written -- {ci_note}')
