@@ -10773,6 +10773,41 @@ def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
                       == hashlib.sha256(b'#!/bin/sh\n# new template\n').hexdigest()))
         cases.append(('...and one that differs from upstream still reads as drift',
                       entries[1]['local_sha256'] == 'old'))
+        # 2026-10-02: a file instantiated from a template that THIS run
+        # rewrote (a migration's AGENTS.md, settings.json, .gitignore) is
+        # re-recorded even though it is not upstream's text; the same file
+        # NOT rewritten by the run is still drift.
+        done = pu.rebaseline_vendored_entries(tmp, rewritten={'X.md'})
+        entries = json.loads((tmp / 'process' / 'manifest.json').read_text())['entries']
+        cases.append(('a template-instantiated file this run rewrote is '
+                      're-baselined though it differs from upstream',
+                      done == ['X.md'] and entries[1]['local_sha256']
+                      == hashlib.sha256(b'edited here\n').hexdigest()))
+        (tmp / 'X.md').write_text('edited again by a person\n')
+        done = pu.rebaseline_vendored_entries(tmp, rewritten={'OTHER.md'})
+        cases.append(('...and the same file, when the run did not touch it, '
+                      'still reads as drift', done == []))
+
+        # The scrub-blocklist decision. No key and no default file fails
+        # the audit; a public repo gets an explicit null with its reason, a
+        # repo not declared public is asked, never decided for.
+        ensure = getattr(pu, 'ensure_scrub_blocklist_decision', None)
+        (tmp / 'precedent.json').write_text(json.dumps({'visibility': 'private'}))
+        cases.append(('a repo not declared public is asked about its scrub '
+                      'blocklist, not given a null',
+                      ensure is not None and ensure(tmp) == 'ask'
+                      and 'scrub_blocklist' not in json.loads(
+                          (tmp / 'process' / 'manifest.json').read_text())['upstream']))
+        (tmp / 'precedent.json').write_text(json.dumps({'visibility': 'public'}))
+        got = ensure(tmp) if ensure else None
+        upd = json.loads((tmp / 'process' / 'manifest.json').read_text())['upstream']
+        cases.append(('a public repo with no list gets scrub_blocklist: null, '
+                      'with its reason beside it',
+                      got == 'null' and 'scrub_blocklist' in upd
+                      and upd['scrub_blocklist'] is None
+                      and 'public' in upd.get('_scrub_blocklist_note', '')))
+        cases.append(('...and a second run leaves the decision alone',
+                      ensure(tmp) is None if ensure else False))
     except (OSError, ValueError, KeyError) as e:
         cases.append((f'fixture could not be built ({e})', False))
     finally:
@@ -10780,6 +10815,51 @@ def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
     failed = [n for n, ok in cases if not ok]
     check('Update Vendors moves the baseline of a file it made identical to upstream',
           not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_consumer_basic_tier_runs_the_practice_audit():
+    """A consumer's pre-staging push runs the practice audit's two checks,
+    scrub-gate and practice-export-loop (2026-10-02). A classic install
+    migrated onto the loader carried stale manifest baselines and no scrub
+    blocklist; both are practice_audit findings, which ran only inside the
+    full sweep, so every Booked passed and the first Debut failed on both.
+    They are range-judged like the other basic checks, so a finding already
+    on a tier branch never blocks a working branch's push. CONTROL: the
+    upstream kind is unchanged -- it has no process/ layer to audit."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-basic-audit-'))
+    try:
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        kind, checks = ppc.plan(tmp, tmp / 'tools', tier=ppc.BASIC)
+        names = [n for n, _a, _r in checks]
+        argvs = {n: a for n, a, _r in checks}
+        cases.append(('a consumer\'s basic tier runs scrub-gate and '
+                      'practice-export-loop',
+                      kind == 'consumer' and 'scrub_gate' in names
+                      and 'practice_export_loop' in names, repr(names)))
+        cases.append(('...each through precedent_check --only, whose VIOLATION '
+                      'lines the range judgement can compare',
+                      argvs.get('scrub_gate', [])[-2:] == ['--only', 'scrub-gate']
+                      and argvs.get('practice_export_loop', [])[-2:]
+                      == ['--only', 'practice-export-loop'], repr(argvs)))
+        cases.append(('...and both are range-judged',
+                      {'scrub_gate', 'practice_export_loop'} <= ppc.RANGE_JUDGED,
+                      repr(ppc.RANGE_JUDGED)))
+        up = [n for n, _a, _r in ppc.PUSH_CHECKS['upstream']]
+        cases.append(('CONTROL: the upstream kind does not run them',
+                      'scrub_gate' not in up and 'practice_export_loop' not in up,
+                      repr(up)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a consumer\'s pre-staging push runs the practice audit '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def check_update_vendors_defaults_headroom_floor():
@@ -52928,6 +53008,7 @@ def main():
     check_mirrored_prefixes_answers_both_install_models()
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
+    check_consumer_basic_tier_runs_the_practice_audit()
     check_update_vendors_defaults_headroom_floor()
     check_engine_fetch_reaches_main_in_a_single_branch_clone()
     check_update_vendors_leaves_mentions_of_a_deleted_file()

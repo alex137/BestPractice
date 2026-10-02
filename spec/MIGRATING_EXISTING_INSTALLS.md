@@ -806,8 +806,24 @@ widening what sessions may run
    what clones its sets instead (`declared-sources-are-cloned` fails it
    otherwise). Without the step, a declared set is missing from every
    fresh container and the loader block reads as drifted
-   ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); create `process/scrub_blocklist.txt`
-   if the manifest names one (`scrub-gate`); and, since 2026-09-19, run
+   ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); give the practice audit
+   a blocklist decision (`scrub-gate`): `process/scrub_blocklist.txt` with
+   this repo's private words, or `"scrub_blocklist": null` under
+   `"upstream"` in `process/manifest.json` with a note saying there are
+   none. **A manifest with neither fails**, since the audit reads an absent
+   key as the default file, and a missing default as a scrub that did not
+   run (older engines skipped it, so a classic install never needed it).
+   Update Vendors records the null itself for a repo whose `precedent.json`
+   declares `visibility: public`, and asks any other (2026-10-02). Then
+   re-record the manifest baselines of the files this migration rewrote on
+   purpose -- `AGENTS.md`, `.claude/settings.json`, `.gitignore`, `TODO.md`,
+   `GETTING_STARTED.md` -- with `python3 tools/practice_audit.py
+   --update-baseline`, read what it names, and say so in the pull request:
+   they still carry the classic install's hashes, which the audit reads as
+   DRIFT (Update Vendors re-records the ones it rewrites itself; a
+   consumer's pre-staging push runs the audit since 2026-10-02, so a stale
+   one is refused at Booked rather than at the first Debut). And, since
+   2026-09-19, run
    `python3 tools/todo_migrate.py --source todo.md --apply` then `python3
    tools/build_todo_index.py` if `TODO.md` is still the old single-file
    format — no `todo/` directory, no `# TODO has moved` stub heading — now
