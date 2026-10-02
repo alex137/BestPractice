@@ -26076,6 +26076,131 @@ def check_main_test_repo_setting():
     check(f'{name} ({len(cases)} stated cases, {rows} table rows)', not failed, detail)
 
 
+def check_main_test_without_individual_source():
+    """Main's GitHub test with NO individual source at all -- someone who has
+    never set up a precedent-individual, or whose config names one that is
+    not there. Morgan, 2026-10-01: "does this version still work if the
+    user has no precedent-individual file? Did you test for that?"
+
+    Nothing personal is declared, so the defaults apply: GitHub tests count
+    as on and the hours are 0, which in a private repository means every
+    Promote is tested (what it did before any of this), and the
+    repository's own github_ci_main_test still has the final say. Also a
+    broken identity.json, and one with no email (never read as a person's),
+    and the commit hook's cadence script writing a personal 0."""
+    import importlib.util, json as _json, tempfile
+    name = 'with no individual source, main\'s GitHub test falls back to the defaults'
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    src = ROOT / 'tools' / 'precedent_branches.py'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'commit-identity.sh'
+    try:
+        import yaml as _yaml
+    except ImportError:
+        not_applicable(name, 'PyYAML is not installed, and the template is read with it')
+        return
+    if not (tpl.is_file() and src.exists() and hook.is_file()):
+        not_applicable(name, 'the template, precedent_branches.py or commit-identity.sh is absent')
+        return
+    spec = importlib.util.spec_from_file_location('_pb_no_individual', src)
+    pb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pb)
+    doc = _yaml.safe_load(tpl.read_text(encoding='utf-8'))
+    on = doc.get('on', doc.get(True)) or {}
+    expr = doc['jobs']['light-check']['if']
+    raw = tpl.read_text(encoding='utf-8')
+    rendered = raw.replace("'main-test:individual'", "'main-test:always'")
+
+    def runs(text, event, private, head_ref=''):
+        e = _yaml.safe_load(text)['jobs']['light-check']['if']
+        return event in on and _gh_if(e, event, private, head_ref)
+
+    WF = '.github/workflows/light-check.yml'
+
+    class GH:
+        def call(self, path, cache=True):
+            return {'workflow_runs': [{
+                'path': WF, 'status': 'completed', 'conclusion': 'success',
+                'head_branch': 'to-main-2026-09-30', 'created_at': '2099-01-01T00:00:00Z'}]}, None
+    pb._slug = lambda root: 'o/r'
+    pb.github_tests = lambda root, sha: [(WF, True)]
+    installed = {'text': raw}
+    real_git = pb._git
+    pb._git = lambda root, *a: installed['text'] if a[:1] == ('show',) else real_git(root, *a)
+    saved_force = os.environ.pop(pb.FORCE_ENV, None)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        repo = tmp / 'repo'
+        repo.mkdir()
+        broken, noemail = tmp / 'broken', tmp / 'noemail'
+        broken.mkdir()
+        noemail.mkdir()
+        (broken / 'identity.json').write_text('{ this is not json', encoding='utf-8')
+        (noemail / 'identity.json').write_text(_json.dumps(
+            {'ci_workflows': 'disabled', 'ci_every_hours': 168}), encoding='utf-8')
+        configs = {'no config file at all': tmp / 'nonexistent.json'}
+        for label, target in (('a config naming a set that is not there', tmp / 'gone'),
+                              ('an identity.json that is not valid JSON', broken),
+                              ('an identity.json with no email', noemail)):
+            c = tmp / f'cfg-{target.name}.json'
+            c.write_text(_json.dumps({'individual': {'path': str(target)}}), encoding='utf-8')
+            configs[label] = c
+        # The passing run is in the future, so every hours value is "not due":
+        # anything that still runs is running because the hours are 0.
+        for label, cfg in configs.items():
+            on_, _ = pb.main_test_switch(repo, cfg)
+            hours, _ = pb.main_test_cadence(repo, cfg)
+            for mode, exp_pr, exp_push in (
+                    (None, True, False), ('individual', True, False), ('never', False, False),
+                    (48, False, False), (0, True, False), ('always', False, True)):
+                pj = {'base_branch': 'main', 'visibility': 'private'}
+                if mode is not None:
+                    pj['github_ci_main_test'] = mode
+                (repo / 'precedent.json').write_text(_json.dumps(pj), encoding='utf-8')
+                installed['text'] = rendered if mode == 'always' else raw
+                due, why = pb.main_test_due(repo, 'TIP', gh=GH(), user_config=cfg)
+                copy = ('to-main-' if due else pb.NOT_DUE_PREFIX) + '2026-10-01'
+                pr = runs(installed['text'], 'pull_request', True, copy)
+                push = runs(installed['text'], 'push', True)
+                cases.append((f'{label}, github_ci_main_test {mode!r}: pull request '
+                              f'{"runs" if exp_pr else "skipped"}, push to main '
+                              f'{"runs" if exp_push else "skipped"}',
+                              pr == exp_pr and push == exp_push and on_ is True and hours == 0))
+            (repo / 'precedent.json').write_text(_json.dumps(
+                {'base_branch': 'main', 'visibility': 'public'}), encoding='utf-8')
+            installed['text'] = raw
+            due, _ = pb.main_test_due(repo, 'TIP', gh=GH(), user_config=cfg)
+            cases.append((f'{label}, a public repo: still tested',
+                          due and runs(raw, 'push', False)))
+        # The commit hook's cadence script, written with no individual source.
+        home = tmp / 'home'
+        work = tmp / 'work'
+        home.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)], capture_output=True)
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'visibility': 'private'}), encoding='utf-8')
+        env = dict(os.environ, HOME=str(home), TZ='UTC',
+                   PRECEDENT_GLOBAL_HOOKS=str(home / 'git-hooks'),
+                   PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'nonexistent.json'),
+                   CLAUDE_PROJECT_DIR=str(work))
+        for k in ('PRECEDENT_COMMIT_TZ', 'PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME'):
+            env.pop(k, None)
+        r = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                           timeout=120, env=env)
+        scripts = list(tmp.rglob('precedent-ci-cadence'))
+        body = scripts[0].read_text(encoding='utf-8') if scripts else ''
+        cases.append(('with no individual source the session-start hook still runs, and '
+                      'its cadence script carries a personal 0 hours and branches on',
+                      r.returncode == 0 and 'PERSONAL_CI_EVERY_HOURS = 0' in body
+                      and 'PERSONAL_CI_ON_BRANCHES = True' in body))
+    pb._git = real_git
+    if saved_force is not None:
+        os.environ[pb.FORCE_ENV] = saved_force
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_main_test_cadence():
     """Main's GitHub test runs at most once every github_ci_every_hours in a
     private repository, decided by Promote before GitHub starts anything
@@ -52521,6 +52646,7 @@ def main():
     check_main_test_cadence()
     check_main_test_minutes_rule()
     check_main_test_repo_setting()
+    check_main_test_without_individual_source()
     check_source_clone_is_pinned_to_a_branch()
     check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
