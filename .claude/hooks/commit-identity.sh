@@ -685,7 +685,20 @@ def decide(msg):
                 f'ci-cadence: added [skip ci] -- {head} is not {base}, and '
                 f'{where} sets github_ci_on_branches to false. To run CI on '
                 f'this commit: PRECEDENT_CI_NOW=1 git commit ...')
-    has, v = setting(cfg, 'every_hours')
+    # The repository's own github_ci_main_test has the final say on its
+    # primary branch (spec/CI_CADENCE_PLAN.md, "The repository decides"):
+    # "always" means every push there is tested, so nothing is tagged;
+    # "never" and a value that is none of the four leave nothing to skip; a
+    # number is the hours, whatever the person's own value says.
+    mode = cfg.get('github_ci_main_test')
+    if mode in ('always', 'never'):
+        return None
+    if mode is not None and mode != 'individual':
+        if isinstance(mode, bool) or not isinstance(mode, (int, float)) or mode < 0:
+            return None
+        has, v = True, mode
+    else:
+        has, v = setting(cfg, 'every_hours')
     if has:
         hours, where = hours_of(v), "this repo's precedent.json"
     else:

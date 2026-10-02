@@ -2414,6 +2414,41 @@ RETIRED_CI_WORKFLOW_FILES = {
 }
 
 
+# THE REPOSITORY'S OWN SAY OVER MAIN'S GITHUB TEST (2026-10-01,
+# spec/CI_CADENCE_PLAN.md, "The repository decides"). precedent.json's
+# `github_ci_main_test` is "individual" (the default), "never", "always" or a
+# number of hours. Only "always" changes the workflow file, because it is
+# the only one GitHub must act on with no session involved -- a push to main
+# from someone who never runs Promote. Every other value leaves the file
+# byte-identical to the template; Promote reads those in the session.
+# precedent_branches.py carries the same marker and reads the same key.
+MAIN_TEST_KEY = 'github_ci_main_test'
+MAIN_TEST_MARKER = b"'main-test:individual'"
+MAIN_TEST_ALWAYS = b"'main-test:always'"
+
+
+def main_test_always(dest_root):
+    """True when `dest_root`'s precedent.json says
+    "github_ci_main_test": "always". Anything unreadable is False: the file
+    then stays the template, which tests no private push to main."""
+    try:
+        cfg = json.loads((pathlib.Path(dest_root) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return isinstance(cfg, dict) and cfg.get(MAIN_TEST_KEY) == 'always'
+
+
+def render_ci_workflow(dest_root, data):
+    """-> the bytes to install for one CI template in `dest_root`: the
+    template itself, with the main-test marker set to always where that
+    repository asks for it. A template without the marker is returned as it
+    came."""
+    if main_test_always(dest_root):
+        return data.replace(MAIN_TEST_MARKER, MAIN_TEST_ALWAYS)
+    return data
+
+
 def record_ci_workflow_files(dest_root, kind):
     """Read-modify-write ENGINE_MANIFEST.json's `ci_workflow_files`/
     `ci_workflows_sha256` from whichever of this kind's CI workflow files
@@ -3915,7 +3950,8 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
         src = ci_workflows_dir / template
         if not src.is_file():
             continue                  # this commit predates the template
-        template_hash = _sha256(src)
+        rendered = render_ci_workflow(dest_root, src.read_bytes())
+        template_hash = hashlib.sha256(rendered).hexdigest()
         if converges:
             if _sha256(path) != template_hash:
                 was = ('hand-edited since it was recorded'
@@ -3942,7 +3978,7 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
                     replaced.append(rel)
                 else:
                     refreshed.append(rel)
-                shutil.copy2(src, path)
+                path.write_bytes(rendered)
             recorded[rel] = template_hash
             owned.append(rel)
             continue
@@ -3951,7 +3987,7 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
             catchup.append(rel)
             continue
         if _sha256(path) != template_hash:
-            shutil.copy2(src, path)
+            path.write_bytes(rendered)
             recorded[rel] = template_hash
             refreshed.append(rel)
     if owned:
