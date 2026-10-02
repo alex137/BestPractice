@@ -185,6 +185,13 @@ FAILED = []
 # off-ladder world clears it explicitly (check_ladder_opt_in_loader,
 # check_attached_sets_*, check_ladder_off_*).
 os.environ.setdefault('PRECEDENT_ASSUME_LADDER', '1')
+
+# THE HARNESS SEEDS FROM THE COMMIT UNDER TEST (2026-10-02), which main
+# does not contain on any working branch or pull request. seed() and the
+# bootstrap refuse that unless told it is on purpose (--off-main); every
+# fixture here is on purpose. check_seed_refuses_an_engine_main_lacks clears
+# it to test the refusal itself.
+os.environ.setdefault('PRECEDENT_SEED_OFF_MAIN', '1')
 PASSED = []
 NA = []
 
@@ -5424,6 +5431,27 @@ def check_build_views_refuses_a_long_index_clause():
             [({'tier': 'on-demand', 'index_clause': edited}, {}, f)], root)
         cases.append((f'the same clause edited is refused, with its length '
                       f'(got {got!r})', got == [(f, n + 1)]))
+        # doc_lint asks the same question at the commit the clause is
+        # written in (2026-10-02: a practice set's over-long clause was
+        # committed and pushed, and refused only at the Debut).
+        body = lambda c: (f'---\nslug: p\ntier: on-demand\nindex_clause: "{c}"\n'
+                          f'---\n\n## Rule\n\nDo it.\n')
+        saved_root = dl.ROOT
+        try:
+            dl.ROOT = root
+            f.write_text(body(long_clause), encoding='utf-8')
+            git(root, 'add', '-A')
+            git(root, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'b')
+            git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+            untouched = dl.check_index_clause('practices/p.md')
+            f.write_text(body(edited), encoding='utf-8')
+            refused = dl.check_index_clause('practices/p.md')
+        finally:
+            dl.ROOT = saved_root
+        cases.append(('doc_lint, at the commit: an over-long clause the base '
+                      'already had passes, the same clause edited is refused '
+                      f'with its length (got {untouched!r} / {refused!r})',
+                      untouched is None and bool(refused) and str(n + 1) in refused))
         (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             '{"kind": "consumer"}', encoding='utf-8')
         cases.append(('a consumer is never refused -- its practices are '
@@ -22533,6 +22561,181 @@ def check_superseded_source_says_so():
     check(f'a superseded conversion source says so, rather than going stale '
           f'quietly ({len(cases)} stated cases)', not failed, detail)
 
+
+def check_refresh_never_rolls_a_newer_engine_back():
+    """A repo whose vendored engine came from a BestPractice commit the
+    source branch does not contain is AHEAD, not stale: the refresh leaves
+    it, and the session-start survey says AHEAD.
+
+    2026-10-02: a practice set made from a working branch recorded that
+    branch's commit. Every session start compared it with main only for
+    equality, called it stale, and wrote main's older engine over it in the
+    working tree, deleting files the set had committed."""
+    import tempfile, io, contextlib
+    import precedent_vendor_engine as pve
+    import precedent_refresh_sources as prs
+    cases = []
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               GIT_AUTHOR_NAME='f', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='f', GIT_COMMITTER_EMAIL='f@x')
+    g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                        capture_output=True, text=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as td:
+        bp = pathlib.Path(td) / 'bp'
+        bp.mkdir()
+        g(bp, 'init', '-q', '-b', 'main')
+        g(bp, 'commit', '-q', '--allow-empty', '-m', 'A')
+        old = g(bp, 'rev-parse', 'HEAD')
+        g(bp, 'switch', '-q', '-c', 'side')
+        g(bp, 'commit', '-q', '--allow-empty', '-m', 'B')
+        side = g(bp, 'rev-parse', 'HEAD')
+        g(bp, 'switch', '-q', 'main')
+        g(bp, 'commit', '-q', '--allow-empty', '-m', 'C')
+        tip = g(bp, 'rev-parse', 'HEAD')
+        cases.append(('an engine from a branch main does not contain is ahead',
+                      pve.engine_is_ahead(bp, side, tip) is True))
+        cases.append(('an engine from an older main commit is stale, not ahead',
+                      pve.engine_is_ahead(bp, old, tip) is False))
+        cases.append(('a commit the clone cannot place is not called ahead',
+                      pve.engine_is_ahead(bp, 'f' * 40, tip) is False))
+
+        # refresh() itself: told the source branch is at `tip`, a repo
+        # recording `side` is left untouched, and says why.
+        repo = pathlib.Path(td) / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'kind': 'source', 'source_commit': side, 'files': {}}),
+            encoding='utf-8')
+        scratch = pathlib.Path(td) / 'engine'
+        scratch.mkdir()
+        saved = (pve.ROOT, pve._source_tools_at)
+        out = io.StringIO()
+        try:
+            pve.ROOT = repo
+            pve._source_tools_at = lambda clone, kind, ref=None, fetch=True: (tip, scratch)
+            with contextlib.redirect_stdout(out):
+                pve.refresh(bp)
+        except SystemExit as e:
+            out.write(f'[exited {e}]')
+        except Exception as e:
+            # Unguarded, it goes on to copy the empty scratch engine over
+            # the repo's: that attempt is the rollback this case refuses.
+            out.write(f'[went ahead with the copy: {type(e).__name__}: {e}]')
+        finally:
+            pve.ROOT, pve._source_tools_at = saved
+        manifest = json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json')
+                              .read_text(encoding='utf-8'))
+        cases.append(('refresh leaves a newer engine as it is, and says so',
+                      'newer work, not older' in out.getvalue()
+                      and manifest['source_commit'] == side
+                      and sorted(p.name for p in (repo / 'tools').iterdir())
+                      == ['ENGINE_MANIFEST.json'], out.getvalue()[-300:]))
+
+        # The survey's question, asked of a BestPractice checkout.
+        saved_root = prs.ROOT
+        try:
+            prs.ROOT = bp
+            cases.append(("the session-start survey calls it ahead, and an "
+                          "older one not",
+                          prs._engine_ahead_of(side, tip) is True
+                          and prs._engine_ahead_of(old, tip) is False))
+        finally:
+            prs.ROOT = saved_root
+    bad = [c[0] + (f' -- {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a refresh never rolls a newer engine back ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_seed_refuses_an_engine_main_lacks():
+    """seed() and the bootstrap refuse to copy an engine from a commit main
+    does not contain, before writing anything, unless told it is on
+    purpose; told so, the manifest names the real branch beside a
+    source_branch that still says what refresh follows.
+
+    2026-10-02: a practice set made from a working branch recorded
+    source_branch "main" over that branch's commit, and every session start
+    rolled its engine back (check_refresh_never_rolls_a_newer_engine_back
+    is the other half)."""
+    import tempfile, io, contextlib
+    import precedent_vendor_engine as pve
+    import precedent_bootstrap_source as pbs
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='f', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='f', GIT_COMMITTER_EMAIL='f@x')
+    g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                        capture_output=True, text=True).stdout.strip()
+    saved_env = os.environ.pop('PRECEDENT_SEED_OFF_MAIN', None)
+    saved_off = pve.off_source_branch
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            bp = pathlib.Path(td) / 'bp'
+            bp.mkdir()
+            g(bp, 'init', '-q', '-b', 'main')
+            g(bp, 'commit', '-q', '--allow-empty', '-m', 'A')
+            old = g(bp, 'rev-parse', 'HEAD')
+            g(bp, 'switch', '-q', '-c', 'feature-x')
+            g(bp, 'commit', '-q', '--allow-empty', '-m', 'B')
+            side = g(bp, 'rev-parse', 'HEAD')
+            cases.append(('a commit main lacks is named by the branch it is on',
+                          pve.off_source_branch(bp, side) == 'feature-x'))
+            cases.append(('a commit main contains is not off main',
+                          pve.off_source_branch(bp, old) is None))
+            nomain = pathlib.Path(td) / 'nomain'
+            nomain.mkdir()
+            g(nomain, 'init', '-q', '-b', 'trunk')
+            g(nomain, 'commit', '-q', '--allow-empty', '-m', 'A')
+            cases.append(('with no main to ask, nothing is called off main',
+                          pve.off_source_branch(nomain, g(nomain, 'rev-parse', 'HEAD'))
+                          is None))
+
+            pve.off_source_branch = lambda repo, commit: 'feature-x'
+            dest = pathlib.Path(td) / 'refused'
+            dest.mkdir()
+            err = io.StringIO()
+            try:
+                with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+                    pve.seed(dest, kind='consumer')
+                refused = ''
+            except SystemExit as e:
+                refused = str(e)
+            cases.append(('seed refuses it, naming the branch and --off-main, '
+                          'and writes nothing',
+                          'REFUSED' in refused and 'feature-x' in refused
+                          and '--off-main' in refused and not any(dest.iterdir()),
+                          refused[:200]))
+
+            dest = pathlib.Path(td) / 'told'
+            dest.mkdir()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+                pve.seed(dest, kind='consumer', off_main=True)
+            m = json.loads((dest / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+            cases.append(('told --off-main, the manifest names the real branch '
+                          'and keeps source_branch main',
+                          m.get('source_branch') == pve.SOURCE_BRANCH
+                          and m.get('seeded_from_branch') == 'feature-x', str(m)[:200]))
+
+            bdest = pathlib.Path(td) / 'set'
+            saved_warn = pbs._warn_if_clone_is_stale
+            pbs._warn_if_clone_is_stale = lambda: None
+            try:
+                pbs.bootstrap('shared', 'precedent-shared-zz', bdest,
+                              approvers=[{'name': 'A B', 'github': 'ab'}])
+                why = ''
+            except pbs.BootstrapRefused as e:
+                why = str(e)
+            finally:
+                pbs._warn_if_clone_is_stale = saved_warn
+            cases.append(('the bootstrap refuses it before creating the set',
+                          'feature-x' in why and '--off-main true' in why
+                          and not bdest.exists(), why[:200]))
+    finally:
+        pve.off_source_branch = saved_off
+        if saved_env is not None:
+            os.environ['PRECEDENT_SEED_OFF_MAIN'] = saved_env
+    bad = [c[0] + (f' -- {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'seed refuses an engine main lacks, unless told ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 def check_refresh_removes_dropped_engine_files():
     """A file dropped from the engine set leaves every consumer, not just this repo.
@@ -54163,6 +54366,8 @@ def main():
     check_ladder_opt_in_loader()
     check_ladder_off_engine_says_no_ladder_words()
     check_ladder_test_session_and_the_two_ladder_checks()
+    check_refresh_never_rolls_a_newer_engine_back()
+    check_seed_refuses_an_engine_main_lacks()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
