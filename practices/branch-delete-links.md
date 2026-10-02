@@ -105,14 +105,13 @@ Three things the report must not get wrong, each of which fails silently:
    and the one-click promise is gone.
 3. **Say what success looks like.** After the deletion the filtered page reads
    *"no branches matched"*, which looks like an error and is not.
-4. <a id="never-a-tier-branch"></a>**Never a tier branch.** `main`, `staging`, `pre-staging`, staging's old
-   name `precedent-beta-v01` and Promote's lock branch
-   `precedent-promote-lock` are never offered for deletion, by any route,
-   whatever a merge test says: a Promote fast-forwards the lower tiers, so
-   they read as merged right after one. A filter that would also show one of
-   them on the page says so on the row. Morgan, 2026-09-28 (strength:
-   decided): *"it needs to never never offer to delete pre-staging nor
-   staging."*
+4. <a id="never-a-tier-branch"></a>**Never a long-lived branch.** `main`,
+   any other long-lived branch the repository moves its work through, and
+   any lock branch the engine keeps are never offered for deletion, by any
+   route, whatever a merge test says: a long-lived branch that is
+   fast-forwarded to match another reads as merged right after. A filter
+   that would also show one of them on the page says so on the row. Morgan,
+   2026-09-28 (strength: decided).
 
 ## Detail
 ### Deciding which branches qualify
@@ -127,7 +126,7 @@ Over the GitHub API, with no clone, the test is four steps and step 2 is the
 one that gets skipped:
 
 1. List all branches; drop the repository's default branch, any protected
-   integration branch, and every tier branch in [rule 4 above](#never-a-tier-branch).
+   integration branch, and every long-lived branch in [rule 4 above](#never-a-tier-branch).
 2. List **closed** pull requests and keep only those whose `merged_at` is
    non-null. **A closed-unmerged pull request is not a merge.** Closing a pull
    request and deleting its branch destroys the work on it.
@@ -269,8 +268,8 @@ offer rests on.
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:
 
-- [chief-of-staff](chief-of-staff.md) sweeps the fleet — every repository the
-  person owns carrying a Precedent install.
+- A fleet sweep, where the person's own set provides one, covers every
+  repository the person owns carrying a Precedent install.
 - [very-deep-check](very-deep-check.md)'s pass 4 sweeps the checkout it is
   running in and the sources that are their own git checkouts, and no further.
   Branch hygiene is per-repository bookkeeping, not a seam finding between two

@@ -59,19 +59,17 @@ formula, fallback or newly summed source that makes the number bigger is a
 raise even when no field changed. Never raise one to make a red check green,
 and say any change to a budget in that reply's Boildown.
 
-**A cap warns on the way into pre-staging and refuses on the way into
-staging.** Over a cap,
+**A cap warns at the quick check and refuses at the full one.** Over a
+cap,
 [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
-still writes the block and prints a warning, and the pre-staging check
-reports the cap checks as warnings, so a branch can land. **Tell the person
-it must be brought under before it can go to staging:** the full check at
-the Debut refuses it (`loader-within-caps`, `session-load-budget`,
-`session-file-allowances-fit`), exactly as before. Morgan, 2026-09-30
-(strength: decided): *"remove that limit for pre-staging and instead just
-have it give the session user a warning, including telling the user that it
-needs to be fixed before it can get onto staging; but no change for the
-rules for staging."* A raised budget still needs the person's own words, on
-every tier.
+still writes the block and prints a warning, and the quick check reports
+the cap checks as warnings, so a branch that gets only the quick check can
+land. **Tell the person it must be brought under before the full check
+will pass it:** the full check refuses it (`loader-within-caps`,
+`session-load-budget`, `session-file-allowances-fit`), exactly as before.
+Morgan, 2026-09-30 (strength: decided), asked for the warning to tell the
+person it needs fixing, and for no change to the refusal. A raised budget
+still needs the person's own words, whichever check runs.
 
 **When the resident cap refuses a new practice, the person picks what comes
 out.** The refusal says to demote or retire a resident practice — that is a
@@ -140,7 +138,7 @@ began, recorded rather than freshly approved.
 `precedent_check.py --only budget-within-approval` reads each budget through
 `build_views.effective_budgets()`, the same functions that enforce it, and
 fails on any above its approval or with none. It needs no base commit, so it
-answers the same at commit, push, merge, CI and Promote, whoever merged
+answers the same at commit, push, merge and CI, whoever merged
 what. A surface's `target` is where it is meant to live: over it, the
 session-start file opens with a warning, once per session, and the reply
 gate asks for one line in The Boildown in every reply. Its `hard_ceiling`

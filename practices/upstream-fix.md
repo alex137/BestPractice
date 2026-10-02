@@ -156,7 +156,7 @@ fix that does get made.
 
 **Doing the root fix follows the authorization already in force.** This
 rule licenses making the root fix. It does not add a push or a merge
-authorization of its own. When Booked (`Go update`) or an equivalent covers the
+authorization of its own. When the person's go-ahead to land it covers the
 work, the root fix lands with it. When nothing does, commit it and say it
 is ready to land.
 

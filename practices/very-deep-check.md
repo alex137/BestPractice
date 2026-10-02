@@ -57,8 +57,7 @@ run on each repo's current copy, never on a side branch. One read reaches
 further on purpose and reports without fixing: the CI fleet audit reads the
 workflow files on branches pushed in the last seven days, because GitHub
 runs a pushed branch's own workflows (Morgan, 2026-09-29, strength:
-decided). The tier checks never read other
-branches at all ([checks-follow-the-tier](checks-follow-the-tier.md)).
+decided).
 
 **A repo that needs a handoff stays in scope, deliberately.** Dropping it
 would lose every finding in the seam between it and a repo still in scope,
@@ -129,7 +128,7 @@ sets' practice text in full, which is the point of it. Nothing about the
 practice catalogue is written into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
 any more; the run's write-up links the page in the reply, not in a file.
 
-Morgan, 2026-09-28 (strength: decided, "Go update"): *"do NOT put the list
+Morgan, 2026-09-28 (strength: decided): *"do NOT put the list
 of practices in the very deep check, and you can remove it now; BUT make an
 artifact (NOT linked to from the github page), that [1] lists all those
 branches I can delete, including a link I can click on for each and then
@@ -138,21 +137,21 @@ individual, then the shared ones I have access to."* It replaced the
 committed catalogue (added 2026-09-23), which a public repo had to hold the
 private sets back from, so he never got the list he asked for.
 
-**Read `main`, write through the landing branch.** The check judges the
+**Read `main`, write through the normal process.** The check judges the
 version people are actually running, which is `main`: in every repo in
 force, the run reads a working branch cut from `origin/main` (cut one if
 the harness checked out something else). It changes nothing there
 directly. Every fix is committed on that working branch and lands the
-ordinary way, Booked (`Go update`) onto the person's landing branch and a Promote
-from there, never pushed to `main`. **Reading `main` alone would re-find
-what is already fixed and waiting to be promoted**, so the tool's
+ordinary way, with the person's go-ahead, on the branch the person's work
+lands on. **Where that branch is not `main`, reading `main` alone would
+re-find what is already fixed and not live yet**, so the tool's
 `LIVE VERSUS LANDING` section names, per repo, the files the landing
 branch carries that are not live yet; before fixing a finding in one of
 them, check whether the landing branch already did. Morgan, 2026-09-28
 (strength: decided): *"it's better to do a deep check on the live version
 (main), but we don't want to edit it, to edit it we should use the normal
-process."* Until then a run read whatever the harness checked out --
-`main` in one repo and `pre-staging` in four others, the same afternoon.
+process."* Until then a run read whatever the harness checked out, which
+was not the same branch in every repo the same afternoon.
 
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
@@ -199,8 +198,7 @@ where upstream is now, and how many engine files were added, changed or
 refresh is the one that breaks something. **It reports and refreshes
 nothing**: taking an update is `Update Vendors`, run in that repo, and it is
 ordinary work authorized the ordinary way. **Scope is the repos this run
-already opens**; the fleet version of the same question is
-[chief-of-staff](chief-of-staff.md)'s. Added 2026-09-21 (Morgan, strength:
+already opens.** Added 2026-09-21 (Morgan, strength:
 decided) from
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 3.
@@ -279,17 +277,16 @@ were written after one expensive incident they exist to prevent. Quiet is
 also not the same as unmeasurable — a section that could not produce a count
 is reported separately and is never graded as clean.
 
-**A tier branch is never offered for deletion, by any list this check
-prints or writes** — `pre-staging`, `staging`, `main`, staging's old name
-`precedent-beta-v01`, and Promote's lock branch, in every repo in force,
-merged or not. Every Promote fast-forwards the lower tiers, so an ancestor
-test calls them "merged" right after one; until 2026-09-28 the sweep
+**A long-lived branch work lands on is never offered for deletion, by any
+list this check prints or writes** — `main`, the declared base branch, any
+branch a person's work lands on, and the lock branch a tool keeps, in every
+repo in force, merged or not. A branch that is routinely fast-forwarded to
+match another looks "merged" to an ancestor test; until 2026-09-28 the sweep
 protected only the declared base and the default branch, and would have
-handed both `pre-staging` and `precedent-beta-v01` over with a one-click
-delete link. Morgan, 2026-09-28 (strength: decided): *"it needs to never
-never offer to delete pre-staging nor staging."* The guard sits in the one
-function that mints every delete link, and a filtered page that would also
-show a tier row says so on the row.
+handed such a branch over with a one-click delete link (Morgan, 2026-09-28,
+strength: decided). The guard sits in the one function that mints every
+delete link, and a filtered page that would also show a protected row says
+so on the row.
 
 **When the branch this repo works on is not its base branch, the run reads
 the base branch too — and reports it, never applies it.** Work pinned to a
@@ -1397,8 +1394,8 @@ first so this pass spends its attention on what they cannot see.
   and `check_park_it.py` fails if the "Drop it" paragraph goes missing — so
   check where a keyword IS defined before calling it undefined. (An early
   "don't put it in the glossary", Morgan 2026-09-08, was later read
-  narrowly; park-it's Story records why, and "Drop it" and "Go update" are
-  in the glossary now.)
+  narrowly; park-it's Story records why, and "Drop it" is in the glossary
+  now.)
 - **What every session loads, and what it costs.** The rule is
   [session-load-budget](session-load-budget.md) — every always-loaded surface
   carries a declared ceiling in
@@ -1477,8 +1474,8 @@ first so this pass spends its attention on what they cannot see.
   once, at the moment somebody adds a resident practice, and the set is never
   revisited afterwards. Read it in both directions. **Demote** a resident
   practice whose occasions turn out to be narrow enough that the path or
-  occasion channel would reach them. **Promote** an on-demand practice that
-  keeps being missed, which is the failure the tiering exists to prevent: an
+  occasion channel would reach them. **Make resident** an on-demand practice
+  that keeps being missed, which is the failure the tiering exists to prevent: an
   on-demand practice only reaches a session that thought to ask for it.
   **Judge the occasions, not the token count** — a demotion made to free
   budget is the SESSION LOAD trap one level up.
@@ -1842,9 +1839,9 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   **This sweep stays inside the repos this check already reads — the
   checkout and the sources that are their own git checkouts — and is never
-  widened to every Precedent repo the person owns.** That fleet sweep is
-  [chief-of-staff](chief-of-staff.md)'s, placed there by Morgan on
-  2026-09-21 with the reasoning worth keeping: branch hygiene is per-repo
+  widened to every Precedent repo the person owns.** Morgan kept the fleet
+  sweep out of this check on 2026-09-21, with the reasoning worth keeping:
+  branch hygiene is per-repo
   bookkeeping, not a finding in the seam between two repos, which is the
   class this check exists for. Widening it here would duplicate that
   practice and make an already expensive check more expensive for no new
@@ -1967,16 +1964,6 @@ Last because none of it strands an adopter, and none of it is cheap.
 
 - **What landed on the base branch and never came across.** The cheap half
   of the same relationship the rehearsal below tests, asked much earlier.
-  **Where the repo has branch tiers it asks it of every pair**: what
-  `staging` and `main` carry that `pre-staging` never took, and what `main`
-  carries that `staging` never took — work lands on `pre-staging` now, so
-  the old single question (the declared base against the default branch)
-  was looking one tier too high. A row on a pair into `pre-staging` is not a
-  choice to put to the person: everything above belongs below, and
-  `python3 tools/precedent_branches.py --sync-pre-staging` (which a Promote
-  runs first anyway) brings it down. A row nobody wants is a revert owed on
-  the upper branch. Added 2026-09-28 (Morgan, strength: decided, "Go
-  update").
   Runs only where the branch this repo works on is not its base branch —
   where they are the same branch there is nothing to drift from, and the
   section is recorded as skipped for that reason rather than as clean.
@@ -2003,21 +1990,18 @@ Last because none of it strands an adopter, and none of it is cheap.
   run record, with its reason.
 
   **A repo that also keeps a carry watermark reads both.** This one did
-  until 2026-09-27, when its upstream-carry notice was retired: main takes
-  all its work from staging by Promote now, and the drift check in `tools/precedent_branches.py` answers by files what the
-  watermark answered by commits. A watermark answers "has the base moved
-  since somebody last carried from it"; this answers "what, specifically,
-  has never come across", which is the thing a person can decide about. The
-  first can read *current* while the second has rows, because a carry
-  records the point it reached, not that everything behind it was taken.
+  until 2026-09-27, when its upstream-carry notice was retired, and the
+  drift check in [tools/precedent_branches.py](../tools/precedent_branches.py)
+  answers by files what the watermark answered by commits. A watermark
+  answers "has the base moved since somebody last carried from it"; this
+  answers "what, specifically, has never come across", which is the thing
+  a person can decide about. The first can read *current* while the second
+  has rows, because a carry records the point it reached, not that
+  everything behind it was taken.
 
 - **The endgame merge, rehearsed against the whole tree.** A repo whose work
   is pinned to an integration branch is aimed at a merge it has not yet
-  performed — this repo's fold-in of `staging` into `main` was the first
-  case — and **with branch tiers it is every merge a Promote makes**:
-  `pre-staging` into `staging`, then `staging` into `main`, each rehearsed
-  in that order (since 2026-09-28; before then only the second was, and the
-  first is the one that happens every day). Rehearse them here, every run:
+  performed. Rehearse it here, every run:
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) merges the
   integration branch into its base in a throwaway worktree, commits nothing,
   and reports **two sets, separately**. *Conflicting paths* are loud, and
@@ -2620,6 +2604,11 @@ it landed and still unreviewed.
 - **Extended 2026-09-29, Morgan (strength: decided)**, so a renamed repository is found wherever it is named -- every tracked file in this checkout and in every source, not only the always-loaded instructions files -- and fixed in the run: the clone's remote repointed and every current reference rewritten, history left as written. Asked as a question first ("does Very Deep Check do a check to see if any called repos are redirected ... add that to VDC if it doesn't"); it reported renames in two places and fixed none.
 - **Extended 2026-09-29, Morgan (strength: decided)**, with the GENERATED FILES lines: the reverse search for a file a tool writes that the new list of generated files does not name. Asked as a question ("does bestpractice maintain a list of all files that are auto-generated ... Is this checked in VDC and/or should it be?"); there was no single list, and todo/TODO.md had gone out of date with nothing checking it.
 - **Extended 2026-10-01, Morgan (strength: decided)**, so Pass 3 measures every always-loaded surface against its target as well as its ceiling, and over target runs a reduction pass with its practice-by-practice review of the occasion index and resident block -- "this reduction pass is great; if it's not part of Very Deep Check, it absolutely should be." -- after the first such review found about 1,040 tokens of room that the menu's lossless moves could not. The SESSION LOAD section prints an OVER TARGET finding for it.
+
+2026-10-02: rewritten without the ladder's words when the ladder became a
+set a person brings (spec/LADDER_OPT_IN_PLAN.md). The set that provides the
+ladder carries the earlier wording under the same slug, for the people who
+bring it. Edit both.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope

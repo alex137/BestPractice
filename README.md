@@ -169,7 +169,7 @@ Precedent)](documentation/WHY_PRECEDENT.md) for the fuller pitch, and
 the how-to guide for your situation: [if you write
 code](documentation/FOR_DEVELOPERS.md), or [if you
 don't](documentation/FOR_EVERYONE_ELSE.md). If a word like "individual set" or
-"pre-staging" trips you up, [Our Language](documentation/OUR_LANGUAGE.md)
+"shared set" trips you up, [Our Language](documentation/OUR_LANGUAGE.md)
 is the short list of what each one means.
 
 **Already set up?** [How to Use This Day to Day](documentation/DAILY_HABITS.md)

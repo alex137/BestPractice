@@ -10,10 +10,11 @@
     "require_first_item_under_heading": {
       "heading": "boildown",
       "matching": "^\\s*the work of this session is now on\\s*:",
-      "why": "The Boildown opens with where the work is and which of the five stages it finished -- \"The work of this session is now on: <branch> (you have finished step N of 5, <Stage>)\" -- in every reply, a plan-only one included (no branch yet, step 1 of 5, Consider)."
+      "why": "The Boildown opens with where the work is -- \"The work of this session is now on: <branch>\" -- in every reply, a plan-only one included (\"no branch yet\")."
     },
-    "why": "Morgan, 2026-09-29 (strength: decided): the first bullet after the Boildown heading names the branch this session's work is on and the stage it has finished, with no exception. Blocking, like the heading beside it, because it is structural: the line is either first under the heading or it is not, and a line meant for every reply is the kind a session drops when the rest of the reply feels finished.",
-    "checks_practice_at": "practices/the-boildown.md"
+    "why": "Morgan, 2026-09-29 (strength: decided): the first bullet after the Boildown heading names the branch this session's work is on, with no exception. Blocking, like the heading beside it, because it is structural: the line is either first under the heading or it is not, and a line meant for every reply is the kind a session drops when the rest of the reply feels finished. A set a person brings may restate it with the same id (tools/precedent_reply_check.py _settle).",
+    "checks_practice_at": "practices/the-boildown.md",
+    "id": "boildown-first-bullet"
   },
   {
     "practice": "the-boildown",
@@ -127,12 +128,13 @@
     "practice": "prompt-please",
     "require_in_fence_paired_with": [
       {
-        "if_matches": "^(?![^\\n]*\\b(?:do not|don't|never|not|no|nothing|without)\\b)[^\\n]*\\b(?:land|merge|promote|push|pull request|PR)\\w*\\b[^\\n]{0,80}?\\b(?:into|onto|on|to)\\s+[`\\\"']?(?:pre-staging|staging|main)\\b",
-        "must_also_match": "[\\\"“'‘]\\s*(?:Booked|Approved|Go update|Book it)\\b|^>\\s[^\\n]*\\b(?:Booked|Approved|Go update|Book it)\\b",
-        "why": "a paste block that tells another session to land, merge, push or open a pull request onto pre-staging, staging or main carries landing authority, and only the person's own Booked (or Approved, Go update) for this handoff gives it -- quoted in the block, so the receiving session can check it. Without that word, the prompt ends at Act: build on the feature branch, push it there, and stop"
+        "if_matches": "^(?![^\\n]*\\b(?:do not|don't|never|not|no|nothing|without)\\b)[^\\n]*\\b(?:land|merge|push|pull request|PR)\\w*\\b[^\\n]{0,80}?\\b(?:into|onto|on|to)\\s+[`\\\"']?(?:main|master|the main branch|the base branch)\\b",
+        "must_also_match": "^>\\s.+|[\"“'‘][^\"”’']*\\b(?:[Aa]pproved?|[Mm]erge|[Pp]ush|[Ll]and|[Gg]o ahead)\\w*\\b",
+        "why": "a paste block that tells another session to land, merge, push or open a pull request onto the main branch carries landing authority, and only the person's own words for this handoff give it -- quoted in the block, so the receiving session can check them. Without them, the prompt ends with the work built on a feature branch, pushed there, and stopped"
       }
     ],
-    "why": "2026-10-01: two prompts a session wrote ended 'Land it on staging per this repo's conventions'. Morgan had not said Booked, and routine work lands on pre-staging, never staging. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes. Morgan: 'No, we always want to do it in the local container (\"Act\") and then I'll authorize it to go to pre-staging via \"Promote\" etc.'",
-    "checks_practice_at": "practices/prompt-please.md"
+    "why": "2026-10-01: two prompts a session wrote told another session to land work, though the person had not said to. fence-block-for-paste passed both, because it checks that a block says where it goes, not what it authorizes.",
+    "checks_practice_at": "practices/prompt-please.md",
+    "id": "prompt-please-landing-authority"
   }
 ]

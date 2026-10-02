@@ -1541,6 +1541,12 @@ def tiers_step(repo, rep):
     issue with migrations: when migrating check for these and create
     them")."""
     tier_lines = []
+    # Tiers are a ladder user's, in a repository that has them (D3). For
+    # anyone else this step says nothing at all: a report line about
+    # pre-staging and staging is the ladder's words in their session.
+    ladder = pb.ladder_in_force(repo)
+    if ladder is False or (ladder and not pb.repo_has_tiers(repo)):
+        return
     has_origin = run(['git', '-C', str(repo), 'remote', 'get-url', 'origin'],
                      repo)[0] == 0
     try:

@@ -1287,6 +1287,20 @@ def load_source(source):
     return out, None
 
 
+def _requires(fm):
+    """-> the capabilities a practice's `requires:` names, as a set."""
+    raw = fm.get('requires')
+    if raw in (None, '', 'null', '[]'):
+        return set()
+    try:
+        got = json.loads(raw) if isinstance(raw, str) else raw
+    except ValueError:
+        got = [raw]
+    if isinstance(got, str):
+        got = [got]
+    return {str(x).strip() for x in got or [] if str(x).strip()}
+
+
 def resolve(sources):
     """-> {'practices': {slug: practice}, 'shadowed': [...], 'blocked': [...],
            'missing': [...], 'retired': [...]}
@@ -1320,11 +1334,23 @@ def resolve(sources):
     # between them to fall back on -- regardless of which source(s) at that
     # level they came from.
     override_claims_by_level = {}
+    # `requires` (spec/LADDER_OPT_IN_PLAN.md D11, 2026-10-02): a practice
+    # that names a capability is in force only while a source in force
+    # provides it -- a person's own "for me, the ladder" rule goes quiet in
+    # a session started with PRECEDENT_NO_LADDERS, which load_config has
+    # already applied to `sources`. Left out, not retired: nothing about the
+    # practice is stale, the session simply does not have what it needs.
+    provided = set()
+    for _s, _loaded in by_source:
+        provided |= source_provides(_s['path'])
     for _s, loaded in by_source:                      # lowest precedence first
         claims = override_claims_by_level.setdefault(_s['level'], {})
         for slug, practice in sorted(loaded.items()):
             if bv._json_str(practice['fm'].get('status', 'active')) != IN_FORCE_STATUS:
                 retired.append(practice)
+                continue
+            needs = _requires(practice['fm'])
+            if needs and not needs <= provided:
                 continue
             # A practice replaces the same slug from a lower source, and may
             # additionally name a differently-named lower practice in

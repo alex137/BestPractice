@@ -118,8 +118,8 @@ something to decide which a person is, and nothing can
 
 **GitHub role — Write.** The contributor is a **Write** collaborator here.
 They push branches, open pull requests and merge their own document work,
-through Claude, with **Booked** (`Go update`); they never need to see git vocabulary to do
-it. This binds anything only if they authenticate to GitHub as themselves
+through Claude, by asking it to save their work to GitHub; they never need
+to see git vocabulary to do it. This binds anything only if they authenticate to GitHub as themselves
 rather than through a shared organisation-wide connection — confirmed once,
 per project, before relying on it.
 

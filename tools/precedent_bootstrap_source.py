@@ -1311,7 +1311,7 @@ def bootstrap(level, name, dest, approvers=None, force=False,
     _cfg, _changed = ensure_universal_source(dest)
     if _changed:
         written.append(_cfg)
-    if precedent_branches.ensure_repo_landing(dest) and _cfg not in written:
+    if precedent_branches.ensure_repo_landing(dest, new_install=True) and _cfg not in written:
         written.append(_cfg)
     written += precedent_vendor_engine.seed(dest)
     # AFTER seed(), not before: seed()/_write_engine_files builds

@@ -57,6 +57,8 @@ per reply, at the first use, not on every repeat. In the same message his
 own example put "book" at step two, which is the confusion this is for:
 Booked is step 3.
 
+Also landed in the shared set `precedent-shared-ladder` on 2026-10-02, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-ladder` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-ladder`.
+
 ## Install
 Nothing to install. It reaches a session through the `reply` gate, which is
 generated from this file's front matter, and nothing mechanical checks it,

@@ -131,7 +131,7 @@ when the check comes back clear. A session on a provider with no
 equivalent tool calls has no way to carry out the archiving half -- say so
 plainly, rather than guessing at a substitute.
 
-No mechanical check, same class as [go-update](go-update.md): this governs
+No mechanical check, same class as [park-it](park-it.md): this governs
 how a message is read and whether a conversation's own state (a pending merge, an open
 recommendation) is genuinely clear, neither of which a repo-scoped script
 can see. The one place either judgment is visible is the conversation

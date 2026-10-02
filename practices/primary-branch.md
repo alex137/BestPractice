@@ -75,6 +75,8 @@ it was "trunk" in general developer usage, Morgan asked for the two to be
 tied together in the project's own vocabulary rather than left as a private
 mapping I'd have to re-derive each time.
 
+Also landed in the shared set `precedent-shared-ladder` on 2026-10-02, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-ladder` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-ladder`.
+
 ## Install
 No check on the answer, same reason [vocabulary](vocabulary.md) gives --
 this defines a word, it does not check that a session used it. What's

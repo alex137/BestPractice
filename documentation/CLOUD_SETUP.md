@@ -131,53 +131,6 @@ repository that is there.
   you, in a new session, whether the variables arrived at all before you
   start chasing the token itself.
 
-## Let a "Promote" Into `main` Through Claude Code's Safety Check
-
-**Only if you run sessions in auto mode and want a plain "Promote" to
-reach `main`.** Claude Code's auto mode has its own safety check, separate
-from Precedent's rules, and it treats moving `staging` into `main` as a
-production deploy. It lets that through only when your message names the
-exact move, so **"Produce"** (or "Promote 5") works and a bare
-**"Promote"** is stopped with `[Production Deploy]`. A session that hits
-this says so in one line and asks you for "Produce"; it never tries to get
-around the check
-([promote](../practices/promote.md), [produce](../practices/produce.md)).
-
-To make a plain "Promote" work too, add an **allow rule** for it. **A
-session cannot do this for you**, and a repository cannot carry it: the
-check ignores a project's own `.claude/settings.json`, and refuses a
-session that tries to write the rule itself. Where it goes (Claude Code's
-own docs, read 2026-09-30):
-
-- **For cloud sessions:** your organization's **managed settings**, at
-  [Admin Settings > Claude Code > Managed settings](https://claude.ai/admin-settings/claude-code).
-  That needs a Claude Team or Enterprise plan and the Owner or Primary
-  Owner role, and it applies to everyone in the organization. Settings on
-  your own computer don't reach a cloud session.
-- **For sessions on your own computer:** `~/.claude/settings.json`, or the
-  **Auto mode** tab of `/permissions`.
-
-Paste this in, keeping `"$defaults"`: **without it, the list replaces every
-built-in exception**, not just adds one.
-
-```json
-{
-  "autoMode": {
-    "allow": [
-      "$defaults",
-      "Precedent Promote into main: running tools/precedent_branches.py --promote --to main is allowed when the person asked in this session for Promote, Produce or Promote 5. That tool moves main only through a pull request, after the full local check and the GitHub test pass."
-    ]
-  }
-}
-```
-
-The rule is written in plain words because the check reads it as prose,
-not as a pattern. On your own computer, `claude auto-mode config` shows
-whether it took; a cloud session picks it up when it next starts. Details:
-[Configure auto mode](https://code.claude.com/docs/en/auto-mode-config)
-and [server-managed settings](https://code.claude.com/docs/en/server-managed-settings).
-On a plan without managed settings, keep saying "Produce".
-
 ## When the Container's Own Signing Collides With a Human-Only Policy
 
 Claude Code Remote signs every commit with a key tied to

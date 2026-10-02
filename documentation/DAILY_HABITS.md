@@ -72,47 +72,36 @@ If the answer is written down somewhere, you'll get it with a link; if it
 isn't, you'll be told that, which is also an answer — usually it means
 something worth writing down never was.
 
-## 4. Say "Go Update" When You're Ready
+## 4. Ask for It to Be Saved When You're Ready
 
 Everything you do in a conversation is, until you say otherwise, **only
 in that conversation.** It hasn't been shared, and if you close the tab it
 may not survive.
 
-**"Go update"** is how you end that. Say it and your AI Assistant saves the
-work properly, publishes it where your colleagues can see it, and tells
-you where it went — no further questions, no checklist to confirm.
-(**"Approved"** means exactly the same thing, said as a plain word of
-agreement instead of an instruction. Want it pushed live without the
-review step, because you've already decided the change is small? Say
-**"Push directly"** instead.)
+**Telling your AI Assistant to save your work to GitHub** is how you end
+that. Say it in your own words and it saves the work properly, puts it on
+the project's main branch where your colleagues can see it, and tells you
+where it went. The project's own checks still run when it is saved.
 
 Say it when you're done with a piece of work and want other people to
 have it, or when you simply want it saved outside the conversation before
-you stop for the day. **When in doubt, say it** — updating something small
+you stop for the day. **When in doubt, say it** — saving something small
 costs nothing, and losing an afternoon's work because it was never saved
 costs an afternoon.
 
 ## The Rest of the Vocabulary
 
-**Booked** (also `Go update`) is one of a small set of phrases the AI Assistant is guaranteed to
+There is a small set of phrases the AI Assistant is guaranteed to
 recognize. You never have to use any of them — plain English works — but
 each one saves you a paragraph of explaining:
 
 <!--gen:vocabulary-->
 | Say this | And it will |
 |---|---|
-| **Act** | Stage 2 (Promote 2): build the change, on this session's own feature branch, pushed to GitHub so a lost session does not lose it -- not yet shared. Synonym: Build |
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
-| **Booked** | Stage 3 (Promote 3): save the work, land it on your landing branch on GitHub (pre-staging, for anyone who uses the three tiers) where it won't be lost, and tell you which branch it went to. By default that is a direct push, with no pull request; a high-risk change goes through one. Its older name, "Go update", still means this. Synonym: Approved, Book it, Shared Save |
-| **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
-| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: across every repo with Precedent installed, what waits on pre-staging for staging and on staging for main, and which of this week's branches are stale. |
-| **Consider** | Stage 1 (Promote 1): decide how much planning the work needs and do that much -- a one-line plan for a small change, a Brainstorm, a Plan it, or a full Write it up -- and say which. Synonym: Plan |
-| **Debut** | Stage 4 (Promote 4), also called Test Readiness: move pre-staging into staging, with the full local checks, saying so first -- saving this session's own work to pre-staging first if it is not there yet. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Full practice audit** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. Once also called a "practice check". |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
-| **Produce** | Stage 5 (Promote 5): move staging into main -- production -- with the full local checks plus the GitHub test, saying so first. Here we graduate you from the practice to real-life production! Synonym: Make live |
-| **Promote** | Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass. "Promote N" does stage N of the five-stage ladder: 1 Consider, 2 Act, 3 Booked, 4 Debut, 5 Produce. |
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening with an invitation to push back with a stronger counter-proposal, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
 | **Root issues** | Look back over everything this session has done so far -- every bug, issue or warning it ran into, and every fix or band-aid it applied -- and hand you each one that should also be fixed in Precedent, a precedent-* repo, the template that generates the file, or another related repo, all in one paste-ready Prompt Please for a single session rooted in every repo they touch, with those repos named first -- including ones you may already have passed on from another session. Synonym: Root fixes |
@@ -124,7 +113,6 @@ each one saves you a paragraph of explaining:
 | **Vocabulary** | List every standing phrase this project recognizes and what each one does, then the words worth knowing to follow a conversation about it. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
 | **What's new?** | Write an entry for every finished day that changed the project and has none yet, say which days were quiet and skipped, then show the log: its link first, the newest entries, what changed today so far, and ask what you want to know more about. |
-| **Write it up** | Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link. Also said as "Spec it out": the largest plan size stage 1, Consider, can choose. |
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is
@@ -132,8 +120,8 @@ rebuilt, so it cannot fall behind the AI Assistant. Numbers by:
 precedent_vocabulary.py — or just say **"Vocabulary"** and your AI Assistant
 will read you the current list.*
 
-Words that name a thing rather than ask for something -- "primary branch",
-"tier branch", "individual set" -- are on [Our Language](OUR_LANGUAGE.md),
+Words that name a thing rather than ask for something -- "individual set",
+for one -- are on [Our Language](OUR_LANGUAGE.md),
 and "Vocabulary" reads them out after the phrases.
 
 **"Drop it", "Three Things" and "Simple please" are the three worth learning first.** "Drop
@@ -150,7 +138,8 @@ scrolled past, closed, or simply too long to find anything in. Anything
 that matters has to end up in the project itself, where the next person
 and the next AI Assistant will actually encounter it.
 
-That's what "make it a rule" is for, and it's what "Go update" is for.
+That's what "make it a rule" is for, and it's what saving your work to
+GitHub is for.
 Habits 1 and 3 are the same idea from the other direction: work through
 the AI Assistant so the project keeps up with you, and ask the project
 questions instead of trying to remember the answers.

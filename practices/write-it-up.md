@@ -181,6 +181,8 @@ the test suite, which is why the Detail tells such a repo to declare its own
 own analysis, not only the result of it, because a reader who was not there
 cannot trust a proposal whose alternatives they never see.
 
+Also landed in the shared set `precedent-shared-ladder` on 2026-10-02, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-ladder` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-ladder`.
+
 ## Install
 No mechanical check: like [go-update](go-update.md), whether a given reply
 correctly recognized the request is a judgment about the conversation, not

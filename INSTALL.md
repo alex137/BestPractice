@@ -178,9 +178,8 @@ not this section.
    team can read leaks its existence and location to them.
 
    The installer also writes `"base_branch"` (the repository's default
-   branch) and `"landing_branch": "pre-staging"`; write both by hand too,
-   or a hand install lands Booked (`Go update`) on a different branch than a tool
-   install ([tier-branch](practices/tier-branch.md)).
+   branch); write it by hand too, or a hand install lands your work on a
+   different branch than a tool install.
 
    Two optional keys are worth setting in the same file, because both
    default to the safe-but-noisy answer and only this repo knows the real
@@ -280,16 +279,6 @@ not this section.
    reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
    they are not.
 
-   **Then give the repo its three branches** -- `precedent_install.py` does
-   it when the repo already has an origin with `main`, and the first Update
-   Vendors does it otherwise; by hand it is
-   `python3 tools/precedent_branches.py --ensure-tiers --apply`. It creates
-   `staging` and `pre-staging` on origin where they are missing and, in a
-   repo whose staging tier was `main`, writes `"staging_branch": "staging"`
-   into `precedent.json` — commit that with the rest. Work then lands on
-   pre-staging, Promote moves it to staging, and a later Promote takes
-   staging into main by pull request (the same step closes out every Update Vendors: the
-   [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 10(h)).
 7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
    loose at the repo root except the instantiated files above and step 6's
    `practices/` and `MANIFEST.json` — the vendored engine and universal
@@ -1391,7 +1380,7 @@ stay manual:
    (or `checkin.py push <upstream-clone> --why "..."`, which calls it) —
    merges each committed change onto upstream's landing branch three ways,
    so nothing upstream gained since the mirror is reverted; runs **this
-   repo's scrub audit and the upstream's leak gate and basic tier first
+   repo's scrub audit and the upstream's leak gate and basic checks first
    (nothing is pushed on a failure)**; then pushes a branch in the clone
    and prints the prompt for the session that lands it.
 3. That session opens the PR against Precedent. Human review of it is the

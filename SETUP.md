@@ -340,7 +340,7 @@ the project is wrong without them.
   least.
 - **Use Precedent's own words the way [Our
   Language](documentation/OUR_LANGUAGE.md) defines them** -- "individual
-  set", "shared set", "in force", "pre-staging" -- and point the person at
+  set", "shared set", "in force" -- and point the person at
   that page once, the first time one of them comes up.
 - One step at a time; never assume git or GitHub vocabulary. "Branch",
   "merge", "pull request", "workflow", "personal access token",

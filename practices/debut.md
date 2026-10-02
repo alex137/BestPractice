@@ -65,6 +65,8 @@ the fourth, a single run of every step came back clean, and the fifth Debut
 reused it and passed. Run after the first refusal, it would have saved most
 of those rounds.
 
+Also landed in the shared set `precedent-shared-ladder` on 2026-10-02, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-ladder` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-ladder`.
+
 ## Install
 Nothing new: the promotion tool and its checks are
 [promote](promote.md)'s.

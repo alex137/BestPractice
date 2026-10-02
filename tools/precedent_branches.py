@@ -185,13 +185,24 @@ REPO_LANDING_COMMENT = [
 ]
 
 
-def ensure_repo_landing(root):
+def ensure_repo_landing(root, new_install=False):
     """Give precedent.json a `landing_branch` when it has none. -> True when
     it wrote one. Never changes a value that is there, and never creates the
-    file: a repository without a precedent.json is not an install."""
+    file: a repository without a precedent.json is not an install.
+
+    Only for a person on the ladder, and only where the repository asks for
+    tiers -- a fresh install by that person, or a repository that already
+    has them (spec/LADDER_OPT_IN_PLAN.md D3: nothing creates tiers in a
+    repository that did not ask for them)."""
     path = pathlib.Path(root) / 'precedent.json'
     data = _read_json(path)
     if not isinstance(data, dict) or LANDING_SETTING in data:
+        return False
+    # Tiers are written only by a person on the ladder (D3): anyone else
+    # installing or updating leaves the repository on its main branch alone.
+    ladder = ladder_in_force(root)
+    if ladder is False or (ladder and not new_install
+                           and not repo_has_tiers(root)):
         return False
     # Appended as text before the closing brace, so the rest of a
     # hand-kept file -- its order, its escapes, its comments' wrapping --
@@ -313,9 +324,65 @@ def person_first_setting(root, key, user_config=None):
     return None, None
 
 
+def ladder_in_force(root, user_config=None):
+    """-> True or False from tools/precedent_ladder.py, or None when that
+    helper is not beside this file (an engine older than it): the caller
+    then keeps the behaviour from before the ladder became opt-in. Imported
+    here, not at the top, because this module must import cleanly with
+    nothing else vendored beside it."""
+    try:
+        here = str(pathlib.Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import precedent_ladder
+    except Exception:                                       # noqa: BLE001
+        return None
+    try:
+        return bool(precedent_ladder.ladder_in_force(root, user_config))
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def repo_has_tiers(root):
+    """True when this repository has tiers: precedent.json names a tier as
+    its landing_branch or base_branch, or a staging_branch of its own, or
+    origin already carries pre-staging. A repository with none of these has
+    only its main branch, and nothing here gives it more."""
+    data = precedent_json(root)
+    if data.get(LANDING_SETTING) in (PRE_STAGING, STAGING):
+        return True
+    if base_branch(root) in (PRE_STAGING, STAGING, LEGACY_STAGING):
+        return True
+    explicit = data.get(STAGING_KEY)
+    if isinstance(explicit, str) and explicit.strip():
+        return True
+    try:
+        r = subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify',
+                            '-q', f'refs/remotes/origin/{PRE_STAGING}'],
+                           capture_output=True, text=True)
+        return r.returncode == 0
+    except OSError:
+        return False
+
+
 def landing_branch(root, user_config=None):
-    """-> (branch, why): where this person's `Go update` lands. The person's
-    own setting first, then the repository's, then DEFAULT_LANDING."""
+    """-> (branch, why): where this person's work lands
+    (spec/LADDER_OPT_IN_PLAN.md D3, Morgan 2026-10-02, strength: decided).
+
+    1. The person's own landing_branch, else the repository's main branch.
+    2. A tier value -- pre-staging or staging, the person's or the
+       repository's -- counts only while the ladder is in force for this
+       person AND the repository declares tiers. Otherwise it is ignored and
+       never edited: a person off the ladder has no tiers, and a ladder user
+       never creates them in a repository that did not ask for them.
+    3. On the ladder, in a repository with tiers: the person, then the
+       repository, then pre-staging.
+
+    With no tools/precedent_ladder.py beside this file, the order from before
+    the ladder became opt-in: the person, the repository, DEFAULT_LANDING."""
+    ladder = ladder_in_force(root, user_config)
+    if ladder is not None:
+        return _landing_by_ladder(root, ladder, user_config)
     value, where = person_first_setting(root, LANDING_SETTING, user_config)
     if value is None:
         tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
@@ -338,6 +405,36 @@ def landing_branch(root, user_config=None):
     return staging_branch(root), why
 
 
+def _landing_by_ladder(root, ladder, user_config=None):
+    """landing_branch's rule once the ladder can be asked about."""
+    person, where = None, None
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and LANDING_SETTING in ident:
+            person, where = ident[LANDING_SETTING], str(path)
+            break
+    repo = precedent_json(root).get(LANDING_SETTING)
+    tiers = bool(ladder) and repo_has_tiers(root)
+    if person is not None and person not in (PRE_STAGING, STAGING, MAIN):
+        person = None                     # a typo: as if it were not set
+    if person == MAIN:
+        return MAIN, f'{LANDING_SETTING} is "main" in {where}'
+    if person in (PRE_STAGING, STAGING):
+        if tiers:
+            return (PRE_STAGING if person == PRE_STAGING else staging_branch(root),
+                    f'{LANDING_SETTING} is "{person}" in {where}')
+        return MAIN, (f'{LANDING_SETTING} is "{person}" in {where}, a branch '
+                      f'this repository does not use for you, so work lands '
+                      f'on {MAIN}')
+    if tiers:
+        if repo == STAGING:
+            return staging_branch(root), (f'{LANDING_SETTING} is "staging" in '
+                                          f"this repo's precedent.json")
+        return PRE_STAGING, (f'{LANDING_SETTING} is "pre-staging" in this '
+                             f"repo's precedent.json")
+    return MAIN, f'work lands on {MAIN} here'
+
+
 # PROMOTE ONLY -- a per-person setting, off unless that person turns it on
 # (Morgan, 2026-09-25: "please make this an INDIVIDUAL rule for me, because I
 # believe that Alex and others won't necessarily use this system"). With it
@@ -357,8 +454,18 @@ PROMOTE_ONLY_SETTING = 'promote_only'
 
 
 def promote_only(root, user_config=None):
-    """-> (on, where). Only a literal `true` turns it on."""
+    """-> (on, where). Only a literal `true` turns it on, and only while the
+    ladder is in force for this person (spec/LADDER_OPT_IN_PLAN.md D3.4):
+    off the ladder, and in a session started with PRECEDENT_NO_LADDERS, the
+    setting is ignored, never edited."""
     value, where = personal_setting(root, PROMOTE_ONLY_SETTING, user_config)
+    if value is True:
+        ladder = ladder_in_force(root, user_config)
+        # Off the ladder, or in a repository with no tiers to promote
+        # through, main is where work lands -- refusing pushes there would
+        # leave the person nowhere to put it.
+        if ladder is False or (ladder and not repo_has_tiers(root)):
+            return False, where
     return value is True, where
 
 
@@ -424,7 +531,7 @@ def tier_branches(root):
                    staging_branch(root)})
 
 
-def ensure_tiers(root, apply=False, say=print):
+def ensure_tiers(root, apply=False, say=print, new_install=False):
     """Make origin carry pre-staging and a real staging branch. -> 0 when
     both exist (or were just made), 1 when something is missing and
     `apply` is off, or could not be made.
@@ -438,6 +545,13 @@ def ensure_tiers(root, apply=False, say=print):
     left alone (see STAGING_KEY). Then pre-staging is made from staging by
     sync_pre_staging, the same way first use makes it everywhere else."""
     root = pathlib.Path(root)
+    # Only a person on the ladder makes tiers (spec/LADDER_OPT_IN_PLAN.md D3):
+    # for anyone else a repository has its main branch and nothing to make,
+    # and saying so would be the ladder's words in their session.
+    ladder = ladder_in_force(root)
+    if ladder is False or (ladder and not new_install
+                           and not repo_has_tiers(root)):
+        return 0
     staging = staging_branch(root)
     missing = []
     wants_staging_branch = staging == MAIN

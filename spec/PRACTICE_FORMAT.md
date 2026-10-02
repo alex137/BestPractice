@@ -45,6 +45,7 @@ command:     null             # OPTIONAL -- the standing phrases this practice d
 status:      active           # active | deduplicated | retired -- see below
 in_force_at: null             # where the rule lives now; required unless active
 expires:     null             # OPTIONAL, and almost always null -- see below
+requires:    []               # OPTIONAL -- capabilities it needs in force; see below
 supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
@@ -53,6 +54,18 @@ strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 source_rule_unlabeled: true       # OPTIONAL -- only on practices 47-52; see below
 ---
+
+### `requires` — a practice that applies only where a capability is in force
+
+**Optional; absent means the practice applies wherever its source is in
+force.** A list of capability names a source can PROVIDE (the `provides`
+list in a set's own `precedent-source.json`). The resolver leaves the
+practice out of any session in which no source in force provides every
+name listed. One capability is named today, `ladder`, which the set that
+holds the five-stage working method provides; a person's own
+"for me, the ladder" rule carries `requires: ["ladder"]`, so it goes quiet
+in a session started with `PRECEDENT_NO_LADDERS=1` and for anyone who does
+not bring that set (spec/LADDER_OPT_IN_PLAN.md D11).
 
 ### Field order — one order, written down in code and checked
 

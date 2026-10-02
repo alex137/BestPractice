@@ -155,9 +155,9 @@ often the right answer and is the easiest to leave out — and Morgan parked it
 on 2026-09-12 as something to consider later rather than settle in the same
 message that coined the command.
 
-**Where the handoff case differs from [Write it up](write-it-up.md).** That
-command's deliverable is a file committed to the repo, reached later by a
-link -- built for the record. This one's deliverable is the reply itself,
+**Where the handoff case differs from a committed write-up.** That one's
+deliverable is a file committed to the repo, reached later by a link --
+built for the record. This one's deliverable is the reply itself,
 meant to be pasted directly into a different window with nothing to click
 through and nothing to memorialize. Nothing stops using both on the same
 issue -- write it up for the durable record, then ask for `My options` on

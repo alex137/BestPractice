@@ -166,7 +166,7 @@ honest**, and that is a considered "no" rather than an unexamined one. The
 report describes moves across files and asserts that nothing was rewritten;
 a script can compare two trees, but whether a section still says what it
 meant is a reading. The same limit
-[go-update](go-update.md) and [park-it](park-it.md) record.
+[park-it](park-it.md) records.
 
 **What IS mechanical, and already runs:**
 [session-load-budget](session-load-budget.md)'s own check fails any surface
