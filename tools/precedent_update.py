@@ -166,7 +166,10 @@ def rebaseline_vendored_entries(repo, rewritten=()):
 
 def ensure_scrub_blocklist_decision(repo):
     """-> 'null' when it recorded `scrub_blocklist: null` for a public repo,
-    'ask' when the repo has to decide, None when nothing is owed.
+    'ask' when the repo has to decide, None when nothing is owed. 'ask' is
+    not listed as left for the person here: the practice audit, which runs
+    at every pre-staging push of a consumer, refuses it with the remedy in
+    its own words, so the update would only be saying it twice.
 
     practice_audit.py fails a manifest with no `scrub_blocklist` key whose
     default process/scrub_blocklist.txt does not exist: configured by
@@ -1891,12 +1894,7 @@ def update(repo, skip_check=False, ref=None):
                  'declares this repo public, so there is nothing private to '
                  'list, and the practice audit fails a list that is neither '
                  'present nor declined')
-    elif scrub == 'ask':
-        rep.leave('process/scrub_blocklist.txt',
-                  'the practice audit fails without it: write this repo\'s '
-                  'private words there, or set "scrub_blocklist": null under '
-                  '"upstream" in process/manifest.json with a note saying '
-                  'there are none')
+
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '

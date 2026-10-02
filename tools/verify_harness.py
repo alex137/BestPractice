@@ -2658,7 +2658,9 @@ def check_update_written_files_name_no_mirrored_engine():
                   not told, str(told)))
     hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
             'individual-source-bootstrap.sh.template').read_text(encoding='utf-8')
-    engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-\.\}/(\S+?)"', hook, re.M)
+    # The fallback after `:-` is the hook's own idea of its repo since
+    # 2026-10-02 (a hand run sets no project dir); `.` before that.
+    engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-[^}]*\}/(\S+?)"', hook, re.M)
     cases.append(('the individual-set hook tries tools/ before the mirror',
                   engines[:1] == ['tools/precedent_source_bootstrap.py'], str(engines)))
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -23801,6 +23803,8 @@ def check_push_check_gate():
                 # its own: fail it only when FAIL names that one.
                 # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -24324,6 +24328,8 @@ def check_merge_check_gate():
                 # its own: fail it only when FAIL names that one.
                 # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -24591,6 +24597,8 @@ def check_promote_pre_staging():
                 # its own: fail it only when FAIL names that one.
                 # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -26506,6 +26514,8 @@ def check_sync_copies_work_from_above_once_checked():
                     'body = f.read_text() if f.exists() else ""\n'
                     + ('print("precedent_check: 3 passed, 0 violated")\n'
                        'name = ("ci_workflows" if "ci-workflow-approved" in '
+                       'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                       '"practice_export_loop" if "practice-export-loop" in '
                        'sys.argv else "precedent_check")\n'
                        if t == 'precedent_check' else f'name = "{t}"\n')
                     + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
