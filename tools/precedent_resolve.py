@@ -152,6 +152,20 @@ def _self_heal_individual_source(repo_root):
         return 'not-remote'
     if _scratch_copy_of(repo_root):
         return 'scratch-copy'
+    # A config named on purpose OUTSIDE $HOME belongs to somebody other than
+    # the person whose home the hook works in: the hook clones and syncs
+    # under $HOME. Running it anyway reached past the named person to the
+    # real one -- every test fixture that named a config of its own put this
+    # machine's individual clone back on its pinned branch (2026-10-02,
+    # found as a branch that kept moving mid-session). An absent config
+    # named there is a definite "none", as on a local machine. A fixture
+    # that moves $HOME with its config is still healed, in its own home.
+    named = os.environ.get(USER_CONFIG_ENV)
+    if named:
+        home = pathlib.Path.home().resolve()
+        where = pathlib.Path(named).expanduser().resolve()
+        if where != home and home not in where.parents:
+            return 'not-remote'
     hook = repo_root / INDIVIDUAL_BOOTSTRAP_HOOK
     if not hook.is_file():
         return 'no-hook'

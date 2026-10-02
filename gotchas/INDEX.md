@@ -164,4 +164,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **In Claude Code's auto mode, Update Vendors merges its own pull request (step 12) and the merge goes through. The next command, even one that only reads the merged branch to confirm its content, comes back `Denied by auto mode classifier` as **Merge Without Review**, and the check it was running never runs.** [story](gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)
 
+- **In a hosted session, the individual set's clone keeps moving back onto `main` while you work on a branch of it. Nothing you ran checked it out. Checks that read the individual set from its working tree (the leak gate's allow lines, say) then read `main` and refuse what the branch allows.** [story](gotcha-2026-10-02-a-config-named-for-a-test-reset-the-real-individual-clone.md)
+
 - **The reply gate says an individual or shared set's always-loaded file is over its size target, or a set seems to follow rules that BestPractice changed days ago, while every repository the session works in reports itself current. Rebuilding the set's `.precedent/SESSION_PRACTICES.md` by hand gives a different number.** [story](gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled.md)

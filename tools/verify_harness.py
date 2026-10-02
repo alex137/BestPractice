@@ -48482,6 +48482,42 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                   bool(m) and any(w in m.group(1) for w in ppc.SIZE_CAP_WARNINGS),
                   m.group(1) if m else 'warning text not found'))
 
+    # A config named outside $HOME is somebody other than the person whose
+    # home the bootstrap hook works in, so the self-heal does not run it
+    # (2026-10-02: fixtures naming their own config kept putting this
+    # machine's individual clone back on its pinned branch). Inside $HOME it
+    # still runs.
+    import precedent_resolve as _pr_heal
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-heal-named-'))
+    saved = {k: os.environ.get(k) for k in ('CLAUDE_CODE_REMOTE',
+                                            'PRECEDENT_USER_CONFIG', 'HOME')}
+    try:
+        repo, home = tmp / 'repo', tmp / 'home'
+        hook = repo / _pr_heal.INDIVIDUAL_BOOTSTRAP_HOOK
+        hook.parent.mkdir(parents=True)
+        home.mkdir()
+        marker = tmp / 'hook-ran'
+        hook.write_text(f'#!/bin/bash\ntouch {marker}\n', encoding='utf-8')
+        os.environ['CLAUDE_CODE_REMOTE'] = 'true'
+        os.environ['HOME'] = str(home)
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'elsewhere' / 'config.json')
+        r1 = _pr_heal._self_heal_individual_source(repo)
+        ran1 = marker.exists()
+        os.environ['PRECEDENT_USER_CONFIG'] = str(home / 'config.json')
+        r2 = _pr_heal._self_heal_individual_source(repo)
+        ran2 = marker.exists()
+        cases.append(('a config named outside $HOME does not run the bootstrap '
+                      'hook; one inside $HOME still does',
+                      r1 == 'not-remote' and not ran1 and r2 == 'attempted' and ran2,
+                      f'{r1} {ran1} {r2} {ran2}'))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
     # A rule from a brought set counts as reached through the session file
     # wherever that channel is wired, in a private repository too; with the
     # channel not wired it is reported (2026-10-02: only public repositories

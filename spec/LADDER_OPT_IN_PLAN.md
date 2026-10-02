@@ -385,8 +385,11 @@ The final round, on the finished tree, found two more, fixed the same way:
 
 Not this work's, found on the way: on this machine the default-blocklist
 check fails on `pre-staging` too, because the sibling practice sets are
-cloned here; and a full harness run moves a tool-made clone of the
-individual set back onto its pinned branch, as session start does.
+cloned here. And the resolver's self-heal ran the individual-source hook
+for any config that did not exist, so every fixture naming a config of its
+own put the real individual clone back on its pinned branch; it now stands
+aside for a config named outside `$HOME`
+([the gotcha](../gotchas/gotcha-2026-10-02-a-config-named-for-a-test-reset-the-real-individual-clone.md)).
 
 **D18. The ladder is brought, never declared** (Morgan, 2026-10-02, asking
 how two people in one repository can differ). A repository's
