@@ -993,6 +993,8 @@ class Report:
         self.merges = {}  # rel -> (merged, upstream's) -- judged again at step 5
         self.not_run = None  # what the closing check left to a later tier
         self.warnings = []   # passed now, refused at a later tier
+        self.repo = None     # set with `staged` once stage_update has run
+        self.staged = []     # the paths this run staged as its own
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1050,6 +1052,13 @@ class Report:
                 print(f"  {line}")
 
     def close(self, failed=None):
+        if failed and self.repo is not None and self.staged:
+            # Only a FAILED run's output is put back by the next one. A run
+            # that left items for the person staged answers the next run
+            # builds on (sections recorded as left out on purpose), and a
+            # FAILED one asked nothing new: with any item left, the check
+            # that fails is never started.
+            record_staged_output(self.repo, self.staged)
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
@@ -1072,8 +1081,11 @@ class Report:
                         print(f"    {line}")
             print(f"\nFAILED: {failed}")
             print("Nothing is committed. Fix what is named above and run this "
-                  "again; files the steps before it wrote are still in the "
-                  "working tree for you to review.")
+                  "again as it is: what this run staged and you have not "
+                  "changed since is its own output, so the next run puts it "
+                  "back and writes it again. A staged file you HAVE changed "
+                  "is yours -- commit it first, or the next run refuses to "
+                  "write over it.")
             return FAILED
         if self.left:
             print("\nLEFT FOR YOU -- the calls that belong to this repo. Work "
@@ -1300,6 +1312,111 @@ def stage_update(repo, before):
         subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *ours[i:i + 200]],
                        capture_output=True, text=True)
     return len(ours)
+
+
+STAGED_RECORD = 'precedent-update-staged.json'
+
+
+def _staged_record_path(repo):
+    r = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--absolute-git-dir'],
+                       capture_output=True, text=True)
+    gitdir = r.stdout.strip()
+    return pathlib.Path(gitdir) / STAGED_RECORD if r.returncode == 0 and gitdir else None
+
+
+def _content_hash(path):
+    import hashlib
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except (IsADirectoryError, FileNotFoundError):
+        return None
+
+
+def record_staged_output(repo, paths):
+    """Write down, in the git directory, what this run staged and what each
+    path held when it stopped: the hash of its content, or None for a path
+    it deleted. restore_own_staged_output() reads it at the next run."""
+    rec = _staged_record_path(repo)
+    if rec is None:
+        return
+    try:
+        rec.write_text(json.dumps({'paths': {p: _content_hash(repo / p)
+                                             for p in sorted(paths)}},
+                                  indent=1) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
+def vendored_layer_paths(repo, paths):
+    """-> those of `paths` that belong to the two vendored layers: the
+    engine (tools/, its vendored hooks, the paths precedent.json declares
+    under engine_paths) and the mirrored catalogue (what
+    precedent_resolve.mirrored_prefixes() names, and its manifest)."""
+    declared = set()
+    for spec in ('HEAD:tools/' + pve.MANIFEST_NAME, None):
+        try:
+            text = (subprocess.run(['git', '-C', str(repo), 'show', spec],
+                                   capture_output=True, text=True).stdout if spec
+                    else (repo / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
+            declared |= set((json.loads(text) or {}).get(pve.ENGINE_PATHS_KEY) or {})
+        except (OSError, ValueError, AttributeError):
+            pass
+    try:
+        import precedent_resolve as pr
+        mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    except Exception:                                          # noqa: BLE001
+        mirrors = ()
+    engine = ('tools/', f'{pve.HOOK_DEST_DIR}/') + mirrors
+    return [p for p in paths if p.startswith(engine)
+            or p == 'process/manifest.json' or p in declared]
+
+
+def restore_own_staged_output(repo, select):
+    """-> the paths of `rels` put back to HEAD: each one an earlier run
+    staged and left, still holding exactly what that run wrote, staged and
+    working copies alike. A path changed since is someone's work and is
+    left alone, for the refusal to name.
+
+    Found 2026-10-02, taking main into a large consumer: a run ended FAILED
+    on its deep check with its refreshed engine files staged, as the report
+    says it leaves them, and the rerun the FAILED message asked for stopped
+    at once on one of them -- "a vendored file edited here and not
+    committed" -- the very file the first run had merged with the repo's
+    committed local edit. Its own output, refused as somebody's edit.
+
+    Only the two vendored layers are put back (`select(repo, paths)` picks
+    them): the local-edit resolution needs the committed local version and
+    the committed manifest in place to merge again, and this command writes
+    every file of both layers again from HEAD. Everything else an earlier
+    run staged stays, because a later run builds on it -- the template
+    sections a run recorded as left out on purpose are how the next run
+    knows not to ask again."""
+    rec = _staged_record_path(repo)
+    if rec is None or not rec.is_file():
+        return []
+    try:
+        paths = json.loads(rec.read_text(encoding='utf-8')).get('paths') or {}
+    except (OSError, ValueError):
+        return []
+    g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+    back = []
+    for rel in sorted(select(repo, paths)):
+        f = repo / rel
+        if _content_hash(f) != paths[rel] or g('diff', '--quiet', '--', rel).returncode != 0:
+            continue
+        if g('cat-file', '-e', f'HEAD:{rel}').returncode == 0:
+            g('checkout', '-q', 'HEAD', '--', rel)
+        else:
+            g('rm', '-q', '--cached', '--ignore-unmatch', '--', rel)
+            if f.is_file():
+                f.unlink()
+        back.append(rel)
+    try:
+        rec.unlink()
+    except OSError:
+        pass
+    return back
 
 
 def adopt_engine_output(repo, before, pinned):
@@ -1581,6 +1698,15 @@ def update(repo, skip_check=False, ref=None):
         for rel, why in stranded:
             rep.leave(rel, why)
         return rep.close()
+    # A vendored file an earlier run staged and nobody has touched since is
+    # this command's own output, written again below -- never an edit to
+    # refuse. Put back before `before` is read, so it is not counted as
+    # someone's uncommitted work either.
+    back = restore_own_staged_output(repo, vendored_layer_paths)
+    if back:
+        rep.step('earlier run', 'put back to HEAD, to be resolved and written '
+                 'again: ' + ', '.join(back) + ' -- staged by an earlier run '
+                 'and unchanged since, so its own output, not an edit')
     before = dirty_paths(repo)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
@@ -1918,6 +2044,7 @@ def update(repo, skip_check=False, ref=None):
                  f'already held the pinned engine (a source refresh ran first); '
                  f'staged as this update\'s: ' + ', '.join(adopted))
     n = stage_update(repo, before)
+    rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
     rep.step('staged', f'{n} path(s) this update wrote or deleted'
              + (f'; {len(before)} already uncommitted before it ran, left as they were'
                 if before else ''))
@@ -2036,11 +2163,32 @@ def closing_check(repo, rep, skip_check=False):
     label = f'{tier} check for {landing}' if landing else 'deep check'
     if skip_check:
         rep.step(label, 'skipped (--skip-check) -- run it before pushing')
+    elif check.is_file() and rep.left:
+        # Every blocker in one run, the slow check last (practice:
+        # gates-fail-fast). 2026-10-02, taking main into a large consumer:
+        # run 1 spent half an hour on the full check, failed it, and only
+        # run 3 stopped on a template divergence the refresh had known
+        # about before run 1's check began. Whatever is left for the
+        # person is cleared before the check, so the check waits for it.
+        rep.step(label, f'not run: {len(rep.left)} item(s) left for you, '
+                 f'listed below, come first. Clear them and run this again; '
+                 f'the check runs once nothing is left')
     elif check.is_file():
         stamped = stamp_headers(repo)
         if stamped:
             rep.step('file headers', 'stamped before the check, as the commit '
                      'would: ' + ', '.join(stamped))
+        if tier == pb.FULL:
+            # The basic tier first: seconds, where the full one is minutes,
+            # and a finding there is reported without paying for the rest.
+            quick = [sys.executable, str(check), '--tier', pb.BASIC]
+            rc, out = check_with_merge_fallback(repo, rep, quick, f'{pb.BASIC} check')
+            if rc != 0:
+                rep.step(label, f'not run: the {pb.BASIC} check found the '
+                         f'problems below first')
+                return rep.close(f"the {pb.BASIC} check is red, so the {label} "
+                                 f"was not started:\n{tail(out, repo=repo)}")
+            rep.step(f'{pb.BASIC} check', 'passed, so the full one runs')
         rc, out = check_with_merge_fallback(repo, rep, argv, label)
         if rc != 0:
             return rep.close(f"the {label} is red:\n{tail(out, repo=repo)}")

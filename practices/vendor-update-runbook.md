@@ -48,14 +48,27 @@ and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
 0): nothing is left, so commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
-them under the conflicted-file review below, then run it again. **FAILED**
+them under the conflicted-file review below, then run it again. Every one is
+listed in the same run, and while any is open the deep check is not started:
+it is the slow step, so it waits until nothing cheaper is in its way. Where
+the landing branch takes the full check, the basic tier runs first, and a
+finding there is reported without starting the full one. **FAILED**
 (exit 2): a step could not run or the deep check is red, and nothing is
-published. Steps 7 to 9 are still the session's, and so are 11 and 12. The
+published. Run it again as it is: the vendored files that run staged and
+nobody has changed since are its own output, so the rerun puts them back and
+writes them again rather than refusing them as uncommitted edits; one you
+changed after the failure is yours, and is refused until you commit it. Steps 7 to 9 are still the session's, and so are 11 and 12. The
 numbered steps below say what the command does and why; they are for
 investigating, not a checklist to walk by hand. Where one of them and the
 command disagree, the command is the current code, and the step is what
 needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/ONE_COMMAND_UPDATE_PLAN.md),
 Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
+
+**Booked runs it for you when anything is behind**
+([go-update](go-update.md)): `python3 tools/precedent_merge_vendors.py`
+commits a finished update as a commit of its own, or takes a run that left
+calls or failed back whole and names why. Say "Update Vendors" yourself to
+work through what a NOT TAKEN run listed.
 
 **This does not lift the gate the chain already runs through**, and it does
 not add one. Booked (`Go update`) publishes by the repository's usual conventions, and

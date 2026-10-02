@@ -580,6 +580,11 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # ...and what takes the notice at a merge (2026-10-02, Alex: "Can we
+    # set up a system so merge also does vendor updates?"): behind, it runs
+    # Update Vendors from the source clone and commits the result on its
+    # own, or takes it all back and says why. Never blocks the merge.
+    'precedent_merge_vendors.py',
     # "What's new?" works in every project, so the log's mechanics ship
     # (practice: whats-new); each project's own log never does.
     'precedent_whats_new.py',

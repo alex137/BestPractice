@@ -299,6 +299,17 @@ ceiling raise its own session had held back because Morgan had rejected it.
 When the branch's status cannot be settled from its session or its pull
 request, ask before merging it.
 
+**In a repository that vendors Precedent, the landing takes the vendor
+update with it.** After syncing with origin and committing, and before the
+push, run `python3 tools/precedent_merge_vendors.py`. Nothing behind, it says
+`VENDORS: current` in about the time a fetch takes. Behind, it runs Update
+Vendors from the BestPractice clone and either commits the result as a commit
+of its own, which lands with the work, or takes everything it wrote back and
+says why (`VENDORS: NOT TAKEN`). It never blocks the landing. Its `VENDORS:`
+line goes in the reply, and a NOT TAKEN reason is a question for the person,
+asked there (Alex, 2026-10-02: "Can we set up a system so merge also does
+vendor updates?").
+
 ## Detail
 "That was perfect. Go update", "Go update.", a lone line reading
 `GO UPDATE`, "go update it and tell me what broke", and "when the check
