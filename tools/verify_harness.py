@@ -43060,6 +43060,37 @@ def check_source_credentials():
                       'credential is explicitly not the explanation',
                       verdict == 'set' and 'not the explanation' in message,
                       f'{verdict}: {message}'))
+        # The session check's row on that verdict. Until 2026-10-02 it passed
+        # on SET with an empty detail, so a declared set that did not exist
+        # showed green while its practices were absent all session.
+        import precedent_session_check as psck
+        unresolved = psc.unresolved_private_sources(
+            repo, env={**env_no_token, psc.TOKEN_ENV: TOKEN})
+        name, ok, detail = psck.sources_resolved_row(verdict, message,
+                                                     unresolved)
+        cases.append(('...and the session check FAILS its sources row on SET '
+                      'when a DECLARED shared set did not resolve, naming it '
+                      '-- a token being set never makes a missing set green',
+                      ok is False and 'precedent-team-fixture' in detail,
+                      f'{ok}: {detail}'))
+        only_ind = [('individual', 'precedent-individual', 'no config')]
+        cases.append(('...but SET with only the individual set unresolved '
+                      'passes, with its message: a token alone is read as a '
+                      'sign of an individual set the person may not have',
+                      psck.sources_resolved_row('set', 'why', only_ind)[1:]
+                      == (True, 'why'),
+                      str(psck.sources_resolved_row('set', 'why', only_ind))))
+        cases.append(('...while OK passes silently and UNCONFIGURED passes '
+                      'with its message',
+                      psck.sources_resolved_row('ok', 'x')[1:] == (True, '')
+                      and psck.sources_resolved_row('unconfigured', 'why')[1:]
+                      == (True, 'why'),
+                      str((psck.sources_resolved_row('ok', 'x'),
+                           psck.sources_resolved_row('unconfigured', 'why')))))
+        cases.append(('...and MISSING fails with its message',
+                      psck.sources_resolved_row('missing', 'why')[1:]
+                      == (False, 'why'),
+                      str(psck.sources_resolved_row('missing', 'why'))))
 
         verdict, message = psc.assess(repo, env={**env_no_token, **empty_inh})
         cases.append(('...and assess says which of the two missing states it '
