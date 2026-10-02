@@ -725,10 +725,16 @@ widening what sessions may run
    the consuming repo. `seed` only copies the engine; the refresh is what
    wires the hooks into `.claude/settings.json` (step 4c's
    `commit-identity.sh` among them) and retires the old workflows step 6
-   names. It cannot guess the base branch for `freshness-guard.sh`'s three
-   entries, so it reports them rather than wiring them: add those by hand,
-   with this repo's real base branch as the argument, per [INSTALL.md
-   §1](../INSTALL.md#1-install-into-a-dependent-repo). Then run
+   names. `freshness-guard.sh`'s three entries take their base branch from
+   `precedent.json`'s `base_branch` (step 3), so set that before the
+   refresh; with neither that nor an existing entry, the refresh reports
+   them rather than guessing (2026-10-02 -- before then it always reported
+   them, and the hand-wiring it asked for is an edit the harness refuses a
+   session). The same refresh merges
+   [templates/gitignore.template](../templates/gitignore.template) into
+   `.gitignore`, so `.claude/settings.local.json`, which `commit-identity.sh`
+   writes at the next session start, and the private `.precedent/` channel
+   are ignored before a `git add -A` can commit either. Then run
    `python3 tools/precedent_sync_views.py --repo .` to fill the markers in from the
    *real* resolved set — universal, team, individual and repo-local, all
    four. **Don't hand-curate a subset and call it a stopgap**: that was only

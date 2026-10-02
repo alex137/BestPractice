@@ -28557,6 +28557,15 @@ def check_freshness_guard_checks_attached_repositories():
             cases.append((f'{tag}: a stale ATTACHED repo is acted on through '
                           f'PRECEDENT_FRESHNESS_ALSO (rc={rc})',
                           rc == 2 and 'fast-forwarded' in err))
+            # THE BLOCK NAMES THE CHECKOUT (2026-10-02). Every message speaks
+            # of '$branch' and origin/$base alone, so a block on an attached
+            # clone read as being about the project's own branch and cost a
+            # consumer session a diagnosis round.
+            cases.append((f'{tag}: ...and the block names that attached '
+                          f'checkout, not the project, and says to run git '
+                          f'there (stderr={err.strip()[-160:]!r})',
+                          f'in {other} --' in err and 'NOT this project' in err
+                          and f'git -C {other}' in err))
 
             # THE CONTROL. Same stale repo, variable unset: the gap the
             # mechanism closes has to be demonstrably open without it.
@@ -28646,6 +28655,9 @@ def check_freshness_guard_checks_attached_repositories():
             cases.append((f'{tag}: the project dir itself is still held to '
                           f'the landing branch (rc={rc})',
                           rc == 2 and 'origin/pre-staging' in err))
+            cases.append((f'{tag}: ...and a block on the project itself reads '
+                          f'as before, naming no other checkout',
+                          'NOT this project' not in err))
 
     failed = [n for n, ok in cases if not ok]
     check(f'the freshness guard checks attached repositories '
@@ -33571,7 +33583,14 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
     D. the declined hook is neither wired nor vendored;
     E. a second refresh at the same commit is a no-op, byte for byte;
     F. CONTROL: the same repo with no `kind` in its manifest is not wired at
-       all -- guessing a kind is how a consumer would get a set's hooks."""
+       all -- guessing a kind is how a consumer would get a set's hooks;
+    G. a repo that never ran freshness-guard.sh (a classic install migrated
+       onto the loader, 2026-10-02) gets all three entries from
+       precedent.json's base_branch, and the run says where the branch came
+       from -- until then the refresh printed "not guessed. Wire it by
+       hand", a remedy the harness refuses a session;
+    H. CONTROL: with neither an entry nor a base_branch, nothing is wired
+       and the NOTE says what to set."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-wiring-'))
@@ -33583,7 +33602,7 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         dropped = ('doc-lint-gate.sh', 'commit-identity-once.sh',
                    'freshness-guard.sh user-prompt', 'stop-reply-check.sh')
 
-        def make_repo(name, with_kind):
+        def make_repo(name, with_kind, drop=dropped, base_branch=None):
             repo = tmp / name
             (repo / 'tools').mkdir(parents=True)
             (repo / '.claude' / 'hooks').mkdir(parents=True)
@@ -33601,7 +33620,7 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
                 for g in groups:
                     kept = [dict(h, command=h['command'].replace(' main', ' trunk'))
                             for h in g['hooks']
-                            if not any(d in h['command'] for d in dropped)]
+                            if not any(d in h['command'] for d in drop)]
                     if g.get('matcher') == 'Bash':
                         kept.insert(0, {'type': 'command',
                                         'command': '$CLAUDE_PROJECT_DIR/tools/my-own.sh'})
@@ -33609,10 +33628,12 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
                         hooks.setdefault(event, []).append(dict(g, hooks=kept))
             (repo / '.claude' / 'settings.json').write_text(
                 json.dumps({'hooks': hooks}, indent=2) + '\n', encoding='utf-8')
-            (repo / 'precedent.json').write_text(json.dumps({
-                'declined_adapters': [{'path': '.claude/hooks/stop-reply-check.sh',
-                                       'reason': 'this repo gates replies elsewhere'}],
-            }), encoding='utf-8')
+            cfg = {'declined_adapters': [
+                {'path': '.claude/hooks/stop-reply-check.sh',
+                 'reason': 'this repo gates replies elsewhere'}]}
+            if base_branch:
+                cfg['base_branch'] = base_branch
+            (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
             return repo, hooks
 
         ref = _ref_including_worktree(ROOT)
@@ -33657,6 +33678,14 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
                       len(bash_groups) == 1 and any(
                           'doc-lint-gate.sh' in h['command']
                           for h in bash_groups[0]['hooks']), repr(bash_groups)))
+        gi = (repo / '.gitignore').read_text(encoding='utf-8') \
+            if (repo / '.gitignore').is_file() else ''
+        cases.append(('I: the refresh merged the gitignore template, so the '
+                      'per-machine settings file commit-identity.sh writes and '
+                      'the private .precedent/ channel are ignored before the '
+                      'next session start writes either (2026-10-02)',
+                      '.claude/settings.local.json' in gi.splitlines()
+                      and '.precedent/' in gi.splitlines(), gi[-300:]))
         cases.append(('D: the declined hook is not wired',
                       not any('stop-reply-check.sh' in c for c in cmds), repr(cmds)))
         cases.append(('D: ...and not vendored',
@@ -33675,6 +33704,35 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         cases.append(('F CONTROL: a manifest with no kind gets no wiring at all',
                       (ctl / '.claude' / 'settings.json').read_bytes() == ctl_snap,
                       f'rc={rc3} {out3[-600:]}'))
+        cases.append(('F CONTROL: ...and no .gitignore merge -- a practice set '
+                      'keeps its own', not (ctl / '.gitignore').exists(), ''))
+
+        no_guard = dropped + ('freshness-guard.sh',)
+        mig, _ = make_repo('migrated', True, drop=no_guard, base_branch='trunk')
+        rc4, out4 = run_refresh(mig)
+        mig_cmds = commands(json.loads(
+            (mig / '.claude' / 'settings.json').read_text(encoding='utf-8')))
+        guards = sorted(c.split('freshness-guard.sh ', 1)[1]
+                        for c in mig_cmds if 'freshness-guard.sh' in c)
+        cases.append(('G: a repo that never ran the guard gets all three '
+                      'entries, on precedent.json\'s base_branch',
+                      rc4 == 0 and guards == ['pre-write trunk',
+                                              'session-start trunk',
+                                              'user-prompt trunk'],
+                      f'rc={rc4} {guards} {out4[-600:]}'))
+        cases.append(('G: ...and the run says the branch came from '
+                      'precedent.json, with no "wire it by hand" NOTE',
+                      "precedent.json's base_branch" in out4
+                      and 'Wire it by hand' not in out4, out4[-900:]))
+        bare, _ = make_repo('no-base', True, drop=no_guard)
+        rc5, out5 = run_refresh(bare)
+        bare_cmds = commands(json.loads(
+            (bare / '.claude' / 'settings.json').read_text(encoding='utf-8')))
+        cases.append(('H CONTROL: with no entry and no base_branch the guard '
+                      'is not wired, and the NOTE names base_branch to set',
+                      not any('freshness-guard.sh' in c for c in bare_cmds)
+                      and 'Set base_branch in precedent.json' in out5,
+                      f'rc={rc5} {out5[-900:]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
