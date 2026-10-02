@@ -1713,6 +1713,16 @@ def promote(root, say=print, to=None, work=None):
     promoting; 1 refused (a failing check, a conflict, a race);
     PROMOTE_MAIN_NOT_MOVED when staging into main is ready for its pull
     request and main has not moved yet."""
+    if not repo_has_tiers(root) and not _git(
+            root, 'rev-parse', '--verify', '--quiet',
+            f'refs/remotes/origin/{staging_branch(root)}'):
+        # Nothing ever creates tiers in a repository that did not ask for
+        # them (spec/LADDER_OPT_IN_PLAN.md, Morgan 2026-10-02: "Yes"). Before
+        # this, a Promote here announced a move, failed on the missing
+        # staging branch, and left its lock branch behind on origin.
+        say(f'this repository has only {MAIN}, and work lands there '
+            f'directly, so there is nothing to promote.')
+        return 0
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
     above = _drifted_from_above(root) if step is None else []
@@ -2147,9 +2157,10 @@ def _main(argv):
         return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)
     landing, lwhy = landing_branch(root)
-    if ladder_in_force(root) is False:
+    if ladder_in_force(root) is False or not repo_has_tiers(root):
         # Off the ladder there are no tiers to list (spec/LADDER_OPT_IN_PLAN.md
-        # D3): the main branch, how pushes are checked, where work lands.
+        # D3), and a repository without them has none to list for anyone:
+        # the main branch, how pushes are checked, where work lands.
         print(f'main         {MAIN}')
         print(f'checked fully: {MAIN}')
         print(f'every other branch: {tier} ({why})')

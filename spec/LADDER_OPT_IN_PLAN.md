@@ -346,6 +346,39 @@ the move tool refuses.
   people who use one, so it gets its own step and its own adversarial pass
   after this release.
 
+### What the adversarial pass after steps 5 to 12 found
+
+Four personas ran the same commands in BestPractice: the person who brings
+the ladder, a colleague with an individual set of their own, a person with
+none, and a No ladders session. Committed views came out byte-identical
+for all four. The colleague and the person with none saw no ladder word in
+any gate, reply rule, Vocabulary, landing line, branch view, push-check
+listing, session check or session file. The ladder user's gates, reply
+rules and Vocabulary match the baseline taken before the work, with
+`no-ladders` added, and the total they load fell slightly. Faults found
+and fixed, each with a harness case shown failing without its fix:
+
+- **Path rules from outside the repository never fired.**
+  `precedent_paths.py` read the repository's `practices/` alone, so a path
+  rule in a person's individual set, a set they bring, or a set a practice
+  repository declares, never reached a session. `checks-follow-the-tier`
+  stopped reaching its ladder user when it moved. It now adds every rule in
+  force from outside, through the resolver.
+- **A Promote in a repository with only main** announced a move, failed,
+  and left its lock branch on origin. It now says there is nothing to
+  promote and touches nothing.
+- **In a private repository, a brought rule counted as reachable by
+  nothing**, since only public repositories counted the session file. It
+  counts wherever that file is wired.
+- **A harness fixture read the real person's configuration**, so its
+  count changed with whoever ran it; it owns its state now. Two test stubs
+  predated the code they stand in for and were brought up to date.
+
+Not this work's, found on the way: on this machine the default-blocklist
+check fails on `pre-staging` too, because the sibling practice sets are
+cloned here; and a full harness run moves a tool-made clone of the
+individual set back onto its pinned branch, as session start does.
+
 **D18. The ladder is brought, never declared** (Morgan, 2026-10-02, asking
 how two people in one repository can differ). A repository's
 `precedent.json` binds everyone who works there, so a set that provides

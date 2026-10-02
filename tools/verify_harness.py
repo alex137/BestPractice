@@ -726,6 +726,38 @@ def _without_session_id(fn):
     return run
 
 
+def _withdrawn_original_numbers():
+    """-> {source_practice_number: slug} for each original practice whose
+    file was deleted on purpose: registered in
+    process/decommissioned_paths.json (precedent_move.py
+    --withdraw-from-universal writes it), its number read from the file as
+    it was in the commit before the deletion. 2026-10-02: practice 45,
+    merge-authorization-keyword, withdrawn into the set that provides the
+    five-stage ladder. A deletion nobody registered still fails."""
+    out = {}
+    try:
+        reg = json.loads((ROOT / 'process' / 'decommissioned_paths.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return out
+    rows = reg.get('decommissioned', []) if isinstance(reg, dict) else reg
+    for row in rows if isinstance(rows, list) else []:
+        path = row.get('path', '') if isinstance(row, dict) else ''
+        if not re.fullmatch(r'practices/[a-z0-9-]+\.md', path) or (ROOT / path).exists():
+            continue
+        last = subprocess.run(['git', '-C', str(ROOT), 'log', '-1', '--format=%H',
+                               '--diff-filter=D', '--', path],
+                              capture_output=True, text=True).stdout.strip()
+        if not last:
+            continue
+        before = subprocess.run(['git', '-C', str(ROOT), 'show', f'{last}~1:{path}'],
+                                capture_output=True, text=True).stdout
+        m = re.search(r'^source_practice_number:\s*"?(\d+)', before, re.M)
+        if m:
+            out[m.group(1)] = path[len('practices/'):-3]
+    return out
+
+
 def check_source_coverage(files, original_practices_by_number):
     """The plan's actual slug-set requirement: "the same practices are in
     effect, by slug." precedent_check.py's practice-file-shape only proves each FILE is internally
@@ -750,8 +782,13 @@ def check_source_coverage(files, original_practices_by_number):
             continue
         by_number.setdefault(num, []).append(stem)
 
+    withdrawn = None
     for num in sorted(original_practices_by_number, key=int):
         if num not in by_number:
+            if withdrawn is None:
+                withdrawn = _withdrawn_original_numbers()
+            if num in withdrawn:
+                continue  # deleted on purpose, and registered as such
             ok = False
             print(f"  practice {num} ({original_practices_by_number[num]['title']!r}) is in "
                   f"PRACTICES.md but has NO file in practices/ -- a practice was dropped")
@@ -6982,12 +7019,20 @@ def check_session_practices_load_without_publishing():
         hook = repo / '.claude' / 'hooks' / 'session-start.sh'
 
         def findings():
-            saved = _pc.ROOT
+            # The fixture owns who is working here: nobody. The real person's
+            # individual set, and every set it brings, would otherwise add
+            # their own findings to the count (2026-10-02).
+            saved, saved_cfg = _pc.ROOT, os.environ.get('PRECEDENT_USER_CONFIG')
             _pc.ROOT = repo
+            os.environ['PRECEDENT_USER_CONFIG'] = str(fx / 'no-user-config.json')
             try:
                 return len(_pc._practice_is_reachable(None) or [])
             finally:
                 _pc.ROOT = saved
+                if saved_cfg is None:
+                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
+                else:
+                    os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
 
         hook.write_text('#!/bin/bash\n# no loader here\n', encoding='utf-8')
         cases.append(('with the session channel NOT wired, a private-level '
@@ -10124,19 +10169,19 @@ def check_update_vendors_updates_a_section_0_catalogue():
         last = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', f'{rev}~1'],
                               capture_output=True, text=True).stdout.strip()
         at_last = subprocess.run(['git', '-C', str(ROOT), 'show',
-                                  f'{last}:practices/go-update.md'],
+                                  f'{last}:practices/mistakes-become-rules.md'],
                                  capture_output=True).stdout
         d = repo_with(universal, stale=False)
         tree = d / 'precedent' / 'universal' / 'practices'
         tree.mkdir(parents=True)
-        (tree / 'go-update.md').write_bytes(at_last)
+        (tree / 'mistakes-become-rules.md').write_bytes(at_last)
         subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'synced'], env=env, check=True)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, last)
         cases.append(('a file exactly as last synced is replaced',
                       ok is True and not rep.left))
-        (tree / 'go-update.md').write_bytes(at_last + b'\nA line added here.\n')
+        (tree / 'mistakes-become-rules.md').write_bytes(at_last + b'\nA line added here.\n')
         subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'edited'], env=env, check=True)
         rep = pu.Report()
@@ -10149,7 +10194,7 @@ def check_update_vendors_updates_a_section_0_catalogue():
         cases.append(('a COMMITTED local edit is kept, not refused, when upstream '
                       'has not changed the file since the recorded sync',
                       ok is True and not rep.left
-                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')
+                      and (tree / 'mistakes-become-rules.md').read_bytes().endswith(b'added here.\n')
                       and [o for o, _r, _t in rep.edits] == ['still-local']))
 
         d = repo_with([{'level': 'universal', 'name': 'precedent',
@@ -10425,18 +10470,18 @@ def check_update_vendors_trusts_the_catalogues_own_sync_commit():
         return subprocess.run(['git', '-C', str(ROOT), *a], capture_output=True)
 
     rev = git('rev-parse', 'HEAD').stdout.decode().strip()
-    now_blob = git('rev-parse', f'{rev}:practices/go-update.md').stdout.strip()
+    now_blob = git('rev-parse', f'{rev}:practices/mistakes-become-rules.md').stdout.strip()
     older = next((c for c in git('log', '--format=%H', rev, '--',
-                                 'practices/go-update.md').stdout.decode().split()
-                  if git('rev-parse', f'{c}:practices/go-update.md').stdout.strip()
+                                 'practices/mistakes-become-rules.md').stdout.decode().split()
+                  if git('rev-parse', f'{c}:practices/mistakes-become-rules.md').stdout.strip()
                   not in (b'', now_blob)), None)
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-catalogue-sync-'))
     try:
         if older is None:
-            raise OSError('this clone holds no older go-update.md to plant')
-        at_older = git('show', f'{older}:practices/go-update.md').stdout
+            raise OSError('this clone holds no older mistakes-become-rules.md to plant')
+        at_older = git('show', f'{older}:practices/mistakes-become-rules.md').stdout
         # The engine was synced at `rev`, the catalogue at `older`.
-        d = _section0_repo(tmp, {'practices/go-update.md': at_older}, env)
+        d = _section0_repo(tmp, {'practices/mistakes-become-rules.md': at_older}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
         cases.append(('with no record of its own, a file equal to an older upstream '
@@ -10448,14 +10493,14 @@ def check_update_vendors_trusts_the_catalogues_own_sync_commit():
             got = None
         cases.append(('the replace records the commit it synced from', got == rev))
 
-        d = _section0_repo(tmp, {'practices/go-update.md': at_older + b'\nMine.\n'}, env)
+        d = _section0_repo(tmp, {'practices/mistakes-become-rules.md': at_older + b'\nMine.\n'}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
         cases.append(('...and a real local edit is still refused',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)))
+                      ok is None and any('mistakes-become-rules.md' in w for w, _ in rep.left)))
 
         d = _section0_repo(tmp, {
-            'practices/go-update.md': at_older,
+            'practices/mistakes-become-rules.md': at_older,
             'CATALOGUE_SYNC.json': json.dumps({'source_commit': older}).encode()}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
@@ -10500,13 +10545,13 @@ def check_update_vendors_reruns_over_its_own_output():
         again = pu.vendor_universal_catalogue(d, rep, rev)
         cases.append(('a second run over the first run\'s uncommitted output goes ahead',
                       first is True and again is True and not rep.left))
-        (tree / 'go-update.md').write_bytes((tree / 'go-update.md').read_bytes()
+        (tree / 'mistakes-become-rules.md').write_bytes((tree / 'mistakes-become-rules.md').read_bytes()
                                             + b'\nA hand edit.\n')
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev)
         cases.append(('...and a hand edit on top of that output is still refused',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)
-                      and (tree / 'go-update.md').read_bytes().endswith(b'hand edit.\n')))
+                      ok is None and any('mistakes-become-rules.md' in w for w, _ in rep.left)
+                      and (tree / 'mistakes-become-rules.md').read_bytes().endswith(b'hand edit.\n')))
     except (OSError, subprocess.CalledProcessError, AttributeError) as e:
         cases.append((f'fixture could not be built ({e})', False))
     finally:
@@ -13235,6 +13280,32 @@ def check_precedent_check_fires():
                                 body, count=1, flags=re.M), encoding='utf-8')
         case('retired-branch-name-ships', _plant_retired_branch_name)
 
+        # ladder-words-stay-in-the-ladder-set: a ladder command and step
+        # label planted in a universal practice's Rule. The clean copy is
+        # this repository, which carries none.
+        def _plant_ladder_words(repo):
+            f = repo / 'practices' / 'park-it.md'
+            body = f.read_text(encoding='utf-8')
+            f.write_text(body.replace('## Rule\n', '## Rule\n\nSay "Booked" '
+                                      'to land it, step 3 of 5.\n', 1),
+                         encoding='utf-8')
+        case('ladder-words-stay-in-the-ladder-set', _plant_ladder_words)
+
+        # ladder-set-is-brought-not-declared: precedent.json declares a
+        # sibling set whose precedent-source.json provides the ladder.
+        def _plant_declared_ladder(repo):
+            prov = repo.parent / f'{repo.name}-ladder-provider'
+            (prov / 'practices').mkdir(parents=True, exist_ok=True)
+            (prov / 'precedent-source.json').write_text(json.dumps(
+                {'name': prov.name, 'level': 'shared', 'provides': ['ladder']}),
+                encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': prov.name, 'level': 'shared', 'path': f'../{prov.name}'})
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+        case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
+
         # frontmatter-field-order -- ADVISORY by design (see its registration):
         # a planted misorder reports, and does not fail the run.
         def _plant_field_order(repo):
@@ -13741,7 +13812,7 @@ def check_precedent_check_fires():
 
         # practice-file-shape -- a practice whose Rule ends on a lead-in.
         def _plant_bad_shape(repo):
-            f = repo / 'practices' / 'go-update.md'
+            f = repo / 'practices' / 'mistakes-become-rules.md'
             text = f.read_text(encoding='utf-8')
             f.write_text(text.replace('## Detail', 'Three steps:\n\n## Detail', 1),
                          encoding='utf-8')
@@ -13750,7 +13821,7 @@ def check_precedent_check_fires():
         # routing-reason -- an on-demand practice loses its applies_to_why,
         # the state a second hand-kept routing list used to let through.
         def _plant_no_routing_reason(repo):
-            f = repo / 'practices' / 'go-update.md'
+            f = repo / 'practices' / 'mistakes-become-rules.md'
             f.write_text('\n'.join(l for l in f.read_text(encoding='utf-8')
                                    .split('\n')
                                    if not l.startswith('applies_to_why:')),
@@ -20122,6 +20193,7 @@ sys.path.insert(0, {str(ROOT / 'tools')!r})
 import precedent_branches as pb
 pb.promotion_step = lambda root, to, work: (pb.STAGING, 'fixture')
 pb.staging_branch = lambda root: pb.STAGING
+pb.repo_has_tiers = lambda root: True
 pb._drifted_from_above = lambda root: []
 pb._lock_claim = lambda root, say: ('held', 'fixture-commit')
 pb._lock_release = lambda root, held, say: pathlib.Path({str(marker)!r}).write_text(held)
@@ -27970,14 +28042,14 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         psc._attachable_sources = lambda: [('~/precedent-individual', 'main')]
 
         # A fetch happened and there is nothing to take -> the only True.
-        psc._clone_behind = lambda path, fetch=True: ('current', '')
+        psc._clone_behind = lambda path, fetch=True, **_kw: ('current', '')
         ok, _ = row()
         cases.append(('a clone confirmed current by a real fetch passes',
                       ok is True, ''))
 
         # THE REGRESSION THIS EXISTS FOR: nothing fetched, so "zero commits
         # behind" means nothing. Undetermined, never green.
-        psc._clone_behind = lambda path, fetch=True: (
+        psc._clone_behind = lambda path, fetch=True, **_kw: (
             'unverified', 'not fetched -- offline path')
         ok, detail = row()
         cases.append(('a clone that could not be compared is NOT reported '
@@ -27986,7 +28058,7 @@ def check_session_check_never_calls_an_unfetched_clone_current():
                       'UNMEASURED' in detail, detail[:90]))
 
         # Behind stays a hard failure, including off a stale ref.
-        psc._clone_behind = lambda path, fetch=True: (
+        psc._clone_behind = lambda path, fetch=True, **_kw: (
             'behind', '6 commit(s) behind origin/main')
         ok, detail = row()
         cases.append(('a clone measured behind still fails',
@@ -27997,7 +28069,7 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         # "behind" reading.
         seen = {}
 
-        def _spy(path, fetch=True):
+        def _spy(path, fetch=True, **_kw):
             seen['fetch'] = fetch
             return 'behind', '2 commit(s) behind origin/main'
 
@@ -48276,6 +48348,130 @@ def check_ladder_test_session_and_the_two_ladder_checks():
     finally:
         pc.ROOT = saved_root
         shutil.rmtree(tmp, ignore_errors=True)
+    # A path rule in a set the person brings fires for them through
+    # precedent_paths.py, and for nobody else (2026-10-02: the paths channel
+    # read the repository's practices/ alone, so checks-follow-the-tier
+    # stopped reaching the person who brings it when it moved).
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-brought-paths-'))
+    try:
+        repo, ind, lad = tmp / 'repo', tmp / 'precedent-individual', tmp / 'fx-ladder'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': []}))
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual',
+             'brings': [{'name': 'fx-ladder',
+                         'repo_url': 'https://example.com/fx-ladder.git'}]}))
+        (lad / 'practices').mkdir(parents=True)
+        (lad / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-ladder', 'level': 'shared', 'provides': ['ladder']}))
+        (lad / 'practices' / 'fx-path-rule.md').write_text(
+            '---\nslug:        fx-path-rule\ntitle:       "fx"\n'
+            'tier:        on-demand\nseverity:    default\n'
+            'applies_to:  ["tools/*.py"]\napplies_to_why: "fx"\n'
+            'occasion:    null\nindex_clause: "fx clause"\nstatus:      active\n'
+            '---\n\n## Rule\n\nThe brought path rule.\n')
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}))
+        for what, extra, want in (('the person who brings it', {}, True),
+                                  ('a person with no such set',
+                                   {'PRECEDENT_USER_CONFIG': str(tmp / 'none.json')}, False),
+                                  ('the same person, No ladders',
+                                   {'PRECEDENT_NO_LADDERS': '1'}, False)):
+            e = {k: v for k, v in os.environ.items()
+                 if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
+            e['PRECEDENT_USER_CONFIG'] = str(cfg)
+            e.update(extra)
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_paths.py'),
+                                '--repo', str(repo), 'tools/x.py'],
+                               env=e, capture_output=True, text=True, timeout=120)
+            got = 'The brought path rule.' in r.stdout
+            cases.append((f'a brought path rule {"fires" if want else "is silent"} '
+                          f'for {what}', got == want, (r.stdout + r.stderr)[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # A rule from a brought set counts as reached through the session file
+    # wherever that channel is wired, in a private repository too; with the
+    # channel not wired it is reported (2026-10-02: only public repositories
+    # counted the channel, so a private one called every brought rule
+    # reachable by nothing).
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-brought-reach-'))
+    saved_root, saved_cfg = pc.ROOT, os.environ.get('PRECEDENT_USER_CONFIG')
+    try:
+        repo, ind, lad = tmp / 'repo', tmp / 'precedent-individual', tmp / 'fx-ladder'
+        for d in (repo / 'practices', repo / 'tools', repo / '.claude' / 'hooks',
+                  ind / 'practices', lad / 'practices'):
+            d.mkdir(parents=True)
+        (repo / 'AGENTS.md').write_text('# nothing names it\n')
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': []}))
+        shutil.copy(ROOT / 'tools' / 'precedent_session_practices.py', repo / 'tools')
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual',
+             'brings': [{'name': 'fx-ladder',
+                         'repo_url': 'https://example.com/fx-ladder.git'}]}))
+        (lad / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-ladder', 'level': 'shared', 'provides': ['ladder']}))
+        (lad / 'practices' / 'fx-unrouted.md').write_text(
+            '---\nslug:        fx-unrouted\ntitle:       "fx"\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["**"]\n'
+            'occasion:    null\ngates:       []\nchecked_by:  null\n'
+            'status:      active\n---\n\n## Rule\n\nUnrouted.\n')
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+        pc.ROOT = repo
+        hook = repo / '.claude' / 'hooks' / 'session-start.sh'
+        for wired, want in ((True, False), (False, True)):
+            hook.write_text('#!/bin/bash\n' + ('python3 tools/precedent_session_practices.py\n'
+                                                if wired else '# no loader here\n'))
+            got = any('fx-unrouted' in str(f) for f in (pc._practice_is_reachable(None) or []))
+            cases.append((f'in a private repository with the session channel '
+                          f'{"wired" if wired else "not wired"}, a brought rule is '
+                          f'{"reported unreachable" if want else "reached"}',
+                          got == want, f'reported={got}'))
+    finally:
+        pc.ROOT = saved_root
+        if saved_cfg is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # A Promote in a repository with only main does nothing and creates no
+    # branch (2026-10-02: it announced a move, failed, and left its lock
+    # branch on origin).
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-main-only-'))
+    try:
+        genv = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_NO_LADDERS'}
+        genv.update({'GIT_AUTHOR_NAME': 'x', 'GIT_AUTHOR_EMAIL': 'x@x',
+                     'GIT_COMMITTER_NAME': 'x', 'GIT_COMMITTER_EMAIL': 'x@x',
+                     'PRECEDENT_ASSUME_LADDER': '1'})
+        g = lambda *a, cwd=tmp: subprocess.run(['git', *a], cwd=str(cwd), env=genv,
+                                              capture_output=True, text=True)
+        g('init', '-q', '--bare', '-b', 'main', 'origin.git')
+        g('clone', '-q', str(tmp / 'origin.git'), 'work')
+        work = tmp / 'work'
+        (work / 'precedent.json').write_text('{"format_version": 1}\n')
+        g('add', '-A', cwd=work)
+        g('commit', '-qm', 'init', cwd=work)
+        g('push', '-q', 'origin', 'HEAD:main', cwd=work)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_branches.py'),
+                            '--promote', '--to', 'staging'], cwd=str(work), env=genv,
+                           capture_output=True, text=True, timeout=300)
+        heads = g('ls-remote', '--heads', 'origin', cwd=work).stdout
+        cases.append(('a Promote in a repository with only main says there is '
+                      'nothing to promote and creates no branch',
+                      r.returncode == 0 and 'nothing to promote' in r.stdout
+                      and heads.count('refs/heads/') == 1,
+                      f'rc={r.returncode} {(r.stdout + r.stderr)[-200:]} heads={heads}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the No ladders session refuses to push, and the two ladder checks '
           f'find what they name ({len(cases)} stated cases)',

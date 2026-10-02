@@ -387,10 +387,10 @@ local container ("Act") and then I'll authorize it to go to pre-staging via
 reply check refuses a paste block that tells a session to land on a tier
 branch without his quoted word.
 
-2026-10-02: rewritten without the ladder's words when the ladder became a
-set a person brings (spec/LADDER_OPT_IN_PLAN.md). The set that provides the
-ladder carries the earlier wording under the same slug, for the people who
-bring it. Edit both.
+2026-10-02: a pasted prompt's landing authority is said here in plain
+words now, since the ladder became a set a person brings
+(spec/LADDER_OPT_IN_PLAN.md); the set that provides it keeps this rule's
+earlier wording under the same slug, for the people who bring it. Edit both.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

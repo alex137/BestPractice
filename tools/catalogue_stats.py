@@ -113,9 +113,12 @@ def self_check():
 
 ANCHORS = [
     # The plan states the resident target as a figure of record. This script
-    # re-derives the cap from build_views.py, so the two can disagree.
+    # re-derives the cap from build_views.py, so the two can disagree. 1,750
+    # since 2026-10-02: 250 of the 2,000 went to the set that provides the
+    # five-stage ladder with the resident rule that moved there, and the
+    # plan says so beside its target (spec/LADDER_OPT_IN_PLAN.md D15).
     ('PRACTICE_ENGINE_PLAN.md, "The resident block ... Target ~2,000 tokens"',
-     2000, 2000, lambda: (stats()['budget'], stats()['budget'])),
+     1750, 1750, lambda: (stats()['budget'], stats()['budget'])),
     # spec/PRACTICE_FORMAT.md's phase-3 column records the catalogue as this
     # session inherited it: originally 15 practices with a Detail, 8 Rules
     # over 150 words. Scoped to the original 52 (phase3_snapshot_stats), not

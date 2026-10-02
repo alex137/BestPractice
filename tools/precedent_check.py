@@ -3251,6 +3251,7 @@ def _practice_is_reachable(ctx):
     # present, the session-start hook invokes it, and the repo is public, so
     # the tool carries exactly these levels.
     session_channel_levels = ()
+    wired = False
     try:
         import build_views as _bv
         hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
@@ -3282,7 +3283,10 @@ def _practice_is_reachable(ctx):
             continue
         if slug in named:
             continue                       # resident block or occasion index
-        if s['level'] in session_channel_levels:
+        if s['level'] in session_channel_levels or (wired and s.get('brought')):
+            # A set the person brings is never in a tracked view, public
+            # repository or private (build_views.sources_for_tracked_block),
+            # so wherever the channel is wired it reaches them through it.
             via_session.append(slug)       # .precedent/SESSION_PRACTICES.md
             continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):

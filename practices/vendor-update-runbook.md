@@ -894,10 +894,10 @@ to go invent a keyword of its own is exactly what got
 `merge-authorization-keyword` retired on 2026-09-07. The procedure is
 universal; the word that triggers it belongs in an individual set.
 
-2026-10-02: rewritten without the ladder's words when the ladder became a
-set a person brings (spec/LADDER_OPT_IN_PLAN.md). The set that provides the
-ladder carries the earlier wording under the same slug, for the people who
-bring it. Edit both.
+2026-10-02: Update Vendors lands its merge the way the repository lands
+work, in plain words, since the ladder became a set a person brings
+(spec/LADDER_OPT_IN_PLAN.md). That set keeps the runbook's earlier wording
+under this slug for the people who bring it; an edit here goes there too.
 
 ## Install
 Before starting, name the layers this repo vendors and where each records

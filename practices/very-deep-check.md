@@ -2605,10 +2605,10 @@ it landed and still unreviewed.
 - **Extended 2026-09-29, Morgan (strength: decided)**, with the GENERATED FILES lines: the reverse search for a file a tool writes that the new list of generated files does not name. Asked as a question ("does bestpractice maintain a list of all files that are auto-generated ... Is this checked in VDC and/or should it be?"); there was no single list, and todo/TODO.md had gone out of date with nothing checking it.
 - **Extended 2026-10-01, Morgan (strength: decided)**, so Pass 3 measures every always-loaded surface against its target as well as its ceiling, and over target runs a reduction pass with its practice-by-practice review of the occasion index and resident block -- "this reduction pass is great; if it's not part of Very Deep Check, it absolutely should be." -- after the first such review found about 1,040 tokens of room that the menu's lossless moves could not. The SESSION LOAD section prints an OVER TARGET finding for it.
 
-2026-10-02: rewritten without the ladder's words when the ladder became a
-set a person brings (spec/LADDER_OPT_IN_PLAN.md). The set that provides the
-ladder carries the earlier wording under the same slug, for the people who
-bring it. Edit both.
+2026-10-02: the branch sweep and its tiers are described without the
+ladder's words, which now belong to a set a person brings
+(spec/LADDER_OPT_IN_PLAN.md). Its copy of this practice, same slug, keeps
+the earlier wording for those people, so a change here is made there as well.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
