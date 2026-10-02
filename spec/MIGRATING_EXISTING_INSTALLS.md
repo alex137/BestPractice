@@ -359,23 +359,24 @@ widening what sessions may run
 
    **Wire the individual source's own bootstrap, if the person has one and
    the harness needs it.** For a Claude Code Web session specifically, this
-   is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) —
-   instantiate it with
-   `python3 ../BestPractice/tools/precedent_bootstrap_source.py --level
-   individual --name <the set's name> --write-session-hook <target repo
-   path> [--repo-url <the set's git URL>; omit in a public repo]` -- the
-   hook-only form, which creates and touches no set (with `--dest` it is
-   create mode, and refuses a set that already exists)
-   (see [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), which writes
-   the target repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh`
-   for you. Then wire it yourself — the tool writes the hook and nothing
-   else: add a `SessionStart` entry running
-   `bash $CLAUDE_PROJECT_DIR/.claude/hooks/precedent-individual-bootstrap.sh`
-   to the target's own `.claude/settings.json`, **first in the array, ahead
-   of `commit-identity.sh`** (which reads the set it clones), appending to
-   an existing `SessionStart` array rather than replacing it. (Until
-   2026-09-14 this step named a `bootstrap/settings.snippet.json` to merge;
-   no such file has ever been written.) This makes the individual
+   is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template),
+   and **step 7's refresh does it** (since 2026-10-02): when the person
+   running it has an individual set (their user config declares one, or
+   their environment carries `PRECEDENT_GIT_TOKEN`,
+   `PRECEDENT_SOURCE_BASE_URL` or `PRECEDENT_INDIVIDUAL_REPO`), it writes
+   the tracked `.claude/hooks/precedent-individual-bootstrap.sh` with **no
+   repository URL** -- the hook finds the set from that person's token,
+   base URL or config at run time, so nothing about them is baked into a
+   public repo -- and wires it **first in `SessionStart`, ahead of
+   `commit-identity.sh`** (which reads the set it clones). Every later
+   refresh, including Update Vendors, puts back a missing one. Until then
+   this step was a manual run of `precedent_bootstrap_source.py
+   --write-session-hook` plus a hand edit of `.claude/settings.json`, and a
+   real consumer's session was refused both. To opt out, declare
+   `.claude/hooks/precedent-individual-bootstrap.sh` in `precedent.json`'s
+   `declined_adapters` with the reason. (Until 2026-09-14 this step named a
+   `bootstrap/settings.snippet.json` to merge; no such file has ever been
+   written.) This makes the individual
    source resolvable without ever naming it in the repo's own tracked
    config — but on its own it is **not** zero manual steps on a hosted
    agent platform, which is the next part of this step, not a separate
@@ -725,10 +726,16 @@ widening what sessions may run
    the consuming repo. `seed` only copies the engine; the refresh is what
    wires the hooks into `.claude/settings.json` (step 4c's
    `commit-identity.sh` among them) and retires the old workflows step 6
-   names. It cannot guess the base branch for `freshness-guard.sh`'s three
-   entries, so it reports them rather than wiring them: add those by hand,
-   with this repo's real base branch as the argument, per [INSTALL.md
-   §1](../INSTALL.md#1-install-into-a-dependent-repo). Then run
+   names. `freshness-guard.sh`'s three entries take their base branch from
+   `precedent.json`'s `base_branch` (step 3), so set that before the
+   refresh; with neither that nor an existing entry, the refresh reports
+   them rather than guessing (2026-10-02 -- before then it always reported
+   them, and the hand-wiring it asked for is an edit the harness refuses a
+   session). The same refresh merges
+   [templates/gitignore.template](../templates/gitignore.template) into
+   `.gitignore`, so `.claude/settings.local.json`, which `commit-identity.sh`
+   writes at the next session start, and the private `.precedent/` channel
+   are ignored before a `git add -A` can commit either. Then run
    `python3 tools/precedent_sync_views.py --repo .` to fill the markers in from the
    *real* resolved set — universal, team, individual and repo-local, all
    four. **Don't hand-curate a subset and call it a stopgap**: that was only
@@ -799,8 +806,24 @@ widening what sessions may run
    what clones its sets instead (`declared-sources-are-cloned` fails it
    otherwise). Without the step, a declared set is missing from every
    fresh container and the loader block reads as drifted
-   ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); create `process/scrub_blocklist.txt`
-   if the manifest names one (`scrub-gate`); and, since 2026-09-19, run
+   ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); give the practice audit
+   a blocklist decision (`scrub-gate`): `process/scrub_blocklist.txt` with
+   this repo's private words, or `"scrub_blocklist": null` under
+   `"upstream"` in `process/manifest.json` with a note saying there are
+   none. **A manifest with neither fails**, since the audit reads an absent
+   key as the default file, and a missing default as a scrub that did not
+   run (older engines skipped it, so a classic install never needed it).
+   Update Vendors records the null itself for a repo whose `precedent.json`
+   declares `visibility: public`, and asks any other (2026-10-02). Then
+   re-record the manifest baselines of the files this migration rewrote on
+   purpose -- `AGENTS.md`, `.claude/settings.json`, `.gitignore`, `TODO.md`,
+   `GETTING_STARTED.md` -- with `python3 tools/practice_audit.py
+   --update-baseline`, read what it names, and say so in the pull request:
+   they still carry the classic install's hashes, which the audit reads as
+   DRIFT (Update Vendors re-records the ones it rewrites itself; a
+   consumer's pre-staging push runs the audit since 2026-10-02, so a stale
+   one is refused at Booked rather than at the first Debut). And, since
+   2026-09-19, run
    `python3 tools/todo_migrate.py --source todo.md --apply` then `python3
    tools/build_todo_index.py` if `TODO.md` is still the old single-file
    format — no `todo/` directory, no `# TODO has moved` stub heading — now
