@@ -47,7 +47,11 @@ pins. The first run that re-synced the clone moved it onto `staging`.
 each attached practice set declares (`sources_from_attached_sets`).
 - It pulls only clones the tool itself made, and skips the session's own
   project checkout.
-- It pins an existing universal clone to its manifest branch.
+- It refreshes only what is already on disk, and clones nothing new at
+  session start.
+- It pins every universal clone to main, or to its manifest branch, and
+  never to the universal repository's own base_branch.
+- A clone it could not refresh is reported in one line, naming the set.
 - It then re-renders each set's session file.
 
 `precedent_resolve._self_heal_stale_render` treats a render as stale when

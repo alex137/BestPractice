@@ -143,7 +143,11 @@ listing, the source refresh and the session check all learn to read
 **D3. Landing** (proposed by the reviewer; Morgan: "yes, your suggestion is
 great", strength: decided):
 1. **One setting:** the person's own `landing_branch`, defaulting to the
-   repository's `base_branch`.
+   repository's production branch: the branch a Promote moves into last
+   (`main`). Not `base_branch`: a repository with tiers, BestPractice
+   included, sets that to `staging`, so read literally it would land a
+   person off the ladder on staging, the one thing they asked not to have
+   (found reading this plan as a person off the ladder, 2026-10-02).
 2. **Tier values only on the ladder:** a person may set any branch, but a
    tier value (pre-staging or staging) counts only while the ladder is in
    force. Otherwise it is ignored, never edited, and the session check says
@@ -152,6 +156,14 @@ great", strength: decided):
    `precedent.json` landing value is read only for them. On the ladder the
    order is person, then repository, then pre-staging.
 4. **No ladders:** tier values and `promote_only` are ignored the same way.
+
+**Open, for Morgan (disposition: ask):** a ladder user working in a
+repository whose owner is off the ladder. Read literally, the order above
+lands that work on pre-staging and Booked creates tiers in someone else's
+repository. Pick: a ladder user lands on pre-staging only where the
+repository already has tiers (its `precedent.json` says so); elsewhere they
+land on the production branch like everyone else, and nothing creates tiers
+in a repository that did not ask for them.
 
 There is no migration. The tiers step in Update Vendors and
 `ensure_repo_landing` run only for a person on the ladder. Off-ladder output
@@ -265,7 +277,7 @@ The figures are session-hours, from the reviewer's sizing.
 
 | Step | Work | Size |
 |---|---|---|
-| 1 | D17, tests first; ships on its own | 2-3 (done) |
+| 1 | D17, tests first; ships on its own | 2-3 (built, with its adversarial pass) |
 | 2 | Fixture profiles plus an untracked real-profile baseline | 1-2 |
 | 3 | Helper, bash entry point, `PRECEDENT_NO_LADDERS` | 1-2 |
 | 4 | `brings` in the four tools, the build_views deferral, and a `--withdraw-from-universal` mode for [precedent_move.py](../tools/precedent_move.py) (deletes the universal copy, keeps the Story in the set, records the deliberate withdrawal once) | 4-6 |
@@ -278,6 +290,24 @@ The figures are session-hours, from the reviewer's sizing.
 | 11 | Check E | 2-3 |
 | 12 | No ladders | 1 |
 | 13 | Rollout: Update Vendors in the individual set, then `brings`; every repository through the ladder; each consumer's Update Vendors, then `--mentions-only` and Check E; the behavioural eval | 2-3 |
+
+**Every step gets an adversarial pass before its Booked** (Morgan,
+2026-10-02, strength: decided). Each pass covers:
+- **People off the ladder:** what they see, what they are warned about, and
+  what they try that conflicts with the change.
+- **Ladder users:** whether everything still works as before.
+- **Broken and offline layouts.**
+- **Old against new:** the old engine and the new one run side by side on
+  the same layouts, and anything new said to a person off the ladder is a
+  finding.
+
+Every guard is shown failing with its fix removed. The cases that matter go
+into [verify_harness.py](../tools/verify_harness.py) in the same commit, so
+the next step's run includes them. Step 1's pass ran 38 scenarios and
+added two harness checks; it found and fixed three faults:
+- a universal clone sent to staging when a set had no engine manifest;
+- a clone that could not be refreshed staying silent;
+- a broken set printing a garbled line.
 
 Steps 4 to 9 ship together (D9). Before the move in step 5, the engine
 comments that cite a moved practice as `practice: <slug>` are reworded, or
@@ -320,8 +350,23 @@ from a real profile:
   - P1's author and date checks pass after the copy-down;
   - with main red, P1 reaches staging and Produce waits;
   - a push landing mid-Produce is caught.
-- **O.** For D17, the harness check `check_attached_sets_sources_are_synced`
-  in [verify_harness.py](../tools/verify_harness.py).
+- **O.** For D17, the harness checks `check_attached_sets_sources_are_synced`
+  and `check_attached_sets_sync_is_safe_for_everyone` in
+  [verify_harness.py](../tools/verify_harness.py).
+
+**Scenarios a person off the ladder will try,** each covered by some step's
+adversarial pass:
+- they say "Promote", "Booked" or "push this to staging";
+- their own settings name a tier;
+- they run Update Vendors in a repository where a ladder user works;
+- they push to main while a ladder user's Promote holds the lock;
+- they work in BestPractice itself, whose `base_branch` is staging;
+- they read a ladder user's Promote pull requests and branch names.
+
+Two more checks:
+- **Session-start output:** what a person off the ladder sees, old engine
+  against new, is identical except for listed lines.
+- **Auto mode:** a plain "commit and push it" reaches main.
 
 ## Rollback
 

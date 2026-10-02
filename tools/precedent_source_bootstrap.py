@@ -727,7 +727,7 @@ def _clone_elsewhere_on_disk(name, clone_path, repo_path):
 
 def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                       retry_delay=DEFAULT_RETRY_DELAY, branch=None, skip=None,
-                      only_marked=False):
+                      only_marked=False, existing_only=False):
     """Clone every TEAM and UNIVERSAL source a repo's precedent.json declares,
     to the sibling path it declares.
 
@@ -761,7 +761,11 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     `only_marked` leaves alone, the same way, any checkout already on disk
     that this tool did not clone (CLONE_MARKER): the attached-set walk pulls
     only its own clones, since the project directory is not always named in
-    the environment that runs it.
+    the environment that runs it. `existing_only` refreshes what is on disk
+    and clones nothing new: a missing source stays the resolver's to clone
+    when something first reads it, so a session start in a repository whose
+    sets never needed their own universal clone does not start paying for
+    one.
 
     -> [(name, ok, output)], one per declared shared source. Never raises: a
     set that cannot be cloned degrades the session (practice:
@@ -812,6 +816,10 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             # practice: repair-cannot-discard-work
             results.append((name, True, 'not cloned by this tool, so it may '
                             'be a session\'s working copy -- left as it is'))
+            continue
+        if existing_only and not (clone_path / '.git').exists():
+            results.append((name, True, 'not on disk here; cloned when '
+                            'something first reads it, not at session start'))
             continue
         if (clone_path / 'practices').is_dir():
             # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
@@ -979,8 +987,13 @@ def attached_sets(repo_path):
         if real == root or real in seen:
             continue
         seen.add(real)
-        if (real / 'precedent.json').is_file():
-            out.append(real)
+        try:
+            json.loads((real / 'precedent.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            # Unreadable or broken: the resolver and the session check report
+            # a broken set already, so the walk adds no second message.
+            continue
+        out.append(real)
     return out
 
 
@@ -1011,7 +1024,8 @@ def sources_from_attached_sets(repo_path, base_url=None,
         try:
             res = sources_from_repo(set_path, base_url=base_url,
                                     retries=retries, retry_delay=retry_delay,
-                                    skip=skip, only_marked=True)
+                                    skip=skip, only_marked=True,
+                                    existing_only=True)
         except Exception as e:                              # noqa: BLE001
             res = [(None, False, f'{type(e).__name__}: {e}')]
         for name, ok, msg in res:
@@ -1077,7 +1091,11 @@ def _clone_branch(repo_path, level):
     silently landed on an older tree (AGENTS.md's gotchas section)."""
     if level != 'universal':
         return None
-    return _engine_manifest(repo_path).get('source_branch') or None
+    # Never the universal repository's OWN base_branch: that names where its
+    # contributors work (staging), and a consumer reads the catalogue at main
+    # (2026-10-02 -- a set with no manifest, or one without source_branch,
+    # had its universal clone moved onto staging by the fallback).
+    return _engine_manifest(repo_path).get('source_branch') or SOURCE_BRANCH_DEFAULT
 
 
 def _engine_manifest(repo_path):
@@ -1165,10 +1183,15 @@ def main(argv=None):
             for set_path, name, ok, out in sources_from_attached_sets(
                     args.teams_from, retries=args.retries,
                     retry_delay=args.retry_delay):
-                if not ok:
-                    print(f"precedent_source_bootstrap: {name!r}, a source "
-                          f"the practice set at {set_path} declares, was not "
-                          f"brought up to date -- {out[-300:]}. That set may "
+                # A source still in force but NOT refreshed reports ok=True
+                # (sources_from_repo), and staying quiet about it is the
+                # silent staleness this walk exists to end: say it once.
+                stale = out.startswith('already on disk, but could NOT')
+                if not ok or stale:
+                    why = out.split(': ', 1)[1] if stale else out
+                    print(f"precedent_source_bootstrap: the copy of {name!r} "
+                          f"that the practice set at {set_path} reads was not "
+                          f"brought up to date ({why[-300:]}), so that set may "
                           f"be reading older rules this session.",
                           file=sys.stderr)
         return 0

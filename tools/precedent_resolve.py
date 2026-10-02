@@ -300,11 +300,15 @@ def _render_older_than_sources(repo_root, rendered_at):
         declared = declared_source_paths(repo_root)
     except Exception:                                       # noqa: BLE001
         return None
+    # A stamp from the future is ignored, not trusted: a clone unpacked with
+    # future mtimes, or a clock that stepped back, would otherwise read as
+    # "moved after the render" on every call and re-render forever.
+    now = time.time() + 60
     for path, _level, name, note in declared:
         if note or not path:
             continue
         moved = _ref_mtime(path)
-        if moved is not None and moved > rendered_at:
+        if moved is not None and rendered_at < moved <= now:
             return name
     return None
 

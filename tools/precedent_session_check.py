@@ -1094,6 +1094,13 @@ def _declared_source_clones():
             path = (path if path.is_absolute() else set_root / path).resolve()
             if path in (ROOT.resolve(), set_root) or not (path / '.git').exists():
                 continue
+            # Only a clone the bootstrap made (its marker in .git). A person's
+            # own BestPractice working copy at that path is on whatever branch
+            # their work is, and naming it "behind main" would be a false
+            # alarm about their work -- the sync leaves it alone for the same
+            # reason (precedent_source_bootstrap.CLONE_MARKER).
+            if not (path / '.git' / 'precedent-source-clone').is_file():
+                continue
             out.append((str(path), 'main'))
     return out
 

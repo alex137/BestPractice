@@ -44994,6 +44994,183 @@ def check_attached_sets_sources_are_synced():
           not bad,
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
+
+def check_attached_sets_sync_is_safe_for_everyone():
+    """The adversarial half of check_attached_sets_sources_are_synced: the
+    walk runs at EVERY session start, for people with no practice set of
+    their own and for people whose BestPractice copy is their own work
+    (2026-10-02, run before the change was landed). Cases, each through the
+    real CLI where it is about what a person sees:
+      1. a person's own ../BestPractice working copy -- feature branch,
+         unpushed commit, half-done edit -- is untouched, and nothing is said;
+      2. a set's universal clone that is missing is not cloned at session
+         start;
+      3. a set with a broken precedent.json adds no message and no traceback;
+      4. a tool-made clone that cannot fast-forward (its own commit, origin
+         moved on) keeps that commit and is reported in ONE line naming the
+         set;
+      5. a set with no engine manifest still keeps its universal clone on
+         main, never the universal repo's own base_branch;
+      6. a source ref stamped in the future does not make the render stale
+         on every call."""
+    import contextlib, io, shutil, tempfile
+    import precedent_source_bootstrap as psb
+    import precedent_resolve as pr
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def commit(repo, name, text):
+        f = repo / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text, encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit',
+            '-qm', name)
+
+    def head(r):
+        return git(r, 'rev-parse', 'HEAD').stdout.strip()
+
+    def cli(project):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+            rc = psb.main(['--sources-from', str(project), '--remote-only',
+                           'false'])
+        return rc, err.getvalue().strip()
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+        pr.SELF_HEAL_RENDER_ENV, 'PRECEDENT_SOURCE_BASE_URL')}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    os.environ['PRECEDENT_SOURCE_BASE_URL'] = 'file:///nonexistent-base'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='attached-sets-safe-'))
+    cases = []
+    try:
+        up = tmp / 'origin-bp'
+        up.mkdir()
+        git(up, 'init', '-q', '-b', 'main')
+        (up / 'practices').mkdir()
+        (up / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'staging'}), encoding='utf-8')
+        commit(up, 'practices/rule.md', 'v1\n')
+        git(up, 'branch', 'staging')
+        url = f'file://{up}'
+
+        def layout(tag, manifest=True, raw=None):
+            base = tmp / tag
+            home, work = base / 'home', base / 'work'
+            project = work / 'project'
+            project.mkdir(parents=True)
+            home.mkdir()
+            git(project, 'init', '-q', '-b', 'main')
+            (project / 'precedent.json').write_text('{"sources": []}',
+                                                    encoding='utf-8')
+            ind = home / 'precedent-individual'
+            (ind / 'tools').mkdir(parents=True)
+            git(ind, 'init', '-q', '-b', 'main')
+            (ind / 'precedent.json').write_text(raw if raw is not None else
+                json.dumps({'sources': [{'level': 'universal',
+                                         'name': 'precedent',
+                                         'path': '../BestPractice'}]}),
+                encoding='utf-8')
+            if manifest:
+                # source_repo is what a fresh universal clone is made from, so
+                # case 2 can tell "did not clone" from "had no URL to clone".
+                (ind / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    json.dumps({'source_branch': 'main', 'source_repo': url}),
+                    encoding='utf-8')
+            cfg = base / 'config.json'
+            cfg.write_text(json.dumps({'individual': {
+                'name': 'precedent-individual', 'path': str(ind)}}),
+                encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+            return project, ind, home / 'BestPractice'
+
+        # 1. the person's own working copy
+        project, ind, bp = layout('own-copy')
+        git(tmp, 'clone', '-q', str(up), str(bp))
+        git(bp, 'checkout', '-q', '-b', 'my-feature')
+        commit(bp, 'practices/mine.md', 'my work\n')
+        (bp / 'practices' / 'rule.md').write_text('half-done\n', encoding='utf-8')
+        commit(up, 'practices/rule.md', 'v2\n')
+        before = (head(bp), git(bp, 'status', '--porcelain').stdout)
+        rc, out = cli(project)
+        after = (head(bp), git(bp, 'status', '--porcelain').stdout)
+        cases.append(('a person\'s own BestPractice working copy is untouched '
+                      'and nothing is said', rc == 0 and before == after
+                      and 'precedent_source_bootstrap' not in out, out))
+
+        # 2. a missing universal clone is not cloned
+        project, ind, bp = layout('missing')
+        rc, out = cli(project)
+        cases.append(('a set\'s missing universal clone is not cloned at '
+                      'session start', rc == 0 and not bp.exists(), out))
+
+        # 3. a broken set adds nothing
+        project, ind, bp = layout('broken', raw='{ not json')
+        rc, out = cli(project)
+        cases.append(('a set with a broken precedent.json adds no message and '
+                      'no traceback', rc == 0 and 'Traceback' not in out
+                      and 'precedent_source_bootstrap' not in out, out))
+
+        # 4. a diverged tool-made clone: kept, and said once
+        project, ind, bp = layout('diverged')
+        psb._try_sync(url, bp, branch='main')
+        commit(bp, 'practices/local.md', 'local\n')
+        local = head(bp)
+        commit(up, 'practices/rule.md', 'v3\n')
+        rc, out = cli(project)
+        lines = [l for l in out.splitlines() if 'precedent_source_bootstrap' in l]
+        cases.append(('a clone that cannot fast-forward keeps its commit and is '
+                      'reported in one line naming the set',
+                      rc == 0 and head(bp) == local and len(lines) == 1
+                      and 'was not brought up to date' in lines[0]
+                      and str(ind) in lines[0], out))
+
+        # 5. no manifest: still main
+        project, ind, bp = layout('no-manifest', manifest=False)
+        psb._try_sync(url, bp, branch='main')
+        commit(up, 'practices/rule.md', 'v4\n')
+        rc, out = cli(project)
+        br = git(bp, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+        cases.append(('a set with no engine manifest keeps its universal clone '
+                      'on main', br == 'main' and head(bp) == head(up),
+                      f'branch={br!r} {out}'))
+
+        # 6. a future-stamped ref does not re-render forever (its own layout,
+        # so it does not lean on case 5's branch)
+        project, ind, bp = layout('future')
+        psb._try_sync(url, bp, branch='main')
+        tool = ind / 'tools' / 'precedent_session_practices.py'
+        tool.write_text('raise SystemExit("rendered when it should not")\n',
+                        encoding='utf-8')
+        render = ind / '.precedent' / 'SESSION_PRACTICES.md'
+        render.parent.mkdir(exist_ok=True)
+        render.write_text('kept', encoding='utf-8')
+        ref = bp / '.git' / 'refs' / 'heads' / 'main'
+        fut = time.time() + 30 * 86400
+        os.utime(ref, (fut, fut))
+        res = pr._self_heal_stale_render(ind)
+        cases.append(('a source ref stamped in the future does not make the '
+                      'render stale', res == 'fresh', f'result={res!r}'))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the attached-set sync is safe for people with no set, a hand-made '
+          f'BestPractice copy, a broken set or a stuck clone '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
 def check_self_heal_skips_a_scratch_copy():
     """precedent_resolve.py's source repairs cloned every declared source
     beside ANY repository that resolved, including a test's `git clone
@@ -53217,6 +53394,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
     check_attached_sets_sources_are_synced()
+    check_attached_sets_sync_is_safe_for_everyone()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
