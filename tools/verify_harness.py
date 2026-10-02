@@ -9880,13 +9880,13 @@ def check_changed_files_only_judges_the_change():
         cases.append(('over its cap, build_views still writes the block, and '
                       'warns that staging will refuse it',
                       bv.returncode == 0 and 'build_views WARNING' in bv.stderr
-                      and 'before it can go to staging' in bv.stderr,
+                      and 'the full check refuses it' in bv.stderr,
                       (bv.stdout + bv.stderr)[-400:]))
         git('commit', '-qam', 'a block over its resident cap')
         rc, out = run_check(start)
         cases.append(('the pre-staging check lets it through with a warning '
                       'naming the staging refusal',
-                      rc == 0 and 'over a size cap. Allowed onto pre-staging' in out,
+                      rc == 0 and 'over a size cap. The quick check lets it through' in out,
                       out[-600:]))
         full = subprocess.run([sys.executable, 'tools/precedent_check.py',
                                '--only', 'loader-within-caps'], cwd=wt,
@@ -48424,6 +48424,46 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                           f'for {what}', got == want, (r.stdout + r.stderr)[-300:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+    # The staging watch says nothing to a person off the ladder, through the
+    # reply gate's own call too (2026-10-02: only its command line asked, so
+    # a colleague's reply gate named who had pushed to staging).
+    import precedent_beta_watermark_check as pbw
+    saved_check, saved_off = pbw.check, pbw._off_ladder
+    try:
+        pbw.check = lambda root=None, user_config=None, **k: ('alert', [], 'SOMEONE PUSHED')
+        pbw._off_ladder = lambda root, user_config=None: True
+        quiet = pbw.remind(str(ROOT))
+        pbw._off_ladder = lambda root, user_config=None: False
+        loud = pbw.remind(str(ROOT))
+    finally:
+        pbw.check, pbw._off_ladder = saved_check, saved_off
+    cases.append(('the staging watch is silent at the reply gate for a person '
+                  'off the ladder, and still speaks for one on it',
+                  quiet is None and loud == 'SOMEONE PUSHED', f'{quiet!r} {loud!r}'))
+    env_off = {k: v for k, v in os.environ.items()
+               if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
+    env_off['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(tempfile.gettempdir())
+                                           / 'no-such-precedent-config.json')
+    r = subprocess.run([sys.executable, '-c',
+                        'import sys; sys.path.insert(0, "tools"); '
+                        'import precedent_beta_watermark_check as b; '
+                        'print(b._off_ladder("."))'],
+                       cwd=str(ROOT), env=env_off, capture_output=True, text=True)
+    cases.append(('...and a person with no set of their own is off the ladder there',
+                  r.stdout.strip() == 'True', (r.stdout + r.stderr)[-200:]))
+
+    # The push check recognises the size-cap warning precedent_check.py
+    # prints today (2026-10-02: that wording was made plain and the push
+    # check went on looking for the old one, so its closing reminder never
+    # fired).
+    import precedent_push_check as ppc
+    src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    m = re.search(r"WARNING    \{slug\} — (over a size cap\.[^']*)'", src)
+    cases.append(("the push check matches precedent_check's size-cap warning "
+                  "as it is printed today",
+                  bool(m) and any(w in m.group(1) for w in ppc.SIZE_CAP_WARNINGS),
+                  m.group(1) if m else 'warning text not found'))
 
     # A rule from a brought set counts as reached through the session file
     # wherever that channel is wired, in a private repository too; with the

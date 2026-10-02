@@ -373,6 +373,16 @@ and fixed, each with a harness case shown failing without its fix:
   count changed with whoever ran it; it owns its state now. Two test stubs
   predated the code they stand in for and were brought up to date.
 
+The final round, on the finished tree, found two more, fixed the same way:
+
+- **The staging watch reached a colleague.** Its off-ladder silence sat in
+  its command line only, and the reply gate calls it directly, so a
+  colleague was told who had pushed to staging. Every entry point asks now.
+- **A reworded warning broke the code that read it.** `precedent_check.py`'s
+  size-cap warning was made plain, and the push check went on matching the
+  old words, so its closing reminder never fired. It matches both now, and
+  says nothing about tiers to a person off the ladder.
+
 Not this work's, found on the way: on this machine the default-blocklist
 check fails on `pre-staging` too, because the sibling practice sets are
 cloned here; and a full harness run moves a tool-made clone of the

@@ -611,7 +611,10 @@ def _promote_only_refusal(root, argv):
 # still waits for staging.
 # What a step prints when a session-load size cap is exceeded but not
 # refused: precedent_check.py's pre-staging WARNING, build_views.py's.
-SIZE_CAP_WARNINGS = ('over a size cap. Allowed onto pre-staging',
+SIZE_CAP_WARNINGS = ('over a size cap. The quick check',
+                     # precedent_check.py's wording until 2026-10-02, kept
+                     # so a check vendored before then is still recognised
+                     'over a size cap. Allowed onto pre-staging',
                      'build_views WARNING:')
 CAP_WARNED = []           # the steps that printed one, this run
 
@@ -620,7 +623,11 @@ def _cap_warning_last():
     """Say it last, where the push gate's short tail of a pass shows it:
     a size cap is over, allowed onto pre-staging, refused at the Debut
     (Morgan, 2026-09-30: warn on pre-staging, no change for staging)."""
-    if CAP_WARNED:
+    if CAP_WARNED and _ladder_off():
+        print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
+              f'above). Allowed onto this branch; the full check refuses it, '
+              f'so bring it under first (a Reduction pass). Tell the person.')
+    elif CAP_WARNED:
         print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
               f'above). Allowed onto pre-staging; the Debut into staging '
               f'refuses it, so bring it under first (a Reduction pass). Tell '
