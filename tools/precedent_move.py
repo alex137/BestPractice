@@ -286,6 +286,39 @@ def _check_ships(fm, to_path):
             f'land in one commit (spec/MOVING_PRACTICES.md)')
 
 
+def _raw_field(text, key):
+    """A frontmatter field's whole value as the file writes it: continuation
+    lines joined, the outer quotes taken off, escapes left as they are.
+    split_practices reads only a field's first line, which cut a long
+    approval off mid-sentence when a move carried it along (2026-10-02)."""
+    end = text.find('\n---\n', 4)
+    out = None
+    for line in text[4:end].split('\n'):
+        if out is None:
+            m = re.match(rf'^{re.escape(key)}:\s*(.*)$', line)
+            if m:
+                out = [m.group(1).strip()]
+        elif line.startswith((' ', '\t')):
+            out.append(line.strip())
+        else:
+            break
+    if not out:
+        return ''
+    v = ' '.join(x for x in out if x).strip()
+    if len(v) >= 2 and v[0] == v[-1] == '"':
+        v = v[1:-1]
+    elif len(v) >= 2 and v[0] == v[-1] == "'":
+        v = v[1:-1].replace("''", "'")
+    return '' if v == 'null' else v
+
+
+def _quoted(s):
+    """`s` as a double-quoted frontmatter value. A quote already escaped in
+    the file (an approval quoting somebody) stays as it is; a bare one is
+    escaped."""
+    return '"' + re.sub(r'(?<!\\)"', r'\\"', s) + '"'
+
+
 def _rewrite_frontmatter(text, updates):
     """Rewrite named top-level frontmatter fields in place, byte-for-byte
     elsewhere. A field absent from the frontmatter is appended before the
@@ -884,13 +917,20 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         text = src.read_text(encoding='utf-8')
         if story and not (sections.get('story') or '').strip():
             text = _append_story(text, story)
-        old_approved = _field(fm, 'approved_by')
+        old_approved = _raw_field(text, 'approved_by')
+        # The approval the rule carried where it came from is part of its
+        # record: kept, in brackets, never replaced (2026-10-02: fourteen
+        # rules duplicated into the ladder set lost theirs, and the line
+        # that replaced it went on saying the universal copy "stays active"
+        # after the withdrawal deleted it). json.dumps quotes it, so an
+        # approval that itself quotes somebody stays valid YAML.
+        there = f' (there: {old_approved})' if old_approved else ''
         if duplicate_from_universal:
-            approval = (f'"{approved_by}, {today}, duplicated from the universal set '
-                        f'{from_name} -- that copy stays active, see its own Story"')
+            approval = _quoted(f'{approved_by}, {today}, duplicated from the universal '
+                               f'set {from_name}, where a copy stays active{there}')
         else:
-            approval = (f'"{approved_by}, {today}, moved from the {from_level} set '
-                        f'{from_name}' + (f' (there: {old_approved})' if old_approved else '') + '"')
+            approval = _quoted(f'{approved_by}, {today}, moved from the {from_level} '
+                               f'set {from_name}{there}')
         updates = {'status': 'active', 'in_force_at': 'null',
                    'added': f'"{today}"', 'approved_by': approval}
         if to_level == 'universal':
@@ -947,6 +987,17 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                      f'there.\n')
             plan.append(('delete', src, None))
             plan.append(('append', record, entry))
+            # The set's copy was made by a duplicate move, whose approval
+            # line says a universal copy stays active. After this, none
+            # does: say so, keeping the approval the rule had in universal.
+            if dest.is_file():
+                old_approved = _raw_field(src_text, 'approved_by')
+                there = f' (there: {old_approved})' if old_approved else ''
+                plan.append(('write', dest, _rewrite_frontmatter(
+                    dest.read_text(encoding='utf-8'),
+                    {'approved_by': _quoted(
+                        f'{approved_by}, {today}, withdrawn from the universal '
+                        f'set {from_name}, which keeps no copy{there}')})))
             plan.append(('decommission', pathlib.Path(from_path) / DECOMMISSION_REGISTRY,
                          {'path': f'practices/{slug}.md',
                           'reason': (f'withdrawn from universal with precedent_move.py '

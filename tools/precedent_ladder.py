@@ -97,6 +97,17 @@ def say(ladder_text, plain_text, repo=None):
     return ladder_text if ladder_in_force(repo) else plain_text
 
 
+def test_session_refusal():
+    """-> the refusal a push or merge gate prints in a No ladders session,
+    or None. Such a session exists to show what a person off the ladder
+    sees; work done in it is a test and never leaves it (D13)."""
+    if not pr.no_ladders():
+        return None
+    return (f'{pr.NO_LADDERS_ENV} is set: this is a test session showing what '
+            'a person off the ladder sees, so nothing is pushed or merged from '
+            'it. Start a session without it to push.')
+
+
 def status_sentence(repo=None, user_config=None):
     if pr.no_ladders():
         return ('The ladder is switched off for this session '

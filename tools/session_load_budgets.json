@@ -69,7 +69,7 @@
     "session's choice, 2026-09-29, sized for a handful of local practices. A",
     "repository with more declares its own repo_local_occasion_tokens here."
   ],
-  "resident_block_tokens": 2000,
+  "resident_block_tokens": 1750,
   "section_review_tokens": 2500,
   "_approved_budgets_comment": [
     "The highest value the person has approved for each budget IN FORCE, as",
@@ -89,9 +89,9 @@
     "max in the same change, or a later re-raise to the old value passes."
   ],
   "approved_budgets": {
-    "resident_block_tokens": {"max": 2000, "strength": "baseline", "approved_by": "baseline 2026-09-30: in force since phase 2"},
+    "resident_block_tokens": {"max": 1750, "strength": "decided", "approved_by": "Morgan, 2026-10-02 (spec/LADDER_OPT_IN_PLAN.md D15): 250 carved off for the set that provides the five-stage ladder, whose resident rule left universal; was 2,000 since phase 2"},
     "occasion_index": {"max": 3600, "strength": "baseline", "approved_by": "baseline 2026-09-30: occasion_index_tokens, recorded above as Morgan's choice on 2026-09-14 (option D)"},
-    "occasion_share_tokens": {"max": 2800, "strength": "baseline", "approved_by": "baseline 2026-09-30: recorded in precedent-source.json as the universal share Morgan assented to on 2026-09-29"},
+    "occasion_share_tokens": {"max": 2250, "strength": "decided", "approved_by": "Morgan, 2026-10-02 (spec/LADDER_OPT_IN_PLAN.md D15): 550 carved off for the set that provides the five-stage ladder; was 2,800, the share Morgan assented to on 2026-09-29"},
     "surfaces/AGENTS.md": {"max": 7650, "strength": "baseline", "approved_by": "baseline 2026-09-30: set 2026-09-28 after the preamble cut Morgan asked for"},
     "surfaces/CLAUDE.md": {"max": 200, "strength": "baseline", "approved_by": "baseline 2026-09-30"},
     "surfaces/.precedent/SESSION_PRACTICES.md": {"max": 4000, "strength": "baseline", "approved_by": "baseline 2026-09-30"}

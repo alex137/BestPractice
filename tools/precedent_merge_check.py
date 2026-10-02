@@ -449,6 +449,17 @@ def main(argv):
     if '--landed' in argv:
         return landed(argv, pb, search)
 
+    # The No ladders test session merges nothing (precedent_ladder.py).
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_ladder
+        refusal = precedent_ladder.test_session_refusal()
+    except Exception:                                        # noqa: BLE001
+        refusal = None
+    if refusal:
+        print(f'precedent_merge_check: {refusal}')
+        return 1
+
     if '--head' in argv:
         root_s = git(search[0], 'rev-parse', '--show-toplevel')
         if not root_s:

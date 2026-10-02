@@ -92,7 +92,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~447 of 2000 token budget, 5 of 150 practices (5 universal))
+## Resident block (~447 of 1750 token budget, 5 of 150 practices (5 universal))
 
 **current-rule-governs.** **A standing command means what the rule in force says today: do it.**
 `precedent_show.py SLUG` resolves it, following a deduplicated copy to the

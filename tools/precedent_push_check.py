@@ -1361,6 +1361,17 @@ def ensure_gate_packages(packages=GATE_PACKAGES, importable=_importable,
     return True, f'installed {", ".join(missing)}, which the gates import'
 
 
+def _test_session_refusal():
+    """The No ladders test session pushes nothing (precedent_ladder.py).
+    A repository without the helper has no such session: None."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_ladder
+    except Exception:                                        # noqa: BLE001
+        return None
+    return precedent_ladder.test_session_refusal()
+
+
 def main(argv):
     root_s = git(HERE, 'rev-parse', '--show-toplevel')
     if not root_s:
@@ -1368,6 +1379,11 @@ def main(argv):
               'check.', file=sys.stderr)
         return 2
     root = Path(root_s)
+    if '--gate' in argv:
+        refusal = _test_session_refusal()
+        if refusal:
+            print(f'precedent_push_check: {refusal}')
+            return 1
     # A run from inside a different repo reads THIS repo, silently -- say so
     # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
     try:

@@ -281,14 +281,14 @@ The figures are session-hours, from the reviewer's sizing.
 | 2 | Fixture profiles plus an untracked real-profile baseline | 1-2 (built) |
 | 3 | Helper, bash entry point, `PRECEDENT_NO_LADDERS` | 1-2 (built) |
 | 4 | `brings` in the four tools, the build_views deferral, and a `--withdraw-from-universal` mode for [precedent_move.py](../tools/precedent_move.py) (deletes the universal copy, keeps the Story in the set, records the deliberate withdrawal once) | 4-6 (built) |
-| 5 | Create the set; move D1 with the move tool; split the reply check; carve the allowance; set glossary | 5-6 |
-| 6 | Engine strings, hooks, templates, gotchas, the universal files and links that name moved practices, and the D14(b) documents | 5-7 |
-| 7 | D3 landing, the gated tiers step, and D10's drift wording and red-main rule | 2-3 |
-| 8 | D14(a) explainer | 1-2 |
-| 9 | Vocabulary (D12) | 1 |
-| 10 | D8 rows | 1 |
-| 11 | Check E | 2-3 |
-| 12 | No ladders | 1 |
+| 5 | Create the set; move D1 with the move tool; split the reply check; carve the allowance; set glossary | 5-6 (built) |
+| 6 | Engine strings, hooks, templates, gotchas, the universal files and links that name moved practices, and the D14(b) documents | 5-7 (built) |
+| 7 | D3 landing, the gated tiers step, and D10's drift wording and red-main rule | 2-3 (built, except the red-main rule: below) |
+| 8 | D14(a) explainer | 1-2 (built) |
+| 9 | Vocabulary (D12) | 1 (built) |
+| 10 | D8 rows | 1 (built) |
+| 11 | Check E, and D18's check | 2-3 (built) |
+| 12 | No ladders | 1 (built) |
 | 13 | Rollout: Update Vendors in the individual set, then `brings`; every repository through the ladder; each consumer's Update Vendors, then `--mentions-only` and Check E; the behavioural eval | 2-3 |
 
 **Every step gets an adversarial pass before its Booked** (Morgan,
@@ -312,6 +312,46 @@ added two harness checks; it found and fixed three faults:
 Steps 4 to 9 ship together (D9). Before the move in step 5, the engine
 comments that cite a moved practice as `practice: <slug>` are reworded, or
 the move tool refuses.
+
+### What building steps 5 to 12 settled
+
+- **Rollout order.** The ladder set's `main` must hold its rules, and the
+  individual set's `main` must carry the `brings` line, before
+  BestPractice's release reaches `main`. In the other order the person who
+  uses the ladder loses it until they catch up: their sessions read the
+  individual set's `main`, and universal no longer has the rules.
+- **The other shared sets.** Their vendored word list and generated MAP
+  still carry ladder words until each takes the new engine with Update
+  Vendors; two lines of their own were reworded on a branch.
+- **`PRECEDENT_ASSUME_LADDER`** is a test-only switch the harness sets, so
+  its older checks keep testing ladder behaviour. No session sets it, and
+  `PRECEDENT_NO_LADDERS` wins over it.
+- **Deleting a universal rule** is registered in
+  `process/decommissioned_paths.json`, which the deep check's
+  practice-change and link checks now read, so a deliberate withdrawal is
+  not reported as a dangling change.
+- **The move tool kept only the first line of a rule's approval**, and
+  replaced it on a duplicate. It now keeps the whole approval, quoted
+  safely, and a withdrawal says the universal copy is gone. The fourteen
+  rules moved here were repaired from history, each checked against the
+  original.
+- **A No ladders session pushes and merges nothing**: the push and merge
+  gates refuse it by name.
+- **The red-main rule** (D10) is half there already. When main's test has
+  failed, a Debut already carries the person's own work up to staging and
+  says main's newer work was not copied down, and why; a Produce already
+  needs the GitHub test to pass on its pull request. Not built: a Debut
+  still waits, up to half an hour, for a main test that is still running
+  before it copies main down. That changes how a Promote behaves for the
+  people who use one, so it gets its own step and its own adversarial pass
+  after this release.
+
+**D18. The ladder is brought, never declared** (Morgan, 2026-10-02, asking
+how two people in one repository can differ). A repository's
+`precedent.json` binds everyone who works there, so a set that provides
+the ladder is never listed in one; each person brings it from their own
+individual set. The check `ladder-set-is-brought-not-declared` refuses a
+`precedent.json` that declares one.
 
 ## Testing
 

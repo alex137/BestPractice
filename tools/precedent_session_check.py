@@ -800,7 +800,94 @@ def checks(offline=False):
     # tagged -- and fails only when a cadence was asked for and nothing on
     # this machine can apply it.
     out.append(_ci_cadence_row())
+
+    # 11-13. The sets a person brings, where their work lands, and what this
+    # session loads against this repository's ceilings
+    # (spec/LADDER_OPT_IN_PLAN.md D8).
+    out.extend(_brought_sets_rows())
+    out.append(_landing_row())
+    out.extend(_session_load_rows())
     return out
+
+
+def _individual_path():
+    """The individual set's path from the user config, or None."""
+    try:
+        import precedent_resolve as pr
+        cfg_path = pathlib.Path(os.environ.get(
+            pr.USER_CONFIG_ENV, str(pr.DEFAULT_USER_CONFIG))).expanduser()
+        ind = json.loads(cfg_path.read_text(encoding='utf-8')).get('individual')
+        return pathlib.Path(ind['path']).expanduser() if ind and ind.get(
+            'path') else None
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+def _brought_sets_rows():
+    """One row, and only for a person whose individual set brings other
+    sets: every one of them is cloned and carries practices. A set that
+    failed to arrive takes its rules out of every session of theirs, with
+    nothing else saying so."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                        # noqa: BLE001
+        return []
+    brought = pr.brought_sources(_individual_path(), warn=False)
+    if not brought:
+        return []
+    name = 'every set your individual set brings is here'
+    missing = [b for b in brought
+               if not (pathlib.Path(b['path']) / 'practices').is_dir()]
+    if not missing:
+        return [(name, True, '')]
+    return [(name, False,
+             'not here: ' + ', '.join(f"{b['name']} (expected at {b['path']})"
+                                       for b in missing)
+             + '. Its rules are absent from this session, and nothing else '
+             'says so. Fetch it: python3 tools/precedent_source_bootstrap.py')]
+
+
+def _landing_row():
+    """Where this person's work lands here, said once (D3)."""
+    name = 'where your work lands here'
+    try:
+        import precedent_branches as pb
+        branch, why = pb.landing_branch(ROOT)
+    except Exception as e:                                   # noqa: BLE001
+        return (name, None, f'could not be worked out: {e}')
+    return (name, True, f'{branch} -- {why}' if why else branch)
+
+
+def _session_load_rows():
+    """What this person's session loads before any work, against the
+    ceilings this repository declares. The session file is rendered per
+    person, so a set one person brings can take theirs over a ceiling the
+    repository's own check, run by someone else, never sees."""
+    try:
+        import session_load_trend as slt
+    except Exception:                                        # noqa: BLE001
+        return []
+    reg = slt.registry() or {}
+    surfaces = reg.get('surfaces') or {}
+    over, measured = [], []
+    for rel in ('AGENTS.md', '.precedent/SESSION_PRACTICES.md'):
+        f = ROOT / rel
+        cap = (surfaces.get(rel) or {}).get('ceiling')
+        if not f.is_file() or not cap:
+            continue
+        n = slt.approx_tokens(slt.as_measured(
+            rel, f.read_text(encoding='utf-8', errors='replace')))
+        measured.append(f'{rel} ~{n:,} of {cap:,}')
+        if n > cap:
+            over.append(f'{rel} is ~{n:,} tokens, over its ceiling of {cap:,}')
+    if not measured:
+        return []
+    name = "what this session loads fits this repository's ceilings"
+    if over:
+        return [(name, False, '; '.join(over) + '. Each of these is read '
+                 'before any work; a reduction pass brings it back '
+                 '(practice: session-load-budget)')]
+    return [(name, True, '; '.join(measured))]
 
 
 def _ci_cadence_row():

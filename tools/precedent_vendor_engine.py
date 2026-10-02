@@ -427,6 +427,9 @@ ENGINE_FILES = [
     # set as much as a consumer, and the hooks call its --in-force exit code.
     # It imports precedent_resolve, which is in this list too.
     'precedent_ladder.py',
+    # The one matcher for the ladder's own words (D7), which precedent_check's
+    # ladder-words-stay-in-the-ladder-set imports in every practice set.
+    'ladder_words.py',
     # Its second list, "Our language" (2026-09-29,
     # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
     # loader precedent_vocabulary.py imports to read it. They travel with it

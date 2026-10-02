@@ -48109,6 +48109,15 @@ def check_ladder_opt_in_loader():
                       and record.is_file()
                       and record.read_text(encoding='utf-8').count('`zz-gone` withdrawn') == 1,
                       (r.stdout + r.stderr)[-500:]))
+        # The set's copy no longer says a universal copy stays active, and
+        # still carries the approval the rule had in universal (2026-10-02:
+        # fourteen ladder rules lost theirs).
+        kept = sp._read_practice_file(team / 'practices' / 'zz-gone.md')[0]
+        ab = str(kept.get('approved_by') or '')
+        cases.append(("the set's copy says universal keeps no copy, and keeps "
+                      "the rule's own approval",
+                      'keeps no copy' in ab and 'stays active' not in ab
+                      and '(there: Fixture, 2026-09-14)' in ab, ab[:300]))
         consumer = tmp / 'consumer-u'
         consumer.mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
@@ -48188,6 +48197,90 @@ def check_ladder_off_engine_says_no_ladder_words():
     check(f'off the ladder, the engine prints none of the ladder\'s words '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+def check_ladder_test_session_and_the_two_ladder_checks():
+    """spec/LADDER_OPT_IN_PLAN.md D7, D13 and the per-person rule.
+
+    - A No ladders session pushes and merges nothing: the push gate and the
+      merge check refuse, by name; without the variable neither refuses.
+    - ladder-words-stay-in-the-ladder-set finds a ladder word planted in a
+      practice set that does not provide the ladder, passes the same text
+      in one that does, and passes a Story.
+    - ladder-set-is-brought-not-declared finds a precedent.json that
+      declares a set providing the ladder, and passes one that declares an
+      ordinary set: the ladder is each person's to bring, and a repository
+      that declares it puts it on everybody who works there."""
+    import shutil, tempfile
+    import precedent_check as pc
+    import precedent_ladder
+    cases = []
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('PRECEDENT_ASSUME_LADDER',)}
+    env['PRECEDENT_NO_LADDERS'] = '1'
+    r = subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--gate'],
+                       cwd=str(ROOT), env=env, capture_output=True, text=True,
+                       timeout=120)
+    cases.append(('a No ladders session: the push gate refuses',
+                  r.returncode == 1 and 'nothing is pushed' in r.stdout,
+                  f'rc={r.returncode} {r.stdout[:200]}'))
+    r = subprocess.run([sys.executable, 'tools/precedent_merge_check.py',
+                        '--owner', 'o', '--repo', 'r', '--number', '1'],
+                       cwd=str(ROOT), env=env, capture_output=True, text=True,
+                       timeout=120)
+    cases.append(('a No ladders session: the merge check refuses',
+                  r.returncode == 1 and 'nothing is pushed' in r.stdout,
+                  f'rc={r.returncode} {r.stdout[:200]}'))
+    old_env = os.environ.pop('PRECEDENT_NO_LADDERS', None)
+    try:
+        cases.append(('any other session: no refusal',
+                      precedent_ladder.test_session_refusal() is None, ''))
+    finally:
+        if old_env is not None:
+            os.environ['PRECEDENT_NO_LADDERS'] = old_env
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ladder-checks-'))
+    saved_root = pc.ROOT
+    try:
+        plain, ladder = tmp / 'plain-set', tmp / 'ladder-set'
+        for d, provides in ((plain, []), (ladder, ['ladder'])):
+            (d / 'practices').mkdir(parents=True)
+            (d / 'precedent-source.json').write_text(json.dumps(
+                {'name': d.name, 'level': 'shared', 'provides': provides}))
+            (d / 'practices' / 'x.md').write_text(
+                '---\nslug: x\nstatus: active\n---\n\n## Rule\n\n'
+                'Say "Booked" at step 3 of 5.\n\n## Story\n\n'
+                'On the day, we said Promote 2.\n')
+        for root, want, what in ((plain, 2, 'a set without the ladder'),
+                                 (ladder, None, 'the set that provides it')):
+            pc.ROOT = root
+            try:
+                got = pc._ladder_words_stay_in_the_ladder_set(None)
+                n = len(got)
+            except pc.NotApplicable:
+                n = None
+            cases.append((f'Check E in {what}: '
+                          f'{"skipped" if want is None else f"{want}+ finding(s), none in the Story"}',
+                          (n is None) if want is None else
+                          (n is not None and n >= want and all(':9:' not in str(f) and ':10:' not in str(f) for f in got)),
+                          f'got {n}: {[str(f) for f in (got if n else [])][:4]}'))
+        repo = tmp / 'repo'
+        repo.mkdir()
+        for declared, want, what in (('ladder-set', 1, 'declares the ladder set'),
+                                     ('plain-set', 0, 'declares an ordinary set')):
+            (repo / 'precedent.json').write_text(json.dumps({'sources': [
+                {'name': declared, 'level': 'shared', 'path': f'../{declared}'}]}))
+            pc.ROOT = repo
+            got = pc._ladder_set_is_brought_not_declared(None)
+            cases.append((f'a precedent.json that {what}: {want} finding(s)',
+                          len(got) == want, str([str(f) for f in got])[:300]))
+    finally:
+        pc.ROOT = saved_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the No ladders session refuses to push, and the two ladder checks '
+          f'find what they name ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
 
 def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
     """The mention fix judges history a list item at a time, and names a
@@ -53748,6 +53841,7 @@ def main():
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
     check_ladder_off_engine_says_no_ladder_words()
+    check_ladder_test_session_and_the_two_ladder_checks()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
