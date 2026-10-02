@@ -102,7 +102,7 @@ import precedent_local_edits as le  # noqa: E402
 DONE, LEFT, FAILED = 0, 1, 2
 
 
-def rebaseline_vendored_entries(repo):
+def rebaseline_vendored_entries(repo, rewritten=()):
     """-> [local_path] whose recorded local_sha256 was re-recorded.
 
     A `synced` manifest entry whose local file sits INSIDE the vendored
@@ -121,7 +121,16 @@ def rebaseline_vendored_entries(repo):
     process/upstream/templates/harness/claude-code/hooks/session-start.sh
     and still carrying the old hash. Any other drift outside the tree is
     still an unexported local change, and still fails (practice:
-    registry-source-of-truth)."""
+    registry-source-of-truth).
+
+    `rewritten` (2026-10-02): the paths THIS run changed -- dirty now and
+    not before it began. An entry instantiated from a template
+    (upstream_path under templates/) whose file is among them is
+    re-recorded too: the update rewrote it on purpose, as a migration onto
+    the loader rewrites AGENTS.md, .claude/settings.json and .gitignore, so
+    its old hash is stale by construction exactly like the mirror's. Until
+    then such a file kept the classic install's baseline, the pre-staging
+    check never ran the audit, and the first Debut refused it as DRIFT."""
     import hashlib
     mf = repo / 'process' / 'manifest.json'
     try:
@@ -141,8 +150,9 @@ def rebaseline_vendored_entries(repo):
             continue
         if not rel.startswith(tree):
             up = str(e.get('upstream_path') or '')
-            if not up or not (repo / tree / up).is_file() \
-                    or (repo / tree / up).read_bytes() != f.read_bytes():
+            ours = rel in rewritten and up.startswith('templates/')
+            if not ours and (not up or not (repo / tree / up).is_file()
+                             or (repo / tree / up).read_bytes() != f.read_bytes()):
                 continue
         cur = hashlib.sha256(f.read_bytes()).hexdigest()
         if e.get('local_sha256') and e['local_sha256'] != cur:
@@ -152,6 +162,49 @@ def rebaseline_vendored_entries(repo):
         mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                       encoding='utf-8')
     return done
+
+
+def ensure_scrub_blocklist_decision(repo):
+    """-> 'null' when it recorded `scrub_blocklist: null` for a public repo,
+    'ask' when the repo has to decide, None when nothing is owed. 'ask' is
+    not listed as left for the person here: the practice audit, which runs
+    at every pre-staging push of a consumer, refuses it with the remedy in
+    its own words, so the update would only be saying it twice.
+
+    practice_audit.py fails a manifest with no `scrub_blocklist` key whose
+    default process/scrub_blocklist.txt does not exist: configured by
+    default, missing on disk, a scrub that did not run. Older engines
+    skipped it, so a classic install that never needed a list first met
+    the failure at its Debut after a migration (2026-10-02). For a repo
+    that declares itself public in precedent.json, every tracked file is a
+    publication already and there is no private vocabulary for the
+    vendored tree to leak, so the update records the opt-out with its
+    reason. Any other repo is told, never decided for: a private repo may
+    have words to list."""
+    mf = repo / 'process' / 'manifest.json'
+    try:
+        data = json.loads(mf.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    up = data.get('upstream')
+    if not isinstance(up, dict) or 'scrub_blocklist' in up \
+            or (repo / 'process' / 'scrub_blocklist.txt').exists():
+        return None
+    try:
+        vis = json.loads((repo / 'precedent.json').read_text(encoding='utf-8')) \
+            .get('visibility')
+    except (OSError, ValueError, AttributeError):
+        vis = None
+    if vis != 'public':
+        return 'ask'
+    up['scrub_blocklist'] = None
+    up['_scrub_blocklist_note'] = (
+        'null on purpose, written by Update Vendors: precedent.json declares '
+        'this repo public, so it has no private vocabulary for the vendored '
+        'tree to leak. Name a blocklist file here instead if that changes.')
+    mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                  encoding='utf-8')
+    return 'null'
 
 
 HEADROOM_FLOOR_DEFAULT = 5
@@ -1956,10 +2009,18 @@ def update(repo, skip_check=False, ref=None):
             rep.step('views', 'regenerated')
 
     # After the views, because the view sync writes harness adapters too.
-    rebased = rebaseline_vendored_entries(repo)
+    rebased = rebaseline_vendored_entries(repo, dirty_paths(repo) - before)
     if rebased:
         rep.step('manifest baselines', 're-recorded for files this update '
-                 'rewrote to exactly what upstream ships: ' + ', '.join(rebased))
+                 'rewrote, to upstream or from a template: ' + ', '.join(rebased))
+    scrub = ensure_scrub_blocklist_decision(repo)
+    if scrub == 'null':
+        rep.step('scrub blocklist', 'scrub_blocklist: null recorded in '
+                 'process/manifest.json, with its reason -- precedent.json '
+                 'declares this repo public, so there is nothing private to '
+                 'list, and the practice audit fails a list that is neither '
+                 'present nor declined')
+
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '

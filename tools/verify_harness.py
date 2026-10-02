@@ -2658,7 +2658,9 @@ def check_update_written_files_name_no_mirrored_engine():
                   not told, str(told)))
     hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
             'individual-source-bootstrap.sh.template').read_text(encoding='utf-8')
-    engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-\.\}/(\S+?)"', hook, re.M)
+    # The fallback after `:-` is the hook's own idea of its repo since
+    # 2026-10-02 (a hand run sets no project dir); `.` before that.
+    engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-[^}]*\}/(\S+?)"', hook, re.M)
     cases.append(('the individual-set hook tries tools/ before the mirror',
                   engines[:1] == ['tools/precedent_source_bootstrap.py'], str(engines)))
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -10981,6 +10983,41 @@ def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
                       == hashlib.sha256(b'#!/bin/sh\n# new template\n').hexdigest()))
         cases.append(('...and one that differs from upstream still reads as drift',
                       entries[1]['local_sha256'] == 'old'))
+        # 2026-10-02: a file instantiated from a template that THIS run
+        # rewrote (a migration's AGENTS.md, settings.json, .gitignore) is
+        # re-recorded even though it is not upstream's text; the same file
+        # NOT rewritten by the run is still drift.
+        done = pu.rebaseline_vendored_entries(tmp, rewritten={'X.md'})
+        entries = json.loads((tmp / 'process' / 'manifest.json').read_text())['entries']
+        cases.append(('a template-instantiated file this run rewrote is '
+                      're-baselined though it differs from upstream',
+                      done == ['X.md'] and entries[1]['local_sha256']
+                      == hashlib.sha256(b'edited here\n').hexdigest()))
+        (tmp / 'X.md').write_text('edited again by a person\n')
+        done = pu.rebaseline_vendored_entries(tmp, rewritten={'OTHER.md'})
+        cases.append(('...and the same file, when the run did not touch it, '
+                      'still reads as drift', done == []))
+
+        # The scrub-blocklist decision. No key and no default file fails
+        # the audit; a public repo gets an explicit null with its reason, a
+        # repo not declared public is asked, never decided for.
+        ensure = getattr(pu, 'ensure_scrub_blocklist_decision', None)
+        (tmp / 'precedent.json').write_text(json.dumps({'visibility': 'private'}))
+        cases.append(('a repo not declared public is asked about its scrub '
+                      'blocklist, not given a null',
+                      ensure is not None and ensure(tmp) == 'ask'
+                      and 'scrub_blocklist' not in json.loads(
+                          (tmp / 'process' / 'manifest.json').read_text())['upstream']))
+        (tmp / 'precedent.json').write_text(json.dumps({'visibility': 'public'}))
+        got = ensure(tmp) if ensure else None
+        upd = json.loads((tmp / 'process' / 'manifest.json').read_text())['upstream']
+        cases.append(('a public repo with no list gets scrub_blocklist: null, '
+                      'with its reason beside it',
+                      got == 'null' and 'scrub_blocklist' in upd
+                      and upd['scrub_blocklist'] is None
+                      and 'public' in upd.get('_scrub_blocklist_note', '')))
+        cases.append(('...and a second run leaves the decision alone',
+                      ensure(tmp) is None if ensure else False))
     except (OSError, ValueError, KeyError) as e:
         cases.append((f'fixture could not be built ({e})', False))
     finally:
@@ -10988,6 +11025,51 @@ def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
     failed = [n for n, ok in cases if not ok]
     check('Update Vendors moves the baseline of a file it made identical to upstream',
           not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_consumer_basic_tier_runs_the_practice_audit():
+    """A consumer's pre-staging push runs the practice audit's two checks,
+    scrub-gate and practice-export-loop (2026-10-02). A classic install
+    migrated onto the loader carried stale manifest baselines and no scrub
+    blocklist; both are practice_audit findings, which ran only inside the
+    full sweep, so every Booked passed and the first Debut failed on both.
+    They are range-judged like the other basic checks, so a finding already
+    on a tier branch never blocks a working branch's push. CONTROL: the
+    upstream kind is unchanged -- it has no process/ layer to audit."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-basic-audit-'))
+    try:
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        kind, checks = ppc.plan(tmp, tmp / 'tools', tier=ppc.BASIC)
+        names = [n for n, _a, _r in checks]
+        argvs = {n: a for n, a, _r in checks}
+        cases.append(('a consumer\'s basic tier runs scrub-gate and '
+                      'practice-export-loop',
+                      kind == 'consumer' and 'scrub_gate' in names
+                      and 'practice_export_loop' in names, repr(names)))
+        cases.append(('...each through precedent_check --only, whose VIOLATION '
+                      'lines the range judgement can compare',
+                      argvs.get('scrub_gate', [])[-2:] == ['--only', 'scrub-gate']
+                      and argvs.get('practice_export_loop', [])[-2:]
+                      == ['--only', 'practice-export-loop'], repr(argvs)))
+        cases.append(('...and both are range-judged',
+                      {'scrub_gate', 'practice_export_loop'} <= ppc.RANGE_JUDGED,
+                      repr(ppc.RANGE_JUDGED)))
+        up = [n for n, _a, _r in ppc.PUSH_CHECKS['upstream']]
+        cases.append(('CONTROL: the upstream kind does not run them',
+                      'scrub_gate' not in up and 'practice_export_loop' not in up,
+                      repr(up)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a consumer\'s pre-staging push runs the practice audit '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def check_update_vendors_defaults_headroom_floor():
@@ -23929,6 +24011,8 @@ def check_push_check_gate():
                 # its own: fail it only when FAIL names that one.
                 # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -24452,6 +24536,8 @@ def check_merge_check_gate():
                 # its own: fail it only when FAIL names that one.
                 # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -24719,6 +24805,8 @@ def check_promote_pre_staging():
                 # its own: fail it only when FAIL names that one.
                 # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -26634,6 +26722,8 @@ def check_sync_copies_work_from_above_once_checked():
                     'body = f.read_text() if f.exists() else ""\n'
                     + ('print("precedent_check: 3 passed, 0 violated")\n'
                        'name = ("ci_workflows" if "ci-workflow-approved" in '
+                       'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                       '"practice_export_loop" if "practice-export-loop" in '
                        'sys.argv else "precedent_check")\n'
                        if t == 'precedent_check' else f'name = "{t}"\n')
                     + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
@@ -28456,6 +28546,97 @@ def _individual_two_routes_fixture(tmp):
     return url, rewrite, git, run_main, row
 
 
+def check_individual_hook_run_by_hand_links_the_attached_set():
+    """The individual-set bootstrap hook, run BY HAND from a session's own
+    shell -- where neither CLAUDE_PROJECT_DIR nor PRECEDENT_PROJECT_DIR is
+    set -- links $HOME/precedent-individual to the copy the attach tool
+    already cloned beside the project, instead of cloning a second one.
+
+    Measured 2026-10-02 in a sandbox shaped like a consumer session: the
+    set attached at <workspace>/precedent-individual, no user config, the
+    hook run first with CLAUDE_PROJECT_DIR set (linked) and then without it
+    (a second full clone). A consumer's session whose hook was not wired had
+    to run it by hand, and got the second copy. The engine finds the attach
+    copy through the project dir (attach_workspace), so the hook now works
+    its repo out from its own path and exports it.
+
+    Hermetic: the attached copy sits on a working branch, which the engine
+    uses as it stands and never pulls, so nothing reaches the network; its
+    origin is a hosted-looking URL on a reserved domain only so the engine
+    treats it as a hosted source. CONTROL: the same run with the project dir
+    pointed at an unrelated directory finds no attach copy and does not
+    link -- otherwise the case would pass however the link was made."""
+    import tempfile
+    tmpl = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            / 'individual-source-bootstrap.sh.template')
+    if not tmpl.is_file():
+        not_applicable('a hand-run individual hook links the attached set',
+                       'no hook template in this tree')
+        return
+    url = 'https://example.invalid/acct/precedent-individual'
+    env0 = {k: v for k, v in os.environ.items()
+            if k not in ('CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+                         'PRECEDENT_INDIVIDUAL_REPO', 'PRECEDENT_GIT_TOKEN',
+                         'XDG_CONFIG_HOME')}
+    env0.update(CLAUDE_CODE_REMOTE='true', GIT_TERMINAL_PROMPT='0',
+                PRECEDENT_SOURCE_BASE_URL='https://example.invalid/acct',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+        ws, home = w / 'ws', w / 'home'
+        proj = ws / 'proj'
+        (proj / 'tools').mkdir(parents=True)
+        (proj / '.claude' / 'hooks').mkdir(parents=True)
+        home.mkdir()
+        for name in ('precedent_source_bootstrap.py',
+                     'precedent_source_credentials.py'):
+            shutil.copy(ROOT / 'tools' / name, proj / 'tools' / name)
+        hook = proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        hook.write_text(tmpl.read_text(encoding='utf-8')
+                        .replace('{{SOURCE_NAME}}', 'precedent-individual')
+                        .replace('{{SOURCE_REPO_URL_SUBSTITUTED}}', 'yes')
+                        .replace('{{SOURCE_REPO_URL}}', ''), encoding='utf-8')
+        attached = ws / 'precedent-individual'
+        subprocess.run(['git', 'init', '-q', '-b', 'work', str(attached)],
+                       env=env0, capture_output=True)
+        (attached / 'practices').mkdir()
+        (attached / 'practices' / 'x.md').write_text('x\n')
+        subprocess.run(['git', '-C', str(attached), 'add', '-A'], env=env0,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(attached), 'commit', '-qm', 'x'],
+                       env=env0, capture_output=True)
+        subprocess.run(['git', '-C', str(attached), 'remote', 'add', 'origin',
+                        url], env=env0, capture_output=True)
+
+        def run(extra=None):
+            env = dict(env0, HOME=str(home), **(extra or {}))
+            return subprocess.run(['bash', str(hook)], env=env, cwd=str(w),
+                                  capture_output=True, text=True, timeout=120)
+
+        r = run()
+        link = home / 'precedent-individual'
+        cases.append(('run by hand with no project dir in the environment, '
+                      'the hook links $HOME/precedent-individual to the '
+                      'attached copy instead of cloning a second one',
+                      link.is_symlink() and link.resolve() == attached.resolve(),
+                      (r.stdout + r.stderr)[-500:]))
+        if link.is_symlink():
+            link.unlink()
+        shutil.rmtree(home / '.config', ignore_errors=True)
+        other = w / 'elsewhere'
+        other.mkdir()
+        r = run({'PRECEDENT_PROJECT_DIR': str(other)})
+        cases.append(('CONTROL: with the project dir pointed elsewhere there '
+                      'is no attach copy to find, and nothing is linked',
+                      not link.is_symlink(), (r.stdout + r.stderr)[-500:]))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a hand-run individual-set hook links the attached set '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
 def check_individual_set_has_one_tree_whichever_route_cloned_it():
     """The individual set got cloned twice, reported by two consumer sessions
     on 2026-09-28. The source bootstrap clones it to $HOME/precedent-
@@ -28765,6 +28946,15 @@ def check_freshness_guard_checks_attached_repositories():
             cases.append((f'{tag}: a stale ATTACHED repo is acted on through '
                           f'PRECEDENT_FRESHNESS_ALSO (rc={rc})',
                           rc == 2 and 'fast-forwarded' in err))
+            # THE BLOCK NAMES THE CHECKOUT (2026-10-02). Every message speaks
+            # of '$branch' and origin/$base alone, so a block on an attached
+            # clone read as being about the project's own branch and cost a
+            # consumer session a diagnosis round.
+            cases.append((f'{tag}: ...and the block names that attached '
+                          f'checkout, not the project, and says to run git '
+                          f'there (stderr={err.strip()[-160:]!r})',
+                          f'in {other} --' in err and 'NOT this project' in err
+                          and f'git -C {other}' in err))
 
             # THE CONTROL. Same stale repo, variable unset: the gap the
             # mechanism closes has to be demonstrably open without it.
@@ -28854,6 +29044,9 @@ def check_freshness_guard_checks_attached_repositories():
             cases.append((f'{tag}: the project dir itself is still held to '
                           f'the landing branch (rc={rc})',
                           rc == 2 and 'origin/pre-staging' in err))
+            cases.append((f'{tag}: ...and a block on the project itself reads '
+                          f'as before, naming no other checkout',
+                          'NOT this project' not in err))
 
     failed = [n for n, ok in cases if not ok]
     check(f'the freshness guard checks attached repositories '
@@ -33779,7 +33972,21 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
     D. the declined hook is neither wired nor vendored;
     E. a second refresh at the same commit is a no-op, byte for byte;
     F. CONTROL: the same repo with no `kind` in its manifest is not wired at
-       all -- guessing a kind is how a consumer would get a set's hooks."""
+       all -- guessing a kind is how a consumer would get a set's hooks;
+    G. a repo that never ran freshness-guard.sh (a classic install migrated
+       onto the loader, 2026-10-02) gets all three entries from
+       precedent.json's base_branch, and the run says where the branch came
+       from -- until then the refresh printed "not guessed. Wire it by
+       hand", a remedy the harness refuses a session;
+    H. CONTROL: with neither an entry nor a base_branch, nothing is wired
+       and the NOTE says what to set;
+    I. the gitignore template is merged, so the per-machine settings file
+       and the private .precedent/ channel are ignored;
+    J. for a person with an individual set, the individual-set bootstrap
+       hook is written from its template with NO repository URL and wired
+       FIRST in SessionStart -- migration step 4 used to make this a manual
+       run a session is refused; every other case runs with no individual
+       signal at all, HOME pointed at the fixture, which is its control."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-wiring-'))
@@ -33791,7 +33998,7 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         dropped = ('doc-lint-gate.sh', 'commit-identity-once.sh',
                    'freshness-guard.sh user-prompt', 'stop-reply-check.sh')
 
-        def make_repo(name, with_kind):
+        def make_repo(name, with_kind, drop=dropped, base_branch=None):
             repo = tmp / name
             (repo / 'tools').mkdir(parents=True)
             (repo / '.claude' / 'hooks').mkdir(parents=True)
@@ -33809,7 +34016,7 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
                 for g in groups:
                     kept = [dict(h, command=h['command'].replace(' main', ' trunk'))
                             for h in g['hooks']
-                            if not any(d in h['command'] for d in dropped)]
+                            if not any(d in h['command'] for d in drop)]
                     if g.get('matcher') == 'Bash':
                         kept.insert(0, {'type': 'command',
                                         'command': '$CLAUDE_PROJECT_DIR/tools/my-own.sh'})
@@ -33817,19 +34024,33 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
                         hooks.setdefault(event, []).append(dict(g, hooks=kept))
             (repo / '.claude' / 'settings.json').write_text(
                 json.dumps({'hooks': hooks}, indent=2) + '\n', encoding='utf-8')
-            (repo / 'precedent.json').write_text(json.dumps({
-                'declined_adapters': [{'path': '.claude/hooks/stop-reply-check.sh',
-                                       'reason': 'this repo gates replies elsewhere'}],
-            }), encoding='utf-8')
+            cfg = {'declined_adapters': [
+                {'path': '.claude/hooks/stop-reply-check.sh',
+                 'reason': 'this repo gates replies elsewhere'}]}
+            if base_branch:
+                cfg['base_branch'] = base_branch
+            (repo / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
             return repo, hooks
 
         ref = _ref_including_worktree(ROOT)
 
-        def run_refresh(repo):
+        # No individual signal unless a case adds one: whether the person
+        # running a refresh has an individual set decides case J, so the
+        # container's own token and $HOME must not decide it here
+        # (practice: fixture-owns-its-state).
+        home = tmp / 'home'
+        home.mkdir()
+        base_env = {k: v for k, v in os.environ.items()
+                    if k not in ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+                                 'PRECEDENT_INDIVIDUAL_REPO', 'XDG_CONFIG_HOME')}
+        base_env['HOME'] = str(home)
+
+        def run_refresh(repo, extra_env=None):
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_vendor_engine.py'),
                  'refresh', str(ROOT), '--from-ref', ref],
-                capture_output=True, text=True, cwd=str(repo))
+                capture_output=True, text=True, cwd=str(repo),
+                env=dict(base_env, **(extra_env or {})))
             return r.returncode, r.stdout + r.stderr
 
         def commands(settings, event=None):
@@ -33865,6 +34086,14 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
                       len(bash_groups) == 1 and any(
                           'doc-lint-gate.sh' in h['command']
                           for h in bash_groups[0]['hooks']), repr(bash_groups)))
+        gi = (repo / '.gitignore').read_text(encoding='utf-8') \
+            if (repo / '.gitignore').is_file() else ''
+        cases.append(('I: the refresh merged the gitignore template, so the '
+                      'per-machine settings file commit-identity.sh writes and '
+                      'the private .precedent/ channel are ignored before the '
+                      'next session start writes either (2026-10-02)',
+                      '.claude/settings.local.json' in gi.splitlines()
+                      and '.precedent/' in gi.splitlines(), gi[-300:]))
         cases.append(('D: the declined hook is not wired',
                       not any('stop-reply-check.sh' in c for c in cmds), repr(cmds)))
         cases.append(('D: ...and not vendored',
@@ -33883,6 +34112,62 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         cases.append(('F CONTROL: a manifest with no kind gets no wiring at all',
                       (ctl / '.claude' / 'settings.json').read_bytes() == ctl_snap,
                       f'rc={rc3} {out3[-600:]}'))
+        cases.append(('F CONTROL: ...and no .gitignore merge -- a practice set '
+                      'keeps its own', not (ctl / '.gitignore').exists(), ''))
+
+        no_guard = dropped + ('freshness-guard.sh',)
+        mig, _ = make_repo('migrated', True, drop=no_guard, base_branch='trunk')
+        rc4, out4 = run_refresh(mig)
+        mig_cmds = commands(json.loads(
+            (mig / '.claude' / 'settings.json').read_text(encoding='utf-8')))
+        guards = sorted(c.split('freshness-guard.sh ', 1)[1]
+                        for c in mig_cmds if 'freshness-guard.sh' in c)
+        cases.append(('G: a repo that never ran the guard gets all three '
+                      'entries, on precedent.json\'s base_branch',
+                      rc4 == 0 and guards == ['pre-write trunk',
+                                              'session-start trunk',
+                                              'user-prompt trunk'],
+                      f'rc={rc4} {guards} {out4[-600:]}'))
+        cases.append(('G: ...and the run says the branch came from '
+                      'precedent.json, with no "wire it by hand" NOTE',
+                      "precedent.json's base_branch" in out4
+                      and 'Wire it by hand' not in out4, out4[-900:]))
+        bare, _ = make_repo('no-base', True, drop=no_guard)
+        rc5, out5 = run_refresh(bare)
+        bare_cmds = commands(json.loads(
+            (bare / '.claude' / 'settings.json').read_text(encoding='utf-8')))
+        cases.append(('J CONTROL: with no individual signal the individual-'
+                      'set hook is neither written nor wired',
+                      not (repo / '.claude' / 'hooks'
+                           / 'precedent-individual-bootstrap.sh').exists()
+                      and not any('precedent-individual-bootstrap' in c
+                                  for c in cmds), repr(cmds)[:400]))
+        ind, _ = make_repo('individual', True, base_branch='trunk')
+        rc6, out6 = run_refresh(ind, {'PRECEDENT_GIT_TOKEN': 'fixture-not-a-token'})
+        ind_set = json.loads((ind / '.claude' / 'settings.json')
+                             .read_text(encoding='utf-8'))
+        first = ind_set['hooks']['SessionStart'][0]['hooks'][0]['command']
+        hook = ind / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        body = hook.read_text(encoding='utf-8') if hook.is_file() else ''
+        cases.append(('J: a person with an individual set gets the bootstrap '
+                      'hook written and wired FIRST in SessionStart',
+                      rc6 == 0 and hook.is_file()
+                      and first.endswith('/.claude/hooks/precedent-individual-bootstrap.sh'),
+                      f'rc={rc6} first={first!r} {out6[-500:]}'))
+        cases.append(('J: ...rendered with no repository URL and no '
+                      'placeholder left, so nothing about the person is baked '
+                      'into a repo that may be public',
+                      'DEFAULT_REPO_URL=""' in body and '{{' not in body
+                      and 'fixture-not-a-token' not in body, body[:200]))
+        rc7, out7 = run_refresh(ind, {'PRECEDENT_GIT_TOKEN': 'fixture-not-a-token'})
+        cases.append(('J: ...and a second refresh has nothing to do',
+                      rc7 == 0 and 'nothing to do' in out7, out7[-400:]))
+
+        cases.append(('H CONTROL: with no entry and no base_branch the guard '
+                      'is not wired, and the NOTE names base_branch to set',
+                      not any('freshness-guard.sh' in c for c in bare_cmds)
+                      and 'Set base_branch in precedent.json' in out5,
+                      f'rc={rc5} {out5[-900:]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -43268,6 +43553,37 @@ def check_source_credentials():
                       'credential is explicitly not the explanation',
                       verdict == 'set' and 'not the explanation' in message,
                       f'{verdict}: {message}'))
+        # The session check's row on that verdict. Until 2026-10-02 it passed
+        # on SET with an empty detail, so a declared set that did not exist
+        # showed green while its practices were absent all session.
+        import precedent_session_check as psck
+        unresolved = psc.unresolved_private_sources(
+            repo, env={**env_no_token, psc.TOKEN_ENV: TOKEN})
+        name, ok, detail = psck.sources_resolved_row(verdict, message,
+                                                     unresolved)
+        cases.append(('...and the session check FAILS its sources row on SET '
+                      'when a DECLARED shared set did not resolve, naming it '
+                      '-- a token being set never makes a missing set green',
+                      ok is False and 'precedent-team-fixture' in detail,
+                      f'{ok}: {detail}'))
+        only_ind = [('individual', 'precedent-individual', 'no config')]
+        cases.append(('...but SET with only the individual set unresolved '
+                      'passes, with its message: a token alone is read as a '
+                      'sign of an individual set the person may not have',
+                      psck.sources_resolved_row('set', 'why', only_ind)[1:]
+                      == (True, 'why'),
+                      str(psck.sources_resolved_row('set', 'why', only_ind))))
+        cases.append(('...while OK passes silently and UNCONFIGURED passes '
+                      'with its message',
+                      psck.sources_resolved_row('ok', 'x')[1:] == (True, '')
+                      and psck.sources_resolved_row('unconfigured', 'why')[1:]
+                      == (True, 'why'),
+                      str((psck.sources_resolved_row('ok', 'x'),
+                           psck.sources_resolved_row('unconfigured', 'why')))))
+        cases.append(('...and MISSING fails with its message',
+                      psck.sources_resolved_row('missing', 'why')[1:]
+                      == (False, 'why'),
+                      str(psck.sources_resolved_row('missing', 'why'))))
 
         verdict, message = psc.assess(repo, env={**env_no_token, **empty_inh})
         cases.append(('...and assess says which of the two missing states it '
@@ -53009,6 +53325,8 @@ def main():
     check_mirrored_prefixes_answers_both_install_models()
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
+    check_consumer_basic_tier_runs_the_practice_audit()
+    check_individual_hook_run_by_hand_links_the_attached_set()
     check_update_vendors_defaults_headroom_floor()
     check_engine_fetch_reaches_main_in_a_single_branch_clone()
     check_update_vendors_leaves_mentions_of_a_deleted_file()

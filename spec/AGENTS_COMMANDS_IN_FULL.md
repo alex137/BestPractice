@@ -252,7 +252,9 @@ every pre-staging landing, and wrote it into its helpers' briefs). **Which of th
 gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
 a push to `staging` or `main` runs the deep check; a
 push to any other branch runs the basic tier -- the lint, the leak gate
-and the commit author, date and trailer checks, seconds -- unless the person's
+and the commit author, date and trailer checks, and in a consumer the
+practice audit's scrub-gate and practice-export-loop (2026-10-02), seconds
+-- unless the person's
 `branch_push_checks` says `full`. A push or pull request into
 `pre-staging` also checks the files it changes, and nothing more, in
 seconds ([checks-follow-the-tier](../practices/checks-follow-the-tier.md)). A pull request merged through GitHub

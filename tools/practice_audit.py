@@ -161,7 +161,11 @@ def scrub(tree, blocklist_path, fails, label):
     if reason == 'missing':
         fails.append(f"SCRUB: [{label}] blocklist configured at "
                      f"{blocklist_path.relative_to(ROOT)} but the file does not "
-                     f"exist — the scrub did not run, which is not a pass")
+                     f"exist — the scrub did not run, which is not a pass. "
+                     f"Write this repo's private words there, or, if it has "
+                     f"none, set \"scrub_blocklist\": null under \"upstream\" "
+                     f"in the manifest with a note saying why (an absent key "
+                     f"means this default file)")
         print(f"scrub [{label}]: FAIL — configured blocklist "
               f"{blocklist_path.relative_to(ROOT)} is missing.")
         return
