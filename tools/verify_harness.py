@@ -33590,7 +33590,14 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
        from -- until then the refresh printed "not guessed. Wire it by
        hand", a remedy the harness refuses a session;
     H. CONTROL: with neither an entry nor a base_branch, nothing is wired
-       and the NOTE says what to set."""
+       and the NOTE says what to set;
+    I. the gitignore template is merged, so the per-machine settings file
+       and the private .precedent/ channel are ignored;
+    J. for a person with an individual set, the individual-set bootstrap
+       hook is written from its template with NO repository URL and wired
+       FIRST in SessionStart -- migration step 4 used to make this a manual
+       run a session is refused; every other case runs with no individual
+       signal at all, HOME pointed at the fixture, which is its control."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-wiring-'))
@@ -33638,11 +33645,23 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
 
         ref = _ref_including_worktree(ROOT)
 
-        def run_refresh(repo):
+        # No individual signal unless a case adds one: whether the person
+        # running a refresh has an individual set decides case J, so the
+        # container's own token and $HOME must not decide it here
+        # (practice: fixture-owns-its-state).
+        home = tmp / 'home'
+        home.mkdir()
+        base_env = {k: v for k, v in os.environ.items()
+                    if k not in ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL',
+                                 'PRECEDENT_INDIVIDUAL_REPO', 'XDG_CONFIG_HOME')}
+        base_env['HOME'] = str(home)
+
+        def run_refresh(repo, extra_env=None):
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_vendor_engine.py'),
                  'refresh', str(ROOT), '--from-ref', ref],
-                capture_output=True, text=True, cwd=str(repo))
+                capture_output=True, text=True, cwd=str(repo),
+                env=dict(base_env, **(extra_env or {})))
             return r.returncode, r.stdout + r.stderr
 
         def commands(settings, event=None):
@@ -33728,6 +33747,33 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         rc5, out5 = run_refresh(bare)
         bare_cmds = commands(json.loads(
             (bare / '.claude' / 'settings.json').read_text(encoding='utf-8')))
+        cases.append(('J CONTROL: with no individual signal the individual-'
+                      'set hook is neither written nor wired',
+                      not (repo / '.claude' / 'hooks'
+                           / 'precedent-individual-bootstrap.sh').exists()
+                      and not any('precedent-individual-bootstrap' in c
+                                  for c in cmds), repr(cmds)[:400]))
+        ind, _ = make_repo('individual', True, base_branch='trunk')
+        rc6, out6 = run_refresh(ind, {'PRECEDENT_GIT_TOKEN': 'fixture-not-a-token'})
+        ind_set = json.loads((ind / '.claude' / 'settings.json')
+                             .read_text(encoding='utf-8'))
+        first = ind_set['hooks']['SessionStart'][0]['hooks'][0]['command']
+        hook = ind / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        body = hook.read_text(encoding='utf-8') if hook.is_file() else ''
+        cases.append(('J: a person with an individual set gets the bootstrap '
+                      'hook written and wired FIRST in SessionStart',
+                      rc6 == 0 and hook.is_file()
+                      and first.endswith('/.claude/hooks/precedent-individual-bootstrap.sh'),
+                      f'rc={rc6} first={first!r} {out6[-500:]}'))
+        cases.append(('J: ...rendered with no repository URL and no '
+                      'placeholder left, so nothing about the person is baked '
+                      'into a repo that may be public',
+                      'DEFAULT_REPO_URL=""' in body and '{{' not in body
+                      and 'fixture-not-a-token' not in body, body[:200]))
+        rc7, out7 = run_refresh(ind, {'PRECEDENT_GIT_TOKEN': 'fixture-not-a-token'})
+        cases.append(('J: ...and a second refresh has nothing to do',
+                      rc7 == 0 and 'nothing to do' in out7, out7[-400:]))
+
         cases.append(('H CONTROL: with no entry and no base_branch the guard '
                       'is not wired, and the NOTE names base_branch to set',
                       not any('freshness-guard.sh' in c for c in bare_cmds)

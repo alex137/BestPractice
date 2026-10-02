@@ -6109,6 +6109,115 @@ def _merge_gitignore(dest_root, tmpl):
     return missing
 
 
+# The individual-set bootstrap hook, written and wired by the refresh for a
+# consumer whose person has an individual set (2026-10-02). It is a
+# TEMPLATE, rendered per person rather than copied, so HOOK_WIRING and the
+# verbatim hook vendoring above never reach it -- and the only route left
+# was MIGRATING_EXISTING_INSTALLS.md step 4's manual run of
+# precedent_bootstrap_source.py --write-session-hook, which a real
+# consumer's session was refused exactly as it is refused hand-editing
+# .claude/settings.json. Rendered with NO repository URL: the hook finds the
+# set from the person's own token, base URL or user config at run time, so
+# nothing about the person is baked into the repo -- which may be public.
+INDIVIDUAL_HOOK = 'precedent-individual-bootstrap.sh'
+INDIVIDUAL_HOOK_TEMPLATE = 'individual-source-bootstrap.sh.template'
+INDIVIDUAL_HOOK_NAME = 'precedent-individual'
+INDIVIDUAL_HOOK_KINDS = ('consumer',)
+
+
+def _person_has_individual_set():
+    """True when the person running this has an individual set: their
+    user-level config declares one, or their environment carries a signal
+    precedent_source_credentials.individual_signals counts (a token, a base
+    URL, an individual repo, or a clone already on disk). False when that
+    module cannot be imported -- nothing is written on a guess."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_source_credentials as psc
+        _path, code = psc.individual_config_state()
+        return code == 'declared' or bool(psc.individual_signals())
+    except Exception:                              # practice: fail-gracefully
+        return False
+
+
+def _individual_hook_plan(dest_root, kind):
+    """-> (write_file, wire_entry): what the refresh still has to do for the
+    individual-set hook. Both False for any kind but a consumer, a repo with
+    no settings.json, one that declines the hook in declined_adapters, or a
+    person with no individual set."""
+    root = pathlib.Path(dest_root)
+    settings = root / '.claude' / 'settings.json'
+    if kind not in INDIVIDUAL_HOOK_KINDS or not settings.is_file() \
+            or INDIVIDUAL_HOOK in _declined_hook_names(root):
+        return False, False
+    try:
+        data = json.loads(settings.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return False, False
+    wired = any(INDIVIDUAL_HOOK in str((h or {}).get('command') or '')
+                for g in ((data.get('hooks') or {}).get('SessionStart') or [])
+                if isinstance(g, dict) for h in (g.get('hooks') or []))
+    present = (root / HOOK_DEST_DIR / INDIVIDUAL_HOOK).is_file()
+    if wired and present:
+        return False, False
+    if not _person_has_individual_set():
+        return False, False
+    return not present, not wired
+
+
+def _apply_individual_hook(dest_root, kind, clone, commit):
+    """Write the hook from the template at `commit` when it is missing and
+    wire it FIRST in SessionStart when it is not wired: it writes the user
+    config every later SessionStart hook resolves the individual set
+    against. Add-only, like _apply_hook_wiring. -> [paths written]"""
+    write_file, wire_entry = _individual_hook_plan(dest_root, kind)
+    root = pathlib.Path(dest_root)
+    written = []
+    if write_file:
+        ok, text = _git_read(clone, 'show',
+                             f'{commit}:{HOOK_SOURCE_DIR}/{INDIVIDUAL_HOOK_TEMPLATE}')
+        if not ok or not text.strip():
+            return []
+        for key, value in (('SOURCE_NAME', INDIVIDUAL_HOOK_NAME),
+                           ('SOURCE_REPO_URL', ''),
+                           ('SOURCE_REPO_URL_SUBSTITUTED', 'yes')):
+            text = text.replace('{{' + key + '}}', value)
+        dest = root / HOOK_DEST_DIR / INDIVIDUAL_HOOK
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text, encoding='utf-8')
+        dest.chmod(0o755)
+        written.append(dest)
+    if wire_entry:
+        settings = root / '.claude' / 'settings.json'
+        data = json.loads(settings.read_text(encoding='utf-8'),
+                          object_pairs_hook=collections.OrderedDict)
+        groups = data.setdefault('hooks', collections.OrderedDict()) \
+                     .setdefault('SessionStart', [])
+        home = next((g for g in groups if isinstance(g, dict)
+                     and isinstance(g.get('hooks'), list)), None)
+        if home is None:
+            home = collections.OrderedDict([('hooks', [])])
+            groups.insert(0, home)
+        home['hooks'].insert(0, collections.OrderedDict([
+            ('type', 'command'),
+            ('command', f'$CLAUDE_PROJECT_DIR/{HOOK_DEST_DIR}/{INDIVIDUAL_HOOK}')]))
+        settings.write_text(json.dumps(data, indent=2, ensure_ascii=False)
+                            + '\n', encoding='utf-8')
+        written.append(settings)
+    if written:
+        print(f"precedent_vendor_engine refresh: the individual-set bootstrap "
+              f"hook ({HOOK_DEST_DIR}/{INDIVIDUAL_HOOK}) was "
+              f"{'written and ' if write_file else ''}"
+              f"{'wired first in SessionStart' if wire_entry else 'restored'}, "
+              f"because the person running this has an individual set. It "
+              f"carries no repository URL: it finds the set from that "
+              f"person's token, base URL or user config when a session "
+              f"starts. To opt out, remove the entry and declare "
+              f"{HOOK_DEST_DIR}/{INDIVIDUAL_HOOK} in precedent.json's "
+              f"declined_adapters with the reason.")
+    return written
+
+
 def refresh(clone, force=False, ref=None):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving SOURCE_BRANCH there.
@@ -6321,12 +6430,13 @@ def refresh(clone, force=False, ref=None):
         gitignore_tmpl = (_gitignore_template_text(clone, new_commit)
                           if kind in GITIGNORE_KINDS else None)
         gitignore_pending = _gitignore_missing(ROOT, gitignore_tmpl)
+        individual_pending = any(_individual_hook_plan(ROOT, kind))
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
                 and not engine_paths_incomplete and not template_pending \
                 and not wiring_pending and not agents_pending \
-                and not gitignore_pending:
+                and not gitignore_pending and not individual_pending:
             print(f"precedent_vendor_engine refresh: engine already current with "
                   f"{SOURCE_BRANCH} @ {new_commit[:12]} -- "
                   + ("only the catalogue pin changed (above)." if catalogue_repointed
@@ -6408,6 +6518,7 @@ def refresh(clone, force=False, ref=None):
         # per-machine file this line keeps out of history.
         if _merge_gitignore(ROOT, gitignore_tmpl):
             written.append(ROOT / '.gitignore')
+        written += _apply_individual_hook(ROOT, kind, clone, new_commit)
         ci_refreshed, ci_catchup, ci_replaced = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
         written += [ROOT / rel for rel in ci_refreshed + ci_replaced]

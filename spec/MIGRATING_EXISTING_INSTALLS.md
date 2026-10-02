@@ -359,23 +359,24 @@ widening what sessions may run
 
    **Wire the individual source's own bootstrap, if the person has one and
    the harness needs it.** For a Claude Code Web session specifically, this
-   is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) —
-   instantiate it with
-   `python3 ../BestPractice/tools/precedent_bootstrap_source.py --level
-   individual --name <the set's name> --write-session-hook <target repo
-   path> [--repo-url <the set's git URL>; omit in a public repo]` -- the
-   hook-only form, which creates and touches no set (with `--dest` it is
-   create mode, and refuses a set that already exists)
-   (see [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), which writes
-   the target repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh`
-   for you. Then wire it yourself — the tool writes the hook and nothing
-   else: add a `SessionStart` entry running
-   `bash $CLAUDE_PROJECT_DIR/.claude/hooks/precedent-individual-bootstrap.sh`
-   to the target's own `.claude/settings.json`, **first in the array, ahead
-   of `commit-identity.sh`** (which reads the set it clones), appending to
-   an existing `SessionStart` array rather than replacing it. (Until
-   2026-09-14 this step named a `bootstrap/settings.snippet.json` to merge;
-   no such file has ever been written.) This makes the individual
+   is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template),
+   and **step 7's refresh does it** (since 2026-10-02): when the person
+   running it has an individual set (their user config declares one, or
+   their environment carries `PRECEDENT_GIT_TOKEN`,
+   `PRECEDENT_SOURCE_BASE_URL` or `PRECEDENT_INDIVIDUAL_REPO`), it writes
+   the tracked `.claude/hooks/precedent-individual-bootstrap.sh` with **no
+   repository URL** -- the hook finds the set from that person's token,
+   base URL or config at run time, so nothing about them is baked into a
+   public repo -- and wires it **first in `SessionStart`, ahead of
+   `commit-identity.sh`** (which reads the set it clones). Every later
+   refresh, including Update Vendors, puts back a missing one. Until then
+   this step was a manual run of `precedent_bootstrap_source.py
+   --write-session-hook` plus a hand edit of `.claude/settings.json`, and a
+   real consumer's session was refused both. To opt out, declare
+   `.claude/hooks/precedent-individual-bootstrap.sh` in `precedent.json`'s
+   `declined_adapters` with the reason. (Until 2026-09-14 this step named a
+   `bootstrap/settings.snippet.json` to merge; no such file has ever been
+   written.) This makes the individual
    source resolvable without ever naming it in the repo's own tracked
    config — but on its own it is **not** zero manual steps on a hosted
    agent platform, which is the next part of this step, not a separate
