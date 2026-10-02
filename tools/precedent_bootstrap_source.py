@@ -68,6 +68,8 @@ Usage:
                                       # if anything is missing.
 
   --force true    # allow writing into a non-empty --dest
+  --off-main true # copy the engine from a checkout main does not contain
+                  # (refused otherwise; the manifest names the branch)
 
 Exit: 0 on success (prints the resulting config wiring either way); 1 on a
 refusal (existing non-empty dest without --force, missing --approver for a
@@ -1272,7 +1274,7 @@ def _git(*args):
 
 
 def bootstrap(level, name, dest, approvers=None, force=False,
-              visibility='private'):
+              visibility='private', off_main=False):
     level = LEVEL_ALIASES.get(level, level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
@@ -1291,6 +1293,15 @@ def bootstrap(level, name, dest, approvers=None, force=False,
             '--approver "Full Name:github-handle" (whoever is creating this '
             "set is its first approver, per PRACTICE_ENGINE_PLAN.md's Stage 4)")
 
+    _warn_if_clone_is_stale()
+    # Before anything is written: seed() refuses the same thing, but only
+    # after the skeleton is already on disk.
+    head = precedent_vendor_engine._head_commit(ROOT)
+    where = precedent_vendor_engine.off_source_branch(ROOT, head)
+    if where and not (off_main or precedent_vendor_engine.seed_off_main_allowed()):
+        raise BootstrapRefused(precedent_vendor_engine.off_main_refusal(where, head)
+                               .replace('--off-main', '--off-main true'))
+
     dest.mkdir(parents=True, exist_ok=True)
     mapping = {'NAME': name, 'DEST_PATH': str(dest)}
     if level == 'shared':
@@ -1298,7 +1309,6 @@ def bootstrap(level, name, dest, approvers=None, force=False,
         mapping['APPROVER_NAME'] = first['name']
         mapping['APPROVER_GITHUB'] = first['github']
 
-    _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
     written.append(_write_source_manifest(dest, level, name, visibility))
     if level == 'shared':
@@ -1313,7 +1323,7 @@ def bootstrap(level, name, dest, approvers=None, force=False,
         written.append(_cfg)
     if precedent_branches.ensure_repo_landing(dest, new_install=True) and _cfg not in written:
         written.append(_cfg)
-    written += precedent_vendor_engine.seed(dest)
+    written += precedent_vendor_engine.seed(dest, off_main=off_main)
     # AFTER seed(), not before: seed()/_write_engine_files builds
     # ENGINE_MANIFEST.json fresh on every call, so recording the CI
     # workflow files' hashes before this point would be silently wiped the
@@ -1848,7 +1858,8 @@ def main():
 
     try:
         result = bootstrap(level, name, dest, approvers=approvers, force=force,
-                           visibility=args.get('--visibility', 'private'))
+                           visibility=args.get('--visibility', 'private'),
+                           off_main=args.get('--off-main', 'false').lower() == 'true')
     except BootstrapRefused as e:
         print(f"REFUSED: {e}")
         return 1
