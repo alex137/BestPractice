@@ -236,6 +236,38 @@ def _session_branch_row(stamp, git):
             f'done SINCE the move is on the wrong branch')
 
 
+SOURCES_RESOLVED_ROW = 'every private practice source this repo declares resolved'
+
+
+def sources_resolved_row(verdict, message, unresolved=()):
+    """-> the (name, ok, detail) row for precedent_source_credentials.assess()'s
+    verdict; `unresolved` is its unresolved_private_sources() list.
+
+    The row judges whether the sources RESOLVED, not whether a credential
+    exists. Until 2026-10-02 it read "resolved, or a credential is set that
+    could reach them" and passed on 'set' -- a source missing while a token
+    IS set -- with an empty detail. So a precedent.json naming a shared set
+    that does not exist, or was renamed or retired, showed a green row here
+    while that set's practices were absent all session; only the resolver's
+    stderr and SESSION_PRACTICES.md said so. A shared set this repository
+    DECLARES and does not have now fails the row, token or no token, with
+    assess()'s own message, which names it and points at a retired
+    declaration as well as a refused credential.
+
+    'set' with only the individual set unresolved still passes, now saying
+    its piece: a token is itself read as a sign that the person has an
+    individual set (individual_signals), so a person who set one for their
+    shared sets and has no individual set would otherwise see this row red
+    every session. 'unconfigured' passes with its message for the same kind
+    of reason -- no repository or credential is in the wrong state, the
+    user-level config is, and no token fixes it (practice: fail-gracefully)."""
+    if verdict == 'ok':
+        return (SOURCES_RESOLVED_ROW, True, '')
+    shared_missing = any(level == 'shared' for level, _, _ in unresolved)
+    ok = verdict == 'unconfigured' or (verdict == 'set' and not shared_missing)
+    return (SOURCES_RESOLVED_ROW, ok, message)
+
+
 def checks(offline=False):
     """-> [(name, ok, detail)]. Each is a guarantee a SessionStart hook is
     supposed to have established, tested by its EFFECT rather than by
@@ -282,7 +314,7 @@ def checks(offline=False):
                 "tells this session to read it and there is nothing to read. "
                 'Regenerate: python3 tools/precedent_session_practices.py'))
 
-    # 2b. ...and if they did not, whether a credential could have helped.
+    # 2b. ...and whether the sources themselves resolved, and if not, why.
     # The row above says the FILE is missing; this one says whether the
     # sources themselves resolved, which is the thing that actually binds
     # work here. Both matter: the file can exist and honestly report that
@@ -291,18 +323,10 @@ def checks(offline=False):
     # resolved" gotcha).
     try:
         import precedent_source_credentials as psc
-        verdict, message = psc.assess(ROOT)
-        # 'unconfigured' PASSES the row and still says its piece: no
-        # credential is missing, so failing would be false -- but "your
-        # user config is the reason, and no token will fix it" is exactly
-        # the sentence a reader of this row needs, and a silent green row
-        # is where it would otherwise go (practice: fail-gracefully).
-        out.append(('the private practice sources resolved, or a credential '
-                    'is set that could reach them', verdict != 'missing',
-                    message if verdict in ('missing', 'unconfigured') else ''))
+        out.append(sources_resolved_row(*psc.assess(ROOT),
+                                        psc.unresolved_private_sources(ROOT)))
     except ImportError:
-        out.append(('the private practice sources resolved, or a credential '
-                    'is set that could reach them', None,
+        out.append((SOURCES_RESOLVED_ROW, None,
                     'tools/precedent_source_credentials.py is not importable '
                     'from here, so this could not be evaluated'))
 
