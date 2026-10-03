@@ -6072,6 +6072,79 @@ def check_tracked_views_read_the_same_whoever_regenerates():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_stale_views_say_why_and_stop_at_the_push():
+    """A repository's generated views going stale because a practice source
+    changed is said with its cause and its command, and stops the push to
+    pre-staging, not only the Debut (2026-10-03: a reduction pass retired
+    practices in the shared sets, a consumer was never re-synced, and the
+    full check's message sent its session after missing sources). The
+    failures that matter: a stale view that passes the basic tier, a message
+    that does not name the cause, and a check that fails a push only because
+    a source is not cloned here."""
+    import tempfile, json as _json
+    name = 'stale generated views say why, and stop at the push'
+    tool = ROOT / 'tools' / 'precedent_sync_views.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        universal, consumer = tmp / 'u', tmp / 'consumer'
+        (universal / 'practices').mkdir(parents=True)
+        def practice(slug, rule):
+            (universal / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: resident\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "x"\ngates: []\nindex_clause: "x"\n'
+                f'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+                f'overrides: null\nadded: null\napproved_by: "x"\nsource_practice_number: null\n'
+                f'---\n## Rule\n{rule}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+                encoding='utf-8')
+        practice('uni-fixture', 'A universal fixture rule.')
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(_json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)}]}),
+            encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text('# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                            '<!-- END GENERATED -->\n', encoding='utf-8')
+        user_cfg = tmp / 'none.json'
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(consumer),
+                                '--user-config', str(user_cfg), *extra],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+        run()
+        rc, out = run('--check')
+        cases.append(('right after a sync, the check passes', rc == 0))
+        practice('uni-fixture', 'The same rule, reworded upstream.')
+        rc, out = run('--check')
+        cases.append(('a source that changed since the sync fails the check, naming '
+                      'the cause and the command',
+                      rc != 0 and 'practice source this repository declares changed' in out
+                      and 'Fix: python3 tools/precedent_sync_views.py --repo .' in out))
+        import shutil as _shutil
+        _shutil.rmtree(universal)
+        rc, out = run('--check', '--skip-unresolved')
+        cases.append(('...while a source that is not here at all is said and skipped '
+                      'when asked, never read as stale views',
+                      rc == 0 and 'SKIPPED' in out and 'could not be resolved' in out))
+        rc, out = run('--check')
+        cases.append(('...and without --skip-unresolved it still fails, saying first '
+                      'that a source is missing, so the differences are not read as '
+                      'stale views', rc != 0 and 'did not resolve here' in out))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as _ppc
+    finally:
+        sys.path.pop(0)
+    step = [s for s in _ppc.PUSH_CHECKS['consumer'] if s[0] == 'views_sync']
+    cases.append(('a repository that uses Precedent runs the check at the basic '
+                  'tier, skipping sources it cannot reach',
+                  'views_sync' in _ppc.BASIC_CHECKS and step
+                  and '--skip-unresolved' in step[0][1]))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -55806,6 +55879,7 @@ def main():
     check_commit_rebuilds_generated_files()
     check_migrate_views_keeps_every_word()
     check_tracked_views_read_the_same_whoever_regenerates()
+    check_stale_views_say_why_and_stop_at_the_push()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()

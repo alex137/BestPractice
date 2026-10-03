@@ -2642,10 +2642,20 @@ def _generated_artifact_provenance(ctx):
         argv.append('--agents-only')
     r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
     if r.returncode != 0:
-        out.append(Finding('', 'a generated view is stale or hand-edited: '
-                               + (r.stdout + r.stderr).strip().splitlines()[-1]
-                               if (r.stdout + r.stderr).strip() else
-                               'build_views.py --check failed'))
+        # The line that says WHAT drifted. build_views.py prints notices
+        # after it (a set deferred, a practice not in force), and quoting the
+        # last line instead sent a session after missing sources, when a
+        # source had only changed since the last sync (2026-10-03).
+        lines = (r.stdout + r.stderr).strip().splitlines()
+        said = next((l for l in lines if '--check FAIL' in l or 'drifted' in l),
+                    lines[-1] if lines else 'build_views.py --check failed')
+        fix = ('most often a practice source this repository declares changed '
+               'since its last sync; fix: python3 tools/precedent_sync_views.py '
+               '--repo . , review the diff, commit'
+               if _tool_path('tools/precedent_sync_views.py') is not None else
+               'fix: python3 tools/build_views.py, review the diff, commit')
+        out.append(Finding('', f'a generated view is stale or hand-edited: {said} '
+                               f'-- {fix}'))
     return out
 
 

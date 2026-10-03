@@ -206,7 +206,7 @@ def _lost_practices(repo, res, sources, withheld):
 
 
 def sync(repo, user_config=None, check=False, allow_missing=False,
-         allow_removals=False):
+         allow_removals=False, skip_unresolved=False):
     """-> (written, checks_written, adapters_written, rstats,
     agents_md_path, changed: bool, tree_drift: [str]).  tree_drift is always
     empty unless check=True.
@@ -264,6 +264,13 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # source, synced and committed, then re-synced with the sibling clone
     # simply absent -- practices/widget-rule.md deleted, AGENTS.md and
     # MANIFEST.json rewritten, exit 0.
+    # A check asked to skip what it cannot see (the push check's basic tier)
+    # stops here: views compared against a source set missing a member read
+    # as stale when they are not (2026-10-03).
+    if res['missing'] and check and skip_unresolved:
+        raise pr.ResolveError(
+            ', '.join(f"{m['level']}/{m['name']}" for m in res['missing'])
+            + ' did not resolve')
     if res['missing'] and not check and not allow_missing:
         names = ', '.join(f"{m['level']}/{m['name']}" for m in res['missing'])
         raise pm.MaterializeError(
@@ -570,7 +577,12 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     written, checks_written, adapters_written, rstats = pm.materialize(
         sources, res, pathlib.Path(repo), dry_run=check,
         withheld=locals().get('withheld_slugs'))
-    tree_drift = (pm.drift(sources, res, pathlib.Path(repo),
+    # Said first, so the differences after it are read for what they may be:
+    # only a missing source's practices.
+    unseen = ([f"{', '.join(m['level'] + '/' + m['name'] for m in res['missing'])} "
+               f"did not resolve here, so what follows may be only its practices "
+               f"missing, not stale views"] if check and res['missing'] else [])
+    tree_drift = unseen + (pm.drift(sources, res, pathlib.Path(repo),
                           withheld=locals().get('withheld_slugs'))
                   if check else [])
 
@@ -772,8 +784,9 @@ def main():
     allow_removals = '--allow-removals' in args
     check = '--check' in args
     allow_missing = '--allow-missing-sources' in args
+    skip_unresolved = '--skip-unresolved' in args
     args = [a for a in args if a not in ('--check', '--allow-missing-sources',
-                                         '--allow-removals')]
+                                         '--allow-removals', '--skip-unresolved')]
     repo, user_config = None, None
     known = {'--repo', '--user-config'}
     i = 0
@@ -803,8 +816,16 @@ def main():
         (written, checks_written, adapters_written, rstats, agents_md,
          changed, tree_drift) = sync(
             repo, user_config, check=check, allow_missing=allow_missing,
-            allow_removals=allow_removals)
+            allow_removals=allow_removals, skip_unresolved=skip_unresolved)
     except (pr.ResolveError, pm.MaterializeError) as e:
+        if check and skip_unresolved:
+            # The push check's basic tier asks this where a source may not be
+            # cloned at all (a fresh container, CI): not being able to look
+            # is said, never read as the views being stale.
+            print(f"precedent_sync_views --check SKIPPED: the practice sources "
+                  f"could not be resolved here, so whether the generated views "
+                  f"are current was not checked ({e})")
+            return 0
         sys.exit(f"precedent_sync_views FAIL: {e}")
     # What this sync takes out of practices/ (or would, under --check), then
     # the generated views and every link to it -- the same event a rename
@@ -825,9 +846,12 @@ def main():
             for line in problems:
                 print(f"  {line}", file=sys.stderr)
             sys.exit(f"precedent_sync_views --check FAIL: "
-                     f"{len(problems)} difference(s) from a fresh sync. "
-                     f"Nothing was written -- re-run without --check to "
-                     f"take the sync, then review the diff.")
+                     f"{len(problems)} difference(s) from a fresh sync -- most "
+                     f"often a practice source this repository declares changed "
+                     f"since its last sync (a practice retired, merged or "
+                     f"reworded), less often a generated file edited by hand. "
+                     f"Nothing was written. Fix: python3 tools/precedent_sync_views.py "
+                     f"--repo . , review the diff, commit.")
         print(f"precedent_sync_views --check OK: {agents_md} and the "
               f"materialized tree are byte-identical to a fresh sync "
               f"({len(written)} practice(s), {len(checks_written)} check "
