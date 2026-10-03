@@ -42999,6 +42999,22 @@ def check_landed_reduction_quiets_the_reduction_ask():
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
                       and 'on main' in got[0] and 'on pre-staging' in got[0],
                       repr(got)))
+        # Off the ladder: the same fact, with no tier and no ladder word
+        # (found 2026-10-03, the line named pre-staging to such a person).
+        import ladder_words as lw
+        saved = {k: os.environ.pop(k, None) for k in
+                 ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG')}
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        try:
+            got = pg._over_target(work, siblings=False)
+        finally:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
+        cases.append(('off the ladder, the same line says it plainly, with no '
+                      'ladder word',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK_PLAIN in got[0]
+                      and 'on main' in got[0]
+                      and not lw.output_hits(got[0]), repr(got)))
         git('push', '-q', 'origin', '--delete', 'pre-staging')
         git('fetch', '-q', '--prune', 'origin')
         cases.append(('no landing branch on origin: no mark',
