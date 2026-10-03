@@ -366,6 +366,20 @@ def _rev_parse_quiet(clone, ref):
 NOT_VENDORED = frozenset({'evals', 'philosophy', 'spec', 'todo', 'decisions',
                           'deck', 'record'})
 
+# Single files inside a NOT_VENDORED directory that a consumer does need,
+# named one by one so the directory stays home. The withdrawal record is the
+# forwarding address a consumer's sync reads for every rule deleted from
+# universal on purpose (precedent_resolve.withdrawn_record, 2026-10-03).
+VENDORED_DESPITE_DIR = frozenset({'record/WITHDRAWN_FROM_UNIVERSAL.md'})
+
+
+def _excluded_dir(rel):
+    """-> the NOT_VENDORED component that keeps `rel` home, or None."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
+    if rel.as_posix() in VENDORED_DESPITE_DIR:
+        return None
+    return next((part for part in rel.parts if part in NOT_VENDORED), None)
+
 # Root-only exclusions -- matched by exact top-level path, NEVER as a path
 # component the way NOT_VENDORED is. `_files()`'s component match is right
 # for a subject-matter directory (the same "gotchas" can only ever mean
@@ -486,6 +500,12 @@ VENDORING_RULES = (
     ('decisions/', False, "this repo's decision records"),
     ('philosophy/', False, 'the reasoning behind Precedent, for its builders'),
     ('evals/', False, "this repo's evaluations"),
+    # The one record a consumer needs: the forwarding address of every rule
+    # deleted from universal on purpose, which a sync's removal guard reads
+    # (precedent_resolve.withdrawn_record). Without it the first sync after
+    # a withdrawal refused on every withdrawn rule (2026-10-03).
+    ('record/WITHDRAWN_FROM_UNIVERSAL.md', True,
+     "where each rule withdrawn from universal went; a consumer's sync reads it"),
     ('record/', False, "this repo's run records and ledgers"),
     # Traps a session using Precedent can hit, and environment-gotchas (a
     # resident practice) tells every session to grep gotchas/ before calling
@@ -533,7 +553,7 @@ def _in_copy(rel, carries_tools=None):
     apply to it: only NOT_VENDORED does, as before 2026-09-30, and _files()
     narrows it to CODE_DIRS."""
     rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
-    if any(part in NOT_VENDORED for part in rel.parts):
+    if _excluded_dir(rel):
         return False
     if CODE_DIRS is not None:
         if pathlib.Path(rel) in _NOT_VENDORED_ROOT_PATHS:
@@ -1076,7 +1096,7 @@ def _report_excluded_content():
         if not p.is_file() or '.git' in p.parts:
             continue
         rel = p.relative_to(UPSTREAM)
-        excluded = [part for part in rel.parts if part in NOT_VENDORED]
+        excluded = [_excluded_dir(rel)] if _excluded_dir(rel) else []
         if not excluded and rel in _NOT_VENDORED_ROOT_PATHS:
             excluded = [str(rel)]
         if excluded:

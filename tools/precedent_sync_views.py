@@ -120,6 +120,16 @@ def _lost_practices(repo, res, sources, withheld):
         return empty
     withheld = set(withheld or ())
     declared = {s.get('name') for s in sources}
+    # Rules deleted from universal on purpose leave no stub to read; the
+    # universal source's own record is their forwarding address
+    # (pr.withdrawn_record). Found by a consumer rehearsal, 2026-10-03: the
+    # guard knew only stubs, so the first sync after the ladder moved out of
+    # universal refused on all fourteen of its rules.
+    record_withdrawn = {}
+    for s in sources:
+        if s.get('level') == 'universal' and s.get('path'):
+            for slug in pr.withdrawn_record(s['path']):
+                record_withdrawn[(slug, s.get('name'))] = True
 
     out = {'blocking': [], 'source_dropped': [], 'moved_without_record': [],
            'withdrawn_upstream': [], 'overridden': []}
@@ -160,7 +170,8 @@ def _lost_practices(repo, res, sources, withheld):
         # 2026-09-28: go-merge, renamed go-update two days earlier, stopped
         # two consumers' updates here until each re-ran by hand with
         # --allow-removals.
-        if src in declared and (slug, src) in withdrawn_at:
+        if src in declared and ((slug, src) in withdrawn_at
+                                or (slug, src) in record_withdrawn):
             out['withdrawn_upstream'].append((slug, src))
             continue
         # OVERRIDDEN BY A DECLARED SOURCE: a practice elsewhere names this
@@ -205,7 +216,11 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # build_views.sources_for_tracked_block draws. Until 2026-10-02 this
     # second writer of the loader block drew no line, so a sync run by a
     # person who brings a set would have written it into the repository.
-    sources = [s for s in pr.load_config(repo, user_config) if not s.get('brought')]
+    loaded = pr.load_config(repo, user_config)
+    sources = [s for s in loaded if not s.get('brought')]
+    # ...but what a brought set provides, and the rules it holds, still
+    # count when deciding what is in force (pr.resolve's `context`).
+    brought = [s for s in loaded if s.get('brought')]
     if not sources:
         raise pr.ResolveError(
             f"no practice sources are declared for {repo}. A consuming repo "
@@ -213,7 +228,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             f"precedent.json; a person declares their own individual set in "
             f"their user-level config ({pr.DEFAULT_USER_CONFIG}, or "
             f"{pr.USER_CONFIG_ENV}).")
-    res = pr.resolve(sources)
+    res = pr.resolve(sources, context=brought)
     for m in res['missing']:
         print(f"precedent_sync_views: the {m['level']} source {m['name']!r} "
               f"is not available ({m['reason']}).",
@@ -327,7 +342,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 if pr_['level'] in bv.PRIVATE_LEVELS)
             sources = [s for s in sources
                        if s['level'] not in bv.PRIVATE_LEVELS]
-            res = pr.resolve(sources)
+            res = pr.resolve(sources, context=brought)
             # A slug that a publishable source ALSO defines is not withheld --
             # the re-resolve above brings it back, from text this repo may
             # carry. Only what is genuinely absent here gets recorded.
@@ -483,6 +498,11 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             gone_to = {(r.get('slug'), r.get('source')):
                        pr.withdrawn_from_universal(r.get('sections'))
                        for r in (res.get('retired') or []) if isinstance(r, dict)}
+            # A rule deleted outright has no stub: its record line says where.
+            for s_ in sources:
+                if s_.get('level') == 'universal' and s_.get('path'):
+                    for slug_, gone_ in pr.withdrawn_record(s_['path']).items():
+                        gone_to.setdefault((slug_, s_.get('name')), gone_)
 
             def _where(s, src):
                 # Where the rule went, as THIS resolution found it -- the
@@ -503,7 +523,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 gone = gone_to.get((s, src))
                 if gone:
                     return (f", withdrawn from universal on {gone[0]}; in force "
-                            f"in `{gone[1]}` -- declare that set to keep it")
+                            f"in `{gone[1]}` for the people who bring or declare it")
                 return (f", forwarding to {target}, which is IN FORCE NOWHERE "
                         f"here -- see above")
 

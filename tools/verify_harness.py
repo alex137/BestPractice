@@ -10594,6 +10594,34 @@ def check_update_vendors_reports_what_it_says_it_lists():
                       and ('renamed-away', 'precedent') not in lost['blocking']))
         cases.append(('a slug its source simply stopped producing still blocks',
                       ('went-missing', 'precedent') in lost['blocking']))
+        # Deleted outright by --withdraw-from-universal: no stub, only the
+        # universal source's record line (2026-10-03, a consumer rehearsal:
+        # the first sync after the ladder left universal refused on all of
+        # its rules). CONTROL: went-missing, with no record line, still blocks.
+        uni = tmp / 'universal'
+        (uni / 'record').mkdir(parents=True)
+        (uni / 'record' / 'WITHDRAWN_FROM_UNIVERSAL.md').write_text(
+            '# Rules withdrawn\n\n- 2026-10-02: `deleted-on-purpose` withdrawn '
+            'from universal, deliberately; in force only from the shared set '
+            '`fx-ladder`, for the people who bring or declare it.\n',
+            encoding='utf-8')
+        (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+            {'slug': 'deleted-on-purpose', 'source': 'precedent'},
+            {'slug': 'went-missing', 'source': 'precedent'}]}), encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qam', 'm2'], env=env, check=True)
+        lost = psv._lost_practices(repo, {'practices': {'kept': {}}, 'retired': []},
+                                   [{'name': 'precedent', 'level': 'universal',
+                                     'path': str(uni)}], ())
+        cases.append(('a rule deleted from universal with a record line does not block',
+                      ('deleted-on-purpose', 'precedent') in lost.get('withdrawn_upstream', [])
+                      and ('deleted-on-purpose', 'precedent') not in lost['blocking']))
+        cases.append(('CONTROL: beside it, a rule with no record line still blocks',
+                      ('went-missing', 'precedent') in lost['blocking']))
+        import checkin as _ci
+        cases.append(('the withdrawal record ships with the catalogue, and the '
+                      'rest of record/ does not',
+                      _ci._in_copy('record/WITHDRAWN_FROM_UNIVERSAL.md')
+                      and not _ci._in_copy('record/anything-else.md')))
 
         mf = tmp / 'MANIFEST.json'
         write = getattr(pm, 'write_manifest', None)
@@ -51921,6 +51949,117 @@ def check_public_consumer_does_not_materialize_private_text():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_consumer_sync_counts_what_a_brought_set_provides():
+    """A consumer's sync leaves a brought set out of the tracked tree
+    (spec/LADDER_OPT_IN_PLAN.md D6) but must still count it when deciding
+    what is in force. Found by a consumer rehearsal, 2026-10-03: the sync
+    filtered brought sets out BEFORE resolving, so an individual set's
+    `requires: ["ladder"]` rules dropped out of every consumer, and a
+    deduplicated individual rule pointing at a ladder rule read IN FORCE
+    NOWHERE.
+
+    1. the individual rule that requires the ladder is materialized;
+    2. a deduplicated stub pointing at a rule in the brought set is not
+       reported in force nowhere;
+    3. the brought set's own rule is still never written into the tree;
+    4. CONTROL: a person who brings nothing does not get the rule that
+       requires the ladder -- the fix counts what is brought, nothing more."""
+    import tempfile, shutil, contextlib, io
+    import json as _json
+    import precedent_sync_views as psv
+    import precedent_resolve as pr
+    import build_views as bv
+
+    def rule(slug, extra=''):
+        return _move_fixture_practice(slug).replace(
+            'status:      active\n', 'status:      active\n' + extra)
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    results = []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            uni = tmp / 'universal'
+            (uni / 'practices').mkdir(parents=True)
+            (uni / 'practices' / 'plain-rule.md').write_text(
+                rule('plain-rule'), encoding='utf-8')
+            lad = tmp / 'people' / 'fx-ladder'
+            (lad / 'practices').mkdir(parents=True)
+            (lad / 'precedent-source.json').write_text(_json.dumps({
+                'name': 'fx-ladder', 'level': 'shared', 'provides': ['ladder']}),
+                encoding='utf-8')
+            (lad / 'practices' / 'fx-stage.md').write_text(
+                rule('fx-stage'), encoding='utf-8')
+
+            def person(name, brings):
+                ind = tmp / name / 'precedent-individual'
+                (ind / 'practices').mkdir(parents=True)
+                (ind / 'precedent-source.json').write_text(_json.dumps({
+                    'name': 'precedent-individual', 'level': 'individual',
+                    'brings': brings}), encoding='utf-8')
+                (ind / 'practices' / 'needs-ladder.md').write_text(
+                    rule('needs-ladder', 'requires:    ["ladder"]\n'),
+                    encoding='utf-8')
+                (ind / 'practices' / 'old-stage.md').write_text(
+                    rule('old-stage').replace('status:      active',
+                                              'status:      deduplicated')
+                    .replace('in_force_at: null', 'in_force_at: fx-stage'),
+                    encoding='utf-8')
+                if brings:
+                    os.symlink(lad, ind.parent / 'fx-ladder')
+                cfg = tmp / f'{name}.json'
+                cfg.write_text(_json.dumps({'format_version': 1, 'individual': {
+                    'name': 'precedent-individual', 'path': str(ind)}}),
+                    encoding='utf-8')
+                return cfg
+
+            for who, brings in (('brings', [{'name': 'fx-ladder',
+                                             'repo_url': 'https://example.com/fx.git'}]),
+                                ('plain', [])):
+                cfg = person(who, brings)
+                repo = tmp / f'consumer-{who}'
+                repo.mkdir()
+                (repo / 'AGENTS.md').write_text(
+                    f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n',
+                    encoding='utf-8')
+                (repo / 'precedent.json').write_text(_json.dumps({
+                    'format_version': 1, 'base_branch': 'main',
+                    'visibility': 'private',
+                    'sources': [{'level': 'universal', 'name': 'precedent',
+                                 'path': str(uni)}]}), encoding='utf-8')
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    psv.sync(str(repo), user_config=str(cfg))
+                tree = {f.name for f in (repo / 'practices').glob('*.md')}
+                if who == 'brings':
+                    results.append(('1: the rule that requires the ladder is '
+                                    'materialized for the person who brings it',
+                                    'needs-ladder.md' in tree, sorted(tree)))
+                    results.append(('2: a stub pointing at a brought rule is not '
+                                    'in force nowhere',
+                                    'IN FORCE NOWHERE -- old-stage' not in err.getvalue(),
+                                    err.getvalue()[-400:]))
+                    results.append(('3: the brought set\'s own rule is never written',
+                                    'fx-stage.md' not in tree, sorted(tree)))
+                else:
+                    results.append(('4: CONTROL: a person who brings nothing does '
+                                    'not get it', 'needs-ladder.md' not in tree
+                                    and 'plain-rule.md' in tree, sorted(tree)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'a consumer sync counts what a brought set provides, and still '
+          f'never writes it ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
 def check_sync_refuses_to_write_from_incomplete_sources():
     """precedent_sync_views.py must not rewrite a repo's tracked tree when a
     declared source did not resolve (practice: very-deep-check, found by it).
@@ -54739,6 +54878,7 @@ def main():
     check_ladder_opt_in_loader()
     check_ladder_off_engine_says_no_ladder_words()
     check_ladder_test_session_and_the_two_ladder_checks()
+    check_consumer_sync_counts_what_a_brought_set_provides()
     check_refresh_never_rolls_a_newer_engine_back()
     check_seed_refuses_an_engine_main_lacks()
     check_self_heal_skips_a_scratch_copy()
