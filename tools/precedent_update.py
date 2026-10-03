@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_update.py -- "Update Vendors" as one command: every step of
+"""Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)
+
+precedent_update.py -- "Update Vendors" as one command: every step of
 vendor-update-runbook that needs no judgment, in order, then one report.
 
 Run it from the consuming repo, calling THIS copy -- the one in the

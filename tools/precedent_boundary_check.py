@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_boundary_check.py -- is the contributor boundary actually ON?
+"""Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass
+
+precedent_boundary_check.py -- is the contributor boundary actually ON?
 
 WHAT IT ANSWERS. spec/CONTRIBUTOR_ACCESS.md gives a contributor GitHub's
 Write role and keeps them out of the machinery with two settings that live

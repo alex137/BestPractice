@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""title_case.py — headline capitalization for markdown headings.
+"""Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix
+
+title_case.py — headline capitalization for markdown headings.
 
 Checks (bare, the default) or applies (--write) New York Times headline
 capitalization on every ATX heading in the files given, or, when none are

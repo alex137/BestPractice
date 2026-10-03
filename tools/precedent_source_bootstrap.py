@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_source_bootstrap.py — the retry-capable half of getting a
+"""Clone-or-pull for a privately-scoped individual or shared source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal
+
+precedent_source_bootstrap.py — the retry-capable half of getting a
 privately-scoped individual practice source resolvable on an ephemeral,
 hosted session (INSTALL.md step 9's individual-source branch;
 spec/BOOTSTRAP_NEW_SOURCES.md).

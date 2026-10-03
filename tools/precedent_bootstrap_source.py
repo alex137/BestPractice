@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_bootstrap_source.py — give a brand-new adopter with NO
+"""Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet
+
+precedent_bootstrap_source.py — give a brand-new adopter with NO
 individual or shared practice repo yet a real, working one in one command.
 
 THE GAP THIS CLOSES. Every source in PRACTICE_ENGINE_PLAN.md's three-source

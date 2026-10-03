@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""frontmatter_yaml.py -- shared real-YAML frontmatter check, called from
+"""The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift
+
+frontmatter_yaml.py -- shared real-YAML frontmatter check, called from
 both tools/verify_harness.py (check_frontmatter_is_real_yaml, deep check)
 and tools/doc_lint.py (light check, gated on touched files: (practice:
 two-check-levels), whose Install section folds a repo's own JSON/YAML

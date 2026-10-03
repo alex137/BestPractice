@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_migrate_status.py — classify practices carrying the OLD status
+"""Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor
+
+precedent_migrate_status.py — classify practices carrying the OLD status
 vocabulary, where `retired` meant two different things. Reports by default;
 writes only what it was explicitly told to write.
 

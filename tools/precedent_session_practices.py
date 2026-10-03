@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_session_practices.py — write the practices in force from EVERY
+"""Writes the shared/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed
+
+precedent_session_practices.py — write the practices in force from EVERY
 declared source into an untracked file a session reads at start.
 
 THE PROBLEM (measured, spec/PRELAUNCH_AUDIT.md, 2026-09-06). This repo's

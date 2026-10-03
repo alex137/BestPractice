@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Did this session's SessionStart hooks actually run? -- and repair it.
+"""Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did
+
+Did this session's SessionStart hooks actually run? -- and repair it.
 
 practice: session-bootstrap, fail-gracefully
 

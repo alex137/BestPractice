@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""model_audit -- run each computing script's self-assertions, and check the
+"""Runs each computing script's own self-assertions and checks the figures it recites
+
+model_audit -- run each computing script's self-assertions, and check the
 figures its authoritative source documents recite (practice: scripts-assert-properties).
 
 The failure mode this kills is NOT a stale copy, and that is the whole point.

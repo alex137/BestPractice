@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_identity.py — who this repository's commits belong to.
+"""Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing
+
+precedent_identity.py — who this repository's commits belong to.
 
 WHY THIS IS ITS OWN MODULE, and not part of precedent_resolve.py where it
 was born (2026-09-10, moved the same day it landed).

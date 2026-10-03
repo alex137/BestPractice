@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""very_deep_check.py -- the very deep check (practice: very-deep-check).
+"""The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit
+
+very_deep_check.py -- the very deep check (practice: very-deep-check).
 
 Enumerates this checkout's own scope -- its top-level documents plus every
 active source's `practices/*.md` tree, resolved via

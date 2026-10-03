@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""doc_lint.py — markdown hygiene checks (practice: doc-references-are-links).
+"""Markdown hygiene checks — strikethrough, links, acronyms
+
+doc_lint.py — markdown hygiene checks (practice: doc-references-are-links).
 
 Markdown hygiene checks, each born from a real bug (an outward-facing document
 that rendered with unintended strikethrough; file references written as bare

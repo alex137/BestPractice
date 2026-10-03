@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""verify_harness.py — phase-1 verification harness for the practice-engine
+"""The verification harness — run before trusting any change here
+
+verify_harness.py — phase-1 verification harness for the practice-engine
 conversion (PRACTICE_ENGINE_PLAN.md, "The Verification Harness" and Sequence
 row 1: "Practices are files; the catalogue regenerates byte-identically;
 harness passes.").
@@ -5578,6 +5580,68 @@ def check_symlinked_root_path_matching():
     finally:
         link.unlink(missing_ok=True)
         link.parent.rmdir()
+
+
+def check_map_reads_each_tools_own_summary():
+    """MAP.md's engine table is read from each tool's own docstring, never
+    from a hand-typed table inside the generator (spec/GENERATED_FILES_PLAN.md
+    step 1; Morgan, 2026-10-03: generated files are never hand-edited, a
+    change goes into their sources). The failures that matter: a tool's row
+    that does not follow its file, a new tool missing from the map, and the
+    hand table coming back."""
+    import importlib.util as _ilu, tempfile, shutil as _shutil
+    name = 'MAP.md reads each tool\'s own summary line'
+    src = ROOT / 'tools' / 'build_views.py'
+    if not src.exists():
+        not_applicable(name, 'tools/build_views.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tools = pathlib.Path(td) / 'tools'
+        tools.mkdir()
+        for f in ('build_views.py', 'split_practices.py', 'summary_text.py'):
+            _shutil.copy2(ROOT / 'tools' / f, tools / f)
+        (tools / 'zz_fixture_tool.py').write_text(
+            '"""Says what the fixture tool is, on one line\n\nLonger text.\n"""\n',
+            encoding='utf-8')
+        spec = _ilu.spec_from_file_location('_bv_summary_fixture', tools / 'build_views.py')
+        bv = _ilu.module_from_spec(spec)
+        sys.path.insert(0, str(tools))
+        try:
+            spec.loader.exec_module(bv)
+            out = bv.render_map_md([])
+            cases.append(('a tool\'s row is the first line of its own docstring',
+                          '| [tools/zz_fixture_tool.py](tools/zz_fixture_tool.py) | '
+                          'Says what the fixture tool is, on one line |' in out))
+            (tools / 'zz_fixture_tool.py').write_text(
+                '"""Says something new\n"""\n', encoding='utf-8')
+            out = bv.render_map_md([])
+            cases.append(('editing the tool\'s docstring changes its row, with '
+                          'nothing else to edit', '| Says something new |' in out))
+            (tools / 'zz_fixture_tool.py').write_text('x = 1\n', encoding='utf-8')
+            try:
+                bv.render_map_md([])
+                stopped = ''
+            except SystemExit as e:
+                stopped = str(e)
+            cases.append(('a tool with no docstring stops the build, naming the '
+                          'file to describe', 'tools/zz_fixture_tool.py' in stopped
+                          and 'no module docstring' in stopped))
+            cases.append(('the hand-typed table is gone from the generator',
+                          not hasattr(bv, 'TOOLS_DESCRIPTIONS')))
+        finally:
+            sys.path.pop(0)
+    real = sorted(p.name for p in (ROOT / 'tools').glob('*.py'))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as _bv
+        undescribed = [n for n in real if not _bv.tool_summary(ROOT / 'tools' / n)]
+    finally:
+        sys.path.pop(0)
+    cases.append(('every tool here has a summary line', not undescribed))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + (f' -- undescribed: {undescribed}' if undescribed else ''))
 
 
 def check_generated_views_regenerate():
@@ -55177,6 +55241,7 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_map_reads_each_tools_own_summary()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_consumer_shape.py -- run a practice source's own check tests
+"""A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores, in a copy without the source's own tools/ (only the engine, tools/checks/ and what practices ship) -- so a test that passes only in its home layout fails at home; a source's push check runs it
+
+precedent_consumer_shape.py -- run a practice source's own check tests
 the way a consuming repository will run them, so a test that only works in
 its home layout fails at home, before it ships.
 

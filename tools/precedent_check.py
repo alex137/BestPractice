@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_check.py — the ENFORCED loading channel, made real (phase 4).
+"""The ENFORCED loading channel — runs every practice's `checked_by` script
+
+precedent_check.py — the ENFORCED loading channel, made real (phase 4).
 
 PRACTICE_ENGINE_PLAN.md, "How an Agent Knows Which Practices to Load", names
 four channels. Three were built in phase 2 and 3; this is the fourth:

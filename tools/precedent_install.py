@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_install.py -- install Precedent into a project in one command.
+"""Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt
+
+precedent_install.py -- install Precedent into a project in one command.
 
 Run from a clone of Precedent (this repository), pointed at the project:
 

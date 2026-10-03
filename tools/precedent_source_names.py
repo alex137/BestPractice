@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_source_names.py -- answers one question a git command cannot:
+"""Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it
+
+precedent_source_names.py -- answers one question a git command cannot:
 is every practice-source repository this repo declares still CALLED what this
 repo calls it?
 

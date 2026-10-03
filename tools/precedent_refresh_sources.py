@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_refresh_sources.py -- find the practice-set sources attached to
+"""Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none
+
+precedent_refresh_sources.py -- find the practice-set sources attached to
 this session and tell whether their vendored engine is out of date; with
 --apply, bring them up to date.
 
@@ -925,7 +927,7 @@ def apply_to(entry, commit=False, branch=None):
     # build_views.py against one used to render MAP.md's "## The engine"
     # table over the consumer's whole tools/ directory, which holds the
     # consumer's OWN scripts alongside the vendored engine, and hard-fail
-    # the moment one of them had no TOOLS_DESCRIPTIONS entry -- a script
+    # the moment one of them had no description entry -- a script
     # this repo wrote can never have one for a script it has never seen.
     # Found 2026-09-14 against a real consumer, on
     # `tools/check_file_mention_links.py`: the refresh had already written

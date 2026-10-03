@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""resplit_sections.py — the phase-1.5 editorial re-split, applied as data.
+"""The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json
+
+resplit_sections.py — the phase-1.5 editorial re-split, applied as data.
 
 Phase 1's converter was mechanical: it routed each paragraph by the bold
 label that opened it. That is lossless but not editorial, and it left the

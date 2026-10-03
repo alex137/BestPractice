@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Find every place a practice is cited, across every source a repo declares.
+"""Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors
+
+Find every place a practice is cited, across every source a repo declares.
 
 A practice that is renamed, retired, deduplicated into another set, deleted,
 or has its Rule reworded is only half changed at its own commit. The other

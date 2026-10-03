@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_push_check.py -- run, before a push, what CI used to run after it.
+"""Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch runs its basic tier only, and a push to main the full one
+
+precedent_push_check.py -- run, before a push, what CI used to run after it.
 
 WHY THIS EXISTS (Morgan, 2026-09-25, strength: decided). Three switches now
 keep GitHub Actions from running on most of his pushes: `ci_workflows`

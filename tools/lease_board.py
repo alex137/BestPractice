@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Lease board: work in flight, visible to every concurrent session.
+"""The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock
+
+Lease board: work in flight, visible to every concurrent session.
 
 Practice `lease-in-flight-work`. Trunk tells a session what has LANDED; it
 cannot tell it what another session, in another container, has taken and

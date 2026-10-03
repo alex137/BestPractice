@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_vendor_engine.py — vendors Precedent's engine into a repo that
+"""Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable
+
+precedent_vendor_engine.py — vendors Precedent's engine into a repo that
 consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 

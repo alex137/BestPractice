@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_sync_views.py — one command for a CONSUMING repo to refresh its
+"""One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together
+
+precedent_sync_views.py — one command for a CONSUMING repo to refresh its
 own generated AGENTS.md loader block from every source it resolves
 (universal + team + individual + repo-local), instead of remembering to run
 tools/precedent_materialize.py and then tools/build_views.py --agents-only

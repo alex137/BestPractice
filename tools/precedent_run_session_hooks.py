@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_run_session_hooks.py -- run each repo's own SessionStart hooks
+"""Runs each repo's own SessionStart hooks for a session opened in the folder above them
+
+precedent_run_session_hooks.py -- run each repo's own SessionStart hooks
 for a session opened ABOVE the repos it works in.
 
 WHY THIS EXISTS (very deep check, 2026-09-28). Claude Code runs the hooks in

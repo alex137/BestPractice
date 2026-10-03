@@ -1,4 +1,6 @@
-"""A memo key over the code a solve actually reaches (practice
+"""A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing
+
+A memo key over the code a solve actually reaches (practice
 `slow-steps-report-and-cache`: a heavy solve caches to disk, keyed on what
 can change its result; companion of `shared-result-cache`).
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Say whether anything this repo vendors or resolves live has fallen behind
+"""Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes
+
+Say whether anything this repo vendors or resolves live has fallen behind
 the upstream it came from -- every declared source, not only the engine.
 
 THE GAP THIS CLOSES. Every check in this system runs inside one repository.

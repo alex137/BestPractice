@@ -32,6 +32,13 @@ This is the plan for building it (Morgan, 2026-10-03: "Act").
   nothing they wrote is lost (the session's pick; Morgan: "your pick, I
   agree with you", strength: assented).
 
+- **G5. A copy cites its original or is generated from it.** Content that
+  appears in two places either cites the original instead of repeating it,
+  or both are generated from one source, so they stay in sync (Morgan,
+  2026-10-03, on AGENTS.md's short table: "It should either cite the
+  original instead of repeating it OR make sure they are kept in sync",
+  strength: decided). Step 2 is the second kind.
+
 ## Steps
 
 1. **Descriptions come from the file they describe.** Each tool's line in

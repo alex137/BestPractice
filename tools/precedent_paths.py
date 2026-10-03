@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_paths.py — the path-triggered loading channel
+"""The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`
+
+precedent_paths.py — the path-triggered loading channel
 (PRACTICE_ENGINE_PLAN.md, "How an Agent Knows Which Practices to Load":
 "A PreToolUse hook matches the edited file against every practice's
 applies_to globs and prints the matching ## Rule sections.").

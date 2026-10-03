@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""our_language -- the short list of words a person needs to follow a
+"""Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)
+
+our_language -- the short list of words a person needs to follow a
 conversation about Precedent, read from tools/our_language.json.
 
 The registry is the one source. documentation/OUR_LANGUAGE.md carries a

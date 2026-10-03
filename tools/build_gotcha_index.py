@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""build_gotcha_index.py — the ongoing generator for gotchas/INDEX.md.
+"""gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md
+
+build_gotcha_index.py — the ongoing generator for gotchas/INDEX.md.
 
 Reads every `gotchas/gotcha-*.md` file's frontmatter and Symptom section and
 writes one generated file: one line per LIVE entry, symptom plus a link to

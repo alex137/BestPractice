@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_land.py — Stage 5 of PRACTICE_ENGINE_PLAN.md's creation
+"""Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant
+
+precedent_land.py — Stage 5 of PRACTICE_ENGINE_PLAN.md's creation
 pipeline: write an approved candidate into the right repo's practices/ and
 regenerate that repo's generated views.
 

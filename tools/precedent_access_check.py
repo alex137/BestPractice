@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Say, at session start, which repos in force this session can land work in.
+"""Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after
+
+Say, at session start, which repos in force this session can land work in.
 
 Run bare. Prints one line per repo and exits 0 always.
 

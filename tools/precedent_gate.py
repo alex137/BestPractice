@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_gate.py — the GATE-TRIGGERED loading channel.
+"""The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)
+
+precedent_gate.py — the GATE-TRIGGERED loading channel.
 
 PRACTICE_ENGINE_PLAN.md, "How an Agent Knows Which Practices to Load", names
 four channels. This is the last one to be built:

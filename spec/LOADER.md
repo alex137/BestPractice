@@ -38,7 +38,7 @@ and runs `python3 tools/build_views.py --agents-only` on its own
 `practices/`, getting the identical resident-block/occasion-index/standing-
 instruction treatment this repo's own `AGENTS.md` gets — `--agents-only`
 skips `render_map_md()`/`render_glossary_md()`, which assume this repo's own
-structure (`TOOLS_DESCRIPTIONS`, "this repo is BestPractice itself" prose)
+structure (its engine table, "this repo is BestPractice itself" prose)
 and aren't meaningful for a practice-set repo with a different `tools/`
 layout.
 

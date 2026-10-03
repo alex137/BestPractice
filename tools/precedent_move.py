@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_move.py -- move an existing practice from one level to another.
+"""Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name
+
+precedent_move.py -- move an existing practice from one level to another.
 
   python3 tools/precedent_move.py --slug SLUG \\
       --from individual|team|universal --from-path PATH \\

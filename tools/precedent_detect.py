@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_detect.py — Stage 1 of PRACTICE_ENGINE_PLAN.md's creation
+"""Stage 1 (phase 5) — the mechanical half of candidate detection
+
+precedent_detect.py — Stage 1 of PRACTICE_ENGINE_PLAN.md's creation
 pipeline: the mechanical half of detection. Every subcommand REPORTS a
 detection; none of them raises a candidate automatically — "detection
 produces a candidate, never a practice" (Stage 2) means a human decides

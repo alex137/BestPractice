@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Which repository an engine tool is reading, and a loud line when it is not
+"""Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory
+
+Which repository an engine tool is reading, and a loud line when it is not
 the one the person is standing in.
 
 code-cites-practice: judgment-check-or-tool

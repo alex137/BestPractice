@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""checkin.py — drive the periodic check-in (INSTALL.md §4) mechanically.
+"""Drives the periodic check-in (INSTALL.md §4) mechanically
+
+checkin.py — drive the periodic check-in (INSTALL.md §4) mechanically.
 
 Runs from a dependent repo (script lives at process/upstream/tools/). The
 check-in loop — sync the vendored tree into a clone of the upstream repo,
