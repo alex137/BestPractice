@@ -381,7 +381,9 @@ def _over_target(root, siblings=True):
             # The session-start file is built from every source on disk, so
             # a reduction in any of them counts; a tracked file, only its own.
             looked = roots if rel == '.precedent/SESSION_PRACTICES.md' else [repo]
-            landed = [r for r in (_landed_reduction(x) for x in looked) if r]
+            plain = _ladder(root) is False
+            landed = [r for r in (_landed_reduction(x, plain=plain)
+                                  for x in looked) if r]
             if landed:
                 line += ('; ' + _landed_reduction_mark(root) + ' '
                          + '; '.join(landed))
@@ -410,9 +412,11 @@ def _landed_reduction_mark(root):
             else LANDED_REDUCTION_MARK)
 
 
-def _landed_reduction(repo):
+def _landed_reduction(repo, plain=False):
     """-> "<repo>: AGENTS.md ~A on main, ~B on <landing>" when the repo's
     AGENTS.md is smaller on its landing branch than on main, else None.
+    `plain` (a person off the ladder) says the same fact without naming the
+    tier branch (spec/LADDER_OPT_IN_PLAN.md D4).
 
     code-cites-practice: session-load-budget
 
@@ -443,7 +447,8 @@ def _landed_reduction(repo):
             continue
         a, b = _slt.approx_tokens(main), _slt.approx_tokens(text)
         if b < a:
-            return f'{repo.name}: AGENTS.md ~{a:,} tokens on main, ~{b:,} on {landing}'
+            where = 'on a branch not yet in main' if plain else f'on {landing}'
+            return f'{repo.name}: AGENTS.md ~{a:,} tokens on main, ~{b:,} {where}'
         return None
     return None
 
