@@ -12,7 +12,8 @@ sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
 deep check passes, a session may merge a PR into the landing branch. A
 general "PR and merge it" authorization, with no branch named, means the
 landing branch. Check the base branch explicitly before acting -- do not
-assume one because it is the repository's configured default branch.
+assume one because it is the repository's configured default branch, not
+even when `main` and `staging` point at the same commit.
 
 **Precedent commands.** A session recognizes each by what the message is
 asking for, not by a keyword; the phrase removes doubt, it does not create a
