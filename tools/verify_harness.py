@@ -10874,6 +10874,81 @@ def check_push_to_main_skips_what_already_passed():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_migrates_hand_written_views():
+    """Update Vendors moves a repository's hand-written MAP.md and GLOSSARY.md
+    into their source files and generates both from then on (spec/
+    GENERATED_FILES_PLAN.md step 5), through migrate_views_step. The
+    failures that matter: the step silently not running, a refusal that is
+    not handed to the person, headings the headline rule will now flag that
+    nobody is told about, and a rerun that reports work it did not do."""
+    import tempfile, shutil as _shutil
+    name = 'Update Vendors migrates hand-written views and says what is left'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    if not hasattr(pu, 'migrate_views_step'):
+        not_applicable(name, 'this engine predates the migration step')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'consumer'
+        (d / 'tools').mkdir(parents=True)
+        for f in (ROOT / 'tools').glob('*.py'):
+            _shutil.copy2(f, d / 'tools' / f.name)
+        (d / 'practices').mkdir()
+        (d / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     []\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
+            'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        agents = ('# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                  '<!-- END GENERATED -->\n')
+        (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        hand_map = '# Repository map\n\n## Known consumers\n\nOne.\n'
+        (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (d / 'GLOSSARY.md').write_text('# Our Names\n\n| A | B |\n|---|---|\n', encoding='utf-8')
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='F',
+                   GIT_AUTHOR_EMAIL='f@example.com', GIT_COMMITTER_NAME='F',
+                   GIT_COMMITTER_EMAIL='f@example.com')
+        subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'], env=env, check=True)
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('the step migrates both views and reports it',
+                      any(n == 'views migrated' and 'MAP.md and GLOSSARY.md' in o
+                          for n, o in rep.steps)
+                      and (d / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        cases.append(('...and hands the person the moved headings the headline '
+                      'rule now reaches, with the command that fixes them',
+                      any('MAP.source.md' in w and 'title_case.py --write' in why
+                          for w, why in rep.left)))
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('a rerun reports nothing and leaves nothing',
+                      not rep.steps and not rep.left))
+        # A migration that would lose text: handed to the person, nothing changed.
+        for f in ('MAP.source.md', 'GLOSSARY.source.md'):
+            (d / f).unlink()
+        (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (d / 'AGENTS.md').write_text('# Agents with no loader markers\n', encoding='utf-8')
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('a migration that would lose text is left for the person, '
+                      'and nothing changed',
+                      any(w == 'MAP.md / GLOSSARY.md' and 'without losing text' in why
+                          for w, why in rep.left)
+                      and not (d / 'MAP.source.md').exists()
+                      and (d / 'MAP.md').read_text(encoding='utf-8') == hand_map))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_vendors_updates_a_section_0_catalogue():
     """Update Vendors replaces a section 0 install's vendored catalogue, and
     never reports DONE having skipped it.
@@ -55709,6 +55784,7 @@ def main():
     check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
           *check_merge_is_judged_by_the_landing_check())
     check_update_vendors_resolves_a_catalogue_edit()
+    check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
     check('the leak gate sees the main clone\'s private siblings from a worktree',

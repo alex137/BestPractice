@@ -433,6 +433,44 @@ def retired_mentions(repo, engine_out):
 FULL_VIEWS = ('MAP.md', 'GLOSSARY.md')
 
 
+def migrate_views_step(repo, rep):
+    """Run the repository's own precedent_migrate_views.py and report it: a
+    hand-written MAP.md or GLOSSARY.md moves into its source file, word for
+    word, and is generated from then on (spec/GENERATED_FILES_PLAN.md step
+    5; Morgan, 2026-10-03). The tool puts everything back and says so rather
+    than lose a word, and then the view is the repository's call."""
+    repo = pathlib.Path(repo)
+    migrate = repo / 'tools' / 'precedent_migrate_views.py'
+    if migrate.is_file():
+        rc, out = run([sys.executable, str(migrate), '--repo', '.'], repo)
+        if rc != 0:
+            rep.leave('MAP.md / GLOSSARY.md',
+                      'could not be moved into MAP.source.md / '
+                      'GLOSSARY.source.md without losing text, so they were '
+                      'left exactly as they were: ' + tail(out, repo=repo))
+        elif 'nothing to migrate' not in out:
+            moved = [n for n in FULL_VIEWS if f'{n} -> ' in out]
+            rep.step('views migrated', 'the hand-written '
+                     + ' and '.join(moved)
+                     + ' moved into their source files word for word, and '
+                     'are generated from them from now on')
+            # The text moved unchanged, so its headings are what they
+            # were; but the source files are new, and a rule that judges
+            # every heading of a changed document now reaches them. The
+            # repository's call, with the tool that applies the rule.
+            srcs = [n.replace('.md', '.source.md') for n in moved]
+            tc = repo / 'tools' / 'title_case.py'
+            if tc.is_file():
+                rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
+                if rc2 != 0:
+                    rep.leave(' and '.join(srcs),
+                              'its headings, moved word for word, are not in '
+                              'headline case, which the headline-capitalization '
+                              'check now applies because the file is new. Apply '
+                              'it with python3 tools/title_case.py --write '
+                              + ' '.join(srcs) + ', or keep them and say why')
+
+
 def generated_full_views(repo):
     """-> the FULL_VIEWS this repo's own header says build_views.py
     generates, or whose source file it has (MAP.source.md, GLOSSARY.source.md),
@@ -2009,25 +2047,7 @@ def update(repo, skip_check=False, ref=None):
                          'to another name')
                 return rep.close()
             return rep.close(f"the view sync failed:\n{tail(out, repo=repo)}")
-        # A hand-written MAP.md or GLOSSARY.md moves into its source file,
-        # word for word, and is generated from then on (spec/
-        # GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03). The tool puts
-        # everything back and says so rather than lose a word, and then the
-        # view is the repository's call.
-        migrate = repo / 'tools' / 'precedent_migrate_views.py'
-        if migrate.is_file():
-            rc, out = run([sys.executable, str(migrate), '--repo', '.'], repo)
-            if rc != 0:
-                rep.leave('MAP.md / GLOSSARY.md',
-                          'could not be moved into MAP.source.md / '
-                          'GLOSSARY.source.md without losing text, so they were '
-                          'left exactly as they were: ' + tail(out, repo=repo))
-            elif 'nothing to migrate' not in out:
-                rep.step('views migrated', 'the hand-written '
-                         + ' and '.join(n for n in FULL_VIEWS
-                                        if f'{n} -> ' in out)
-                         + ' moved into their source files word for word, and '
-                         'are generated from them from now on')
+        migrate_views_step(repo, rep)
         built = generated_full_views(repo)
         if built and build.is_file():
             # A consumer whose MAP.md or GLOSSARY.md says build_views.py
