@@ -222,6 +222,9 @@ def refresh_blocks(root, staged, say=print):
 
 
 def main(argv):
+    if argv[:1] in (['--help'], ['-h']):
+        print(__doc__.strip())
+        return 0
     if not argv or argv[0] not in ('--staged', '--all') or len(argv) > 1:
         print(__doc__.strip(), file=sys.stderr)
         return 2
