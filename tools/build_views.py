@@ -41,6 +41,10 @@ Run:
       # BestPractice itself" prose); a shared or individual source repo
       # vendoring this same file for its own practices/ catalogue wants
       # the resident-block/occasion-index mechanism, not those two.
+  python3 tools/build_views.py --views-only [--check]
+      # write (or check) MAP.md, GLOSSARY.md and WHERE_THINGS_ARE.md, never
+      # AGENTS.md -- what a repository using Precedent runs, since its
+      # loader block is precedent_sync_views.py's to write
   python3 tools/build_views.py --repo DIR [--agents-only] [--check]
       # operate on DIR's practices/AGENTS.md/MAP.md/GLOSSARY.md instead of
       # this repo's own -- --repo defaults to this script's own parent
@@ -2623,6 +2627,13 @@ def main():
     # wants only the loader-block mechanism, not BestPractice's own MAP/
     # GLOSSARY conventions.
     agents_only = '--agents-only' in argv
+    # --views-only: MAP.md, GLOSSARY.md and WHERE_THINGS_ARE.md, never
+    # AGENTS.md. In a repository that uses Precedent the loader block is the
+    # view sync's to write (precedent_sync_views.py renders it across every
+    # source); rebuilding the views must not rewrite it from practices/
+    # alone. Found 2026-10-03 migrating a real consumer: a full run here
+    # left AGENTS.md different from a fresh sync.
+    views_only = '--views-only' in argv
     global STRICT_BUDGETS
     STRICT_BUDGETS = '--budgets' in argv
     practices = load_practices(practices_dir)
@@ -2685,7 +2696,7 @@ def main():
     where = _where_source(root)
     if where is not None:
         new_agents = splice_quick_index(new_agents, where)
-    targets = [(agents_md, new_agents)]
+    targets = [] if views_only else [(agents_md, new_agents)]
     if where is not None and not agents_only:
         targets.append((root / WHERE_PAGE, render_where_things_are(where)))
     if not agents_only:

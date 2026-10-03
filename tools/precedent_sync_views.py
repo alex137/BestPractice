@@ -676,8 +676,10 @@ def _refresh_generated_views(repo, check=False):
     views = _generated_views(repo)
     if not views:
         return []
+    # --views-only: the loader block in AGENTS.md is this sync's own to
+    # write; a full build_views run would rewrite it from practices/ alone.
     cmd = [sys.executable, str(ROOT / 'tools' / 'build_views.py'),
-           '--repo', str(repo)] + (['--check'] if check else [])
+           '--repo', str(repo), '--views-only'] + (['--check'] if check else [])
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode == 0:
         return []

@@ -5894,6 +5894,11 @@ def check_migrate_views_keeps_every_word():
         hand_glossary = '# Canonical names\n\n## Our names\n\n| Name | Meaning |\n|---|---|\n| HVR | Human voice rules |\n'
         (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
         (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        (repo / 'todo').mkdir()
+        (repo / 'todo' / 'TODO.md').write_text(
+            '---\ngenerated_by: tools/build_todo_index.py\nedit_instead: "todo/todo-*.md"\n'
+            'note: "Generated."\n---\n# TODO\n', encoding='utf-8')
+        agents_before = (repo / 'AGENTS.md').read_text(encoding='utf-8')
         git('init', '-q', '-b', 'main')
         git('add', '-A')
         git('commit', '-q', '-m', 'hand-written views')
@@ -5922,9 +5927,14 @@ def check_migrate_views_keeps_every_word():
                       hand_glossary.rstrip('\n') in g and '| Fixture Term |' in g))
         reg = _json.loads((repo / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
         cases.append(('...and both are in the repository\'s own list, with their '
-                      'sources as inputs',
+                      'sources as inputs, beside every other file that says it is '
+                      'generated, read from its own label',
                       {e['path']: e['edit_instead'] for e in reg['files']}
-                      == {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md'}))
+                      == {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md',
+                          'todo/TODO.md': 'todo/todo-*.md'}))
+        cases.append(('...and AGENTS.md is never touched: its loader block is the '
+                      'view sync\'s to write',
+                      (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
         before = m
         rc, out = migrate()
         cases.append(('a second run finds nothing to do and changes nothing',

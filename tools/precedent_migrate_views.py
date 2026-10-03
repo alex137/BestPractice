@@ -95,14 +95,18 @@ def write_list(repo):
         files.append({'path': view, 'generated_by': 'tools/build_views.py',
                       'edit_instead': source,
                       'inputs': [source, 'practices/*.md', '*.json'],
-                      'regenerate': f'python3 {eng}/build_views.py --repo .',
-                      'check': [f'{eng}/build_views.py', '--repo', '.', '--check']})
+                      'regenerate': f'python3 {eng}/build_views.py --repo . --views-only',
+                      'check': [f'{eng}/build_views.py', '--repo', '.', '--views-only',
+                                '--check']})
     data.setdefault('_comment', [
         "Every file a tool here writes wholesale: what precedent_check.py's",
         "generated-files-registered checks and what the commit backstop",
         "rebuilds when one of its inputs changes. Never edit those files by",
         "hand: change their sources and let them be rebuilt. This list is",
         "this repository's own."])
+    import precedent_regenerate as rg
+    files += rg.labelled_entries(repo, eng, {e.get('path') for e in files
+                                             if not e.get('part')})
     data['files'] = files
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
@@ -121,7 +125,8 @@ def migrate(repo, restore_from=None, say=print):
     before = {v: (repo / v).read_bytes() if (repo / v).is_file() else None for v, _ in VIEWS}
     for _view, source, text in todo:
         (repo / source).write_text(text, encoding='utf-8')
-    r = subprocess.run([sys.executable, str(HERE / 'build_views.py'), '--repo', str(repo)],
+    r = subprocess.run([sys.executable, str(HERE / 'build_views.py'), '--repo', str(repo),
+                        '--views-only'],
                        capture_output=True, text=True)
     lost = []
     for view, source, text in todo:
