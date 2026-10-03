@@ -80,6 +80,30 @@ GLOSSARY_MD = ROOT / 'GLOSSARY.md'
 # make, so AGENTS.md stays a person's file for that purpose.
 FULLY_GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
 
+
+def is_generated_view(path):
+    """True when `path` is missing or carries this tool's own
+    `generated_by: tools/build_views.py` header -- the only MAP.md or
+    GLOSSARY.md it may write. An adopter's hand-made map is theirs: the plain
+    form used to replace it with this repository's own
+    (todo-2026-09-21-pass-1-install-and-update-findings, finding 1), and a
+    consumer whose map IS generated still needs it kept current after a sync
+    removes practices (a consumer's report, 2026-10-03)."""
+    try:
+        head = pathlib.Path(path).read_text(encoding='utf-8')[:2000]
+    except FileNotFoundError:
+        return True
+    except (OSError, UnicodeDecodeError):
+        return False
+    return bool(GENERATED_BY_RE.match(head))
+
+
+# The header render_map_md / render_glossary_md write (generated_label), read
+# back: front matter whose generated_by names this tool, quoted or not. The
+# one definition -- precedent_update.generated_full_views asks this too.
+GENERATED_BY_RE = re.compile(
+    r'\A---\n(?:.*\n)*?generated_by:\s*["\']?tools/build_views\.py', re.M)
+
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 import summary_text  # a withdrawn reason is a summary: links out before the cut
@@ -2652,8 +2676,14 @@ def main():
         _all = load_practices(practices_dir, in_force_only=False)
         _in_force = {id(t) for t in practices}
         withdrawn = [t for t in _all if not is_in_force(t[0])]
-        targets.append((map_md, render_map_md(practices, withdrawn)))
-        targets.append((glossary_md, render_glossary_md(practices, root)))
+        for path, render in ((map_md, lambda: render_map_md(practices, withdrawn)),
+                             (glossary_md, lambda: render_glossary_md(practices, root))):
+            if is_generated_view(path):
+                targets.append((path, render()))
+            else:
+                print(f"build_views: {path.name} has no generated_by header, so "
+                      f"it is this repository's own and is left alone.",
+                      file=sys.stderr)
 
     if check:
         drift = []

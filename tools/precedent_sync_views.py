@@ -54,6 +54,7 @@ tools/checks/ filename collision, an over-budget resident set, a bad harness
 adapter declaration), or on --check finding drift.
 """
 import json
+import re
 import pathlib
 import subprocess
 import sys
@@ -650,6 +651,112 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             (new_text != original), tree_drift)
 
 
+def _generated_views(repo):
+    """-> the repo's MAP.md / GLOSSARY.md that build_views generated (its
+    `generated_by` header), never a hand-made one and never a missing one:
+    a sync keeps a generated map current, and writes no map a repo lacks."""
+    return [p for p in (pathlib.Path(repo) / n for n in bv.FULLY_GENERATED_VIEWS)
+            if p.is_file() and bv.is_generated_view(p)]
+
+
+def _refresh_generated_views(repo, check=False):
+    """Rebuild (or, with check, compare) the generated MAP.md and
+    GLOSSARY.md with build_views.py from this engine, so a sync that removes
+    practices does not leave the map linking to them. -> [problem lines].
+
+    A consumer's report, 2026-10-02: a sync dropped ten practices, rewrote
+    AGENTS.md and left eight dead links in MAP.md while its own --check said
+    OK; only the light check caught it, and a session following the
+    documented step exactly would have shipped them."""
+    views = _generated_views(repo)
+    if not views:
+        return []
+    cmd = [sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+           '--repo', str(repo)] + (['--check'] if check else [])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode == 0:
+        return []
+    names = ', '.join(p.name for p in views)
+    return [f"{names}: {'stale against' if check else 'could not be rebuilt by'} "
+            f"build_views.py ({(r.stdout + r.stderr).strip().splitlines()[-1:]})"]
+
+
+_PRACTICE_LINK_RE = re.compile(r'(?<![\w/-])((?:\.\./)*practices/)([a-z0-9][a-z0-9-]*)\.md\b')
+
+
+def _where_removed_went(repo, user_config, removed):
+    """-> {slug: (successor slug or None, why)} for practices a sync removed:
+    a deduplicated stub's `in_force_at`, else universal's withdrawal record."""
+    out = {slug: (None, 'no longer in force here') for slug in removed}
+    try:
+        sources = pr.load_config(repo, user_config)
+    except Exception:                                        # noqa: BLE001
+        return out
+    for s in sources:
+        if s.get('level') == 'universal' and s.get('path'):
+            for slug, (date, name) in pr.withdrawn_record(s['path']).items():
+                if slug in out:
+                    out[slug] = (None, f'withdrawn from universal on {date}; in '
+                                       f'force in `{name}` for the people who '
+                                       f'bring or declare it')
+        loaded, _why = pr.load_source(s)
+        for slug, p in (loaded or {}).items():
+            if slug not in out:
+                continue
+            fwd = str(p['fm'].get('in_force_at') or '').strip('"\' ')
+            if fwd and fwd not in ('null', 'none', 'engine', slug):
+                out[slug] = (fwd, f'now in force as `{fwd}`')
+    return out
+
+
+def _links_to_removed(repo, user_config, removed, check=False):
+    """Every tracked Markdown file outside the generated tree that links to a
+    practice this sync removed: repointed where the rule's successor is in
+    practices/ now, reported where it is not. -> [report lines].
+
+    rename-updates-links asks a rename to repoint every link in the same
+    change; a sync that removes a practice is the same event for the repo
+    that receives it, and until 2026-10-03 it repointed and reported nothing
+    -- open items naming removed practices failed the next Promote."""
+    if not removed:
+        return []
+    repo = pathlib.Path(repo)
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '*.md'],
+                       capture_output=True, text=True)
+    skip = ('practices/', 'process/', 'tools/checks/')
+    files = [f for f in r.stdout.splitlines()
+             if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
+             and f != 'AGENTS.md']
+    went = _where_removed_went(repo, user_config, removed)
+    lines = []
+    for rel in files:
+        path = repo / rel
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        changed = False
+        out_lines = []
+        for n, line in enumerate(text.split('\n'), 1):
+            def fix(m):
+                nonlocal changed
+                slug = m.group(2)
+                if slug not in removed:
+                    return m.group(0)
+                succ, why = went.get(slug, (None, ''))
+                if succ and (repo / 'practices' / f'{succ}.md').is_file():
+                    changed = True
+                    lines.append(f"{rel}:{n}: repointed `{slug}` to `{succ}` ({why})")
+                    return f'{m.group(1)}{succ}.md'
+                lines.append(f"{rel}:{n}: links `{slug}`, which this sync "
+                             f"removed -- {why}. Repoint or remove it")
+                return m.group(0)
+            out_lines.append(_PRACTICE_LINK_RE.sub(fix, line))
+        if changed and not check:
+            path.write_text('\n'.join(out_lines), encoding='utf-8')
+    return lines
+
+
 def main():
     args = sys.argv[1:]
     allow_removals = '--allow-removals' in args
@@ -681,6 +788,7 @@ def main():
                  "is vendored at the consuming repo's tools/, and produced a "
                  "confident, wrong, hard failure everywhere else.")
 
+    before = {f.stem for f in (pathlib.Path(repo) / 'practices').glob('*.md')}
     try:
         (written, checks_written, adapters_written, rstats, agents_md,
          changed, tree_drift) = sync(
@@ -688,9 +796,18 @@ def main():
             allow_removals=allow_removals)
     except (pr.ResolveError, pm.MaterializeError) as e:
         sys.exit(f"precedent_sync_views FAIL: {e}")
+    # What this sync takes out of practices/ (or would, under --check), then
+    # the generated views and every link to it -- the same event a rename
+    # is, for the repository receiving it.
+    after = ({w['slug'] for w in written} if check else
+             {f.stem for f in (pathlib.Path(repo) / 'practices').glob('*.md')})
+    removed = before - after
+    view_problems = _refresh_generated_views(repo, check=check)
+    for line in _links_to_removed(repo, user_config, removed, check=check):
+        print(f"precedent_sync_views: {line}", file=sys.stderr)
 
     if check:
-        problems = list(tree_drift)
+        problems = list(tree_drift) + view_problems
         if changed:
             problems.insert(0, f"{agents_md} is stale or hand-edited, "
                                 f"drifted from a fresh sync")
@@ -709,6 +826,8 @@ def main():
               f"~{rstats['tokens']} of {rstats['budget']} token budget)")
         return 0
 
+    for line in view_problems:
+        print(f"precedent_sync_views: {line}", file=sys.stderr)
     print(f"precedent_sync_views OK: materialized {len(written)} practice(s), "
           f"{len(checks_written)} check script(s)/test(s) and "
           f"{len(adapters_written)} harness adapter(s), wrote "
