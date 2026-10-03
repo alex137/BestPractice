@@ -657,8 +657,11 @@ def _generated_views(repo):
     """-> the repo's MAP.md / GLOSSARY.md that build_views generated (its
     `generated_by` header), never a hand-made one and never a missing one:
     a sync keeps a generated map current, and writes no map a repo lacks."""
+    sources = {'MAP.md': getattr(bv, 'MAP_SOURCE', None),
+               'GLOSSARY.md': getattr(bv, 'GLOSSARY_SOURCE', None)}
     return [p for p in (pathlib.Path(repo) / n for n in bv.FULLY_GENERATED_VIEWS)
-            if p.is_file() and bv.is_generated_view(p)]
+            if p.is_file() and (bv.is_generated_view(p) or (
+                sources.get(p.name) and (pathlib.Path(repo) / sources[p.name]).is_file()))]
 
 
 def _refresh_generated_views(repo, check=False):

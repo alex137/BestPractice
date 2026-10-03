@@ -679,6 +679,10 @@ ENGINE_FILES = [
     # 3): commit-identity.sh's hook runs it from the repository's own copy,
     # so every kind that receives the hook receives the script it calls.
     'precedent_regenerate.py',
+    # The one-time move of a hand-written MAP.md / GLOSSARY.md into their
+    # source files (spec/GENERATED_FILES_PLAN.md step 5): a repository runs
+    # its own copy at its next Update Vendors.
+    'precedent_migrate_views.py',
     # The merge gate's engine: the push check, run on the merge GitHub would
     # make, before a session merges a pull request through GitHub -- a push
     # no local hook sees. merge-check-gate.sh calls it; every kind merges.

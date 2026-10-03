@@ -5844,6 +5844,135 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_migrate_views_keeps_every_word():
+    """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
+    into MAP.source.md and GLOSSARY.source.md and generates both from then
+    on (spec/GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03). The
+    failures that matter are all losses: a word of the repository's own text
+    missing after regeneration, a failed migration that leaves things half
+    changed (practice: repair-cannot-discard-work), a view a vendor update
+    already overwrote that cannot be brought back, and a second run that
+    disturbs a migrated repository."""
+    import tempfile, json as _json
+    name = 'migrating the views keeps every word a repository wrote'
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_migrate_views.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(pathlib.Path(td) / 'none.json'))
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def migrate(*a):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(repo), *a],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
+            'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        hand_map = ('<!-- Last updated: 2026-09-30 by Someone, to version 7 -->\n'
+                    '# Repository map\n\nOur one deliverable is [THE_THING.md](THE_THING.md).\n\n'
+                    '## Known consumers\n\n| Repo | Since |\n|---|---|\n| a/b | 2026-09-01 |\n')
+        hand_glossary = '# Canonical names\n\n## Our names\n\n| Name | Meaning |\n|---|---|\n| HVR | Human voice rules |\n'
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        git('init', '-q', '-b', 'main')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'hand-written views')
+        first = git('rev-parse', 'HEAD').stdout.strip()
+
+        rc, out = migrate('--check')
+        cases.append(('--check says what it would do and changes nothing',
+                      rc == 0 and 'would move MAP.md into MAP.source.md' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map))
+        rc, out = migrate()
+        m = (repo / 'MAP.md').read_text(encoding='utf-8')
+        g = (repo / 'GLOSSARY.md').read_text(encoding='utf-8')
+        cases.append(('each hand-written view moves into its source byte for byte',
+                      rc == 0 and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8') == hand_glossary))
+        cases.append(('...and the generated map carries every word of it, then the '
+                      'catalogue, labelled as generated from the source',
+                      m.startswith('---\ngenerated_by: tools/build_views.py')
+                      and 'MAP.source.md' in m.split('---', 2)[1]
+                      and hand_map.rstrip('\n') in m
+                      and m.index(hand_map.rstrip('\n')) < m.index('## The practice catalogue')
+                      and '[zz-fixture](practices/zz-fixture.md)' in m))
+        cases.append(('...and the generated glossary carries its own names, then '
+                      'the names the practices define',
+                      hand_glossary.rstrip('\n') in g and '| Fixture Term |' in g))
+        reg = _json.loads((repo / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
+        cases.append(('...and both are in the repository\'s own list, with their '
+                      'sources as inputs',
+                      {e['path']: e['edit_instead'] for e in reg['files']}
+                      == {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md'}))
+        before = m
+        rc, out = migrate()
+        cases.append(('a second run finds nothing to do and changes nothing',
+                      rc == 0 and 'nothing to migrate' in out
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == before))
+        (repo / 'MAP.source.md').write_text(hand_map + '\nA new line.\n', encoding='utf-8')
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo)], capture_output=True, text=True, env=env)
+        cases.append(('afterwards the map follows its source',
+                      'A new line.' in (repo / 'MAP.md').read_text(encoding='utf-8')))
+
+        # A view a vendor update already overwrote: brought back from the
+        # commit the person names.
+        git('add', '-A')
+        git('commit', '-q', '-m', 'migrated')
+        (repo / 'MAP.source.md').unlink()
+        git('commit', '-q', '-am', 'lose the source, as an overwrite did')
+        rc, out = migrate('--restore-map-from', first)
+        cases.append(('--restore-map-from brings back the hand-written map from '
+                      'the named commit', rc == 0
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        rc, out = migrate('--restore-map-from', 'HEAD')
+        cases.append(('...never restores over a source that already exists',
+                      rc != 0 and 'already exists' in out
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        (repo / 'MAP.source.md').unlink()
+        rc, out = migrate('--restore-map-from', 'HEAD')
+        cases.append(('...and refuses a commit where the map was already generated',
+                      rc != 0 and 'already generated' in out
+                      and not (repo / 'MAP.source.md').exists()))
+
+        # A migration that cannot keep the text leaves nothing changed.
+        (repo / 'MAP.source.md').unlink(missing_ok=True)
+        (repo / 'GLOSSARY.source.md').unlink(missing_ok=True)
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('# Agents, with no loader markers\n', encoding='utf-8')
+        rc, out = migrate()
+        cases.append(('a migration that cannot regenerate puts everything back and '
+                      'says so', rc == 1 and 'REFUSED' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == hand_glossary))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -55471,6 +55600,7 @@ def main():
     check_map_reads_each_tools_own_summary()
     check_where_things_are_from_one_source()
     check_commit_rebuilds_generated_files()
+    check_migrate_views_keeps_every_word()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()

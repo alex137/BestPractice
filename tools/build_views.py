@@ -2335,12 +2335,36 @@ def splice_quick_index(text, data):
     return pre + '\n'.join(block) + post
 
 
-def render_map_md(practices, withdrawn=()):
+# A REPOSITORY'S OWN SECTIONS (spec/GENERATED_FILES_PLAN.md step 5; Morgan,
+# 2026-10-03: MAP.md and GLOSSARY.md are generated in every repository, and
+# a repository that uses Precedent keeps what it wrote). What a repository
+# says about itself -- its deliverables, who depends on it, its own names --
+# lives in MAP.source.md and GLOSSARY.source.md, written by hand, and is
+# copied into the generated view word for word, ahead of the sections
+# generated from the catalogue and the engine. A repository with neither
+# file gets the views exactly as before.
+MAP_SOURCE = 'MAP.source.md'
+GLOSSARY_SOURCE = 'GLOSSARY.source.md'
+
+
+def _own_source(root, name):
+    """-> a repository's own hand-written section text, or None."""
+    path = pathlib.Path(root or ROOT) / name
+    if not path.is_file():
+        return None
+    return path.read_text(encoding='utf-8').rstrip('\n')
+
+
+def render_map_md(practices, withdrawn=(), root=None):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
+    own = _own_source(root, MAP_SOURCE)
     # The label every generated file opens with (tools/generated_files.json
     # lists them all): visible as a small table on GitHub, read by
     # precedent_check.py's generated-files-registered (Morgan, 2026-09-29).
-    lines = [
+    head = ([*generated_label('tools/build_views.py',
+                              f'{MAP_SOURCE} and practices/*.md',
+                              'python3 tools/build_views.py'), '', own, '']
+            if own is not None else [
         *generated_label('tools/build_views.py', 'practices/*.md',
                          'python3 tools/build_views.py'),
         '',
@@ -2350,7 +2374,9 @@ def render_map_md(practices, withdrawn=()):
         '"make AGENTS.md, MAP.md, GLOSSARY.md and the index generated"). '
         "For the plan and format spec, see AGENTS.md's quick index instead — this file "
         "indexes the practice catalogue and the engine's own code, not the whole repo's prose.",
-        '',
+        ''])
+    lines = [
+        *head,
         "## The practice catalogue",
         '',
         f"`practices/` holds {len(practices)} practice files "
@@ -2420,12 +2446,16 @@ def render_glossary_md(practices, root=None):
         for term in _json_list(raw):
             terms.append((term, fm['slug']))
     terms.sort(key=lambda t: t[0].lower())
+    own = _own_source(root, GLOSSARY_SOURCE)
     lines = [
         *generated_label('tools/build_views.py',
-                         "the defines: field of practices/*.md",
+                         (f"{GLOSSARY_SOURCE} and the defines: field of practices/*.md"
+                          if own is not None else
+                          "the defines: field of practices/*.md"),
                          'python3 tools/build_views.py'),
         '',
-        "# Canonical names",
+        *([own, '', "## Names the practices define"] if own is not None
+          else ["# Canonical names"]),
         '',
         "Built from every practice's `defines:` frontmatter field -- the terms that "
         "practice owns (PRACTICE_ENGINE_PLAN.md, The Practice File). A term with no row "
@@ -2666,9 +2696,12 @@ def main():
         _all = load_practices(practices_dir, in_force_only=False)
         _in_force = {id(t) for t in practices}
         withdrawn = [t for t in _all if not is_in_force(t[0])]
-        for path, render in ((map_md, lambda: render_map_md(practices, withdrawn)),
+        for path, render in ((map_md, lambda: render_map_md(practices, withdrawn, root)),
                              (glossary_md, lambda: render_glossary_md(practices, root))):
-            if is_generated_view(path):
+            # A view whose own source file exists has been migrated: it is
+            # generated from now on, whatever the file on disk says.
+            src = MAP_SOURCE if path.name == 'MAP.md' else GLOSSARY_SOURCE
+            if is_generated_view(path) or (root / src).is_file():
                 targets.append((path, render()))
             else:
                 print(f"build_views: {path.name} has no generated_by header, so "
