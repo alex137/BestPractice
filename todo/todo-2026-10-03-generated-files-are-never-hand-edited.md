@@ -40,12 +40,29 @@ closed:            null
   `is_generated_view` guard, 2026-10-03): a hand-written view is left alone
   and said so. What is left is the decision itself.
 
+  **What the map is** (Morgan, 2026-10-03, strength: decided): keep
+  MAP.md's own spirit -- a map of "the practice catalogue and the engine's
+  own code", not of every file in the repository -- and make it update
+  itself as practices and engine files change, through build_views.py.
+  Each precedent-* repository has its own version of the same. All five
+  already generate theirs, and all six maps (BestPractice's included) were
+  current on 2026-10-03; what is missing is that nothing rebuilds them
+  without a session remembering to, and that each tool's description is
+  typed into `TOOLS_DESCRIPTIONS` inside the generator rather than read
+  from the tool itself.
+
   The work, to be planned before it is built:
-  1. Both views built from the practice catalogue plus repo-owned source
-     files holding everything repository-specific (where things live,
-     deliverables, known consumers, the repository's own terms). Reuse a
+  1. Every description in the map read from its own file: a practice's
+     front matter (as now), and each tool's own opening docstring line in
+     place of `TOOLS_DESCRIPTIONS`, so adding or changing a tool changes the
+     map with nothing else to edit. The views rebuild themselves at every
+     commit that touches practices or engine files, at session start and
+     at the Debut, and the push check fails a stale one at the basic tier
+     in every repository, the precedent-* sets included. What a
+     repository that uses Precedent keeps in its map beyond that (its own
+     sections and terms) comes from repo-owned source files, reusing a
      format the engine already reads where one fits (`our_language.json`
-     for a repository's own terms) before inventing one.
+     for its own terms).
   2. One registry of which files are generated, read by every check, so a
      hand edit to any of them fails, in every repository.
   3. A one-time migration that turns a repository's hand-written views into
