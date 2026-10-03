@@ -52252,6 +52252,103 @@ def check_consumer_rehearsal_smaller_faults():
           '; '.join(f'{n} -- {d}' for n, d in failed))
 
 
+def check_sync_keeps_the_map_and_links_after_a_removal():
+    """A sync that removes practices keeps the repository around them whole
+    (a consumer's report, 2026-10-02/03): it rewrote AGENTS.md, left eight
+    dead links in a generated MAP.md with its own --check saying OK, and
+    left two open items naming removed practices, which failed the next
+    Promote.
+
+    1. a link to a practice renamed upstream is repointed to its successor;
+    2. a link to one withdrawn from universal is left, and reported with
+       where the rule went;
+    3. a generated MAP.md is rebuilt and no longer links the removed ones;
+    4. CONTROL: a hand-made GLOSSARY.md (no generated_by header) is left
+       byte for byte."""
+    import tempfile, shutil
+    import json as _json
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='sync-map-links-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-config.json'))
+    for k in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS'):
+        env.pop(k, None)
+    results = []
+    try:
+        uni = tmp / 'universal'
+        (uni / 'practices').mkdir(parents=True)
+        for slug in ('kept-rule', 'gone-rule', 'old-name'):
+            (uni / 'practices' / f'{slug}.md').write_text(
+                _move_fixture_practice(slug), encoding='utf-8')
+        repo = tmp / 'consumer'
+        (repo / 'todo').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
+        (repo / 'AGENTS.md').write_text(
+            f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(uni)}]}), encoding='utf-8')
+        glossary = '# Our own glossary\n\nHand-written; see practices/gone-rule.md.\n'
+        (repo / 'GLOSSARY.md').write_text(glossary, encoding='utf-8')
+        item = ('# An open item\n\nSee [gone](../practices/gone-rule.md) and '
+                '[old](../practices/old-name.md).\n')
+        (repo / 'todo' / 'todo-x.md').write_text(item, encoding='utf-8')
+        sync = [sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                '--repo', str(repo)]
+        r = subprocess.run(sync, env=env, capture_output=True, text=True)
+        # A generated MAP.md, as a consumer that ran build_views has one.
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo)], env=env, capture_output=True, text=True)
+        map_before = (repo / 'MAP.md').read_text(encoding='utf-8') \
+            if (repo / 'MAP.md').is_file() else ''
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'first sync'],
+                       env=env, check=True)
+        results.append(('fixture: the first sync wrote the rules and a generated map',
+                        r.returncode == 0 and 'practices/gone-rule.md' in map_before,
+                        (r.stdout + r.stderr)[-300:]))
+        # Upstream: gone-rule withdrawn outright, old-name renamed new-name.
+        (uni / 'practices' / 'gone-rule.md').unlink()
+        (uni / 'record').mkdir()
+        (uni / 'record' / 'WITHDRAWN_FROM_UNIVERSAL.md').write_text(
+            '- 2026-10-02: `gone-rule` withdrawn from universal, deliberately; in '
+            'force only from the shared set `fx-ladder`, for the people who '
+            'bring or declare it.\n', encoding='utf-8')
+        (uni / 'practices' / 'new-name.md').write_text(
+            _move_fixture_practice('new-name'), encoding='utf-8')
+        (uni / 'practices' / 'old-name.md').write_text(
+            _move_fixture_practice('old-name').replace(
+                'status:      active', 'status:      deduplicated')
+            .replace('in_force_at: null', 'in_force_at: new-name'), encoding='utf-8')
+        r = subprocess.run(sync, env=env, capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        got = (repo / 'todo' / 'todo-x.md').read_text(encoding='utf-8')
+        map_after = (repo / 'MAP.md').read_text(encoding='utf-8')
+        results.append(('1: a link to a renamed rule is repointed to its successor',
+                        '../practices/new-name.md' in got
+                        and 'old-name.md' not in got, got + out[-300:]))
+        results.append(('2: a link to a withdrawn rule is left and reported with '
+                        'where it went', '../practices/gone-rule.md' in got
+                        and 'todo/todo-x.md:3: links `gone-rule`' in out
+                        and 'fx-ladder' in out, out[-500:]))
+        results.append(('3: the generated MAP.md is rebuilt without the removed rules',
+                        r.returncode == 0 and 'practices/gone-rule.md' not in map_after
+                        and 'practices/kept-rule.md' in map_after, out[-300:]))
+        results.append(('4: CONTROL: a hand-made GLOSSARY.md is left byte for byte',
+                        (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == glossary, ''))
+    except (OSError, subprocess.CalledProcessError) as e:
+        results.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'a sync that removes practices repoints or reports every link to '
+          f'them and keeps a generated map current ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
 def check_sync_refuses_to_write_from_incomplete_sources():
     """precedent_sync_views.py must not rewrite a repo's tracked tree when a
     declared source did not resolve (practice: very-deep-check, found by it).
@@ -55073,6 +55170,7 @@ def main():
     check_consumer_sync_counts_what_a_brought_set_provides()
     check_brought_sets_have_their_own_session_budget()
     check_consumer_rehearsal_smaller_faults()
+    check_sync_keeps_the_map_and_links_after_a_removal()
     check_refresh_never_rolls_a_newer_engine_back()
     check_seed_refuses_an_engine_main_lacks()
     check_self_heal_skips_a_scratch_copy()

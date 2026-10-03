@@ -67,6 +67,12 @@ and does not mention that the non-`--check` form deletes them.
 --repo .` in a consumer), and have `build_views.py` refuse to write
 `MAP.md`/`GLOSSARY.md` when it is not running in the upstream.
 
+2026-10-03: the destructive half is fixed. `build_views.py` writes or checks
+a `MAP.md` or `GLOSSARY.md` only when it is missing or carries its own
+`generated_by` header (`build_views.is_generated_view`), so an adopter's
+hand-templated map is left alone, and a consumer whose map is generated gets
+it rebuilt by the sync. The emitted command line is not changed yet.
+
 ## 2. A correct fresh PRIVATE install fails its own documented acceptance test
 
 **ROADBLOCK.** [SETUP.md](../SETUP.md) tells the guided installer to run

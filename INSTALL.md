@@ -275,9 +275,12 @@ not this section.
    sync, regenerated on every run; commit them, never hand-edit them.
    The generated block's own header names `build_views.py` as the
    regeneration command; in a consuming repo the command is this one,
-   `precedent_sync_views.py --repo .` — `build_views.py --check` alone
-   reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
-   they are not.
+   `precedent_sync_views.py --repo .`. A hand-templated `MAP.md` or
+   `GLOSSARY.md` (one without `build_views.py`'s `generated_by` header) is
+   the repository's own: neither tool writes or checks it. A generated one
+   is rebuilt by the sync, and a link elsewhere in the repository to a
+   practice the sync removed is repointed to its successor, or reported
+   when there is none.
 
 7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
    loose at the repo root except the instantiated files above and step 6's
