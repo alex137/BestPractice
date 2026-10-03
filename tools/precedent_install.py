@@ -77,9 +77,12 @@ UNIVERSAL_PATH = 'precedent/universal'
 # on purpose (it doubles as the rendered sample).
 ROOT_FILES = {
     'AGENTS.md': 'AGENTS.md.loader.template',
-    'MAP.md': 'MAP.md.template',
+    # The repository's own text for its map and glossary: MAP.md and
+    # GLOSSARY.md are generated from these by the sync, never hand-written
+    # (spec/GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03).
+    'MAP.source.md': 'MAP.md.template',
     'TODO.md': 'TODO.md.template',
-    'GLOSSARY.md': 'GLOSSARY.md.template',
+    'GLOSSARY.source.md': 'GLOSSARY.md.template',
     'GETTING_STARTED.md': 'GETTING_STARTED.md',
     # The one trap every install inherits, as a file in the catalogue
     # rather than an entry inlined into AGENTS.md: resident
@@ -332,7 +335,7 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
             f"  when it suits the project (say `Update Vendors` to an assistant;\n"
             f"  the procedure is [{UPSTREAM_DOCS}/INSTALL.md]({UPSTREAM_DOCS}/INSTALL.md) §2).",
         },
-        'MAP.md': {
+        'MAP.source.md': {
             "| `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see [AGENTS.md](AGENTS.md) \"Practice export\". |":
             f"| `{UNIVERSAL_PATH}/` | The vendored Precedent practice catalogue — never hand-edited; refreshed by `Update Vendors`. The engine that reads it is in `tools/`. |",
         },
@@ -690,6 +693,9 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
         raise InstallRefused(f'the sync failed:\n{r.stdout}{r.stderr}')
     for line in _tool_lines(r, 'precedent_sync_views OK'):
         say(f'  {line}')
+    # The repository's own list of generated files, so its commits rebuild
+    # MAP.md and GLOSSARY.md and its checks judge them from the first push.
+    _run([sys.executable, 'tools/precedent_migrate_views.py', '--repo', '.'], dest)
 
     all_instantiated = list(ROOT_FILES) + list(LOCAL_PRACTICE_FILES)
     md = all_instantiated + ['README.md']

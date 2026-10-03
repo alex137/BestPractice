@@ -22,9 +22,10 @@ new mechanism:
      disk, so this never risks parsing something materialize() just wrote
      differently than materialize() itself understood it.
 
-What this tool does NOT do: generate MAP.md or GLOSSARY.md (those assume
-this repo's own structure — see build_views.py's --agents-only, which this
-tool always uses the equivalent of), or vendor the engine scripts
+MAP.md and GLOSSARY.md: rebuilt with build_views.py --views-only wherever
+the repository generates them -- a generated label, or its MAP.source.md /
+GLOSSARY.source.md (spec/GENERATED_FILES_PLAN.md step 5). What this tool
+does NOT do: vendor the engine scripts
 themselves (precedent_resolve.py, precedent_materialize.py, build_views.py,
 precedent_show.py, precedent_paths.py, precedent_gate.py, split_practices.py
 all need to already be sitting together in the consuming repo's own tools/
@@ -659,9 +660,11 @@ def _generated_views(repo):
     a sync keeps a generated map current, and writes no map a repo lacks."""
     sources = {'MAP.md': getattr(bv, 'MAP_SOURCE', None),
                'GLOSSARY.md': getattr(bv, 'GLOSSARY_SOURCE', None)}
+    # A view with its source file is generated even before its first build
+    # (a fresh install writes MAP.source.md, and this sync makes MAP.md).
     return [p for p in (pathlib.Path(repo) / n for n in bv.FULLY_GENERATED_VIEWS)
-            if p.is_file() and (bv.is_generated_view(p) or (
-                sources.get(p.name) and (pathlib.Path(repo) / sources[p.name]).is_file()))]
+            if (p.is_file() and bv.is_generated_view(p)) or (
+                sources.get(p.name) and (pathlib.Path(repo) / sources[p.name]).is_file())]
 
 
 def _refresh_generated_views(repo, check=False):
