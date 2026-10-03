@@ -157,6 +157,9 @@ def migrate(repo, restore_from=None, say=print):
 
 
 def main(argv):
+    if '--help' in argv or '-h' in argv:
+        print(__doc__.strip())
+        return 0
     if '--repo' not in argv or argv.index('--repo') + 1 >= len(argv):
         print(__doc__.strip(), file=sys.stderr)
         return 2
