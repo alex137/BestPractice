@@ -51986,6 +51986,12 @@ def check_consumer_sync_counts_what_a_brought_set_provides():
             (uni / 'practices').mkdir(parents=True)
             (uni / 'practices' / 'plain-rule.md').write_text(
                 rule('plain-rule'), encoding='utf-8')
+            # A rule the REPOSITORY declares that needs the ladder: a brought
+            # set never switches it on, or a committed view would differ by
+            # who regenerated it (found by the full suite, 2026-10-03).
+            (uni / 'practices' / 'repo-needs-ladder.md').write_text(
+                rule('repo-needs-ladder', 'requires:    ["ladder"]\n'),
+                encoding='utf-8')
             lad = tmp / 'people' / 'fx-ladder'
             (lad / 'practices').mkdir(parents=True)
             (lad / 'precedent-source.json').write_text(_json.dumps({
@@ -52044,6 +52050,9 @@ def check_consumer_sync_counts_what_a_brought_set_provides():
                                     err.getvalue()[-400:]))
                     results.append(('3: the brought set\'s own rule is never written',
                                     'fx-stage.md' not in tree, sorted(tree)))
+                    results.append(('3b: a rule the repository declares that '
+                                    'needs the ladder stays out, whoever syncs',
+                                    'repo-needs-ladder.md' not in tree, sorted(tree)))
                 else:
                     results.append(('4: CONTROL: a person who brings nothing does '
                                     'not get it', 'needs-ladder.md' not in tree

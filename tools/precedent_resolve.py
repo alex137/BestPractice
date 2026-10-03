@@ -1376,8 +1376,13 @@ def resolve(sources, context=()):
     for _s, _loaded in by_source:
         provided |= source_provides(_s['path'])
     in_context = set()
+    # What a brought set provides counts for the PERSON's own rules only (an
+    # individual set's "for me, the ladder"). A rule a repository declares
+    # stays keyed to what the repository declares, so a committed view comes
+    # out the same whoever regenerates it (spec/LADDER_OPT_IN_PLAN.md, test E).
+    provided_for_person = set(provided)
     for _s in context or ():
-        provided |= source_provides(_s['path'])
+        provided_for_person |= source_provides(_s['path'])
         _loaded, _why = load_source(_s)
         in_context |= {slug for slug, p in (_loaded or {}).items()
                        if bv._json_str(p['fm'].get('status', 'active'))
@@ -1389,7 +1394,8 @@ def resolve(sources, context=()):
                 retired.append(practice)
                 continue
             needs = _requires(practice['fm'])
-            if needs and not needs <= provided:
+            has = provided_for_person if _s['level'] == 'individual' else provided
+            if needs and not needs <= has:
                 continue
             # A practice replaces the same slug from a lower source, and may
             # additionally name a differently-named lower practice in

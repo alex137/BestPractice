@@ -328,7 +328,7 @@ def without_target_warning(text):
     return text
 
 
-def _with_target_warning(repo, text):
+def _with_target_warning(repo, text, brought=0):
     """-> `text` with a warning under its title when the file is over the
     `target` its registry entry declares, else `text` unchanged.
 
@@ -346,8 +346,10 @@ def _with_target_warning(repo, text):
         return text
     if not isinstance(target, int):
         return text
-    # The repo's part only: the sets a person brings have their own budget.
-    n = bv._approx_tokens(text) - brought_share(repo)[0]
+    # The repo's part only: `brought`, the share of `text` the sets the
+    # person brings account for, has its own budget (brought_share; main
+    # measures it once for the file it writes).
+    n = bv._approx_tokens(text) - brought
     lines = text.split('\n')
     at = next((i for i, l in enumerate(lines) if l.startswith('# ')), None)
     if n <= target or at is None:
@@ -454,7 +456,7 @@ def main():
               f'written; {n_bad} source(s) unresolved.')
         return 0
 
-    text = _with_target_warning(repo, text)
+    text = _with_target_warning(repo, text, brought=brought_share(repo)[0])
     out_dir = pathlib.Path(repo) / OUT_DIR
     try:
         out_dir.mkdir(exist_ok=True)
