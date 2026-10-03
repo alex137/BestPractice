@@ -81,6 +81,32 @@ closed:            null
     2026-09-06 (`53a6b3b9`), which is likely the generation Morgan
     remembered.
 
+  **What already exists, and its gaps** (inventory, 2026-10-03). There is
+  a list: [tools/generated_files.json](../tools/generated_files.json)
+  (`08751985`, 2026-09-29, "One list of generated files"), enforced by
+  precedent_check's `generated-files-registered` at the basic tier. But:
+  - It is one of about eight partial lists: build_views'
+    `FULLY_GENERATED_VIEWS` and precedent_check's `GENERATED_VIEWS` (the
+    same two names, twice), doc_sync's `PAIRS` (generated blocks inside
+    hand-written documents, by design), doc_html's `DOCS`, the hook
+    mirrors compared by `DOGFOODED_HOOKS_MATCH_TEMPLATE`,
+    precedent_branches' `REBUILT_BARE`, and the consumer manifests.
+  - **It is not shipped to consumers**, so the check reports "not
+    applicable" in every repository that uses Precedent: its todo and
+    gotcha indexes and a document project's CODEOWNERS are unchecked at
+    push.
+  - Some generated files are checked only at the full tier (blocks inside
+    documents, the HTML render, the AGENTS.md block in a consumer), so a
+    hand edit reaches pre-staging and is caught only at the Debut.
+  - Some are not checked at all: record/stale_branches.md and the very
+    deep check's other records (`"check": null`), its embedded block in
+    spec/VERY_DEEP_CHECK.md, and four hook pairs nobody compares.
+  - Engine, hook and catalogue copies in a consumer are compared only at
+    the next refresh or update, never at push.
+  - WHATS_NEW.md is not generated: sessions write each day's entry by hand
+    ([whats-new](../practices/whats-new.md)); only its `checked_through:`
+    line is written by a tool.
+
 ## How It Closes
 
 When a repository using Precedent generates MAP.md and GLOSSARY.md from its
