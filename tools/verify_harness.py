@@ -48823,8 +48823,11 @@ def check_ladder_off_engine_says_no_ladder_words():
         lines = [l for l in text.splitlines()
                  if not any(x in l for x in excused)]
         found = lw.output_hits('\n'.join(lines))
+        # The lines themselves, not only the words: a hit that appeared only
+        # inside a Debut (2026-10-03) could not be found from the words.
+        said = [lines[n - 1][:300] for n in sorted({h[0] for h in found})][:3]
         cases.append((f'{what} says no ladder word to a person off the ladder',
-                      not found, repr(found[:6])))
+                      not found, f'{found[:6]!r} in {said!r}'))
     r = subprocess.run([sys.executable, 'tools/precedent_branches.py', '--landing'],
                        cwd=str(ROOT), env=env, capture_output=True, text=True)
     cases.append(('their work lands on main',
