@@ -90,7 +90,10 @@ All six steps, each with tests that a mutation of the change fails:
   (AGENTS.md's) was kept.
 - **Step 3.** `tools/precedent_regenerate.py`, run by the commit
   backstop, rebuilds and stages the generated files a commit's sources
-  feed. Its first real use added its own MAP.md row.
+  feed, and the generated blocks inside hand-written documents too
+  (doc_sync.py's, which the list leaves to doc_sync on purpose). Its first
+  real uses added its own MAP.md row and refreshed a stale count in
+  spec/LOADER.md.
 - **Step 4.** A practice set's view check runs at the basic tier. Each of
   the five sets has its own list of generated files, on a branch there,
   and two of them carried stale todo indexes nothing had checked.
