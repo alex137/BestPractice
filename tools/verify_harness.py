@@ -35976,6 +35976,110 @@ def check_push_check_runs_cheap_checks_first():
     check(name, not bad, '; '.join(bad))
 
 
+def check_push_check_records_over_its_own_ledgers():
+    """A push-check run that refreshes a fact ledger (practice: gate-ledger)
+    still records its pass for the commit, and leaves the ledger in place;
+    real uncommitted work still blocks the record.
+
+    Origin 2026-10-02, a consumer repository: the model audit rewrote its
+    ledger as the full suite ran, the suite passed in 799 s over a tree it
+    had dirtied itself, the pass was NOT recorded, and the push gate ran
+    the whole suite again and timed out -- twice. The fixture's doc_lint
+    stand-in saves a ledger through the real fact_ledger.py, so the run
+    dirties its own tree exactly that way. The negative control is the same
+    run with an ordinary tracked file edited. Owns its state (practice:
+    fixture-owns-its-state)."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'the push check records its pass over fact ledgers it refreshed itself'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    needed = [tool, ROOT / 'tools' / 'fact_ledger.py', ROOT / 'tools' / 'content_record.py']
+    if not all(f.is_file() for f in needed):
+        not_applicable(name, 'precedent_push_check.py or the fact ledger engine is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1', PRECEDENT_NO_SHARED_PASS='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'))
+        env.pop('FACT_LEDGER_WRITTEN', None)
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(work), *a], capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(work)], env=env,
+                       capture_output=True)
+        for f in needed + [ROOT / 'tools' / 'precedent_branches.py']:
+            if f.is_file():
+                _shutil.copy2(f, work / 'tools' / f.name)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            body = 'import sys\n'
+            if t == 'precedent_check':
+                body += 'print("precedent_check: 3 passed, 0 violated")\n'
+            if t == 'doc_lint':
+                # a gate that refreshes its fact ledger as it runs, as the
+                # model audit and doc_sync do
+                body += ('import importlib.util, pathlib, time\n'
+                         'here = pathlib.Path(__file__).resolve().parent\n'
+                         'spec = importlib.util.spec_from_file_location("fl", here / "fact_ledger.py")\n'
+                         'fl = importlib.util.module_from_spec(spec); spec.loader.exec_module(fl)\n'
+                         'led = fl.Ledger(here.parent, "audit_ledger.jsonl")\n'
+                         'led.put({"doc": "m.py", "block": "#audit", "at": time.time_ns()})\n'
+                         'led.save()\n')
+            body += 'sys.exit(0)\n'
+            (work / 'tools' / f'{t}.py').write_text(body, encoding='utf-8')
+        (work / 'audit_ledger.jsonl').write_text('', encoding='utf-8')
+        (work / 'notes.txt').write_text('a\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'init')
+        record = work / '.git' / 'precedent-push-check.json'
+
+        def run_check(*a):
+            p = subprocess.run([sys.executable, 'tools/precedent_push_check.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return p.stdout + p.stderr
+
+        out = run_check('--tier', 'full')
+        dirty = git('status', '--porcelain', '--untracked-files=no')
+        cases.append(('the run dirtied its own tree with the ledger (the bug\'s '
+                      'precondition)', dirty.endswith('audit_ledger.jsonl')))
+        cases.append(('and still recorded the pass for the commit',
+                      'recorded for tree' in out and 'NOT recorded' not in out
+                      and record.is_file()))
+        cases.append(('saying it refreshed the ledger and left it to commit',
+                      'refreshed 1 fact ledger' in out and 'audit_ledger.jsonl' in out))
+        cases.append(('the refreshed ledger is left in place, not discarded',
+                      bool((work / 'audit_ledger.jsonl').read_text().strip())))
+        out = run_check('--gate', '--tier', 'full')
+        cases.append(('the push gate then finds the pass, the ledger still '
+                      'uncommitted, and runs nothing', 'already passed' in out))
+
+        # Negative control: real uncommitted work blocks the record, before
+        # or after a ledger refresh, and the gate does not reuse the pass.
+        record.unlink(missing_ok=True)
+        (work / 'notes.txt').write_text('b\n', encoding='utf-8')
+        out = run_check('--tier', 'full')
+        cases.append(('an edited tracked file still blocks the record',
+                      'NOT recorded' in out and not record.is_file()))
+        out = run_check('--gate', '--tier', 'full')
+        cases.append(('and the gate runs the suite rather than reuse a pass',
+                      'already passed' not in out))
+        git('checkout', '--', 'notes.txt')
+        git('commit', '-q', '-am', 'commit the ledger')
+        out = run_check('--tier', 'full')
+        cases.append(('a run over a committed ledger records as before',
+                      'recorded for tree' in out))
+    bad = [c for c, ok in cases if not ok]
+    check(name, not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_push_check_installs_gate_packages():
     """precedent_push_check.py installs the packages the gates import before
     it runs anything, and stops at once, naming them, when it cannot --
@@ -53025,6 +53129,7 @@ def main():
     check_stale_source_paths_accepts_the_universal_pair()
     check_push_check_installs_gate_packages()
     check_push_check_runs_cheap_checks_first()
+    check_push_check_records_over_its_own_ledgers()
     check_push_check_refuses_an_unknown_option()
     check_bare_push_check_takes_the_landing_tier()
     check_full_tier_needs_a_reason_on_a_quick_landing()
