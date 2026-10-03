@@ -50,7 +50,10 @@ THE STEPS, with no question in between:
      left for you -- reported, never rewritten
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
-     MAP.md and GLOSSARY.md too -- then manifest baselines moved for files
+     MAP.md and GLOSSARY.md too; in a repository that uses Precedent, a
+     hand-written MAP.md or GLOSSARY.md moved into MAP.source.md /
+     GLOSSARY.source.md word for word and generated from then on (or left
+     as it was, and said, when that would lose text) -- then manifest baselines moved for files
      now identical to upstream, a missing headroom_floor_pct defaulted,
      each file still naming one the refresh deleted left for you, and this
      repo's own citations of any practice the update withdrew or reworded
@@ -432,12 +435,16 @@ FULL_VIEWS = ('MAP.md', 'GLOSSARY.md')
 
 def generated_full_views(repo):
     """-> the FULL_VIEWS this repo's own header says build_views.py
-    generates, in order. A hand-written MAP.md is the repo's, and left
+    generates, or whose source file it has (MAP.source.md, GLOSSARY.source.md),
+    in order. A hand-written MAP.md with no source is the repo's, and left
     alone."""
     import build_views as _bv
+    srcs = {'MAP.md': getattr(_bv, 'MAP_SOURCE', None),
+            'GLOSSARY.md': getattr(_bv, 'GLOSSARY_SOURCE', None)}
     return [name for name in FULL_VIEWS
             if (pathlib.Path(repo) / name).is_file()
-            and _bv.is_generated_view(pathlib.Path(repo) / name)]
+            and (_bv.is_generated_view(pathlib.Path(repo) / name)
+                 or (srcs.get(name) and (pathlib.Path(repo) / srcs[name]).is_file()))]
 
 
 def source_is_its_own_clone():
@@ -2002,6 +2009,25 @@ def update(repo, skip_check=False, ref=None):
                          'to another name')
                 return rep.close()
             return rep.close(f"the view sync failed:\n{tail(out, repo=repo)}")
+        # A hand-written MAP.md or GLOSSARY.md moves into its source file,
+        # word for word, and is generated from then on (spec/
+        # GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03). The tool puts
+        # everything back and says so rather than lose a word, and then the
+        # view is the repository's call.
+        migrate = repo / 'tools' / 'precedent_migrate_views.py'
+        if migrate.is_file():
+            rc, out = run([sys.executable, str(migrate), '--repo', '.'], repo)
+            if rc != 0:
+                rep.leave('MAP.md / GLOSSARY.md',
+                          'could not be moved into MAP.source.md / '
+                          'GLOSSARY.source.md without losing text, so they were '
+                          'left exactly as they were: ' + tail(out, repo=repo))
+            elif 'nothing to migrate' not in out:
+                rep.step('views migrated', 'the hand-written '
+                         + ' and '.join(n for n in FULL_VIEWS
+                                        if f'{n} -> ' in out)
+                         + ' moved into their source files word for word, and '
+                         'are generated from them from now on')
         built = generated_full_views(repo)
         if built and build.is_file():
             # A consumer whose MAP.md or GLOSSARY.md says build_views.py
@@ -2009,7 +2035,9 @@ def update(repo, skip_check=False, ref=None):
             # loader block only, so a practice the update stopped
             # materializing stayed linked from the glossary, and the lint
             # failed on the dead links (2026-09-30, three practices).
-            rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
+            # --views-only: the loader block is the sync's, just written.
+            rc, out = run([sys.executable, str(build), '--repo', '.',
+                           '--views-only'], repo)
             if rc != 0:
                 return rep.close(f"the view build failed:\n{tail(out, repo=repo)}")
             rep.step('views', 'regenerated (loader block, and '
