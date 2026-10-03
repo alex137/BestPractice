@@ -842,6 +842,19 @@ case "\$0" in
     ;;
 esac
 
+# The engine's own commit-time fixer (spec/GENERATED_FILES_PLAN.md step 3):
+# it rebuilds the generated files whose inputs this commit touches, with the
+# repository's own copy of the engine, and stages them, so a generated file
+# never goes out stale and nobody has to remember. It never refuses a commit.
+case "\$0" in
+  *pre-commit)
+    _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    for _rg in "\$_top/tools/precedent_regenerate.py" "\$_top/process/upstream/tools/precedent_regenerate.py"; do
+      if [ -n "\$_top" ] && [ -f "\$_rg" ]; then python3 "\$_rg" --staged || true; break; fi
+    done
+    ;;
+esac
+
 # The person's own commit-time fixer, when their individual source ships one
 # (bootstrap/pre-commit-fix): it FIXES the commit before it is made -- a
 # version header that has to move with the content, say -- and never refuses
@@ -1061,6 +1074,19 @@ case "\$0" in
   *prepare-commit-msg)
     _cad="\$(dirname "\$0")/precedent-ci-cadence"
     [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
+# The engine's own commit-time fixer (spec/GENERATED_FILES_PLAN.md step 3):
+# it rebuilds the generated files whose inputs this commit touches, with the
+# repository's own copy of the engine, and stages them, so a generated file
+# never goes out stale and nobody has to remember. It never refuses a commit.
+case "\$0" in
+  *pre-commit)
+    _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    for _rg in "\$_top/tools/precedent_regenerate.py" "\$_top/process/upstream/tools/precedent_regenerate.py"; do
+      if [ -n "\$_top" ] && [ -f "\$_rg" ]; then python3 "\$_rg" --staged || true; break; fi
+    done
     ;;
 esac
 

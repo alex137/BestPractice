@@ -246,6 +246,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_push_check.py](tools/precedent_push_check.py) | Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch runs its basic tier only, and a push to main the full one |
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
+| [tools/precedent_regenerate.py](tools/precedent_regenerate.py) | Rebuilds the generated files whose inputs a commit touches, and stages them -- run by the commit backstop, never refuses a commit |
 | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) | The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, shared and individual sources into one set, by precedence |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic removal report; proposes, never acts |

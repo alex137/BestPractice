@@ -5719,6 +5719,131 @@ def check_where_things_are_from_one_source():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_commit_rebuilds_generated_files():
+    """The commit backstop rebuilds the generated files whose inputs a commit
+    touches and stages them (spec/GENERATED_FILES_PLAN.md step 3; Morgan,
+    2026-10-03: generated files are auto-updated as their sources change).
+    The failures that matter: a stale generated file committed with no one
+    noticing; a rebuild that sweeps unstaged work into the commit or
+    overwrites it unrecoverably (practice: repair-cannot-discard-work); a
+    fixer that blocks a commit; and running what cannot be rebuilt offline."""
+    import json as _json, tempfile, shutil as _shutil
+    name = 'a commit rebuilds and stages the generated files its sources feed'
+    tool = ROOT / 'tools' / 'precedent_regenerate.py'
+    hook_src = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not tool.exists() or not hook_src.exists():
+        not_applicable(name, 'tools/precedent_regenerate.py or the commit hook is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), HOME=str(tmp))
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(work), *a],
+                                  capture_output=True, text=True, env=env)
+        git('init', '-q', '-b', 'main')
+        _shutil.copy2(tool, work / 'tools' / 'precedent_regenerate.py')
+        # A generator that writes OUT.md from src/*.txt and leaves a mark
+        # each time it runs; one that always fails; one that must never run.
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'pathlib.Path("RAN").write_text("x")\n'
+            'parts = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("OUT.md").write_text("".join(p.read_text() for p in parts))\n',
+            encoding='utf-8')
+        (work / 'tools' / 'snap.py').write_text(
+            'import pathlib\npathlib.Path("SNAP_RAN").write_text("x")\n', encoding='utf-8')
+        (work / 'src').mkdir()
+        (work / 'src' / 'a.txt').write_text('a\n', encoding='utf-8')
+        (work / 'OUT.md').write_text('a\n', encoding='utf-8')
+        (work / 'SNAP.md').write_text('snapshot\n', encoding='utf-8')
+        (work / 'tools' / 'generated_files.json').write_text(_json.dumps({'files': [
+            {'path': 'OUT.md', 'generated_by': 'tools/gen.py', 'edit_instead': 'src/*.txt',
+             'regenerate': 'python3 tools/gen.py', 'check': ['tools/gen.py']},
+            {'path': 'SNAP.md', 'generated_by': 'tools/snap.py', 'edit_instead': None,
+             'regenerate': 'python3 tools/snap.py', 'check': None}]}), encoding='utf-8')
+        (work / '.gitignore').write_text('RAN\nSNAP_RAN\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'init')
+        # The real hook's fixer block, cut from commit-identity.sh, as this
+        # fixture's own pre-commit hook.
+        text = hook_src.read_text(encoding='utf-8')
+        start = text.index("# The engine's own commit-time fixer")
+        end = text.index('esac', start) + len('esac')
+        block = text[start:end].replace('\\$', '$')
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        (hooks / 'pre-commit').write_text('#!/bin/sh\n' + block + '\nexit 0\n', encoding='utf-8')
+        (hooks / 'pre-commit').chmod(0o755)
+        git('config', 'core.hooksPath', str(hooks))
+
+        def commit(msg):
+            r = git('commit', '-q', '-m', msg)
+            return r.returncode, r.stdout + r.stderr
+
+        # 1. A source changes; the generated file is rebuilt and in the commit.
+        (work / 'src' / 'b.txt').write_text('b\n', encoding='utf-8')
+        git('add', 'src/b.txt')
+        rc, out = commit('add a source')
+        shown = git('show', 'HEAD:OUT.md').stdout
+        cases.append(('a commit touching a source carries the rebuilt generated '
+                      'file, and says so', rc == 0 and shown == 'a\nb\n'
+                      and 'rebuilt and staged OUT.md' in out))
+        # 2. Nothing the generator reads: it does not run.
+        (work / 'RAN').unlink()
+        (work / 'notes.txt').write_text('n\n', encoding='utf-8')
+        git('add', 'notes.txt')
+        rc, out = commit('unrelated')
+        cases.append(('an unrelated commit runs no generator', rc == 0
+                      and not (work / 'RAN').exists()))
+        # Its own generator changes, which would make any other entry due.
+        (work / 'tools' / 'snap.py').write_text(
+            'import pathlib\npathlib.Path("SNAP_RAN").write_text("y")\n', encoding='utf-8')
+        git('add', 'tools/snap.py')
+        rc, out = commit('touch the snapshot generator')
+        cases.append(('an entry nothing offline can rebuild never runs, even when '
+                      'its own generator changes', rc == 0
+                      and not (work / 'SNAP_RAN').exists()))
+        # 3. Unstaged changes of the session's own in the generated file:
+        # rebuilt, NOT staged, and said.
+        (work / 'OUT.md').write_text('a\nb\nmy unstaged note\n', encoding='utf-8')
+        (work / 'src' / 'c.txt').write_text('c\n', encoding='utf-8')
+        git('add', 'src/c.txt')
+        rc, out = commit('source with unstaged generated edits')
+        cases.append(('a generated file with unstaged changes is not swept into '
+                      'the commit, and the commit says so',
+                      rc == 0 and 'NOT added to this commit' in out
+                      and git('show', 'HEAD:OUT.md').stdout == 'a\nb\n'))
+        git('checkout', '-q', '--', 'OUT.md')
+        # 4. A staged hand edit to the generated file, then a source change:
+        # rebuilt and committed, and the hand edit kept, not lost.
+        (work / 'OUT.md').write_text('hand edit\n', encoding='utf-8')
+        (work / 'src' / 'd.txt').write_text('d\n', encoding='utf-8')
+        git('add', 'OUT.md', 'src/d.txt')
+        rc, out = commit('hand edit plus source')
+        kept = work / '.git' / 'precedent-regenerate' / 'OUT.md'
+        cases.append(('a hand edit the rebuild replaces is kept, said, and the '
+                      'commit carries the rebuilt file', rc == 0
+                      and kept.is_file() and kept.read_text() == 'hand edit\n'
+                      and 'is kept at' in out
+                      and git('show', 'HEAD:OUT.md').stdout == 'a\nb\nc\nd\n'))
+        # 5. A generator that fails never blocks the commit.
+        (work / 'tools' / 'gen.py').write_text('raise SystemExit(3)\n', encoding='utf-8')
+        (work / 'src' / 'e.txt').write_text('e\n', encoding='utf-8')
+        git('add', 'tools/gen.py', 'src/e.txt')
+        rc, out = commit('a broken generator')
+        cases.append(('a failing generator never blocks the commit, and says '
+                      'what failed', rc == 0 and 'failed' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -55318,6 +55443,7 @@ def main():
     check_generated_views_regenerate()
     check_map_reads_each_tools_own_summary()
     check_where_things_are_from_one_source()
+    check_commit_rebuilds_generated_files()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
