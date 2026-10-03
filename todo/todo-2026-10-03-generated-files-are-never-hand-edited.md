@@ -55,8 +55,31 @@ closed:            null
   4. The templates, INSTALL.md section 0 and the orientation-map and
      acronyms-glossary practices say "generated, never hand-edited".
 
-  Why it was not already so is being traced through the history; the
-  finding goes here when it is in.
+  **Why it was not already so** (traced through the history 2026-10-03):
+  it was never built for a repository that uses Precedent, and the
+  decision not to build it was a session's, never Morgan's or Alex's.
+  - The plan of record ([spec/PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md),
+    `02faee49`, 2026-08-31) says to make AGENTS.md, MAP.md and GLOSSARY.md
+    generated, answering "navigation documents hand-maintained and
+    drifting" -- but its links are to this repository's own files, phase 2
+    (`903af45e`) generated only these, and left consumers to phase 6, whose
+    row says nothing about views.
+  - `b8089c57`, 2026-09-03, added `--agents-only` under "Judgment calls
+    made": "Scoped --agents-only to skip MAP.md/GLOSSARY.md entirely rather
+    than attempting a repo-agnostic version of render_map_md()".
+    `53bcbb85` the same day reused it for consumers, and `779af18e` wrote it
+    into INSTALL.md section 0 as "deliberately does not cover, by design and
+    not oversight". An unratified call became the stated design that day.
+  - `7d4988da`, 2026-09-06, made the provenance check skip a hand-written
+    view so a fresh install came back clean -- enforcing that design, not
+    deciding it.
+  - `ccc85763`, 2026-09-14, dropped a document project's MAP.md and
+    GLOSSARY.md from its owned generated views as "content", under Morgan's
+    approval of a write-up as a whole (`assented`), not of that choice by
+    name ([todo-2026-09-14-generated-views-are-owned-paths](todo-2026-09-14-generated-views-are-owned-paths.md)).
+  - Practice sets are the exception: they have generated full views since
+    2026-09-06 (`53a6b3b9`), which is likely the generation Morgan
+    remembered.
 
 ## How It Closes
 
