@@ -2788,6 +2788,20 @@ def _withdrawn_here_cited_elsewhere(ppr, base, successors, wmap):
         return []
     gone = {slug for slug, what in changed.items()
             if not what.startswith('Rule reworded')}
+    # A consumer's practices/ is a sync's output: a rule the base's
+    # committed MANIFEST.json recorded left because its source moved it, not
+    # because this branch deleted anything (2026-10-03, a consumer rehearsal:
+    # every rule the ladder took out of universal was reported here as
+    # "deleted by this branch", though it lives on in the ladder set).
+    r = _git('show', f'{base}:MANIFEST.json')
+    if r is not None and r.returncode == 0:
+        try:
+            synced = {e.get('slug') for e in
+                      (json.loads(r.stdout).get('practices') or [])
+                      if isinstance(e, dict)}
+        except ValueError:
+            synced = set()
+        gone -= synced
     if not gone:
         return []
     out = []
@@ -10425,6 +10439,37 @@ def _session_load_budgets():
         return None
 
 
+def _charge_brought_share(n):
+    """-> (n less the brought sets' share, Finding or None) for the session
+    file. The share is measured by rendering the file with and without the
+    sets the person brings; it is held to `brought_sets_tokens` in their
+    individual set's precedent-source.json, and a share with no such budget
+    is a finding naming where to declare one."""
+    try:
+        import precedent_session_practices as _psp
+        share, names = _psp.brought_share(ROOT)
+    except Exception:                                         # noqa: BLE001
+        return n, None
+    if not share:
+        return n, None
+    budget, ind = _psp.brought_budget(ROOT)
+    rel = '.precedent/SESSION_PRACTICES.md'
+    if budget is None:
+        return n - share, Finding(rel, (
+            f"{share:,} tokens of it come from the set(s) this person brings "
+            f"({', '.join(names)}), and their individual set declares no "
+            f"`{_psp.BROUGHT_BUDGET_KEY}` budget for them. Declare one in "
+            f"{ind or 'the individual set'}/precedent-source.json, with the "
+            f"person's own words for the figure"))
+    if share > budget:
+        return n - share, Finding(rel, (
+            f"{share:,} tokens of it come from the set(s) this person brings "
+            f"({', '.join(names)}), over the {budget:,}-token "
+            f"`{_psp.BROUGHT_BUDGET_KEY}` budget in their individual set. "
+            f"Reduce in the brought set, or the person raises their own budget"))
+    return n - share, None
+
+
 @check('session-load-budget', 'tree',
        'every file a session loads before it works is declared in '
        'tools/session_load_budgets.json and is under its declared ceiling, '
@@ -10491,6 +10536,13 @@ def _session_load_budget(ctx):
             out.append(Finding(rel, 'has a registry entry with no integer '
                                     '"ceiling"'))
             continue
+        if rel == '.precedent/SESSION_PRACTICES.md':
+            # The sets a person brings are charged to that person's own
+            # budget, not to this repository's ceiling (Morgan, 2026-10-03,
+            # strength: assented; precedent_session_practices.brought_share).
+            n, brought_finding = _charge_brought_share(n)
+            if brought_finding:
+                out.append(brought_finding)
         if n > ceiling:
             out.append(Finding(rel, f'{n:,} tokens, every session, over its '
                                     f'declared ceiling of {ceiling:,}. Run the '

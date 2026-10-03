@@ -1113,11 +1113,16 @@ def _report_excluded_content():
           f"confirm nothing there is still needed, then  git rm -r {rm}  and commit.")
 
 
-def update(clone, force=False, allow_pinned=False):
+def update(clone, force=False, allow_pinned=False, ref=None):
     """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
     install tracks into the vendored tree, refusing to clobber unexported
     local work. Reads the clone; never checks it out, pulls in it, or moves
-    its HEAD."""
+    its HEAD.
+
+    `ref` mirrors that commit instead of the tracked branch's tip -- the
+    catalogue half of precedent_update.py --from-ref, which took its engine
+    from the ref and its catalogue from the branch until 2026-10-03 (found
+    by a consumer rehearsal of a release still on staging)."""
     _pinned_branch_hold(clone, allow=allow_pinned)
     branch = _tracked_branch(clone)
     # Fetch updates remote-tracking refs only -- it does not touch the
@@ -1131,6 +1136,12 @@ def update(clone, force=False, allow_pinned=False):
               f"already has for {branch}, which may be behind.")
     src_ref = _rev_parse_quiet(clone, f'origin/{branch}') or \
         _rev_parse_quiet(clone, branch)
+    if ref:
+        src_ref = _rev_parse_quiet(clone, ref)
+        if not src_ref:
+            sys.exit(f"checkin FAIL: --from-ref {ref!r} does not name a commit "
+                     f"in {clone}.")
+        branch = ref
     if not src_ref:
         sys.exit(f"checkin FAIL: {clone} has no {branch} or origin/{branch} to "
                  f"mirror from. This install records upstream.branch = "
@@ -1878,8 +1889,10 @@ def _main():
     if args[0] == 'status':
         return status(clone)
     if args[0] == 'update':
+        ref = (args[args.index('--from-ref') + 1]
+               if '--from-ref' in args[:-1] else None)
         return update(clone, force='--force' in args,
-                     allow_pinned='--allow-pinned' in args)
+                     allow_pinned='--allow-pinned' in args, ref=ref)
     if args[0] == 'push':
         why = args[args.index('--why') + 1] if '--why' in args[:-1] else ''
         return push(clone, why=why, force='--force' in args)

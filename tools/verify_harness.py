@@ -52060,6 +52060,184 @@ def check_consumer_sync_counts_what_a_brought_set_provides():
           not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
 
 
+def check_brought_sets_have_their_own_session_budget():
+    """The sets a person brings are charged to `brought_sets_tokens` in that
+    person's individual set, never to the repository's ceiling for
+    .precedent/SESSION_PRACTICES.md (Morgan, 2026-10-03, strength:
+    assented). A consumer rehearsal found the ladder put two repositories'
+    session files over their ceilings, refusing every push there.
+
+    1. bringing a set with a resident rule has a measured share > 0;
+    2. no budget declared: a finding naming where to declare one;
+    3. a budget at least the share: no finding, and the repo is charged the
+       file less the share;
+    4. CONTROL: a budget under the share is a finding;
+    5. CONTROL: a person who brings nothing has a share of 0."""
+    import tempfile, contextlib, io
+    import json as _json
+    import precedent_session_practices as psp
+    import precedent_check as pc
+    import precedent_resolve as pr
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    saved_root = pc.ROOT
+    results = []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            uni = tmp / 'universal'
+            (uni / 'practices').mkdir(parents=True)
+            (uni / 'practices' / 'plain-rule.md').write_text(
+                _move_fixture_practice('plain-rule'), encoding='utf-8')
+            home = tmp / 'home'
+            lad = home / 'fx-ladder'
+            (lad / 'practices').mkdir(parents=True)
+            (lad / 'precedent-source.json').write_text(_json.dumps({
+                'name': 'fx-ladder', 'level': 'shared', 'provides': ['ladder']}),
+                encoding='utf-8')
+            (lad / 'practices' / 'fx-stage.md').write_text(
+                _move_fixture_practice('fx-stage').replace(
+                    'tier:        on-demand', 'tier:        resident')
+                .replace('Do the thing.', 'Do the thing. ' * 60),
+                encoding='utf-8')
+            ind = home / 'precedent-individual'
+            (ind / 'practices').mkdir(parents=True)
+            repo = tmp / 'consumer'
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(_json.dumps({
+                'format_version': 1, 'visibility': 'private',
+                'sources': [{'level': 'universal', 'name': 'precedent',
+                             'path': str(uni)}]}), encoding='utf-8')
+            cfg = tmp / 'user.json'
+            cfg.write_text(_json.dumps({'format_version': 1, 'individual': {
+                'name': 'precedent-individual', 'path': str(ind)}}),
+                encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+            pc.ROOT = repo
+
+            def manifest(brings, budget=None):
+                man = {'name': 'precedent-individual', 'level': 'individual',
+                       'brings': brings}
+                if budget is not None:
+                    man[psp.BROUGHT_BUDGET_KEY] = budget
+                (ind / 'precedent-source.json').write_text(_json.dumps(man),
+                                                           encoding='utf-8')
+
+            fx = [{'name': 'fx-ladder', 'repo_url': 'https://example.com/fx.git'}]
+            manifest(fx)
+            with contextlib.redirect_stderr(io.StringIO()):
+                share, names = psp.brought_share(repo)
+                results.append(('1: a brought resident rule has a share > 0',
+                                share > 0 and names == ['fx-ladder'],
+                                f'{share} {names}'))
+                n, f = pc._charge_brought_share(1000 + share)
+                results.append(('2: no budget declared is a finding naming where',
+                                f is not None and 'brought_sets_tokens' in str(f)
+                                and 'precedent-source.json' in str(f), str(f)))
+                manifest(fx, budget=share + 10)
+                n, f = pc._charge_brought_share(1000 + share)
+                results.append(('3: within budget, no finding, and the repo is '
+                                'charged the file less the share',
+                                f is None and n == 1000, f'{n} {f}'))
+                manifest(fx, budget=max(0, share - 10))
+                n, f = pc._charge_brought_share(1000 + share)
+                results.append(('4: CONTROL: over budget is a finding',
+                                f is not None and 'over the' in str(f), str(f)))
+                manifest([])
+                results.append(('5: CONTROL: bringing nothing has no share',
+                                psp.brought_share(repo)[0] == 0, ''))
+    finally:
+        pc.ROOT = saved_root
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'the sets a person brings are charged to their own session budget, '
+          f'not the repository\'s ceiling ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
+def check_consumer_rehearsal_smaller_faults():
+    """Three smaller faults a consumer rehearsal found, 2026-10-03.
+
+    1. precedent_push_check.py --tier with a name that is not a tier ran the
+       full suite silently, skipping --tier full's --because refusal; it is
+       refused now. CONTROL: --tier basic --list is not refused.
+    2. precedent_update.py --from-ref took the engine from the ref and the
+       catalogue from the tracked branch. checkin.py update takes the ref now:
+       a ref that names no commit is refused by name, which only happens if
+       it reached update().
+    3. The follow-up for rules cited in other repositories called a rule a
+       sync removed from a consumer's practices/ "deleted by this branch". A
+       slug the base's committed MANIFEST.json recorded is skipped. CONTROL:
+       one it did not record is still reported."""
+    import tempfile, shutil, types
+    import precedent_check as pc
+    cases = []
+    r = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                        '--tier', 'main'], cwd=str(ROOT), capture_output=True,
+                       text=True, timeout=120)
+    cases.append(('1: --tier main is refused as not a tier',
+                  r.returncode == 1 and "'main' is not a tier" in r.stderr,
+                  f'rc={r.returncode} {r.stderr[-200:]}'))
+    r = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                        '--tier', 'basic', '--list'], cwd=str(ROOT),
+                       capture_output=True, text=True, timeout=120)
+    cases.append(('1: CONTROL: --tier basic --list is not refused',
+                  'is not a tier' not in r.stderr, r.stderr[-200:]))
+    r = subprocess.run([sys.executable, 'tools/checkin.py', 'update', str(ROOT),
+                        '--from-ref', 'no-such-ref-anywhere'], cwd=str(ROOT),
+                       capture_output=True, text=True, timeout=120)
+    cases.append(('2: checkin update reads --from-ref',
+                  "--from-ref 'no-such-ref-anywhere' does not name a commit"
+                  in (r.stdout + r.stderr), (r.stdout + r.stderr)[-300:]))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='followup-synced-'))
+    saved_root = pc.ROOT
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    try:
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
+        (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+            {'slug': 'synced-rule', 'source': 'precedent'}]}), encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'base'], env=env, check=True)
+        base = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        other = tmp / 'other-set'
+        other.mkdir()
+        ppr = types.SimpleNamespace(
+            changed_slugs=lambda root, b: {'synced-rule': 'deleted',
+                                           'own-rule': 'deleted'},
+            source_roots=lambda root: [('here', root), ('other-set', other)],
+            scan_root=lambda root, gone, succ, skip=None: [
+                ('x.md', 1, slug, 'link', 'k', 's', 'l') for slug in sorted(gone)],
+            must_fix=lambda row: True,
+            received_paths=lambda root: set())
+        pc.ROOT = repo
+        got = pc._withdrawn_here_cited_elsewhere(ppr, base, {}, {})
+        said = ' '.join(str(g) for g in got)
+        cases.append(('3: a rule the base manifest recorded is not called '
+                      'deleted by this branch', '`synced-rule`' not in said, said[:300]))
+        cases.append(('3: CONTROL: a rule it did not record is still reported',
+                      '`own-rule`' in said, said[:300]))
+    finally:
+        pc.ROOT = saved_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'three smaller faults from the consumer rehearsal stay fixed '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
 def check_sync_refuses_to_write_from_incomplete_sources():
     """precedent_sync_views.py must not rewrite a repo's tracked tree when a
     declared source did not resolve (practice: very-deep-check, found by it).
@@ -54879,6 +55057,8 @@ def main():
     check_ladder_off_engine_says_no_ladder_words()
     check_ladder_test_session_and_the_two_ladder_checks()
     check_consumer_sync_counts_what_a_brought_set_provides()
+    check_brought_sets_have_their_own_session_budget()
+    check_consumer_rehearsal_smaller_faults()
     check_refresh_never_rolls_a_newer_engine_back()
     check_seed_refuses_an_engine_main_lacks()
     check_self_heal_skips_a_scratch_copy()

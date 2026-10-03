@@ -1413,6 +1413,19 @@ def main(argv):
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
+    if '--tier' in argv:
+        i = argv.index('--tier')
+        value = argv[i + 1] if i + 1 < len(argv) else ''
+        if value not in (BASIC, FULL):
+            # Refused, not run full: a misspelt tier used to run the full
+            # suite silently and so skipped the --because refusal --tier
+            # full has (found by a consumer rehearsal, 2026-10-03, which ran
+            # "--tier main" believing it named a tier).
+            print(f'precedent_push_check: REFUSED -- --tier {value!r} is not '
+                  f'a tier. The tiers are {BASIC} and {FULL}; a branch name '
+                  f'such as main is not one. Run this bare to get the tier '
+                  f'your landing branch takes.', file=sys.stderr)
+            return 1
     tier, why = _tier_from_args(root, argv)
     kind, checks = plan(root, tier=tier)
     if '--changed-files-check' in argv:
