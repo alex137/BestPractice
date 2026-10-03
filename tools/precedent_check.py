@@ -10443,8 +10443,8 @@ def _charge_brought_share(n):
     """-> (n less the brought sets' share, Finding or None) for the session
     file. The share is measured by rendering the file with and without the
     sets the person brings; it is held to `brought_sets_tokens` in their
-    individual set's precedent-source.json, and a share with no such budget
-    is a finding naming where to declare one."""
+    individual set's precedent-source.json. With no such budget the share
+    stays charged to the repository, as it was before the budget existed."""
     try:
         import precedent_session_practices as _psp
         share, names = _psp.brought_share(ROOT)
@@ -10455,12 +10455,10 @@ def _charge_brought_share(n):
     budget, ind = _psp.brought_budget(ROOT)
     rel = '.precedent/SESSION_PRACTICES.md'
     if budget is None:
-        return n - share, Finding(rel, (
-            f"{share:,} tokens of it come from the set(s) this person brings "
-            f"({', '.join(names)}), and their individual set declares no "
-            f"`{_psp.BROUGHT_BUDGET_KEY}` budget for them. Declare one in "
-            f"{ind or 'the individual set'}/precedent-source.json, with the "
-            f"person's own words for the figure"))
+        # Undeclared: charged to the repository, as before the budget
+        # existed, so nobody's check changes until they declare one -- and a
+        # rollout need not land the individual set first.
+        return n, None
     if share > budget:
         return n - share, Finding(rel, (
             f"{share:,} tokens of it come from the set(s) this person brings "

@@ -1695,7 +1695,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
              "deliberate; nothing recorded.")
 
 
-def record(clone, note, accept_loss=False, resolving=()):
+def record(clone, note, accept_loss=False, resolving=(), from_ref=None):
     # Neither a checkout nor a pull, for the same two reasons update() no
     # longer does either: the clone is a SOURCE the caller passed, not this
     # tool's to move (it silently relocated a session's checkout off
@@ -1716,6 +1716,14 @@ def record(clone, note, accept_loss=False, resolving=()):
     # _landed_commit). Recording HEAD stamped whatever branch the clone
     # happened to be on as the upstream commit.
     ref, head = _landed_commit(clone)
+    if from_ref:
+        # The commit update() mirrored when it was given --from-ref: the
+        # record compares against that, or it refuses on every rule the
+        # ref changed relative to the tracked branch (2026-10-03).
+        ref, head = from_ref, _rev_parse_quiet(clone, from_ref)
+        if not head:
+            sys.exit(f"checkin FAIL: --from-ref {from_ref!r} does not name a "
+                     f"commit in {clone}.")
     with tempfile.TemporaryDirectory() as landed_dir:
         landed = _tree_at(clone, head, landed_dir)
         _carry_check(clone, accept_loss, landed, head, resolving)
@@ -1899,7 +1907,9 @@ def _main():
     note = args[args.index('--note') + 1] if '--note' in args else ''
     resolving = [args[i + 1] for i, a in enumerate(args[:-1]) if a == '--resolving']
     return record(clone, note, accept_loss='--accept-loss' in sys.argv,
-                  resolving=resolving)
+                  resolving=resolving,
+                  from_ref=(args[args.index('--from-ref') + 1]
+                            if '--from-ref' in args[:-1] else None))
 
 
 if __name__ == '__main__':

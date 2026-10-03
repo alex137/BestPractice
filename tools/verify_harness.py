@@ -9464,6 +9464,10 @@ def check_update_vendors_resolves_a_catalogue_edit():
     try:
         repo = fx.consumer('catalogue')
         seeded = fx.seeded_from(repo)
+        # One commit for engine AND catalogue: precedent_update.py --from-ref
+        # mirrors the catalogue at the ref too since 2026-10-03, so the
+        # fixture is built on the commit the update will mirror.
+        head = seeded
         practice = 'practices/verify-postcondition.md'
         upstream_text = subprocess.run(['git', '-C', str(ROOT), 'show',
                                         f'{head}:{practice}'], capture_output=True).stdout
@@ -9477,7 +9481,7 @@ def check_update_vendors_resolves_a_catalogue_edit():
                          'commit': head}, 'entries': []}, indent=2) + '\n',
             encoding='utf-8')
         fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
-              '--repo', str(repo), '--force', cwd=repo)
+              '--repo', str(repo), '--force', '--from-ref', head, cwd=repo)
         m = json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
         m['upstream']['commit'] = base_commit
         (repo / 'process' / 'manifest.json').write_text(json.dumps(m, indent=2) + '\n',
@@ -52077,7 +52081,8 @@ def check_brought_sets_have_their_own_session_budget():
     session files over their ceilings, refusing every push there.
 
     1. bringing a set with a resident rule has a measured share > 0;
-    2. no budget declared: a finding naming where to declare one;
+    2. no budget declared: the share stays charged to the repository,
+       as before the budget existed;
     3. a budget at least the share: no finding, and the repo is charged the
        file less the share;
     4. CONTROL: a budget under the share is a finding;
@@ -52143,9 +52148,9 @@ def check_brought_sets_have_their_own_session_budget():
                                 share > 0 and names == ['fx-ladder'],
                                 f'{share} {names}'))
                 n, f = pc._charge_brought_share(1000 + share)
-                results.append(('2: no budget declared is a finding naming where',
-                                f is not None and 'brought_sets_tokens' in str(f)
-                                and 'precedent-source.json' in str(f), str(f)))
+                results.append(('2: no budget declared: charged to the '
+                                'repository, as before, with no finding',
+                                f is None and n == 1000 + share, f'{n} {f}'))
                 manifest(fx, budget=share + 10)
                 n, f = pc._charge_brought_share(1000 + share)
                 results.append(('3: within budget, no finding, and the repo is '
