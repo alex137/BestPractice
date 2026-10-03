@@ -6318,6 +6318,40 @@ def engine_is_ahead(clone, recorded, tip):
         return False
 
 
+def _drift_upstream_already_has(tools_drift, path_drift, dest_tools, clone,
+                                ref, engine_paths):
+    """-> (drift still to refuse on, [names already identical to upstream]).
+
+    A file that differs from its recorded hash but is byte-for-byte
+    upstream's copy holds no edit to lose: the usual way in is a hand-carried
+    upstream fix, committed before the refresh that would have brought it.
+    Refusing on it left a set stale at every session start until someone
+    forced it (precedent-individual, found rehearsing a Produce, 2026-10-03).
+
+    Upstream is read as the clone already has it -- `ref`, else
+    origin/SOURCE_BRANCH, else SOURCE_BRANCH -- with no fetch, so a refusal
+    still comes before anything is fetched. Engine files in tools/
+    (`tools_drift`) and declared engine paths (`path_drift`) are judged this
+    way; hooks and CI workflows keep their own review. A missing file, or
+    one upstream's copy cannot be read for, still counts as drift."""
+    commit = ref or _rev(clone, f'origin/{SOURCE_BRANCH}') or _rev(clone, SOURCE_BRANCH)
+    by_local = {local: up for up, local in engine_paths.items()}
+    keep, same = [], []
+    for name, why, here, up in (
+            [(n, w, dest_tools / n, f'tools/{n}') for n, w in tools_drift]
+            + [(n, w, ROOT / n, by_local.get(n)) for n, w in path_drift]):
+        blob = None
+        if commit and up and why != 'missing' and here.is_file():
+            r = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:{up}'],
+                               capture_output=True)
+            blob = r.stdout if r.returncode == 0 else None
+        if blob is not None and here.read_bytes() == blob:
+            same.append(name)
+        else:
+            keep.append((name, why))
+    return keep, same
+
+
 def refresh(clone, force=False, ref=None):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving SOURCE_BRANCH there.
@@ -6367,9 +6401,15 @@ def refresh(clone, force=False, ref=None):
                  f"own, or drop the entry. Not waived by --force.")
 
     if not force:
-        drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
-                 + _ci_workflow_drift(ROOT, manifest, kind)
-                 + _engine_path_drift(ROOT, manifest))
+        drift, same = _drift_upstream_already_has(
+            _local_drift(dest_tools, manifest), _engine_path_drift(ROOT, manifest),
+            dest_tools, clone, ref, engine_paths)
+        drift += (_hook_drift(ROOT, manifest)
+                  + _ci_workflow_drift(ROOT, manifest, kind))
+        for name in same:
+            print(f"  {name}: differs from the recorded hash, but is already "
+                  f"identical to upstream's copy -- nothing to lose, so it "
+                  f"does not hold the refresh up")
         if drift:
             for name, why in drift:
                 print(f"  {name}: {why}")

@@ -37118,6 +37118,27 @@ def check_vendor_engine_keeps_a_declared_engine_path():
                       (repo_g / LOCAL).read_text(encoding='utf-8') == v2
                       and LOCAL in m_g.get('engine_paths_sha256', {}),
                       json.dumps(m_g)[:300]))
+
+        # H -- carried by hand, identical to upstream (2026-10-03, found
+        # rehearsing a Produce: precedent-individual carried upstream's
+        # commit-identity.sh before a refresh, and every refresh after that
+        # refused on it as a hand-edit). CONTROL: a real edit, same repo
+        # shape, is still refused.
+        v4 = '#!/bin/sh\necho v4\n'
+        upstream_commit(v4)
+        for body, refused_want, what in (
+                (v4, False, 'a copy identical to upstream does not hold refresh up'),
+                (v4 + '# mine\n', True, 'CONTROL: a real edit still does')):
+            repo_h = make_repo('carried-' + str(refused_want), {UP: LOCAL},
+                               local_body=v2)
+            one_pass(repo_h, c2)
+            (repo_h / LOCAL).write_text(body, encoding='utf-8')
+            rc_h, out_h = run_refresh(repo_h, '--from-ref', 'HEAD')
+            refused = 'hand-edited since the last seed/refresh' in out_h
+            cases.append((f'H: {what}',
+                          refused == refused_want and (refused_want or
+                          'identical to upstream' in out_h),
+                          f'rc={rc_h} {out_h[-500:]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -48888,27 +48909,47 @@ def check_ladder_test_session_and_the_two_ladder_checks():
     saved_root = pc.ROOT
     try:
         plain, ladder = tmp / 'plain-set', tmp / 'ladder-set'
-        for d, provides in ((plain, []), (ladder, ['ladder'])):
+        # Three individual sets beside them (2026-10-03, found rehearsing a
+        # Produce: the check refused the individual set of a person who
+        # brings the ladder, and with it their own next Update Vendors).
+        ind_lad, ind_plain, ind_gone = (tmp / 'ind-brings-ladder',
+                                        tmp / 'ind-brings-plain',
+                                        tmp / 'ind-brings-uncloned')
+        for d, man in ((plain, {'level': 'shared', 'provides': []}),
+                       (ladder, {'level': 'shared', 'provides': ['ladder']}),
+                       (ind_lad, {'level': 'individual', 'brings': [
+                           {'name': 'ladder-set', 'repo_url': 'https://example.com/l.git'}]}),
+                       (ind_plain, {'level': 'individual', 'brings': [
+                           {'name': 'plain-set', 'repo_url': 'https://example.com/p.git'}]}),
+                       (ind_gone, {'level': 'individual', 'brings': [
+                           {'name': 'not-cloned-set', 'repo_url': 'https://example.com/n.git'}]})):
             (d / 'practices').mkdir(parents=True)
             (d / 'precedent-source.json').write_text(json.dumps(
-                {'name': d.name, 'level': 'shared', 'provides': provides}))
+                dict(name=d.name, **man)))
             (d / 'practices' / 'x.md').write_text(
                 '---\nslug: x\nstatus: active\n---\n\n## Rule\n\n'
                 'Say "Booked" at step 3 of 5.\n\n## Story\n\n'
                 'On the day, we said Promote 2.\n')
         for root, want, what in ((plain, 2, 'a set without the ladder'),
-                                 (ladder, None, 'the set that provides it')):
+                                 (ladder, None, 'the set that provides it'),
+                                 (ind_lad, None, 'an individual set that brings it'),
+                                 (ind_plain, 2, 'an individual set that brings only an ordinary set'),
+                                 (ind_gone, 2, 'an individual set whose brought set is not cloned')):
             pc.ROOT = root
+            why = ''
             try:
                 got = pc._ladder_words_stay_in_the_ladder_set(None)
                 n = len(got)
-            except pc.NotApplicable:
-                n = None
+            except pc.NotApplicable as e:
+                n, why = None, str(e)
+            # A skip says why, so a skip for another reason fails here.
+            because = {ladder: 'provides the ladder',
+                       ind_lad: 'brings ladder-set'}.get(root, '')
             cases.append((f'Check E in {what}: '
                           f'{"skipped" if want is None else f"{want}+ finding(s), none in the Story"}',
-                          (n is None) if want is None else
+                          (n is None and because in why) if want is None else
                           (n is not None and n >= want and all(':9:' not in str(f) and ':10:' not in str(f) for f in got)),
-                          f'got {n}: {[str(f) for f in (got if n else [])][:4]}'))
+                          f'got {n} {why!r}: {[str(f) for f in (got if n else [])][:4]}'))
         repo = tmp / 'repo'
         repo.mkdir()
         for declared, want, what in (('ladder-set', 1, 'declares the ladder set'),
