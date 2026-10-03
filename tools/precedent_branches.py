@@ -1369,6 +1369,61 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
     return 1
 
 
+# A FILE A TOOL WRITES is never a merge conflict worth a person's time:
+# neither side's copy is right, a fresh one from the merged sources is. Two
+# marks say a file is generated -- the `generated_by: tools/X.py` header
+# every whole generated view carries (build_views, build_gotcha_index,
+# build_todo_index), and doc_html's own registry of the pages it renders.
+# A conflict in anything else is hand-written text and still stops.
+_GENERATED_BY_RE = re.compile(r'^generated_by:\s*["\']?(tools/[\w./-]+\.py)', re.M)
+
+
+def _generator_of(wt, rel):
+    """-> the repo-relative tool that writes `rel` in worktree `wt`, or None
+    when `rel` is hand-written. Read from our side of a conflicted file
+    (index stage 2), so a conflict hunk cannot hide the header."""
+    ours = _run(wt, 'show', f':2:{rel}')
+    head = (ours.stdout if ours.returncode == 0 else '')[:2000]
+    m = _GENERATED_BY_RE.search(head)
+    if m and (pathlib.Path(wt) / m.group(1)).is_file():
+        return m.group(1)
+    if rel.endswith('.html') and (pathlib.Path(wt) / 'tools' / 'doc_html.py').is_file():
+        src = rel[:-len('.html')] + '.md'
+        reg = (pathlib.Path(wt) / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
+        if re.search(r"\(\s*['\"]" + re.escape(src) + r"['\"]", reg):
+            return 'tools/doc_html.py'
+    return None
+
+
+def _resolve_by_regenerating(wt, say):
+    """After a merge stopped on conflicts in `wt`: when every conflicted file
+    is generated, take our side, run each one's generator over the merged
+    sources, and stage the result. -> (True, [regenerated]) or (False, [the
+    hand-written files that conflict])."""
+    conflicted = [l for l in _run(wt, 'diff', '--name-only', '--diff-filter=U')
+                  .stdout.splitlines() if l.strip()]
+    gens = {rel: _generator_of(wt, rel) for rel in conflicted}
+    hand = sorted(rel for rel, g in gens.items() if not g)
+    if hand or not conflicted:
+        return False, hand
+    for rel in conflicted:
+        _run(wt, 'checkout', '--ours', '--', rel)
+    for tool in sorted(set(gens.values())):
+        r = subprocess.run([sys.executable, tool], cwd=str(wt),
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            say(f'{tool} could not rebuild {", ".join(sorted(k for k, v in gens.items() if v == tool))}: '
+                f'{(r.stdout + r.stderr).strip()[-300:]}')
+            return False, []
+    for rel in conflicted:
+        text = (pathlib.Path(wt) / rel).read_text(encoding='utf-8', errors='replace')
+        if '<<<<<<<' in text or '>>>>>>>' in text:
+            return False, [rel]
+    _run(wt, 'add', '-A', '--', *conflicted)
+    _run(wt, 'add', '-u')
+    return True, sorted(conflicted)
+
+
 def sync_pre_staging(root, say=print, check=False, wait_main=True):
     """Make origin's pre-staging exist and hold what reached staging or main
     without climbing through it. -> True on success, False when pre-staging
@@ -1418,6 +1473,25 @@ def sync_pre_staging(root, say=print, check=False, wait_main=True):
     for branch, tip, commits in pending:
         what = (f'{branch} has {len(commits)} commit(s) with changes '
                 f'{PRE_STAGING} lacks, up to {tip[:12]}')
+        if branch == MAIN and staging != MAIN:
+            # MAIN'S WORK ALWAYS COMES DOWN (Morgan, 2026-10-03, strength:
+            # decided). The ladder is opt-in, so people off it push straight
+            # to main, and that is expected to go on. Their commits are live
+            # for everyone already; holding them out until main's own checks
+            # pass waited on someone who never fixes main, while pre-staging
+            # drifted further and the next Produce met the conflict. So they
+            # are taken now, and what is judged is the tree they make with
+            # this ladder's work -- the basic check below, then the full one
+            # at the Debut. A failure there is fixed on pre-staging, and the
+            # next Produce carries the fix to main.
+            ok, detail = tier_check_state(root, branch, tip)
+            if not ok:
+                say(f'taking {what}, although its own checks have not all '
+                    f'passed ({detail}): it is live on {MAIN} for everyone '
+                    f'already, so the tree it makes with this work is what gets '
+                    f'checked, and a fix goes up the ladder to {MAIN}.')
+            ready.append((branch, tip))
+            continue
         if check:
             ok, detail = _check_tier(root, branch, tip, say,
                                      wait=wait_main or branch != MAIN)
@@ -1451,16 +1525,35 @@ def sync_pre_staging(root, say=print, check=False, wait_main=True):
             m = _run(wt, 'merge', '--no-ff', '-q', '-m',
                      f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env(root))
             if m.returncode != 0:
-                _run(wt, 'merge', '--abort')
-                say(f'{branch} does not merge cleanly into {PRE_STAGING} -- the same '
-                    f'lines changed on both. Nothing was pushed. Merge {branch} into '
-                    f'{PRE_STAGING} by hand, resolve it, and push to {PRE_STAGING}.')
-                return False
+                done, files = _resolve_by_regenerating(wt, say)
+                if done:
+                    c = _run(wt, 'commit', '-q', '--no-edit', env=_merge_env(root))
+                    done = c.returncode == 0
+                if not done:
+                    _run(wt, 'merge', '--abort')
+                    say(f'{branch} does not merge cleanly into {PRE_STAGING} -- the '
+                        f'same lines changed on both'
+                        + (f' ({", ".join(files)})' if files else '')
+                        + f'. Nothing was pushed. Merge {branch} into {PRE_STAGING} '
+                        f'by hand, resolve it, and push to {PRE_STAGING}.')
+                    return False
+                say(f'{branch} and {PRE_STAGING} both changed '
+                    f'{", ".join(files)}; generated, so rebuilt from the merged '
+                    f'sources rather than either side taken.')
         ok, out = _check(root, wt, BASIC)
         if not ok:
-            say(f'the merge of {" and ".join(b for b, _ in ready)} into '
-                f'{PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
-            return False
+            if any(b == MAIN for b, _ in ready) and staging != MAIN:
+                # Main's work is live already; refusing it here cannot take it
+                # back, it only keeps this ladder from carrying the fix.
+                say(f'the merge of {" and ".join(b for b, _ in ready)} into '
+                    f'{PRE_STAGING} fails the basic check. It is pushed anyway, '
+                    f'because what fails is already live on {MAIN}: fix it on '
+                    f'{PRE_STAGING}, and the next Produce carries the fix to '
+                    f'{MAIN}.\n{out}')
+            else:
+                say(f'the merge of {" and ".join(b for b, _ in ready)} into '
+                    f'{PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
+                return False
         p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{PRE_STAGING}')
         if p.returncode != 0:
             say(f'{PRE_STAGING} moved while this ran; run it again. ({p.stderr.strip()[:200]})')
@@ -1900,9 +1993,24 @@ def main_test_holds_produce(root, say=print, gh=None):
             time.sleep(GITHUB_POLL_SECONDS)
             state, detail = github_test_state(root, mtip, tests, gh)
     if state == 'failed':
+        # Staging already carries main's tip: this Produce is what repairs
+        # main, and its own pull request's GitHub test is the last gate.
+        # Holding it waited for a fix from someone off the ladder, who does
+        # not make one (Morgan, 2026-10-03, strength: decided; narrows D10).
+        staging = staging_branch(root)
+        _run(root, 'fetch', '-q', 'origin', staging)
+        stip = _remote_tip(root, staging)
+        if stip and _run(root, 'merge-base', '--is-ancestor', mtip,
+                         stip).returncode == 0:
+            say(f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
+                f'{detail}), and {staging} already carries that commit, so this '
+                f'Produce goes ahead: it is what brings {MAIN} back to green, and '
+                f'its pull request\'s own GitHub test is the gate.')
+            return None
         return (f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
-                f'{detail}). Nothing moves into {MAIN} until it passes: fix it, '
-                f'then Promote again.')
+                f'{detail}), and {staging} does not carry that commit yet. Debut '
+                f'first: the Promote takes {MAIN}\'s work down and checks it with '
+                f'yours, then Produce again.')
     if state == 'running':
         return (f'{MAIN}\'s GitHub test on {mtip[:12]} was still running after '
                 f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes ({detail}); Promote '

@@ -27234,13 +27234,15 @@ def check_sync_copies_work_from_above_once_checked():
                       and '(unchecked)' in report and '--check' in report
                       and 'origin/staging' not in report))
         rc, out = branches('--sync-pre-staging')
-        cases.append(('the quick sync (Go update) does not copy unchecked work '
-                      'from main, and says why and what to run',
-                      rc == 0 and 'NOT COPIED YET' in out and 'main has 1 commit(s)' in out
-                      and 'no full local check on record' in out
-                      and tip('pre-staging') == before))
+        # Main's work always comes down (Morgan, 2026-10-03): people off the
+        # ladder push to main, and holding their work out only stranded it.
+        cases.append(('main\'s unchecked work comes down even in the quick sync, '
+                      'and the sync says its checks have not all passed',
+                      rc == 0 and 'although its own checks have not all passed' in out
+                      and 'no full local check on record' in out and has('main')))
 
-        # The same commit once its tree has a full-check receipt on origin.
+        # A commit whose tree has a full-check receipt on origin.
+        commit_to('main', 'state.json', '{"n": 1.5}\n', 'bot: a checked commit')
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '--detach', 'origin/main')
         subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full',
@@ -27251,8 +27253,9 @@ def check_sync_copies_work_from_above_once_checked():
                       'reads "(checked)"', '(checked)' in report
                       and '--check' not in report))
         rc, out = branches('--sync-pre-staging')
-        cases.append(('checked work from main is copied down by the quick sync',
-                      rc == 0 and 'merged main into pre-staging' in out and has('main')))
+        cases.append(('checked work from main is copied down with no note about '
+                      'its checks', rc == 0 and 'merged main into pre-staging' in out
+                      and 'although' not in out and has('main')))
 
         # Unchecked again; --check runs the full check, then copies.
         commit_to('main', 'state.json', '{"n": 2}\n', 'bot: weekly sync again')
@@ -27261,17 +27264,14 @@ def check_sync_copies_work_from_above_once_checked():
                       'passing, is copied down', rc == 0 and has('main')
                       and 'merged main into pre-staging' in out))
 
-        # A commit on main that fails the full check: not copied, and loud.
+        # A commit on main that fails its checks: copied all the same -- it is
+        # live already -- and loud about what fails and where it gets fixed.
         commit_to('main', 'FAIL', 'precedent_check', 'a web edit that breaks a check')
-        bad = tip('main')
-        before = tip('pre-staging')
         rc, out = branches('--sync-pre-staging', '--check')
-        cases.append(('a commit on main failing its checks is not copied, and the '
-                      'report names the commit, the tier and the way to fix it',
-                      rc == 0 and tip('pre-staging') == before
-                      and 'NOT COPIED' in out and 'did not pass the main checks' in out
-                      and bad[:12] in out and 'pull request into main' in out
-                      and 'precedent_check' in out))
+        cases.append(('a commit on main failing its checks is copied down anyway, '
+                      'and the report says its checks had not all passed',
+                      rc == 0 and has('main')
+                      and 'although its own checks have not all passed' in out))
         commit_to('main', 'FAIL', '', 'fix the web edit')
 
         # A conflict: main and pre-staging change the same line.
@@ -27301,6 +27301,40 @@ def check_sync_copies_work_from_above_once_checked():
         cases.append(('Promote with nothing waiting on pre-staging still checks and '
                       'copies down what arrived on main', rc == 0
                       and 'Nothing waits to be promoted' in out and has('main')))
+
+        # Both sides changed a GENERATED file (2026-10-03: main and
+        # pre-staging each rebuilt spec/PREFORK_AUDIT.html): rebuilt from the
+        # merged sources by its own generator, never one side taken.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'gen', 'origin/pre-staging')
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\nsrc = pathlib.Path("src.txt").read_text()\n'
+            'import hashlib\n'
+            'pathlib.Path("OUT.md").write_text('
+            '"---\\ngenerated_by: tools/gen.py\\n---\\nsum: "'
+            ' + hashlib.md5(src.encode()).hexdigest() + "\\n" + src.upper())\n',
+            encoding='utf-8')
+        (work / 'src.txt').write_text('a\nb\nc\n', encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/gen.py'], cwd=work, env=env)
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'a generated file')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging',
+            'HEAD:refs/heads/main')
+        for branch, text in (('pre-staging', 'x\nb\nc\n'), ('main', 'a\nb\nz\n')):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
+            (work / 'src.txt').write_text(text, encoding='utf-8')
+            subprocess.run([sys.executable, 'tools/gen.py'], cwd=work, env=env)
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+        rc, out = branches('--sync-pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        merged = git(work, 'show', 'origin/pre-staging:OUT.md').stdout
+        cases.append(('a conflict only in a generated file is rebuilt from the '
+                      'merged sources, not stopped and not one side taken',
+                      rc == 0 and has('main') and 'rebuilt from the merged sources' in out
+                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         cases.append(('no worktree is left behind', len(wts) == 1))
 
@@ -27466,6 +27500,23 @@ def check_sync_copies_work_from_above_once_checked():
             cases.append(('...and goes ahead once it passed, or where none ran',
                           pb.main_test_holds_produce(two, said.append, GH([ok_run])) is None
                           and pb.main_test_holds_produce(two, said.append, GH([])) is None))
+            # ...but not while staging already carries main's failing tip:
+            # that Produce is what repairs main (Morgan, 2026-10-03).
+            import types as _types
+            real_run = pb._run
+            pb._run = lambda r, *a, **k: (
+                _types.SimpleNamespace(returncode=0, stdout='', stderr='')
+                if a[:2] == ('merge-base', '--is-ancestor') else real_run(r, *a, **k))
+            said = []
+            try:
+                held2 = pb.main_test_holds_produce(two, said.append, GH([failed]))
+            finally:
+                pb._run = real_run
+            cases.append(('a failing main whose tip staging already carries does not '
+                          'hold the Produce that repairs it, and says so',
+                          held2 is None and any('this Produce goes ahead' in x for x in said)))
+            cases.append(('...while one staging does not carry yet still holds it, '
+                          'naming the Debut', bool(held) and 'Debut first' in held))
 
             # --wait-main-test: the wait a Promote into main hands the session.
             pb.github_tests = lambda root, sha: tests

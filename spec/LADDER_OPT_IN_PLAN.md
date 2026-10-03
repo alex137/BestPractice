@@ -219,6 +219,24 @@ above", 2026-09-26):
   ladder user's own session resolves it; the person who pushed is never
   asked.
 - The drift messages are reworded plainly.
+- **Main's work always comes down** (Morgan, 2026-10-03, strength:
+  decided: people off the ladder pushing straight to main is expected and
+  goes on, so the ladder deals with it at the root). It replaces the two
+  red-main lines above:
+  - Every Promote takes main's new work into pre-staging, whatever main's
+    own checks say, and says when they had not all passed. What gets judged
+    is the tree it makes with the ladder's work: the basic check there, the
+    full one at the Debut. A failure is fixed on pre-staging and reaches
+    main at the next Produce. Holding main's work out waited on a fix from
+    someone off the ladder, while pre-staging drifted and the next Produce
+    met the conflict: on 2026-10-03, two direct commits left main red on a
+    stale generated page, and nothing on the ladder could take them.
+  - A conflict only in generated files (a `generated_by:` header, or a
+    page `doc_html.py` renders) is rebuilt by each file's own generator from
+    the merged sources. A conflict in hand-written text still stops.
+  - Produce is held by a red main only when staging does not carry main's
+    tip yet; once it does, the Produce goes ahead, since it is what brings
+    main back to green, and its own pull request's GitHub test is the gate.
 
 **D11. Composition.** The universal first-bullet rule stays prefix-only, with
 neutral wording, and the ladder set adds the step requirement.
