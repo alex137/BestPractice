@@ -48820,8 +48820,15 @@ def check_ladder_off_engine_says_no_ladder_words():
         r = subprocess.run([sys.executable, *argv], cwd=str(ROOT), env=env,
                            capture_output=True, text=True, timeout=600)
         text = r.stdout + r.stderr
+        # A quoted commit ("  aeadfef4 <title>") is the repository's own
+        # history, written by people, not the engine's wording: a person off
+        # the ladder meets the same titles in `git log`. Found 2026-10-03:
+        # inside a Debut the checked copy sits on the Debut's own merge
+        # commit, titled "Promote pre-staging into staging", and the reply
+        # gate lists it as unlanded work.
         lines = [l for l in text.splitlines()
-                 if not any(x in l for x in excused)]
+                 if not any(x in l for x in excused)
+                 and not re.match(r'\s+[0-9a-f]{7,40} \S', l)]
         found = lw.output_hits('\n'.join(lines))
         # The lines themselves, not only the words: a hit that appeared only
         # inside a Debut (2026-10-03) could not be found from the words.
