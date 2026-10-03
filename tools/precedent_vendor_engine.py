@@ -675,6 +675,10 @@ ENGINE_FILES = [
     # tier of the push check a push to each one gets. precedent_push_check.py
     # asks it whenever the push gate names the push; every kind pushes.
     'precedent_branches.py',
+    # The commit backstop's engine fixer (spec/GENERATED_FILES_PLAN.md step
+    # 3): commit-identity.sh's hook runs it from the repository's own copy,
+    # so every kind that receives the hook receives the script it calls.
+    'precedent_regenerate.py',
     # The merge gate's engine: the push check, run on the merge GitHub would
     # make, before a session merges a pull request through GitHub -- a push
     # no local hook sees. merge-check-gate.sh calls it; every kind merges.
