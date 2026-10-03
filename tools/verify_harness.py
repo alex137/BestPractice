@@ -5833,6 +5833,41 @@ def check_commit_rebuilds_generated_files():
                       and kept.is_file() and kept.read_text() == 'hand edit\n'
                       and 'is kept at' in out
                       and git('show', 'HEAD:OUT.md').stdout == 'a\nb\nc\nd\n'))
+        # 4b. A generated block inside a hand-written document (doc_sync.py's
+        # kind) is refreshed when a commit touches what its script reads, and
+        # a document with unstaged changes of its own is not swept in.
+        (work / 'tools' / 'doc_sync.py').write_text(
+            'import pathlib, sys\n'
+            'n = len(list(pathlib.Path("src").glob("*.txt")))\n'
+            'p = pathlib.Path("BLOCKS.md")\n'
+            'new = f"Sources: <!--gen:n-->{n}<!--/gen:n-->\\n" + p.read_text().split("\\n", 1)[1]\n'
+            'if "--write" in sys.argv and new != p.read_text():\n'
+            '    p.write_text(new); print("[doc_sync] WROTE BLOCKS.md [n]")\n',
+            encoding='utf-8')
+        (work / 'BLOCKS.md').write_text('Sources: <!--gen:n-->0<!--/gen:n-->\nHand text.\n',
+                                        encoding='utf-8')
+        git('add', 'tools/doc_sync.py', 'BLOCKS.md')
+        git('commit', '-q', '-m', 'a document with a generated block')
+        cases.append(('a generated block inside a document is refreshed and committed '
+                      'with the change that moved it',
+                      git('show', 'HEAD:BLOCKS.md').stdout.startswith(
+                          'Sources: <!--gen:n-->4<!--/gen:n-->')))
+        (work / 'BLOCKS.md').write_text(
+            (work / 'BLOCKS.md').read_text(encoding='utf-8') + 'My unstaged edit.\n',
+            encoding='utf-8')
+        (work / 'src' / 'f.txt').write_text('f\n', encoding='utf-8')
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'parts = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("OUT.md").write_text("".join(p.read_text() for p in parts))\n',
+            encoding='utf-8')
+        git('add', 'src/f.txt', 'tools/gen.py')
+        rc, out = commit('a source, with an unstaged edit in the document')
+        cases.append(('...but a document with unstaged changes of its own is not '
+                      'swept into the commit, and it says so',
+                      rc == 0 and 'Hand text.\n' == git('show', 'HEAD:BLOCKS.md').stdout.split('\n', 1)[1]
+                      and 'blocks in BLOCKS.md' in out and 'NOT added' in out))
+        git('checkout', '-q', '--', 'BLOCKS.md')
         # 5. A generator that fails never blocks the commit.
         (work / 'tools' / 'gen.py').write_text('raise SystemExit(3)\n', encoding='utf-8')
         (work / 'src' / 'e.txt').write_text('e\n', encoding='utf-8')

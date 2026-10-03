@@ -181,6 +181,46 @@ def regenerate(root, entries, say=print, stage=True):
     return staged
 
 
+# GENERATED BLOCKS INSIDE HAND-WRITTEN DOCUMENTS (<!--gen:NAME-->), which
+# doc_sync.py's PAIRS lists rather than the list above. They are generated
+# content too, so a commit that could move what they report refreshes them
+# (Morgan, 2026-10-03: generated files are auto-updated as their sources
+# change). Found that day: a practice gained a ## Detail, and
+# spec/LOADER.md's count of practices carrying one went stale with nothing
+# rebuilding it. doc_sync.py --write rewrites only blocks that drifted.
+BLOCK_INPUTS = ('practices/*.md', 'tools/*.py', '*.json')
+
+
+def refresh_blocks(root, staged, say=print):
+    """Run doc_sync.py --write when a staged path is one a block's script
+    reads, and stage each document it rewrote. -> the documents staged. A
+    document with unstaged changes of its own is rewritten but not staged,
+    and said, as for a whole generated file."""
+    root = pathlib.Path(root)
+    tool = root / 'tools' / 'doc_sync.py'
+    if not tool.is_file() or not any(fnmatch.fnmatch(p, g) for p in staged
+                                     for g in BLOCK_INPUTS):
+        return []
+    dirty = set(_git(root, 'diff', '--name-only').stdout.split())
+    r = subprocess.run([sys.executable, str(tool), '--write'], cwd=str(root),
+                       capture_output=True, text=True)
+    written = sorted({l.split()[2] for l in (r.stdout + r.stderr).splitlines()
+                      if l.startswith('[doc_sync] WROTE ') and len(l.split()) > 2})
+    staged_now = []
+    for rel in written:
+        if rel in dirty:
+            say(f'precedent_regenerate: rebuilt the generated blocks in {rel}, but it '
+                f'also has changes of yours that are not staged, so it was NOT added '
+                f'to this commit. Stage it yourself once you have looked: git add {rel}')
+            continue
+        _git(root, 'add', '--', rel)
+        staged_now.append(rel)
+    if staged_now:
+        say(f'precedent_regenerate: rebuilt and staged the generated blocks in '
+            f'{", ".join(staged_now)}.')
+    return staged_now
+
+
 def main(argv):
     if not argv or argv[0] not in ('--staged', '--all') or len(argv) > 1:
         print(__doc__.strip(), file=sys.stderr)
@@ -197,6 +237,7 @@ def main(argv):
     todo = due(entries, staged)
     if todo:
         regenerate(top, todo, say=lambda m: print(m, file=sys.stderr))
+    refresh_blocks(top, staged, say=lambda m: print(m, file=sys.stderr))
     return 0
 
 
