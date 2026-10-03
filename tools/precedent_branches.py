@@ -2302,10 +2302,10 @@ def _promote_unlocked(root, say=print, work=None):
         ok, out = _check(root, wt, FULL)
         took = time.monotonic() - t0
         if not ok:
-            where = _where_it_fails(root, stip, parts, above, staging, say)
+            where = _where_it_fails(root, stip, above, staging)
             return _not_finished(root, say, new, staging, (
                 f'the full check failed on the composition, after {took:.0f}s.'
-                + (f' {where}' if where else '') + f'\n\n{out}'),
+                + (f'\n{where}' if where else '') + f'\n\n{out}'),
                 'fix what failed there, whoever\'s commit it came from')
         refs = ([f'{new}:refs/heads/{staging}'] if new != stip else []) + (
             [f'{new}:refs/heads/{PRE_STAGING}'] if new != ptip else [])
@@ -2346,29 +2346,30 @@ def _promote_unlocked(root, say=print, work=None):
     return 0
 
 
-def _where_it_fails(root, stip, parts, above, staging, say):
-    """After the composition failed the full check: when work made directly
-    on main (or the old staging name) was in it, check staging with that work
-    alone, and -> one sentence saying which side brought the failure; '' when
-    nothing came from above."""
+def _where_it_fails(root, stip, above, staging):
+    """After the composition failed the full check: -> where to look first,
+    from what is on record, or '' when nothing came from above. Never a
+    verdict. Checking staging with main's work alone used to settle it, at
+    the cost of a second full check -- on 2026-10-03 the two took about 24
+    minutes, past the Promote lock's 15, and still blamed main for a test
+    that failed on staging's own tip in that container. The session
+    measures it on the fix branch instead (practice: diagnosis-is-measured),
+    where running only what failed on each tip takes seconds."""
     if not above:
         return ''
-    alone = [p for p in parts if p[0] in {b for b, _, _ in above}]
     names = ' and '.join(b for b, _, _ in above)
-    say(f'checking {staging} with {names}\'s direct work alone, to say where the '
-        f'failure comes from...')
-    with _Worktree(root, stip) as wt:
-        conflict, _merged = _compose(root, wt, alone, staging, say)
-        if conflict:
-            return ''
-        _commit_rebuilt(root, wt, say, f'after work made directly on {names}')
-        ok, _out = _check(root, wt, FULL)
-    if ok:
-        return (f'{staging} with {names}\'s direct work alone passes, so it is '
-                f'that work and {PRE_STAGING}\'s together that fail.')
-    return (f'It fails on {staging} with {names}\'s direct work alone too, so '
-            f'that work brought it -- it came from {names}, not from the ladder:\n  '
-            + '\n  '.join(c for _b, _t, cs in above for c in cs))
+    listed = '\n  '.join(c for _b, _t, cs in above for c in cs)
+    rec = _receipt(root, stip)
+    if rec:
+        return (f'{staging}\'s own tip passed the full check '
+                f'({rec.get("at", "time not recorded")}), and {names} brought these '
+                f'commits, made without the ladder\'s checks:\n  {listed}\nLook '
+                f'there first, then at how they meet {PRE_STAGING}\'s work; run '
+                f'what failed on each tip before saying which it was.')
+    return (f'{names} brought these commits, made without the ladder\'s '
+            f'checks:\n  {listed}\n{staging}\'s own tip has no full check on record '
+            f'either, so the failure may be on {staging} already; run what failed '
+            f'on {staging} alone first.')
 
 
 def _not_finished(root, say, sha, staging, what, todo):

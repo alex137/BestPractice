@@ -27696,9 +27696,12 @@ def check_promote_composes_main_and_moves_both_tiers():
                       'pre-staging\'s, and names the command that finishes it',
                       len(f) == 1 and on(tip('main'), f[0]) and on(p1, f[0])
                       and f'--work {f[0]}' in out))
-        cases.append(('...and, checking staging with main\'s work alone, says the '
-                      'failure came from main', 'came from main' in out
-                      and 'a web edit that breaks a check' in out))
+        cases.append(('...and names main\'s commits as where to look first, from '
+                      'staging\'s recorded pass, without a second full check or a '
+                      'verdict', 'Look there first' in out
+                      and 'a web edit that breaks a check' in out
+                      and 'own tip passed the full check' in out
+                      and full_runs() == 1 and 'came from main' not in out))
         # The session fixes it on that branch and runs the Promote again.
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'fixing', f'origin/{f[0]}')
@@ -27717,9 +27720,10 @@ def check_promote_composes_main_and_moves_both_tiers():
         commit_to('main', {'state.json': '{"n": 2}\n'}, 'bot: harmless')
         commit_to('pre-staging', {'FAIL': 'precedent_check'}, 'ladder work that breaks')
         rc, out = branches('--promote', '--to', 'staging')
-        cases.append(('when main\'s work alone passes, the report says it is the '
-                      'two together', rc == 1 and 'direct work alone passes' in out
-                      and 'came from main' not in out))
+        cases.append(('a failure from pre-staging\'s own work is still not finished, '
+                      'and main is named only as a place to look, never as the cause',
+                      rc == 1 and 'PROMOTE NOT FINISHED' in out
+                      and 'Look there first' in out and 'came from main' not in out))
         commit_to('pre-staging', {'FAIL': ''}, 'ladder fixes its own break')
         rc, out = branches('--promote', '--to', 'staging')
         cases.append(('...and a fix pushed to pre-staging finishes it too',

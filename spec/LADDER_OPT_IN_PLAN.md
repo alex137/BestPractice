@@ -285,9 +285,15 @@ above", 2026-09-26):
     run this way (run bare it is the very deep check), and a conflict in
     its file counts as hand-written. That limit applies to the conflict
     rebuild too, which had no such limit before.
-  - Saying "it came from main" costs one more full check, on staging with
-    main's work alone, and only when the composition failed and main
-    brought work.
+  - The report on a failure names main's commits as the place to look
+    first, from what is on record (staging's own recorded pass), and never
+    says which side caused it. A first version settled that with a second
+    full check on staging plus main's work alone: in the rehearsal on a copy
+    of this repository's tiers the two checks took about 24 minutes, past
+    the Promote lock's 15, and it blamed main for a test that failed on
+    staging's own tip in that container. The session measures it on the fix
+    branch instead, where running only what failed on each tip takes
+    seconds (practice: diagnosis-is-measured).
   - The fix branch is `promote-fix-DATE`; only a branch so named is taken
     in through `--work`. Any other `--work` not on pre-staging is named and
     left for Booked, so a Debut never carries unbooked work.
