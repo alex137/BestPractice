@@ -124,6 +124,11 @@ closed:            null
     ([whats-new](../practices/whats-new.md)); only its `checked_through:`
     line is written by a tool.
 
+  **Built 2026-10-03** on its branch: every step of
+  [spec/GENERATED_FILES_PLAN.md](../spec/GENERATED_FILES_PLAN.md), proven
+  on a real consumer's copy (the plan's "Built" section). It closes once
+  that reaches main and a consumer has migrated for real.
+
 ## How It Closes
 
 When a repository using Precedent generates MAP.md and GLOSSARY.md from its

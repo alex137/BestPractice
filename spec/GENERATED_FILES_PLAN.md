@@ -79,3 +79,47 @@ Steps 1 to 4 change BestPractice and the precedent-* repositories. Step 5
 changes what every repository using Precedent receives: it reaches each one
 at its next Update Vendors, and that repository's next check passes only
 once its migration has run. The change says so where it lands.
+
+## Built (2026-10-03)
+
+All six steps, each with tests that a mutation of the change fails:
+- **Step 1.** Each tool's description moved word for word into its
+  tool's first docstring line; MAP.md came out byte-identical.
+- **Step 2.** WHERE_THINGS_ARE.md and AGENTS.md's short table both render
+  from `where_things_are.json`. Where they disagreed, the newer wording
+  (AGENTS.md's) was kept.
+- **Step 3.** `tools/precedent_regenerate.py`, run by the commit
+  backstop, rebuilds and stages the generated files a commit's sources
+  feed. Its first real use added its own MAP.md row.
+- **Step 4.** A practice set's view check runs at the basic tier. Each of
+  the five sets has its own list of generated files, on a branch there,
+  and two of them carried stale todo indexes nothing had checked.
+- **Steps 5 and 6.** `MAP.source.md` / `GLOSSARY.source.md`,
+  `tools/precedent_migrate_views.py`, the migration at Update Vendors, a
+  fresh install that starts generated, and the documents.
+
+Proven on a scratch copy of a real consumer, through a full Update
+Vendors from this branch. Both of its hand-written views moved word for
+word, and every line of each is in the generated view. Its sync, its view
+check and its generated-files check pass.
+
+**Found on the way, and fixed at the root:**
+- **A full build rewrote AGENTS.md's loader block** in a repository using
+  Precedent, where only the view sync may write it. `--views-only` is now
+  what every consumer-side rebuild runs.
+- **The tracked loader block depended on who regenerated it.** A set the
+  person brings counted as a deferred source, so build_views.py and the
+  sync disagreed. In every consumer, the full check failed after an engine
+  update for anyone who brings a set. This was reproduced on staging's own
+  engine, so it predates this work. Only declared sources count now.
+- **A vendored copy of another repository's generated file** was listed
+  as the consumer's own. `VENDORED_TREES` now names those trees once.
+
+**Left for a person:**
+- **One consumer's own map was overwritten.** Its last hand-written map
+  (2026-09-08: top-level layout, document types, the books, the
+  brainstorm) was replaced by the engine's map at a vendor update on
+  2026-09-15, and has been missing since. `precedent_migrate_views.py
+  --restore-map-from` brings it back into its source file from the commit
+  the person names; whether to, and from which commit, is that
+  repository's call.
