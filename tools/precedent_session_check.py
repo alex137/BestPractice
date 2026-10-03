@@ -542,28 +542,10 @@ def checks(offline=False):
     # (practice: checkable-gets-checked).
     raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
     name = 'PRECEDENT_FRESHNESS_ALSO, if set, names repositories that are there'
-    want = _attachable_sources()
-    # COMPUTED FOR THIS DISK, and that sentence is load-bearing.
-    #
-    # 2026-09-21: a known-good value was passed from one container to
-    # another and was wrong in the second one. Both had a duplicated
-    # source; they duplicated DIFFERENT ones. In the first, `~` held the
-    # only copy of the individual set and the stale copies of the shared
-    # sets; in the second, `~` held the STALE individual set and the shared
-    # sets were single. So a line that correctly names `~/precedent-
-    # individual` on one machine names the copy holding no work on the
-    # other -- silently, because an also-list entry that resolves to a real
-    # git repository is never questioned again.
-    #
-    # The value below is read off the directories actually present here,
-    # which is the only way it can be right; the warning is what stops it
-    # being copied somewhere it is not.
-    suggestion = ('Set it to (each set anchored where it lives -- a shared set '
-                  'beside the project, the individual set in $HOME -- so one '
-                  'value holds in every repo of the environment; in a shell '
-                  'script, single-quote it so nothing expands early): '
-                  'PRECEDENT_FRESHNESS_ALSO='
-                  + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
+    # The row once offered a value to set, naming every attachable practice
+    # set, computed for this disk (2026-09-21). Since 2026-09-30 the guard
+    # checks every declared set on its own, so that value was the stale
+    # advice a session reported on 2026-10-03; the row now never offers one.
     if raw is None:
         # Not a gap any more (2026-09-30): the freshness guard checks every
         # practice set this repo and this person declare, from the
@@ -625,9 +607,9 @@ def checks(offline=False):
                         '; '.join(bad + [f'{r!r} is a retired precedent-team-* '
                                          f'name -- drop it' for r in retired])
                         + '. Each of these is SKIPPED, silently by design -- the '
-                        'variable reads as coverage and covers nothing. Keep only '
-                        'repositories nothing declares; a practice set needs no '
-                        'entry.'))
+                        'variable reads as coverage and covers nothing. Drop each '
+                        'one; keep only repositories that exist and that nothing '
+                        'declares -- a practice set needs no entry.'))
 
     # 9. One source, one clone.
     #
@@ -641,8 +623,8 @@ def checks(offline=False):
     # Measured 2026-09-21 on this project's own container: three shared
     # sets were cloned twice, once under $HOME and once beside this repo,
     # and one of the three (`precedent-shared-writing`) had ALREADY
-    # diverged between its two copies. The also-list suggestion above was
-    # dutifully naming both, which is honest and is also the tell -- a
+    # diverged between its two copies. The also-list suggestion this row
+    # then offered was dutifully naming both, which is honest and is also the tell -- a
     # suggestion listing seven entries for four sources is reporting a
     # duplicate nobody had noticed.
     #

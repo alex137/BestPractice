@@ -29133,7 +29133,9 @@ def check_session_check_reports_a_dead_also_list_entry():
     home, proj = '/tmp/fixture-home', '/tmp/fixture-proj'
     saved = {k: os.environ.get(k)
              for k in ('HOME', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_FRESHNESS_ALSO')}
-    # The row's "Set it to: ..." half exists only when there is something to
+    # (Since 2026-10-03 the row never offers a value to set; the pinned list
+    # below stays so neither case can pass by reading this machine.)
+    # The row's "Set it to: ..." half existed only when there was something to
     # suggest, and what there is to suggest is whatever clones happen to sit
     # beside this checkout. Asserting that text while leaving the machine to
     # decide it is a fixture that passes on a developer's container (sibling
@@ -29174,10 +29176,15 @@ def check_session_check_reports_a_dead_also_list_entry():
 
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = '/definitely/not/here=main'
         ok, detail = row()
+        # Never a value to set instead (2026-10-03): the guard checks every
+        # declared set on its own since 2026-09-30, so a suggested value naming
+        # them was the stale advice a session reported. Drop the entry.
         cases.append((f'a dead entry is reported NOT in effect, naming the '
-                      f'path and the value to set instead (ok={ok!r})',
+                      f'path and saying to drop it, never a value to set '
+                      f'(ok={ok!r})',
                       ok is False and '/definitely/not/here' in detail
-                      and 'PRECEDENT_FRESHNESS_ALSO=' in detail))
+                      and 'Drop each' in detail
+                      and 'PRECEDENT_FRESHNESS_ALSO=' not in detail))
 
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = 'no-equals-sign'
         ok, detail = row()
