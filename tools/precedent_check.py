@@ -1105,6 +1105,32 @@ def _retired_branch_name_ships(ctx):
 
 
 # ---- the ladder stays opt-in (spec/LADDER_OPT_IN_PLAN.md D7) ---------------
+def _individual_set_brings_the_ladder(_pr):
+    """-> why this check stands aside, when ROOT is an individual set whose
+    person brings a set that provides the ladder; '' otherwise.
+
+    An individual set is read by one person only. When that person brings
+    the ladder, its words in their own set are theirs, the same as in the
+    set that provides it -- and refusing them refused that person's own next
+    Update Vendors (found rehearsing a Produce, 2026-10-03). A brought set
+    that is not cloned beside the individual set cannot say what it
+    provides, so it does not count: the check still runs."""
+    try:
+        man = json.loads((ROOT / 'precedent-source.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return ''
+    if not isinstance(man, dict) or _pr.normalize_level(
+            man.get('level')) != 'individual':
+        return ''
+    for b in _pr.brought_sources(ROOT, warn=False):
+        if _pr.LADDER_CAPABILITY in _pr.source_provides(b['path']):
+            return (f"this is one person's individual set and it brings "
+                    f"{b['name']}, which provides the ladder, so its words "
+                    f"are that person's own")
+    return ''
+
+
 @check('ladder-words-stay-in-the-ladder-set', 'tree',
        'a practice set that does not provide the five-stage ladder carries '
        'none of its words -- step labels, numbered Promotes, its commands '
@@ -1116,7 +1142,9 @@ def _retired_branch_name_ships(ctx):
        'git history, and the dated approved_by and *_why fields -- they say '
        'what happened in the words of the day. Ordinary English: "consider", '
        '"act", lowercase "promote" and "booked" never match. Engine OUTPUT is '
-       'held by verify_harness instead, which runs the tools off the ladder.',
+       'held by verify_harness instead, which runs the tools off the ladder. '
+       "An individual set whose person brings the ladder: one person reads "
+       'it, and the words are theirs.',
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'local/practices/*.md',
                    'templates/**/*.md', 'documentation/*.md', '*.md',
@@ -1137,6 +1165,9 @@ def _ladder_words_stay_in_the_ladder_set(ctx):
         if _pr.LADDER_CAPABILITY in _pr.source_provides(ROOT):
             raise NotApplicable('this set provides the ladder, so its words '
                                 'are its own')
+        brought = _individual_set_brings_the_ladder(_pr)
+        if brought:
+            raise NotApplicable(brought)
     except ImportError:
         pass
     try:
