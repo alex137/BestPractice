@@ -573,24 +573,61 @@ def checks(offline=False):
                     'practice set this repo and you declare on its own. Set it '
                     'only for a repository nothing declares'))
     else:
-        bad = []
+        # WHEN THE ANSWER IS "DELETE IT" (2026-10-03). Since 2026-09-30 the
+        # guard checks every practice set this repo and the person declare on
+        # its own, so an entry naming one is redundant, and an entry naming a
+        # retired precedent-team-* set (renamed precedent-shared-* on
+        # 2026-09-28) names nothing at all. A session reported this row
+        # warning at the top of every turn about a variable still naming the
+        # old team paths, and offering a corrected value -- for a variable
+        # nobody needs. When every entry is one of the two, the remedy is to
+        # delete it; a replacement value is only offered for entries naming a
+        # repository nothing else covers.
+        bad, retired, redundant, extra = [], [], [], []
         for entry in (e.strip() for e in raw.split(';')):
             if not entry:
                 continue
             if '=' not in entry:
                 bad.append(f'{entry!r} has no =<base branch>')
+                extra.append(entry)
                 continue
             written = entry.split('=', 1)[0].strip()
             resolved = _expand_source_path(written)
+            if pathlib.Path(written).name.startswith('precedent-team-'):
+                retired.append(written)
+                continue
+            if (pathlib.Path(resolved) / 'precedent-source.json').is_file():
+                redundant.append(written)
+                continue
+            extra.append(entry)
             if not (pathlib.Path(resolved) / '.git').exists():
                 shown = (f'{written!r}' if resolved == written
                          else f'{written!r} (-> {resolved!r})')
                 bad.append(f'{shown} is not a git repository')
-        ok = not bad
-        out.append((name, ok, '' if ok else
-                    '; '.join(bad) + '. Each of these is SKIPPED, silently by '
-                    'design -- the variable reads as coverage and covers '
-                    'nothing. ' + suggestion))
+        if not extra:
+            said = []
+            if retired:
+                said.append(f'{len(retired)} name{"s" if len(retired) == 1 else ""} '
+                            f'the retired precedent-team-* '
+                            f'sets, renamed precedent-shared-* on 2026-09-28')
+            if redundant:
+                said.append(f'{len(redundant)} name{"s" if len(redundant) == 1 else ""} '
+                            f'a practice set, which the '
+                            f'freshness guard checks on its own when this repo '
+                            f'or you declare it')
+            out.append((name, not retired,
+                        'set, and not needed: ' + '; '.join(said) + '. Delete '
+                        'PRECEDENT_FRESHNESS_ALSO from your environment\'s '
+                        'settings, where it was set -- do not replace it.'))
+        else:
+            ok = not bad and not retired
+            out.append((name, ok, '' if ok else
+                        '; '.join(bad + [f'{r!r} is a retired precedent-team-* '
+                                         f'name -- drop it' for r in retired])
+                        + '. Each of these is SKIPPED, silently by design -- the '
+                        'variable reads as coverage and covers nothing. Keep only '
+                        'repositories nothing declares; a practice set needs no '
+                        'entry.'))
 
     # 9. One source, one clone.
     #

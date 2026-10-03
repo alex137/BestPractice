@@ -6145,6 +6145,62 @@ def check_stale_views_say_why_and_stop_at_the_push():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_stale_freshness_also_says_delete_it():
+    """PRECEDENT_FRESHNESS_ALSO, not needed since 2026-09-30, is told to be
+    deleted rather than given a new value when every entry names a practice
+    set or a retired precedent-team-* path, and Update Vendors' rename step
+    says so too (reported 2026-10-03: the session check warned at every turn
+    about the old team paths and offered a corrected value). An entry naming
+    a repository nothing declares still keeps the variable worth having."""
+    import tempfile
+    name = 'a stale PRECEDENT_FRESHNESS_ALSO is told to be deleted'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_check as psc
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
+
+    def row(value):
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = value
+        return [r for r in psc.checks() if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            pset = tmp / 'precedent-shared-fixture'
+            pset.mkdir()
+            (pset / 'precedent-source.json').write_text('{}', encoding='utf-8')
+            other = tmp / 'some-project'
+            (other / '.git').mkdir(parents=True)
+            r = row(f'{tmp}/precedent-team-fixture=main;{pset}=main')
+            cases.append(('old team paths plus a practice set: warned, and told to '
+                          'delete the variable, never given a new value',
+                          r[1] is False and 'Delete PRECEDENT_FRESHNESS_ALSO' in r[2]
+                          and 'do not replace it' in r[2] and 'Set it to' not in r[2]))
+            r = row(f'{pset}=main')
+            cases.append(('only practice sets: not a warning, but said to be unneeded',
+                          r[1] is True and 'not needed' in r[2]))
+            r = row(f'{other}=main')
+            cases.append(('a repository nothing declares keeps the variable worth '
+                          'having', r[1] is True and 'Delete' not in r[2]))
+            os.environ['PRECEDENT_FRESHNESS_ALSO'] = f'{tmp}/precedent-team-fixture=main'
+            rep = pu.Report()
+            pu.renamed_sources_step(tmp, rep, '')
+            cases.append(('Update Vendors\' rename step notes the stale variable, to '
+                          'delete, without holding up the update',
+                          any(n == 'environment' and 'delete it' in o for n, o in rep.steps)
+                          and not rep.left))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
+        else:
+            os.environ['PRECEDENT_FRESHNESS_ALSO'] = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -55880,6 +55936,7 @@ def main():
     check_migrate_views_keeps_every_word()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
+    check_stale_freshness_also_says_delete_it()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()

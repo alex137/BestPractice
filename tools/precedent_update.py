@@ -269,6 +269,21 @@ def renamed_sources_step(repo, rep, engine_out):
     step, never a question. Whatever an older engine's first pass left on
     the list about a source now repointed is already answered, and is
     dropped."""
+    # The rename's one loose end outside the repository: an environment
+    # variable still naming the old paths, which the session check then
+    # warned about at every turn (reported 2026-10-03). The variable has not
+    # been needed since 2026-09-30, so the note says to delete it. A note, not
+    # a call left for the person: an environment setting never holds up a
+    # repository's update.
+    stale = [e.split('=', 1)[0] for e in
+             os.environ.get('PRECEDENT_FRESHNESS_ALSO', '').split(';')
+             if 'precedent-team-' in e]
+    if stale:
+        rep.step('environment', 'PRECEDENT_FRESHNESS_ALSO still names the retired '
+                 'precedent-team-* sets (' + ', '.join(stale) + '). It has not been '
+                 'needed since 2026-09-30 -- the freshness guard checks every '
+                 'declared set on its own -- so delete it from your environment\'s '
+                 'settings rather than repointing it')
     done = [(m.group(1), m.group(2)) for m in _REPOINTED.finditer(engine_out)]
     for old, new, old_path, new_path, kept in pve.repoint_renamed_sources(repo):
         if (old, old_path) != (new, new_path):
