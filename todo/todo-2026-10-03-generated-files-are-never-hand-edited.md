@@ -51,7 +51,7 @@ closed:            null
   typed into `TOOLS_DESCRIPTIONS` inside the generator rather than read
   from the tool itself.
 
-  The work, to be planned before it is built:
+  The work, planned in [spec/GENERATED_FILES_PLAN.md](../spec/GENERATED_FILES_PLAN.md):
   1. Every description in the map read from its own file: a practice's
      front matter (as now), and each tool's own opening docstring line in
      place of `TOOLS_DESCRIPTIONS`, so adding or changing a tool changes the
