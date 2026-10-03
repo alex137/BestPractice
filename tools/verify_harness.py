@@ -27508,12 +27508,21 @@ def check_sync_copies_work_from_above_once_checked():
                 _types.SimpleNamespace(returncode=0, stdout='', stderr='')
                 if a[:2] == ('merge-base', '--is-ancestor') else real_run(r, *a, **k))
             said = []
+            real_receipt = pb._receipt
             try:
+                pb._receipt = lambda root, sha: None
+                held3 = pb.main_test_holds_produce(two, said.append, GH([failed]))
+                pb._receipt = lambda root, sha: {'at': 'now'}
                 held2 = pb.main_test_holds_produce(two, said.append, GH([failed]))
             finally:
-                pb._run = real_run
-            cases.append(('a failing main whose tip staging already carries does not '
-                          'hold the Produce that repairs it, and says so',
+                pb._run, pb._receipt = real_run, real_receipt
+            cases.append(('a failing main whose tip staging carries, on a staging tip '
+                          'with no full check on record, still holds the Produce -- '
+                          'checked first, never taken on trust',
+                          bool(held3) and 'no full local check on record' in held3
+                          and 'Debut first' in held3))
+            cases.append(('...and once that tip has passed the full check, the '
+                          'Produce that repairs main goes ahead, and says so',
                           held2 is None and any('this Produce goes ahead' in x for x in said)))
             cases.append(('...while one staging does not carry yet still holds it, '
                           'naming the Debut', bool(held) and 'Debut first' in held))

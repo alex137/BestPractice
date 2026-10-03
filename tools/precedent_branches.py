@@ -2000,13 +2000,27 @@ def main_test_holds_produce(root, say=print, gh=None):
         staging = staging_branch(root)
         _run(root, 'fetch', '-q', 'origin', staging)
         stip = _remote_tip(root, staging)
-        if stip and _run(root, 'merge-base', '--is-ancestor', mtip,
-                         stip).returncode == 0:
+        carried = bool(stip) and _run(root, 'merge-base', '--is-ancestor', mtip,
+                                      stip).returncode == 0
+        # ...checked first, never taken on trust: carrying main's commit says
+        # nothing about whether the tree it makes with the ladder's work
+        # passes, so the hold lifts only for a staging tip whose exact tree
+        # has passed the full local check (Morgan, 2026-10-03: "Should it
+        # check this first?"). The pull request's GitHub test is still the
+        # last gate before the merge.
+        if carried and _receipt(root, stip):
             say(f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
-                f'{detail}), and {staging} already carries that commit, so this '
-                f'Produce goes ahead: it is what brings {MAIN} back to green, and '
-                f'its pull request\'s own GitHub test is the gate.')
+                f'{detail}). {staging} already carries that commit, and its tip '
+                f'({stip[:12]}) has passed the full local check, so this Produce '
+                f'goes ahead: it is what brings {MAIN} back to green, and its pull '
+                f'request\'s own GitHub test is the last gate.')
             return None
+        if carried:
+            return (f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
+                    f'{detail}). {staging} carries that commit, but its tip '
+                    f'({stip[:12]}) has no full local check on record, so it is '
+                    f'not known to repair {MAIN}. Debut first: its full check '
+                    f'judges that tree, then Produce again.')
         return (f'{MAIN}\'s own GitHub test is failing on its tip ({mtip[:12]}: '
                 f'{detail}), and {staging} does not carry that commit yet. Debut '
                 f'first: the Promote takes {MAIN}\'s work down and checks it with '

@@ -234,9 +234,11 @@ above", 2026-09-26):
   - A conflict only in generated files (a `generated_by:` header, or a
     page `doc_html.py` renders) is rebuilt by each file's own generator from
     the merged sources. A conflict in hand-written text still stops.
-  - Produce is held by a red main only when staging does not carry main's
-    tip yet; once it does, the Produce goes ahead, since it is what brings
-    main back to green, and its own pull request's GitHub test is the gate.
+  - Produce is held by a red main until staging both carries main's tip
+    and that staging tip has passed the full local check, so the repair is
+    checked first, never taken on trust (Morgan: "Should it check this
+    first?"). Then the Produce goes ahead, since it is what brings main back
+    to green, and its own pull request's GitHub test is still the last gate.
 
 **D11. Composition.** The universal first-bullet rule stays prefix-only, with
 neutral wording, and the ladder set adds the step requirement.
