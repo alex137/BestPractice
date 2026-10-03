@@ -74,7 +74,12 @@ exits at once, which is what makes "run the deep check, then push" cost one
 run rather than two (practice: slow-steps-report-and-cache). The record
 is keyed on the tree and the check list together, so any change to either
 invalidates it, and it lives in the git directory, never in the tracked
-tree.
+tree. "Nothing uncommitted" leaves out the fact ledgers the checks
+themselves write (practice: gate-ledger): fact_ledger.py reports each one it
+saves, the pass is recorded for the commit, and the refreshed ledgers are
+left in place for the person to commit. A ledger only caches facts that
+verify themselves, so its working copy changes no verdict; any other
+uncommitted edit, before or after the run, still blocks the record.
 
 AND THE PASS IS SHARED WITH EVERY CHECKOUT (Morgan, 2026-09-25, strength:
 decided). The record above lives in one checkout, and a person working in
@@ -128,6 +133,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RECORD = 'precedent-push-check.json'
+# The variable fact_ledger.py reads to report each ledger it saves
+# (fact_ledger.WRITTEN_ENV; practice: gate-ledger).
+LEDGER_WRITES_ENV = 'FACT_LEDGER_WRITTEN'
 # The shared receipts live on one branch -- a cloud session's git proxy
 # lets it push branches and nothing else, so a hidden ref namespace was
 # refused with a 403 (measured 2026-09-25). One small file per pass,
@@ -447,13 +455,73 @@ def record_path(root):
     return (root / p) if p else None
 
 
-def clean_tree(root):
+def dirty_paths(root):
+    """-> the repo-relative tracked paths with uncommitted changes (both
+    sides of a rename), or None when git cannot say."""
+    p = subprocess.run(['git', '-C', str(root), 'status', '--porcelain', '-z',
+                        '--untracked-files=no'], capture_output=True, text=True)
+    if p.returncode != 0:
+        return None
+    out, parts = set(), p.stdout.split('\0')
+    i = 0
+    while i < len(parts):
+        entry = parts[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        out.add(entry[3:])
+        if entry[0] in 'RC' or entry[1] in 'RC':
+            if i < len(parts) and parts[i]:
+                out.add(parts[i])
+            i += 1
+    return out
+
+
+def clean_tree(root, ledgers=()):
     """-> the HEAD tree hash when nothing tracked is uncommitted, else None.
     A run over uncommitted edits checked something the push will not send,
-    so it is never recorded as a pass for the commit."""
-    if git(root, 'status', '--porcelain', '--untracked-files=no') != '':
+    so it is never recorded as a pass for the commit.
+
+    `ledgers`: fact-ledger files (practice: gate-ledger) whose uncommitted
+    state does not count. A ledger only caches facts that verify themselves
+    -- a stale or foreign line costs one re-run, never a skipped unit -- so
+    no verdict depends on its working copy, and the push sends the
+    committed one. Without this the check dirtied the very tree it judged:
+    the model audit refreshed its ledger as it ran, and a 799 s pass was
+    never recorded, so the push gate ran the suite again and timed out
+    (consumer repo, 2026-10-02)."""
+    dirty = dirty_paths(root)
+    if dirty is None or not dirty <= set(ledgers):
         return None
     return git(root, 'rev-parse', 'HEAD^{tree}')
+
+
+def known_ledgers(root):
+    """The fact-ledger paths an earlier run here saw the ledger engine
+    write, kept in the local record; empty when there is none."""
+    path = record_path(root)
+    try:
+        rec = json.loads(path.read_text(encoding='utf-8')) if path else {}
+    except (OSError, ValueError):
+        return []
+    got = rec.get('ledgers') if isinstance(rec, dict) else None
+    return [x for x in got if isinstance(x, str)] if isinstance(got, list) else []
+
+
+def ledgers_written(root, listing):
+    """The repo-relative ledger paths fact_ledger.py reported saving into
+    `listing` (its WRITTEN_ENV file) during the run."""
+    try:
+        lines = Path(listing).read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return set()
+    base, out = Path(root).resolve(), set()
+    for ln in lines:
+        try:
+            out.add(Path(ln.strip()).resolve().relative_to(base).as_posix())
+        except ValueError:
+            continue                  # a ledger in some other repository
+    return out
 
 
 def already_passed(root, checks, also=()):
@@ -461,7 +529,7 @@ def already_passed(root, checks, also=()):
     of the check lists in `also`, which is how a FULL pass satisfies a BASIC
     gate -- else None. The record names the list it passed by signature, so
     a BASIC pass can never satisfy a FULL gate."""
-    tree = clean_tree(root)
+    tree = clean_tree(root, known_ledgers(root))
     path = record_path(root)
     if not tree or not path or not path.is_file():
         return None
@@ -1474,14 +1542,17 @@ def main(argv):
     where = ''
     if '--gate' in argv and not rec:
         sigs = [signature(checks), *(signature(c) for c in also)]
-        rec = shared_pass(root, clean_tree(root), sigs)
+        known = known_ledgers(root)
+        rec = shared_pass(root, clean_tree(root, known), sigs)
         if rec:
             where = ', in another checkout'
             path = record_path(root)
             if path:
-                path.write_text(json.dumps(
-                    {k: v for k, v in rec.items() if k != 'shared'},
-                    indent=2) + '\n', encoding='utf-8')
+                kept = {k: v for k, v in rec.items() if k != 'shared'}
+                if known:
+                    kept['ledgers'] = known
+                path.write_text(json.dumps(kept, indent=2) + '\n',
+                                encoding='utf-8')
     if rec:
         when = f' at {rec["at"]}' if rec.get('at') else ''
         history = [c for c in checks if c[0] in HISTORY_CHECKS]
@@ -1537,9 +1608,35 @@ def main(argv):
     # the isolated harness had copied the commit before it, so a new check
     # with no planted case (whats-new, 2026-10-01) went green in the full
     # check and was refused minutes later by the merge gate's quick one.
-    tree_before = clean_tree(root)
-    failed, missing, total, findings = run(root, checks, landed, reported)
-    tree = clean_tree(root)
+    #
+    # Fact ledgers the checks write (practice: gate-ledger) are the one kind
+    # of edit a run makes to the tree it judges. fact_ledger.py reports each
+    # ledger it saves into the file FACT_LEDGER_WRITTEN names; those paths,
+    # and the ones an earlier run here saw, are left out of "uncommitted".
+    # Anything else dirty, before or after, still refuses the record.
+    dirty_before = dirty_paths(root)
+    head_before = git(root, 'rev-parse', 'HEAD^{tree}')
+    fd, listing = tempfile.mkstemp(prefix='precedent-ledgers-')
+    os.close(fd)
+    prior_env = os.environ.get(LEDGER_WRITES_ENV)
+    os.environ[LEDGER_WRITES_ENV] = listing
+    try:
+        failed, missing, total, findings = run(root, checks, landed, reported)
+    finally:
+        if prior_env is None:
+            os.environ.pop(LEDGER_WRITES_ENV, None)
+        else:
+            os.environ[LEDGER_WRITES_ENV] = prior_env
+        written = ledgers_written(root, listing)
+        try:
+            os.unlink(listing)
+        except OSError:
+            pass
+    ledgers = sorted(set(known_ledgers(root)) | written)
+    tree_before = head_before if (dirty_before is not None and
+                                  dirty_before <= set(ledgers)) else None
+    tree = clean_tree(root, ledgers)
+    refreshed = sorted((dirty_paths(root) or set()) & set(ledgers))
     moved = tree is not None and tree != tree_before
     if moved:
         tree = None
@@ -1570,7 +1667,15 @@ def main(argv):
     if tree and path:
         rec = {'tree': tree, 'checks': signature(checks), 'kind': kind,
                'tier': tier, 'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')}
-        path.write_text(json.dumps(rec, indent=2) + '\n', encoding='utf-8')
+        local = dict(rec, ledgers=ledgers) if ledgers else rec
+        path.write_text(json.dumps(local, indent=2) + '\n', encoding='utf-8')
+        if refreshed:
+            print(f'\nprecedent_push_check: the run refreshed '
+                  f'{len(refreshed)} fact ledger(s), left in place and '
+                  f'uncommitted: {", ".join(refreshed)}. They only cache '
+                  f'facts that verify themselves, so the pass below holds for '
+                  f'the commit; commit them when convenient so the next run '
+                  f'starts warm.')
         print(f'\nprecedent_push_check: all passed in {total:.0f}s; recorded '
               f'for tree {tree[:12]} ({tier}), so a push of this commit will '
               f'not re-run them.')

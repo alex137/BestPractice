@@ -83,6 +83,17 @@ slow check without a fact, and an unsound one replays a PASS over a real
 failure. Measure the sound version's saving before shipping one, and
 do not ship it when the saving is small.
 
+**A check never refuses to record its own pass because of ledger facts
+it wrote.** A gate that refreshes its ledger dirties the tree it is
+judging; a push check that records a pass only over a clean tree would
+then never record one, and the push re-runs the whole suite. So the
+ledger engine reports every ledger it saves to a caller that asks, and
+the caller leaves those files out of "uncommitted", records the pass
+for the commit, and leaves the refreshed ledgers in place for the person
+to commit. Safe because a ledger's working copy changes no verdict: a
+stale line costs a re-run, never a skip. Any other uncommitted edit,
+before or after the run, still blocks the record.
+
 **The ledger is not a licence to skip the gate.** It makes the bare
 gate cheap enough to run every time; a `--full` switch ignores it for
 the rare case of distrust.

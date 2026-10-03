@@ -239,6 +239,27 @@ def sha(data):
     return content_record.digest(data, 16)
 
 
+# A caller that runs gates and must tell the facts they cached from real work
+# (precedent_push_check.py, which records a pass only over a clean tree) names
+# a file in this variable; every ledger saved under it appends its absolute
+# path there. A ledger only caches facts that verify themselves (a stale line
+# costs a re-run, never a skipped unit), so a run that refreshed one has
+# changed no verdict, and the caller may record its pass for the commit.
+WRITTEN_ENV = "FACT_LEDGER_WRITTEN"
+
+
+def note_written(path):
+    """Append `path` to the file WRITTEN_ENV names, if any. Never raises."""
+    out = os.environ.get(WRITTEN_ENV)
+    if not out:
+        return
+    try:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(str(Path(path).resolve()) + "\n")
+    except OSError:
+        pass
+
+
 class Ledger:
     def __init__(self, root, path=None, reach_dirs=(), ignore=()):
         self.root = Path(root)
@@ -354,6 +375,7 @@ class Ledger:
         lines = [json.dumps(self.facts[k][-1], sort_keys=True, separators=(",", ":"))
                  for k in sorted(self.facts)]
         (self.root / self.path).write_text("".join(ln + "\n" for ln in lines))
+        note_written(self.root / self.path)
 
     def holds(self, f, code, out=None):
         """A fact holds when its code, every read, and (when given) the
