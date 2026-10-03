@@ -2366,6 +2366,17 @@ def _own_source(root, name):
     return path.read_text(encoding='utf-8').rstrip('\n')
 
 
+def _vendored_engine(root):
+    """True when `root` carries a vendored copy of the engine -- a practice
+    set or a repository that uses Precedent -- rather than being the
+    engine's own repository. Only there may MAP.md introduce itself as
+    Precedent's own map: until 2026-10-03 every generated map, in every set
+    and consumer, opened with this repository's introduction."""
+    root = pathlib.Path(root or ROOT)
+    return any((root / d / 'ENGINE_MANIFEST.json').is_file()
+               for d in ('tools', 'process/upstream/tools'))
+
+
 def render_map_md(practices, withdrawn=(), root=None):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
     own = _own_source(root, MAP_SOURCE)
@@ -2381,10 +2392,15 @@ def render_map_md(practices, withdrawn=(), root=None):
         '',
         "# Repository map — where to find things",
         '',
+        *([("This repository's map of the practice catalogue in force here and "
+            "the engine's own code, generated, never hand-edited. What this "
+            "repository says about itself goes in MAP.source.md, which this map "
+            "then carries first.")]
+          if _vendored_engine(root) else [
         "Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "
         '"make AGENTS.md, MAP.md, GLOSSARY.md and the index generated"). '
         "For the plan and format spec, see AGENTS.md's quick index instead — this file "
-        "indexes the practice catalogue and the engine's own code, not the whole repo's prose.",
+        "indexes the practice catalogue and the engine's own code, not the whole repo's prose."]),
         ''])
     lines = [
         *head,

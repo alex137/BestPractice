@@ -118,11 +118,12 @@ check and its generated-files check pass.
 - **A vendored copy of another repository's generated file** was listed
   as the consumer's own. `VENDORED_TREES` now names those trees once.
 
-**Left for a person:**
-- **One consumer's own map was overwritten.** Its last hand-written map
-  (2026-09-08: top-level layout, document types, the books, the
-  brainstorm) was replaced by the engine's map at a vendor update on
-  2026-09-15, and has been missing since. `precedent_migrate_views.py
-  --restore-map-from` brings it back into its source file from the commit
-  the person names; whether to, and from which commit, is that
-  repository's call.
+**A consumer's map that a vendor update overwrote** (its last hand-written
+version 2026-09-08, replaced 2026-09-15): regenerated, not restored from
+history (Morgan, 2026-10-03: "It should be regenerated", strength:
+decided). The old sections were a snapshot nobody kept current after that
+date, and they remain in that repository's history. The map's real fault
+was its opening, BestPractice's own introduction, which every set's and
+consumer's generated map carried. A map outside the engine's own
+repository now introduces that repository, and each picks it up at its
+next view rebuild.

@@ -5629,6 +5629,17 @@ def check_map_reads_each_tools_own_summary():
                           and 'no module docstring' in stopped))
             cases.append(('the hand-typed table is gone from the generator',
                           not hasattr(bv, 'TOOLS_DESCRIPTIONS')))
+            # Only the engine's own repository may call its map Precedent's
+            # own; a set's or a consumer's map describes that repository.
+            here = pathlib.Path(td) / 'elsewhere'
+            (here / 'tools').mkdir(parents=True)
+            (here / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+            (tools / 'zz_fixture_tool.py').write_text('"""A tool\n"""\n', encoding='utf-8')
+            cases.append(('a map outside the engine\'s own repository introduces '
+                          'that repository, not Precedent',
+                          "Precedent's own repo map" not in bv.render_map_md([], root=here)
+                          and "This repository's map" in bv.render_map_md([], root=here)
+                          and "Precedent's own repo map" in bv.render_map_md([], root=td)))
         finally:
             sys.path.pop(0)
     real = sorted(p.name for p in (ROOT / 'tools').glob('*.py'))
