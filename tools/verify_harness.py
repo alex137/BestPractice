@@ -33085,6 +33085,33 @@ def check_bootstrap_source_produces_resolvable_set():
         cases.append(('bootstrapping an individual set succeeds and writes its files',
                       rc == 0 and (indiv_dest / 'practices' / 'example-starter-individual.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
+        # Its own list of generated files (spec/GENERATED_FILES_PLAN.md step
+        # 4): what its commit rebuilds and its check reads, current from
+        # the first commit.
+        _gf = indiv_dest / 'tools' / 'generated_files.json'
+        _entries = (json.loads(_gf.read_text(encoding='utf-8')).get('files', [])
+                    if _gf.is_file() else [])
+        _reg = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                               'generated-files-registered'], cwd=str(indiv_dest),
+                              capture_output=True, text=True)
+        cases.append(('a new set lists the three views it generates, and its own '
+                      'check of that list passes',
+                      {(e.get('path'), e.get('part')) for e in _entries} == {
+                          ('MAP.md', None), ('GLOSSARY.md', None),
+                          ('AGENTS.md', '<!-- BEGIN GENERATED: precedent-loader -->')}
+                      and all(e.get('inputs') and e.get('check') for e in _entries)
+                      and _reg.returncode == 0 and '1 passed' in _reg.stdout,
+                      _reg.stdout[-400:] + _reg.stderr[-200:]))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_push_check as _ppc
+        finally:
+            sys.path.pop(0)
+        cases.append(('a set\'s views are checked at the quick tier, so a stale or '
+                      'hand-edited one fails the push to pre-staging, not only the Debut',
+                      'build_views' in _ppc.BASIC_CHECKS
+                      and any(st[0] == 'build_views' for st in _ppc.PUSH_CHECKS['source']),
+                      f'BASIC_CHECKS = {sorted(_ppc.BASIC_CHECKS)}'))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))

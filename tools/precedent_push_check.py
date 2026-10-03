@@ -260,12 +260,15 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # reaches ANY branch GitHub runs it on; light_check is the repo's own fast
 # check, and its secret scan wants every push (practice: ci-workflow-approved;
 # Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
+# build_views joins it for a practice set (2026-10-03, spec/
+# GENERATED_FILES_PLAN.md step 4): a stale or hand-edited view used to pass
+# the push to pre-staging and fail only at the Debut. It takes under a second.
 # The practice audit's two checks join it for a consumer (2026-10-02): a
 # classic install migrated onto the loader carried stale manifest baselines
 # and no scrub blocklist, both full-tier findings, so its pre-staging pushes
 # passed and the first Debut failed on both. They run in seconds.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
-                'session_trailer', 'ci_workflows', 'light_check',
+                'session_trailer', 'ci_workflows', 'light_check', 'build_views',
                 'scrub_gate', 'practice_export_loop'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
