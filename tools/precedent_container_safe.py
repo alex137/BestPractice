@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Is anything in THIS CONTAINER unsaved -- anywhere, not just the repo the
+"""Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work
+
+Is anything in THIS CONTAINER unsaved -- anywhere, not just the repo the
 session happens to be rooted in?
 
 WHY THIS EXISTS. Archiving a session releases its container, and everything

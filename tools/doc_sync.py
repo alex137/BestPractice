@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""doc_sync -- keep script-generated blocks inside documents in sync (practice: computed-numbers-in-scripts).
+"""Keeps script-generated blocks inside documents in sync with what the script emits
+
+doc_sync -- keep script-generated blocks inside documents in sync (practice: computed-numbers-in-scripts).
 
 The failure mode this kills: a script that computes numbers (a model, a cost
 rollup) changes, and a document quoting those numbers silently keeps the old

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Content record: hash a set of inputs now, and say later whether they still
+"""Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check
+
+Content record: hash a set of inputs now, and say later whether they still
 hold and which moved.
 
 Practice `judgment-check-or-tool` (spec/SHARED_ENGINES_PLAN.md, section 2).

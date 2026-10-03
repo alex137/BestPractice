@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Branch store: small records kept on a dedicated branch of a shared remote.
+"""Small records on a dedicated branch of a shared remote, with the push as the lock: the git plumbing shared by the lease board and the result cache
+
+Branch store: small records kept on a dedicated branch of a shared remote.
 
 Practice `judgment-check-or-tool` (spec/SHARED_ENGINES_PLAN.md, section 1).
 Two tools kept their own copy of the same git plumbing: the lease board

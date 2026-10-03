@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_update.py -- "Update Vendors" as one command: every step of
+"""Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)
+
+precedent_update.py -- "Update Vendors" as one command: every step of
 vendor-update-runbook that needs no judgment, in order, then one report.
 
 Run it from the consuming repo, calling THIS copy -- the one in the
@@ -48,7 +50,10 @@ THE STEPS, with no question in between:
      left for you -- reported, never rewritten
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
-     MAP.md and GLOSSARY.md too -- then manifest baselines moved for files
+     MAP.md and GLOSSARY.md too; in a repository that uses Precedent, a
+     hand-written MAP.md or GLOSSARY.md moved into MAP.source.md /
+     GLOSSARY.source.md word for word and generated from then on (or left
+     as it was, and said, when that would lose text) -- then manifest baselines moved for files
      now identical to upstream, a missing headroom_floor_pct defaulted,
      each file still naming one the refresh deleted left for you, and this
      repo's own citations of any practice the update withdrew or reworded
@@ -264,6 +269,21 @@ def renamed_sources_step(repo, rep, engine_out):
     step, never a question. Whatever an older engine's first pass left on
     the list about a source now repointed is already answered, and is
     dropped."""
+    # The rename's one loose end outside the repository: an environment
+    # variable still naming the old paths, which the session check then
+    # warned about at every turn (reported 2026-10-03). The variable has not
+    # been needed since 2026-09-30, so the note says to delete it. A note, not
+    # a call left for the person: an environment setting never holds up a
+    # repository's update.
+    stale = [e.split('=', 1)[0] for e in
+             os.environ.get('PRECEDENT_FRESHNESS_ALSO', '').split(';')
+             if 'precedent-team-' in e]
+    if stale:
+        rep.step('environment', 'PRECEDENT_FRESHNESS_ALSO still names the retired '
+                 'precedent-team-* sets (' + ', '.join(stale) + '). It has not been '
+                 'needed since 2026-09-30 -- the freshness guard checks every '
+                 'declared set on its own -- so delete it from your environment\'s '
+                 'settings rather than repointing it')
     done = [(m.group(1), m.group(2)) for m in _REPOINTED.finditer(engine_out)]
     for old, new, old_path, new_path, kept in pve.repoint_renamed_sources(repo):
         if (old, old_path) != (new, new_path):
@@ -426,23 +446,58 @@ def retired_mentions(repo, engine_out):
 
 
 FULL_VIEWS = ('MAP.md', 'GLOSSARY.md')
-_GENERATED_BY_BUILD_VIEWS = re.compile(
-    r'\A---\n(?:.*\n)*?generated_by:\s*["\']?tools/build_views\.py', re.M)
+
+
+def migrate_views_step(repo, rep):
+    """Run the repository's own precedent_migrate_views.py and report it: a
+    hand-written MAP.md or GLOSSARY.md moves into its source file, word for
+    word, and is generated from then on (spec/GENERATED_FILES_PLAN.md step
+    5; Morgan, 2026-10-03). The tool puts everything back and says so rather
+    than lose a word, and then the view is the repository's call."""
+    repo = pathlib.Path(repo)
+    migrate = repo / 'tools' / 'precedent_migrate_views.py'
+    if migrate.is_file():
+        rc, out = run([sys.executable, str(migrate), '--repo', '.'], repo)
+        if rc != 0:
+            rep.leave('MAP.md / GLOSSARY.md',
+                      'could not be moved into MAP.source.md / '
+                      'GLOSSARY.source.md without losing text, so they were '
+                      'left exactly as they were: ' + tail(out, repo=repo))
+        elif 'nothing to migrate' not in out:
+            moved = [n for n in FULL_VIEWS if f'{n} -> ' in out]
+            rep.step('views migrated', 'the hand-written '
+                     + ' and '.join(moved)
+                     + ' moved into their source files word for word, and '
+                     'are generated from them from now on')
+            # The text moved unchanged, so its headings are what they
+            # were; but the source files are new, and a rule that judges
+            # every heading of a changed document now reaches them. The
+            # repository's call, with the tool that applies the rule.
+            srcs = [n.replace('.md', '.source.md') for n in moved]
+            tc = repo / 'tools' / 'title_case.py'
+            if tc.is_file():
+                rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
+                if rc2 != 0:
+                    rep.leave(' and '.join(srcs),
+                              'its headings, moved word for word, are not in '
+                              'headline case, which the headline-capitalization '
+                              'check now applies because the file is new. Apply '
+                              'it with python3 tools/title_case.py --write '
+                              + ' '.join(srcs) + ', or keep them and say why')
 
 
 def generated_full_views(repo):
     """-> the FULL_VIEWS this repo's own header says build_views.py
-    generates, in order. A hand-written MAP.md is the repo's, and left
+    generates, or whose source file it has (MAP.source.md, GLOSSARY.source.md),
+    in order. A hand-written MAP.md with no source is the repo's, and left
     alone."""
-    out = []
-    for name in FULL_VIEWS:
-        try:
-            head = (pathlib.Path(repo) / name).read_text(encoding='utf-8')[:2000]
-        except (OSError, UnicodeDecodeError):
-            continue
-        if _GENERATED_BY_BUILD_VIEWS.match(head):
-            out.append(name)
-    return out
+    import build_views as _bv
+    srcs = {'MAP.md': getattr(_bv, 'MAP_SOURCE', None),
+            'GLOSSARY.md': getattr(_bv, 'GLOSSARY_SOURCE', None)}
+    return [name for name in FULL_VIEWS
+            if (pathlib.Path(repo) / name).is_file()
+            and (_bv.is_generated_view(pathlib.Path(repo) / name)
+                 or (srcs.get(name) and (pathlib.Path(repo) / srcs[name]).is_file()))]
 
 
 def source_is_its_own_clone():
@@ -1984,6 +2039,12 @@ def update(repo, skip_check=False, ref=None):
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
         in_force_nowhere_step(repo, rep, out)
+        # A link in this repo's own files to a practice the sync removed,
+        # with no successor here to repoint it to: the repo's call.
+        for line in re.findall(r'precedent_sync_views: (\S+:\d+): links `([^`]+)`, '
+                               r'which this sync removed -- (.*?)\. Repoint', out):
+            rep.leave(line[0], f'links `{line[1]}`, which this update removed '
+                               f'({line[2]}). Repoint it or remove it')
         if rc != 0:
             # A declared source whose clone answers to another name is a
             # call about this repo's own precedent.json, so it is left for
@@ -2001,6 +2062,7 @@ def update(repo, skip_check=False, ref=None):
                          'to another name')
                 return rep.close()
             return rep.close(f"the view sync failed:\n{tail(out, repo=repo)}")
+        migrate_views_step(repo, rep)
         built = generated_full_views(repo)
         if built and build.is_file():
             # A consumer whose MAP.md or GLOSSARY.md says build_views.py
@@ -2008,7 +2070,9 @@ def update(repo, skip_check=False, ref=None):
             # loader block only, so a practice the update stopped
             # materializing stayed linked from the glossary, and the lint
             # failed on the dead links (2026-09-30, three practices).
-            rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
+            # --views-only: the loader block is the sync's, just written.
+            rc, out = run([sys.executable, str(build), '--repo', '.',
+                           '--views-only'], repo)
             if rc != 0:
                 return rep.close(f"the view build failed:\n{tail(out, repo=repo)}")
             rep.step('views', 'regenerated (loader block, and '

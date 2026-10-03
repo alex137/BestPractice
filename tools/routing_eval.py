@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""routing_eval.py — does trigger-based loading actually beat residency?
+"""Measures whether trigger-based loading actually beats carrying the whole catalogue
+
+routing_eval.py — does trigger-based loading actually beat residency?
 
 This is PRACTICE_ENGINE_PLAN.md's phase-2 done-when condition, the half
 tools/behavioral_replay.py cannot reach. The replay proves the MECHANICAL

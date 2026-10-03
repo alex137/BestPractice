@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""verify_harness.py — phase-1 verification harness for the practice-engine
+"""The verification harness — run before trusting any change here
+
+verify_harness.py — phase-1 verification harness for the practice-engine
 conversion (PRACTICE_ENGINE_PLAN.md, "The Verification Harness" and Sequence
 row 1: "Practices are files; the catalogue regenerates byte-identically;
 harness passes.").
@@ -5580,6 +5582,625 @@ def check_symlinked_root_path_matching():
         link.parent.rmdir()
 
 
+def check_map_reads_each_tools_own_summary():
+    """MAP.md's engine table is read from each tool's own docstring, never
+    from a hand-typed table inside the generator (spec/GENERATED_FILES_PLAN.md
+    step 1; Morgan, 2026-10-03: generated files are never hand-edited, a
+    change goes into their sources). The failures that matter: a tool's row
+    that does not follow its file, a new tool missing from the map, and the
+    hand table coming back."""
+    import importlib.util as _ilu, tempfile, shutil as _shutil
+    name = 'MAP.md reads each tool\'s own summary line'
+    src = ROOT / 'tools' / 'build_views.py'
+    if not src.exists():
+        not_applicable(name, 'tools/build_views.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tools = pathlib.Path(td) / 'tools'
+        tools.mkdir()
+        for f in ('build_views.py', 'split_practices.py', 'summary_text.py'):
+            _shutil.copy2(ROOT / 'tools' / f, tools / f)
+        (tools / 'zz_fixture_tool.py').write_text(
+            '"""Says what the fixture tool is, on one line\n\nLonger text.\n"""\n',
+            encoding='utf-8')
+        spec = _ilu.spec_from_file_location('_bv_summary_fixture', tools / 'build_views.py')
+        bv = _ilu.module_from_spec(spec)
+        sys.path.insert(0, str(tools))
+        try:
+            spec.loader.exec_module(bv)
+            out = bv.render_map_md([])
+            cases.append(('a tool\'s row is the first line of its own docstring',
+                          '| [tools/zz_fixture_tool.py](tools/zz_fixture_tool.py) | '
+                          'Says what the fixture tool is, on one line |' in out))
+            (tools / 'zz_fixture_tool.py').write_text(
+                '"""Says something new\n"""\n', encoding='utf-8')
+            out = bv.render_map_md([])
+            cases.append(('editing the tool\'s docstring changes its row, with '
+                          'nothing else to edit', '| Says something new |' in out))
+            (tools / 'zz_fixture_tool.py').write_text('x = 1\n', encoding='utf-8')
+            try:
+                bv.render_map_md([])
+                stopped = ''
+            except SystemExit as e:
+                stopped = str(e)
+            cases.append(('a tool with no docstring stops the build, naming the '
+                          'file to describe', 'tools/zz_fixture_tool.py' in stopped
+                          and 'no module docstring' in stopped))
+            cases.append(('the hand-typed table is gone from the generator',
+                          not hasattr(bv, 'TOOLS_DESCRIPTIONS')))
+            # Only the engine's own repository may call its map Precedent's
+            # own; a set's or a consumer's map describes that repository.
+            here = pathlib.Path(td) / 'elsewhere'
+            (here / 'tools').mkdir(parents=True)
+            (here / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+            (tools / 'zz_fixture_tool.py').write_text('"""A tool\n"""\n', encoding='utf-8')
+            cases.append(('a map outside the engine\'s own repository introduces '
+                          'that repository, not Precedent',
+                          "Precedent's own repo map" not in bv.render_map_md([], root=here)
+                          and "This repository's map" in bv.render_map_md([], root=here)
+                          and "Precedent's own repo map" in bv.render_map_md([], root=td)))
+        finally:
+            sys.path.pop(0)
+    real = sorted(p.name for p in (ROOT / 'tools').glob('*.py'))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as _bv
+        undescribed = [n for n in real if not _bv.tool_summary(ROOT / 'tools' / n)]
+    finally:
+        sys.path.pop(0)
+    cases.append(('every tool here has a summary line', not undescribed))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + (f' -- undescribed: {undescribed}' if undescribed else ''))
+
+
+def check_where_things_are_from_one_source():
+    """WHERE_THINGS_ARE.md and AGENTS.md's short table are both generated
+    from where_things_are.json (spec/GENERATED_FILES_PLAN.md step 2; Morgan,
+    2026-10-03: a copy cites its original or is generated from one source).
+    The failures that matter: the two tables disagreeing again, a row
+    pointing at a path that does not exist, and a short table out of order
+    or missing its pointer to the full page."""
+    import json as _json, tempfile
+    name = 'WHERE_THINGS_ARE.md and AGENTS.md\'s short table come from one source'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    if not hasattr(bv, 'render_where_things_are'):
+        not_applicable(name, 'this engine predates where_things_are.json')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'here.md').write_text('x\n', encoding='utf-8')
+        src = {'intro': ['Intro line.'], 'rows': [
+            {'looking_for': 'Second quick', 'go_to': '[here.md](here.md)', 'quick': 2},
+            {'looking_for': 'Full page only', 'go_to': '[here.md](here.md#a)'},
+            {'looking_for': 'First quick', 'go_to': '[out](https://example.com)', 'quick': 1}]}
+        (root / bv.WHERE_SOURCE).write_text(_json.dumps(src), encoding='utf-8')
+        data = bv._where_source(root)
+        page = bv.render_where_things_are(data)
+        cases.append(('the full page carries every row, labelled as generated',
+                      page.startswith('---\ngenerated_by: tools/build_views.py')
+                      and all(f"| {r['looking_for']} |" in page for r in src['rows'])))
+        agents = (f'before\n{bv.QUICK_BEGIN}\nstale hand row\n{bv.QUICK_END}\nafter\n')
+        out = bv.splice_quick_index(agents, data)
+        body = out[out.index(bv.QUICK_BEGIN):out.index(bv.QUICK_END)]
+        cases.append(('the short table carries only the quick rows, in their '
+                      'order, then the pointer to the full page',
+                      'stale hand row' not in body and 'Full page only' not in body
+                      and body.index('First quick') < body.index('Second quick')
+                      < body.index('Anything else — the full index')
+                      and out.startswith('before\n') and out.endswith('after\n')))
+        try:
+            bv.splice_quick_index('no markers\n', data)
+            said = ''
+        except SystemExit as e:
+            said = str(e)
+        cases.append(('a source with nowhere to write the short table stops the '
+                      'build and says so', 'markers' in said))
+        src['rows'].append({'looking_for': 'Moved away', 'go_to': '[gone](gone/file.md)'})
+        (root / bv.WHERE_SOURCE).write_text(_json.dumps(src), encoding='utf-8')
+        try:
+            bv._where_source(root)
+            said = ''
+        except SystemExit as e:
+            said = str(e)
+        cases.append(('a row linking to a path that does not exist stops the '
+                      'build, naming the row', 'gone/file.md' in said
+                      and 'Moved away' in said))
+    real = ROOT / bv.WHERE_SOURCE
+    if real.is_file():
+        agents = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
+        page = (ROOT / bv.WHERE_PAGE).read_text(encoding='utf-8')
+        short = agents[agents.index(bv.QUICK_BEGIN):agents.index(bv.QUICK_END)]
+        rows = [l for l in short.splitlines() if l.startswith('| ')
+                and not l.startswith(('| Looking', '| Anything else'))]
+        cases.append(('here, every row of AGENTS.md\'s short table is in the full '
+                      'page word for word', rows and all(r in page for r in rows)))
+        reg = _json.loads((ROOT / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
+        paths = {(e.get('path'), e.get('part')) for e in reg.get('files', [])}
+        cases.append(('both are in the list of generated files',
+                      (bv.WHERE_PAGE, None) in paths
+                      and ('AGENTS.md', bv.QUICK_BEGIN) in paths))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_commit_rebuilds_generated_files():
+    """The commit backstop rebuilds the generated files whose inputs a commit
+    touches and stages them (spec/GENERATED_FILES_PLAN.md step 3; Morgan,
+    2026-10-03: generated files are auto-updated as their sources change).
+    The failures that matter: a stale generated file committed with no one
+    noticing; a rebuild that sweeps unstaged work into the commit or
+    overwrites it unrecoverably (practice: repair-cannot-discard-work); a
+    fixer that blocks a commit; and running what cannot be rebuilt offline."""
+    import json as _json, tempfile, shutil as _shutil
+    name = 'a commit rebuilds and stages the generated files its sources feed'
+    tool = ROOT / 'tools' / 'precedent_regenerate.py'
+    hook_src = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not tool.exists() or not hook_src.exists():
+        not_applicable(name, 'tools/precedent_regenerate.py or the commit hook is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), HOME=str(tmp))
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(work), *a],
+                                  capture_output=True, text=True, env=env)
+        git('init', '-q', '-b', 'main')
+        _shutil.copy2(tool, work / 'tools' / 'precedent_regenerate.py')
+        # A generator that writes OUT.md from src/*.txt and leaves a mark
+        # each time it runs; one that always fails; one that must never run.
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'pathlib.Path("RAN").write_text("x")\n'
+            'parts = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("OUT.md").write_text("".join(p.read_text() for p in parts))\n',
+            encoding='utf-8')
+        (work / 'tools' / 'snap.py').write_text(
+            'import pathlib\npathlib.Path("SNAP_RAN").write_text("x")\n', encoding='utf-8')
+        (work / 'src').mkdir()
+        (work / 'src' / 'a.txt').write_text('a\n', encoding='utf-8')
+        (work / 'OUT.md').write_text('a\n', encoding='utf-8')
+        (work / 'SNAP.md').write_text('snapshot\n', encoding='utf-8')
+        (work / 'tools' / 'generated_files.json').write_text(_json.dumps({'files': [
+            {'path': 'OUT.md', 'generated_by': 'tools/gen.py', 'edit_instead': 'src/*.txt',
+             'regenerate': 'python3 tools/gen.py', 'check': ['tools/gen.py']},
+            {'path': 'SNAP.md', 'generated_by': 'tools/snap.py', 'edit_instead': None,
+             'regenerate': 'python3 tools/snap.py', 'check': None}]}), encoding='utf-8')
+        (work / '.gitignore').write_text('RAN\nSNAP_RAN\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'init')
+        # The real hook's fixer block, cut from commit-identity.sh, as this
+        # fixture's own pre-commit hook.
+        text = hook_src.read_text(encoding='utf-8')
+        start = text.index("# The engine's own commit-time fixer")
+        end = text.index('esac', start) + len('esac')
+        block = text[start:end].replace('\\$', '$')
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        (hooks / 'pre-commit').write_text('#!/bin/sh\n' + block + '\nexit 0\n', encoding='utf-8')
+        (hooks / 'pre-commit').chmod(0o755)
+        git('config', 'core.hooksPath', str(hooks))
+
+        def commit(msg):
+            r = git('commit', '-q', '-m', msg)
+            return r.returncode, r.stdout + r.stderr
+
+        # 1. A source changes; the generated file is rebuilt and in the commit.
+        (work / 'src' / 'b.txt').write_text('b\n', encoding='utf-8')
+        git('add', 'src/b.txt')
+        rc, out = commit('add a source')
+        shown = git('show', 'HEAD:OUT.md').stdout
+        cases.append(('a commit touching a source carries the rebuilt generated '
+                      'file, and says so', rc == 0 and shown == 'a\nb\n'
+                      and 'rebuilt and staged OUT.md' in out))
+        # 2. Nothing the generator reads: it does not run.
+        (work / 'RAN').unlink()
+        (work / 'notes.txt').write_text('n\n', encoding='utf-8')
+        git('add', 'notes.txt')
+        rc, out = commit('unrelated')
+        cases.append(('an unrelated commit runs no generator', rc == 0
+                      and not (work / 'RAN').exists()))
+        # Its own generator changes, which would make any other entry due.
+        (work / 'tools' / 'snap.py').write_text(
+            'import pathlib\npathlib.Path("SNAP_RAN").write_text("y")\n', encoding='utf-8')
+        git('add', 'tools/snap.py')
+        rc, out = commit('touch the snapshot generator')
+        cases.append(('an entry nothing offline can rebuild never runs, even when '
+                      'its own generator changes', rc == 0
+                      and not (work / 'SNAP_RAN').exists()))
+        # 3. Unstaged changes of the session's own in the generated file:
+        # rebuilt, NOT staged, and said.
+        (work / 'OUT.md').write_text('a\nb\nmy unstaged note\n', encoding='utf-8')
+        (work / 'src' / 'c.txt').write_text('c\n', encoding='utf-8')
+        git('add', 'src/c.txt')
+        rc, out = commit('source with unstaged generated edits')
+        cases.append(('a generated file with unstaged changes is not swept into '
+                      'the commit, and the commit says so',
+                      rc == 0 and 'NOT added to this commit' in out
+                      and git('show', 'HEAD:OUT.md').stdout == 'a\nb\n'))
+        git('checkout', '-q', '--', 'OUT.md')
+        # 4. A staged hand edit to the generated file, then a source change:
+        # rebuilt and committed, and the hand edit kept, not lost.
+        (work / 'OUT.md').write_text('hand edit\n', encoding='utf-8')
+        (work / 'src' / 'd.txt').write_text('d\n', encoding='utf-8')
+        git('add', 'OUT.md', 'src/d.txt')
+        rc, out = commit('hand edit plus source')
+        kept = work / '.git' / 'precedent-regenerate' / 'OUT.md'
+        cases.append(('a hand edit the rebuild replaces is kept, said, and the '
+                      'commit carries the rebuilt file', rc == 0
+                      and kept.is_file() and kept.read_text() == 'hand edit\n'
+                      and 'is kept at' in out
+                      and git('show', 'HEAD:OUT.md').stdout == 'a\nb\nc\nd\n'))
+        # 4b. A generated block inside a hand-written document (doc_sync.py's
+        # kind) is refreshed when a commit touches what its script reads, and
+        # a document with unstaged changes of its own is not swept in.
+        (work / 'tools' / 'doc_sync.py').write_text(
+            'import pathlib, sys\n'
+            'n = len(list(pathlib.Path("src").glob("*.txt")))\n'
+            'p = pathlib.Path("BLOCKS.md")\n'
+            'new = f"Sources: <!--gen:n-->{n}<!--/gen:n-->\\n" + p.read_text().split("\\n", 1)[1]\n'
+            'if "--write" in sys.argv and new != p.read_text():\n'
+            '    p.write_text(new); print("[doc_sync] WROTE BLOCKS.md [n]")\n',
+            encoding='utf-8')
+        (work / 'BLOCKS.md').write_text('Sources: <!--gen:n-->0<!--/gen:n-->\nHand text.\n',
+                                        encoding='utf-8')
+        git('add', 'tools/doc_sync.py', 'BLOCKS.md')
+        git('commit', '-q', '-m', 'a document with a generated block')
+        cases.append(('a generated block inside a document is refreshed and committed '
+                      'with the change that moved it',
+                      git('show', 'HEAD:BLOCKS.md').stdout.startswith(
+                          'Sources: <!--gen:n-->4<!--/gen:n-->')))
+        (work / 'BLOCKS.md').write_text(
+            (work / 'BLOCKS.md').read_text(encoding='utf-8') + 'My unstaged edit.\n',
+            encoding='utf-8')
+        (work / 'src' / 'f.txt').write_text('f\n', encoding='utf-8')
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'parts = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("OUT.md").write_text("".join(p.read_text() for p in parts))\n',
+            encoding='utf-8')
+        git('add', 'src/f.txt', 'tools/gen.py')
+        rc, out = commit('a source, with an unstaged edit in the document')
+        cases.append(('...but a document with unstaged changes of its own is not '
+                      'swept into the commit, and it says so',
+                      rc == 0 and 'Hand text.\n' == git('show', 'HEAD:BLOCKS.md').stdout.split('\n', 1)[1]
+                      and 'blocks in BLOCKS.md' in out and 'NOT added' in out))
+        git('checkout', '-q', '--', 'BLOCKS.md')
+        # 5. A generator that fails never blocks the commit.
+        (work / 'tools' / 'gen.py').write_text('raise SystemExit(3)\n', encoding='utf-8')
+        (work / 'src' / 'e.txt').write_text('e\n', encoding='utf-8')
+        git('add', 'tools/gen.py', 'src/e.txt')
+        rc, out = commit('a broken generator')
+        cases.append(('a failing generator never blocks the commit, and says '
+                      'what failed', rc == 0 and 'failed' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_migrate_views_keeps_every_word():
+    """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
+    into MAP.source.md and GLOSSARY.source.md and generates both from then
+    on (spec/GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03). The
+    failures that matter are all losses: a word of the repository's own text
+    missing after regeneration, a failed migration that leaves things half
+    changed (practice: repair-cannot-discard-work), a view a vendor update
+    already overwrote that cannot be brought back, and a second run that
+    disturbs a migrated repository."""
+    import tempfile, json as _json
+    name = 'migrating the views keeps every word a repository wrote'
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_migrate_views.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(pathlib.Path(td) / 'none.json'))
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def migrate(*a):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(repo), *a],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
+            'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        hand_map = ('<!-- Last updated: 2026-09-30 by Someone, to version 7 -->\n'
+                    '# Repository map\n\nOur one deliverable is [THE_THING.md](THE_THING.md).\n\n'
+                    '## Known consumers\n\n| Repo | Since |\n|---|---|\n| a/b | 2026-09-01 |\n')
+        hand_glossary = '# Canonical names\n\n## Our names\n\n| Name | Meaning |\n|---|---|\n| HVR | Human voice rules |\n'
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        (repo / 'todo').mkdir()
+        (repo / 'todo' / 'TODO.md').write_text(
+            '---\ngenerated_by: tools/build_todo_index.py\nedit_instead: "todo/todo-*.md"\n'
+            'note: "Generated."\n---\n# TODO\n', encoding='utf-8')
+        (repo / 'process' / 'upstream').mkdir(parents=True)
+        (repo / 'process' / 'upstream' / 'GLOSSARY.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "x"\n---\n# Upstream\n',
+            encoding='utf-8')
+        agents_before = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        git('init', '-q', '-b', 'main')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'hand-written views')
+        first = git('rev-parse', 'HEAD').stdout.strip()
+
+        rc, out = migrate('--check')
+        cases.append(('--check says what it would do and changes nothing',
+                      rc == 0 and 'would move MAP.md into MAP.source.md' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map))
+        rc, out = migrate()
+        m = (repo / 'MAP.md').read_text(encoding='utf-8')
+        g = (repo / 'GLOSSARY.md').read_text(encoding='utf-8')
+        cases.append(('each hand-written view moves into its source byte for byte',
+                      rc == 0 and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8') == hand_glossary))
+        cases.append(('...and the generated map carries every word of it, then the '
+                      'catalogue, labelled as generated from the source',
+                      m.startswith('---\ngenerated_by: tools/build_views.py')
+                      and 'MAP.source.md' in m.split('---', 2)[1]
+                      and hand_map.rstrip('\n') in m
+                      and m.index(hand_map.rstrip('\n')) < m.index('## The practice catalogue')
+                      and '[zz-fixture](practices/zz-fixture.md)' in m))
+        cases.append(('...and the generated glossary carries its own names, then '
+                      'the names the practices define',
+                      hand_glossary.rstrip('\n') in g and '| Fixture Term |' in g))
+        reg = _json.loads((repo / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
+        cases.append(('...and both are in the repository\'s own list, with their '
+                      'sources as inputs, beside every other file that says it is '
+                      'generated, read from its own label -- never a vendored copy of '
+                      'another repository\'s',
+                      {e['path']: e['edit_instead'] for e in reg['files']}
+                      == {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md',
+                          'todo/TODO.md': 'todo/todo-*.md'}))
+        cases.append(('...and AGENTS.md is never touched: its loader block is the '
+                      'view sync\'s to write',
+                      (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
+        before = m
+        rc, out = migrate()
+        cases.append(('a second run finds nothing to do and changes nothing',
+                      rc == 0 and 'nothing to migrate' in out
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == before))
+        (repo / 'MAP.source.md').write_text(hand_map + '\nA new line.\n', encoding='utf-8')
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo)], capture_output=True, text=True, env=env)
+        cases.append(('afterwards the map follows its source',
+                      'A new line.' in (repo / 'MAP.md').read_text(encoding='utf-8')))
+
+        # A view a vendor update already overwrote: brought back from the
+        # commit the person names.
+        git('add', '-A')
+        git('commit', '-q', '-m', 'migrated')
+        (repo / 'MAP.source.md').unlink()
+        git('commit', '-q', '-am', 'lose the source, as an overwrite did')
+        rc, out = migrate('--restore-map-from', first)
+        cases.append(('--restore-map-from brings back the hand-written map from '
+                      'the named commit', rc == 0
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        rc, out = migrate('--restore-map-from', 'HEAD')
+        cases.append(('...never restores over a source that already exists',
+                      rc != 0 and 'already exists' in out
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        (repo / 'MAP.source.md').unlink()
+        rc, out = migrate('--restore-map-from', 'HEAD')
+        cases.append(('...and refuses a commit where the map was already generated',
+                      rc != 0 and 'already generated' in out
+                      and not (repo / 'MAP.source.md').exists()))
+
+        # A migration that cannot keep the text leaves nothing changed.
+        (repo / 'MAP.source.md').unlink(missing_ok=True)
+        (repo / 'GLOSSARY.source.md').unlink(missing_ok=True)
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('# Agents, with no loader markers\n', encoding='utf-8')
+        rc, out = migrate()
+        cases.append(('a migration that cannot regenerate puts everything back and '
+                      'says so', rc == 1 and 'REFUSED' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == hand_glossary))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_tracked_views_read_the_same_whoever_regenerates():
+    """The standing instruction in a tracked AGENTS.md points at
+    .precedent/SESSION_PRACTICES.md only when a source THIS REPOSITORY
+    declares is deferred there, never because the person regenerating it
+    brings a set of their own. Found 2026-10-03 on a real consumer's copy:
+    counting a brought set wrote the pointer for whoever brings one, so
+    build_views.py and the view sync disagreed and the repository's full
+    check failed for every such person after an engine update."""
+    name = 'a tracked view reads the same whoever regenerates it'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    import tempfile
+    cases = []
+    real = bv.sources_for_tracked_block
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+        try:
+            bv.sources_for_tracked_block = lambda r, d: (
+                [], [{'name': 'precedent-shared-ladder', 'brought': True}], [])
+            only_brought = bv.defers_any_source(root)
+            bv.sources_for_tracked_block = lambda r, d: (
+                [], [{'name': 'precedent-shared-ladder', 'brought': True},
+                     {'name': 'precedent-shared-writing'}], [])
+            declared_too = bv.defers_any_source(root)
+        finally:
+            bv.sources_for_tracked_block = real
+    cases.append(('a set only the person brings does not put the pointer in a '
+                  'tracked file', only_brought is False))
+    cases.append(('...while a source the repository declares and defers still does',
+                  declared_too is True))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_stale_views_say_why_and_stop_at_the_push():
+    """A repository's generated views going stale because a practice source
+    changed is said with its cause and its command, and stops the push to
+    pre-staging, not only the Debut (2026-10-03: a reduction pass retired
+    practices in the shared sets, a consumer was never re-synced, and the
+    full check's message sent its session after missing sources). The
+    failures that matter: a stale view that passes the basic tier, a message
+    that does not name the cause, and a check that fails a push only because
+    a source is not cloned here."""
+    import tempfile, json as _json
+    name = 'stale generated views say why, and stop at the push'
+    tool = ROOT / 'tools' / 'precedent_sync_views.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        universal, consumer = tmp / 'u', tmp / 'consumer'
+        (universal / 'practices').mkdir(parents=True)
+        def practice(slug, rule):
+            (universal / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: resident\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "x"\ngates: []\nindex_clause: "x"\n'
+                f'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+                f'overrides: null\nadded: null\napproved_by: "x"\nsource_practice_number: null\n'
+                f'---\n## Rule\n{rule}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+                encoding='utf-8')
+        practice('uni-fixture', 'A universal fixture rule.')
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(_json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)}]}),
+            encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text('# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                            '<!-- END GENERATED -->\n', encoding='utf-8')
+        user_cfg = tmp / 'none.json'
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(consumer),
+                                '--user-config', str(user_cfg), *extra],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+        run()
+        rc, out = run('--check')
+        cases.append(('right after a sync, the check passes', rc == 0))
+        practice('uni-fixture', 'The same rule, reworded upstream.')
+        rc, out = run('--check')
+        cases.append(('a source that changed since the sync fails the check, naming '
+                      'the cause and the command',
+                      rc != 0 and 'practice source this repository declares changed' in out
+                      and 'Fix: python3 tools/precedent_sync_views.py --repo .' in out))
+        import shutil as _shutil
+        _shutil.rmtree(universal)
+        rc, out = run('--check', '--skip-unresolved')
+        cases.append(('...while a source that is not here at all is said and skipped '
+                      'when asked, never read as stale views',
+                      rc == 0 and 'SKIPPED' in out and 'could not be resolved' in out))
+        rc, out = run('--check')
+        cases.append(('...and without --skip-unresolved it still fails, saying first '
+                      'that a source is missing, so the differences are not read as '
+                      'stale views', rc != 0 and 'did not resolve here' in out))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as _ppc
+    finally:
+        sys.path.pop(0)
+    step = [s for s in _ppc.PUSH_CHECKS['consumer'] if s[0] == 'views_sync']
+    cases.append(('a repository that uses Precedent runs the check at the basic '
+                  'tier, skipping sources it cannot reach',
+                  'views_sync' in _ppc.BASIC_CHECKS and step
+                  and '--skip-unresolved' in step[0][1]))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_stale_freshness_also_says_delete_it():
+    """PRECEDENT_FRESHNESS_ALSO, not needed since 2026-09-30, is told to be
+    deleted rather than given a new value when every entry names a practice
+    set or a retired precedent-team-* path, and Update Vendors' rename step
+    says so too (reported 2026-10-03: the session check warned at every turn
+    about the old team paths and offered a corrected value). An entry naming
+    a repository nothing declares still keeps the variable worth having."""
+    import tempfile
+    name = 'a stale PRECEDENT_FRESHNESS_ALSO is told to be deleted'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_check as psc
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
+
+    def row(value):
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = value
+        return [r for r in psc.checks() if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            pset = tmp / 'precedent-shared-fixture'
+            pset.mkdir()
+            (pset / 'precedent-source.json').write_text('{}', encoding='utf-8')
+            other = tmp / 'some-project'
+            (other / '.git').mkdir(parents=True)
+            r = row(f'{tmp}/precedent-team-fixture=main;{pset}=main')
+            cases.append(('old team paths plus a practice set: warned, and told to '
+                          'delete the variable, never given a new value',
+                          r[1] is False and 'Delete PRECEDENT_FRESHNESS_ALSO' in r[2]
+                          and 'do not replace it' in r[2] and 'Set it to' not in r[2]))
+            r = row(f'{pset}=main')
+            cases.append(('only practice sets: not a warning, but said to be unneeded',
+                          r[1] is True and 'not needed' in r[2]))
+            r = row(f'{other}=main')
+            cases.append(('a repository nothing declares keeps the variable worth '
+                          'having', r[1] is True and 'Delete' not in r[2]))
+            os.environ['PRECEDENT_FRESHNESS_ALSO'] = f'{tmp}/precedent-team-fixture=main'
+            rep = pu.Report()
+            pu.renamed_sources_step(tmp, rep, '')
+            cases.append(('Update Vendors\' rename step notes the stale variable, to '
+                          'delete, without holding up the update',
+                          any(n == 'environment' and 'delete it' in o for n, o in rep.steps)
+                          and not rep.left))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
+        else:
+            os.environ['PRECEDENT_FRESHNESS_ALSO'] = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -10426,6 +11047,100 @@ def check_push_to_main_skips_what_already_passed():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_migrates_hand_written_views():
+    """Update Vendors moves a repository's hand-written MAP.md and GLOSSARY.md
+    into their source files and generates both from then on (spec/
+    GENERATED_FILES_PLAN.md step 5), through migrate_views_step. The
+    failures that matter: the step silently not running, a refusal that is
+    not handed to the person, headings the headline rule will now flag that
+    nobody is told about, and a rerun that reports work it did not do."""
+    import tempfile, shutil as _shutil
+    name = 'Update Vendors migrates hand-written views and says what is left'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    if not hasattr(pu, 'migrate_views_step'):
+        not_applicable(name, 'this engine predates the migration step')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'consumer'
+        (d / 'tools').mkdir(parents=True)
+        for f in (ROOT / 'tools').glob('*.py'):
+            _shutil.copy2(f, d / 'tools' / f.name)
+        (d / 'practices').mkdir()
+        (d / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     []\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
+            'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        # The practice the provenance check enforces is in force here, as it
+        # is in every repository that uses Precedent.
+        _shutil.copy2(ROOT / 'practices' / 'generated-artifact-provenance.md',
+                      d / 'practices' / 'generated-artifact-provenance.md')
+        agents = ('# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                  '<!-- END GENERATED -->\n')
+        (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        hand_map = '# Repository map\n\n## Known consumers\n\nOne.\n'
+        (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (d / 'GLOSSARY.md').write_text('# Our Names\n\n| A | B |\n|---|---|\n', encoding='utf-8')
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='F',
+                   GIT_AUTHOR_EMAIL='f@example.com', GIT_COMMITTER_NAME='F',
+                   GIT_COMMITTER_EMAIL='f@example.com')
+        # The loader block as a sync leaves it, as in any real repository.
+        subprocess.run([sys.executable, str(d / 'tools' / 'build_views.py'), '--repo',
+                        str(d), '--agents-only'], capture_output=True, env=env)
+        subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'], env=env, check=True)
+        def provenance():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'generated-artifact-provenance'], cwd=str(d),
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = provenance()
+        cases.append(('before it migrates, the full check names a hand-written map '
+                      'and the command that migrates it',
+                      rc != 0 and 'MAP.md: is written by hand' in out
+                      and 'precedent_migrate_views.py' in out))
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        rc, out = provenance()
+        cases.append(('...and after, it passes', rc == 0))
+        cases.append(('the step migrates both views and reports it',
+                      any(n == 'views migrated' and 'MAP.md and GLOSSARY.md' in o
+                          for n, o in rep.steps)
+                      and (d / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        cases.append(('...and hands the person the moved headings the headline '
+                      'rule now reaches, with the command that fixes them',
+                      any('MAP.source.md' in w and 'title_case.py --write' in why
+                          for w, why in rep.left)))
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('a rerun reports nothing and leaves nothing',
+                      not rep.steps and not rep.left))
+        # A migration that would lose text: handed to the person, nothing changed.
+        for f in ('MAP.source.md', 'GLOSSARY.source.md'):
+            (d / f).unlink()
+        (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (d / 'AGENTS.md').write_text('# Agents with no loader markers\n', encoding='utf-8')
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('a migration that would lose text is left for the person, '
+                      'and nothing changed',
+                      any(w == 'MAP.md / GLOSSARY.md' and 'without losing text' in why
+                          for w, why in rep.left)
+                      and not (d / 'MAP.source.md').exists()
+                      and (d / 'MAP.md').read_text(encoding='utf-8') == hand_map))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_update_vendors_updates_a_section_0_catalogue():
@@ -25323,23 +26038,37 @@ def check_promote_pre_staging():
 
         before = tip('beta')
         commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
+        pre_before = tip('pre-staging')
         rc, out = branches('--promote')
-        cases.append(('a batch failing a full-only check is refused and staging '
-                      'does not move', rc == 1 and 'PROMOTE REFUSED' in out
-                      and 'precedent_check' in out and tip('beta') == before))
+        fixes = [l.split()[-1][len('refs/heads/'):] for l in git(
+            work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*').stdout.splitlines()]
+        cases.append(('a batch failing a full-only check is not finished: neither '
+                      'staging nor pre-staging moves, and it says what failed',
+                      rc == 1 and 'PROMOTE NOT FINISHED' in out
+                      and 'precedent_check' in out and tip('beta') == before
+                      and tip('pre-staging') == pre_before))
+        cases.append(('...and the composition it checked is on a fix branch, with '
+                      'the command that finishes it', len(fixes) == 1
+                      and f'--work {fixes[0]}' in out and git(
+                          work, 'merge-base', '--is-ancestor', pre_before,
+                          tip(fixes[0])).returncode == 0))
 
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-fix', 'origin/pre-staging')
         git(work, 'rm', '-q', 'FAIL')
         git(work, 'commit', '-q', '-m', 'fix it')
         git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        promoted = tip('pre-staging')
         rc, out = branches('--promote')
         git(work, 'fetch', '-q', 'origin')
         parents = git(work, 'rev-list', '--parents', '-n', '1', 'origin/beta').stdout.split()
         msg = git(work, 'log', '-1', '--format=%B', 'origin/beta').stdout
         cases.append(('a passing batch is promoted', rc == 0 and 'PROMOTED' in out))
-        cases.append(('as a merge commit whose second parent is pre-staging',
-                      len(parents) == 3 and parents[2] == tip('pre-staging')))
+        cases.append(('as a merge commit whose second parent is the pre-staging '
+                      'it promoted', len(parents) == 3 and parents[2] == promoted))
+        cases.append(('...and pre-staging moves to that same commit, level with '
+                      'staging', tip('pre-staging') == tip('beta')
+                      and 'both at' in out))
         cases.append(("and staging's head carries no [skip ci], though a "
                       "promoted commit did", '[skip ci]' not in msg))
         cases.append(('and it says the full check ran, rather than leaving a '
@@ -27109,6 +27838,20 @@ def check_main_test_cadence():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _write_generator_fixture(work):
+    """A stand-in generator under a name the engine rebuilds bare
+    (precedent_branches.REBUILT_BARE): OUT.md from src.txt, with a sum line
+    so that two sides' rebuilds always conflict rather than merging."""
+    (work / 'tools' / 'build_todo_index.py').write_text(
+        'import pathlib, hashlib\nsrc = pathlib.Path("src.txt").read_text()\n'
+        'pathlib.Path("OUT.md").write_text('
+        '"---\\ngenerated_by: tools/build_todo_index.py\\n---\\nsum: "'
+        ' + hashlib.md5(src.encode()).hexdigest() + "\\n" + src.upper())\n',
+        encoding='utf-8')
+    if not (work / 'src.txt').exists():
+        (work / 'src.txt').write_text('a\nb\nc\n', encoding='utf-8')
+
+
 def check_sync_copies_work_from_above_once_checked():
     """What reached staging or main without climbing through pre-staging --
     a workflow's bot commit on main, a web edit, a direct push -- is copied
@@ -27225,22 +27968,30 @@ def check_sync_copies_work_from_above_once_checked():
                       and rc2 == 0 and out.strip() == ''
                       and tip('pre-staging') == before))
 
-        # A bot commit straight onto main, with no check on record.
+        # A bot commit straight onto main, with no check on record. Main's
+        # work is never copied by the sync (D10, Morgan 2026-10-03): it comes
+        # down only composed and fully checked in a Promote into staging --
+        # check_promote_composes_main_and_moves_both_tiers.
         commit_to('main', 'state.json', '{"n": 1}\n', 'bot: weekly sync')
         rc, report = branches('--drift')
         cases.append(('the session-start note names main, the count, and '
-                      '"unchecked", with the --check command',
-                      'origin/main is 1 commit(s) ahead' in report
-                      and '(unchecked)' in report and '--check' in report
+                      '"unchecked", and names the Promote into staging that '
+                      'brings it in', 'origin/main is 1 commit(s) ahead' in report
+                      and '(unchecked)' in report
+                      and '--promote --to staging' in report
+                      and '--sync-pre-staging' not in report
                       and 'origin/staging' not in report))
+        before = tip('pre-staging')
         rc, out = branches('--sync-pre-staging')
-        cases.append(('the quick sync (Go update) does not copy unchecked work '
-                      'from main, and says why and what to run',
-                      rc == 0 and 'NOT COPIED YET' in out and 'main has 1 commit(s)' in out
-                      and 'no full local check on record' in out
-                      and tip('pre-staging') == before))
+        rc2, out2 = branches('--sync-pre-staging', '--check')
+        cases.append(('the sync leaves main\'s work for that Promote, with or '
+                      'without --check, and says so',
+                      rc == 0 and rc2 == 0 and 'LEFT FOR THE NEXT PROMOTE' in out
+                      and 'LEFT FOR THE NEXT PROMOTE' in out2
+                      and not has('main') and tip('pre-staging') == before))
 
-        # The same commit once its tree has a full-check receipt on origin.
+        # A commit whose tree has a full-check receipt on origin.
+        commit_to('main', 'state.json', '{"n": 1.5}\n', 'bot: a checked commit')
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '--detach', 'origin/main')
         subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full',
@@ -27251,56 +28002,40 @@ def check_sync_copies_work_from_above_once_checked():
                       'reads "(checked)"', '(checked)' in report
                       and '--check' not in report))
         rc, out = branches('--sync-pre-staging')
-        cases.append(('checked work from main is copied down by the quick sync',
-                      rc == 0 and 'merged main into pre-staging' in out and has('main')))
+        cases.append(('...and even checked, main\'s work is left for the Promote: '
+                      'pre-staging takes only compositions that passed',
+                      rc == 0 and 'LEFT FOR THE NEXT PROMOTE' in out
+                      and not has('main')))
 
-        # Unchecked again; --check runs the full check, then copies.
-        commit_to('main', 'state.json', '{"n": 2}\n', 'bot: weekly sync again')
-        rc, out = branches('--sync-pre-staging', '--check')
-        cases.append(('with --check, an unchecked commit gets the full check and, '
-                      'passing, is copied down', rc == 0 and has('main')
-                      and 'merged main into pre-staging' in out))
-
-        # A commit on main that fails the full check: not copied, and loud.
-        commit_to('main', 'FAIL', 'precedent_check', 'a web edit that breaks a check')
-        bad = tip('main')
-        before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging', '--check')
-        cases.append(('a commit on main failing its checks is not copied, and the '
-                      'report names the commit, the tier and the way to fix it',
-                      rc == 0 and tip('pre-staging') == before
-                      and 'NOT COPIED' in out and 'did not pass the main checks' in out
-                      and bad[:12] in out and 'pull request into main' in out
-                      and 'precedent_check' in out))
-        commit_to('main', 'FAIL', '', 'fix the web edit')
-
-        # A conflict: main and pre-staging change the same line.
-        commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
-        commit_to('main', 'list.txt', 'Y\nb\nc\n', 'main edits line 1 too')
-        before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging', '--check')
-        cases.append(('a commit on main that conflicts with pre-staging stops the '
-                      'sync, pushes nothing, and says so', rc == 1
-                      and 'does not merge cleanly' in out and tip('pre-staging') == before))
-        commit_to('pre-staging', 'list.txt', 'Y\nb\nc\n', 'settle line 1')
-
-        # Promote with nothing waiting on pre-staging still brings main down.
-        # Every tier level first, so no step is waiting; then a bot commit.
+        # Both sides changed a GENERATED file (2026-10-03: two tiers each
+        # rebuilt spec/PREFORK_AUDIT.html): rebuilt from the merged sources by
+        # its own generator, never one side taken. Staging's direct push is
+        # the upper side here; the Promote's composition with main is
+        # check_promote_composes_main_and_moves_both_tiers's.
         git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'st', 'origin/staging')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'catch staging up', 'origin/pre-staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
-        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
-        git(work, 'merge', '-q', '--no-ff', '-m', 'catch main up', 'st')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
-        git(work, 'checkout', '-q', '-B', 'st', 'mn')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
-        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
-        commit_to('main', 'state.json', '{"n": 3}\n', 'bot: a third week')
-        rc, out = branches('--promote')
-        cases.append(('Promote with nothing waiting on pre-staging still checks and '
-                      'copies down what arrived on main', rc == 0
-                      and 'Nothing waits to be promoted' in out and has('main')))
+        git(work, 'checkout', '-q', '-B', 'gen', 'origin/pre-staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'level the two', 'origin/staging')
+        _write_generator_fixture(work)
+        subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'a generated file')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging',
+            'HEAD:refs/heads/staging')
+        for branch, text in (('pre-staging', 'x\nb\nc\n'), ('staging', 'a\nb\nz\n')):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
+            (work / 'src.txt').write_text(text, encoding='utf-8')
+            subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+        rc, out = branches('--sync-pre-staging', '--check')
+        git(work, 'fetch', '-q', 'origin')
+        merged = git(work, 'show', 'origin/pre-staging:OUT.md').stdout
+        cases.append(('a conflict only in a generated file is rebuilt from the '
+                      'merged sources, not stopped and not one side taken',
+                      rc == 0 and has('staging') and 'rebuilt from the merged sources' in out
+                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         cases.append(('no worktree is left behind', len(wts) == 1))
 
@@ -27435,28 +28170,6 @@ def check_sync_copies_work_from_above_once_checked():
                           'started, and that holds the copy and is said',
                           not ok and not gh.posted and 'no workflow_dispatch' in detail))
 
-            # A Debut takes main's GitHub test as it stands (D10, Morgan
-            # 2026-10-02): it neither starts the test nor waits on it, and
-            # only a passed test lets main's work come down.
-            pb.github_tests = lambda root, sha: tests
-            gh = GH([])
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh, wait=False)
-            cases.append(('a Debut does not start a missing GitHub test on main, '
-                          'and holds the copy-down',
-                          not ok and not gh.posted and 'does not wait' in detail))
-            running = dict(ok_run, status='in_progress', conclusion=None)
-            gh = GH([running])
-            calls = []
-            real_state = pb.github_test_state
-            pb.github_test_state = lambda *a, **k: (calls.append(1), real_state(*a, **k))[1]
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh, wait=False)
-            pb.github_test_state = real_state
-            cases.append(('...nor waits on one still running: one look, then on',
-                          not ok and len(calls) == 1 and 'running' in detail))
-            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, GH([ok_run]),
-                                        wait=False)
-            cases.append(('...and a passed test lets main\'s work come down', ok))
-
             # A Produce refuses while main's own test is failing, and lets a
             # passed or absent one through (D10).
             failed = dict(ok_run, conclusion='failure', html_url='U')
@@ -27466,6 +28179,32 @@ def check_sync_copies_work_from_above_once_checked():
             cases.append(('...and goes ahead once it passed, or where none ran',
                           pb.main_test_holds_produce(two, said.append, GH([ok_run])) is None
                           and pb.main_test_holds_produce(two, said.append, GH([])) is None))
+            # ...but not while staging already carries main's failing tip:
+            # that Produce is what repairs main (Morgan, 2026-10-03).
+            import types as _types
+            real_run = pb._run
+            pb._run = lambda r, *a, **k: (
+                _types.SimpleNamespace(returncode=0, stdout='', stderr='')
+                if a[:2] == ('merge-base', '--is-ancestor') else real_run(r, *a, **k))
+            said = []
+            real_receipt = pb._receipt
+            try:
+                pb._receipt = lambda root, sha: None
+                held3 = pb.main_test_holds_produce(two, said.append, GH([failed]))
+                pb._receipt = lambda root, sha: {'at': 'now'}
+                held2 = pb.main_test_holds_produce(two, said.append, GH([failed]))
+            finally:
+                pb._run, pb._receipt = real_run, real_receipt
+            cases.append(('a failing main whose tip staging carries, on a staging tip '
+                          'with no full check on record, still holds the Produce -- '
+                          'checked first, never taken on trust',
+                          bool(held3) and 'no full local check on record' in held3
+                          and 'Debut first' in held3))
+            cases.append(('...and once that tip has passed the full check, the '
+                          'Produce that repairs main goes ahead, and says so',
+                          held2 is None and any('this Produce goes ahead' in x for x in said)))
+            cases.append(('...while one staging does not carry yet still holds it, '
+                          'naming the Debut', bool(held) and 'Debut first' in held))
 
             # --wait-main-test: the wait a Promote into main hands the session.
             pb.github_tests = lambda root, sha: tests
@@ -27491,6 +28230,304 @@ def check_sync_copies_work_from_above_once_checked():
                           'and says so', rc == 0 and 'no GitHub test' in said[-1]))
         finally:
             sys.path.pop(0)
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_promote_composes_main_and_moves_both_tiers():
+    """The Promote into staging -- the ladder's Debut -- composes one tree:
+    staging, then a fix branch it is handed, then work made directly on main,
+    then pre-staging; rebuilds what main left stale; runs the full check on
+    it once; and only then moves staging AND pre-staging to that commit
+    (spec/LADDER_OPT_IN_PLAN.md D10, Morgan 2026-10-03, strength: decided).
+
+    The failures that matter: a tier moving on a tree that failed, or one
+    tier moving without the other; main's work left out, or taken into
+    pre-staging unchecked; a failure or conflict that ends with nowhere to
+    fix it; the fix route not finishing; a generator run that is not safe to
+    run, or a rebuild that churns every render's stamp."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'the Promote into staging composes main and pre-staging, checks once, moves both'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
+        env.pop('PRECEDENT_NO_SHARED_PASS', None)
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'staging', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        # Stubs: each fails when the FAIL file names it; precedent_check also
+        # counts its full runs, and runs PROMOTE_RACE mid-check.
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import os, pathlib, subprocess, sys\n'
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   'name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
+                   '"practice_export_loop" if "practice-export-loop" in '
+                   'sys.argv else "changed_practice" if "--changed-files-only" '
+                   'in sys.argv else "precedent_check")\n'
+                   'if name == "precedent_check" and os.environ.get("RUNS"):\n'
+                   '    open(os.environ["RUNS"], "a").write("run\\n")\n'
+                   'if os.environ.get("PROMOTE_RACE"):\n'
+                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
+        _write_generator_fixture(work)
+        # A render whose generator writes the time it ran: rebuilding it
+        # changes that line and nothing else.
+        (work / 'tools' / 'doc_html.py').write_text(
+            'import datetime, pathlib\n'
+            'now = datetime.datetime.now().isoformat()\n'
+            'pathlib.Path("PAGE.html").write_text('
+            '"<h1>Page</h1>\\n<time class=\\"renderstamp\\" datetime=\\"" + now'
+            ' + "\\">x</time>\\n" + pathlib.Path("src.txt").read_text())\n',
+            encoding='utf-8')
+        # A file whose header names a generator that is NOT safe to run bare:
+        # running it leaves a marker, which must never appear.
+        ran_very_deep = tmp / 'RAN_VERY_DEEP'
+        (work / 'tools' / 'very_deep_check.py').write_text(
+            f'import pathlib\npathlib.Path({str(ran_very_deep)!r}).write_text("x")\n',
+            encoding='utf-8')
+        (work / 'STALE.md').write_text(
+            '---\ngenerated_by: tools/very_deep_check.py\n---\nold\n', encoding='utf-8')
+        (work / '.gitignore').write_text('__pycache__/\n', encoding='utf-8')
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
+                                             encoding='utf-8')
+        (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
+        for tool in ('build_todo_index', 'doc_html'):
+            subprocess.run([sys.executable, f'tools/{tool}.py'], cwd=work, env=env)
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'staging', 'staging:main')
+        runs = tmp / 'runs'
+
+        def branches(*a, extra=None):
+            runs.write_text('')
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True,
+                               env=dict(env, RUNS=str(runs), **(extra or {})))
+            return p.returncode, p.stdout + p.stderr
+
+        def full_runs():
+            return runs.read_text().count('run')
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        def show(b, path):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'show', f'origin/{b}:{path}').stdout
+
+        def commit_to(branch, files, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+            for path, text in files.items():
+                (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+            return git(work, 'rev-parse', 'HEAD').stdout.strip()
+
+        def on(sha, branch):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'merge-base', '--is-ancestor', sha,
+                       f'origin/{branch}').returncode == 0
+
+        def fixes():
+            return sorted(l.split()[-1][len('refs/heads/'):] for l in git(
+                work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*'
+            ).stdout.splitlines())
+
+        def level():
+            return tip('staging') == tip('pre-staging')
+
+        branches('--sync-pre-staging')
+
+        # 1. The ordinary case with main's direct work: one composition, one
+        # check, both tiers to the same commit, main's work in it.
+        own = commit_to('pre-staging', {'mine.txt': 'mine\n'}, 'ladder work')
+        bot = commit_to('main', {'state.json': '{"n": 1}\n'}, 'bot: made on main')
+        rc, out = branches('--promote', '--to', 'staging')
+        subjects = git(work, 'log', '--format=%s', 'origin/staging', '-4').stdout
+        cases.append(('main\'s direct work and pre-staging\'s are composed and '
+                      'both tiers move to the same commit',
+                      rc == 0 and level() and on(bot, 'staging') and on(own, 'staging')
+                      and 'BROUGHT IN 1 commit(s) made directly on main' in out
+                      and 'PROMOTED 1 commit(s)' in out))
+        cases.append(('...main first, then pre-staging, each by a merge commit, '
+                      'checked once', 'Bring main into staging' in subjects
+                      and subjects.startswith('Promote pre-staging into staging')
+                      and full_runs() == 1))
+        cases.append(('...and a generator that is not safe to run bare is never '
+                      'run', not ran_very_deep.exists()))
+        cases.append(('...and a render that only changed its build stamp is left '
+                      'alone', 'Rebuild generated files' not in subjects
+                      and 'REBUILT' not in out))
+
+        # 2. Main edits a source and does not rebuild what is generated from
+        # it -- the commonest off-ladder slip. The Promote rebuilds it.
+        commit_to('main', {'src.txt': 'a\nb\nm\n'}, 'edit a source on main, no rebuild')
+        commit_to('pre-staging', {'more.txt': 'more\n'}, 'more ladder work')
+        rc, out = branches('--promote', '--to', 'staging')
+        cases.append(('what main left stale is rebuilt before the check, and said',
+                      rc == 0 and level() and 'REBUILT' in out and 'OUT.md' in out
+                      and 'A\nB\nM' in show('staging', 'OUT.md')
+                      and 'a\nb\nm' in show('staging', 'PAGE.html')))
+
+        # 3. Main breaks a check. Neither tier moves; the composition goes to
+        # a fix branch; the report says main brought it.
+        s0, p0 = tip('staging'), tip('pre-staging')
+        commit_to('main', {'FAIL': 'precedent_check'}, 'a web edit that breaks a check')
+        commit_to('pre-staging', {'third.txt': '3\n'}, 'third ladder work')
+        p1 = tip('pre-staging')
+        rc, out = branches('--promote', '--to', 'staging')
+        f = fixes() or ['no-fix-branch']
+        cases.append(('a composition failing the full check moves neither tier',
+                      rc == 1 and 'PROMOTE NOT FINISHED' in out
+                      and tip('staging') == s0 and tip('pre-staging') == p1))
+        cases.append(('...pushes it to a fix branch holding main\'s work and '
+                      'pre-staging\'s, and names the command that finishes it',
+                      len(f) == 1 and on(tip('main'), f[0]) and on(p1, f[0])
+                      and f'--work {f[0]}' in out))
+        cases.append(('...and names main\'s commits as where to look first, from '
+                      'staging\'s recorded pass, without a second full check or a '
+                      'verdict', 'Look there first' in out
+                      and 'a web edit that breaks a check' in out
+                      and 'own tip passed the full check' in out
+                      and full_runs() == 1 and 'came from main' not in out))
+        # The session fixes it on that branch and runs the Promote again.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'fixing', f'origin/{f[0]}')
+        (work / 'FAIL').write_text('', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'fix what main broke')
+        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{f[0]}')
+        fixed = tip(f[0])
+        rc, out = branches('--promote', '--to', 'staging', '--work', f[0])
+        cases.append(('the fix branch, handed back with --work, is taken in and '
+                      'both tiers move level', rc == 0 and level()
+                      and on(fixed, 'staging') and on(p1, 'staging')
+                      and show('staging', 'FAIL') == '' and 'TOOK IN' in out))
+
+        # 4. Pre-staging breaks it, while main brought harmless work: the
+        # report says main's work alone passes.
+        commit_to('main', {'state.json': '{"n": 2}\n'}, 'bot: harmless')
+        commit_to('pre-staging', {'FAIL': 'precedent_check'}, 'ladder work that breaks')
+        rc, out = branches('--promote', '--to', 'staging')
+        cases.append(('a failure from pre-staging\'s own work is still not finished, '
+                      'and main is named only as a place to look, never as the cause',
+                      rc == 1 and 'PROMOTE NOT FINISHED' in out
+                      and 'Look there first' in out and 'came from main' not in out))
+        commit_to('pre-staging', {'FAIL': ''}, 'ladder fixes its own break')
+        rc, out = branches('--promote', '--to', 'staging')
+        cases.append(('...and a fix pushed to pre-staging finishes it too',
+                      rc == 0 and level() and on(tip('main'), 'staging')))
+
+        # 5. Hand-written text changed on both sides: not finished, the
+        # composition so far on a fix branch, resolved there, then finished.
+        n = len(fixes())
+        commit_to('main', {'list.txt': 'MAIN\nb\nc\n'}, 'main edits line 1')
+        commit_to('pre-staging', {'list.txt': 'LADDER\nb\nc\n'}, 'ladder edits line 1')
+        s0, p0 = tip('staging'), tip('pre-staging')
+        rc, out = branches('--promote', '--to', 'staging')
+        f = fixes() or ['no-fix-branch']
+        cases.append(('a conflict in hand-written text moves neither tier and '
+                      'says which merge to make on the fix branch',
+                      rc == 1 and 'does not merge cleanly' in out
+                      and tip('staging') == s0 and tip('pre-staging') == p0
+                      and len(f) == n + 1 and f'git merge {p0}' in out))
+        newest = [b for b in f if on(tip('main'), b) and not on(p0, b)] or ['no-fix-branch']
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'resolving', f'origin/{newest[0]}')
+        git(work, 'merge', '-q', p0)
+        (work / 'list.txt').write_text('BOTH\nb\nc\n', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'resolve line 1')
+        git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{newest[0]}')
+        rc, out = branches('--promote', '--to', 'staging', '--work', newest[0])
+        cases.append(('...and, resolved there, the Promote with --work finishes, '
+                      'level, with the resolution',
+                      rc == 0 and level() and show('staging', 'list.txt') == 'BOTH\nb\nc\n'))
+
+        # 6. A generated file both sides rebuilt: rebuilt from the merged
+        # sources, not a conflict.
+        for branch, text in (('pre-staging', 'x\nb\nm\n'), ('main', 'a\nb\nz\n')):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'g-{branch}', f'origin/{branch}')
+            (work / 'src.txt').write_text(text, encoding='utf-8')
+            subprocess.run([sys.executable, 'tools/build_todo_index.py'], cwd=work, env=env)
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', f'{branch} edits the source and rebuilds')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+        rc, out = branches('--promote', '--to', 'staging')
+        merged = show('staging', 'OUT.md')
+        cases.append(('a conflict only in a generated file is rebuilt from the '
+                      'merged sources', rc == 0 and level()
+                      and 'X\nB\nZ' in merged and '<<<<<<<' not in merged))
+
+        # 7. Nothing waits on pre-staging, but main has work: a bare Promote
+        # still composes it and moves both. Main first takes staging, as a
+        # Produce's pull request would, so no step is waiting.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'Merge pull request', 'origin/staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        bot = commit_to('main', {'state.json': '{"n": 3}\n'}, 'bot: a third week')
+        rc, out = branches('--promote')
+        cases.append(('with nothing on pre-staging, a Promote still brings main\'s '
+                      'work into both tiers', rc == 0 and 'Nothing waits to be promoted' in out
+                      and level() and on(bot, 'pre-staging')))
+
+        # 8. Pre-staging gains work while the check runs: nothing moves, and
+        # never one tier without the other.
+        commit_to('pre-staging', {'race.txt': '1\n'}, 'work being promoted')
+        s0 = tip('staging')
+        race = tmp / 'race'
+        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
+        rc, out = branches('--promote', '--to', 'staging', extra={'PROMOTE_RACE': (
+            f'git -C {race} fetch -q origin && '
+            f'git -C {race} checkout -q -B r origin/pre-staging && '
+            f'git -C {race} commit -q --allow-empty -m booked-meanwhile && '
+            f'git -C {race} push -q origin HEAD:refs/heads/pre-staging')})
+        cases.append(('work booked onto pre-staging mid-check: nothing moves, '
+                      'not staging alone either, and it says so',
+                      rc == 1 and tip('staging') == s0
+                      and 'gained work while the check ran' in out))
+
+        # 9. --work naming a branch that is not on pre-staging and is not a
+        # fix branch: said, and never carried past Booked.
+        git(work, 'checkout', '-q', '-B', 'feature', 'origin/pre-staging')
+        (work / 'feature.txt').write_text('f\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'unbooked feature work')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/feature')
+        feature = tip('feature')
+        rc, out = branches('--promote', '--to', 'staging', '--work', 'feature')
+        cases.append(('work that is not on pre-staging is named, and not carried '
+                      'into staging', 'is not on pre-staging' in out
+                      and not on(feature, 'staging')))
+        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
+        cases.append(('no worktree is left behind', len(wts) == 1))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -28096,7 +29133,9 @@ def check_session_check_reports_a_dead_also_list_entry():
     home, proj = '/tmp/fixture-home', '/tmp/fixture-proj'
     saved = {k: os.environ.get(k)
              for k in ('HOME', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_FRESHNESS_ALSO')}
-    # The row's "Set it to: ..." half exists only when there is something to
+    # (Since 2026-10-03 the row never offers a value to set; the pinned list
+    # below stays so neither case can pass by reading this machine.)
+    # The row's "Set it to: ..." half existed only when there was something to
     # suggest, and what there is to suggest is whatever clones happen to sit
     # beside this checkout. Asserting that text while leaving the machine to
     # decide it is a fixture that passes on a developer's container (sibling
@@ -28137,10 +29176,15 @@ def check_session_check_reports_a_dead_also_list_entry():
 
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = '/definitely/not/here=main'
         ok, detail = row()
+        # Never a value to set instead (2026-10-03): the guard checks every
+        # declared set on its own since 2026-09-30, so a suggested value naming
+        # them was the stale advice a session reported. Drop the entry.
         cases.append((f'a dead entry is reported NOT in effect, naming the '
-                      f'path and the value to set instead (ok={ok!r})',
+                      f'path and saying to drop it, never a value to set '
+                      f'(ok={ok!r})',
                       ok is False and '/definitely/not/here' in detail
-                      and 'PRECEDENT_FRESHNESS_ALSO=' in detail))
+                      and 'Drop each' in detail
+                      and 'PRECEDENT_FRESHNESS_ALSO=' not in detail))
 
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = 'no-equals-sign'
         ok, detail = row()
@@ -32499,6 +33543,33 @@ def check_bootstrap_source_produces_resolvable_set():
         cases.append(('bootstrapping an individual set succeeds and writes its files',
                       rc == 0 and (indiv_dest / 'practices' / 'example-starter-individual.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
+        # Its own list of generated files (spec/GENERATED_FILES_PLAN.md step
+        # 4): what its commit rebuilds and its check reads, current from
+        # the first commit.
+        _gf = indiv_dest / 'tools' / 'generated_files.json'
+        _entries = (json.loads(_gf.read_text(encoding='utf-8')).get('files', [])
+                    if _gf.is_file() else [])
+        _reg = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                               'generated-files-registered'], cwd=str(indiv_dest),
+                              capture_output=True, text=True)
+        cases.append(('a new set lists the three views it generates, and its own '
+                      'check of that list passes',
+                      {(e.get('path'), e.get('part')) for e in _entries} == {
+                          ('MAP.md', None), ('GLOSSARY.md', None),
+                          ('AGENTS.md', '<!-- BEGIN GENERATED: precedent-loader -->')}
+                      and all(e.get('inputs') and e.get('check') for e in _entries)
+                      and _reg.returncode == 0 and '1 passed' in _reg.stdout,
+                      _reg.stdout[-400:] + _reg.stderr[-200:]))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_push_check as _ppc
+        finally:
+            sys.path.pop(0)
+        cases.append(('a set\'s views are checked at the quick tier, so a stale or '
+                      'hand-edited one fails the push to pre-staging, not only the Debut',
+                      'build_views' in _ppc.BASIC_CHECKS
+                      and any(st[0] == 'build_views' for st in _ppc.PUSH_CHECKS['source']),
+                      f'BASIC_CHECKS = {sorted(_ppc.BASIC_CHECKS)}'))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))
@@ -46987,6 +48058,17 @@ def check_installer_produces_a_clean_install():
         cases.append(('precedent.json declares the base branch and the visibility explicitly',
                       doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
                       str(doc)[:300]))
+        _map = (proj / 'MAP.md').read_text(encoding='utf-8') if (proj / 'MAP.md').is_file() else ''
+        _src = (proj / 'MAP.source.md').read_text(encoding='utf-8') if (proj / 'MAP.source.md').is_file() else ''
+        _gf = proj / 'tools' / 'generated_files.json'
+        cases.append(('MAP.md and GLOSSARY.md start out generated, from source files '
+                      'the install writes, and are on the project\'s own list '
+                      '(spec/GENERATED_FILES_PLAN.md step 5)',
+                      _src and _map.startswith('---\ngenerated_by: tools/build_views.py')
+                      and _src.rstrip('\n') in _map
+                      and (proj / 'GLOSSARY.source.md').is_file()
+                      and _gf.is_file() and 'MAP.source.md' in _gf.read_text(encoding='utf-8'),
+                      _map[:300]))
         agents = (proj / 'AGENTS.md').read_text(encoding='utf-8') if (proj / 'AGENTS.md').is_file() else ''
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
@@ -52356,6 +53438,103 @@ def check_consumer_rehearsal_smaller_faults():
           '; '.join(f'{n} -- {d}' for n, d in failed))
 
 
+def check_sync_keeps_the_map_and_links_after_a_removal():
+    """A sync that removes practices keeps the repository around them whole
+    (a consumer's report, 2026-10-02/03): it rewrote AGENTS.md, left eight
+    dead links in a generated MAP.md with its own --check saying OK, and
+    left two open items naming removed practices, which failed the next
+    Promote.
+
+    1. a link to a practice renamed upstream is repointed to its successor;
+    2. a link to one withdrawn from universal is left, and reported with
+       where the rule went;
+    3. a generated MAP.md is rebuilt and no longer links the removed ones;
+    4. CONTROL: a hand-made GLOSSARY.md (no generated_by header) is left
+       byte for byte."""
+    import tempfile, shutil
+    import json as _json
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='sync-map-links-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-config.json'))
+    for k in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS'):
+        env.pop(k, None)
+    results = []
+    try:
+        uni = tmp / 'universal'
+        (uni / 'practices').mkdir(parents=True)
+        for slug in ('kept-rule', 'gone-rule', 'old-name'):
+            (uni / 'practices' / f'{slug}.md').write_text(
+                _move_fixture_practice(slug), encoding='utf-8')
+        repo = tmp / 'consumer'
+        (repo / 'todo').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
+        (repo / 'AGENTS.md').write_text(
+            f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(uni)}]}), encoding='utf-8')
+        glossary = '# Our own glossary\n\nHand-written; see practices/gone-rule.md.\n'
+        (repo / 'GLOSSARY.md').write_text(glossary, encoding='utf-8')
+        item = ('# An open item\n\nSee [gone](../practices/gone-rule.md) and '
+                '[old](../practices/old-name.md).\n')
+        (repo / 'todo' / 'todo-x.md').write_text(item, encoding='utf-8')
+        sync = [sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                '--repo', str(repo)]
+        r = subprocess.run(sync, env=env, capture_output=True, text=True)
+        # A generated MAP.md, as a consumer that ran build_views has one.
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo)], env=env, capture_output=True, text=True)
+        map_before = (repo / 'MAP.md').read_text(encoding='utf-8') \
+            if (repo / 'MAP.md').is_file() else ''
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'first sync'],
+                       env=env, check=True)
+        results.append(('fixture: the first sync wrote the rules and a generated map',
+                        r.returncode == 0 and 'practices/gone-rule.md' in map_before,
+                        (r.stdout + r.stderr)[-300:]))
+        # Upstream: gone-rule withdrawn outright, old-name renamed new-name.
+        (uni / 'practices' / 'gone-rule.md').unlink()
+        (uni / 'record').mkdir()
+        (uni / 'record' / 'WITHDRAWN_FROM_UNIVERSAL.md').write_text(
+            '- 2026-10-02: `gone-rule` withdrawn from universal, deliberately; in '
+            'force only from the shared set `fx-ladder`, for the people who '
+            'bring or declare it.\n', encoding='utf-8')
+        (uni / 'practices' / 'new-name.md').write_text(
+            _move_fixture_practice('new-name'), encoding='utf-8')
+        (uni / 'practices' / 'old-name.md').write_text(
+            _move_fixture_practice('old-name').replace(
+                'status:      active', 'status:      deduplicated')
+            .replace('in_force_at: null', 'in_force_at: new-name'), encoding='utf-8')
+        r = subprocess.run(sync, env=env, capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        got = (repo / 'todo' / 'todo-x.md').read_text(encoding='utf-8')
+        map_after = (repo / 'MAP.md').read_text(encoding='utf-8')
+        results.append(('1: a link to a renamed rule is repointed to its successor',
+                        '../practices/new-name.md' in got
+                        and 'old-name.md' not in got, got + out[-300:]))
+        results.append(('2: a link to a withdrawn rule is left and reported with '
+                        'where it went', '../practices/gone-rule.md' in got
+                        and 'todo/todo-x.md:3: links `gone-rule`' in out
+                        and 'fx-ladder' in out, out[-500:]))
+        results.append(('3: the generated MAP.md is rebuilt without the removed rules',
+                        r.returncode == 0 and 'practices/gone-rule.md' not in map_after
+                        and 'practices/kept-rule.md' in map_after, out[-300:]))
+        results.append(('4: CONTROL: a hand-made GLOSSARY.md is left byte for byte',
+                        (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == glossary, ''))
+    except (OSError, subprocess.CalledProcessError) as e:
+        results.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'a sync that removes practices repoints or reports every link to '
+          f'them and keeps a generated map current ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
 def check_sync_refuses_to_write_from_incomplete_sources():
     """precedent_sync_views.py must not rewrite a repo's tracked tree when a
     declared source did not resolve (practice: very-deep-check, found by it).
@@ -54862,6 +56041,13 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_map_reads_each_tools_own_summary()
+    check_where_things_are_from_one_source()
+    check_commit_rebuilds_generated_files()
+    check_migrate_views_keeps_every_word()
+    check_tracked_views_read_the_same_whoever_regenerates()
+    check_stale_views_say_why_and_stop_at_the_push()
+    check_stale_freshness_also_says_delete_it()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
@@ -54916,6 +56102,7 @@ def main():
     check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
           *check_merge_is_judged_by_the_landing_check())
     check_update_vendors_resolves_a_catalogue_edit()
+    check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
     check('the leak gate sees the main clone\'s private siblings from a worktree',
@@ -55067,6 +56254,7 @@ def main():
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
     check_sync_copies_work_from_above_once_checked()
+    check_promote_composes_main_and_moves_both_tiers()
     check_main_test_cadence()
     check_main_test_minutes_rule()
     check_main_test_repo_setting()
@@ -55178,6 +56366,7 @@ def main():
     check_consumer_sync_counts_what_a_brought_set_provides()
     check_brought_sets_have_their_own_session_budget()
     check_consumer_rehearsal_smaller_faults()
+    check_sync_keeps_the_map_and_links_after_a_removal()
     check_refresh_never_rolls_a_newer_engine_back()
     check_seed_refuses_an_engine_main_lacks()
     check_self_heal_skips_a_scratch_copy()

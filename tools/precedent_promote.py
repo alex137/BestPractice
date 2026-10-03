@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_promote.py — Stage 3 of PRACTICE_ENGINE_PLAN.md's creation
+"""Stage 3 (phase 5) — runs a candidate against the four promotion criteria
+
+precedent_promote.py — Stage 3 of PRACTICE_ENGINE_PLAN.md's creation
 pipeline: run a candidate (spec/CANDIDATE_FORMAT.md) against the four
 promotion criteria. Refuses with a named reason on any failure; on a full
 pass, drafts a practice file (spec/PRACTICE_FORMAT.md shape) plus a guessed

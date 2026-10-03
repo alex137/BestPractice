@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""parse_check.py -- does every machine-readable file in scope still parse?
+"""Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check
+
+parse_check.py -- does every machine-readable file in scope still parse?
 
 ONE validator, TWO scopes, because the two checks it serves answer
 different questions:

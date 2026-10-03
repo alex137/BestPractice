@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""doc_lifecycle.py -- the document status header, checked.
+"""The document status header — kind, status, supersession — checked across spec/ and record/
+
+doc_lifecycle.py -- the document status header, checked.
 
 Implements the mechanical check spec/DOCUMENT_LIFECYCLE.md's "The mechanical
 check" section specifies. Every document under spec/ (and record/, once that

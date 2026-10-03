@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_vendor_engine.py — vendors Precedent's engine into a repo that
+"""Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable
+
+precedent_vendor_engine.py — vendors Precedent's engine into a repo that
 consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 
@@ -673,6 +675,14 @@ ENGINE_FILES = [
     # tier of the push check a push to each one gets. precedent_push_check.py
     # asks it whenever the push gate names the push; every kind pushes.
     'precedent_branches.py',
+    # The commit backstop's engine fixer (spec/GENERATED_FILES_PLAN.md step
+    # 3): commit-identity.sh's hook runs it from the repository's own copy,
+    # so every kind that receives the hook receives the script it calls.
+    'precedent_regenerate.py',
+    # The one-time move of a hand-written MAP.md / GLOSSARY.md into their
+    # source files (spec/GENERATED_FILES_PLAN.md step 5): a repository runs
+    # its own copy at its next Update Vendors.
+    'precedent_migrate_views.py',
     # The merge gate's engine: the push check, run on the merge GitHub would
     # make, before a session merges a pull request through GitHub -- a push
     # no local hook sees. merge-check-gate.sh calls it; every kind merges.

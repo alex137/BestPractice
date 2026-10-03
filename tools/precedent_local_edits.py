@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_local_edits.py -- a consuming repo's committed edits to files it
+"""A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, merged, or replaced by upstream's with the commit that holds them named -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)
+
+precedent_local_edits.py -- a consuming repo's committed edits to files it
 received from BestPractice: found, resolved at Update Vendors, and sent
 upstream as a ready branch.
 

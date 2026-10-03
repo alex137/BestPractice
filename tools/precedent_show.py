@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_show.py — the one code path every loading channel calls
+"""Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file
+
+precedent_show.py — the one code path every loading channel calls
 (PRACTICE_ENGINE_PLAN.md, "Loading a Practice Means Loading Its Rule, Not
 Its File"). An agent never reads a practices/*.md file directly: it calls
 this, and only this command's output enters context. That is what makes the

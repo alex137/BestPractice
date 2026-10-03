@@ -314,7 +314,7 @@ fi
 # the session.
 if [ -f tools/precedent_sync_views.py ] && [ -f precedent.json ]; then
   if ! python3 tools/precedent_sync_views.py --repo . --check >/dev/null 2>&1; then
-    echo "WARN: AGENTS.md's generated loader block is out of date with precedent.json's sources. Fix: python3 tools/precedent_sync_views.py --repo ., review the diff, commit." >&2
+    echo "WARN: this repository's generated views (AGENTS.md's loader block, MAP.md, GLOSSARY.md) are out of date: a practice source it declares changed since the last sync. Fix: python3 tools/precedent_sync_views.py --repo ., review the diff, commit -- the push check refuses a stale view from the next push on." >&2
   fi
 fi
 

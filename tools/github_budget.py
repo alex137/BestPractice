@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""What this account has left of GitHub's API allowances, measured.
+"""What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session
+
+What this account has left of GitHub's API allowances, measured.
 
 TWO THINGS THIS MODULE IS FOR, and they are different questions:
 

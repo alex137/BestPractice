@@ -33,7 +33,6 @@ Identifiers that already have their own registry (a code table, a component
 index) are pointed to, not duplicated.
 
 ## Detail
-
 ## Why
 In a repo-is-the-memory system the reader arriving at a document is
 usually *not* the person who wrote it and often has none of the surrounding
@@ -88,3 +87,7 @@ defined inline on the line (`long form (TOKEN)`) and a stoplist of common
 words/units — and warns, the same "convention → loud check" shape as its
 link/strikethrough checks. Warning-only and auto-disabled when the repo has no
 `GLOSSARY.md`, so it never blocks a repo that hasn't adopted the practice.
+
+In a repository that uses Precedent, `GLOSSARY.md` is generated too: the
+repository's own names live in its `GLOSSARY.source.md`, and a new term is
+added there (Morgan, 2026-10-03, strength: decided).

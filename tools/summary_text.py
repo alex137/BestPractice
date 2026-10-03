@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""summary_text.py — the one way a generator turns prose into a summary field.
+"""Turns prose into a summary field: links out first, then the cut — run bare to self-check
+
+summary_text.py — the one way a generator turns prose into a summary field.
 
 A summary, an index row, a log line or any other length-capped field is a
 COPY of prose that lives somewhere else, and the full text is one link away.

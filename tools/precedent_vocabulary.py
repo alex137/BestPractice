@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_vocabulary.py -- the command vocabulary, read off the practices
+"""Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the "Vocabulary" command and emits the reader-facing table
+
+precedent_vocabulary.py -- the command vocabulary, read off the practices
 themselves (practice: vocabulary).
 
 A Precedent repository carries a small set of standing phrases -- `Go merge`,

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""One formatter per quantity kind (practice: one-formatter-per-quantity) — the engine.
+"""One formatter per quantity kind — the engine
+
+One formatter per quantity kind (practice: one-formatter-per-quantity) — the engine.
 
 A reader comparing two table cells must never have to normalize
 precision in their head ("2 t" beside "2.0 t"). The rule this module

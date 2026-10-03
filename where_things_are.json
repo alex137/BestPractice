@@ -1,0 +1,566 @@
+{
+  "_comment": [
+    "The one source of WHERE_THINGS_ARE.md and of AGENTS.md's short 'Where",
+    "things are' table: tools/build_views.py renders both, and checks that",
+    "every relative link in a row resolves (spec/GENERATED_FILES_PLAN.md step",
+    "2; Morgan, 2026-10-03: generated files are never hand-edited, and a copy",
+    "cites its original or is generated from one source). `quick` is a row's",
+    "place in AGENTS.md's short table; a row without it is in the full page",
+    "only. Rows render in the order they appear here."
+  ],
+  "intro": [
+    "<!-- No row count in the sentence below, on purpose, since 2026-09-22.",
+    "     A hand-typed one lived here and was measured against the table at each",
+    "     of the last eleven commits that touched this file: WRONG AT SIX OF",
+    "     THEM, and at one point by nineteen (89 stated, 108 actual). It was",
+    "     usually not anyone's arithmetic -- a row arrives on a branch that has",
+    "     no reason to know a sentence elsewhere describes the total, and the",
+    "     merge is where the two meet. Nothing gates it, and nobody opens this",
+    "     file to learn how many rows it has.",
+    "     A figure that IS worth keeping goes in a doc_sync generated block",
+    "     (tools/doc_sync.py): that regenerates it and also refuses a hand-typed",
+    "     copy of any figure a script owns. -->",
+    "",
+    "**Looking for something in this repository? Check here before searching it.**",
+    "Every row is *looking for X → go to Y*, and the table below is the complete",
+    "one.",
+    "",
+    "[AGENTS.md](AGENTS.md) carries a short version of this table — the dozen rows",
+    "sessions reach for constantly — and links here for the rest. **Both tables",
+    "are generated from one source, so they cannot disagree.** It was made on",
+    "2026-09-14 because the inline table had grown to 2,671 tokens that every",
+    "session paid before doing any work, against a declared ceiling it was pushing",
+    "into (practice:",
+    "[session-load-budget](practices/session-load-budget.md), TODO.md's",
+    "`agents-md-ceiling-policy` item, since closed and pruned).",
+    "",
+    "**Adding a row?** Add it to [where_things_are.json](where_things_are.json), then",
+    "run `python3 tools/build_views.py`; never edit this page or AGENTS.md's short",
+    "table by hand. A row belongs in that short table (`\"quick\"`) only if",
+    "sessions will hunt for it *constantly* — the test is frequency, not",
+    "importance, because every row there is paid for by every session whether or",
+    "not it is read."
+  ],
+  "rows": [
+    {
+      "looking_for": "The plan Precedent was built from (phases 0-7)",
+      "go_to": "[spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)",
+      "quick": 1
+    },
+    {
+      "looking_for": "Where a rule goes when you want it in SOME projects and not others, and how to make a shared set",
+      "go_to": "[documentation/SHARED_PRACTICE_SETS.md](documentation/SHARED_PRACTICE_SETS.md)"
+    },
+    {
+      "looking_for": "Whether an open item may be raised with Morgan at all, and what \"Drop it\" writes",
+      "go_to": "[practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md)",
+      "quick": 2
+    },
+    {
+      "looking_for": "Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces",
+      "go_to": "[spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — decided 2026-09-14 (build it); was tracked at TODO.md's `chief-of-staff-session` item, since closed and pruned"
+    },
+    {
+      "looking_for": "Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these)",
+      "go_to": "[spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md)"
+    },
+    {
+      "looking_for": "The phase-1 per-practice file format",
+      "go_to": "[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md)"
+    },
+    {
+      "looking_for": "Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links",
+      "go_to": "[practices/practice-links-travel.md](practices/practice-links-travel.md)"
+    },
+    {
+      "looking_for": "Why a session rooted in a practice set saw none of the universal rules, and what actually puts a hook's output in front of the model",
+      "go_to": "[spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md) — trap at [gotchas/gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md](gotchas/gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md)"
+    },
+    {
+      "looking_for": "The phase-2 loader (resident set, replay measurement)",
+      "go_to": "[spec/LOADER.md](spec/LOADER.md)"
+    },
+    {
+      "looking_for": "The phase-3 brief (what phase 3 was handed)",
+      "go_to": "[spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md)"
+    },
+    {
+      "looking_for": "The phase-3 sources: resolver, precedence, what could not be built here",
+      "go_to": "[spec/SOURCES.md](spec/SOURCES.md)"
+    },
+    {
+      "looking_for": "How many practice sets of each level a person or a repo can have",
+      "go_to": "[spec/SOURCES.md](spec/SOURCES.md)'s \"How many sources of each level\" row, reasoning at [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md#one-individual-set-per-person-not-per-team)"
+    },
+    {
+      "looking_for": "How a practice-set source is named — the convention, what refuses vs. warns, and what a session must say before anyone picks a name",
+      "go_to": "[spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), rule at [practices/source-naming.md](practices/source-naming.md)"
+    },
+    {
+      "looking_for": "The phase-4 enforced channel: what is checked, and what each check is blind to",
+      "go_to": "[spec/ENFORCEMENT.md](spec/ENFORCEMENT.md)"
+    },
+    {
+      "looking_for": "Why a practice source set skips most checks, and which 13 now bind it anyway",
+      "go_to": "[spec/PUBLISHER_GATE_AUDIT.md](spec/PUBLISHER_GATE_AUDIT.md) — all 44 measured one at a time"
+    },
+    {
+      "looking_for": "The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits",
+      "go_to": "[spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md)"
+    },
+    {
+      "looking_for": "The phase-5 candidate file format (Stage 2) and why universal candidates are GitHub Issues, not files",
+      "go_to": "[spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md)"
+    },
+    {
+      "looking_for": "The phase-5 deep-check before phase 6: real bugs found and fixed, real candidates landed, open questions for Morgan",
+      "go_to": "[spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md)"
+    },
+    {
+      "looking_for": "The phase-6 brief: what's closed, what's blocked and needs Morgan, what's still ahead and needs the target repo attached",
+      "go_to": "[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)"
+    },
+    {
+      "looking_for": "The pre-launch audit: what a real install, migration and two-team resolve broke, and what is still open — **read before the next audit pass**",
+      "go_to": "[spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)"
+    },
+    {
+      "looking_for": "The pre-fork catalogue audit: verdict per inherited practice against this plan's architecture",
+      "go_to": "[spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md)"
+    },
+    {
+      "looking_for": "Populating the two private sets (done 2026-09-01, closing phase 3 — brief kept for how it was done)",
+      "go_to": "[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)"
+    },
+    {
+      "looking_for": "Bootstrapping a brand-new individual or shared set from zero — the generalized procedure any adopter follows, plus the tool and skeletons it uses",
+      "go_to": "[spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md), tool at [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py), skeletons at [templates/practice-set-individual/](templates/practice-set-individual/) and [templates/practice-set-shared/](templates/practice-set-shared/)"
+    },
+    {
+      "looking_for": "Bringing mechanical checks to the two private sets' practices (open; cannot run from here)",
+      "go_to": "[spec/PRIVATE_ENFORCEMENT_BRIEF.md](spec/PRIVATE_ENFORCEMENT_BRIEF.md)"
+    },
+    {
+      "looking_for": "How a session rooted in an individual or shared set gets the universal practices, and why its checks still do not run there",
+      "go_to": "[spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md), open half at [`source-set-runs-no-universal-checks`](todo/todo-2026-09-13-source-set-runs-no-universal-checks.md)"
+    },
+    {
+      "looking_for": "How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test)",
+      "go_to": "[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)"
+    },
+    {
+      "looking_for": "Deleting a file or directory a decommissioned mechanism left behind — the audit that has to pass first, and the record of what went",
+      "go_to": "[practices/decommission-deletes-files.md](practices/decommission-deletes-files.md), audit at [tools/precedent_decommission.py](tools/precedent_decommission.py)"
+    },
+    {
+      "looking_for": "Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team, team → universal, and — since 2026-09-23 — universal → team/individual, safely) — distinct from creating one or retiring one outright",
+      "go_to": "[spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md); the tool that does both steps in order is [tools/precedent_move.py](tools/precedent_move.py) — `--from universal` duplicates on landing and needs a deliberate `--dedupe-only --accept-reach-loss` to actually withdraw the universal copy"
+    },
+    {
+      "looking_for": "Why the miss rate is what it is, and the plan for it (read before phase 5)",
+      "go_to": "[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)"
+    },
+    {
+      "looking_for": "Who may write what in a project repo, and who may land a practice — **drafted, not executed; three GitHub behaviours in it are unverified**",
+      "go_to": "[spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)"
+    },
+    {
+      "looking_for": "Shared-level practice capture for document work at scale — the editorial shared-set repo and document-project template, the \"alternative to Google Docs\" use case",
+      "go_to": "[spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)"
+    },
+    {
+      "looking_for": "The reusable document-project template a future pilot instantiates from",
+      "go_to": "[templates/document-project/](templates/document-project/)"
+    },
+    {
+      "looking_for": "What zone a date or time gets stamped in, and where the fallback is declared",
+      "go_to": "[practices/timestamps-carry-offset.md](practices/timestamps-carry-offset.md), engine at [tools/precedent_time.py](tools/precedent_time.py) — run it bare to see which rung answered; the value is `fallback_timezone` in [precedent.json](precedent.json)"
+    },
+    {
+      "looking_for": "What a person can define about themselves — name, email, timezone, pronouns, whether approval travels — and what applies until they do",
+      "go_to": "[PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)'s \"What Applies Until You Set Any of It\"; the non-developer version is [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md)'s \"What It Knows About You\"; the rule against asking is [practices/declared-default-is-applied.md](practices/declared-default-is-applied.md)"
+    },
+    {
+      "looking_for": "What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites",
+      "go_to": "[practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget`",
+      "quick": 3
+    },
+    {
+      "looking_for": "What this account has left of GitHub's API allowances, what each tool spends, and why `/rate_limit` cannot answer either",
+      "go_to": "[practices/github-api-budget.md](practices/github-api-budget.md), engine at [tools/github_budget.py](tools/github_budget.py), registry at [tools/github_api_budgets.json](tools/github_api_budgets.json) — `python3 tools/github_budget.py`"
+    },
+    {
+      "looking_for": "Why each practice is routed the way it is (every glob, and every `**`)",
+      "go_to": "[spec/ROUTING_REASONS.md](spec/ROUTING_REASONS.md), all of them on one page, generated from each practice's own `applies_to_why` line ([spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md#applies_to_why-and-gates_why----the-routing-reason-in-the-practice-itself)); the gate vocabulary stays in [tools/routing_scope.json](tools/routing_scope.json)"
+    },
+    {
+      "looking_for": "The routing audit: coverage check + rotating deep read, on-demand, never a routine gate",
+      "go_to": "[practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py)"
+    },
+    {
+      "looking_for": "The full practice audit: manual, whole-catalogue sweep across every source, on request only",
+      "go_to": "[practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py)"
+    },
+    {
+      "looking_for": "The very deep check: four ordered passes over every repo in force, on request only — distinct from the full practice audit above",
+      "go_to": "[practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)"
+    },
+    {
+      "looking_for": "Proposed additions to the very deep check — fourteen, written 2026-09-21 against that week's incidents, none adopted",
+      "go_to": "[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)"
+    },
+    {
+      "looking_for": "When anybody last read a whole file end to end, and what the read changed — what the very deep check's `ACCRETION` ranking counts from",
+      "go_to": "[record/holistic-reads.json](record/holistic-reads.json) — written by `python3 tools/very_deep_check.py --record-read '<path>,note=…'`, never by hand"
+    },
+    {
+      "looking_for": "What each part of the very deep check returned and cost, run after run, and which parts are owed a keep/cheapen/retire answer",
+      "go_to": "[record/very-deep-check-ledger.json](record/very-deep-check-ledger.json) — **never hand-edit it**; the answers go in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)"
+    },
+    {
+      "looking_for": "Why [`verify_harness.py`](tools/verify_harness.py) (the deep check) takes as long as it does, which checks actually cost the time, a parallelization that was tried and reverted for measuring no real gain, and the change-scoping fix that did measurably help",
+      "go_to": "[spec/VERIFY_HARNESS_PERFORMANCE.md](spec/VERIFY_HARNESS_PERFORMANCE.md)"
+    },
+    {
+      "looking_for": "Cutting GitHub Actions minutes across every vendored repo — where the minutes actually go, the self-hosted-runner pilot (item 6), and what's shipped vs. still open",
+      "go_to": "[spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md), open item tracked at [todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md](todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md)"
+    },
+    {
+      "looking_for": "**Why a CI workflow costs what it costs** — GitHub bills per JOB rounded up to a whole minute, measured at 0.47s of work billed as 3 minutes; why five days of frequency fixes moved nothing, and the arithmetic retiring the debounce job",
+      "go_to": "[spec/BILLING_FLOOR.md](spec/BILLING_FLOOR.md)"
+    },
+    {
+      "looking_for": "**Running CI less often in a private repo** — `github_ci_every_hours` (default 0, every push), `github_ci_on_branches` (default true; false skips CI on every working branch), the `[skip ci]` commit hook that applies both at no cost, and which repos should keep it at 0",
+      "go_to": "[spec/CI_CADENCE_PLAN.md](spec/CI_CADENCE_PLAN.md); the value in force here: `python3 tools/precedent_session_check.py`"
+    },
+    {
+      "looking_for": "**Pushing without waiting on the checks** — the earlier plan for extra branches between a session's work and `main`, each checked at a different depth; kept as history",
+      "go_to": "[spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md) (accepted 2026-09-25)"
+    },
+    {
+      "looking_for": "**Making Update Vendors one command** — the plan to turn the runbook into one tool run that stops only at the calls that belong to one repo, and the rule that an upstream decision ships as a tool step, never as runbook prose",
+      "go_to": "[spec/ONE_COMMAND_UPDATE_PLAN.md](spec/ONE_COMMAND_UPDATE_PLAN.md) (accepted 2026-09-27, mostly built); the command: [tools/precedent_update.py](tools/precedent_update.py); the procedure it replaces: [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md)"
+    },
+    {
+      "looking_for": "What happens to a consuming repo's own edit to a file it received (an engine file in `tools/`, or `process/upstream/`) — kept, merged or replaced at Update Vendors, and how to send it upstream as a branch",
+      "go_to": "[spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md) (2026-09-29); the tool: [tools/precedent_local_edits.py](tools/precedent_local_edits.py) — `status` lists the edits, `send` carries them upstream; the rule behind it: [practices/upstream-bug-stops-here.md](practices/upstream-bug-stops-here.md)"
+    },
+    {
+      "looking_for": "**The five stages and our language** — the earlier plan for a five-stage working method, kept as history; the short \"Our language\" page and Vocabulary's second list; and retiring \"shared set\" for \"shared set\"",
+      "go_to": "[spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md) (accepted 2026-09-27, not built); the command it extends: [practices/vocabulary.md](practices/vocabulary.md)"
+    },
+    {
+      "looking_for": "**Making the five-stage working method an opt-in set** — moving it out of the universal set into a set a person brings for themselves; everyone else lands on main with the same enforcement; and the fix that keeps every practice set's own universal clone current",
+      "go_to": "[spec/LADDER_OPT_IN_PLAN.md](spec/LADDER_OPT_IN_PLAN.md) (accepted 2026-10-02, step 1 built); it narrows [spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md); the trap behind step 1: [gotchas/gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled.md](gotchas/gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled.md)"
+    },
+    {
+      "looking_for": "**Naming a session's feature branch** — `claude/<date>-<slug>-<id>`, the id being the end of the session's ID so the branch leads back to it",
+      "go_to": "[tools/precedent_branch_name.py](tools/precedent_branch_name.py)"
+    },
+    {
+      "looking_for": "**What the words people use about Precedent mean** — practice, universal / individual / shared set, full set, repo-local, in force, feature branch",
+      "go_to": "[documentation/OUR_LANGUAGE.md](documentation/OUR_LANGUAGE.md), rendered from [tools/our_language.json](tools/our_language.json) by [tools/our_language.py](tools/our_language.py) — edit the words there, never on the page; every term the project defines is in [GLOSSARY.md](GLOSSARY.md)"
+    },
+    {
+      "looking_for": "**Every GitHub Actions workflow on every branch of every repo, as GitHub sees it** — approved or not, when each runs, and 30 days of runs; catches what a push check never sees (website edits, API writes, side branches)",
+      "go_to": "[tools/ci_fleet_audit.py](tools/ci_fleet_audit.py), also run by the [very deep check](practices/very-deep-check.md) (item 22). Output stays in the session"
+    },
+    {
+      "looking_for": "**What runs before a push now that CI mostly does not** — everything GitHub CI used to run, per kind of repository, as one local command, and the hook that refuses a push until it passes",
+      "go_to": "[tools/precedent_push_check.py](tools/precedent_push_check.py) (`--list` prints the list and which workflow each check replaces), wired by [templates/harness/claude-code/hooks/push-check-gate.sh](templates/harness/claude-code/hooks/push-check-gate.sh)"
+    },
+    {
+      "looking_for": "Whether THIS repo's own `deep-check.yml` should move to a self-hosted runner for speed — a narrower, harder question than the CI-minutes plan's item 6, since this repo's CI is already free and public",
+      "go_to": "[spec/DEEP_CHECK_SELF_HOSTED_RUNNER.md](spec/DEEP_CHECK_SELF_HOSTED_RUNNER.md)"
+    },
+    {
+      "looking_for": "Step-by-step mechanics for registering a self-hosted GitHub Actions runner on a RunCloud-managed Linux server, for the item 6 pilot once it's authorized",
+      "go_to": "[spec/SELF_HOSTED_RUNNER_SETUP.md](spec/SELF_HOSTED_RUNNER_SETUP.md)"
+    },
+    {
+      "looking_for": "The branch sweep's own list — every merged, merged-elsewhere and unmerged branch in this checkout and every declared source, with a clickable delete or compare link on each row",
+      "go_to": "[`record/stale_branches.md`](record/stale_branches.md) — **never hand-edit it**; written by `python3 tools/very_deep_check.py`'s branch sweep and committed like [`MAP.md`](MAP.md), after it clears [tools/leak_gate.py](tools/leak_gate.py). This checkout's own merged-and-stale (safe-to-delete) slice is also embedded live in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s \"Branches safe to delete right now\", a [`tools/doc_sync.py`](tools/doc_sync.py)-gated block — that page, not this file, is where a person actually goes to delete branches"
+    },
+    {
+      "looking_for": "Gaps between what the plan approved and what got built (routing audit's own history, and what else to check)",
+      "go_to": "[spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)"
+    },
+    {
+      "looking_for": "Every place a practice is cited, in this repo and every declared source — what to run after renaming, retiring or rewording one, and what a set or consumer fixes",
+      "go_to": "[tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) (`--changed-since BASE`, `--withdrawn`, `--handoff`); the rule is [practice-change-propagates](practices/practice-change-propagates.md)"
+    },
+    {
+      "looking_for": "Whether every declared practice-source repository is still CALLED what this repo calls it — a rename redirects forever, so git never notices",
+      "go_to": "[tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass"
+    },
+    {
+      "looking_for": "Whether a document project's contributor boundary is actually ON — branch protection shaped as the plan needs, and a CODEOWNERS file to give it something to require; UNVERIFIED when it could not ask GitHub, which is not a pass",
+      "go_to": "[tools/precedent_boundary_check.py](tools/precedent_boundary_check.py), design at [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s 2026-09-14 review, finding 5"
+    },
+    {
+      "looking_for": "Which changed files will wait for a code owner's review before a pull request exists, and the plain-words sentence to say to the contributor about it",
+      "go_to": "[tools/precedent_owned_paths.py](tools/precedent_owned_paths.py), wired into [templates/document-project/AGENTS.md](templates/document-project/AGENTS.md)'s contributor section"
+    },
+    {
+      "looking_for": "Generating a project's `.github/CODEOWNERS` from `maintainers` and `owned_paths` in its `precedent.json` (a practice set's from `approvers.json`)",
+      "go_to": "[tools/build_codeowners.py](tools/build_codeowners.py) — `--repo PATH`, `--check`"
+    },
+    {
+      "looking_for": "Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance",
+      "go_to": "[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md) (hosted) or [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) (everything, including local)"
+    },
+    {
+      "looking_for": "Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either",
+      "go_to": "[tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits"
+    },
+    {
+      "looking_for": "Why a source clone on disk, with the token set, still fails every `git` command with `could not read Username` — and what repairs it at session start",
+      "go_to": "[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)'s `persist_credential_helper`, called on every sync by [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)"
+    },
+    {
+      "looking_for": "Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all",
+      "go_to": "[tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist`"
+    },
+    {
+      "looking_for": "Whether this session's SessionStart hooks actually ran, and repairing them if not",
+      "go_to": "[tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand; every [tools/precedent_gate.py](tools/precedent_gate.py) moment prints the failing rows unasked"
+    },
+    {
+      "looking_for": "Whether `PRECEDENT_FRESHNESS_ALSO` names repositories that are actually there, and what to set it to on this container",
+      "go_to": "[tools/precedent_session_check.py](tools/precedent_session_check.py) — the row prints the corrected value; a dead entry is skipped silently by design, so nothing else reports it"
+    },
+    {
+      "looking_for": "Whether anyone other than you has pushed to `staging` (named `precedent-beta-v01` until 2026-09-25) since you were last told",
+      "go_to": "[tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) — printed at session start, silent on the reply gate except on a real alert; the watermark it compares against is [tools/beta_branch_watermark.json](tools/beta_branch_watermark.json), keyed by person and **never hand-edited** — the tool advances it on the run that reports, and only then"
+    },
+    {
+      "looking_for": "Practices that fire at a moment rather than in a file",
+      "go_to": "[tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply`",
+      "quick": 4
+    },
+    {
+      "looking_for": "Why the closing **Boildown** section of a reply is not optional, and what refuses a turn without one",
+      "go_to": "[tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate",
+      "quick": 5
+    },
+    {
+      "looking_for": "Whether anything in this container would be lost if the session were archived — every checkout, not just this repo",
+      "go_to": "[tools/precedent_container_safe.py](tools/precedent_container_safe.py) — run it bare; exit 1 and a per-checkout report when work is only here. The rule is archive condition 1 in [practices/the-boildown.md](practices/the-boildown.md), enforced blocking by [tools/precedent_reply_check.py](tools/precedent_reply_check.py)"
+    },
+    {
+      "looking_for": "When a long conversation is told to compact, and the number that decides \"long\"",
+      "go_to": "[practices/the-boildown.md](practices/the-boildown.md) item 11; the number is in [reply_check.json](reply_check.json), and [tools/precedent_gate.py](tools/precedent_gate.py) says at the start of a turn whether the offer is owed"
+    },
+    {
+      "looking_for": "Why a shared or individual practice registered to a gate used to load nothing",
+      "go_to": "[tools/precedent_gate.py](tools/precedent_gate.py)'s `resolved_gate_practices` — the gate read one directory until 2026-09-13, so only universal practices ever reached it"
+    },
+    {
+      "looking_for": "Which practices are enforced, and running one check",
+      "go_to": "[tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG`",
+      "quick": 6
+    },
+    {
+      "looking_for": "Why a bare run of [tools/precedent_check.py](tools/precedent_check.py) doesn't sweep every `tree`-scope check every time, and how to force it to",
+      "go_to": "`_scoped_tree_slugs()` there — directly + indirectly touched practices run every commit, the rest rotate 1/10th per commit (full coverage every 10 commits, by commit count, never left to chance); `--full-sweep` or `--all` bypasses it"
+    },
+    {
+      "looking_for": "The catalogue's own figures (resident size, Rule share, coverage)",
+      "go_to": "[tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose"
+    },
+    {
+      "looking_for": "Precedent explained for someone adopting it (not a developer)",
+      "go_to": "[documentation/ADOPTING.md](documentation/ADOPTING.md)"
+    },
+    {
+      "looking_for": "Public-facing pitch and how-to guides, for people outside the project (marketing, a how-to for developers, a how-to for everyone else)",
+      "go_to": "[documentation/](documentation/)"
+    },
+    {
+      "looking_for": "What a normal working day looks like once Precedent is installed — the four habits and the standing command vocabulary, for someone who is not a developer",
+      "go_to": "[documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md)"
+    },
+    {
+      "looking_for": "The theory this project is built on — the essays, the brainstorm, the rules being tried in real work, and what is still unsettled. **The only copy; argument, not rules that bind anything here**",
+      "go_to": "[philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md)"
+    },
+    {
+      "looking_for": "Why every item in a `philosophy/` essay carries a slug, and what checks that citations resolve both ways — **an experiment, merged; reverting is a revert**",
+      "go_to": "[philosophy/doc-recipes/backlinks.recipe.md](philosophy/doc-recipes/backlinks.recipe.md), engine at [tools/philosophy_backlinks.py](tools/philosophy_backlinks.py)"
+    },
+    {
+      "looking_for": "Why `philosophy/` binds nothing outside itself, and the checks that hold that line",
+      "go_to": "[local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md)"
+    },
+    {
+      "looking_for": "How a practice source's harness adapters (its `bootstrap/*.sh`) reach a consuming repo's `.claude/hooks/` without anyone hand-copying them, and why the settings wiring deliberately does not travel",
+      "go_to": "[spec/SOURCES.md](spec/SOURCES.md)'s \"Harness adapters travel with the source\", mechanism at [tools/precedent_materialize.py](tools/precedent_materialize.py)"
+    },
+    {
+      "looking_for": "Which practice libraries are in force in this repo",
+      "go_to": "[precedent.json](precedent.json)",
+      "quick": 7
+    },
+    {
+      "looking_for": "An example personal practice set",
+      "go_to": "[documentation/examples/practice-set/](documentation/examples/practice-set/)"
+    },
+    {
+      "looking_for": "The private-term blocklist template (copy into your own private set)",
+      "go_to": "[templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template)"
+    },
+    {
+      "looking_for": "The leak gate (push-time; both layers live)",
+      "go_to": "[tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check"
+    },
+    {
+      "looking_for": "The editorial section split, as reviewable data",
+      "go_to": "[tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py)"
+    },
+    {
+      "looking_for": "The converted practice files (phase 1)",
+      "go_to": "[practices/](practices/)"
+    },
+    {
+      "looking_for": "What each practice is and why — **the live catalogue**",
+      "go_to": "[practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG`",
+      "quick": 8
+    },
+    {
+      "looking_for": "Practices no longer in force, and why each was withdrawn",
+      "go_to": "[MAP.md](MAP.md)'s \"Withdrawn practices\" table — generated; the files are kept, never deleted"
+    },
+    {
+      "looking_for": "The pre-fork single-file catalogue — **superseded, frozen at 53 practices since 2026-08-31**; kept for its prose and its numbering",
+      "go_to": "[PRACTICES.md](PRACTICES.md)"
+    },
+    {
+      "looking_for": "Repo map, generated (phase 2)",
+      "go_to": "[MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit",
+      "quick": 9
+    },
+    {
+      "looking_for": "Canonical names, generated (phase 2)",
+      "go_to": "[GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field"
+    },
+    {
+      "looking_for": "Every file a tool writes, what writes it, and what to edit instead",
+      "go_to": "[tools/generated_files.json](tools/generated_files.json); each file also opens with its own `generated_by:` label, and `python3 tools/precedent_check.py --only generated-files-registered` checks the two agree"
+    },
+    {
+      "looking_for": "The loader — resident block, occasion index, path-trigger channel",
+      "go_to": "This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py)"
+    },
+    {
+      "looking_for": "Loader premise, measured against this repo's own history",
+      "go_to": "[tools/behavioral_replay.py](tools/behavioral_replay.py)"
+    },
+    {
+      "looking_for": "Install / update / check-in playbook (dependent repos)",
+      "go_to": "[INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites)",
+      "quick": 10
+    },
+    {
+      "looking_for": "What each person sets on each machine (individual source, leak blocklist, the optional overrides)",
+      "go_to": "[PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)"
+    },
+    {
+      "looking_for": "Setting up a hosted session on Claude Code on the web — most people's way in, and just the environment variables it needs",
+      "go_to": "[CLOUD_SETUP.md](documentation/CLOUD_SETUP.md)"
+    },
+    {
+      "looking_for": "Guided-install entry point admins paste to their agent",
+      "go_to": "[SETUP.md](SETUP.md)"
+    },
+    {
+      "looking_for": "The one-command loader install (INSTALL.md §0 performed mechanically; prints the placeholders it left)",
+      "go_to": "[tools/precedent_install.py](tools/precedent_install.py) — `--help`; its fixture in [tools/verify_harness.py](tools/verify_harness.py) installs into a scratch project on every run"
+    },
+    {
+      "looking_for": "Member onboarding page (template + rendered sample)",
+      "go_to": "[templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)"
+    },
+    {
+      "looking_for": "Git/GitHub concepts for this workflow",
+      "go_to": "[GIT.md](documentation/GIT.md)"
+    },
+    {
+      "looking_for": "The working method (branches, plain text, critique, prompts)",
+      "go_to": "[METHOD.md](documentation/METHOD.md)"
+    },
+    {
+      "looking_for": "Phone / ChatGPT / Grok workflows + assistant reliability status",
+      "go_to": "[MOBILE.md](documentation/MOBILE.md)"
+    },
+    {
+      "looking_for": "A brainstormed chat bridge — reaching a Claude session by voice, Telegram as proof of concept and WhatsApp as destination — **speculative: nobody decided to build it, and no claim in it came from a primary source**",
+      "go_to": "[spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md)"
+    },
+    {
+      "looking_for": "Telegram access with limited, content-only permissions — short replies linking to the full answer on GitHub, the four ways to connect it, and how a Telegram user is tied to one repository or several — **speculative: nobody decided to build it**; builds on the chat-bridge document above",
+      "go_to": "[spec/SPECULATIVE_TELEGRAM_ACCESS.md](spec/SPECULATIVE_TELEGRAM_ACCESS.md)"
+    },
+    {
+      "looking_for": "The Telegram chat bridge itself — a local test build: voice notes in, a few sentences and a link out, content-only for everyone; how to set it up, how its three locks work",
+      "go_to": "[bridge/SETUP.md](bridge/SETUP.md), [bridge/README.md](bridge/README.md) — tests: `python3 -m unittest discover -s bridge/tests`"
+    },
+    {
+      "looking_for": "The ten ideas underneath Precedent on one page — work through an assistant, the repository is the memory, practices, proposal and approval, routing, enforcement, four levels, three permission levels, the standing phrases, privacy — each linked into both guides",
+      "go_to": "[documentation/TEN_THINGS.md](documentation/TEN_THINGS.md)"
+    },
+    {
+      "looking_for": "Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories",
+      "go_to": "[documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md)"
+    },
+    {
+      "looking_for": "CI checks for shell-less agents (install, require)",
+      "go_to": "[GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md)"
+    },
+    {
+      "looking_for": "Whether anything catches a drifted [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) or loader block in a practice SET",
+      "go_to": "the set's own full sweep before every push: `python3 tools/precedent_check.py --full-sweep` runs `generated-artifact-provenance`, the same comparison as `python3 tools/build_views.py --check`. A practice set runs no CI since 2026-09-21, and its `views-drift` workflow job was retired with it ([templates/github-actions/README.md](templates/github-actions/README.md))"
+    },
+    {
+      "looking_for": "Upstream open items / roadmap",
+      "go_to": "[todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by the deep check.",
+      "quick": 11
+    },
+    {
+      "looking_for": "The full story behind any environment trap, and the generated overview of all of them",
+      "go_to": "[gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md)",
+      "quick": 12
+    },
+    {
+      "looking_for": "Gotchas that no longer fire, with the verdict that retired each one",
+      "go_to": "[gotchas/](gotchas/) (`status: retired` in the file, in place -- nothing moves)"
+    },
+    {
+      "looking_for": "GitAround — the reading view this work spun out",
+      "go_to": "[alex137/GitAround](https://github.com/alex137/GitAround) — **a PRIVATE repository**, so that link 404s for anyone without access, and this row is the only thing that says so. A separate product since 2026-08-14 (its last push, checked 2026-09-21); a branch here still staging it under proposals/ is superseded, and its documents live there now"
+    },
+    {
+      "looking_for": "Slide-deck engine + deck conventions",
+      "go_to": "[deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md)"
+    },
+    {
+      "looking_for": "Portable audits",
+      "go_to": "[tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py)"
+    },
+    {
+      "looking_for": "What a session on codex, gemini-cli or grok-build does **not** get that Claude Code does — one row per mechanism, with the parallel or the reason there is none",
+      "go_to": "[templates/harness/PARALLELS.md](templates/harness/PARALLELS.md), checked by [tools/precedent_check.py](tools/precedent_check.py) `--only claude-only-surface-has-a-parallel`, re-judged on every [very deep check](practices/very-deep-check.md)"
+    },
+    {
+      "looking_for": "How a consuming repo keeps ONE CI workflow deliberately its own, so `refresh` leaves it alone instead of refusing — and why `--force` and `record-ci` are not that",
+      "go_to": "`local_ci_workflows` in that repo's [precedent.json](precedent.json), read by [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s `local_ci_workflows()`. A reason is required, and it is printed on every `refresh` and `status`"
+    },
+    {
+      "looking_for": "How a consuming repo records a `tools/bootstrap.sh`, an `AGENTS.md` section, or a received file in `tools/` or `process/upstream/` it keeps its own way on purpose, so Update Vendors never replaces it and stops listing it",
+      "go_to": "`kept_template_divergences` in that repo's [precedent.json](precedent.json), read by [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s `kept_template_divergences()`; how to record one is [vendor-update-runbook](practices/vendor-update-runbook.md) step 10(d). Pinned to the template text's hash, so it is listed again when upstream changes that text"
+    },
+    {
+      "looking_for": "Skeletons dependent repos instantiate",
+      "go_to": "[templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/))"
+    }
+  ]
+}

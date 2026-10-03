@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_push_check.py -- run, before a push, what CI used to run after it.
+"""Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch runs its basic tier only, and a push to main the full one
+
+precedent_push_check.py -- run, before a push, what CI used to run after it.
 
 WHY THIS EXISTS (Morgan, 2026-09-25, strength: decided). Three switches now
 keep GitHub Actions from running on most of his pushes: `ci_workflows`
@@ -256,7 +258,7 @@ CI_WORKFLOWS_CHECK = (
     'no workflow -- the check that keeps workflows from being added unasked')
 # Entries a repo may simply not have: skipped with a note, never a failure.
 OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
-            'light_check'}
+            'light_check', 'views_sync'}
 # The BASIC tier: what a push to pre-staging or any other working branch
 # runs. Everything else in a kind's list is FULL-only. The leak gate is
 # here because a push IS publication in a public repository, and cannot
@@ -266,12 +268,16 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # reaches ANY branch GitHub runs it on; light_check is the repo's own fast
 # check, and its secret scan wants every push (practice: ci-workflow-approved;
 # Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
+# build_views joins it for a practice set (2026-10-03, spec/
+# GENERATED_FILES_PLAN.md step 4): a stale or hand-edited view used to pass
+# the push to pre-staging and fail only at the Debut. It takes under a second.
 # The practice audit's two checks join it for a consumer (2026-10-02): a
 # classic install migrated onto the loader carried stale manifest baselines
 # and no scrub blocklist, both full-tier findings, so its pre-staging pushes
 # passed and the first Debut failed on both. They run in seconds.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
-                'session_trailer', 'ci_workflows', 'light_check',
+                'session_trailer', 'ci_workflows', 'light_check', 'build_views',
+                'views_sync',
                 'scrub_gate', 'practice_export_loop'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
@@ -331,6 +337,15 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
         CI_WORKFLOWS_CHECK,
+        # Whether the generated views still match the practice sources
+        # (2026-10-03): a reduction pass retired practices in the shared sets,
+        # a consumer's views were never re-synced, and nothing said so until a
+        # Debut's full check -- whose message sent the session after missing
+        # sources. Basic tier, so the push to pre-staging says it; sources
+        # that cannot be resolved here are said and skipped, never failed.
+        ('views_sync', ['{engine}/precedent_sync_views.py', '--repo', '.',
+                        '--check', '--skip-unresolved'],
+         'nothing -- a stale view surfaced only at the full check'),
         # The repo's OWN light check, where it has one: what its
         # light-check.yml ran on GitHub, run here instead of there.
         ('light_check', ['tools/light_check.py'],

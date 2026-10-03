@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Shared result cache: a heavy solve done once serves every session.
+"""The shared result cache -- code-keyed memos on one snapshot branch, a leased cold solve that peers wait for
+
+Shared result cache: a heavy solve done once serves every session.
 
 Practice `shared-result-cache`. Practice `slow-steps-report-and-cache` memoizes
 a heavy pure solve to a gitignored directory under a key that is the content

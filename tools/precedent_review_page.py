@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_review_page.py -- the very deep check's session-only review page.
+"""The very deep check's session-only page: branches to delete, with a link each, and every active practice by source
+
+precedent_review_page.py -- the very deep check's session-only review page.
 
 Writes one self-contained HTML page with two lists, for the person who asked
 for the check:

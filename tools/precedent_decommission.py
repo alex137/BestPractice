@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_decommission.py — the double-check that has to pass before a
+"""Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it
+
+precedent_decommission.py — the double-check that has to pass before a
 deprecated file or directory is deleted, and the deletion itself.
 
 (practice: decommission-deletes-files)

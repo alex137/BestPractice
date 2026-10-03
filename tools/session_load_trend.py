@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""How much room every always-loaded surface has left, and how fast it is going.
+"""How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print
+
+How much room every always-loaded surface has left, and how fast it is going.
 
 code-cites-practice: session-load-budget
 

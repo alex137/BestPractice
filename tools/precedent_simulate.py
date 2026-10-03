@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_simulate.py -- phase 4 of spec/SIMULATION_BRIEF.md: one command
+"""One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log
+
+precedent_simulate.py -- phase 4 of spec/SIMULATION_BRIEF.md: one command
 over the two tiers phases 1-3 built, plus the running trend log neither of
 them kept on its own.
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""very_deep_check.py -- the very deep check (practice: very-deep-check).
+"""The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit
+
+very_deep_check.py -- the very deep check (practice: very-deep-check).
 
 Enumerates this checkout's own scope -- its top-level documents plus every
 active source's `practices/*.md` tree, resolved via
@@ -9879,16 +9881,23 @@ def _main(box):
                           f"not detailed (--json for the full list)")
                 if drift['target'] == 'pre-staging':
                     # A tier below its own upper tiers: everything above is
-                    # meant to come down, and a Promote's own first step
-                    # copies it (precedent_branches.py, DRIFT FROM ABOVE).
+                    # meant to come down. Staging's is copied by the sync;
+                    # main's only inside a Promote into staging, composed and
+                    # fully checked with the rest (precedent_branches.py,
+                    # DRIFT FROM ABOVE and _promote_unlocked).
+                    take = ('`python3 tools/precedent_branches.py --promote '
+                            '--to staging`, which composes it with\n  staging '
+                            'and pre-staging and checks it'
+                            if drift['base'] == 'main' else
+                            '`python3 tools/precedent_branches.py '
+                            '--sync-pre-staging --check`\n  (it runs the '
+                            'checks staging\'s work still lacks first)')
                     print(f"\n  TIER DRIFT, not a choice: everything on "
                           f"origin/{drift['base']} belongs on pre-staging, "
-                          f"and the next\n  Promote copies it down first. To "
-                          f"take it now: `python3 tools/precedent_branches.py "
-                          f"--sync-pre-staging`\n  (`--check` to see without "
-                          f"writing). A row listed here that nobody wants is "
-                          f"a revert\n  owed on origin/{drift['base']}, not "
-                          f"a row to skip.\n")
+                          f"and the next\n  Promote brings it in. To take it "
+                          f"now: {take}. A row listed here that nobody\n  "
+                          f"wants is a revert owed on origin/{drift['base']}, "
+                          f"not a row to skip.\n")
                 else:
                     print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
                           f"automatically, by this tool or by\n  the session reading "

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_bootstrap_source.py — give a brand-new adopter with NO
+"""Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet
+
+precedent_bootstrap_source.py — give a brand-new adopter with NO
 individual or shared practice repo yet a real, working one in one command.
 
 THE GAP THIS CLOSES. Every source in PRACTICE_ENGINE_PLAN.md's three-source
@@ -1333,6 +1335,7 @@ def bootstrap(level, name, dest, approvers=None, force=False,
     written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
     written.append(_write_session_load_budget(dest))
+    written.append(write_generated_files(dest))
     if level == 'shared':
         written.append(_write_codeowners(dest))
 
@@ -1368,6 +1371,64 @@ def _write_codeowners(dest):
         raise BootstrapRefused(f"generating CODEOWNERS from approvers.json "
                                f"failed: {out}")
     return pathlib.Path(dest) / 'CODEOWNERS'
+
+
+SET_GENERATED_FILES = (
+    ('MAP.md', None), ('GLOSSARY.md', None),
+    ('AGENTS.md', '<!-- BEGIN GENERATED: precedent-loader -->'),
+)
+
+
+def write_generated_files(dest):
+    """Write tools/generated_files.json, a practice set's own list of what
+    its tools generate: the three views build_views.py writes. -> its path.
+
+    The list is what a set's commit rebuilds and its check reads
+    (spec/GENERATED_FILES_PLAN.md step 4; Morgan, 2026-10-03: generated
+    files are never hand-edited, in every repository). It is the set's own
+    declaration, as tools/session_load_budgets.json is, never vendored.
+    Existing sets got theirs from this same function, so a set's list has
+    one definition. An entry already there is kept, so a set that lists
+    more of its own generated files does not lose them."""
+    dest = pathlib.Path(dest)
+    path = dest / 'tools' / 'generated_files.json'
+    data = _load_json(path) if path.is_file() else None
+    data = data if isinstance(data, dict) else {}
+    have = {(e.get('path'), e.get('part')) for e in data.get('files') or []}
+    files = list(data.get('files') or [])
+    for rel, part in SET_GENERATED_FILES:
+        if (rel, part) in have:
+            continue
+        entry = {'path': rel}
+        if part:
+            entry['part'] = part
+        entry.update({'generated_by': 'tools/build_views.py',
+                      'edit_instead': 'practices/*.md',
+                      'inputs': ['practices/*.md', 'tools/*.py', '*.json'],
+                      'regenerate': 'python3 tools/build_views.py',
+                      'check': ['tools/build_views.py', '--check']})
+        files.append(entry)
+    # A set may generate more than the views -- a todo index, say. Each
+    # labelled file it tracks is listed from its own label, or with the
+    # entry this engine's own list gives the same file when the label is
+    # too old to name its source (spec/GENERATED_FILES_PLAN.md G5).
+    import precedent_regenerate as _rg
+    upstream = _load_json(pathlib.Path(__file__).resolve().parent / 'generated_files.json')
+    known = {(e.get('path'), e.get('generated_by')): e
+             for e in (upstream or {}).get('files') or [] if not e.get('part')}
+    files += _rg.labelled_entries(dest, 'tools', {e.get('path') for e in files
+                                                   if not e.get('part')}, known)
+    data.setdefault('_comment', [
+        "Every file, or part of a file, a tool here writes wholesale: what",
+        "precedent_check.py's generated-files-registered checks and what the",
+        "commit backstop rebuilds when one of its inputs changes",
+        "(tools/precedent_regenerate.py). Never edit those files by hand: change",
+        "their sources and let them be rebuilt. This list is this set's own.",
+    ])
+    data['files'] = files
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return path
 
 
 def _write_session_load_budget(dest):

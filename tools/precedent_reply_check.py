@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_reply_check.py — the reply gate, made BLOCKING.
+"""The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires
+
+precedent_reply_check.py — the reply gate, made BLOCKING.
 
 WHAT THIS IS FOR. Every other channel in this engine is advisory: the
 resident block, the occasion index, the path triggers and

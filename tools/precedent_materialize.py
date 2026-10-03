@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_materialize.py — bridges precedent_resolve.py's multi-source
+"""Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools
+
+precedent_materialize.py — bridges precedent_resolve.py's multi-source
 resolution to the single-tree CONTENT tools (build_views.py,
 precedent_paths.py, precedent_gate.py, precedent_check.py), none of which
 understand more than one local practices/ directory.

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_merge_vendors.py -- a merge takes the vendor update with it.
+"""At a merge: when the vendored engine or catalogue is behind, runs Update Vendors from the BestPractice clone and commits the result on its own, or takes it all back and says why; never blocks the merge
+
+precedent_merge_vendors.py -- a merge takes the vendor update with it.
 
 Run from a consuming repository at a merge, after the base branch has been
 merged in and committed and before the result is pushed:
