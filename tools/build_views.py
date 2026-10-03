@@ -1817,7 +1817,14 @@ def defers_any_source(root):
               file=sys.stderr)
         return False
     _tracked, deferred, _notes = sources_for_tracked_block(root, declared)
-    return bool(deferred)
+    # Only what THIS REPOSITORY declares. A set the person brings is deferred
+    # too, but reaches their session through the session-start hook, and a
+    # tracked file must read the same whoever regenerates it: counting it
+    # here wrote the pointer for a person who brings a set and not for one
+    # who does not, so in a repository that uses Precedent build_views.py
+    # and the view sync disagreed, and its full check failed for everyone
+    # who brings one (found 2026-10-03, migrating a real consumer's copy).
+    return any(not s.get('brought') for s in deferred)
 
 
 def source_levels_from_manifest(root):

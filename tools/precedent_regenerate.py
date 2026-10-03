@@ -39,6 +39,10 @@ import subprocess
 import sys
 
 REGISTRY = 'tools/generated_files.json'
+# Trees that are COPIES of another repository's files -- the classic
+# vendored catalogue mirror. A labelled file there was generated upstream and
+# is copied here; it is the upstream list's to name, never this repository's.
+VENDORED_TREES = ('process/upstream/',)
 
 
 def _git(root, *args):
@@ -92,7 +96,7 @@ def labelled_entries(repo, engine_rel, listed=(), known=None):
     repo = pathlib.Path(repo)
     out = []
     for rel in _git(repo, 'ls-files', '*.md').stdout.splitlines():
-        if rel in listed:
+        if rel in listed or rel.startswith(VENDORED_TREES):
             continue
         try:
             lab = _label((repo / rel).read_text(encoding='utf-8', errors='ignore'))

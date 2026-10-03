@@ -2340,6 +2340,19 @@ def _vendoring_decided(ctx):
             if rel and checkin.vendoring_rule(rel) is None]
 
 
+def _vendored_trees():
+    """-> the path prefixes that hold copies of another repository's files
+    (precedent_regenerate.VENDORED_TREES, its one definition)."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_regenerate
+        return tuple(precedent_regenerate.VENDORED_TREES)
+    except Exception:
+        return ()
+    finally:
+        sys.path.pop(0)
+
+
 @check('generated-files-registered', 'tree',
        'every file a tool here writes wholesale is listed in '
        'tools/generated_files.json, carries its label naming that tool, points '
@@ -2414,6 +2427,10 @@ def _generated_files_registered(ctx):
         if not rel.endswith(('.md', '.json')) or rel in listed:
             continue
         if 'evals' in pathlib.PurePosixPath(rel).parts[:-1]:
+            continue
+        # A copy of another repository's generated file is that
+        # repository's to list (precedent_regenerate.VENDORED_TREES).
+        if rel.startswith(_vendored_trees()):
             continue
         try:
             text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')

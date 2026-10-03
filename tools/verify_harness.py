@@ -5898,6 +5898,10 @@ def check_migrate_views_keeps_every_word():
         (repo / 'todo' / 'TODO.md').write_text(
             '---\ngenerated_by: tools/build_todo_index.py\nedit_instead: "todo/todo-*.md"\n'
             'note: "Generated."\n---\n# TODO\n', encoding='utf-8')
+        (repo / 'process' / 'upstream').mkdir(parents=True)
+        (repo / 'process' / 'upstream' / 'GLOSSARY.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "x"\n---\n# Upstream\n',
+            encoding='utf-8')
         agents_before = (repo / 'AGENTS.md').read_text(encoding='utf-8')
         git('init', '-q', '-b', 'main')
         git('add', '-A')
@@ -5928,7 +5932,8 @@ def check_migrate_views_keeps_every_word():
         reg = _json.loads((repo / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
         cases.append(('...and both are in the repository\'s own list, with their '
                       'sources as inputs, beside every other file that says it is '
-                      'generated, read from its own label',
+                      'generated, read from its own label -- never a vendored copy of '
+                      'another repository\'s',
                       {e['path']: e['edit_instead'] for e in reg['files']}
                       == {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md',
                           'todo/TODO.md': 'todo/todo-*.md'}))
@@ -5979,6 +5984,44 @@ def check_migrate_views_keeps_every_word():
                       and not (repo / 'GLOSSARY.source.md').exists()
                       and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map
                       and (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == hand_glossary))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_tracked_views_read_the_same_whoever_regenerates():
+    """The standing instruction in a tracked AGENTS.md points at
+    .precedent/SESSION_PRACTICES.md only when a source THIS REPOSITORY
+    declares is deferred there, never because the person regenerating it
+    brings a set of their own. Found 2026-10-03 on a real consumer's copy:
+    counting a brought set wrote the pointer for whoever brings one, so
+    build_views.py and the view sync disagreed and the repository's full
+    check failed for every such person after an engine update."""
+    name = 'a tracked view reads the same whoever regenerates it'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    import tempfile
+    cases = []
+    real = bv.sources_for_tracked_block
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+        try:
+            bv.sources_for_tracked_block = lambda r, d: (
+                [], [{'name': 'precedent-shared-ladder', 'brought': True}], [])
+            only_brought = bv.defers_any_source(root)
+            bv.sources_for_tracked_block = lambda r, d: (
+                [], [{'name': 'precedent-shared-ladder', 'brought': True},
+                     {'name': 'precedent-shared-writing'}], [])
+            declared_too = bv.defers_any_source(root)
+        finally:
+            bv.sources_for_tracked_block = real
+    cases.append(('a set only the person brings does not put the pointer in a '
+                  'tracked file', only_brought is False))
+    cases.append(('...while a source the repository declares and defers still does',
+                  declared_too is True))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -55611,6 +55654,7 @@ def main():
     check_where_things_are_from_one_source()
     check_commit_rebuilds_generated_files()
     check_migrate_views_keeps_every_word()
+    check_tracked_views_read_the_same_whoever_regenerates()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
