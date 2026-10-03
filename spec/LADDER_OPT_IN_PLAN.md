@@ -240,6 +240,27 @@ above", 2026-09-26):
     first?"). Then the Produce goes ahead, since it is what brings main back
     to green, and its own pull request's GitHub test is still the last gate.
 
+- **The Debut composes, checks once, then moves both tiers** (Morgan,
+  2026-10-03, strength: decided; to be built -- it supersedes the "pushed
+  anyway" step of the bullet above):
+  1. In a scratch worktree: start from staging, merge main's new work,
+     then pre-staging's. A conflict only in generated files is rebuilt by
+     its own generator.
+  2. Before checking, rebuild every generated file that main's new commits
+     touched, with its own generator -- the mechanical repairs (a stale
+     render, a map, an index) that most off-ladder pushes need.
+  3. One full check on the composed tree.
+  4. Pass: staging and pre-staging both move to that exact commit, level.
+  5. Fail: neither tier moves. The composed tree is pushed to a fix branch
+     and the Debut reports "not finished": what failed, and that it came
+     from main where it did. The session fixes it on that branch in the
+     same turn -- never deferred, never "main is not mine" -- and reruns the
+     Debut with that branch as its work, which lands the fix and finishes.
+     The ladder set's `debut` rule says so.
+  6. A conflict in hand-written text takes the same route: resolved on the
+     fix branch, then the Debut is rerun.
+  Pre-staging therefore only ever receives a composition that passed.
+
 **D11. Composition.** The universal first-bullet rule stays prefix-only, with
 neutral wording, and the ladder set adds the step requirement.
 
