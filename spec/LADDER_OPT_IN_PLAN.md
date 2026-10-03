@@ -223,11 +223,10 @@ above", 2026-09-26):
   decided: people off the ladder pushing straight to main is expected and
   goes on, so the ladder deals with it at the root). It replaces the two
   red-main lines above:
-  - Every Promote takes main's new work into pre-staging, whatever main's
-    own checks say, and says when they had not all passed. What gets judged
-    is the tree it makes with the ladder's work: the basic check there, the
-    full one at the Debut. A failure is fixed on pre-staging and reaches
-    main at the next Produce. Holding main's work out waited on a fix from
+  - Every Debut takes main's new work, whatever main's own checks say.
+    What gets judged is the tree it makes with the ladder's work (built as
+    the composition below, which replaced a first version that merged it
+    into pre-staging on the basic check alone). Holding main's work out waited on a fix from
     someone off the ladder, while pre-staging drifted and the next Produce
     met the conflict: on 2026-10-03, two direct commits left main red on a
     stale generated page, and nothing on the ladder could take them.
@@ -241,8 +240,9 @@ above", 2026-09-26):
     to green, and its own pull request's GitHub test is still the last gate.
 
 - **The Debut composes, checks once, then moves both tiers** (Morgan,
-  2026-10-03, strength: decided; to be built -- it supersedes the "pushed
-  anyway" step of the bullet above):
+  2026-10-03, strength: decided; built 2026-10-03 in `_promote_unlocked`,
+  [tools/precedent_branches.py](../tools/precedent_branches.py); it
+  supersedes the "pushed anyway" step of the bullet above):
   1. In a scratch worktree: start from staging, merge main's new work,
      then pre-staging's. A conflict only in generated files is rebuilt by
      its own generator.
@@ -260,6 +260,39 @@ above", 2026-09-26):
   6. A conflict in hand-written text takes the same route: resolved on the
      fix branch, then the Debut is rerun.
   Pre-staging therefore only ever receives a composition that passed.
+
+  **Where it lives** (Morgan, 2026-10-03: "the change we just discussed is
+  for the ladders repo, just part of the ladders process"; he then picked
+  this of two options, strength: assented): the rule is the ladder set's
+  `debut` and `promote`; the mechanism is in the Promote tool those rules
+  call, because only a Debut runs it, so nobody off the ladder meets it.
+  Moving the code into the ladder set was the other option, a restructuring
+  of its own, since the shared push and landing checks use the tier code.
+
+  **Small calls made building it** (the session's, said here so they can
+  be reconsidered):
+  - The quick sync (`--sync-pre-staging`, run at Booked) no longer takes
+    main's work at all, checked or not: it says it is left for the next
+    Debut. Taking it there on the basic check is what the sentence above
+    rules out.
+  - Step 2 runs every generator the tree uses that rebuilds when run bare
+    (`REBUILT_BARE`: build_views, build_gotcha_index, build_todo_index,
+    doc_html), not only for files main's commits touched: on 2026-10-03
+    main's commits changed a source and not its render, so "touched" would
+    have missed the very file that was stale. On a consistent tree they
+    change nothing; a render whose only change is its build time is put
+    back. [very_deep_check.py](../tools/very_deep_check.py), which also writes a generated file, is never
+    run this way (run bare it is the very deep check), and a conflict in
+    its file counts as hand-written. That limit applies to the conflict
+    rebuild too, which had no such limit before.
+  - Saying "it came from main" costs one more full check, on staging with
+    main's work alone, and only when the composition failed and main
+    brought work.
+  - The fix branch is `promote-fix-DATE`; only a branch so named is taken
+    in through `--work`. Any other `--work` not on pre-staging is named and
+    left for Booked, so a Debut never carries unbooked work.
+  - Both tiers move in one atomic push. If pre-staging gains work while the
+    check runs, nothing moves and the Debut says to run again.
 
 **D11. Composition.** The universal first-bullet rule stays prefix-only, with
 neutral wording, and the ladder set adds the step requirement.
