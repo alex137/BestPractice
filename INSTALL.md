@@ -395,9 +395,15 @@ What is still untested is the rest of [spec/PHASE6_BRIEF.md](https://github.com/
 list, not the install itself. Two things this section deliberately does **not**
 cover, by design and not oversight:
 
-- **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
-  deliberately does not build these for a consuming repo (see its own
-  docstring) — they stay hand-templated, same as §1.
+- **`MAP.md` and `GLOSSARY.md` are generated, never hand-written** (since
+  2026-10-03, [spec/GENERATED_FILES_PLAN.md](spec/GENERATED_FILES_PLAN.md)).
+  The repository's own text for each lives in `MAP.source.md` and
+  `GLOSSARY.source.md`; [tools/precedent_sync_views.py](tools/precedent_sync_views.py) copies it in word for
+  word and adds the sections generated from the practice catalogue and the
+  engine. Edit the source file, never the view. A repository installed
+  before then moves its hand-written views into the source files at its next
+  `Update Vendors` ([tools/precedent_migrate_views.py](tools/precedent_migrate_views.py), which puts
+  everything back rather than lose a word).
 - **The creation pipeline isn't wired into a fresh install yet.**
   Candidates, promotion, and approval routing
   (`tools/precedent_candidate.py` and friends) exist in Precedent's own
@@ -492,9 +498,10 @@ cover, by design and not oversight:
      **harness-neutral** canonical instructions file. Fill the quick-index
      table with this repo's real lookups; adapt the merge runbook's file
      classes; keep the section structure.
-   - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
-     `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
-     domain-appropriate name).
+   - `templates/MAP.md.template` → `MAP.source.md`; `templates/TODO.md.template` →
+     `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.source.md`.
+     `MAP.md` and `GLOSSARY.md` are generated from the two source files
+     (§0's note on them), never written by hand.
    - `templates/gotchas/stale-checkout.md.template` →
      `gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md`,
      unchanged: the one trap every install inherits, and the start of the

@@ -2594,24 +2594,28 @@ def _generated_artifact_provenance(ctx):
         raise NotApplicable('tools/build_views.py is absent, so nothing here '
                             'declares which artifacts are generated')
     # Which of the two this repo actually GENERATES, read off the files
-    # themselves. build_views.py can write all three views, but a
-    # consuming repo runs it as `--agents-only` on purpose: MAP.md and
-    # GLOSSARY.md "assume THIS repo's layout" (build_views.py's own
-    # docstring, and INSTALL.md section 0's caveat, which says so in
-    # as many words), so a consumer hand-authors them from
-    # templates/MAP.md.template. Before this distinction, that documented,
-    # intended state was a VIOLATION in every consuming repo -- both files
-    # reported "carries no stamp" and then `build_views.py --check`
-    # reported them as drifted, for a repo that never generated them and
-    # never should. A file with no stamp is not a stale generated file;
-    # it is a hand-authored one, and orientation-map already requires
-    # MAP.md to exist and say something.
+    # themselves. Until 2026-10-03 a repository using Precedent hand-wrote
+    # MAP.md and GLOSSARY.md, and a file with no stamp was skipped here as
+    # that intended design. It no longer is: both are generated in every
+    # repository and never hand-edited (spec/GENERATED_FILES_PLAN.md;
+    # Morgan, 2026-10-03, strength: decided), a repository's own text living
+    # in MAP.source.md / GLOSSARY.source.md. A hand-written view with no
+    # source file is named, with the command that migrates it word for word.
     generated_here = []
     for name in GENERATED_VIEWS:
         p = ROOT / name
         head = p.read_text(encoding='utf-8', errors='ignore')[:1200] \
             if p.exists() else ''
         if 'build_views.py' not in head:
+            source = ROOT / name.replace('.md', '.source.md')
+            if p.exists() and not source.exists() and \
+                    _tool_path('tools/precedent_migrate_views.py') is not None:
+                out.append(Finding(name, 'is written by hand, and MAP.md and '
+                                         'GLOSSARY.md are generated in every '
+                                         'repository -- move it into '
+                                         f'{source.name} word for word with '
+                                         'python3 tools/precedent_migrate_views.py '
+                                         '--repo . (Update Vendors runs it)'))
             continue
         generated_here.append(name)
         if not re.search(r'do not (hand-)?edit|never hand-edit|generated',

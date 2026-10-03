@@ -28,7 +28,8 @@ expansion is never re-derived from scratch. When a session uses a term that
 isn't in the glossary, it adds it in the same pass — **and where the glossary
 is generated, it adds it at the glossary's source, never by editing the
 generated file** (in this catalogue, the `defines:` field of the practice that
-owns the term; see [generated-edit-goes-upstream](generated-edit-goes-upstream.md)).
+owns the term; in a repository that uses Precedent, its `GLOSSARY.source.md`;
+see [generated-edit-goes-upstream](generated-edit-goes-upstream.md)).
 Identifiers that already have their own registry (a code table, a component
 index) are pointed to, not duplicated.
 

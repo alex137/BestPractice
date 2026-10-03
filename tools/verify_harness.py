@@ -10906,6 +10906,10 @@ def check_update_vendors_migrates_hand_written_views():
             'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
             'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
             '## Story\nOnce.\n', encoding='utf-8')
+        # The practice the provenance check enforces is in force here, as it
+        # is in every repository that uses Precedent.
+        _shutil.copy2(ROOT / 'practices' / 'generated-artifact-provenance.md',
+                      d / 'practices' / 'generated-artifact-provenance.md')
         agents = ('# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
                   '<!-- END GENERATED -->\n')
         (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
@@ -10915,11 +10919,26 @@ def check_update_vendors_migrates_hand_written_views():
         env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='F',
                    GIT_AUTHOR_EMAIL='f@example.com', GIT_COMMITTER_NAME='F',
                    GIT_COMMITTER_EMAIL='f@example.com')
+        # The loader block as a sync leaves it, as in any real repository.
+        subprocess.run([sys.executable, str(d / 'tools' / 'build_views.py'), '--repo',
+                        str(d), '--agents-only'], capture_output=True, env=env)
         subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
         subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'], env=env, check=True)
+        def provenance():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'generated-artifact-provenance'], cwd=str(d),
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = provenance()
+        cases.append(('before it migrates, the full check names a hand-written map '
+                      'and the command that migrates it',
+                      rc != 0 and 'MAP.md: is written by hand' in out
+                      and 'precedent_migrate_views.py' in out))
         rep = pu.Report()
         pu.migrate_views_step(d, rep)
+        rc, out = provenance()
+        cases.append(('...and after, it passes', rc == 0))
         cases.append(('the step migrates both views and reports it',
                       any(n == 'views migrated' and 'MAP.md and GLOSSARY.md' in o
                           for n, o in rep.steps)
@@ -47753,6 +47772,17 @@ def check_installer_produces_a_clean_install():
         cases.append(('precedent.json declares the base branch and the visibility explicitly',
                       doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
                       str(doc)[:300]))
+        _map = (proj / 'MAP.md').read_text(encoding='utf-8') if (proj / 'MAP.md').is_file() else ''
+        _src = (proj / 'MAP.source.md').read_text(encoding='utf-8') if (proj / 'MAP.source.md').is_file() else ''
+        _gf = proj / 'tools' / 'generated_files.json'
+        cases.append(('MAP.md and GLOSSARY.md start out generated, from source files '
+                      'the install writes, and are on the project\'s own list '
+                      '(spec/GENERATED_FILES_PLAN.md step 5)',
+                      _src and _map.startswith('---\ngenerated_by: tools/build_views.py')
+                      and _src.rstrip('\n') in _map
+                      and (proj / 'GLOSSARY.source.md').is_file()
+                      and _gf.is_file() and 'MAP.source.md' in _gf.read_text(encoding='utf-8'),
+                      _map[:300]))
         agents = (proj / 'AGENTS.md').read_text(encoding='utf-8') if (proj / 'AGENTS.md').is_file() else ''
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
