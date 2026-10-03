@@ -396,7 +396,7 @@ list, not the install itself. Two things this section deliberately does **not**
 cover, by design and not oversight:
 
 - **`MAP.md` and `GLOSSARY.md` are generated, never hand-written** (since
-  2026-10-03, [spec/GENERATED_FILES_PLAN.md](spec/GENERATED_FILES_PLAN.md)).
+  2026-10-03, [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/GENERATED_FILES_PLAN.md)).
   The repository's own text for each lives in `MAP.source.md` and
   `GLOSSARY.source.md`; [tools/precedent_sync_views.py](tools/precedent_sync_views.py) copies it in word for
   word and adds the sections generated from the practice catalogue and the
