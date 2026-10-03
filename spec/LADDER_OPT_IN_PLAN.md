@@ -391,6 +391,19 @@ own put the real individual clone back on its pinned branch; it now stands
 aside for a config named outside `$HOME`
 ([the gotcha](../gotchas/gotcha-2026-10-02-a-config-named-for-a-test-reset-the-real-individual-clone.md)).
 
+**The rehearsal before Produce** (2026-10-03, Morgan asking what else
+could be tried before the release, strength: assented). Each practice set
+took staging's engine in a scratch copy, the way every session start takes
+it once it reaches main, and ran its own full check. Four passed. The
+individual set of the person who brings the ladder failed: Check E skipped
+a set that provides the ladder but not an individual set that brings one,
+so it refused four lines of that person's own rules, and with them their
+next Update Vendors. It now stands aside for an individual set whose
+brought set provides the ladder, and still runs when that set is not
+cloned. Not this work's, found the same way: the refresh refused a file
+carried by hand to match upstream exactly, as if it were an edit
+([the gotcha](../gotchas/gotcha-2026-10-03-a-file-carried-by-hand-to-match-upstream-held-every-refresh-up.md)).
+
 **D18. The ladder is brought, never declared** (Morgan, 2026-10-02, asking
 how two people in one repository can differ). A repository's
 `precedent.json` binds everyone who works there, so a set that provides
@@ -452,6 +465,8 @@ Two more checks:
 - **Session-start output:** what a person off the ladder sees, old engine
   against new, is identical except for listed lines.
 - **Auto mode:** a plain "commit and push it" reaches main.
+- **The rehearsal:** before each Produce of this work, every practice set
+  takes staging's engine in a scratch copy and passes its own full check.
 
 ## Rollback
 
