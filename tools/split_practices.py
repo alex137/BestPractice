@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""split_practices.py — convert PRACTICES.md into one file per practice
+"""PRACTICES.md ↔ practices/ converter
+
+split_practices.py — convert PRACTICES.md into one file per practice
 (practices/<slug>.md), and the reverse: rebuild a PRACTICES.md-equivalent
 catalogue view from those files, for the harness's byte-identical-regeneration
 check (see spec/PRACTICE_FORMAT.md).

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""verify_harness.py — phase-1 verification harness for the practice-engine
+"""The verification harness — run before trusting any change here
+
+verify_harness.py — phase-1 verification harness for the practice-engine
 conversion (PRACTICE_ENGINE_PLAN.md, "The Verification Harness" and Sequence
 row 1: "Practices are files; the catalogue regenerates byte-identically;
 harness passes.").
@@ -5580,6 +5582,625 @@ def check_symlinked_root_path_matching():
         link.parent.rmdir()
 
 
+def check_map_reads_each_tools_own_summary():
+    """MAP.md's engine table is read from each tool's own docstring, never
+    from a hand-typed table inside the generator (spec/GENERATED_FILES_PLAN.md
+    step 1; Morgan, 2026-10-03: generated files are never hand-edited, a
+    change goes into their sources). The failures that matter: a tool's row
+    that does not follow its file, a new tool missing from the map, and the
+    hand table coming back."""
+    import importlib.util as _ilu, tempfile, shutil as _shutil
+    name = 'MAP.md reads each tool\'s own summary line'
+    src = ROOT / 'tools' / 'build_views.py'
+    if not src.exists():
+        not_applicable(name, 'tools/build_views.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tools = pathlib.Path(td) / 'tools'
+        tools.mkdir()
+        for f in ('build_views.py', 'split_practices.py', 'summary_text.py'):
+            _shutil.copy2(ROOT / 'tools' / f, tools / f)
+        (tools / 'zz_fixture_tool.py').write_text(
+            '"""Says what the fixture tool is, on one line\n\nLonger text.\n"""\n',
+            encoding='utf-8')
+        spec = _ilu.spec_from_file_location('_bv_summary_fixture', tools / 'build_views.py')
+        bv = _ilu.module_from_spec(spec)
+        sys.path.insert(0, str(tools))
+        try:
+            spec.loader.exec_module(bv)
+            out = bv.render_map_md([])
+            cases.append(('a tool\'s row is the first line of its own docstring',
+                          '| [tools/zz_fixture_tool.py](tools/zz_fixture_tool.py) | '
+                          'Says what the fixture tool is, on one line |' in out))
+            (tools / 'zz_fixture_tool.py').write_text(
+                '"""Says something new\n"""\n', encoding='utf-8')
+            out = bv.render_map_md([])
+            cases.append(('editing the tool\'s docstring changes its row, with '
+                          'nothing else to edit', '| Says something new |' in out))
+            (tools / 'zz_fixture_tool.py').write_text('x = 1\n', encoding='utf-8')
+            try:
+                bv.render_map_md([])
+                stopped = ''
+            except SystemExit as e:
+                stopped = str(e)
+            cases.append(('a tool with no docstring stops the build, naming the '
+                          'file to describe', 'tools/zz_fixture_tool.py' in stopped
+                          and 'no module docstring' in stopped))
+            cases.append(('the hand-typed table is gone from the generator',
+                          not hasattr(bv, 'TOOLS_DESCRIPTIONS')))
+            # Only the engine's own repository may call its map Precedent's
+            # own; a set's or a consumer's map describes that repository.
+            here = pathlib.Path(td) / 'elsewhere'
+            (here / 'tools').mkdir(parents=True)
+            (here / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+            (tools / 'zz_fixture_tool.py').write_text('"""A tool\n"""\n', encoding='utf-8')
+            cases.append(('a map outside the engine\'s own repository introduces '
+                          'that repository, not Precedent',
+                          "Precedent's own repo map" not in bv.render_map_md([], root=here)
+                          and "This repository's map" in bv.render_map_md([], root=here)
+                          and "Precedent's own repo map" in bv.render_map_md([], root=td)))
+        finally:
+            sys.path.pop(0)
+    real = sorted(p.name for p in (ROOT / 'tools').glob('*.py'))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as _bv
+        undescribed = [n for n in real if not _bv.tool_summary(ROOT / 'tools' / n)]
+    finally:
+        sys.path.pop(0)
+    cases.append(('every tool here has a summary line', not undescribed))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + (f' -- undescribed: {undescribed}' if undescribed else ''))
+
+
+def check_where_things_are_from_one_source():
+    """WHERE_THINGS_ARE.md and AGENTS.md's short table are both generated
+    from where_things_are.json (spec/GENERATED_FILES_PLAN.md step 2; Morgan,
+    2026-10-03: a copy cites its original or is generated from one source).
+    The failures that matter: the two tables disagreeing again, a row
+    pointing at a path that does not exist, and a short table out of order
+    or missing its pointer to the full page."""
+    import json as _json, tempfile
+    name = 'WHERE_THINGS_ARE.md and AGENTS.md\'s short table come from one source'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    if not hasattr(bv, 'render_where_things_are'):
+        not_applicable(name, 'this engine predates where_things_are.json')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'here.md').write_text('x\n', encoding='utf-8')
+        src = {'intro': ['Intro line.'], 'rows': [
+            {'looking_for': 'Second quick', 'go_to': '[here.md](here.md)', 'quick': 2},
+            {'looking_for': 'Full page only', 'go_to': '[here.md](here.md#a)'},
+            {'looking_for': 'First quick', 'go_to': '[out](https://example.com)', 'quick': 1}]}
+        (root / bv.WHERE_SOURCE).write_text(_json.dumps(src), encoding='utf-8')
+        data = bv._where_source(root)
+        page = bv.render_where_things_are(data)
+        cases.append(('the full page carries every row, labelled as generated',
+                      page.startswith('---\ngenerated_by: tools/build_views.py')
+                      and all(f"| {r['looking_for']} |" in page for r in src['rows'])))
+        agents = (f'before\n{bv.QUICK_BEGIN}\nstale hand row\n{bv.QUICK_END}\nafter\n')
+        out = bv.splice_quick_index(agents, data)
+        body = out[out.index(bv.QUICK_BEGIN):out.index(bv.QUICK_END)]
+        cases.append(('the short table carries only the quick rows, in their '
+                      'order, then the pointer to the full page',
+                      'stale hand row' not in body and 'Full page only' not in body
+                      and body.index('First quick') < body.index('Second quick')
+                      < body.index('Anything else — the full index')
+                      and out.startswith('before\n') and out.endswith('after\n')))
+        try:
+            bv.splice_quick_index('no markers\n', data)
+            said = ''
+        except SystemExit as e:
+            said = str(e)
+        cases.append(('a source with nowhere to write the short table stops the '
+                      'build and says so', 'markers' in said))
+        src['rows'].append({'looking_for': 'Moved away', 'go_to': '[gone](gone/file.md)'})
+        (root / bv.WHERE_SOURCE).write_text(_json.dumps(src), encoding='utf-8')
+        try:
+            bv._where_source(root)
+            said = ''
+        except SystemExit as e:
+            said = str(e)
+        cases.append(('a row linking to a path that does not exist stops the '
+                      'build, naming the row', 'gone/file.md' in said
+                      and 'Moved away' in said))
+    real = ROOT / bv.WHERE_SOURCE
+    if real.is_file():
+        agents = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
+        page = (ROOT / bv.WHERE_PAGE).read_text(encoding='utf-8')
+        short = agents[agents.index(bv.QUICK_BEGIN):agents.index(bv.QUICK_END)]
+        rows = [l for l in short.splitlines() if l.startswith('| ')
+                and not l.startswith(('| Looking', '| Anything else'))]
+        cases.append(('here, every row of AGENTS.md\'s short table is in the full '
+                      'page word for word', rows and all(r in page for r in rows)))
+        reg = _json.loads((ROOT / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
+        paths = {(e.get('path'), e.get('part')) for e in reg.get('files', [])}
+        cases.append(('both are in the list of generated files',
+                      (bv.WHERE_PAGE, None) in paths
+                      and ('AGENTS.md', bv.QUICK_BEGIN) in paths))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_commit_rebuilds_generated_files():
+    """The commit backstop rebuilds the generated files whose inputs a commit
+    touches and stages them (spec/GENERATED_FILES_PLAN.md step 3; Morgan,
+    2026-10-03: generated files are auto-updated as their sources change).
+    The failures that matter: a stale generated file committed with no one
+    noticing; a rebuild that sweeps unstaged work into the commit or
+    overwrites it unrecoverably (practice: repair-cannot-discard-work); a
+    fixer that blocks a commit; and running what cannot be rebuilt offline."""
+    import json as _json, tempfile, shutil as _shutil
+    name = 'a commit rebuilds and stages the generated files its sources feed'
+    tool = ROOT / 'tools' / 'precedent_regenerate.py'
+    hook_src = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not tool.exists() or not hook_src.exists():
+        not_applicable(name, 'tools/precedent_regenerate.py or the commit hook is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), HOME=str(tmp))
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(work), *a],
+                                  capture_output=True, text=True, env=env)
+        git('init', '-q', '-b', 'main')
+        _shutil.copy2(tool, work / 'tools' / 'precedent_regenerate.py')
+        # A generator that writes OUT.md from src/*.txt and leaves a mark
+        # each time it runs; one that always fails; one that must never run.
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'pathlib.Path("RAN").write_text("x")\n'
+            'parts = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("OUT.md").write_text("".join(p.read_text() for p in parts))\n',
+            encoding='utf-8')
+        (work / 'tools' / 'snap.py').write_text(
+            'import pathlib\npathlib.Path("SNAP_RAN").write_text("x")\n', encoding='utf-8')
+        (work / 'src').mkdir()
+        (work / 'src' / 'a.txt').write_text('a\n', encoding='utf-8')
+        (work / 'OUT.md').write_text('a\n', encoding='utf-8')
+        (work / 'SNAP.md').write_text('snapshot\n', encoding='utf-8')
+        (work / 'tools' / 'generated_files.json').write_text(_json.dumps({'files': [
+            {'path': 'OUT.md', 'generated_by': 'tools/gen.py', 'edit_instead': 'src/*.txt',
+             'regenerate': 'python3 tools/gen.py', 'check': ['tools/gen.py']},
+            {'path': 'SNAP.md', 'generated_by': 'tools/snap.py', 'edit_instead': None,
+             'regenerate': 'python3 tools/snap.py', 'check': None}]}), encoding='utf-8')
+        (work / '.gitignore').write_text('RAN\nSNAP_RAN\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'init')
+        # The real hook's fixer block, cut from commit-identity.sh, as this
+        # fixture's own pre-commit hook.
+        text = hook_src.read_text(encoding='utf-8')
+        start = text.index("# The engine's own commit-time fixer")
+        end = text.index('esac', start) + len('esac')
+        block = text[start:end].replace('\\$', '$')
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        (hooks / 'pre-commit').write_text('#!/bin/sh\n' + block + '\nexit 0\n', encoding='utf-8')
+        (hooks / 'pre-commit').chmod(0o755)
+        git('config', 'core.hooksPath', str(hooks))
+
+        def commit(msg):
+            r = git('commit', '-q', '-m', msg)
+            return r.returncode, r.stdout + r.stderr
+
+        # 1. A source changes; the generated file is rebuilt and in the commit.
+        (work / 'src' / 'b.txt').write_text('b\n', encoding='utf-8')
+        git('add', 'src/b.txt')
+        rc, out = commit('add a source')
+        shown = git('show', 'HEAD:OUT.md').stdout
+        cases.append(('a commit touching a source carries the rebuilt generated '
+                      'file, and says so', rc == 0 and shown == 'a\nb\n'
+                      and 'rebuilt and staged OUT.md' in out))
+        # 2. Nothing the generator reads: it does not run.
+        (work / 'RAN').unlink()
+        (work / 'notes.txt').write_text('n\n', encoding='utf-8')
+        git('add', 'notes.txt')
+        rc, out = commit('unrelated')
+        cases.append(('an unrelated commit runs no generator', rc == 0
+                      and not (work / 'RAN').exists()))
+        # Its own generator changes, which would make any other entry due.
+        (work / 'tools' / 'snap.py').write_text(
+            'import pathlib\npathlib.Path("SNAP_RAN").write_text("y")\n', encoding='utf-8')
+        git('add', 'tools/snap.py')
+        rc, out = commit('touch the snapshot generator')
+        cases.append(('an entry nothing offline can rebuild never runs, even when '
+                      'its own generator changes', rc == 0
+                      and not (work / 'SNAP_RAN').exists()))
+        # 3. Unstaged changes of the session's own in the generated file:
+        # rebuilt, NOT staged, and said.
+        (work / 'OUT.md').write_text('a\nb\nmy unstaged note\n', encoding='utf-8')
+        (work / 'src' / 'c.txt').write_text('c\n', encoding='utf-8')
+        git('add', 'src/c.txt')
+        rc, out = commit('source with unstaged generated edits')
+        cases.append(('a generated file with unstaged changes is not swept into '
+                      'the commit, and the commit says so',
+                      rc == 0 and 'NOT added to this commit' in out
+                      and git('show', 'HEAD:OUT.md').stdout == 'a\nb\n'))
+        git('checkout', '-q', '--', 'OUT.md')
+        # 4. A staged hand edit to the generated file, then a source change:
+        # rebuilt and committed, and the hand edit kept, not lost.
+        (work / 'OUT.md').write_text('hand edit\n', encoding='utf-8')
+        (work / 'src' / 'd.txt').write_text('d\n', encoding='utf-8')
+        git('add', 'OUT.md', 'src/d.txt')
+        rc, out = commit('hand edit plus source')
+        kept = work / '.git' / 'precedent-regenerate' / 'OUT.md'
+        cases.append(('a hand edit the rebuild replaces is kept, said, and the '
+                      'commit carries the rebuilt file', rc == 0
+                      and kept.is_file() and kept.read_text() == 'hand edit\n'
+                      and 'is kept at' in out
+                      and git('show', 'HEAD:OUT.md').stdout == 'a\nb\nc\nd\n'))
+        # 4b. A generated block inside a hand-written document (doc_sync.py's
+        # kind) is refreshed when a commit touches what its script reads, and
+        # a document with unstaged changes of its own is not swept in.
+        (work / 'tools' / 'doc_sync.py').write_text(
+            'import pathlib, sys\n'
+            'n = len(list(pathlib.Path("src").glob("*.txt")))\n'
+            'p = pathlib.Path("BLOCKS.md")\n'
+            'new = f"Sources: <!--gen:n-->{n}<!--/gen:n-->\\n" + p.read_text().split("\\n", 1)[1]\n'
+            'if "--write" in sys.argv and new != p.read_text():\n'
+            '    p.write_text(new); print("[doc_sync] WROTE BLOCKS.md [n]")\n',
+            encoding='utf-8')
+        (work / 'BLOCKS.md').write_text('Sources: <!--gen:n-->0<!--/gen:n-->\nHand text.\n',
+                                        encoding='utf-8')
+        git('add', 'tools/doc_sync.py', 'BLOCKS.md')
+        git('commit', '-q', '-m', 'a document with a generated block')
+        cases.append(('a generated block inside a document is refreshed and committed '
+                      'with the change that moved it',
+                      git('show', 'HEAD:BLOCKS.md').stdout.startswith(
+                          'Sources: <!--gen:n-->4<!--/gen:n-->')))
+        (work / 'BLOCKS.md').write_text(
+            (work / 'BLOCKS.md').read_text(encoding='utf-8') + 'My unstaged edit.\n',
+            encoding='utf-8')
+        (work / 'src' / 'f.txt').write_text('f\n', encoding='utf-8')
+        (work / 'tools' / 'gen.py').write_text(
+            'import pathlib\n'
+            'parts = sorted(pathlib.Path("src").glob("*.txt"))\n'
+            'pathlib.Path("OUT.md").write_text("".join(p.read_text() for p in parts))\n',
+            encoding='utf-8')
+        git('add', 'src/f.txt', 'tools/gen.py')
+        rc, out = commit('a source, with an unstaged edit in the document')
+        cases.append(('...but a document with unstaged changes of its own is not '
+                      'swept into the commit, and it says so',
+                      rc == 0 and 'Hand text.\n' == git('show', 'HEAD:BLOCKS.md').stdout.split('\n', 1)[1]
+                      and 'blocks in BLOCKS.md' in out and 'NOT added' in out))
+        git('checkout', '-q', '--', 'BLOCKS.md')
+        # 5. A generator that fails never blocks the commit.
+        (work / 'tools' / 'gen.py').write_text('raise SystemExit(3)\n', encoding='utf-8')
+        (work / 'src' / 'e.txt').write_text('e\n', encoding='utf-8')
+        git('add', 'tools/gen.py', 'src/e.txt')
+        rc, out = commit('a broken generator')
+        cases.append(('a failing generator never blocks the commit, and says '
+                      'what failed', rc == 0 and 'failed' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_migrate_views_keeps_every_word():
+    """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
+    into MAP.source.md and GLOSSARY.source.md and generates both from then
+    on (spec/GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03). The
+    failures that matter are all losses: a word of the repository's own text
+    missing after regeneration, a failed migration that leaves things half
+    changed (practice: repair-cannot-discard-work), a view a vendor update
+    already overwrote that cannot be brought back, and a second run that
+    disturbs a migrated repository."""
+    import tempfile, json as _json
+    name = 'migrating the views keeps every word a repository wrote'
+    tool = ROOT / 'tools' / 'precedent_migrate_views.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_migrate_views.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(pathlib.Path(td) / 'none.json'))
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+
+        def migrate(*a):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(repo), *a],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
+            'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        hand_map = ('<!-- Last updated: 2026-09-30 by Someone, to version 7 -->\n'
+                    '# Repository map\n\nOur one deliverable is [THE_THING.md](THE_THING.md).\n\n'
+                    '## Known consumers\n\n| Repo | Since |\n|---|---|\n| a/b | 2026-09-01 |\n')
+        hand_glossary = '# Canonical names\n\n## Our names\n\n| Name | Meaning |\n|---|---|\n| HVR | Human voice rules |\n'
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        (repo / 'todo').mkdir()
+        (repo / 'todo' / 'TODO.md').write_text(
+            '---\ngenerated_by: tools/build_todo_index.py\nedit_instead: "todo/todo-*.md"\n'
+            'note: "Generated."\n---\n# TODO\n', encoding='utf-8')
+        (repo / 'process' / 'upstream').mkdir(parents=True)
+        (repo / 'process' / 'upstream' / 'GLOSSARY.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "x"\n---\n# Upstream\n',
+            encoding='utf-8')
+        agents_before = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        git('init', '-q', '-b', 'main')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'hand-written views')
+        first = git('rev-parse', 'HEAD').stdout.strip()
+
+        rc, out = migrate('--check')
+        cases.append(('--check says what it would do and changes nothing',
+                      rc == 0 and 'would move MAP.md into MAP.source.md' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map))
+        rc, out = migrate()
+        m = (repo / 'MAP.md').read_text(encoding='utf-8')
+        g = (repo / 'GLOSSARY.md').read_text(encoding='utf-8')
+        cases.append(('each hand-written view moves into its source byte for byte',
+                      rc == 0 and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8') == hand_glossary))
+        cases.append(('...and the generated map carries every word of it, then the '
+                      'catalogue, labelled as generated from the source',
+                      m.startswith('---\ngenerated_by: tools/build_views.py')
+                      and 'MAP.source.md' in m.split('---', 2)[1]
+                      and hand_map.rstrip('\n') in m
+                      and m.index(hand_map.rstrip('\n')) < m.index('## The practice catalogue')
+                      and '[zz-fixture](practices/zz-fixture.md)' in m))
+        cases.append(('...and the generated glossary carries its own names, then '
+                      'the names the practices define',
+                      hand_glossary.rstrip('\n') in g and '| Fixture Term |' in g))
+        reg = _json.loads((repo / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
+        cases.append(('...and both are in the repository\'s own list, with their '
+                      'sources as inputs, beside every other file that says it is '
+                      'generated, read from its own label -- never a vendored copy of '
+                      'another repository\'s',
+                      {e['path']: e['edit_instead'] for e in reg['files']}
+                      == {'MAP.md': 'MAP.source.md', 'GLOSSARY.md': 'GLOSSARY.source.md',
+                          'todo/TODO.md': 'todo/todo-*.md'}))
+        cases.append(('...and AGENTS.md is never touched: its loader block is the '
+                      'view sync\'s to write',
+                      (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
+        before = m
+        rc, out = migrate()
+        cases.append(('a second run finds nothing to do and changes nothing',
+                      rc == 0 and 'nothing to migrate' in out
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == before))
+        (repo / 'MAP.source.md').write_text(hand_map + '\nA new line.\n', encoding='utf-8')
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo)], capture_output=True, text=True, env=env)
+        cases.append(('afterwards the map follows its source',
+                      'A new line.' in (repo / 'MAP.md').read_text(encoding='utf-8')))
+
+        # A view a vendor update already overwrote: brought back from the
+        # commit the person names.
+        git('add', '-A')
+        git('commit', '-q', '-m', 'migrated')
+        (repo / 'MAP.source.md').unlink()
+        git('commit', '-q', '-am', 'lose the source, as an overwrite did')
+        rc, out = migrate('--restore-map-from', first)
+        cases.append(('--restore-map-from brings back the hand-written map from '
+                      'the named commit', rc == 0
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        rc, out = migrate('--restore-map-from', 'HEAD')
+        cases.append(('...never restores over a source that already exists',
+                      rc != 0 and 'already exists' in out
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        (repo / 'MAP.source.md').unlink()
+        rc, out = migrate('--restore-map-from', 'HEAD')
+        cases.append(('...and refuses a commit where the map was already generated',
+                      rc != 0 and 'already generated' in out
+                      and not (repo / 'MAP.source.md').exists()))
+
+        # A migration that cannot keep the text leaves nothing changed.
+        (repo / 'MAP.source.md').unlink(missing_ok=True)
+        (repo / 'GLOSSARY.source.md').unlink(missing_ok=True)
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(hand_glossary, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('# Agents, with no loader markers\n', encoding='utf-8')
+        rc, out = migrate()
+        cases.append(('a migration that cannot regenerate puts everything back and '
+                      'says so', rc == 1 and 'REFUSED' in out
+                      and not (repo / 'MAP.source.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()
+                      and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map
+                      and (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == hand_glossary))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_tracked_views_read_the_same_whoever_regenerates():
+    """The standing instruction in a tracked AGENTS.md points at
+    .precedent/SESSION_PRACTICES.md only when a source THIS REPOSITORY
+    declares is deferred there, never because the person regenerating it
+    brings a set of their own. Found 2026-10-03 on a real consumer's copy:
+    counting a brought set wrote the pointer for whoever brings one, so
+    build_views.py and the view sync disagreed and the repository's full
+    check failed for every such person after an engine update."""
+    name = 'a tracked view reads the same whoever regenerates it'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    import tempfile
+    cases = []
+    real = bv.sources_for_tracked_block
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+        try:
+            bv.sources_for_tracked_block = lambda r, d: (
+                [], [{'name': 'precedent-shared-ladder', 'brought': True}], [])
+            only_brought = bv.defers_any_source(root)
+            bv.sources_for_tracked_block = lambda r, d: (
+                [], [{'name': 'precedent-shared-ladder', 'brought': True},
+                     {'name': 'precedent-shared-writing'}], [])
+            declared_too = bv.defers_any_source(root)
+        finally:
+            bv.sources_for_tracked_block = real
+    cases.append(('a set only the person brings does not put the pointer in a '
+                  'tracked file', only_brought is False))
+    cases.append(('...while a source the repository declares and defers still does',
+                  declared_too is True))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_stale_views_say_why_and_stop_at_the_push():
+    """A repository's generated views going stale because a practice source
+    changed is said with its cause and its command, and stops the push to
+    pre-staging, not only the Debut (2026-10-03: a reduction pass retired
+    practices in the shared sets, a consumer was never re-synced, and the
+    full check's message sent its session after missing sources). The
+    failures that matter: a stale view that passes the basic tier, a message
+    that does not name the cause, and a check that fails a push only because
+    a source is not cloned here."""
+    import tempfile, json as _json
+    name = 'stale generated views say why, and stop at the push'
+    tool = ROOT / 'tools' / 'precedent_sync_views.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        universal, consumer = tmp / 'u', tmp / 'consumer'
+        (universal / 'practices').mkdir(parents=True)
+        def practice(slug, rule):
+            (universal / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: resident\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "x"\ngates: []\nindex_clause: "x"\n'
+                f'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+                f'overrides: null\nadded: null\napproved_by: "x"\nsource_practice_number: null\n'
+                f'---\n## Rule\n{rule}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+                encoding='utf-8')
+        practice('uni-fixture', 'A universal fixture rule.')
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(_json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)}]}),
+            encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text('# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                            '<!-- END GENERATED -->\n', encoding='utf-8')
+        user_cfg = tmp / 'none.json'
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(consumer),
+                                '--user-config', str(user_cfg), *extra],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+        run()
+        rc, out = run('--check')
+        cases.append(('right after a sync, the check passes', rc == 0))
+        practice('uni-fixture', 'The same rule, reworded upstream.')
+        rc, out = run('--check')
+        cases.append(('a source that changed since the sync fails the check, naming '
+                      'the cause and the command',
+                      rc != 0 and 'practice source this repository declares changed' in out
+                      and 'Fix: python3 tools/precedent_sync_views.py --repo .' in out))
+        import shutil as _shutil
+        _shutil.rmtree(universal)
+        rc, out = run('--check', '--skip-unresolved')
+        cases.append(('...while a source that is not here at all is said and skipped '
+                      'when asked, never read as stale views',
+                      rc == 0 and 'SKIPPED' in out and 'could not be resolved' in out))
+        rc, out = run('--check')
+        cases.append(('...and without --skip-unresolved it still fails, saying first '
+                      'that a source is missing, so the differences are not read as '
+                      'stale views', rc != 0 and 'did not resolve here' in out))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as _ppc
+    finally:
+        sys.path.pop(0)
+    step = [s for s in _ppc.PUSH_CHECKS['consumer'] if s[0] == 'views_sync']
+    cases.append(('a repository that uses Precedent runs the check at the basic '
+                  'tier, skipping sources it cannot reach',
+                  'views_sync' in _ppc.BASIC_CHECKS and step
+                  and '--skip-unresolved' in step[0][1]))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_stale_freshness_also_says_delete_it():
+    """PRECEDENT_FRESHNESS_ALSO, not needed since 2026-09-30, is told to be
+    deleted rather than given a new value when every entry names a practice
+    set or a retired precedent-team-* path, and Update Vendors' rename step
+    says so too (reported 2026-10-03: the session check warned at every turn
+    about the old team paths and offered a corrected value). An entry naming
+    a repository nothing declares still keeps the variable worth having."""
+    import tempfile
+    name = 'a stale PRECEDENT_FRESHNESS_ALSO is told to be deleted'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_check as psc
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
+
+    def row(value):
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = value
+        return [r for r in psc.checks() if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            pset = tmp / 'precedent-shared-fixture'
+            pset.mkdir()
+            (pset / 'precedent-source.json').write_text('{}', encoding='utf-8')
+            other = tmp / 'some-project'
+            (other / '.git').mkdir(parents=True)
+            r = row(f'{tmp}/precedent-team-fixture=main;{pset}=main')
+            cases.append(('old team paths plus a practice set: warned, and told to '
+                          'delete the variable, never given a new value',
+                          r[1] is False and 'Delete PRECEDENT_FRESHNESS_ALSO' in r[2]
+                          and 'do not replace it' in r[2] and 'Set it to' not in r[2]))
+            r = row(f'{pset}=main')
+            cases.append(('only practice sets: not a warning, but said to be unneeded',
+                          r[1] is True and 'not needed' in r[2]))
+            r = row(f'{other}=main')
+            cases.append(('a repository nothing declares keeps the variable worth '
+                          'having', r[1] is True and 'Delete' not in r[2]))
+            os.environ['PRECEDENT_FRESHNESS_ALSO'] = f'{tmp}/precedent-team-fixture=main'
+            rep = pu.Report()
+            pu.renamed_sources_step(tmp, rep, '')
+            cases.append(('Update Vendors\' rename step notes the stale variable, to '
+                          'delete, without holding up the update',
+                          any(n == 'environment' and 'delete it' in o for n, o in rep.steps)
+                          and not rep.left))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
+        else:
+            os.environ['PRECEDENT_FRESHNESS_ALSO'] = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -10426,6 +11047,100 @@ def check_push_to_main_skips_what_already_passed():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_migrates_hand_written_views():
+    """Update Vendors moves a repository's hand-written MAP.md and GLOSSARY.md
+    into their source files and generates both from then on (spec/
+    GENERATED_FILES_PLAN.md step 5), through migrate_views_step. The
+    failures that matter: the step silently not running, a refusal that is
+    not handed to the person, headings the headline rule will now flag that
+    nobody is told about, and a rerun that reports work it did not do."""
+    import tempfile, shutil as _shutil
+    name = 'Update Vendors migrates hand-written views and says what is left'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    if not hasattr(pu, 'migrate_views_step'):
+        not_applicable(name, 'this engine predates the migration step')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'consumer'
+        (d / 'tools').mkdir(parents=True)
+        for f in (ROOT / 'tools').glob('*.py'):
+            _shutil.copy2(f, d / 'tools' / f.name)
+        (d / 'practices').mkdir()
+        (d / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     []\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-03"\n'
+            'approved_by: "Fixture, 2026-10-03"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        # The practice the provenance check enforces is in force here, as it
+        # is in every repository that uses Precedent.
+        _shutil.copy2(ROOT / 'practices' / 'generated-artifact-provenance.md',
+                      d / 'practices' / 'generated-artifact-provenance.md')
+        agents = ('# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                  '<!-- END GENERATED -->\n')
+        (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        hand_map = '# Repository map\n\n## Known consumers\n\nOne.\n'
+        (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (d / 'GLOSSARY.md').write_text('# Our Names\n\n| A | B |\n|---|---|\n', encoding='utf-8')
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='F',
+                   GIT_AUTHOR_EMAIL='f@example.com', GIT_COMMITTER_NAME='F',
+                   GIT_COMMITTER_EMAIL='f@example.com')
+        # The loader block as a sync leaves it, as in any real repository.
+        subprocess.run([sys.executable, str(d / 'tools' / 'build_views.py'), '--repo',
+                        str(d), '--agents-only'], capture_output=True, env=env)
+        subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'fixture'], env=env, check=True)
+        def provenance():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'generated-artifact-provenance'], cwd=str(d),
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = provenance()
+        cases.append(('before it migrates, the full check names a hand-written map '
+                      'and the command that migrates it',
+                      rc != 0 and 'MAP.md: is written by hand' in out
+                      and 'precedent_migrate_views.py' in out))
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        rc, out = provenance()
+        cases.append(('...and after, it passes', rc == 0))
+        cases.append(('the step migrates both views and reports it',
+                      any(n == 'views migrated' and 'MAP.md and GLOSSARY.md' in o
+                          for n, o in rep.steps)
+                      and (d / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
+        cases.append(('...and hands the person the moved headings the headline '
+                      'rule now reaches, with the command that fixes them',
+                      any('MAP.source.md' in w and 'title_case.py --write' in why
+                          for w, why in rep.left)))
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('a rerun reports nothing and leaves nothing',
+                      not rep.steps and not rep.left))
+        # A migration that would lose text: handed to the person, nothing changed.
+        for f in ('MAP.source.md', 'GLOSSARY.source.md'):
+            (d / f).unlink()
+        (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        (d / 'AGENTS.md').write_text('# Agents with no loader markers\n', encoding='utf-8')
+        rep = pu.Report()
+        pu.migrate_views_step(d, rep)
+        cases.append(('a migration that would lose text is left for the person, '
+                      'and nothing changed',
+                      any(w == 'MAP.md / GLOSSARY.md' and 'without losing text' in why
+                          for w, why in rep.left)
+                      and not (d / 'MAP.source.md').exists()
+                      and (d / 'MAP.md').read_text(encoding='utf-8') == hand_map))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_update_vendors_updates_a_section_0_catalogue():
@@ -28418,7 +29133,9 @@ def check_session_check_reports_a_dead_also_list_entry():
     home, proj = '/tmp/fixture-home', '/tmp/fixture-proj'
     saved = {k: os.environ.get(k)
              for k in ('HOME', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_FRESHNESS_ALSO')}
-    # The row's "Set it to: ..." half exists only when there is something to
+    # (Since 2026-10-03 the row never offers a value to set; the pinned list
+    # below stays so neither case can pass by reading this machine.)
+    # The row's "Set it to: ..." half existed only when there was something to
     # suggest, and what there is to suggest is whatever clones happen to sit
     # beside this checkout. Asserting that text while leaving the machine to
     # decide it is a fixture that passes on a developer's container (sibling
@@ -28459,10 +29176,15 @@ def check_session_check_reports_a_dead_also_list_entry():
 
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = '/definitely/not/here=main'
         ok, detail = row()
+        # Never a value to set instead (2026-10-03): the guard checks every
+        # declared set on its own since 2026-09-30, so a suggested value naming
+        # them was the stale advice a session reported. Drop the entry.
         cases.append((f'a dead entry is reported NOT in effect, naming the '
-                      f'path and the value to set instead (ok={ok!r})',
+                      f'path and saying to drop it, never a value to set '
+                      f'(ok={ok!r})',
                       ok is False and '/definitely/not/here' in detail
-                      and 'PRECEDENT_FRESHNESS_ALSO=' in detail))
+                      and 'Drop each' in detail
+                      and 'PRECEDENT_FRESHNESS_ALSO=' not in detail))
 
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = 'no-equals-sign'
         ok, detail = row()
@@ -32821,6 +33543,33 @@ def check_bootstrap_source_produces_resolvable_set():
         cases.append(('bootstrapping an individual set succeeds and writes its files',
                       rc == 0 and (indiv_dest / 'practices' / 'example-starter-individual.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
+        # Its own list of generated files (spec/GENERATED_FILES_PLAN.md step
+        # 4): what its commit rebuilds and its check reads, current from
+        # the first commit.
+        _gf = indiv_dest / 'tools' / 'generated_files.json'
+        _entries = (json.loads(_gf.read_text(encoding='utf-8')).get('files', [])
+                    if _gf.is_file() else [])
+        _reg = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                               'generated-files-registered'], cwd=str(indiv_dest),
+                              capture_output=True, text=True)
+        cases.append(('a new set lists the three views it generates, and its own '
+                      'check of that list passes',
+                      {(e.get('path'), e.get('part')) for e in _entries} == {
+                          ('MAP.md', None), ('GLOSSARY.md', None),
+                          ('AGENTS.md', '<!-- BEGIN GENERATED: precedent-loader -->')}
+                      and all(e.get('inputs') and e.get('check') for e in _entries)
+                      and _reg.returncode == 0 and '1 passed' in _reg.stdout,
+                      _reg.stdout[-400:] + _reg.stderr[-200:]))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_push_check as _ppc
+        finally:
+            sys.path.pop(0)
+        cases.append(('a set\'s views are checked at the quick tier, so a stale or '
+                      'hand-edited one fails the push to pre-staging, not only the Debut',
+                      'build_views' in _ppc.BASIC_CHECKS
+                      and any(st[0] == 'build_views' for st in _ppc.PUSH_CHECKS['source']),
+                      f'BASIC_CHECKS = {sorted(_ppc.BASIC_CHECKS)}'))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))
@@ -47205,6 +47954,17 @@ def check_installer_produces_a_clean_install():
         cases.append(('precedent.json declares the base branch and the visibility explicitly',
                       doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
                       str(doc)[:300]))
+        _map = (proj / 'MAP.md').read_text(encoding='utf-8') if (proj / 'MAP.md').is_file() else ''
+        _src = (proj / 'MAP.source.md').read_text(encoding='utf-8') if (proj / 'MAP.source.md').is_file() else ''
+        _gf = proj / 'tools' / 'generated_files.json'
+        cases.append(('MAP.md and GLOSSARY.md start out generated, from source files '
+                      'the install writes, and are on the project\'s own list '
+                      '(spec/GENERATED_FILES_PLAN.md step 5)',
+                      _src and _map.startswith('---\ngenerated_by: tools/build_views.py')
+                      and _src.rstrip('\n') in _map
+                      and (proj / 'GLOSSARY.source.md').is_file()
+                      and _gf.is_file() and 'MAP.source.md' in _gf.read_text(encoding='utf-8'),
+                      _map[:300]))
         agents = (proj / 'AGENTS.md').read_text(encoding='utf-8') if (proj / 'AGENTS.md').is_file() else ''
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
@@ -55177,6 +55937,13 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_map_reads_each_tools_own_summary()
+    check_where_things_are_from_one_source()
+    check_commit_rebuilds_generated_files()
+    check_migrate_views_keeps_every_word()
+    check_tracked_views_read_the_same_whoever_regenerates()
+    check_stale_views_say_why_and_stop_at_the_push()
+    check_stale_freshness_also_says_delete_it()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
@@ -55231,6 +55998,7 @@ def main():
     check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
           *check_merge_is_judged_by_the_landing_check())
     check_update_vendors_resolves_a_catalogue_edit()
+    check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
     check('the leak gate sees the main clone\'s private siblings from a worktree',

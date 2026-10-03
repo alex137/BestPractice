@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""checkin.py — drive the periodic check-in (INSTALL.md §4) mechanically.
+"""Drives the periodic check-in (INSTALL.md §4) mechanically
+
+checkin.py — drive the periodic check-in (INSTALL.md §4) mechanically.
 
 Runs from a dependent repo (script lives at process/upstream/tools/). The
 check-in loop — sync the vendored tree into a clone of the upstream repo,
@@ -488,6 +490,7 @@ VENDORING_RULES = (
     ('GEMINI.md', False, "this repo's own session instructions"),
     ('MAP.md', False, "this repo's own map"),
     ('WHERE_THINGS_ARE.md', False, "this repo's own index"),
+    ('where_things_are.json', False, "the source of this repo's own index"),
     ('TODO.md', False, "this repo's to-do redirect stub"),
     ('MANIFEST.json', False, "a materialization record: which sources' "
                              "practices were copied into this repo"),

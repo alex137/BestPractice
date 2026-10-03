@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Which open items a change may have moved, and which look closable.
+"""which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict
+
+Which open items a change may have moved, and which look closable.
 
 code-cites-practice: item-closes-on-its-condition
 

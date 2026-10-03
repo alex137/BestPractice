@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_branches.py -- the three branch tiers, and what a push to each
+"""Where a person's work lands here (spec/LADDER_OPT_IN_PLAN.md D3) and whether a push to a branch gets the basic or the full push check; the branch tiers and their moves for a person whose set provides them (spec/BRANCH_TIERS_PLAN.md)
+
+precedent_branches.py -- the three branch tiers, and what a push to each
 one is checked with. spec/BRANCH_TIERS_PLAN.md is the plan this implements.
 
 THE RULE (Morgan, 2026-09-25, strength: decided): "to prestaging only the

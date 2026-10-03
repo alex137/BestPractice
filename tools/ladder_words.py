@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""ladder_words.py -- the one matcher for the five-stage ladder's own words
+"""The one matcher for the five-stage ladder's own words -- step labels, the release commands, the branch tiers, links to the ladder set's practices -- used by the check that keeps them out of everything outside that set and by the tests that hold engine output to the same (spec/LADDER_OPT_IN_PLAN.md D7)
+
+ladder_words.py -- the one matcher for the five-stage ladder's own words
 (spec/LADDER_OPT_IN_PLAN.md D7, "Check E").
 
 The ladder is a working method a person opts into by bringing the set that

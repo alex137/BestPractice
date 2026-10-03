@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_retire.py — Stage 6 of PRACTICE_ENGINE_PLAN.md's creation
+"""Stage 6 (phase 5) — the periodic removal report; proposes, never acts
+
+precedent_retire.py — Stage 6 of PRACTICE_ENGINE_PLAN.md's creation
 pipeline: the periodic removal report. Proposes; never acts.
 
 WHAT THIS REPORT IS AND IS NOT ASKING (2026-09-06). It finds practices that

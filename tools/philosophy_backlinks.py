@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Check that philosophy/ cross-references run both ways.
+"""EXPERIMENTAL — reports item-to-item citations in philosophy/ that run one way only; the return sentence is written by hand, never generated
+
+Check that philosophy/ cross-references run both ways.
 
 Every item in the core philosophy documents carries a permanent slug. When
 one item cites another, a reader landing on the cited end should be able to

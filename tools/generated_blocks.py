@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""generated_blocks.py -- the one answer to "is this line inside a generated
+"""Whether a line is inside a generated block, in both marker styles, closing marker required -- the one answer every scan that skips generated text uses
+
+generated_blocks.py -- the one answer to "is this line inside a generated
 block?", for every tool that has to skip generated text.
 
 The engine writes generated text into hand-written documents in two marker

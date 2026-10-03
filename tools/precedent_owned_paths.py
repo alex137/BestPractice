@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_owned_paths.py -- before a pull request, say which touched files
+"""Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it
+
+precedent_owned_paths.py -- before a pull request, say which touched files
 will wait for a code owner's review, in words a contributor can act on.
 
 WHAT IT ANSWERS. A document project draws its boundary with `CODEOWNERS`

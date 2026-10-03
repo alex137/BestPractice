@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""leak_gate.py — the hard-failing leak gate
+"""The push-time leak gate — structural rules always, private-term blocklist when configured
+
+leak_gate.py — the hard-failing leak gate
 (PRACTICE_ENGINE_PLAN.md, "The Verification Harness": "Leak gate — no
 individual- or shared-level term appears anywhere in Precedent.
 RPP's private-repo-scrub machinery generalized from words to sources,

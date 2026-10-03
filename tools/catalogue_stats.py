@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""catalogue_stats.py — the figures about this catalogue that documents cite.
+"""The figures about the catalogue that other documents cite, computed rather than hand-typed
+
+catalogue_stats.py — the figures about this catalogue that documents cite.
 
 Every number here was, until phase 4, hand-typed into prose in several
 documents at once. That is the failure `docs-track-models` describes, and it

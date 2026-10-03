@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""practice_audit.py — audit the practice-export layer
+"""Audits the practice-export layer for a repo that vendors one (this repo does not)
+
+practice_audit.py — audit the practice-export layer
 (practice: practice-export-loop; practice: scrub-gate; practice: layered-practice-packs).
 
 Runs from a dependent repo, from its own vendored engine in tools/ (the

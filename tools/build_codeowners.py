@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""build_codeowners.py -- generate CODEOWNERS from the registry that owns it.
+"""CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json
+
+build_codeowners.py -- generate CODEOWNERS from the registry that owns it.
 
 PRACTICE_ENGINE_PLAN.md, "Who the Approvers Are, and How They Get That Job":
 "Approvers are declared in the practice set's own config, not in a

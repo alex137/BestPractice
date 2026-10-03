@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""routing_reasons -- every practice's routing choice on one page, read
+"""Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md
+
+routing_reasons -- every practice's routing choice on one page, read
 from the practice files themselves.
 
     python3 tools/routing_reasons.py                # print the table

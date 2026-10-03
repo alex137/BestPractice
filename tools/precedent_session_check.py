@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Did this session's SessionStart hooks actually run? -- and repair it.
+"""Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did
+
+Did this session's SessionStart hooks actually run? -- and repair it.
 
 practice: session-bootstrap, fail-gracefully
 
@@ -540,28 +542,10 @@ def checks(offline=False):
     # (practice: checkable-gets-checked).
     raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
     name = 'PRECEDENT_FRESHNESS_ALSO, if set, names repositories that are there'
-    want = _attachable_sources()
-    # COMPUTED FOR THIS DISK, and that sentence is load-bearing.
-    #
-    # 2026-09-21: a known-good value was passed from one container to
-    # another and was wrong in the second one. Both had a duplicated
-    # source; they duplicated DIFFERENT ones. In the first, `~` held the
-    # only copy of the individual set and the stale copies of the shared
-    # sets; in the second, `~` held the STALE individual set and the shared
-    # sets were single. So a line that correctly names `~/precedent-
-    # individual` on one machine names the copy holding no work on the
-    # other -- silently, because an also-list entry that resolves to a real
-    # git repository is never questioned again.
-    #
-    # The value below is read off the directories actually present here,
-    # which is the only way it can be right; the warning is what stops it
-    # being copied somewhere it is not.
-    suggestion = ('Set it to (each set anchored where it lives -- a shared set '
-                  'beside the project, the individual set in $HOME -- so one '
-                  'value holds in every repo of the environment; in a shell '
-                  'script, single-quote it so nothing expands early): '
-                  'PRECEDENT_FRESHNESS_ALSO='
-                  + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
+    # The row once offered a value to set, naming every attachable practice
+    # set, computed for this disk (2026-09-21). Since 2026-09-30 the guard
+    # checks every declared set on its own, so that value was the stale
+    # advice a session reported on 2026-10-03; the row now never offers one.
     if raw is None:
         # Not a gap any more (2026-09-30): the freshness guard checks every
         # practice set this repo and this person declare, from the
@@ -571,24 +555,61 @@ def checks(offline=False):
                     'practice set this repo and you declare on its own. Set it '
                     'only for a repository nothing declares'))
     else:
-        bad = []
+        # WHEN THE ANSWER IS "DELETE IT" (2026-10-03). Since 2026-09-30 the
+        # guard checks every practice set this repo and the person declare on
+        # its own, so an entry naming one is redundant, and an entry naming a
+        # retired precedent-team-* set (renamed precedent-shared-* on
+        # 2026-09-28) names nothing at all. A session reported this row
+        # warning at the top of every turn about a variable still naming the
+        # old team paths, and offering a corrected value -- for a variable
+        # nobody needs. When every entry is one of the two, the remedy is to
+        # delete it; a replacement value is only offered for entries naming a
+        # repository nothing else covers.
+        bad, retired, redundant, extra = [], [], [], []
         for entry in (e.strip() for e in raw.split(';')):
             if not entry:
                 continue
             if '=' not in entry:
                 bad.append(f'{entry!r} has no =<base branch>')
+                extra.append(entry)
                 continue
             written = entry.split('=', 1)[0].strip()
             resolved = _expand_source_path(written)
+            if pathlib.Path(written).name.startswith('precedent-team-'):
+                retired.append(written)
+                continue
+            if (pathlib.Path(resolved) / 'precedent-source.json').is_file():
+                redundant.append(written)
+                continue
+            extra.append(entry)
             if not (pathlib.Path(resolved) / '.git').exists():
                 shown = (f'{written!r}' if resolved == written
                          else f'{written!r} (-> {resolved!r})')
                 bad.append(f'{shown} is not a git repository')
-        ok = not bad
-        out.append((name, ok, '' if ok else
-                    '; '.join(bad) + '. Each of these is SKIPPED, silently by '
-                    'design -- the variable reads as coverage and covers '
-                    'nothing. ' + suggestion))
+        if not extra:
+            said = []
+            if retired:
+                said.append(f'{len(retired)} name{"s" if len(retired) == 1 else ""} '
+                            f'the retired precedent-team-* '
+                            f'sets, renamed precedent-shared-* on 2026-09-28')
+            if redundant:
+                said.append(f'{len(redundant)} name{"s" if len(redundant) == 1 else ""} '
+                            f'a practice set, which the '
+                            f'freshness guard checks on its own when this repo '
+                            f'or you declare it')
+            out.append((name, not retired,
+                        'set, and not needed: ' + '; '.join(said) + '. Delete '
+                        'PRECEDENT_FRESHNESS_ALSO from your environment\'s '
+                        'settings, where it was set -- do not replace it.'))
+        else:
+            ok = not bad and not retired
+            out.append((name, ok, '' if ok else
+                        '; '.join(bad + [f'{r!r} is a retired precedent-team-* '
+                                         f'name -- drop it' for r in retired])
+                        + '. Each of these is SKIPPED, silently by design -- the '
+                        'variable reads as coverage and covers nothing. Drop each '
+                        'one; keep only repositories that exist and that nothing '
+                        'declares -- a practice set needs no entry.'))
 
     # 9. One source, one clone.
     #
@@ -602,8 +623,8 @@ def checks(offline=False):
     # Measured 2026-09-21 on this project's own container: three shared
     # sets were cloned twice, once under $HOME and once beside this repo,
     # and one of the three (`precedent-shared-writing`) had ALREADY
-    # diverged between its two copies. The also-list suggestion above was
-    # dutifully naming both, which is honest and is also the tell -- a
+    # diverged between its two copies. The also-list suggestion this row
+    # then offered was dutifully naming both, which is honest and is also the tell -- a
     # suggestion listing seven entries for four sources is reporting a
     # duplicate nobody had noticed.
     #

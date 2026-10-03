@@ -157,6 +157,7 @@ as_of: 2026-10-03
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | 21d | wait | Morgan's decision, explicitly deferred. |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay | 14d | ask |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | 2d | wait | Morgan: noted as a possibility for the future, not approved (2026-10-01) |
+| [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 0d | ask |  |
 
 ## Unblocked Work
 
@@ -207,6 +208,7 @@ as_of: 2026-10-03
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | Morgan |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay |  |
 | [`todo-2026-10-01-tier-2-reductions-held-for-later`](todo-2026-10-01-tier-2-reductions-held-for-later.md) | Two Tier 2 reductions from the 2026-10-01 review, held as possibilities for later. | Morgan |
+| [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
 
 ## Due Reminders
 

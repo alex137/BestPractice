@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""doc_html -- the ONE sortable-table HTML renderer for repo documents
+"""The one sortable-table HTML renderer for repo documents
+
+doc_html -- the ONE sortable-table HTML renderer for repo documents
 (practice: tabular-shared-renderer).
 
 Convention: any document whose tables have multiple columns a reader might

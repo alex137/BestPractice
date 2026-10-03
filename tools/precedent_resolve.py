@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_resolve.py — resolve the four sources into one set of practices
+"""Resolves the universal, shared and individual sources into one set, by precedence
+
+precedent_resolve.py — resolve the four sources into one set of practices
 (PRACTICE_ENGINE_PLAN.md, "Source — Who a Practice Belongs To" and
 "Precedence, and the One Case Where the Individual Does Not Win").
 

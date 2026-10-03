@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""move_paths.py -- move tracked files or directories and repoint every
+"""Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten
+
+move_paths.py -- move tracked files or directories and repoint every
 reference to them in the same change (practice: rename-updates-links).
 
   python3 move_paths.py --map MAP.json [--dry-run] [--check-imports]

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_source_credentials.py -- answers one question, and supplies the
+"""Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo
+
+precedent_source_credentials.py -- answers one question, and supplies the
 one mechanism that follows from it: does this session need a git credential
 to reach its PRIVATE practice sources, and does it have one?
 

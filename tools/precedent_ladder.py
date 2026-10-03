@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_ladder.py -- is the five-stage ladder in force for this person,
+"""Says whether the five-stage ladder is in force for the person working here -- a set they bring provides it, and PRECEDENT_NO_LADDERS is not set -- so every engine line chooses the ladder wording or the plain one from one answer (spec/LADDER_OPT_IN_PLAN.md)
+
+precedent_ladder.py -- is the five-stage ladder in force for this person,
 in this repository? (spec/LADDER_OPT_IN_PLAN.md D5)
 
 The ladder (Consider, Act, Booked, Debut, Produce, and the branch tiers it

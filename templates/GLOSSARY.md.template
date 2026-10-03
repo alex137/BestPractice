@@ -1,7 +1,9 @@
 # Canonical names
 
-<!-- Template: instantiate per Precedent INSTALL.md §1 (practice `repo-is-memory`).
-     One file owns the nomenclature. Sessions use these names and do not
+<!-- Template: instantiated as GLOSSARY.source.md (Precedent INSTALL.md §1,
+     practice `repo-is-memory`). GLOSSARY.md is generated from this file plus
+     the names the practices define, and is never edited by hand: edit
+     GLOSSARY.source.md. One file owns the nomenclature. Sessions use these names and do not
      invent new ones; a new thing gets its row here in the thread that
      creates it. Link each entry to its defining document (practice `doc-references-are-links`).
 

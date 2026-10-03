@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Say whether anyone other than you has pushed to precedent-beta-v01 since
+"""Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert
+
+Say whether anyone other than you has pushed to precedent-beta-v01 since
 you were last told, and only that once.
 
 WHY THIS WAS NOT THE UPSTREAM-CARRY WATERMARK, ADAPTED (that check and
