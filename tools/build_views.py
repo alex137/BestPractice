@@ -2396,6 +2396,7 @@ TOOLS_DESCRIPTIONS = {
     'ci_fleet_audit.py': "Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs",
     'precedent_review_page.py': "The very deep check's session-only page: branches to delete, with a link each, and every active practice by source",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
+    'precedent_merge_vendors.py': "At a merge: when the vendored engine or catalogue is behind, runs Update Vendors from the BestPractice clone and commits the result on its own, or takes it all back and says why; never blocks the merge",
     'precedent_engine_freshness.py': "Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes",
 }
 

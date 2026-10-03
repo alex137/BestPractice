@@ -7758,6 +7758,42 @@ def _paths_this_repo_removed():
             and not (ROOT / g).exists() and not _lives_on_in_own_engine(g)}
 
 
+_PATH_RUN = re.compile(r'[\w./-]+')
+
+
+def gone_path_matcher(gone):
+    """-> f(line): the first path of `gone`, in sorted order, that `line`
+    names on a boundary -- not after [\\w./-], not before [\\w-], so
+    `other-repo/practices/x.md` is not `practices/x.md` -- or None.
+
+    The same answer as one regex per path tried in sorted order, which is
+    what this check did until 2026-10-02 and what the harness compares it
+    with. That cost one regex per deleted path over every line of every
+    document: five to ten minutes on a consumer with thousands of documents
+    and a long history of deletions. A path made only of [\\w./-] can match
+    only where a run of those characters starts (the boundary before it
+    rules out any later start), and ends at the run's end or at a `.` or
+    `/` inside it, so its candidates are a handful of prefixes of each run,
+    looked up in a set. A path with any other character keeps its regex."""
+    simple, odd = set(), []
+    for g in sorted(gone):
+        if _PATH_RUN.fullmatch(g):
+            simple.add(g)
+        else:
+            odd.append((g, re.compile(r'(?<![\w./-])' + re.escape(g) + r'(?![\w-])')))
+
+    def first(line):
+        hits = []
+        if simple:
+            for m in _PATH_RUN.finditer(line):
+                run = m.group()
+                ends = [k for k, c in enumerate(run) if c in './'] + [len(run)]
+                hits += [run[:k] for k in ends if run[:k] in simple]
+        hits += [g for g, pat in odd if pat.search(line)]
+        return min(hits) if hits else None
+    return first
+
+
 @check('change-updates-its-docs', 'tree',
        'no live document names a path this repository once had and has '
        'since deleted or renamed away',
@@ -7774,10 +7810,7 @@ def _docs_name_no_removed_path(ctx):
     if not gone:
         raise NotApplicable('this repository\'s history deletes no path that '
                             'is still gone')
-    # One pattern per path, on a boundary, so `other-repo/practices/x.md`
-    # is not `practices/x.md`.
-    pats = [(g, re.compile(r'(?<![\w./-])' + re.escape(g) + r'(?![\w-])'))
-            for g in sorted(gone)]
+    first_gone = gone_path_matcher(gone)
     exempt = _declared_record_paths() + _decommissioning_record_exemptions()
     # A link to this repository's own branch names a path here too:
     # `https://github.com/<this>/blob/staging/practices/x.md` is x.md.
@@ -7808,7 +7841,7 @@ def _docs_name_no_removed_path(ctx):
             # A consumer's mirror of this repository's own file, as
             # INSTALL-era docs name it: `process/upstream/<path here>`.
             live += ' ' + live.replace('process/upstream/', ' ')
-            hit = next((g for g, pat in pats if pat.search(live)), None)
+            hit = first_gone(live)
             if hit and _sentences_saying_gone(lines, i - 1, hit):
                 continue
             if hit:
