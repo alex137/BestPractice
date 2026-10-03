@@ -1325,14 +1325,22 @@ def _requires(fm):
     return {str(x).strip() for x in got or [] if str(x).strip()}
 
 
-def resolve(sources):
+def resolve(sources, context=()):
     """-> {'practices': {slug: practice}, 'shadowed': [...], 'blocked': [...],
            'missing': [...], 'retired': [...]}
 
     Sources are walked lowest precedence first, so a later source simply
     replaces what an earlier one put in place -- except where the practice it
     would replace is `severity: blocking`, which no source ranked above it
-    can override by precedence alone (see _is_blocking)."""
+    can override by precedence alone (see _is_blocking).
+
+    `context` is sources in force for this person that the caller will not
+    write: the sets a person brings, left out of a committed view
+    (spec/LADDER_OPT_IN_PLAN.md D6). They are never in the result, but what
+    they provide counts for `requires`, and a rule in force in one counts as
+    in force for a deduplicated stub that points at it. Without that, a
+    sync that left a brought set out also dropped every rule that needs the
+    ladder it provides (found by a consumer rehearsal, 2026-10-03)."""
     by_source, missing = [], []
     for s in sources:
         loaded, why = load_source(s)
@@ -1367,6 +1375,18 @@ def resolve(sources):
     provided = set()
     for _s, _loaded in by_source:
         provided |= source_provides(_s['path'])
+    in_context = set()
+    # What a brought set provides counts for the PERSON's own rules only (an
+    # individual set's "for me, the ladder"). A rule a repository declares
+    # stays keyed to what the repository declares, so a committed view comes
+    # out the same whoever regenerates it (spec/LADDER_OPT_IN_PLAN.md, test E).
+    provided_for_person = set(provided)
+    for _s in context or ():
+        provided_for_person |= source_provides(_s['path'])
+        _loaded, _why = load_source(_s)
+        in_context |= {slug for slug, p in (_loaded or {}).items()
+                       if bv._json_str(p['fm'].get('status', 'active'))
+                       == IN_FORCE_STATUS}
     for _s, loaded in by_source:                      # lowest precedence first
         claims = override_claims_by_level.setdefault(_s['level'], {})
         for slug, practice in sorted(loaded.items()):
@@ -1374,7 +1394,8 @@ def resolve(sources):
                 retired.append(practice)
                 continue
             needs = _requires(practice['fm'])
-            if needs and not needs <= provided:
+            has = provided_for_person if _s['level'] == 'individual' else provided
+            if needs and not needs <= has:
                 continue
             # A practice replaces the same slug from a lower source, and may
             # additionally name a differently-named lower practice in
@@ -1469,7 +1490,8 @@ def resolve(sources):
             continue
         msg = bv.status_contract_violation(
             practice['fm'], practice.get('sections'),
-            slug_in_force=lambda s: follow_in_force_at(s, resolved, retired) is not None)
+            slug_in_force=lambda s: (s in in_context or follow_in_force_at(
+                s, resolved, retired) is not None))
         if msg:
             entry = {'slug': practice['slug'], 'source': practice['source'],
                      'level': practice['level'], 'file': practice['file'],
@@ -1511,6 +1533,32 @@ def withdrawn_from_universal(sections):
     story = (sections or {}).get('story') or ''
     found = _WITHDRAWN_RE.findall(story)
     return tuple(found[-1]) if found else None
+
+
+# The committed record precedent_move.py --withdraw-from-universal keeps of
+# every rule it deleted from universal on purpose, one line each:
+# "- <date>: `<slug>` withdrawn from universal, deliberately; in force only
+# from the <level> set `<name>`, ...". The file itself is gone, so no stub
+# can say where it went; this line is the forwarding address. Shipped to
+# consumers with the catalogue (checkin.py's VENDORING_RULES) so a sync
+# there can tell a withdrawal from a loss.
+WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
+_WITHDRAWN_LINE_RE = re.compile(
+    r'^- (\d{4}-\d\d-\d\d): `([^`]+)` withdrawn from universal\b.*?'
+    r'in force only from the \w+ set `([^`]+)`', re.M)
+
+
+def withdrawn_record(source_path):
+    """-> {slug: (date, set name)} from a universal source's withdrawal
+    record; {} when it has none or it cannot be read. The last line for a
+    slug wins."""
+    try:
+        text = (pathlib.Path(source_path) / WITHDRAWN_RECORD).read_text(
+            encoding='utf-8')
+    except OSError:
+        return {}
+    return {slug: (date, name)
+            for date, slug, name in _WITHDRAWN_LINE_RE.findall(text)}
 
 
 def follow_in_force_at(slug, resolved, retired):

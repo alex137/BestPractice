@@ -1892,7 +1892,9 @@ def loader_practices(root, own_practices):
     if len(declared) <= 1:
         return own_practices, source_levels_from_manifest(root)
 
-    res = _pr.resolve(declared)
+    # A brought set is left out of the block but still counts for what is in
+    # force (precedent_resolve.resolve's `context`).
+    res = _pr.resolve(declared, context=[s for s in _deferred if s.get('brought')])
     if res['missing']:
         # A declared source that does not resolve HERE makes the block
         # unverifiable, not stale. A shared source is a sibling clone and an
