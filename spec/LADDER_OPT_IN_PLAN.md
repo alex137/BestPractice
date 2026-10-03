@@ -466,7 +466,12 @@ Two more checks:
   against new, is identical except for listed lines.
 - **Auto mode:** a plain "commit and push it" reaches main.
 - **The rehearsal:** before each Produce of this work, every practice set
-  takes staging's engine in a scratch copy and passes its own full check.
+  takes staging's engine in a scratch copy and passes its own full check,
+  and every consumer reachable runs a full Update Vendors against a
+  BestPractice whose main is staging, then its own full check. A consumer
+  renders with [precedent_sync_views.py](../tools/precedent_sync_views.py), not `build_views`, so the sets'
+  rehearsal cannot stand in for it
+  ([the open item](../todo/todo-2026-10-03-consumer-rehearsal-before-the-ladder-produce.md)).
 
 ## Rollback
 

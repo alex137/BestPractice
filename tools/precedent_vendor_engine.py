@@ -6695,7 +6695,7 @@ def refresh(clone, force=False, ref=None):
     # 37fc3b55 until a moment earlier, 2026-09-28.
     was = os.environ.get(_WAS_COMMIT_ENV) or manifest.get('source_commit') or '?'
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
-          f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
+          f"from {ref if ref else SOURCE_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")

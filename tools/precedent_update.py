@@ -1874,7 +1874,8 @@ def update(repo, skip_check=False, ref=None):
             return rep.close()
         swap = le.Swap(repo, [] if unjudged else edits)
         with swap:
-            rc, out = run(checkin + ['update', str(SOURCE), '--repo', str(repo)], repo)
+            rc, out = run(checkin + ['update', str(SOURCE), '--repo', str(repo)]
+                          + (['--from-ref', ref] if ref else []), repo)
             for item in left_block(out):
                 rep.leave('a decline to decide again', item)
             if rc == 0:
@@ -1885,7 +1886,8 @@ def update(repo, skip_check=False, ref=None):
                 for e in swap.edits:
                     resolving += ['--resolving', e.upstream_rel]
                 rc2, out2 = run(checkin + ['record', str(SOURCE), '--repo', str(repo),
-                                           '--note', 'Update Vendors'] + resolving, repo)
+                                           '--note', 'Update Vendors'] + resolving
+                                + (['--from-ref', ref] if ref else []), repo)
                 if rc2 == 0:
                     rep.add_edits(le.resolve(repo, swap), swap.merges)
         if rc != 0:

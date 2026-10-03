@@ -145,6 +145,7 @@ as_of: 2026-10-03
 | [`todo-2026-09-29-source-checks-adopt-generated-blocks`](todo-2026-09-29-source-checks-adopt-generated-blocks.md) | Move the practice sets' own checks onto `generated_blocks.py`, the engine's one answer to "is this line inside a generat | 4d | wait | generated_blocks.py reaching main, then each practice set's engine refresh |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 3d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
 | [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 2d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
+| [`todo-2026-10-03-consumer-rehearsal-before-the-ladder-produce`](todo-2026-10-03-consumer-rehearsal-before-the-ladder-produce.md) | A rehearsal on four consumer repositories found staging not ready to Produce. | 0d | ask |  |
 | [`todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs`](todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs.md) | Land `claude/2026-10-03-merge-takes-vendor-update-xxf54` in precedent-shared-ladder once its engine has the script. | 0d | ask | BestPractice main carrying tools/precedent_merge_vendors.py (the next Produce),… |
 
 ## Decisions (the Person's Call)
