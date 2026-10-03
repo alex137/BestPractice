@@ -5644,6 +5644,81 @@ def check_map_reads_each_tools_own_summary():
           '; '.join(failed) + (f' -- undescribed: {undescribed}' if undescribed else ''))
 
 
+def check_where_things_are_from_one_source():
+    """WHERE_THINGS_ARE.md and AGENTS.md's short table are both generated
+    from where_things_are.json (spec/GENERATED_FILES_PLAN.md step 2; Morgan,
+    2026-10-03: a copy cites its original or is generated from one source).
+    The failures that matter: the two tables disagreeing again, a row
+    pointing at a path that does not exist, and a short table out of order
+    or missing its pointer to the full page."""
+    import json as _json, tempfile
+    name = 'WHERE_THINGS_ARE.md and AGENTS.md\'s short table come from one source'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    if not hasattr(bv, 'render_where_things_are'):
+        not_applicable(name, 'this engine predates where_things_are.json')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'here.md').write_text('x\n', encoding='utf-8')
+        src = {'intro': ['Intro line.'], 'rows': [
+            {'looking_for': 'Second quick', 'go_to': '[here.md](here.md)', 'quick': 2},
+            {'looking_for': 'Full page only', 'go_to': '[here.md](here.md#a)'},
+            {'looking_for': 'First quick', 'go_to': '[out](https://example.com)', 'quick': 1}]}
+        (root / bv.WHERE_SOURCE).write_text(_json.dumps(src), encoding='utf-8')
+        data = bv._where_source(root)
+        page = bv.render_where_things_are(data)
+        cases.append(('the full page carries every row, labelled as generated',
+                      page.startswith('---\ngenerated_by: tools/build_views.py')
+                      and all(f"| {r['looking_for']} |" in page for r in src['rows'])))
+        agents = (f'before\n{bv.QUICK_BEGIN}\nstale hand row\n{bv.QUICK_END}\nafter\n')
+        out = bv.splice_quick_index(agents, data)
+        body = out[out.index(bv.QUICK_BEGIN):out.index(bv.QUICK_END)]
+        cases.append(('the short table carries only the quick rows, in their '
+                      'order, then the pointer to the full page',
+                      'stale hand row' not in body and 'Full page only' not in body
+                      and body.index('First quick') < body.index('Second quick')
+                      < body.index('Anything else — the full index')
+                      and out.startswith('before\n') and out.endswith('after\n')))
+        try:
+            bv.splice_quick_index('no markers\n', data)
+            said = ''
+        except SystemExit as e:
+            said = str(e)
+        cases.append(('a source with nowhere to write the short table stops the '
+                      'build and says so', 'markers' in said))
+        src['rows'].append({'looking_for': 'Moved away', 'go_to': '[gone](gone/file.md)'})
+        (root / bv.WHERE_SOURCE).write_text(_json.dumps(src), encoding='utf-8')
+        try:
+            bv._where_source(root)
+            said = ''
+        except SystemExit as e:
+            said = str(e)
+        cases.append(('a row linking to a path that does not exist stops the '
+                      'build, naming the row', 'gone/file.md' in said
+                      and 'Moved away' in said))
+    real = ROOT / bv.WHERE_SOURCE
+    if real.is_file():
+        agents = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
+        page = (ROOT / bv.WHERE_PAGE).read_text(encoding='utf-8')
+        short = agents[agents.index(bv.QUICK_BEGIN):agents.index(bv.QUICK_END)]
+        rows = [l for l in short.splitlines() if l.startswith('| ')
+                and not l.startswith(('| Looking', '| Anything else'))]
+        cases.append(('here, every row of AGENTS.md\'s short table is in the full '
+                      'page word for word', rows and all(r in page for r in rows)))
+        reg = _json.loads((ROOT / 'tools' / 'generated_files.json').read_text(encoding='utf-8'))
+        paths = {(e.get('path'), e.get('part')) for e in reg.get('files', [])}
+        cases.append(('both are in the list of generated files',
+                      (bv.WHERE_PAGE, None) in paths
+                      and ('AGENTS.md', bv.QUICK_BEGIN) in paths))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -55242,6 +55317,7 @@ def main():
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_map_reads_each_tools_own_summary()
+    check_where_things_are_from_one_source()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()

@@ -274,8 +274,11 @@ that skips them in this repo of all places is the joke writing itself.
 
 **The dozen rows sessions reach for constantly are below. The full
 index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
-before searching the repo, and add new rows there rather than here.
+before searching the repo. Both tables are generated from
+[where_things_are.json](where_things_are.json): add or change a row there,
+never in either table.
 
+<!-- BEGIN GENERATED: where-things-are -->
 | Looking for… | Go to |
 |---|---|
 | The plan Precedent was built from (phases 0-7) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
@@ -291,6 +294,7 @@ before searching the repo, and add new rows there rather than here.
 | Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by the deep check. |
 | The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
+<!-- END GENERATED: where-things-are -->
 
 
 ## Build-environment gotchas — search before you rediscover one

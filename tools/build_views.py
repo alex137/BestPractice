@@ -2259,6 +2259,82 @@ def generated_label(generated_by, edit_instead, regenerate):
             'note: "' + note.replace('"', "'") + '"', '---']
 
 
+# WHERE_THINGS_ARE.md AND AGENTS.md'S SHORT TABLE, FROM ONE SOURCE
+# (spec/GENERATED_FILES_PLAN.md step 2; Morgan, 2026-10-03: generated files
+# are never hand-edited, and a copy "should either cite the original instead
+# of repeating it OR make sure they are kept in sync"). The short table was a
+# hand copy of a dozen rows of the full one, and by then several read
+# differently -- the full one still named the reply's closing section by its
+# old name. Both render from where_things_are.json now; a repository without
+# that file has neither, and nothing here touches it.
+WHERE_SOURCE = 'where_things_are.json'
+WHERE_PAGE = 'WHERE_THINGS_ARE.md'
+QUICK_BEGIN = '<!-- BEGIN GENERATED: where-things-are -->'
+QUICK_END = '<!-- END GENERATED: where-things-are -->'
+_ROW_LINK = re.compile(r'\]\(([^)\s]+)\)')
+
+
+def _where_source(root):
+    """-> where_things_are.json's content, or None when the repository has
+    none. Every relative link in a row must resolve, or the build stops
+    naming each one: a row that sends a reader to a file that moved is the
+    staleness this page exists to prevent."""
+    path = pathlib.Path(root) / WHERE_SOURCE
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError as e:
+        sys.exit(f"build_views FAIL: {WHERE_SOURCE} is not valid JSON: {e}")
+    broken = []
+    for row in data.get('rows') or []:
+        for cell in (row.get('looking_for', ''), row.get('go_to', '')):
+            for target in _ROW_LINK.findall(cell):
+                if re.match(r'[a-z]+:|#', target):
+                    continue
+                rel = target.split('#', 1)[0]
+                if rel and not (pathlib.Path(root) / rel).exists():
+                    broken.append(f"{row.get('looking_for', '')[:60]!r} -> {target}")
+    if broken:
+        sys.exit(f"build_views FAIL: {WHERE_SOURCE} links to paths that do not "
+                 f"exist -- fix the row there, then run this again:\n  "
+                 + '\n  '.join(broken))
+    return data
+
+
+def _where_row(row):
+    return f"| {row['looking_for']} | {row['go_to']} |"
+
+
+def render_where_things_are(data):
+    """-> WHERE_THINGS_ARE.md: the label, the intro and every row."""
+    lines = [*generated_label('tools/build_views.py', WHERE_SOURCE,
+                              'python3 tools/build_views.py'),
+             '', '# Where things are — the full index', '',
+             *data.get('intro', []), '',
+             '| Looking for… | Go to |', '|---|---|',
+             *(_where_row(r) for r in data.get('rows') or [])]
+    return '\n'.join(lines) + '\n'
+
+
+def splice_quick_index(text, data):
+    """-> `text` (AGENTS.md) with the rows marked `quick` written between
+    QUICK_BEGIN and QUICK_END, in their `quick` order, and a last row
+    pointing at the full page."""
+    if QUICK_BEGIN not in text or QUICK_END not in text:
+        sys.exit(f"build_views FAIL: {WHERE_SOURCE} exists but AGENTS.md has no "
+                 f"{QUICK_BEGIN} / {QUICK_END} markers for its short table.")
+    quick = sorted((r for r in data.get('rows') or [] if r.get('quick')),
+                   key=lambda r: r['quick'])
+    block = [QUICK_BEGIN, '| Looking for… | Go to |', '|---|---|',
+             *(_where_row(r) for r in quick),
+             f'| Anything else — the full index | [{WHERE_PAGE}]({WHERE_PAGE}) |',
+             QUICK_END]
+    pre = text[:text.index(QUICK_BEGIN)]
+    post = text[text.index(QUICK_END) + len(QUICK_END):]
+    return pre + '\n'.join(block) + post
+
+
 def render_map_md(practices, withdrawn=()):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
     # The label every generated file opens with (tools/generated_files.json
@@ -2576,7 +2652,12 @@ def main():
         print("build_views --budgets OK: the resident block, the occasion "
               "index and this source's occasion share are within their caps")
         return 0
+    where = _where_source(root)
+    if where is not None:
+        new_agents = splice_quick_index(new_agents, where)
     targets = [(agents_md, new_agents)]
+    if where is not None and not agents_only:
+        targets.append((root / WHERE_PAGE, render_where_things_are(where)))
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()
         # drops withdrawn practices by design (that filter is what stopped a
