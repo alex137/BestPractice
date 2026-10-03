@@ -6,20 +6,13 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **Read before opening or merging any pull request (PR) here: every PR
-targets your landing branch, never `main`** -- `pre-staging` for a person
-whose landing branch is pre-staging, `staging` otherwise
-(`python3 tools/precedent_branches.py --landing` says which). Work reaches
-`main` only by a Promote (and reaches `staging` that way too, for anyone who
-lands on `pre-staging`). **No merge needs Alex's
+targets your landing branch** (`python3 tools/precedent_branches.py
+--landing` says which). **No merge needs Alex's
 sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
 deep check passes, a session may merge a PR into the landing branch. A
 general "PR and merge it" authorization, with no branch named, means the
-landing branch; merging into `main` needs the person running the session to
-name `main` in that specific request, or a Promote that chooses staging into
-`main`. Check the base branch explicitly before acting -- do not assume
-`main` because it is the repository's configured default branch. The rule and
-its story:
-[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).
+landing branch. Check the base branch explicitly before acting -- do not
+assume one because it is the repository's configured default branch.
 
 **Precedent commands.** A session recognizes each by what the message is
 asking for, not by a keyword; the phrase removes doubt, it does not create a
@@ -32,14 +25,6 @@ is an index entry: load the practice (`python3 tools/precedent_show.py
 SLUG`) before acting on one**, and the long form each used to carry here is
 in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 
-- **"Booked"** / **"Approved"** / **"Book it"** ([go-update](practices/go-update.md)) —
-  land it on the landing branch: a direct push by default, the full pull
-  request chain for a high-risk change, and confirm `origin` carries it.
-  "Go update", its older name, still means this.
-- **"Promote N"** and the stage words ([promote](practices/promote.md)) —
-  the five stages: Consider, Act, Booked, Debut, Produce.
-  Read each back before it runs; optional, unless a person's own set
-  requires it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item now, and
   never raise it again; kept to the literal word.
@@ -107,15 +92,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~561 of 2000 token budget, 6 of 165 practices (6 universal))
-
-**brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
-thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas") -- **hold the edit, not just the commit: write nothing to
-the repository until they authorize the work.** Research, argue the case,
-propose the design; do not create, edit, commit, push, open a pull request
-or merge. Answering a question inside it is not authorization, and neither
-is enthusiasm for the idea. **When in doubt, it is a brainstorm.**
+## Resident block (~447 of 1750 token budget, 5 of 150 practices (5 universal))
 
 **current-rule-governs.** **A standing command means what the rule in force says today: do it.**
 `precedent_show.py SLUG` resolves it, following a deduplicated copy to the
@@ -167,8 +144,6 @@ When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
-When a message says "Booked", "Approved", "Book it" or "Promote 3", or plainly authorizes a merge:
-  go-update — stage 3, Booked: land it on the landing branch; high-risk: PR and merge
 When a message says "Update Vendors", or an upstream update is taken into a vendoring repo:
   vendor-update-runbook — source clone first, both layers move separately, then merge
 When a model or comparison rests on a constant nobody decided:
@@ -178,18 +153,10 @@ When a person asks "What's new?", or what has changed in the project lately:
 When a person explicitly asks for a "very deep check" or a "full practice audit":
   full-practice-audit — the very deep check's Pass 4 alone: every source's practices, one at a time
   very-deep-check — read every repo in force against itself, pass by pass; never routine
-When a person says "Chief of Staff":
-  chief-of-staff — on request only; name the window read, link each session; Promotion Reviews last
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options:
   my-options — every real option, plainer, costs said flatly, your pick and why
-When a person says "Promote", "Promote N" or a stage word ("Consider", "Act", "Debut", "Produce", "Make live"), or asks to plan, build or move work up a tier:
-  act — stage 2: build on the session's feature branch, pushed so it survives
-  consider — stage 1: pick the plan size -- one line, Brainstorm, Plan it, Write it up
-  debut — stage 4: pre-staging into staging, full checks
-  produce — stage 5: staging into main (production); read strictly
-  promote — the next tier up, chosen from the work and said first; "Promote N" does stage N
 When a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach:
   prompt-please — one paste-ready prompt for a new session; never a session-creating tool
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
@@ -206,8 +173,6 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
-When a person says "Write it up", or asks for a write-up:
-  write-it-up — commit a full report: issue, options attacked, the fix that survived; link it
 When a second implementation of the same mechanism turns up:
   judgment-check-or-tool — judgment stays prose; checkable gets an audit; a mechanism gets one tool
 When a tool, hook, check or gate flags something the person would otherwise have to judge:
@@ -256,8 +221,6 @@ When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
-When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — PRs target pre-staging or staging; main moves only by a Promote or when the person names main
 When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
   rename-updates-links — repoint every link and use of a retired name in the same commit or migration
 When seeding or scheduling a prompt into another session:
@@ -361,9 +324,8 @@ place — nothing is ever deleted, and nothing moves.
   table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
   CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
   covers Codex.
-- **Work lands on your landing branch, never `main`** (the opening
-  paragraph; `python3 tools/precedent_branches.py --landing`). Booked (`Go update`)
-  decides whether that is a direct push or a pull request.
+- **Work lands on your landing branch** (the opening paragraph;
+  `python3 tools/precedent_branches.py --landing`).
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
   §4). Reviewing one, you are the **second scrub line**: the contributing
   repo's blocklist caught its known private vocabulary; you catch what it
@@ -385,12 +347,9 @@ place — nothing is ever deleted, and nothing moves.
 - **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
   before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
-  before push or merge, **always run bare**: it checks at your landing
-  branch's tier, seconds for `pre-staging`. **Booked into `pre-staging`
-  never needs the full suite, however risky the change** -- a pull request
-  into `pre-staging` gets the quick check too; the full suite belongs to the
-  Debut, which runs it for you, and `--tier full` is refused there without
-  a stated reason. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
+  before push or merge, **always run bare**: it checks at the tier the
+  branch you push to gets -- seconds for a working branch, the full suite
+  for `main`. What matters is `0 failed` and `0 violated`. Which one a push gets, `--as-ci`, and failing tests a
   source shipped:
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 

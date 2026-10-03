@@ -381,21 +381,42 @@ def _over_target(root, siblings=True):
             # The session-start file is built from every source on disk, so
             # a reduction in any of them counts; a tracked file, only its own.
             looked = roots if rel == '.precedent/SESSION_PRACTICES.md' else [repo]
-            landed = [r for r in (_landed_reduction(x) for x in looked) if r]
+            plain = _ladder(root) is False
+            landed = [r for r in (_landed_reduction(x, plain=plain)
+                                  for x in looked) if r]
             if landed:
-                line += ('; ' + LANDED_REDUCTION_MARK + ' '
+                line += ('; ' + _landed_reduction_mark(root) + ' '
                          + '; '.join(landed))
             out.append(line)
     return out
 
 
 # The over-target line's mark when a reduction already waits on a Promote.
+# A person off the ladder reads the same fact without the ladder's word
+# (spec/LADDER_OPT_IN_PLAN.md D4); the reply gate matches either.
 LANDED_REDUCTION_MARK = 'a reduction has landed and takes effect after a Promote:'
+LANDED_REDUCTION_MARK_PLAIN = 'a reduction has landed and takes effect once it reaches main:'
 
 
-def _landed_reduction(repo):
+def _ladder(root):
+    """precedent_ladder.ladder_in_force, or None without the helper."""
+    try:
+        import precedent_ladder
+        return precedent_ladder.ladder_in_force(root)
+    except Exception:                                       # noqa: BLE001
+        return None
+
+
+def _landed_reduction_mark(root):
+    return (LANDED_REDUCTION_MARK_PLAIN if _ladder(root) is False
+            else LANDED_REDUCTION_MARK)
+
+
+def _landed_reduction(repo, plain=False):
     """-> "<repo>: AGENTS.md ~A on main, ~B on <landing>" when the repo's
     AGENTS.md is smaller on its landing branch than on main, else None.
+    `plain` (a person off the ladder) says the same fact without naming the
+    tier branch (spec/LADDER_OPT_IN_PLAN.md D4).
 
     code-cites-practice: session-load-budget
 
@@ -426,7 +447,8 @@ def _landed_reduction(repo):
             continue
         a, b = _slt.approx_tokens(main), _slt.approx_tokens(text)
         if b < a:
-            return f'{repo.name}: AGENTS.md ~{a:,} tokens on main, ~{b:,} on {landing}'
+            where = 'on a branch not yet in main' if plain else f'on {landing}'
+            return f'{repo.name}: AGENTS.md ~{a:,} tokens on main, ~{b:,} {where}'
         return None
     return None
 
@@ -529,6 +551,11 @@ def _unlanded_work(root, siblings=True):
                     repo, 'rev-parse', '--verify', '-q',
                     f'refs/remotes/origin/{pb.PRE_STAGING}'):
                 base = landing
+            elif landing == pb.MAIN and _ladder(repo) is False:
+                # Off the ladder there are no tiers: work has landed when it
+                # is on main, whatever branch the repository's own
+                # contributors work on (spec/LADDER_OPT_IN_PLAN.md D3).
+                base = pb.MAIN
             pending = _unpromoted(repo, staging, _git) \
                 if landing == pb.PRE_STAGING else None
             if pending and not _range_is_this_sessions(
@@ -1118,7 +1145,7 @@ def main():
                 print(f"- {_line}. Do NOT recommend, suggest or mention a "
                       f"Promote for it in this reply -- not in The Boildown, "
                       f"not as a plain line. At most say that one is already "
-                      f"running (practice: promote; Morgan, 2026-09-27).")
+                      f"running (Morgan, 2026-09-27).")
                 continue
             if 'a Promote can move them' in _line:
                 # Not a hard requirement and not a call to action: one plain
@@ -1140,10 +1167,12 @@ def main():
         except Exception:                                     # noqa: BLE001
             _over = []
         for _line in _over:
-            if LANDED_REDUCTION_MARK in _line:
+            if LANDED_REDUCTION_MARK in _line or LANDED_REDUCTION_MARK_PLAIN in _line:
+                when = ('after a Promote' if LANDED_REDUCTION_MARK in _line
+                        else 'once it reaches main')
                 print(f"- SESSION LOAD OVER TARGET: {_line}. The Boildown says "
                       f"so in one line: a reduction is already on its way and "
-                      f"takes effect after a Promote. Do NOT recommend another "
+                      f"takes effect {when}. Do NOT recommend another "
                       f"Reduction pass for it (practice: session-load-budget).")
                 continue
             print(f"- SESSION LOAD OVER TARGET: {_line}. The Boildown MUST say "

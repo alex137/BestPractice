@@ -10,7 +10,7 @@ retires_when:    null
 
 `git rev-parse --is-shallow-repository` keeps printing `true` after
 `git fetch --unshallow` exits 0, and after a full-depth fetch of every
-branch. Promote refuses with "the clone is still shallow (the fetch did
+branch. The branch tool refuses with "the clone is still shallow (the fetch did
 not complete), so the history checks cannot run".
 
 ## Story

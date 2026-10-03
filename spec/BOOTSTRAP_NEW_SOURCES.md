@@ -479,7 +479,7 @@ case documented above.
    a placeholder, so nothing will ever report it as unfilled — and a person
    who would have said `"accepted"` pays a second approval on every
    cross-repository handoff without ever being offered the choice
-   ([practices/relayed-authorization.md](../practices/relayed-authorization.md)).
+   (practices/relayed-authorization.md (`relayed-authorization`)).
 6. Fill in `leak-blocklist.txt` with the person's own private terms, then
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project

@@ -199,7 +199,13 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     the two tools this wraps would -- this function is thin on purpose,
     the two tools underneath carry all the real logic and all the real
     test coverage."""
-    sources = pr.load_config(repo, user_config)
+    # A set a person brings is theirs, never the repository's: it reaches
+    # their sessions through .precedent/SESSION_PRACTICES.md and never a
+    # tracked file (spec/LADDER_OPT_IN_PLAN.md D6), the same line
+    # build_views.sources_for_tracked_block draws. Until 2026-10-02 this
+    # second writer of the loader block drew no line, so a sync run by a
+    # person who brings a set would have written it into the repository.
+    sources = [s for s in pr.load_config(repo, user_config) if not s.get('brought')]
     if not sources:
         raise pr.ResolveError(
             f"no practice sources are declared for {repo}. A consuming repo "

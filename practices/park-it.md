@@ -51,8 +51,8 @@ intent that misses costs exactly the thing [repo-is-memory](repo-is-memory.md)
 exists to prevent -- a real concern nobody raises twice. Where the words
 plainly are the phrase, act on it; where they only sound like it -- "let's
 not worry about that one", "that can wait" -- ask which they mean rather than
-guess, the same way [go-update](go-update.md) asks about the object, never the
-phrasing, when several things are genuinely in play.
+guess, the same way a request to land work asks about the object, never
+the phrasing, when several things are genuinely in play.
 
 What `parked` then means, and the two other dispositions an open item can
 carry, is [open-item-disposition](open-item-disposition.md)'s: an item with
@@ -113,8 +113,8 @@ never-raise-it-again guarantee — only the word he says is different. The
 was actually said about the phrase "Park it" while that was still its name.
 
 ## Install
-Nothing mechanical checks that the phrase was *honoured* -- like `go-update`,
-that lives in the conversation rather than in the tree. What a repository
+Nothing mechanical checks that the phrase was *honoured* -- that lives in
+the conversation rather than in the tree. What a repository
 can check is that the phrase is documented where its own sessions actually
 read, which is what Precedent's own repo-local `check_park_it.py` asserts
 against its `AGENTS.md`. An adopter needs no equivalent: the phrase reaches

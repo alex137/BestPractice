@@ -1714,6 +1714,25 @@ def sources_for_tracked_block(root, declared):
     tree the text lives in, not what the level is called.
     """
     notes = []
+    # A set a PERSON brings (spec/LADDER_OPT_IN_PLAN.md D2, D6) is never
+    # rendered into a committed file, whatever the repository: it is in force
+    # for that one person, so writing it into a tracked view would hand it to
+    # everyone who works here -- and make the view differ by who regenerated
+    # it last.
+    brought = [s for s in declared if s.get('brought')]
+    if brought:
+        declared = [s for s in declared if not s.get('brought')]
+        notes.append(
+            f"{', '.join(s['name'] for s in brought)} deferred to "
+            f".precedent/SESSION_PRACTICES.md -- brought by the person "
+            f"working here, not declared by this repository")
+    tracked, deferred, more = _split_declared(root, declared)
+    return tracked, brought + deferred, notes + more
+
+
+def _split_declared(root, declared):
+    """sources_for_tracked_block's split of what the repository DECLARES."""
+    notes = []
     if repo_is_practice_source(root):
         deferred = [s for s in declared if s['level'] != 'repo-local'
                     and not _same_repository(s['path'], root)]
@@ -1932,10 +1951,10 @@ BUDGETS_NOT_VERIFIED = 'build_views --budgets NOT VERIFIED'
 def _over_cap_warning(msg):
     """Say that a loader cap is exceeded, and that it is allowed onto
     pre-staging but not staging (see render_agents_md)."""
-    print(f"build_views WARNING: {msg} Written anyway: this may land on "
-          f"pre-staging, but it must be brought under the cap before it "
-          f"can go to staging -- the full check at the Debut refuses it "
-          f"(loader-within-caps). Tell the person.", file=sys.stderr)
+    print(f"build_views WARNING: {msg} Written anyway: the quick check lets "
+          f"it through, but the full check refuses it (loader-within-caps), "
+          f"so bring it under the cap before it goes further. Tell the "
+          f"person.", file=sys.stderr)
 
 
 def render_agents_md(practices, agents_md=None, source_levels=None,
@@ -2325,9 +2344,9 @@ TOOLS_DESCRIPTIONS = {
         "philosophy/ that run one way only; the return sentence is written by hand, "
         "never generated",
     'precedent_whats_new.py': "The mechanics behind \"What's new?\": which finished days on main a project's running log lacks, what changed on each, today so far, and marking the log current -- the entries themselves are the session's to write",
-    'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch or pre-staging runs its basic tier only",
-    'precedent_branch_name.py': "The name for a session's feature branch, built the same way every time -- `claude/<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none (practice: act)",
-    'precedent_branches.py': "The three branch tiers -- which branch is pre-staging, staging and main here, and whether a push to one gets the basic or the full push check (spec/BRANCH_TIERS_PLAN.md)",
+    'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch runs its basic tier only, and a push to main the full one",
+    'precedent_branch_name.py': "The name for a session's feature branch, built the same way every time -- `claude/<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none",
+    'precedent_branches.py': "Where a person's work lands here (spec/LADDER_OPT_IN_PLAN.md D3) and whether a push to a branch gets the basic or the full push check; the branch tiers and their moves for a person whose set provides them (spec/BRANCH_TIERS_PLAN.md)",
     'precedent_consumer_shape.py': "A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores, in a copy without the source's own tools/ (only the engine, tools/checks/ and what practices ship) -- so a test that passes only in its home layout fails at home; a source's push check runs it",
     'precedent_merge_check.py': "The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees, and again on the merge commit after it, reverting a merge that fails because the base moved in between",
     'precedent_practice_refs.py': "Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors",
@@ -2349,6 +2368,8 @@ TOOLS_DESCRIPTIONS = {
     'routing_reasons.py': "Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md",
     'our_language.py': "Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)",
     'precedent_which_repo.py': "Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory",
+    'ladder_words.py': "The one matcher for the five-stage ladder's own words -- step labels, the release commands, the branch tiers, links to the ladder set's practices -- used by the check that keeps them out of everything outside that set and by the tests that hold engine output to the same (spec/LADDER_OPT_IN_PLAN.md D7)",
+    'precedent_ladder.py': "Says whether the five-stage ladder is in force for the person working here -- a set they bring provides it, and PRECEDENT_NO_LADDERS is not set -- so every engine line chooses the ladder wording or the plain one from one answer (spec/LADDER_OPT_IN_PLAN.md)",
     'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",

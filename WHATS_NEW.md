@@ -1,9 +1,18 @@
 ---
-checked_through: 2026-09-30
+checked_through: 2026-10-01
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Thursday 2026-10-01: lighter-sessions-and-root-issues
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Every session starts with less to read**, because rules that only matter in certain files or moments now load when they're needed (a reduction pass took the always-loaded rule block from about 830 tokens to about 560, folded durable-fix and fix-the-original into upstream-fix, and gave the five stage practices one index line).
+- **"Root issues" is a new command**: it asks a session to look back over everything it hit and hand over each problem whose cause lives upstream, as one paste-ready prompt (practices/root-issues.md, with "Root fixes" as a synonym; it replaces the old "Upstream fix" command).
+- **Work going to pre-staging no longer pays for the slow full check by accident**, after one session ran the twelve-minute suite three times for it (precedent_push_check.py now runs at the landing branch's tier when run bare, and refuses --tier full there without a stated reason).
+- **A wait loop that could never end is now blocked outright** after one ran 20 minutes past the check it was waiting for (wait-loop-gate.sh refuses pgrep -f and pkill -f, whose pattern always matches the shell running them).
 
 ## Wednesday 2026-09-30: daily-log-and-safer-merges
 

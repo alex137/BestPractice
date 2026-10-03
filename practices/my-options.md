@@ -155,9 +155,9 @@ often the right answer and is the easiest to leave out — and Morgan parked it
 on 2026-09-12 as something to consider later rather than settle in the same
 message that coined the command.
 
-**Where the handoff case differs from [Write it up](write-it-up.md).** That
-command's deliverable is a file committed to the repo, reached later by a
-link -- built for the record. This one's deliverable is the reply itself,
+**Where the handoff case differs from a committed write-up.** That one's
+deliverable is a file committed to the repo, reached later by a link --
+built for the record. This one's deliverable is the reply itself,
 meant to be pasted directly into a different window with nothing to click
 through and nothing to memorialize. Nothing stops using both on the same
 issue -- write it up for the durable record, then ask for `My options` on
@@ -202,7 +202,7 @@ then, having asked, getting the options without the pick.
 
 **Extended 2026-09-19, on Morgan turning down a separate command for the
 handoff case.** Asked for a phrase covering roughly what
-[write-it-up](write-it-up.md) does but smaller, paste-ready, and never
+`write-it-up` does but smaller, paste-ready, and never
 memorialized in the repo, he proposed "options" himself; the session raised
 that a bare "options" would sit ambiguously next to this practice's own
 "My options" and built a separate command, "Brief it", instead. He turned

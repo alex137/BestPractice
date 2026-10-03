@@ -5533,12 +5533,21 @@ def tier_pairs(repo_dir, target=None):
                 and _on_origin(lower) and _on_origin(upper):
             lst.append((lower, upper))
 
-    # The tiered chain first, in the order a Promote walks it.
-    _add(drift, pre, staging)
-    _add(drift, pre, main)
-    _add(drift, staging, main)
-    _add(endgame, pre, staging)
-    _add(endgame, staging, main)
+    # The tiered chain first, in the order a Promote walks it -- only for a
+    # person on the ladder: anyone else has no tiers, and a pass naming
+    # pre-staging and staging would be the ladder's words in their audit
+    # (spec/LADDER_OPT_IN_PLAN.md D4).
+    try:
+        import precedent_ladder as _pl
+        _tiers = _pl.ladder_in_force(repo_dir) is not False
+    except Exception:                                            # noqa: BLE001
+        _tiers = True
+    if _tiers:
+        _add(drift, pre, staging)
+        _add(drift, pre, main)
+        _add(drift, staging, main)
+        _add(endgame, pre, staging)
+        _add(endgame, staging, main)
     # The pair every earlier run asked about, when the declared base is not
     # one of the tiers above (a repo pinned to some other integration branch).
     _add(drift, declared, default)

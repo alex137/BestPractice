@@ -1104,6 +1104,99 @@ def _retired_branch_name_ships(ctx):
 
 
 
+# ---- the ladder stays opt-in (spec/LADDER_OPT_IN_PLAN.md D7) ---------------
+@check('ladder-words-stay-in-the-ladder-set', 'tree',
+       'a practice set that does not provide the five-stage ladder carries '
+       'none of its words -- step labels, numbered Promotes, its commands '
+       'written as commands, the tier branch names, links to the practices '
+       'that moved into the ladder set -- in a practice, a template, a '
+       'person-facing document, the reply rules or the word list '
+       '(tools/ladder_words.py, the one matcher)',
+       'records: todo/, record/, spec/, gotcha and practice Stories, ledgers, '
+       'git history, and the dated approved_by and *_why fields -- they say '
+       'what happened in the words of the day. Ordinary English: "consider", '
+       '"act", lowercase "promote" and "booked" never match. Engine OUTPUT is '
+       'held by verify_harness instead, which runs the tools off the ladder.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'local/practices/*.md',
+                   'templates/**/*.md', 'documentation/*.md', '*.md',
+                   'reply_check.json', 'tools/our_language.json',
+                   'tools/ladder_words.py'))
+def _ladder_words_stay_in_the_ladder_set(ctx):
+    """A person off the ladder reads the universal set and the shared sets
+    their repositories declare. Every ladder word in those is a word they
+    meet for a method they never chose -- which is the whole problem the
+    opt-in fixed (2026-10-02: 638 hits in this repository before the move,
+    0 after). Only a set that provides the ladder may say them."""
+    if not (ROOT / 'precedent-source.json').is_file():
+        raise NotApplicable('not a practice set: a repository that consumes '
+                            'practices writes its own documents in its own '
+                            'words')
+    try:
+        import precedent_resolve as _pr
+        if _pr.LADDER_CAPABILITY in _pr.source_provides(ROOT):
+            raise NotApplicable('this set provides the ladder, so its words '
+                                'are its own')
+    except ImportError:
+        pass
+    try:
+        import ladder_words
+    except ImportError:
+        raise NotApplicable('tools/ladder_words.py did not import')
+    out = []
+    for path in ladder_words.scoped_files(ROOT):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        for n, kind, text in ladder_words.file_hits(path):
+            out.append(Finding(
+                f'{rel}:{n}', f'{kind}, {text!r}: a person off the ladder '
+                f'reads this. Say it plainly, or move the rule into the set '
+                f'that provides the ladder'))
+    return out
+
+
+@check('ladder-set-is-brought-not-declared', 'tree',
+       "no repository's precedent.json declares a set that provides the "
+       'five-stage ladder: a declared set is in force for everyone who works '
+       'there, and the ladder is something each person brings for themselves',
+       'a declared set whose clone is not on this machine -- what it provides '
+       'cannot be read, so it is passed over. It does not look at what a '
+       'person brings: that is theirs to choose.',
+       practice_backed=False,
+       selects_on=('precedent.json',))
+def _ladder_set_is_brought_not_declared(ctx):
+    """The opt-in works person by person: two people in one repository, one
+    bringing the ladder set from their own individual set and one not, each
+    get their own. A repository that declares the set takes that choice
+    away from everybody at once, and nothing else would say so."""
+    try:
+        import precedent_resolve as _pr
+    except ImportError:
+        raise NotApplicable('precedent_resolve.py did not import')
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        if not isinstance(entry, dict) or not entry.get('path'):
+            continue
+        if _pr.normalize_level(entry.get('level')) in ('repo-local',
+                                                        'individual'):
+            continue
+        path = _pr._declared_path(ROOT.resolve(), entry['path'])
+        if _pr.LADDER_CAPABILITY in _pr.source_provides(path):
+            out.append(Finding(
+                'precedent.json',
+                f"declares {entry.get('name') or path.name}, which provides "
+                f'the five-stage ladder, so everyone who works here gets it. '
+                f'Take it out of this file; each person who wants it lists it '
+                f'under "brings" in their own individual set\'s '
+                f'precedent-source.json'))
+    return out
+
+
 # ---- frontmatter-field-order ----------------------------------------------
 # spec/PRACTICE_FORMAT.md sets one order for a practice's frontmatter fields;
 # frontmatter_yaml.FIELD_ORDER is that order written down once, in code.
@@ -2623,6 +2716,13 @@ def _practice_change_propagates(ctx):
                 old = parts[1]
                 if _manifest_entry(old) is not None:
                     continue                    # materialized output, not ours
+                if parts[0] == 'D' and old in _decommissioned_paths():
+                    # A deletion somebody recorded on purpose: the
+                    # decommissioning registry says what went and why
+                    # (precedent_decommission.py, or precedent_move.py
+                    # --withdraw-from-universal, which deletes a rule meant
+                    # only for the people who bring another set, 2026-10-02).
+                    continue
                 if parts[0].startswith('R') and len(parts) > 2 and \
                         pathlib.Path(parts[1]).name == pathlib.Path(parts[2]).name:
                     continue                    # same slug, moved directory
@@ -3151,6 +3251,7 @@ def _practice_is_reachable(ctx):
     # present, the session-start hook invokes it, and the repo is public, so
     # the tool carries exactly these levels.
     session_channel_levels = ()
+    wired = False
     try:
         import build_views as _bv
         hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
@@ -3182,7 +3283,10 @@ def _practice_is_reachable(ctx):
             continue
         if slug in named:
             continue                       # resident block or occasion index
-        if s['level'] in session_channel_levels:
+        if s['level'] in session_channel_levels or (wired and s.get('brought')):
+            # A set the person brings is never in a tracked view, public
+            # repository or private (build_views.sources_for_tracked_block),
+            # so wherever the channel is wired it reaches them through it.
             via_session.append(slug)       # .precedent/SESSION_PRACTICES.md
             continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
@@ -9105,6 +9209,18 @@ def _exempt_matches(rel, exempt_entry):
     return rel == exempt_entry
 
 
+def _decommissioned_paths():
+    """-> the set of paths the decommissioning registry records as deleted
+    on purpose, or an empty set."""
+    try:
+        cfg = json.loads(
+            (ROOT / DECOMMISSIONED_PATHS_REGISTRY).read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return set()
+    return {e.get('path') for e in cfg.get('decommissioned') or []
+            if isinstance(e, dict) and e.get('path')}
+
+
 def _decommissioning_record_exemptions():
     """-> the `exempt_files` list from the decommissioning registry, or [].
 
@@ -10168,8 +10284,8 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
        'the occasion index and this source\'s own occasion share, as '
        '`build_views.py --budgets` measures them',
        'anything outside the loader block -- the whole instructions file is '
-       'session-load-budget\'s. On the way into pre-staging a finding here '
-       'warns and does not refuse (SIZE_CAP_CHECKS); the full check refuses',
+       'session-load-budget\'s. At the quick check a finding here warns and '
+       'does not refuse (SIZE_CAP_CHECKS); the full check refuses',
        practice_backed=False,
        selects_on=('practices/*.md', 'local/practices/*.md', 'AGENTS.md',
                    _BUDGET_REGISTRY, 'precedent-source.json',
@@ -11029,10 +11145,10 @@ def main():
             print(f'    {line}')
 
     for slug, _st, findings, _why, _uv in held_for_staging:
-        print(f'\nWARNING    {slug} — over a size cap. Allowed onto '
-              f'pre-staging; the full check refuses it at the Debut, so it '
-              f'must be brought under the cap before this can go to staging. '
-              f'Tell the person (practice: reduction-pass).')
+        print(f'\nWARNING    {slug} — over a size cap. The quick check '
+              f'lets it through; the full check refuses it, so it must be '
+              f'brought under the cap before it goes further. Tell the '
+              f'person (practice: reduction-pass).')
         for f in findings:
             print(f'    {f}')
 

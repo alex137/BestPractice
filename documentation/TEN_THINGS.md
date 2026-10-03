@@ -26,11 +26,11 @@ A conversation is disposable: all is lost when you close the session;
 the project is what lasts, so anything that matters has to end up in it. Work happens on a private copy, is proposed as
 a pull request, and becomes real only when it is merged — which means
 several people and their AI Assistants can work at once without
-overwriting each other. **"Go update"** is the phrase that ends a piece of work: save it,
-publish it, say where it went, no further questions ("Approved" says the
-same thing).
+overwriting each other. Telling the AI Assistant to save your work to
+GitHub is what ends a piece of work: it saves it, merges it into the main
+branch, and says where it went.
 
-- Plain: [Nothing Is Real Until It's Merged](FOR_EVERYONE_ELSE.md#nothing-is-real-until-its-merged), [Say "Go Update" When You're Ready](DAILY_HABITS.md#4-say-go-update-when-youre-ready)
+- Plain: [Nothing Is Real Until It's Merged](FOR_EVERYONE_ELSE.md#nothing-is-real-until-its-merged), [Ask for It to Be Saved When You're Ready](DAILY_HABITS.md#4-ask-for-it-to-be-saved-when-youre-ready)
 - Technical: [GIT.md — The Eight Ideas](GIT.md#the-eight-ideas), [GitHub Becomes Your Memory](WHY_PRECEDENT.md#invisible-memory)
 
 ## 3. A Rule About Any Pattern Is a Practice
@@ -95,13 +95,13 @@ the line runs through paths and lists.
 ## 8. A Few Standing Phrases Mean Exactly One Thing
 
 Plain English always works, but a short vocabulary saves a paragraph each
-time: **Booked** (or **Go update**), **Drop it**, **Three Things**, **Simple please**, **Weak
+time: **Drop it**, **Three Things**, **Simple please**, **Weak
 yes**, and the rest. Each is itself a practice, so its meaning is written
 down and the AI Assistant is guaranteed to recognize it. Say **"Vocabulary"**
 to have the current list read to you.
 
 - Plain: [The Rest of the Vocabulary](DAILY_HABITS.md#the-rest-of-the-vocabulary)
-- Technical: the command practices, starting at [go-update](../practices/go-update.md) and [vocabulary](../practices/vocabulary.md)
+- Technical: the command practices, starting at [vocabulary](../practices/vocabulary.md)
 
 ## 9. What Is Yours Stays Yours, and That Is Enforced
 

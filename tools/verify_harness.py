@@ -176,6 +176,22 @@ import build_views as bv
 import catalogue_stats as cs
 
 FAILED = []
+
+# THE HARNESS RUNS ON THE LADDER BY DEFAULT (2026-10-02). Most of its cases
+# test the tier machinery -- Promote, promote_only, a pre-staging landing --
+# through fixture people who bring no set, and since the ladder became a set
+# a person brings (spec/LADDER_OPT_IN_PLAN.md) such a person is off it. This
+# keeps those cases testing what they always tested. Every case about the
+# off-ladder world clears it explicitly (check_ladder_opt_in_loader,
+# check_attached_sets_*, check_ladder_off_*).
+os.environ.setdefault('PRECEDENT_ASSUME_LADDER', '1')
+
+# THE HARNESS SEEDS FROM THE COMMIT UNDER TEST (2026-10-02), which main
+# does not contain on any working branch or pull request. seed() and the
+# bootstrap refuse that unless told it is on purpose (--off-main); every
+# fixture here is on purpose. check_seed_refuses_an_engine_main_lacks clears
+# it to test the refusal itself.
+os.environ.setdefault('PRECEDENT_SEED_OFF_MAIN', '1')
 PASSED = []
 NA = []
 
@@ -717,6 +733,38 @@ def _without_session_id(fn):
     return run
 
 
+def _withdrawn_original_numbers():
+    """-> {source_practice_number: slug} for each original practice whose
+    file was deleted on purpose: registered in
+    process/decommissioned_paths.json (precedent_move.py
+    --withdraw-from-universal writes it), its number read from the file as
+    it was in the commit before the deletion. 2026-10-02: practice 45,
+    merge-authorization-keyword, withdrawn into the set that provides the
+    five-stage ladder. A deletion nobody registered still fails."""
+    out = {}
+    try:
+        reg = json.loads((ROOT / 'process' / 'decommissioned_paths.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return out
+    rows = reg.get('decommissioned', []) if isinstance(reg, dict) else reg
+    for row in rows if isinstance(rows, list) else []:
+        path = row.get('path', '') if isinstance(row, dict) else ''
+        if not re.fullmatch(r'practices/[a-z0-9-]+\.md', path) or (ROOT / path).exists():
+            continue
+        last = subprocess.run(['git', '-C', str(ROOT), 'log', '-1', '--format=%H',
+                               '--diff-filter=D', '--', path],
+                              capture_output=True, text=True).stdout.strip()
+        if not last:
+            continue
+        before = subprocess.run(['git', '-C', str(ROOT), 'show', f'{last}~1:{path}'],
+                                capture_output=True, text=True).stdout
+        m = re.search(r'^source_practice_number:\s*"?(\d+)', before, re.M)
+        if m:
+            out[m.group(1)] = path[len('practices/'):-3]
+    return out
+
+
 def check_source_coverage(files, original_practices_by_number):
     """The plan's actual slug-set requirement: "the same practices are in
     effect, by slug." precedent_check.py's practice-file-shape only proves each FILE is internally
@@ -741,8 +789,13 @@ def check_source_coverage(files, original_practices_by_number):
             continue
         by_number.setdefault(num, []).append(stem)
 
+    withdrawn = None
     for num in sorted(original_practices_by_number, key=int):
         if num not in by_number:
+            if withdrawn is None:
+                withdrawn = _withdrawn_original_numbers()
+            if num in withdrawn:
+                continue  # deleted on purpose, and registered as such
             ok = False
             print(f"  practice {num} ({original_practices_by_number[num]['title']!r}) is in "
                   f"PRACTICES.md but has NO file in practices/ -- a practice was dropped")
@@ -5378,6 +5431,27 @@ def check_build_views_refuses_a_long_index_clause():
             [({'tier': 'on-demand', 'index_clause': edited}, {}, f)], root)
         cases.append((f'the same clause edited is refused, with its length '
                       f'(got {got!r})', got == [(f, n + 1)]))
+        # doc_lint asks the same question at the commit the clause is
+        # written in (2026-10-02: a practice set's over-long clause was
+        # committed and pushed, and refused only at the Debut).
+        body = lambda c: (f'---\nslug: p\ntier: on-demand\nindex_clause: "{c}"\n'
+                          f'---\n\n## Rule\n\nDo it.\n')
+        saved_root = dl.ROOT
+        try:
+            dl.ROOT = root
+            f.write_text(body(long_clause), encoding='utf-8')
+            git(root, 'add', '-A')
+            git(root, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'b')
+            git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+            untouched = dl.check_index_clause('practices/p.md')
+            f.write_text(body(edited), encoding='utf-8')
+            refused = dl.check_index_clause('practices/p.md')
+        finally:
+            dl.ROOT = saved_root
+        cases.append(('doc_lint, at the commit: an over-long clause the base '
+                      'already had passes, the same clause edited is refused '
+                      f'with its length (got {untouched!r} / {refused!r})',
+                      untouched is None and bool(refused) and str(n + 1) in refused))
         (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             '{"kind": "consumer"}', encoding='utf-8')
         cases.append(('a consumer is never refused -- its practices are '
@@ -6973,12 +7047,20 @@ def check_session_practices_load_without_publishing():
         hook = repo / '.claude' / 'hooks' / 'session-start.sh'
 
         def findings():
-            saved = _pc.ROOT
+            # The fixture owns who is working here: nobody. The real person's
+            # individual set, and every set it brings, would otherwise add
+            # their own findings to the count (2026-10-02).
+            saved, saved_cfg = _pc.ROOT, os.environ.get('PRECEDENT_USER_CONFIG')
             _pc.ROOT = repo
+            os.environ['PRECEDENT_USER_CONFIG'] = str(fx / 'no-user-config.json')
             try:
                 return len(_pc._practice_is_reachable(None) or [])
             finally:
                 _pc.ROOT = saved
+                if saved_cfg is None:
+                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
+                else:
+                    os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
 
         hook.write_text('#!/bin/bash\n# no loader here\n', encoding='utf-8')
         cases.append(('with the session channel NOT wired, a private-level '
@@ -8641,12 +8723,29 @@ def check_update_vendors_is_one_command():
         cases.append(('an install on the retired pin finishes with nothing asked: '
                       'exit 0 and DONE', rc == 0 and 'DONE -- nothing left' in out,
                       out[-1500:]))
+        # A repository with only main asked for no tiers: an update -- even
+        # one run by a person on the ladder -- leaves it on main (Morgan,
+        # 2026-10-02, strength: decided: "nothing creates tiers in a
+        # repository that did not ask for them").
         landing = json.loads((done / 'precedent.json').read_text()).get('landing_branch')
-        cases.append(('...its precedent.json now names pre-staging as the landing '
-                      'branch, since it named none', landing == 'pre-staging', landing))
+        cases.append(('...its precedent.json, which named no landing branch, still '
+                      'names none: the update gives a repository without tiers none',
+                      landing is None, landing))
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
-        cases.append(('...and origin, which had only main, now has staging and '
-                      'pre-staging', 'refs/heads/staging' in heads
+        cases.append(('...and origin, which had only main, still has only main',
+                      'refs/heads/staging' not in heads
+                      and 'refs/heads/pre-staging' not in heads, heads[-400:]))
+        # A repository that does ask -- its landing_branch names a tier --
+        # gets whichever tier branch origin is missing.
+        _pj = json.loads((done / 'precedent.json').read_text())
+        _pj['landing_branch'] = 'pre-staging'
+        (done / 'precedent.json').write_text(json.dumps(_pj, indent=2) + '\n')
+        sh('git', 'commit', '-qam', 'asks for tiers', cwd=done)
+        update(done)
+        _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=done)
+        cases.append(('...and once its precedent.json asks for tiers, the update '
+                      'makes staging and pre-staging on origin',
+                      'refs/heads/staging' in heads
                       and 'refs/heads/pre-staging' in heads, heads[-400:]))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
@@ -8732,11 +8831,11 @@ def check_update_vendors_is_one_command():
         sh('git', 'fetch', '-q', 'origin', cwd=classic)
         rc, out = update(classic)
         _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=classic)
-        cases.append(('a repo still to be migrated is sent to the migration AND leaves '
-                      'with staging and pre-staging on origin',
+        cases.append(('a repo still to be migrated is sent to the migration, and an '
+                      'update gives it no tiers it did not ask for',
                       rc == 1 and 'this is a migration' in out
-                      and 'refs/heads/staging' in heads
-                      and 'refs/heads/pre-staging' in heads, (out + heads)[-800:]))
+                      and 'refs/heads/staging' not in heads
+                      and 'refs/heads/pre-staging' not in heads, (out + heads)[-800:]))
 
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(ROOT), cwd=ROOT)
@@ -9638,20 +9737,20 @@ def check_section0_catalogue_resolves_a_committed_edit():
         head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
                               capture_output=True, text=True).stdout.strip()
         base = subprocess.run(['git', '-C', str(ROOT), 'show',
-                               f'{head}:practices/go-update.md'],
+                               f'{head}:practices/park-it.md'],
                               capture_output=True).stdout
         lines = base.decode().splitlines(True)
         after = next(i for i, l in enumerate(lines) if i and l.strip() == '---') + 2
         record = json.dumps({'source_commit': head}).encode()
 
         # Merge: this repo added a line near the top, upstream one at the end.
-        rev = fx.upstream(head, {'practices/go-update.md': base + b'\nUpstream: end.\n'})
+        rev = fx.upstream(head, {'practices/park-it.md': base + b'\nUpstream: end.\n'})
         d = _section0_repo(fx.tmp, {
-            'practices/go-update.md': _insert(base, 'Mine: near the top.\n', at=after),
+            'practices/park-it.md': _insert(base, 'Mine: near the top.\n', at=after),
             'CATALOGUE_SYNC.json': record}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
-        f = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        f = d / 'precedent' / 'universal' / 'practices' / 'park-it.md'
         got = f.read_bytes()
         cases.append(('a committed edit merges with upstream\'s change, not refused',
                       ok is True and not rep.left and b'Mine: near the top.' in got
@@ -9660,14 +9759,14 @@ def check_section0_catalogue_resolves_a_committed_edit():
                       (rep.left, rep.edits, rep.steps)))
 
         # Conflict: both changed the same line.
-        rev = fx.upstream(head, {'practices/go-update.md':
+        rev = fx.upstream(head, {'practices/park-it.md':
                                  _replace_line(base, 'Upstream: this line.\n', at=after)})
         d = _section0_repo(fx.tmp, {
-            'practices/go-update.md': _replace_line(base, 'Mine: this line.\n', at=after),
+            'practices/park-it.md': _replace_line(base, 'Mine: this line.\n', at=after),
             'CATALOGUE_SYNC.json': record}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
-        f = d / 'precedent' / 'universal' / 'practices' / 'go-update.md'
+        f = d / 'precedent' / 'universal' / 'practices' / 'park-it.md'
         took = [t for o, _r, t in rep.edits if o == 'took-upstream']
         cases.append(('a conflict takes upstream\'s version and names the commit '
                       'holding this repo\'s', ok is True and not rep.left
@@ -10105,13 +10204,13 @@ def check_changed_files_only_judges_the_change():
         cases.append(('over its cap, build_views still writes the block, and '
                       'warns that staging will refuse it',
                       bv.returncode == 0 and 'build_views WARNING' in bv.stderr
-                      and 'before it can go to staging' in bv.stderr,
+                      and 'the full check refuses it' in bv.stderr,
                       (bv.stdout + bv.stderr)[-400:]))
         git('commit', '-qam', 'a block over its resident cap')
         rc, out = run_check(start)
         cases.append(('the pre-staging check lets it through with a warning '
                       'naming the staging refusal',
-                      rc == 0 and 'over a size cap. Allowed onto pre-staging' in out,
+                      rc == 0 and 'over a size cap. The quick check lets it through' in out,
                       out[-600:]))
         full = subprocess.run([sys.executable, 'tools/precedent_check.py',
                                '--only', 'loader-within-caps'], cwd=wt,
@@ -10394,19 +10493,19 @@ def check_update_vendors_updates_a_section_0_catalogue():
         last = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', f'{rev}~1'],
                               capture_output=True, text=True).stdout.strip()
         at_last = subprocess.run(['git', '-C', str(ROOT), 'show',
-                                  f'{last}:practices/go-update.md'],
+                                  f'{last}:practices/mistakes-become-rules.md'],
                                  capture_output=True).stdout
         d = repo_with(universal, stale=False)
         tree = d / 'precedent' / 'universal' / 'practices'
         tree.mkdir(parents=True)
-        (tree / 'go-update.md').write_bytes(at_last)
+        (tree / 'mistakes-become-rules.md').write_bytes(at_last)
         subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'synced'], env=env, check=True)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, last)
         cases.append(('a file exactly as last synced is replaced',
                       ok is True and not rep.left))
-        (tree / 'go-update.md').write_bytes(at_last + b'\nA line added here.\n')
+        (tree / 'mistakes-become-rules.md').write_bytes(at_last + b'\nA line added here.\n')
         subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
         subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'edited'], env=env, check=True)
         rep = pu.Report()
@@ -10419,7 +10518,7 @@ def check_update_vendors_updates_a_section_0_catalogue():
         cases.append(('a COMMITTED local edit is kept, not refused, when upstream '
                       'has not changed the file since the recorded sync',
                       ok is True and not rep.left
-                      and (tree / 'go-update.md').read_bytes().endswith(b'added here.\n')
+                      and (tree / 'mistakes-become-rules.md').read_bytes().endswith(b'added here.\n')
                       and [o for o, _r, _t in rep.edits] == ['still-local']))
 
         d = repo_with([{'level': 'universal', 'name': 'precedent',
@@ -10695,18 +10794,18 @@ def check_update_vendors_trusts_the_catalogues_own_sync_commit():
         return subprocess.run(['git', '-C', str(ROOT), *a], capture_output=True)
 
     rev = git('rev-parse', 'HEAD').stdout.decode().strip()
-    now_blob = git('rev-parse', f'{rev}:practices/go-update.md').stdout.strip()
+    now_blob = git('rev-parse', f'{rev}:practices/mistakes-become-rules.md').stdout.strip()
     older = next((c for c in git('log', '--format=%H', rev, '--',
-                                 'practices/go-update.md').stdout.decode().split()
-                  if git('rev-parse', f'{c}:practices/go-update.md').stdout.strip()
+                                 'practices/mistakes-become-rules.md').stdout.decode().split()
+                  if git('rev-parse', f'{c}:practices/mistakes-become-rules.md').stdout.strip()
                   not in (b'', now_blob)), None)
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-catalogue-sync-'))
     try:
         if older is None:
-            raise OSError('this clone holds no older go-update.md to plant')
-        at_older = git('show', f'{older}:practices/go-update.md').stdout
+            raise OSError('this clone holds no older mistakes-become-rules.md to plant')
+        at_older = git('show', f'{older}:practices/mistakes-become-rules.md').stdout
         # The engine was synced at `rev`, the catalogue at `older`.
-        d = _section0_repo(tmp, {'practices/go-update.md': at_older}, env)
+        d = _section0_repo(tmp, {'practices/mistakes-become-rules.md': at_older}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
         cases.append(('with no record of its own, a file equal to an older upstream '
@@ -10718,14 +10817,14 @@ def check_update_vendors_trusts_the_catalogues_own_sync_commit():
             got = None
         cases.append(('the replace records the commit it synced from', got == rev))
 
-        d = _section0_repo(tmp, {'practices/go-update.md': at_older + b'\nMine.\n'}, env)
+        d = _section0_repo(tmp, {'practices/mistakes-become-rules.md': at_older + b'\nMine.\n'}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
         cases.append(('...and a real local edit is still refused',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)))
+                      ok is None and any('mistakes-become-rules.md' in w for w, _ in rep.left)))
 
         d = _section0_repo(tmp, {
-            'practices/go-update.md': at_older,
+            'practices/mistakes-become-rules.md': at_older,
             'CATALOGUE_SYNC.json': json.dumps({'source_commit': older}).encode()}, env)
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev, rev)
@@ -10770,13 +10869,13 @@ def check_update_vendors_reruns_over_its_own_output():
         again = pu.vendor_universal_catalogue(d, rep, rev)
         cases.append(('a second run over the first run\'s uncommitted output goes ahead',
                       first is True and again is True and not rep.left))
-        (tree / 'go-update.md').write_bytes((tree / 'go-update.md').read_bytes()
+        (tree / 'mistakes-become-rules.md').write_bytes((tree / 'mistakes-become-rules.md').read_bytes()
                                             + b'\nA hand edit.\n')
         rep = pu.Report()
         ok = pu.vendor_universal_catalogue(d, rep, rev)
         cases.append(('...and a hand edit on top of that output is still refused',
-                      ok is None and any('go-update.md' in w for w, _ in rep.left)
-                      and (tree / 'go-update.md').read_bytes().endswith(b'hand edit.\n')))
+                      ok is None and any('mistakes-become-rules.md' in w for w, _ in rep.left)
+                      and (tree / 'mistakes-become-rules.md').read_bytes().endswith(b'hand edit.\n')))
     except (OSError, subprocess.CalledProcessError, AttributeError) as e:
         cases.append((f'fixture could not be built ({e})', False))
     finally:
@@ -13505,6 +13604,32 @@ def check_precedent_check_fires():
                                 body, count=1, flags=re.M), encoding='utf-8')
         case('retired-branch-name-ships', _plant_retired_branch_name)
 
+        # ladder-words-stay-in-the-ladder-set: a ladder command and step
+        # label planted in a universal practice's Rule. The clean copy is
+        # this repository, which carries none.
+        def _plant_ladder_words(repo):
+            f = repo / 'practices' / 'park-it.md'
+            body = f.read_text(encoding='utf-8')
+            f.write_text(body.replace('## Rule\n', '## Rule\n\nSay "Booked" '
+                                      'to land it, step 3 of 5.\n', 1),
+                         encoding='utf-8')
+        case('ladder-words-stay-in-the-ladder-set', _plant_ladder_words)
+
+        # ladder-set-is-brought-not-declared: precedent.json declares a
+        # sibling set whose precedent-source.json provides the ladder.
+        def _plant_declared_ladder(repo):
+            prov = repo.parent / f'{repo.name}-ladder-provider'
+            (prov / 'practices').mkdir(parents=True, exist_ok=True)
+            (prov / 'precedent-source.json').write_text(json.dumps(
+                {'name': prov.name, 'level': 'shared', 'provides': ['ladder']}),
+                encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': prov.name, 'level': 'shared', 'path': f'../{prov.name}'})
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+        case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
+
         # frontmatter-field-order -- ADVISORY by design (see its registration):
         # a planted misorder reports, and does not fail the run.
         def _plant_field_order(repo):
@@ -14011,7 +14136,7 @@ def check_precedent_check_fires():
 
         # practice-file-shape -- a practice whose Rule ends on a lead-in.
         def _plant_bad_shape(repo):
-            f = repo / 'practices' / 'go-update.md'
+            f = repo / 'practices' / 'mistakes-become-rules.md'
             text = f.read_text(encoding='utf-8')
             f.write_text(text.replace('## Detail', 'Three steps:\n\n## Detail', 1),
                          encoding='utf-8')
@@ -14020,7 +14145,7 @@ def check_precedent_check_fires():
         # routing-reason -- an on-demand practice loses its applies_to_why,
         # the state a second hand-kept routing list used to let through.
         def _plant_no_routing_reason(repo):
-            f = repo / 'practices' / 'go-update.md'
+            f = repo / 'practices' / 'mistakes-become-rules.md'
             f.write_text('\n'.join(l for l in f.read_text(encoding='utf-8')
                                    .split('\n')
                                    if not l.startswith('applies_to_why:')),
@@ -14373,7 +14498,7 @@ def check_precedent_check_fires():
         case('practice-change-propagates',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
                                   '\nBefore merging, read '
-                                  '`python3 tools/precedent_show.py go-merge`.\n'))
+                                  '`python3 tools/precedent_show.py brief-it`.\n'))
 
         # rename-updates-links, the other direction: a stranded reference the
         # consuming repo CANNOT repoint must leave the check silent, and the
@@ -15686,7 +15811,7 @@ def check_precedent_check_fires():
         case('scripts-assert-properties',
              lambda repo: rewrite(repo, 'tools/session_load_budgets.json',
                                   lambda t: t.replace(
-                                      '"resident_block_tokens": 2000',
+                                      '"resident_block_tokens": 1750',
                                       '"resident_block_tokens": 10')))
 
         # Regression: an INSTRUMENTED script with neither self_check() nor
@@ -18830,19 +18955,19 @@ def check_contradiction_requirement_blocks():
 
 
 def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
-    """A paste block that tells another session to land on a tier branch
-    carries the person's quoted Booked, or the reply is refused.
+    """A paste block that tells another session to land work on main
+    carries the person's quoted approval, or the reply is refused.
 
     2026-10-01: two prompts a session wrote ended "Land it on staging per
-    this repo's conventions". Morgan had not said Booked, and routine work
-    lands on pre-staging, never staging; fence-block-for-paste passed both,
-    since it checks where a block goes, not what it authorizes. Driven
-    against the rule as reply_check.json ships it (practice: prompt-please),
-    both ways: the instructions that must fire, and the blocks that must
-    stay clean -- a quoted Booked, an Act ending, a negated line, the
-    reply's own prose to the person, and a shell command."""
+    this repo's conventions", with no approval given; fence-block-for-paste
+    passed both, since it checks where a block goes, not what it
+    authorizes. Since 2026-10-02 the universal rule speaks of main, where
+    work lands for a person off the ladder, and accepts any quoted approval;
+    the tier branches and the quoted "Booked" are the ladder set's own copy
+    of the rule (spec/LADDER_OPT_IN_PLAN.md D11). Driven against the rule
+    as reply_check.json ships it (practice: prompt-please), both ways."""
     import precedent_reply_check as prc
-    name = 'a paste block that lands on a tier branch needs the quoted Booked'
+    name = 'a paste block that lands on main needs a quoted approval'
     try:
         reqs = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
             encoding='utf-8')) if r.get('require_in_fence_paired_with')]
@@ -18856,22 +18981,23 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         text = prose + '```\n' + body + '\n```\n'
         return [v for v in prc.violations(text, reqs) if v['kind'] == 'in_fence_paired']
     must_fire = {
-        'land it on staging': "Do the work.\nLand it on staging per this repo's conventions.",
-        'a pull request into pre-staging': 'Open a pull request into pre-staging and merge it.',
         'merge into main': 'When the checks pass, merge it into `main`.',
-        'push to pre-staging': 'Push it to pre-staging once it is green.',
+        'land it on main': "Do the work.\nLand it on main per this repo's conventions.",
+        'a pull request into main': 'Open a pull request into main and merge it.',
     }
     clean = {
-        "the person's quoted Booked": 'Morgan, 2026-10-01: "Booked".\nOpen a pull request into pre-staging and merge it.',
-        'an Act ending': 'Build it on your feature branch, push it there, and stop.',
-        'a negated line': 'Open no pull request and merge nothing into pre-staging.',
+        "the person's quoted approval": 'Morgan, 2026-10-01: "Approved".\nOpen a pull request into main and merge it.',
+        'a feature-branch ending': 'Build it on your feature branch, push it there, and stop.',
+        'a negated line': 'Open no pull request and merge nothing into main.',
         'a shell command': 'git push -u origin main',
+        'a tier branch, which off the ladder is not a landing':
+            'Push it to pre-staging once it is green.',
     }
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
-    cases.append(("clean: the reply's own prose saying Booked lands it on pre-staging",
+    cases.append(("clean: the reply's own prose saying where work lands",
                   not fires('push it there and stop',
-                            prose='Booked lands it on pre-staging.\nPaste into: x\n'), ''))
+                            prose='Approved work lands on main.\nPaste into: x\n'), ''))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} {d}' for n, d in bad))
@@ -20392,6 +20518,7 @@ sys.path.insert(0, {str(ROOT / 'tools')!r})
 import precedent_branches as pb
 pb.promotion_step = lambda root, to, work: (pb.STAGING, 'fixture')
 pb.staging_branch = lambda root: pb.STAGING
+pb.repo_has_tiers = lambda root: True
 pb._drifted_from_above = lambda root: []
 pb._lock_claim = lambda root, say: ('held', 'fixture-commit')
 pb._lock_release = lambda root, held, say: pathlib.Path({str(marker)!r}).write_text(held)
@@ -22731,6 +22858,181 @@ def check_superseded_source_says_so():
           f'quietly ({len(cases)} stated cases)', not failed, detail)
 
 
+def check_refresh_never_rolls_a_newer_engine_back():
+    """A repo whose vendored engine came from a BestPractice commit the
+    source branch does not contain is AHEAD, not stale: the refresh leaves
+    it, and the session-start survey says AHEAD.
+
+    2026-10-02: a practice set made from a working branch recorded that
+    branch's commit. Every session start compared it with main only for
+    equality, called it stale, and wrote main's older engine over it in the
+    working tree, deleting files the set had committed."""
+    import tempfile, io, contextlib
+    import precedent_vendor_engine as pve
+    import precedent_refresh_sources as prs
+    cases = []
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               GIT_AUTHOR_NAME='f', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='f', GIT_COMMITTER_EMAIL='f@x')
+    g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                        capture_output=True, text=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as td:
+        bp = pathlib.Path(td) / 'bp'
+        bp.mkdir()
+        g(bp, 'init', '-q', '-b', 'main')
+        g(bp, 'commit', '-q', '--allow-empty', '-m', 'A')
+        old = g(bp, 'rev-parse', 'HEAD')
+        g(bp, 'switch', '-q', '-c', 'side')
+        g(bp, 'commit', '-q', '--allow-empty', '-m', 'B')
+        side = g(bp, 'rev-parse', 'HEAD')
+        g(bp, 'switch', '-q', 'main')
+        g(bp, 'commit', '-q', '--allow-empty', '-m', 'C')
+        tip = g(bp, 'rev-parse', 'HEAD')
+        cases.append(('an engine from a branch main does not contain is ahead',
+                      pve.engine_is_ahead(bp, side, tip) is True))
+        cases.append(('an engine from an older main commit is stale, not ahead',
+                      pve.engine_is_ahead(bp, old, tip) is False))
+        cases.append(('a commit the clone cannot place is not called ahead',
+                      pve.engine_is_ahead(bp, 'f' * 40, tip) is False))
+
+        # refresh() itself: told the source branch is at `tip`, a repo
+        # recording `side` is left untouched, and says why.
+        repo = pathlib.Path(td) / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'kind': 'source', 'source_commit': side, 'files': {}}),
+            encoding='utf-8')
+        scratch = pathlib.Path(td) / 'engine'
+        scratch.mkdir()
+        saved = (pve.ROOT, pve._source_tools_at)
+        out = io.StringIO()
+        try:
+            pve.ROOT = repo
+            pve._source_tools_at = lambda clone, kind, ref=None, fetch=True: (tip, scratch)
+            with contextlib.redirect_stdout(out):
+                pve.refresh(bp)
+        except SystemExit as e:
+            out.write(f'[exited {e}]')
+        except Exception as e:
+            # Unguarded, it goes on to copy the empty scratch engine over
+            # the repo's: that attempt is the rollback this case refuses.
+            out.write(f'[went ahead with the copy: {type(e).__name__}: {e}]')
+        finally:
+            pve.ROOT, pve._source_tools_at = saved
+        manifest = json.loads((repo / 'tools' / 'ENGINE_MANIFEST.json')
+                              .read_text(encoding='utf-8'))
+        cases.append(('refresh leaves a newer engine as it is, and says so',
+                      'newer work, not older' in out.getvalue()
+                      and manifest['source_commit'] == side
+                      and sorted(p.name for p in (repo / 'tools').iterdir())
+                      == ['ENGINE_MANIFEST.json'], out.getvalue()[-300:]))
+
+        # The survey's question, asked of a BestPractice checkout.
+        saved_root = prs.ROOT
+        try:
+            prs.ROOT = bp
+            cases.append(("the session-start survey calls it ahead, and an "
+                          "older one not",
+                          prs._engine_ahead_of(side, tip) is True
+                          and prs._engine_ahead_of(old, tip) is False))
+        finally:
+            prs.ROOT = saved_root
+    bad = [c[0] + (f' -- {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a refresh never rolls a newer engine back ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_seed_refuses_an_engine_main_lacks():
+    """seed() and the bootstrap refuse to copy an engine from a commit main
+    does not contain, before writing anything, unless told it is on
+    purpose; told so, the manifest names the real branch beside a
+    source_branch that still says what refresh follows.
+
+    2026-10-02: a practice set made from a working branch recorded
+    source_branch "main" over that branch's commit, and every session start
+    rolled its engine back (check_refresh_never_rolls_a_newer_engine_back
+    is the other half)."""
+    import tempfile, io, contextlib
+    import precedent_vendor_engine as pve
+    import precedent_bootstrap_source as pbs
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='f', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='f', GIT_COMMITTER_EMAIL='f@x')
+    g = lambda cwd, *a: subprocess.run(['git', '-C', str(cwd), *a], env=env,
+                                        capture_output=True, text=True).stdout.strip()
+    saved_env = os.environ.pop('PRECEDENT_SEED_OFF_MAIN', None)
+    saved_off = pve.off_source_branch
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            bp = pathlib.Path(td) / 'bp'
+            bp.mkdir()
+            g(bp, 'init', '-q', '-b', 'main')
+            g(bp, 'commit', '-q', '--allow-empty', '-m', 'A')
+            old = g(bp, 'rev-parse', 'HEAD')
+            g(bp, 'switch', '-q', '-c', 'feature-x')
+            g(bp, 'commit', '-q', '--allow-empty', '-m', 'B')
+            side = g(bp, 'rev-parse', 'HEAD')
+            cases.append(('a commit main lacks is named by the branch it is on',
+                          pve.off_source_branch(bp, side) == 'feature-x'))
+            cases.append(('a commit main contains is not off main',
+                          pve.off_source_branch(bp, old) is None))
+            nomain = pathlib.Path(td) / 'nomain'
+            nomain.mkdir()
+            g(nomain, 'init', '-q', '-b', 'trunk')
+            g(nomain, 'commit', '-q', '--allow-empty', '-m', 'A')
+            cases.append(('with no main to ask, nothing is called off main',
+                          pve.off_source_branch(nomain, g(nomain, 'rev-parse', 'HEAD'))
+                          is None))
+
+            pve.off_source_branch = lambda repo, commit: 'feature-x'
+            dest = pathlib.Path(td) / 'refused'
+            dest.mkdir()
+            err = io.StringIO()
+            try:
+                with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+                    pve.seed(dest, kind='consumer')
+                refused = ''
+            except SystemExit as e:
+                refused = str(e)
+            cases.append(('seed refuses it, naming the branch and --off-main, '
+                          'and writes nothing',
+                          'REFUSED' in refused and 'feature-x' in refused
+                          and '--off-main' in refused and not any(dest.iterdir()),
+                          refused[:200]))
+
+            dest = pathlib.Path(td) / 'told'
+            dest.mkdir()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+                pve.seed(dest, kind='consumer', off_main=True)
+            m = json.loads((dest / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+            cases.append(('told --off-main, the manifest names the real branch '
+                          'and keeps source_branch main',
+                          m.get('source_branch') == pve.SOURCE_BRANCH
+                          and m.get('seeded_from_branch') == 'feature-x', str(m)[:200]))
+
+            bdest = pathlib.Path(td) / 'set'
+            saved_warn = pbs._warn_if_clone_is_stale
+            pbs._warn_if_clone_is_stale = lambda: None
+            try:
+                pbs.bootstrap('shared', 'precedent-shared-zz', bdest,
+                              approvers=[{'name': 'A B', 'github': 'ab'}])
+                why = ''
+            except pbs.BootstrapRefused as e:
+                why = str(e)
+            finally:
+                pbs._warn_if_clone_is_stale = saved_warn
+            cases.append(('the bootstrap refuses it before creating the set',
+                          'feature-x' in why and '--off-main true' in why
+                          and not bdest.exists(), why[:200]))
+    finally:
+        pve.off_source_branch = saved_off
+        if saved_env is not None:
+            os.environ['PRECEDENT_SEED_OFF_MAIN'] = saved_env
+    bad = [c[0] + (f' -- {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'seed refuses an engine main lacks, unless told ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
 def check_refresh_removes_dropped_engine_files():
     """A file dropped from the engine set leaves every consumer, not just this repo.
 
@@ -24526,11 +24828,18 @@ def check_branch_tiers():
             'landing_branch') == 'staging'
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
-        wrote = pb.ensure_repo_landing(repo)
-        again = pb.ensure_repo_landing(repo)
-        cases.append(('the repo default is written once, as pre-staging, and never '
-                      'over a value the repo already has',
-                      kept and wrote and not again and
+        # A repository with no tiers asked for none: an update by a ladder
+        # user leaves it on main (Morgan, 2026-10-02, strength: decided --
+        # "nothing creates tiers in a repository that did not ask for
+        # them"); a fresh install by that person is the asking.
+        not_on_update = not pb.ensure_repo_landing(repo) and \
+            'landing_branch' not in pb.precedent_json(repo)
+        wrote = pb.ensure_repo_landing(repo, new_install=True)
+        again = pb.ensure_repo_landing(repo, new_install=True)
+        cases.append(('the repo default is written once, as pre-staging, at a fresh '
+                      'install, never by an update into a repository without '
+                      'tiers, and never over a value the repo already has',
+                      kept and not_on_update and wrote and not again and
                       pb.precedent_json(repo).get('landing_branch') == 'pre-staging'
                       and pb.precedent_json(repo).get('base_branch') == 'main'))
         (repo / 'precedent.json').write_text(_json.dumps(
@@ -25730,8 +26039,12 @@ def check_promote_only_and_tier_branches():
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         # A repository whose staging tier is main: the shape every practice
         # source and most installs had on 2026-09-25.
-        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'main'}),
-                                             encoding='utf-8')
+        # The repository asks for tiers (its landing_branch names one):
+        # promote_only means something only where there are tiers to
+        # promote through (Morgan, 2026-10-02, strength: decided).
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
@@ -26186,7 +26499,7 @@ def check_main_test_minutes_rule():
         os.environ.update(env)
         pb2 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pb2)
-        pb2.sync_pre_staging = lambda root, say=print, check=False: True
+        pb2.sync_pre_staging = lambda root, say=print, check=False, **_kw: True
         pb2._check = lambda root, wt, tier: (True, 'this exact tree already passed')
         pb2._slug = lambda root: 'o/r'
         pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
@@ -27089,6 +27402,38 @@ def check_sync_copies_work_from_above_once_checked():
             cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
                           'started, and that holds the copy and is said',
                           not ok and not gh.posted and 'no workflow_dispatch' in detail))
+
+            # A Debut takes main's GitHub test as it stands (D10, Morgan
+            # 2026-10-02): it neither starts the test nor waits on it, and
+            # only a passed test lets main's work come down.
+            pb.github_tests = lambda root, sha: tests
+            gh = GH([])
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh, wait=False)
+            cases.append(('a Debut does not start a missing GitHub test on main, '
+                          'and holds the copy-down',
+                          not ok and not gh.posted and 'does not wait' in detail))
+            running = dict(ok_run, status='in_progress', conclusion=None)
+            gh = GH([running])
+            calls = []
+            real_state = pb.github_test_state
+            pb.github_test_state = lambda *a, **k: (calls.append(1), real_state(*a, **k))[1]
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh, wait=False)
+            pb.github_test_state = real_state
+            cases.append(('...nor waits on one still running: one look, then on',
+                          not ok and len(calls) == 1 and 'running' in detail))
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, GH([ok_run]),
+                                        wait=False)
+            cases.append(('...and a passed test lets main\'s work come down', ok))
+
+            # A Produce refuses while main's own test is failing, and lets a
+            # passed or absent one through (D10).
+            failed = dict(ok_run, conclusion='failure', html_url='U')
+            held = pb.main_test_holds_produce(two, said.append, GH([failed]))
+            cases.append(('a Produce is held while main\'s own GitHub test is failing',
+                          bool(held) and 'failing' in held and 'U' in held))
+            cases.append(('...and goes ahead once it passed, or where none ran',
+                          pb.main_test_holds_produce(two, said.append, GH([ok_run])) is None
+                          and pb.main_test_holds_produce(two, said.append, GH([])) is None))
 
             # --wait-main-test: the wait a Promote into main hands the session.
             pb.github_tests = lambda root, sha: tests
@@ -28229,14 +28574,14 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         psc._attachable_sources = lambda: [('~/precedent-individual', 'main')]
 
         # A fetch happened and there is nothing to take -> the only True.
-        psc._clone_behind = lambda path, fetch=True: ('current', '')
+        psc._clone_behind = lambda path, fetch=True, **_kw: ('current', '')
         ok, _ = row()
         cases.append(('a clone confirmed current by a real fetch passes',
                       ok is True, ''))
 
         # THE REGRESSION THIS EXISTS FOR: nothing fetched, so "zero commits
         # behind" means nothing. Undetermined, never green.
-        psc._clone_behind = lambda path, fetch=True: (
+        psc._clone_behind = lambda path, fetch=True, **_kw: (
             'unverified', 'not fetched -- offline path')
         ok, detail = row()
         cases.append(('a clone that could not be compared is NOT reported '
@@ -28245,7 +28590,7 @@ def check_session_check_never_calls_an_unfetched_clone_current():
                       'UNMEASURED' in detail, detail[:90]))
 
         # Behind stays a hard failure, including off a stale ref.
-        psc._clone_behind = lambda path, fetch=True: (
+        psc._clone_behind = lambda path, fetch=True, **_kw: (
             'behind', '6 commit(s) behind origin/main')
         ok, detail = row()
         cases.append(('a clone measured behind still fails',
@@ -28256,7 +28601,7 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         # "behind" reading.
         seen = {}
 
-        def _spy(path, fetch=True):
+        def _spy(path, fetch=True, **_kw):
             seen['fetch'] = fetch
             return 'behind', '2 commit(s) behind origin/main'
 
@@ -31579,18 +31924,24 @@ def check_sync_views_cross_source():
         # ran last. build_views.py now reads the levels back out of
         # MANIFEST.json, so the two agree by construction.
         bv_tool = str(ROOT / 'tools' / 'build_views.py')
-        subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
-                       capture_output=True, text=True)
+        # Both writers read the fixture's own person, never the real one:
+        # build_views.py takes it from the environment, and with the real
+        # config it rendered whoever was running the harness (2026-10-02).
+        own_env = dict(os.environ, PRECEDENT_USER_CONFIG=str(user_cfg))
+        subprocess.run([sys.executable, sync_tool, '--repo', str(consumer),
+                        '--user-config', str(user_cfg)],
+                       capture_output=True, text=True, env=own_env)
         r_agree = subprocess.run([sys.executable, bv_tool, '--repo', str(consumer),
                                   '--agents-only', '--check'],
-                                 capture_output=True, text=True)
+                                 capture_output=True, text=True, env=own_env)
         cases.append(('build_views.py --check agrees with the block '
                       'precedent_sync_views.py just wrote (one loader block, '
                       'two documented writers)',
                       r_agree.returncode == 0, r_agree.stdout + r_agree.stderr))
         before_agents = (consumer / 'AGENTS.md').read_text(encoding='utf-8')
         subprocess.run([sys.executable, bv_tool, '--repo', str(consumer),
-                        '--agents-only'], capture_output=True, text=True)
+                        '--agents-only'], capture_output=True, text=True,
+                       env=own_env)
         cases.append(('and running build_views.py for real changes nothing',
                       (consumer / 'AGENTS.md').read_text(encoding='utf-8')
                       == before_agents))
@@ -42648,6 +42999,22 @@ def check_landed_reduction_quiets_the_reduction_ask():
                       len(got) == 1 and pg.LANDED_REDUCTION_MARK in got[0]
                       and 'on main' in got[0] and 'on pre-staging' in got[0],
                       repr(got)))
+        # Off the ladder: the same fact, with no tier and no ladder word
+        # (found 2026-10-03, the line named pre-staging to such a person).
+        import ladder_words as lw
+        saved = {k: os.environ.pop(k, None) for k in
+                 ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG')}
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        try:
+            got = pg._over_target(work, siblings=False)
+        finally:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
+        cases.append(('off the ladder, the same line says it plainly, with no '
+                      'ladder word',
+                      len(got) == 1 and pg.LANDED_REDUCTION_MARK_PLAIN in got[0]
+                      and 'on main' in got[0]
+                      and not lw.output_hits(got[0]), repr(got)))
         git('push', '-q', 'origin', '--delete', 'pre-staging')
         git('fetch', '-q', '--prune', 'origin')
         cases.append(('no landing branch on origin: no mark',
@@ -42713,7 +43080,7 @@ def check_budget_approvals_see_computed_raises():
         cases.append(('a raised ceiling field is refused, naming the number '
                       'and the approval it exceeds',
                       rc != 0 and 'surfaces/AGENTS.md is 9,000 in force, above '
-                      'the 7,650' in out, out[-600:]))
+                      'the 6,950' in out, out[-600:]))
         reset()
 
         bv_p.write_text(pristine[bv_p].replace(
@@ -45062,6 +45429,12 @@ def check_stale_render_self_heals():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stale-render-'))
     cases = []
+    # The fixture owns who is working here: nobody. The real person's sets
+    # are sources too, and since 2026-10-02 a source checkout that moved
+    # after the render makes it stale, so their clones' mtimes decided
+    # these cases (practice: fixture-owns-its-state).
+    _saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-user-config.json')
     try:
         # --- case 1: absent render -> the stub is invoked, file appears --
         repo1 = _repo(tmp)
@@ -45126,6 +45499,10 @@ def check_stale_render_self_heals():
                       result6 == 'no-tool', f'result={result6!r}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        if _saved_cfg is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = _saved_cfg
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the stale-render self-heal fires on absent-or-stale, not just '
@@ -45134,6 +45511,338 @@ def check_stale_render_self_heals():
           not bad,
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
+
+
+def check_attached_sets_sources_are_synced():
+    """Session start syncs what every ATTACHED practice set reads, not only
+    the root's own sources (2026-10-02). Measured that day: the individual set
+    at $HOME read its universal rules from a clone of its own,
+    $HOME/BestPractice, made at one session start and never pulled again --
+    131 commits behind, and the set's session file and the reply gate's
+    session-load figure were built from it.
+
+    Two-parent fixture: a project under one parent, the individual set under
+    a fake $HOME, the set declaring universal at ../BestPractice. Cases, each
+    asserting the tool's own words or the clone's own state:
+      1. the set's universal clone is fast-forwarded by the walk;
+      2. it stays on the branch its manifest pins (main), not the universal
+         repo's own declared base_branch (staging) -- the existing-clone
+         path used to pass no branch and moved it;
+      3. the set's session file is re-rendered because a source it reads
+         moved, though it was minutes old;
+      4. with nothing moved, a second run leaves that render alone;
+      5. a checkout the tool did not clone is left as it is, and says so;
+      6. a checkout named as the session's project is skipped, and says so."""
+    import shutil, tempfile
+    import precedent_source_bootstrap as psb
+    import precedent_resolve as pr
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def commit(repo, name, text):
+        (repo / name).write_text(text, encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit',
+            '-qm', name)
+
+    stub = ('#!/usr/bin/env python3\n'
+            'import pathlib, sys\n'
+            'repo = sys.argv[sys.argv.index("--repo") + 1]\n'
+            'out = pathlib.Path(repo) / ".precedent"\n'
+            'out.mkdir(parents=True, exist_ok=True)\n'
+            '(out / "SESSION_PRACTICES.md").write_text("rendered", encoding="utf-8")\n')
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+        pr.SELF_HEAL_RENDER_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='attached-sets-sync-'))
+    cases = []
+    try:
+        # The universal origin: main and staging, base_branch staging.
+        up = tmp / 'origin-bp'
+        up.mkdir()
+        git(up, 'init', '-q', '-b', 'main')
+        (up / 'practices').mkdir()
+        (up / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'staging', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        commit(up, 'practices/rule.md', 'v1\n')
+        git(up, 'branch', 'staging')
+        url = f'file://{up}'
+
+        home = tmp / 'home'
+        proj_parent = tmp / 'work'
+        home.mkdir()
+        proj_parent.mkdir()
+        project = proj_parent / 'project'
+        project.mkdir()
+        git(project, 'init', '-q', '-b', 'main')
+        (project / 'precedent.json').write_text(json.dumps({'sources': []}),
+                                                encoding='utf-8')
+
+        indiv = home / 'precedent-individual'
+        (indiv / 'tools').mkdir(parents=True)
+        git(indiv, 'init', '-q', '-b', 'main')
+        (indiv / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent',
+             'path': '../BestPractice'}]}), encoding='utf-8')
+        (indiv / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'source_branch': 'main'}), encoding='utf-8')
+        tool = indiv / 'tools' / 'precedent_session_practices.py'
+        tool.write_text(stub, encoding='utf-8')
+        tool.chmod(0o755)
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(indiv)}}),
+            encoding='utf-8')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+
+        # The set's universal clone, made by the tool, then left behind.
+        clone = home / 'BestPractice'
+        ok, out = psb._try_sync(url, clone, branch='main')
+        commit(up, 'practices/rule.md', 'v2, the newer rule\n')
+        render = indiv / '.precedent' / 'SESSION_PRACTICES.md'
+        render.parent.mkdir()
+        render.write_text('old render', encoding='utf-8')
+        past = time.time() - 120          # minutes old: fresh by age alone
+        os.utime(render, (past, past))
+
+        res = psb.sources_from_attached_sets(project)
+        head = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        tip = git(up, 'rev-parse', 'main').stdout.strip()
+        branch = git(clone, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+        cases.append(('the attached set\'s universal clone is fast-forwarded',
+                      ok and head == tip, f'head={head[:8]} tip={tip[:8]} {res!r}'))
+        cases.append(('and stays on its pinned main, not the universal '
+                      'repo\'s own base_branch (staging)',
+                      branch == 'main', f'branch={branch!r}'))
+        cases.append(('the set\'s render is rebuilt because a source it reads '
+                      'moved, though it was minutes old',
+                      render.read_text(encoding='utf-8') == 'rendered',
+                      render.read_text(encoding='utf-8')))
+
+        render.write_text('kept', encoding='utf-8')
+        os.utime(render, None)
+        psb.sources_from_attached_sets(project)
+        cases.append(('with nothing moved, a second run leaves the render '
+                      'alone',
+                      render.read_text(encoding='utf-8') == 'kept',
+                      render.read_text(encoding='utf-8')))
+
+        os.remove(clone / '.git' / psb.CLONE_MARKER)
+        commit(up, 'practices/rule.md', 'v3\n')
+        res = psb.sources_from_attached_sets(project)
+        msgs = ' | '.join(m for _s, _n, _o, m in res)
+        cases.append(('a checkout the tool did not clone is left as it is, and '
+                      'says so',
+                      git(clone, 'rev-parse', 'HEAD').stdout.strip() == tip
+                      and 'not cloned by this tool' in msgs, msgs))
+
+        psb._mark_clone(clone)
+        os.environ['CLAUDE_PROJECT_DIR'] = str(clone)
+        res = psb.sources_from_attached_sets(project)
+        msgs = ' | '.join(m for _s, _n, _o, m in res)
+        cases.append(('a checkout named as the session\'s project is skipped, '
+                      'and says so',
+                      git(clone, 'rev-parse', 'HEAD').stdout.strip() == tip
+                      and 'a session is working in this checkout' in msgs, msgs))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'session start syncs the sources every attached practice set reads, '
+          f'pinned, skipping working copies, and re-renders a set whose '
+          f'sources moved ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_attached_sets_sync_is_safe_for_everyone():
+    """The adversarial half of check_attached_sets_sources_are_synced: the
+    walk runs at EVERY session start, for people with no practice set of
+    their own and for people whose BestPractice copy is their own work
+    (2026-10-02, run before the change was landed). Cases, each through the
+    real CLI where it is about what a person sees:
+      1. a person's own ../BestPractice working copy -- feature branch,
+         unpushed commit, half-done edit -- is untouched, and nothing is said;
+      2. a set's universal clone that is missing is not cloned at session
+         start;
+      3. a set with a broken precedent.json adds no message and no traceback;
+      4. a tool-made clone that cannot fast-forward (its own commit, origin
+         moved on) keeps that commit and is reported in ONE line naming the
+         set;
+      5. a set with no engine manifest still keeps its universal clone on
+         main, never the universal repo's own base_branch;
+      6. a source ref stamped in the future does not make the render stale
+         on every call."""
+    import contextlib, io, shutil, tempfile
+    import precedent_source_bootstrap as psb
+    import precedent_resolve as pr
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def commit(repo, name, text):
+        f = repo / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text, encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit',
+            '-qm', name)
+
+    def head(r):
+        return git(r, 'rev-parse', 'HEAD').stdout.strip()
+
+    def cli(project):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+            rc = psb.main(['--sources-from', str(project), '--remote-only',
+                           'false'])
+        return rc, err.getvalue().strip()
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_PROJECT_DIR',
+        pr.SELF_HEAL_RENDER_ENV, 'PRECEDENT_SOURCE_BASE_URL')}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    os.environ['PRECEDENT_SOURCE_BASE_URL'] = 'file:///nonexistent-base'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='attached-sets-safe-'))
+    cases = []
+    try:
+        up = tmp / 'origin-bp'
+        up.mkdir()
+        git(up, 'init', '-q', '-b', 'main')
+        (up / 'practices').mkdir()
+        (up / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'staging'}), encoding='utf-8')
+        commit(up, 'practices/rule.md', 'v1\n')
+        git(up, 'branch', 'staging')
+        url = f'file://{up}'
+
+        def layout(tag, manifest=True, raw=None):
+            base = tmp / tag
+            home, work = base / 'home', base / 'work'
+            project = work / 'project'
+            project.mkdir(parents=True)
+            home.mkdir()
+            git(project, 'init', '-q', '-b', 'main')
+            (project / 'precedent.json').write_text('{"sources": []}',
+                                                    encoding='utf-8')
+            ind = home / 'precedent-individual'
+            (ind / 'tools').mkdir(parents=True)
+            git(ind, 'init', '-q', '-b', 'main')
+            (ind / 'precedent.json').write_text(raw if raw is not None else
+                json.dumps({'sources': [{'level': 'universal',
+                                         'name': 'precedent',
+                                         'path': '../BestPractice'}]}),
+                encoding='utf-8')
+            if manifest:
+                # source_repo is what a fresh universal clone is made from, so
+                # case 2 can tell "did not clone" from "had no URL to clone".
+                (ind / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    json.dumps({'source_branch': 'main', 'source_repo': url}),
+                    encoding='utf-8')
+            cfg = base / 'config.json'
+            cfg.write_text(json.dumps({'individual': {
+                'name': 'precedent-individual', 'path': str(ind)}}),
+                encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+            return project, ind, home / 'BestPractice'
+
+        # 1. the person's own working copy
+        project, ind, bp = layout('own-copy')
+        git(tmp, 'clone', '-q', str(up), str(bp))
+        git(bp, 'checkout', '-q', '-b', 'my-feature')
+        commit(bp, 'practices/mine.md', 'my work\n')
+        (bp / 'practices' / 'rule.md').write_text('half-done\n', encoding='utf-8')
+        commit(up, 'practices/rule.md', 'v2\n')
+        before = (head(bp), git(bp, 'status', '--porcelain').stdout)
+        rc, out = cli(project)
+        after = (head(bp), git(bp, 'status', '--porcelain').stdout)
+        cases.append(('a person\'s own BestPractice working copy is untouched '
+                      'and nothing is said', rc == 0 and before == after
+                      and 'precedent_source_bootstrap' not in out, out))
+
+        # 2. a missing universal clone is not cloned
+        project, ind, bp = layout('missing')
+        rc, out = cli(project)
+        cases.append(('a set\'s missing universal clone is not cloned at '
+                      'session start', rc == 0 and not bp.exists(), out))
+
+        # 3. a broken set adds nothing
+        project, ind, bp = layout('broken', raw='{ not json')
+        rc, out = cli(project)
+        cases.append(('a set with a broken precedent.json adds no message and '
+                      'no traceback', rc == 0 and 'Traceback' not in out
+                      and 'precedent_source_bootstrap' not in out, out))
+
+        # 4. a diverged tool-made clone: kept, and said once
+        project, ind, bp = layout('diverged')
+        psb._try_sync(url, bp, branch='main')
+        commit(bp, 'practices/local.md', 'local\n')
+        local = head(bp)
+        commit(up, 'practices/rule.md', 'v3\n')
+        rc, out = cli(project)
+        lines = [l for l in out.splitlines() if 'precedent_source_bootstrap' in l]
+        cases.append(('a clone that cannot fast-forward keeps its commit and is '
+                      'reported in one line naming the set',
+                      rc == 0 and head(bp) == local and len(lines) == 1
+                      and 'was not brought up to date' in lines[0]
+                      and str(ind) in lines[0], out))
+
+        # 5. no manifest: still main
+        project, ind, bp = layout('no-manifest', manifest=False)
+        psb._try_sync(url, bp, branch='main')
+        commit(up, 'practices/rule.md', 'v4\n')
+        rc, out = cli(project)
+        br = git(bp, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+        cases.append(('a set with no engine manifest keeps its universal clone '
+                      'on main', br == 'main' and head(bp) == head(up),
+                      f'branch={br!r} {out}'))
+
+        # 6. a future-stamped ref does not re-render forever (its own layout,
+        # so it does not lean on case 5's branch)
+        project, ind, bp = layout('future')
+        psb._try_sync(url, bp, branch='main')
+        tool = ind / 'tools' / 'precedent_session_practices.py'
+        tool.write_text('raise SystemExit("rendered when it should not")\n',
+                        encoding='utf-8')
+        render = ind / '.precedent' / 'SESSION_PRACTICES.md'
+        render.parent.mkdir(exist_ok=True)
+        render.write_text('kept', encoding='utf-8')
+        ref = bp / '.git' / 'refs' / 'heads' / 'main'
+        fut = time.time() + 30 * 86400
+        os.utime(ref, (fut, fut))
+        res = pr._self_heal_stale_render(ind)
+        cases.append(('a source ref stamped in the future does not make the '
+                      'render stale', res == 'fresh', f'result={res!r}'))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the attached-set sync is safe for people with no set, a hand-made '
+          f'BestPractice copy, a broken set or a stuck clone '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 def check_self_heal_skips_a_scratch_copy():
     """precedent_resolve.py's source repairs cloned every declared source
@@ -47371,7 +48080,7 @@ def check_move_tool_lands_then_deduplicates():
         (indiv / 'practices' / 'zz-links.md').write_text(
             practice('zz-links', 'See [`zz-left-behind`](zz-left-behind.md), '
                      '[the rule](zz-left-behind.md#rule), '
-                     '[go-update](go-update.md) and `[kept](zz-left-behind.md)`.'),
+                     '[park-it](park-it.md) and `[kept](zz-left-behind.md)`.'),
             encoding='utf-8')
         r = run([tool, '--slug', 'zz-links', '--from', 'individual', '--from-path', str(indiv),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
@@ -47382,7 +48091,7 @@ def check_move_tool_lands_then_deduplicates():
                       'and a link inside a code span untouched',
                       r.returncode == 0
                       and 'See `zz-left-behind`, the rule (`zz-left-behind`)' in ltext
-                      and '/practices/go-update.md)' in ltext
+                      and '/practices/park-it.md)' in ltext
                       and '`[kept](zz-left-behind.md)`' in ltext
                       and str(indiv) not in ltext and 'precedent-individual/blob' not in ltext
                       and 'rewrote a sibling link' in r.stdout,
@@ -47800,6 +48509,623 @@ def check_move_withdrawal_from_universal_leaves_universal_green():
     check(f'withdrawing a universal practice leaves the universal clone\'s own checks '
           f'green and tells a consumer where the rule went ({len(cases)} stated cases)',
           not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+
+def check_ladder_opt_in_loader():
+    """spec/LADDER_OPT_IN_PLAN.md steps 2-4, tested in a fixture world (never a
+    real profile: a real one would carry private set text into the harness).
+
+    A person's individual set BRINGS a shared set that provides the ladder.
+    Cases, each naming the behaviour it guards:
+      1. the brought set loads, at the shared level, beside the individual set;
+      2. a person who brings nothing does not get it -- the same repository,
+         another person;
+      3. a malformed `brings` entry is skipped with one line, never fatal;
+      4. build_views never writes a brought set into a committed view, in a
+         private repository, a public one, or a practice set;
+      5. precedent_ladder: in force for the person who brings it, not for one
+         who does not, not under PRECEDENT_NO_LADDERS, and the --in-force
+         exit code agrees;
+      6. PRECEDENT_NO_LADDERS drops the set from load_config, and a brought
+         set that provides nothing is NOT dropped by it;
+      7. session start clones a brought set from its repo_url, beside the
+         individual set, and pulls it on the next run;
+      8. --withdraw-from-universal deletes the universal copy, records the
+         withdrawal once, and a consumer of universal alone sees no IN FORCE
+         NOWHERE for it; refused without --approved-by."""
+    import contextlib, io, shutil, tempfile
+    import precedent_resolve as pr
+    import precedent_ladder as pl
+    import precedent_source_bootstrap as psb
+    import build_views as bv
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def commit_all(repo, msg='x'):
+        git(repo, 'add', '-A')
+        git(repo, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', msg)
+
+    def make_set(path, name, provides=None, level='shared'):
+        (path / 'practices').mkdir(parents=True, exist_ok=True)
+        man = {'name': name, 'level': level, 'visibility': 'public',
+               'subject': 'a fixture', 'code': []}
+        if provides is not None:
+            man['provides'] = provides
+        (path / 'precedent-source.json').write_text(json.dumps(man),
+                                                    encoding='utf-8')
+        (path / 'practices' / f'{name}-rule.md').write_text(
+            _move_fixture_practice(f'{name}-rule'), encoding='utf-8')
+        return path
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV, 'CLAUDE_PROJECT_DIR',
+        'PRECEDENT_PROJECT_DIR', pr.SELF_HEAL_RENDER_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='ladder-opt-in-'))
+    cases = []
+    try:
+        home = tmp / 'home'
+        # The ladder set's origin, a real repository so session start can
+        # clone it from a URL.
+        origin = make_set(tmp / 'origin-ladder', 'fixture-ladder', ['ladder'])
+        git(origin, 'init', '-q', '-b', 'main')
+        commit_all(origin)
+        url = f'file://{origin}'
+        ind = home / 'precedent-individual'
+        (ind / 'practices').mkdir(parents=True)
+        git(ind, 'init', '-q', '-b', 'main')
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'precedent-individual', 'level': 'individual',
+            'brings': [{'name': 'fixture-ladder', 'repo_url': url},
+                       {'name': 'Not A Slug', 'repo_url': url},
+                       'not-a-dict',
+                       # git would read this as an option, not a repository
+                       {'name': 'evil', 'repo_url': '--upload-pack=touch /tmp/x'},
+                       # the set itself, which would load it twice
+                       {'name': 'precedent-individual', 'repo_url': url}]}),
+            encoding='utf-8')
+        brings_cfg = tmp / 'brings.json'
+        brings_cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+        plain_ind = tmp / 'other' / 'precedent-individual'
+        (plain_ind / 'practices').mkdir(parents=True)
+        git(plain_ind, 'init', '-q')
+        plain_cfg = tmp / 'plain.json'
+        plain_cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(plain_ind)}}),
+            encoding='utf-8')
+        repo = tmp / 'work' / 'consumer'
+        repo.mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'sources': []}),
+            encoding='utf-8')
+
+        # 7 first: session start puts the brought set on disk.
+        os.environ['PRECEDENT_USER_CONFIG'] = str(brings_cfg)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            res = psb.sources_from_brings()
+        clone = home / 'fixture-ladder'
+        cases.append(('session start clones a brought set from its repo_url, '
+                      'beside the individual set',
+                      any(n == 'fixture-ladder' and ok for n, ok, _m in res)
+                      and (clone / 'practices').is_dir(), repr(res)))
+        (origin / 'practices' / 'later.md').write_text(
+            _move_fixture_practice('later'), encoding='utf-8')
+        commit_all(origin, 'later')
+        with contextlib.redirect_stderr(io.StringIO()):
+            psb.sources_from_brings()
+        cases.append(('and pulls it on the next run',
+                      (clone / 'practices' / 'later.md').is_file(), ''))
+
+        # 1 and 3
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            srcs = pr.load_config(repo)
+        got = [s for s in srcs if s['name'] == 'fixture-ladder']
+        cases.append(('the brought set loads at the shared level, beside the '
+                      'individual set, marked as brought',
+                      len(got) == 1 and got[0]['level'] == 'shared'
+                      and got[0].get('brought') is True
+                      and pathlib.Path(got[0]['path']).resolve() == clone.resolve(),
+                      repr(srcs)))
+        cases.append(('each malformed brings entry -- a bad name, not a dict, a URL '
+                      'git would read as an option, the set itself -- is skipped '
+                      'with one line',
+                      err.getvalue().count('`brings` entry') == 4
+                      and not [s for s in srcs if s['name'] in
+                               ('Not A Slug', 'evil')]
+                      and len([s for s in srcs
+                               if s['name'] == 'precedent-individual']) == 1,
+                      err.getvalue()))
+        dsp = [n for _p, _l, n, _note in pr.declared_source_paths(repo)]
+        cases.append(('declared_source_paths names it, so the freshness guard '
+                      'and the refresh check it', 'fixture-ladder' in dsp, repr(dsp)))
+
+        # 4
+        for vis in ('private', 'public'):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'format_version': 1, 'visibility': vis, 'sources': []}),
+                encoding='utf-8')
+            with contextlib.redirect_stderr(io.StringIO()):
+                srcs = pr.load_config(repo)
+            tracked, deferred, _n = bv.sources_for_tracked_block(repo, srcs)
+            cases.append((f'a {vis} repository\'s committed view never carries '
+                          f'the brought set',
+                          not [s for s in tracked if s.get('brought')]
+                          and [s for s in deferred if s.get('brought')],
+                          repr(tracked)))
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(ind)
+        tracked, deferred, _n = bv.sources_for_tracked_block(ind, srcs)
+        cases.append(('nor does a practice set\'s',
+                      not [s for s in tracked if s.get('brought')], repr(tracked)))
+
+        # 5
+        cases.append(('the ladder is in force for the person who brings it',
+                      pl.ladder_in_force(repo), pl.status_sentence(repo)))
+        cli = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_ladder.py'),
+                              '--in-force', '--repo', str(repo)],
+                             capture_output=True, text=True,
+                             env=dict(os.environ))
+        cases.append(('--in-force exits 0 for them', cli.returncode == 0,
+                      cli.stdout + cli.stderr))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(plain_cfg)
+        cases.append(('and not for a person who brings nothing, in the same '
+                      'repository', not pl.ladder_in_force(repo),
+                      pl.status_sentence(repo)))
+        cli = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_ladder.py'),
+                              '--in-force', '--repo', str(repo)],
+                             capture_output=True, text=True, env=dict(os.environ))
+        cases.append(('--in-force exits 1 for them', cli.returncode == 1,
+                      cli.stdout + cli.stderr))
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(repo)
+        cases.append(('and load_config gives them no such set',
+                      not [s for s in srcs if s['name'] == 'fixture-ladder'],
+                      repr(srcs)))
+
+        # 6
+        os.environ['PRECEDENT_USER_CONFIG'] = str(brings_cfg)
+        os.environ[pr.NO_LADDERS_ENV] = '1'
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(repo)
+        cases.append(('PRECEDENT_NO_LADDERS drops the ladder set from the session',
+                      not [s for s in srcs if s['name'] == 'fixture-ladder']
+                      and not pl.ladder_in_force(repo)
+                      and 'switched off' in pl.status_sentence(repo), repr(srcs)))
+        man = json.loads((clone / 'precedent-source.json').read_text(encoding='utf-8'))
+        man.pop('provides')
+        (clone / 'precedent-source.json').write_text(json.dumps(man), encoding='utf-8')
+        with contextlib.redirect_stderr(io.StringIO()):
+            srcs = pr.load_config(repo)
+        cases.append(('but keeps a brought set that provides nothing',
+                      [s for s in srcs if s['name'] == 'fixture-ladder'], repr(srcs)))
+        os.environ.pop(pr.NO_LADDERS_ENV, None)
+
+        # 8
+        env = _move_fixture_env(tmp)
+        team = tmp / 'precedent-team-fixture'
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'team', '--name', 'precedent-team-fixture', '--dest', str(team),
+                        '--approver', 'Fixture Approver:fixture-gh'],
+                       capture_output=True, text=True, env=env)
+        uclone = tmp / 'precedent'
+        (uclone / 'practices').mkdir(parents=True)
+        (uclone / 'tools').mkdir()
+        (uclone / 'practices' / 'zz-gone.md').write_text(
+            _move_fixture_practice('zz-gone', install='Nothing.'), encoding='utf-8')
+        (uclone / 'practices' / 'zz-stays.md').write_text(
+            _move_fixture_practice('zz-stays'), encoding='utf-8')
+
+        def move(*args):
+            return subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_move.py'),
+                                   *args], cwd=str(ROOT), capture_output=True,
+                                  text=True, env=env)
+        move('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+             '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver')
+        r = move('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--withdraw-from-universal')
+        cases.append(('--withdraw-from-universal is refused without --approved-by, '
+                      'and writes nothing',
+                      r.returncode == 1 and '--approved-by' in r.stderr
+                      and (uclone / 'practices' / 'zz-gone.md').is_file(), r.stderr[-300:]))
+        r = move('--slug', 'zz-gone', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--withdraw-from-universal',
+                 '--approved-by', 'Fixture Approver')
+        record = uclone / 'record' / 'WITHDRAWN_FROM_UNIVERSAL.md'
+        cases.append(('it deletes the universal copy and records the withdrawal once',
+                      r.returncode == 0
+                      and not (uclone / 'practices' / 'zz-gone.md').exists()
+                      and record.is_file()
+                      and record.read_text(encoding='utf-8').count('`zz-gone` withdrawn') == 1,
+                      (r.stdout + r.stderr)[-500:]))
+        # The set's copy no longer says a universal copy stays active, and
+        # still carries the approval the rule had in universal (2026-10-02:
+        # fourteen ladder rules lost theirs).
+        kept = sp._read_practice_file(team / 'practices' / 'zz-gone.md')[0]
+        ab = str(kept.get('approved_by') or '')
+        cases.append(("the set's copy says universal keeps no copy, and keeps "
+                      "the rule's own approval",
+                      'keeps no copy' in ab and 'stays active' not in ab
+                      and '(there: Fixture, 2026-09-14)' in ab, ab[:300]))
+        consumer = tmp / 'consumer-u'
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uclone)}]}),
+            encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True, env=env)
+        try:
+            dangling = json.loads(r.stdout).get('dangling') or []
+        except json.JSONDecodeError:
+            dangling = None
+        cases.append(('a consumer of universal alone sees no IN FORCE NOWHERE for it',
+                      dangling == [], (r.stdout + r.stderr)[-400:]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a set a person brings loads for that person only, never reaches a '
+          f'committed view, answers precedent_ladder, and a universal rule can be '
+          f'withdrawn to it cleanly ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {str(d)[:400]}" for n, d in bad))
+
+
+def check_ladder_off_engine_says_no_ladder_words():
+    """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
+    person with no practice set of their own -- the ladder not in force --
+    runs the tools a session runs, in this repository, and none of them
+    prints a ladder word (tools/ladder_words.py's output matcher). Measured
+    2026-10-02 before the change: about 450 such words across these outputs.
+
+    `PRECEDENT_ASSUME_LADDER` (the harness default) is cleared for every run
+    here: this is the off-ladder world, as a person off the ladder meets it.
+    One phrase is excused by name, the ordinary English "staging document"."""
+    import ladder_words as lw
+    import tempfile
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
+    env['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(tempfile.gettempdir())
+                                       / 'no-such-precedent-config.json')
+    runs = [
+        ('the reply gate', ['tools/precedent_gate.py', 'reply']),
+        ('the merge gate', ['tools/precedent_gate.py', 'merge']),
+        ('the push gate', ['tools/precedent_gate.py', 'push']),
+        ('the review gate', ['tools/precedent_gate.py', 'review']),
+        ('the reply check\'s requirements', ['tools/precedent_reply_check.py', '--explain']),
+        ('Vocabulary', ['tools/precedent_vocabulary.py']),
+        ('the landing branch', ['tools/precedent_branches.py', '--landing']),
+        ('the branch status', ['tools/precedent_branches.py']),
+        ('the deep check\'s listing', ['tools/precedent_push_check.py', '--list']),
+        ('the staging watermark', ['tools/precedent_beta_watermark_check.py',
+                                   '--no-push', '--no-fetch']),
+        ('the ladder helper', ['tools/precedent_ladder.py', '--status']),
+    ]
+    excused = ('staging document',)
+    cases = []
+    for what, argv in runs:
+        r = subprocess.run([sys.executable, *argv], cwd=str(ROOT), env=env,
+                           capture_output=True, text=True, timeout=600)
+        text = r.stdout + r.stderr
+        # A quoted commit ("  aeadfef4 <title>") is the repository's own
+        # history, written by people, not the engine's wording: a person off
+        # the ladder meets the same titles in `git log`. Found 2026-10-03:
+        # inside a Debut the checked copy sits on the Debut's own merge
+        # commit, titled "Promote pre-staging into staging", and the reply
+        # gate lists it as unlanded work.
+        lines = [l for l in text.splitlines()
+                 if not any(x in l for x in excused)
+                 and not re.match(r'\s+[0-9a-f]{7,40} \S', l)]
+        found = lw.output_hits('\n'.join(lines))
+        # The lines themselves, not only the words: a hit that appeared only
+        # inside a Debut (2026-10-03) could not be found from the words.
+        said = [lines[n - 1][:300] for n in sorted({h[0] for h in found})][:3]
+        cases.append((f'{what} says no ladder word to a person off the ladder',
+                      not found, f'{found[:6]!r} in {said!r}'))
+    r = subprocess.run([sys.executable, 'tools/precedent_branches.py', '--landing'],
+                       cwd=str(ROOT), env=env, capture_output=True, text=True)
+    cases.append(('their work lands on main',
+                  r.stdout.splitlines()[:1] == ['main'], r.stdout[:200]))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'off the ladder, the engine prints none of the ladder\'s words '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+def check_ladder_test_session_and_the_two_ladder_checks():
+    """spec/LADDER_OPT_IN_PLAN.md D7, D13 and the per-person rule.
+
+    - A No ladders session pushes and merges nothing: the push gate and the
+      merge check refuse, by name; without the variable neither refuses.
+    - ladder-words-stay-in-the-ladder-set finds a ladder word planted in a
+      practice set that does not provide the ladder, passes the same text
+      in one that does, and passes a Story.
+    - ladder-set-is-brought-not-declared finds a precedent.json that
+      declares a set providing the ladder, and passes one that declares an
+      ordinary set: the ladder is each person's to bring, and a repository
+      that declares it puts it on everybody who works there."""
+    import shutil, tempfile
+    import precedent_check as pc
+    import precedent_ladder
+    cases = []
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('PRECEDENT_ASSUME_LADDER',)}
+    env['PRECEDENT_NO_LADDERS'] = '1'
+    r = subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--gate'],
+                       cwd=str(ROOT), env=env, capture_output=True, text=True,
+                       timeout=120)
+    cases.append(('a No ladders session: the push gate refuses',
+                  r.returncode == 1 and 'nothing is pushed' in r.stdout,
+                  f'rc={r.returncode} {r.stdout[:200]}'))
+    r = subprocess.run([sys.executable, 'tools/precedent_merge_check.py',
+                        '--owner', 'o', '--repo', 'r', '--number', '1'],
+                       cwd=str(ROOT), env=env, capture_output=True, text=True,
+                       timeout=120)
+    cases.append(('a No ladders session: the merge check refuses',
+                  r.returncode == 1 and 'nothing is pushed' in r.stdout,
+                  f'rc={r.returncode} {r.stdout[:200]}'))
+    old_env = os.environ.pop('PRECEDENT_NO_LADDERS', None)
+    try:
+        cases.append(('any other session: no refusal',
+                      precedent_ladder.test_session_refusal() is None, ''))
+    finally:
+        if old_env is not None:
+            os.environ['PRECEDENT_NO_LADDERS'] = old_env
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ladder-checks-'))
+    saved_root = pc.ROOT
+    try:
+        plain, ladder = tmp / 'plain-set', tmp / 'ladder-set'
+        for d, provides in ((plain, []), (ladder, ['ladder'])):
+            (d / 'practices').mkdir(parents=True)
+            (d / 'precedent-source.json').write_text(json.dumps(
+                {'name': d.name, 'level': 'shared', 'provides': provides}))
+            (d / 'practices' / 'x.md').write_text(
+                '---\nslug: x\nstatus: active\n---\n\n## Rule\n\n'
+                'Say "Booked" at step 3 of 5.\n\n## Story\n\n'
+                'On the day, we said Promote 2.\n')
+        for root, want, what in ((plain, 2, 'a set without the ladder'),
+                                 (ladder, None, 'the set that provides it')):
+            pc.ROOT = root
+            try:
+                got = pc._ladder_words_stay_in_the_ladder_set(None)
+                n = len(got)
+            except pc.NotApplicable:
+                n = None
+            cases.append((f'Check E in {what}: '
+                          f'{"skipped" if want is None else f"{want}+ finding(s), none in the Story"}',
+                          (n is None) if want is None else
+                          (n is not None and n >= want and all(':9:' not in str(f) and ':10:' not in str(f) for f in got)),
+                          f'got {n}: {[str(f) for f in (got if n else [])][:4]}'))
+        repo = tmp / 'repo'
+        repo.mkdir()
+        for declared, want, what in (('ladder-set', 1, 'declares the ladder set'),
+                                     ('plain-set', 0, 'declares an ordinary set')):
+            (repo / 'precedent.json').write_text(json.dumps({'sources': [
+                {'name': declared, 'level': 'shared', 'path': f'../{declared}'}]}))
+            pc.ROOT = repo
+            got = pc._ladder_set_is_brought_not_declared(None)
+            cases.append((f'a precedent.json that {what}: {want} finding(s)',
+                          len(got) == want, str([str(f) for f in got])[:300]))
+    finally:
+        pc.ROOT = saved_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    # A path rule in a set the person brings fires for them through
+    # precedent_paths.py, and for nobody else (2026-10-02: the paths channel
+    # read the repository's practices/ alone, so checks-follow-the-tier
+    # stopped reaching the person who brings it when it moved).
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-brought-paths-'))
+    try:
+        repo, ind, lad = tmp / 'repo', tmp / 'precedent-individual', tmp / 'fx-ladder'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': []}))
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual',
+             'brings': [{'name': 'fx-ladder',
+                         'repo_url': 'https://example.com/fx-ladder.git'}]}))
+        (lad / 'practices').mkdir(parents=True)
+        (lad / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-ladder', 'level': 'shared', 'provides': ['ladder']}))
+        (lad / 'practices' / 'fx-path-rule.md').write_text(
+            '---\nslug:        fx-path-rule\ntitle:       "fx"\n'
+            'tier:        on-demand\nseverity:    default\n'
+            'applies_to:  ["tools/*.py"]\napplies_to_why: "fx"\n'
+            'occasion:    null\nindex_clause: "fx clause"\nstatus:      active\n'
+            '---\n\n## Rule\n\nThe brought path rule.\n')
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}))
+        for what, extra, want in (('the person who brings it', {}, True),
+                                  ('a person with no such set',
+                                   {'PRECEDENT_USER_CONFIG': str(tmp / 'none.json')}, False),
+                                  ('the same person, No ladders',
+                                   {'PRECEDENT_NO_LADDERS': '1'}, False)):
+            e = {k: v for k, v in os.environ.items()
+                 if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
+            e['PRECEDENT_USER_CONFIG'] = str(cfg)
+            e.update(extra)
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_paths.py'),
+                                '--repo', str(repo), 'tools/x.py'],
+                               env=e, capture_output=True, text=True, timeout=120)
+            got = 'The brought path rule.' in r.stdout
+            cases.append((f'a brought path rule {"fires" if want else "is silent"} '
+                          f'for {what}', got == want, (r.stdout + r.stderr)[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # The staging watch says nothing to a person off the ladder, through the
+    # reply gate's own call too (2026-10-02: only its command line asked, so
+    # a colleague's reply gate named who had pushed to staging).
+    import precedent_beta_watermark_check as pbw
+    saved_check, saved_off = pbw.check, pbw._off_ladder
+    try:
+        pbw.check = lambda root=None, user_config=None, **k: ('alert', [], 'SOMEONE PUSHED')
+        pbw._off_ladder = lambda root, user_config=None: True
+        quiet = pbw.remind(str(ROOT))
+        pbw._off_ladder = lambda root, user_config=None: False
+        loud = pbw.remind(str(ROOT))
+    finally:
+        pbw.check, pbw._off_ladder = saved_check, saved_off
+    cases.append(('the staging watch is silent at the reply gate for a person '
+                  'off the ladder, and still speaks for one on it',
+                  quiet is None and loud == 'SOMEONE PUSHED', f'{quiet!r} {loud!r}'))
+    env_off = {k: v for k, v in os.environ.items()
+               if k not in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS')}
+    env_off['PRECEDENT_USER_CONFIG'] = str(pathlib.Path(tempfile.gettempdir())
+                                           / 'no-such-precedent-config.json')
+    r = subprocess.run([sys.executable, '-c',
+                        'import sys; sys.path.insert(0, "tools"); '
+                        'import precedent_beta_watermark_check as b; '
+                        'print(b._off_ladder("."))'],
+                       cwd=str(ROOT), env=env_off, capture_output=True, text=True)
+    cases.append(('...and a person with no set of their own is off the ladder there',
+                  r.stdout.strip() == 'True', (r.stdout + r.stderr)[-200:]))
+
+    # The push check recognises the size-cap warning precedent_check.py
+    # prints today (2026-10-02: that wording was made plain and the push
+    # check went on looking for the old one, so its closing reminder never
+    # fired).
+    import precedent_push_check as ppc
+    src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    m = re.search(r"WARNING    \{slug\} — (over a size cap\.[^']*)'", src)
+    cases.append(("the push check matches precedent_check's size-cap warning "
+                  "as it is printed today",
+                  bool(m) and any(w in m.group(1) for w in ppc.SIZE_CAP_WARNINGS),
+                  m.group(1) if m else 'warning text not found'))
+
+    # A config named outside $HOME is somebody other than the person whose
+    # home the bootstrap hook works in, so the self-heal does not run it
+    # (2026-10-02: fixtures naming their own config kept putting this
+    # machine's individual clone back on its pinned branch). Inside $HOME it
+    # still runs.
+    import precedent_resolve as _pr_heal
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-heal-named-'))
+    saved = {k: os.environ.get(k) for k in ('CLAUDE_CODE_REMOTE',
+                                            'PRECEDENT_USER_CONFIG', 'HOME')}
+    try:
+        repo, home = tmp / 'repo', tmp / 'home'
+        hook = repo / _pr_heal.INDIVIDUAL_BOOTSTRAP_HOOK
+        hook.parent.mkdir(parents=True)
+        home.mkdir()
+        marker = tmp / 'hook-ran'
+        hook.write_text(f'#!/bin/bash\ntouch {marker}\n', encoding='utf-8')
+        os.environ['CLAUDE_CODE_REMOTE'] = 'true'
+        os.environ['HOME'] = str(home)
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'elsewhere' / 'config.json')
+        r1 = _pr_heal._self_heal_individual_source(repo)
+        ran1 = marker.exists()
+        os.environ['PRECEDENT_USER_CONFIG'] = str(home / 'config.json')
+        r2 = _pr_heal._self_heal_individual_source(repo)
+        ran2 = marker.exists()
+        cases.append(('a config named outside $HOME does not run the bootstrap '
+                      'hook; one inside $HOME still does',
+                      r1 == 'not-remote' and not ran1 and r2 == 'attempted' and ran2,
+                      f'{r1} {ran1} {r2} {ran2}'))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # A rule from a brought set counts as reached through the session file
+    # wherever that channel is wired, in a private repository too; with the
+    # channel not wired it is reported (2026-10-02: only public repositories
+    # counted the channel, so a private one called every brought rule
+    # reachable by nothing).
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-brought-reach-'))
+    saved_root, saved_cfg = pc.ROOT, os.environ.get('PRECEDENT_USER_CONFIG')
+    try:
+        repo, ind, lad = tmp / 'repo', tmp / 'precedent-individual', tmp / 'fx-ladder'
+        for d in (repo / 'practices', repo / 'tools', repo / '.claude' / 'hooks',
+                  ind / 'practices', lad / 'practices'):
+            d.mkdir(parents=True)
+        (repo / 'AGENTS.md').write_text('# nothing names it\n')
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': []}))
+        shutil.copy(ROOT / 'tools' / 'precedent_session_practices.py', repo / 'tools')
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual',
+             'brings': [{'name': 'fx-ladder',
+                         'repo_url': 'https://example.com/fx-ladder.git'}]}))
+        (lad / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-ladder', 'level': 'shared', 'provides': ['ladder']}))
+        (lad / 'practices' / 'fx-unrouted.md').write_text(
+            '---\nslug:        fx-unrouted\ntitle:       "fx"\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["**"]\n'
+            'occasion:    null\ngates:       []\nchecked_by:  null\n'
+            'status:      active\n---\n\n## Rule\n\nUnrouted.\n')
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+        pc.ROOT = repo
+        hook = repo / '.claude' / 'hooks' / 'session-start.sh'
+        for wired, want in ((True, False), (False, True)):
+            hook.write_text('#!/bin/bash\n' + ('python3 tools/precedent_session_practices.py\n'
+                                                if wired else '# no loader here\n'))
+            got = any('fx-unrouted' in str(f) for f in (pc._practice_is_reachable(None) or []))
+            cases.append((f'in a private repository with the session channel '
+                          f'{"wired" if wired else "not wired"}, a brought rule is '
+                          f'{"reported unreachable" if want else "reached"}',
+                          got == want, f'reported={got}'))
+    finally:
+        pc.ROOT = saved_root
+        if saved_cfg is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # A Promote in a repository with only main does nothing and creates no
+    # branch (2026-10-02: it announced a move, failed, and left its lock
+    # branch on origin).
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-main-only-'))
+    try:
+        genv = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_NO_LADDERS'}
+        genv.update({'GIT_AUTHOR_NAME': 'x', 'GIT_AUTHOR_EMAIL': 'x@x',
+                     'GIT_COMMITTER_NAME': 'x', 'GIT_COMMITTER_EMAIL': 'x@x',
+                     'PRECEDENT_ASSUME_LADDER': '1'})
+        g = lambda *a, cwd=tmp: subprocess.run(['git', *a], cwd=str(cwd), env=genv,
+                                              capture_output=True, text=True)
+        g('init', '-q', '--bare', '-b', 'main', 'origin.git')
+        g('clone', '-q', str(tmp / 'origin.git'), 'work')
+        work = tmp / 'work'
+        (work / 'precedent.json').write_text('{"format_version": 1}\n')
+        g('add', '-A', cwd=work)
+        g('commit', '-qm', 'init', cwd=work)
+        g('push', '-q', 'origin', 'HEAD:main', cwd=work)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_branches.py'),
+                            '--promote', '--to', 'staging'], cwd=str(work), env=genv,
+                           capture_output=True, text=True, timeout=300)
+        heads = g('ls-remote', '--heads', 'origin', cwd=work).stdout
+        cases.append(('a Promote in a repository with only main says there is '
+                      'nothing to promote and creates no branch',
+                      r.returncode == 0 and 'nothing to promote' in r.stdout
+                      and heads.count('refs/heads/') == 1,
+                      f'rc={r.returncode} {(r.stdout + r.stderr)[-200:]} heads={heads}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the No ladders session refuses to push, and the two ladder checks '
+          f'find what they name ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
 
 
 def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
@@ -53367,6 +54693,13 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_attached_sets_sources_are_synced()
+    check_attached_sets_sync_is_safe_for_everyone()
+    check_ladder_opt_in_loader()
+    check_ladder_off_engine_says_no_ladder_words()
+    check_ladder_test_session_and_the_two_ladder_checks()
+    check_refresh_never_rolls_a_newer_engine_back()
+    check_seed_refuses_an_engine_main_lacks()
     check_self_heal_skips_a_scratch_copy()
     check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()

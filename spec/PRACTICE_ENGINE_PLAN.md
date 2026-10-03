@@ -253,7 +253,10 @@ three things:
 
 1. **The resident block** — the full `## Rule` text of every `tier: resident`
    practice in the resolved set. Target ≈2,000 tokens, hard-capped (see
-   [The Resident Budget](#the-resident-budget)).
+   [The Resident Budget](#the-resident-budget)). This repository's own cap
+   has been 1,750 since 2026-10-02, when 250 went to the set that provides
+   the five-stage ladder along with the resident rule that moved there
+   ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md) D15).
 2. **The occasion index** — one line per on-demand practice, grouped by
    occasion. This is the routing table, and it is cheap because each entry is
    a slug plus a clause:

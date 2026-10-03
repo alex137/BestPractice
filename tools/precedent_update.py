@@ -1102,8 +1102,8 @@ class Report:
             print(f"\nWARNING: {line}")
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
-                  "question(s) above, review the staged diff, commit, then run "
-                  "Go update's chain.")
+                  "question(s) above, review the staged diff, commit, then land "
+                  "it the way this repository lands work.")
         else:
             print("\nDONE -- nothing left to decide. Review the staged diff, "
                   "commit, then run Go update's chain.")
@@ -1658,6 +1658,12 @@ def tiers_step(repo, rep):
     issue with migrations: when migrating check for these and create
     them")."""
     tier_lines = []
+    # Tiers are a ladder user's, in a repository that has them (D3). For
+    # anyone else this step says nothing at all: a report line about
+    # pre-staging and staging is the ladder's words in their session.
+    ladder = pb.ladder_in_force(repo)
+    if ladder is False or (ladder and not pb.repo_has_tiers(repo)):
+        return
     has_origin = run(['git', '-C', str(repo), 'remote', 'get-url', 'origin'],
                      repo)[0] == 0
     try:
@@ -2055,7 +2061,7 @@ def update(repo, skip_check=False, ref=None):
     for where, gone in retired_mentions(repo, engine_out):
         rep.leave(where, f'still names {gone}, which this update deleted -- '
                   f'repoint or remove the mention; the full check '
-                  f'(rename-updates-links) refuses it at the Promote to staging')
+                  f'(rename-updates-links) refuses it')
 
     # 4c. Commands that name an engine file at the mirrored path the
     # catalogue copy no longer carries (repoint_moved_engine_mentions).

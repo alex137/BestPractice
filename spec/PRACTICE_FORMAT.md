@@ -45,6 +45,7 @@ command:     null             # OPTIONAL -- the standing phrases this practice d
 status:      active           # active | deduplicated | retired -- see below
 in_force_at: null             # where the rule lives now; required unless active
 expires:     null             # OPTIONAL, and almost always null -- see below
+requires:    []               # OPTIONAL -- capabilities it needs in force; see below
 supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
@@ -53,6 +54,18 @@ strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 source_rule_unlabeled: true       # OPTIONAL -- only on practices 47-52; see below
 ---
+
+### `requires` — a practice that applies only where a capability is in force
+
+**Optional; absent means the practice applies wherever its source is in
+force.** A list of capability names a source can PROVIDE (the `provides`
+list in a set's own `precedent-source.json`). The resolver leaves the
+practice out of any session in which no source in force provides every
+name listed. One capability is named today, `ladder`, which the set that
+holds the five-stage working method provides; a person's own
+"for me, the ladder" rule carries `requires: ["ladder"]`, so it goes quiet
+in a session started with `PRECEDENT_NO_LADDERS=1` and for anyone who does
+not bring that set (spec/LADDER_OPT_IN_PLAN.md D11).
 
 ### Field order — one order, written down in code and checked
 
@@ -320,7 +333,11 @@ absolutely (`practice-links-travel`) — and to 20 practices and 4,169 words, on
 catalogue lookup its proportionality guard now requires. It moved again, to 21
 practices and 4,347 words, on 2026-09-13, when `environment-gotchas` gained a
 Detail saying when a gotchas section should split into an index plus a record,
-and what the index line has to carry to stay findable. (The table cell and the
+and what the index line has to carry to stay findable. The count of the
+original practices carrying a Detail fell by one on 2026-10-02, when
+`merge-authorization-keyword` left the universal set for the set that
+provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)).
+(The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures
 [`tools/catalogue_stats.py`](../tools/catalogue_stats.py) prints an anchor for — the Rule-share-derived

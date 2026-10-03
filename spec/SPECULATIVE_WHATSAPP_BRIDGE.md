@@ -232,7 +232,7 @@ already has the vocabulary for this and it was built for typing, not
 speaking, which turns out not to matter: `Go merge` is four syllables and
 means sync, name the branch, commit, push, open the pull request, merge,
 without asking again
-([practices/go-update.md](../practices/go-update.md)). So are `Drop it`,
+(`go-update`). So are `Drop it`,
 `Three Things`, `Simple please`, `Weak yes` and `Spawn session`. **A standing
 command vocabulary is exactly what a voice interface needs** — short, fixed,
 unambiguous phrases that survive transcription — and this repository has one
@@ -625,7 +625,7 @@ choices rather than assent to a session's proposal.
 ## Where this came from
 
 A single exploratory conversation on 2026-09-09, held as a
-[brainstorm](../practices/brainstorm-holds-commits.md), which is why nothing
+brainstorm (`brainstorm-holds-commits`), which is why nothing
 was written until it was explicitly asked for. The idea and the hub-and-spoke
 refinement are Morgan's; the platform analysis and the phasing are the
 session's.

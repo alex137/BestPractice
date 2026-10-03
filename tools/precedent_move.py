@@ -6,6 +6,7 @@
       --to individual|team|universal --to-path PATH \\
       --approved-by NAME [--strength decided|assented] [--story TEXT] [--dry-run]
       [--dedupe-only [--accept-reach-loss]] [--mentions-only]
+      [--withdraw-from-universal]
 
 Run it from a Precedent checkout: the sets and the consuming repositories
 do not vendor it (the rehearsal of 2026-09-14 spent its first minutes
@@ -120,6 +121,17 @@ that run and that run only, is refused without it, and is not needed for
 any other direction -- a plain universal-only consumer (most Precedent
 adopters) loses the rule entirely the moment that step runs, and the flag
 is the human decision that the audience who still needs it has moved.
+
+WITHDRAWING FROM UNIVERSAL FOR GOOD (2026-10-02). `--withdraw-from-universal`
+is the step for a rule meant only for the people who bring or declare the
+destination set (spec/LADDER_OPT_IN_PLAN.md). Run after the destination copy
+is active: it deletes the universal copy rather than leaving a deduplicated
+stub (a stub prints IN FORCE NOWHERE in every repository that does not load
+the set, naming the rule), fixes the mentions as any withdrawal does, and
+appends one line to record/WITHDRAWN_FROM_UNIVERSAL.md saying when, where
+it went and who approved it. It implies --dedupe-only --accept-reach-loss,
+keeps every refusal they carry (the destination must be active; the
+universal tools/ must not cite the slug), and needs --approved-by.
 
 Exit 0 on a completed move (or a completed draft); 1 on a refusal, with the
 reason on stderr and nothing written.
@@ -272,6 +284,39 @@ def _check_ships(fm, to_path):
             f'each file to the same path there first -- the practice, its '
             f'checked_by script, that script\'s test and every `ships:` file '
             f'land in one commit (spec/MOVING_PRACTICES.md)')
+
+
+def _raw_field(text, key):
+    """A frontmatter field's whole value as the file writes it: continuation
+    lines joined, the outer quotes taken off, escapes left as they are.
+    split_practices reads only a field's first line, which cut a long
+    approval off mid-sentence when a move carried it along (2026-10-02)."""
+    end = text.find('\n---\n', 4)
+    out = None
+    for line in text[4:end].split('\n'):
+        if out is None:
+            m = re.match(rf'^{re.escape(key)}:\s*(.*)$', line)
+            if m:
+                out = [m.group(1).strip()]
+        elif line.startswith((' ', '\t')):
+            out.append(line.strip())
+        else:
+            break
+    if not out:
+        return ''
+    v = ' '.join(x for x in out if x).strip()
+    if len(v) >= 2 and v[0] == v[-1] == '"':
+        v = v[1:-1]
+    elif len(v) >= 2 and v[0] == v[-1] == "'":
+        v = v[1:-1].replace("''", "'")
+    return '' if v == 'null' else v
+
+
+def _quoted(s):
+    """`s` as a double-quoted frontmatter value. A quote already escaped in
+    the file (an approval quoting somebody) stays as it is; a bare one is
+    escaped."""
+    return '"' + re.sub(r'(?<!\\)"', r'\\"', s) + '"'
 
 
 def _rewrite_frontmatter(text, updates):
@@ -729,11 +774,51 @@ def _regenerate(set_root):
     return f'{set_root}: ' + (last[-1] if last else f'build_views exit {r.returncode}')
 
 
+# The one committed record of every rule withdrawn from universal on purpose
+# (--withdraw-from-universal). Read by people and by mentions_only; the
+# resolver never needs it, because a deleted file is simply not there.
+WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
+DECOMMISSION_REGISTRY = 'process/decommissioned_paths.json'
+WITHDRAWN_RECORD_HEADER = (
+    '---\n'
+    'title:         Rules withdrawn from the universal set on purpose\n'
+    'kind:          record\n'
+    'status:        live\n'
+    'opened:        2026-10-02\n'
+    'closed:        null\n'
+    'superseded_by: null\n'
+    'supersedes:    []\n'
+    'audience:      contributor\n'
+    'summary:       "One line per practice deleted from universal by '
+    'precedent_move.py --withdraw-from-universal: when, where it is in force '
+    'now, and who approved it. The reach loss was the point, so no sync '
+    'reports these rules missing."\n'
+    '---\n\n'
+    '# Rules withdrawn from the universal set on purpose\n\n'
+    'Each rule below was moved into a set that only the people who bring or '
+    'declare it load. Its full text and Story live there.\n\n')
+
+
 def move(slug, from_level, from_path, to_level, to_path, approved_by,
          strength=None, story=None, dry_run=False, dedupe_only=False,
-         accept_reach_loss=False, say=print):
+         accept_reach_loss=False, withdraw=False, say=print):
     from_level = LEVEL_ALIASES.get(from_level, from_level)
     to_level = LEVEL_ALIASES.get(to_level, to_level)
+    # --withdraw-from-universal (spec/LADDER_OPT_IN_PLAN.md step 4): the
+    # reach loss is the POINT -- the rule is meant for the people who bring
+    # the destination set, and nobody else. A deduplicated stub would print
+    # IN FORCE NOWHERE, naming the rule and the set, on every sync in every
+    # repository that does not load it, and ship its text to every consumer.
+    # So the universal copy is deleted (practice: decommission-deletes-files)
+    # and one committed record line says it was deliberate.
+    if withdraw:
+        if from_level != 'universal' or to_level == 'universal':
+            raise MoveRefused('--withdraw-from-universal moves a practice OUT of '
+                              'universal: --from universal --to shared|individual')
+        if not approved_by:
+            raise MoveRefused('--approved-by NAME is required: withdrawing a rule '
+                              'from everyone is a decision somebody made')
+        dedupe_only, accept_reach_loss = True, True
     if from_level not in LEVELS or to_level not in LEVELS:
         raise MoveRefused(f'levels are one of {LEVELS}')
     if from_level == 'universal' and to_level == 'universal':
@@ -832,13 +917,20 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         text = src.read_text(encoding='utf-8')
         if story and not (sections.get('story') or '').strip():
             text = _append_story(text, story)
-        old_approved = _field(fm, 'approved_by')
+        old_approved = _raw_field(text, 'approved_by')
+        # The approval the rule carried where it came from is part of its
+        # record: kept, in brackets, never replaced (2026-10-02: fourteen
+        # rules duplicated into the ladder set lost theirs, and the line
+        # that replaced it went on saying the universal copy "stays active"
+        # after the withdrawal deleted it). json.dumps quotes it, so an
+        # approval that itself quotes somebody stays valid YAML.
+        there = f' (there: {old_approved})' if old_approved else ''
         if duplicate_from_universal:
-            approval = (f'"{approved_by}, {today}, duplicated from the universal set '
-                        f'{from_name} -- that copy stays active, see its own Story"')
+            approval = _quoted(f'{approved_by}, {today}, duplicated from the universal '
+                               f'set {from_name}, where a copy stays active{there}')
         else:
-            approval = (f'"{approved_by}, {today}, moved from the {from_level} set '
-                        f'{from_name}' + (f' (there: {old_approved})' if old_approved else '') + '"')
+            approval = _quoted(f'{approved_by}, {today}, moved from the {from_level} '
+                               f'set {from_name}{there}')
         updates = {'status': 'active', 'in_force_at': 'null',
                    'added': f'"{today}"', 'approved_by': approval}
         if to_level == 'universal':
@@ -886,7 +978,35 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         src_new = _rewrite_frontmatter(src_text, {'status': 'deduplicated',
                                                   'in_force_at': slug})
         src_new = _append_story(src_new, line)
-        plan.append(('write', src, src_new))
+        if withdraw:
+            record = pathlib.Path(from_path) / WITHDRAWN_RECORD
+            entry = (f'- {today}: `{slug}` withdrawn from universal, '
+                     f'deliberately; in force only from the {to_level} set '
+                     f'`{to_name}`, for the people who bring or declare it. '
+                     f'Approved by {approved_by}. Its full text and Story are '
+                     f'there.\n')
+            plan.append(('delete', src, None))
+            plan.append(('append', record, entry))
+            # The set's copy was made by a duplicate move, whose approval
+            # line says a universal copy stays active. After this, none
+            # does: say so, keeping the approval the rule had in universal.
+            if dest.is_file():
+                old_approved = _raw_field(src_text, 'approved_by')
+                there = f' (there: {old_approved})' if old_approved else ''
+                plan.append(('write', dest, _rewrite_frontmatter(
+                    dest.read_text(encoding='utf-8'),
+                    {'approved_by': _quoted(
+                        f'{approved_by}, {today}, withdrawn from the universal '
+                        f'set {from_name}, which keeps no copy{there}')})))
+            plan.append(('decommission', pathlib.Path(from_path) / DECOMMISSION_REGISTRY,
+                         {'path': f'practices/{slug}.md',
+                          'reason': (f'withdrawn from universal with precedent_move.py '
+                                     f'--withdraw-from-universal; in force from the '
+                                     f'{to_level} set {to_name} for the people who '
+                                     f'bring or declare it; {WITHDRAWN_RECORD}'),
+                          'decommissioned_at': today}))
+        else:
+            plan.append(('write', src, src_new))
     elif duplicate_from_universal:
         src_text = src.read_text(encoding='utf-8')
         line = (f'Also landed in the {to_level} set `{to_name}` on {today}'
@@ -912,8 +1032,8 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     withdraw_universal = source_withdrawn and from_level == 'universal'
 
     if dry_run:
-        for _op, path, _content in plan:
-            say(f'would write {path}')
+        for op, path, _content in plan:
+            say(f'would {op} {path}')
         if withdraw_universal and _drop_routing_audit_entry(from_path, slug, dry_run=True):
             say(f'would drop `{slug}` from {from_name}/tools/routing_audit_state.json')
         if source_withdrawn:
@@ -925,8 +1045,39 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     # LAND FIRST, then withdraw the source: if the second write fails, the
     # rule is in force at both ends -- a duplication, which the resolver
     # settles by precedence -- and never at neither.
-    for _op, path, content in plan:
+    for op, path, content in plan:
+        if op == 'delete':
+            path.unlink()
+            say(f'deleted {path}')
+            continue
+        if op == 'decommission':
+            # The deletion is recorded where the checks look for deletions
+            # made on purpose (practice-change-propagates,
+            # rename-updates-links), with the withdrawal record exempt as the
+            # file that names it.
+            if not path.is_file():
+                say(f'no {DECOMMISSION_REGISTRY} in {from_path}, so the deletion '
+                    f'is recorded only in {WITHDRAWN_RECORD}')
+                continue
+            reg = json.loads(path.read_text(encoding='utf-8'))
+            done = {e.get('path') for e in reg.get('decommissioned') or []}
+            if content['path'] not in done:
+                reg.setdefault('decommissioned', []).append(content)
+            ex = reg.setdefault('exempt_files', [])
+            if WITHDRAWN_RECORD not in ex:
+                ex.append(WITHDRAWN_RECORD)
+            path.write_text(json.dumps(reg, indent=2, ensure_ascii=False) + '\n',
+                            encoding='utf-8')
+            say(f'recorded the deletion in {path}')
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
+        if op == 'append':
+            if not path.is_file():
+                path.write_text(WITHDRAWN_RECORD_HEADER, encoding='utf-8')
+            with path.open('a', encoding='utf-8') as f:
+                f.write(content)
+            say(f'recorded the withdrawal in {path}')
+            continue
         path.write_text(content, encoding='utf-8')
         _read(path)      # the written file must parse, or say so now
         say(f'wrote {path}')
@@ -974,6 +1125,12 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                 f'universal practice carries one. Fill it in the pull request -- what a '
                 f'repo adopting `{slug}` does to take it up -- or leave it empty if '
                 f'there is nothing.')
+    elif withdraw:
+        say(f'DISCLOSE TO THE HUMAN: `{slug}` is now WITHDRAWN from universal and its '
+            f'file there is deleted; it is in force only from the {to_level} set '
+            f'{to_name}, for the people who bring or declare it. Nobody else sees '
+            f'it, and no sync anywhere reports it missing. The withdrawal is '
+            f'recorded in {WITHDRAWN_RECORD}. Commit both sets.')
     elif duplicate_from_universal and dedupe_only:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` is now WITHDRAWN from universal -- '
             f'deduplicated in {from_name}, in force only from the {to_level} set '
@@ -1003,7 +1160,17 @@ def mentions_only(slug, from_level, from_path, to_level, to_path,
     """Step 3 alone, for a move made before the tool fixed mentions."""
     to_level = LEVEL_ALIASES.get(to_level, to_level)
     src, dest = _practice_path(from_path, slug), _practice_path(to_path, slug)
-    for path, want in ((src, 'deduplicated'), (dest, 'active')):
+    checks = [(dest, 'active')]
+    record = pathlib.Path(from_path) / WITHDRAWN_RECORD
+    withdrawn = (not src.is_file() and record.is_file()
+                 and f'`{slug}` withdrawn from universal' in
+                 record.read_text(encoding='utf-8'))
+    if not withdrawn:
+        # A rule deleted by --withdraw-from-universal has no stub to read;
+        # its record line is the proof it left. Anything else must be a
+        # deduplicated stub, as before.
+        checks.insert(0, (src, 'deduplicated'))
+    for path, want in checks:
         if not path.is_file():
             raise MoveRefused(f'{path} does not exist')
         got = _field(_read(path)[0], 'status') or 'active'
@@ -1026,7 +1193,7 @@ def main(argv=None):
     opts = {'--slug': None, '--from': None, '--from-path': None, '--to': None,
             '--to-path': None, '--approved-by': None, '--strength': None, '--story': None}
     flags = {'--dry-run': False, '--dedupe-only': False, '--accept-reach-loss': False,
-             '--mentions-only': False}
+             '--mentions-only': False, '--withdraw-from-universal': False}
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -1059,7 +1226,8 @@ def main(argv=None):
              opts['--to-path'], opts['--approved-by'], strength=opts['--strength'],
              story=opts['--story'], dry_run=flags['--dry-run'],
              dedupe_only=flags['--dedupe-only'],
-             accept_reach_loss=flags['--accept-reach-loss'])
+             accept_reach_loss=flags['--accept-reach-loss'],
+             withdraw=flags['--withdraw-from-universal'])
     except MoveRefused as e:
         print(f'precedent_move FAIL: {e}', file=sys.stderr)
         return 1

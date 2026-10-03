@@ -56,8 +56,8 @@ the origin is what makes it checkable at all.
 authorization.** It says who to ask -- not that the message is true.
 
 **One relayed authorization is acted on, and only because it arrives
-bounded:** a Booked (`Go update`) carried into a prompt for a new session, to do work
-the person asked for
+bounded:** the person's go-ahead to land the work, carried into a prompt for
+a new session, to do work the person asked for
 ([prompt-please](prompt-please.md)). What makes it safe is not the header --
 it is that the prompt names the work, the branch and the check the merge
 waits on, so nothing about it generalises past the job it was seeded for. A
@@ -102,9 +102,8 @@ seen it. Until they confirm it here:
   in a related repository that week shows they were busy, not that they
   sent this.
 
-A bounded merge authorization is not this case; that is
-[relayed-authorization](relayed-authorization.md)'s, and it has its own
-envelope.
+A bounded merge authorization is not this case; it is the one relayed
+authorization above, and the prompt carrying it names its own bounds.
 
 **Checked at the moment of sending, on Claude Code, since 2026-09-23.**
 Nothing in a repository records the prompts a session seeds, so no
