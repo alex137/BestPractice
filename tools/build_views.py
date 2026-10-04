@@ -2357,12 +2357,107 @@ def splice_quick_index(text, data):
 MAP_SOURCE = 'MAP.source.md'
 GLOSSARY_SOURCE = 'GLOSSARY.source.md'
 
+# THE SOURCE AS A DIRECTORY (Alex, 2026-10-04: "should we modify map.md to be
+# a directory so we don't have so many collisions when multiple threads are
+# running?"). A one-file source is edited by every branch that adds a row, so
+# two branches adding rows to the same table conflict on merge, and the
+# generated view conflicts after them. The same text may instead live in a
+# directory beside it -- MAP.source/ for MAP.source.md, GLOSSARY.source/ for
+# GLOSSARY.source.md -- one file per entry, so two branches that each add a
+# row add two files and never meet. todo/ and gotchas/ solved the same
+# collision the same way. The directory is assembled in name order:
+#   - a top-level FILE is a block of text, copied as it is;
+#   - a top-level DIRECTORY is a section: its _head.md (the heading, prose
+#     and table header), then every other .md file in it as the rows that
+#     follow with no blank line between them, then its _tail.md after a
+#     blank line;
+#   - blocks are separated by one blank line.
+# Name entries with a numeric prefix with gaps (0010-, 0020-) so a new one
+# can go between two others. `precedent_migrate_views.py --split` turns a
+# one-file source into a directory, refusing any section it cannot split
+# without changing a word. A repository may have the file or the directory,
+# never both.
+SOURCE_DIR_SUFFIX = '.source'
+SECTION_HEAD = '_head.md'
+SECTION_TAIL = '_tail.md'
+
+
+def source_dir_name(name):
+    """'MAP.source.md' -> 'MAP.source' (the directory form of a source)."""
+    return name[:-len('.md')] if name.endswith('.md') else name
+
+
+def own_source_path(root, name):
+    """-> the path of a repository's own source for `name` (the file or its
+    directory form), or None when it has neither. Both at once is refused:
+    which one is the truth would be a guess."""
+    root = pathlib.Path(root or ROOT)
+    f, d = root / name, root / source_dir_name(name)
+    if f.is_file() and d.is_dir():
+        sys.exit(f"build_views FAIL: both {name} and {d.name}/ exist; keep one "
+                 f"(precedent_migrate_views.py --split moves the file into the "
+                 f"directory).")
+    if f.is_file():
+        return f
+    if d.is_dir():
+        return d
+    return None
+
+
+def has_own_source(root, name):
+    """True when a repository has its own source for `name`, as a file or a
+    directory -- what every 'is this view generated here?' test asks."""
+    return own_source_path(root, name) is not None
+
+
+def own_source_label(root, name):
+    """-> how the generated label names the source: the file, or the
+    directory with a trailing slash."""
+    p = own_source_path(root, name)
+    return f"{p.name}/" if p is not None and p.is_dir() else name
+
+
+def _entries(d):
+    return sorted((c for c in d.iterdir()
+                   if not c.name.startswith('.') and (c.is_dir() or c.suffix == '.md')),
+                  key=lambda c: c.name)
+
+
+def _read_block(path):
+    return path.read_text(encoding='utf-8').strip('\n')
+
+
+def assemble_source_dir(d):
+    """-> the text of a source directory, assembled by the rules above."""
+    blocks = []
+    for child in _entries(pathlib.Path(d)):
+        if child.is_dir():
+            files = [f for f in _entries(child) if f.is_file()]
+            head = [f for f in files if f.name == SECTION_HEAD]
+            tail = [f for f in files if f.name == SECTION_TAIL]
+            rows = [f for f in files if f.name not in (SECTION_HEAD, SECTION_TAIL)]
+            parts = [_read_block(head[0])] if head else []
+            if rows:
+                parts.append('\n'.join(_read_block(r) for r in rows))
+            text = '\n'.join(p for p in parts if p)
+            if tail:
+                text = f"{text}\n\n{_read_block(tail[0])}" if text else _read_block(tail[0])
+            if text:
+                blocks.append(text)
+        else:
+            text = _read_block(child)
+            if text:
+                blocks.append(text)
+    return '\n\n'.join(blocks)
+
 
 def _own_source(root, name):
     """-> a repository's own hand-written section text, or None."""
-    path = pathlib.Path(root or ROOT) / name
-    if not path.is_file():
+    path = own_source_path(root, name)
+    if path is None:
         return None
+    if path.is_dir():
+        return assemble_source_dir(path)
     return path.read_text(encoding='utf-8').rstrip('\n')
 
 
@@ -2384,7 +2479,7 @@ def render_map_md(practices, withdrawn=(), root=None):
     # lists them all): visible as a small table on GitHub, read by
     # precedent_check.py's generated-files-registered (Morgan, 2026-09-29).
     head = ([*generated_label('tools/build_views.py',
-                              f'{MAP_SOURCE} and practices/*.md',
+                              f'{own_source_label(root, MAP_SOURCE)} and practices/*.md',
                               'python3 tools/build_views.py'), '', own, '']
             if own is not None else [
         *generated_label('tools/build_views.py', 'practices/*.md',
@@ -2476,7 +2571,7 @@ def render_glossary_md(practices, root=None):
     own = _own_source(root, GLOSSARY_SOURCE)
     lines = [
         *generated_label('tools/build_views.py',
-                         (f"{GLOSSARY_SOURCE} and the defines: field of practices/*.md"
+                         (f"{own_source_label(root, GLOSSARY_SOURCE)} and the defines: field of practices/*.md"
                           if own is not None else
                           "the defines: field of practices/*.md"),
                          'python3 tools/build_views.py'),
@@ -2740,9 +2835,9 @@ def main():
             # it lacks: a consumer whose glossary lives in docs/ got a root
             # GLOSSARY.md, untracked, every time its MAP.source.md changed
             # (2026-10-03).
-            if views_only and not path.exists() and not (root / src).is_file():
+            if views_only and not path.exists() and not has_own_source(root, src):
                 continue
-            if is_generated_view(path) or (root / src).is_file():
+            if is_generated_view(path) or has_own_source(root, src):
                 targets.append((path, render()))
             else:
                 print(f"build_views: {path.name} has no generated_by header, so "

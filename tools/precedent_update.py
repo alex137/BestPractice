@@ -251,6 +251,36 @@ def ensure_headroom_floor(repo):
     return True
 
 
+
+def ensure_session_load_registry(repo):
+    """Seed tools/session_load_budgets.json in a repository that has none.
+    -> {surface: measured tokens} when it wrote one, else None.
+
+    The session-load-budget check binds only where the registry exists, so a
+    repository installed without one skipped it on every run, and a skip
+    reads like a pass. A consumer's instructions file grew to about 38,000
+    tokens that way, loaded into every session with no ceiling, and nobody
+    was told (Alex, 2026-10-04: "If it is already a best practice, why
+    didn't we adopt?"). New practice sets have been seeded at bootstrap
+    since 2026-09-22; this is the same seed for a repository that uses
+    Precedent. Each ceiling is what the surface measures now plus ~20%:
+    a watermark declaring the status quo, never a judgment that it is the
+    right size -- reducing it is the reduction pass the practice asks for."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    if path.exists():
+        return None
+    import precedent_bootstrap_source as _pbs
+    _pbs._write_session_load_budget(repo, occasion='Update Vendors')
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    out = {}
+    for rel, e in (data.get('surfaces') or {}).items():
+        m = re.match(r'(\d+) tokens', e.get('_note', ''))
+        out[rel] = int(m.group(1)) if m else None
+    return out
+
 # precedent_resolve.check_source_manifest's refusal, as the view sync prints it.
 SOURCE_NAME_MISMATCH = re.compile(
     r"the source at (?P<path>\S+) calls itself '(?P<own>[^']+)' in its \S+, "
@@ -490,7 +520,20 @@ def migrate_views_step(repo, rep):
             # repository's call, with the tool that applies the rule.
             srcs = [n.replace('.md', '.source.md') for n in moved]
             tc = repo / 'tools' / 'title_case.py'
-            if tc.is_file():
+            # A repository that declares headline-capitalization not binding
+            # (precedent.json `not_binding`, with its written reason) has
+            # already answered this question; asking it again blocked an
+            # update for a call the repo had made (consumer repo, 2026-10-04).
+            try:
+                import precedent_resolve as pr
+                exempt = pr.load_not_binding(repo).get('headline-capitalization')
+            except Exception:
+                exempt = None
+            if exempt:
+                rep.step('headings kept', ' and '.join(srcs) + ' keep their '
+                         'headings as moved: this repository declares '
+                         'headline-capitalization not binding (' + exempt + ')')
+            elif tc.is_file():
                 rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
                 if rc2 != 0:
                     rep.leave(' and '.join(srcs),
@@ -512,7 +555,7 @@ def generated_full_views(repo):
     return [name for name in FULL_VIEWS
             if (pathlib.Path(repo) / name).is_file()
             and (_bv.is_generated_view(pathlib.Path(repo) / name)
-                 or (srcs.get(name) and (pathlib.Path(repo) / srcs[name]).is_file()))]
+                 or (srcs.get(name) and _bv.has_own_source(repo, srcs[name])))]
 
 
 def source_is_its_own_clone():
@@ -2103,6 +2146,14 @@ def update(repo, skip_check=False, ref=None):
                  'list, and the practice audit fails a list that is neither '
                  'present nor declined')
 
+    seeded = ensure_session_load_registry(repo)
+    if seeded:
+        big = max(seeded.items(), key=lambda kv: kv[1] or 0)
+        rep.step('session-load budget', 'tools/session_load_budgets.json '
+                 'seeded at today\'s sizes (' + ', '.join(
+                     f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
+                 f'), so the load check now binds here; {big[0]} is the '
+                 f'largest, and a reduction pass is how it comes down')
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '

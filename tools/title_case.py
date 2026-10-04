@@ -52,6 +52,10 @@ INTERNAL_DIRS = (
     ".claude", ".github", ".precedent", "candidates", "decisions", "deck",
     "evals", "examples", "gotchas", "local", "practices", "process",
     "record", "spec", "templates", "todo", "tools",
+    # The directory form of MAP.source.md and GLOSSARY.source.md (2026-10-04,
+    # build_views.py THE SOURCE AS A DIRECTORY): the same text, one file per
+    # entry, so it keeps the classification the file had.
+    "MAP.source", "GLOSSARY.source",
 )
 # `todo` and `gotchas` joined 2026-09-21, and it is the THIRD instance of the
 # cause the note below already names. Both directories were created by the

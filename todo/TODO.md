@@ -146,6 +146,7 @@ as_of: 2026-10-04
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 4d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
 | [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 3d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
 | [`todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs`](todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs.md) | Land `claude/2026-10-03-merge-takes-vendor-update-xxf54` in precedent-shared-ladder once its engine has the script. | 1d | ask | BestPractice main carrying tools/precedent_merge_vendors.py (the next Produce),… |
+| [`todo-2026-10-04-consumer-catalogue-copy-lacks-gotchas`](todo-2026-10-04-consumer-catalogue-copy-lacks-gotchas.md) | A consumer's catalogue copy has no `gotchas/` at all, though the vendoring rules say it ships. | 0d | wait |  |
 | [`todo-2026-10-04-two-small-engine-leftovers-from-the-produce`](todo-2026-10-04-two-small-engine-leftovers-from-the-produce.md) | Three small engine leftovers, found landing the 2026-10-04 Produce; none is wrong today. | 0d | wait |  |
 
 ## Decisions (the Person's Call)
