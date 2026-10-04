@@ -6030,6 +6030,30 @@ def check_migrate_views_keeps_every_word():
                       and not (repo / 'GLOSSARY.source.md').exists()
                       and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map
                       and (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == hand_glossary))
+
+        # Views a vendor update already overwrote, with no source file and no
+        # list: nothing to migrate, but the list is still written, or a commit
+        # that adds a source never rebuilds the view. Found 2026-10-03 in a
+        # real consumer whose map and glossary were overwritten on 2026-09-15.
+        (repo / 'AGENTS.md').write_text(agents_before, encoding='utf-8')
+        (repo / 'MAP.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "practices/*.md"\n'
+            '---\n# Repository map\n', encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "practices/*.md"\n'
+            '---\n# Canonical names\n', encoding='utf-8')
+        (repo / 'tools' / 'generated_files.json').unlink(missing_ok=True)
+        rc, out = migrate()
+        lst = repo / 'tools' / 'generated_files.json'
+        listed = ({e['path']: e.get('edit_instead') for e in
+                   _json.loads(lst.read_text(encoding='utf-8'))['files']}
+                  if lst.is_file() else {})
+        cases.append(('views already generated, with no source and no list: nothing '
+                      'to migrate, and the list is written all the same',
+                      rc == 0 and 'nothing to migrate' in out
+                      and listed.get('MAP.md') == 'MAP.source.md'
+                      and listed.get('GLOSSARY.md') == 'GLOSSARY.source.md'
+                      and not (repo / 'MAP.source.md').exists()))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 

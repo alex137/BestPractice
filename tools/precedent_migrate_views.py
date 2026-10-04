@@ -121,8 +121,13 @@ def migrate(repo, restore_from=None, say=print):
     if not todo:
         # A repository already on source files keeps its list complete: a
         # fresh install writes the sources itself, and a later labelled file
-        # joins the list here.
-        if any((repo / s).is_file() for _v, s in VIEWS):
+        # joins the list here. So does one whose views a vendor update had
+        # already overwritten, with no source file yet: without the list, a
+        # commit that adds MAP.source.md never rebuilds MAP.md (found
+        # 2026-10-03 rehearsing a consumer overwritten on 2026-09-15).
+        if any((repo / s).is_file()
+               or ((repo / v).is_file() and bv.is_generated_view(repo / v))
+               for v, s in VIEWS):
             write_list(repo)
         say('precedent_migrate_views: nothing to migrate -- MAP.md and GLOSSARY.md '
             'are already generated from their sources, or absent.')
