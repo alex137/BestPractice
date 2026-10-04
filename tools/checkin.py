@@ -110,7 +110,7 @@ Run:  python3 tools/checkin.py fresh
       python3 tools/checkin.py record ../BestPractice --note "PR #4"
       python3 ../BestPractice/tools/checkin.py update ../BestPractice --repo .
 """
-import collections, datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
+import collections, datetime, filecmp, io, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile
 
 # practice: one-formatter-per-quantity -- every moment in time this project
 # writes down comes from ONE module, in the person's zone, carrying its
@@ -712,9 +712,38 @@ def local_changes(clone, recorded):
         tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
         base = pathlib.Path(td)
         ours, theirs = _files(UPSTREAM), _files(base)
-        return sorted(ours ^ theirs) + sorted(
+        # A file upstream has and this copy lacks is a local deletion only if
+        # this repository removed it; one a vendor sync removed was upstream's
+        # doing (the copy rules left gotchas/ out for a day, 2026-09-30), and
+        # counting it made every later update refuse (found 2026-10-04).
+        gone = {p for p in theirs - ours if deleted_here(UPSTREAM / p)}
+        return sorted((ours - theirs) | gone) + sorted(
             p for p in ours & theirs
             if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
+
+
+def deleted_here(path):
+    """True when `path`, a file under the vendored tree that is not there, is
+    absent because THIS repository removed it: it was committed here once,
+    and the commit that removed it was not a vendor sync. A sync records a
+    new upstream commit in process/manifest.json in the same commit; a
+    deletion riding one was upstream's, made when the copy rules left the
+    file out. Unreadable history counts as a local deletion, the safe side."""
+    repo = MANIFEST.parent.parent
+    rel = path.relative_to(repo).as_posix()
+    r = subprocess.run(['git', '-C', str(repo), 'log', '--diff-filter=D', '--format=%H',
+                        '-1', '--', rel], capture_output=True, text=True)
+    if r.returncode != 0:
+        return True
+    c = r.stdout.strip()
+    if not c:
+        return False                       # never had it: never shipped here
+    d = subprocess.run(['git', '-C', str(repo), 'diff', f'{c}^', c, '--',
+                        'process/manifest.json'], capture_output=True, text=True,
+                       errors='replace')
+    if d.returncode != 0:
+        return True
+    return not re.search(r'^\+\s*"commit":', d.stdout, re.M)
 
 
 def _manifest():
