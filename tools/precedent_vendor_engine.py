@@ -2162,10 +2162,38 @@ def _engine_paths_incomplete(dest_root, manifest):
     return sorted(set(todo))
 
 
+# An upstream path that is a TEMPLATE is kept rendered, never raw: the
+# local copy is what the template renders to, byte for byte the file a
+# consumer's own refresh writes from the same template (_apply_individual_hook).
+# 2026-10-04: precedent-individual's bootstrap/precedent-individual-bootstrap.sh,
+# rendered by hand from individual-source-bootstrap.sh.template, had drifted
+# behind it twice (2026-09-30, 2026-10-04); its adapter ships that copy to every
+# consumer, over the one their refresh rendered, so a consumer could not fix it
+# locally. Declared in the set's own engine_paths like any other path.
+def _rendered_engine_path(up, data):
+    """-> (bytes, executable) for an upstream template this engine renders,
+    or None for an ordinary path copied as it is."""
+    if up == f'{HOOK_SOURCE_DIR}/{INDIVIDUAL_HOOK_TEMPLATE}':
+        return render_individual_hook(data.decode('utf-8')).encode('utf-8'), True
+    return None
+
+
+def _engine_path_blob(clone, commit, up):
+    """-> the bytes `up` holds at `commit` as a declared engine path keeps
+    them (a template rendered), or None when it cannot be read."""
+    r = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:{up}'],
+                       capture_output=True)
+    if r.returncode != 0:
+        return None
+    rendered = _rendered_engine_path(up, r.stdout)
+    return rendered[0] if rendered else r.stdout
+
+
 def _read_engine_path_sources(clone, commit, mapping):
     """{upstream_rel: (bytes, executable)} read BY BLOB at `commit`, the same
     read-only discipline as _source_tools_at. An upstream path absent at that
-    commit is simply not in the result; the caller warns about it."""
+    commit is simply not in the result; the caller warns about it. A
+    template is returned rendered (_rendered_engine_path)."""
     out = {}
     for up in mapping:
         ok, listing = _git_read(clone, 'ls-tree', commit, '--', up)
@@ -2176,7 +2204,8 @@ def _read_engine_path_sources(clone, commit, mapping):
                               capture_output=True)
         if blob.returncode != 0:
             continue
-        out[up] = (blob.stdout, mode.endswith('755'))
+        out[up] = (_rendered_engine_path(up, blob.stdout)
+                   or (blob.stdout, mode.endswith('755')))
     return out
 
 
@@ -6209,6 +6238,18 @@ INDIVIDUAL_HOOK_NAME = 'precedent-individual'
 INDIVIDUAL_HOOK_KINDS = ('consumer',)
 
 
+def render_individual_hook(template_text):
+    """The individual-set hook rendered from its template: the set's name,
+    and NO repository URL (the hook finds the set from the person's token,
+    base URL or user config at run time). The one rendering, shared by a
+    consumer's refresh and by the individual set's own declared copy."""
+    for key, value in (('SOURCE_NAME', INDIVIDUAL_HOOK_NAME),
+                       ('SOURCE_REPO_URL', ''),
+                       ('SOURCE_REPO_URL_SUBSTITUTED', 'yes')):
+        template_text = template_text.replace('{{' + key + '}}', value)
+    return template_text
+
+
 def _person_has_individual_set():
     """True when the person running this has an individual set: their
     user-level config declares one, or their environment carries a signal
@@ -6262,10 +6303,7 @@ def _apply_individual_hook(dest_root, kind, clone, commit):
                              f'{commit}:{HOOK_SOURCE_DIR}/{INDIVIDUAL_HOOK_TEMPLATE}')
         if not ok or not text.strip():
             return []
-        for key, value in (('SOURCE_NAME', INDIVIDUAL_HOOK_NAME),
-                           ('SOURCE_REPO_URL', ''),
-                           ('SOURCE_REPO_URL_SUBSTITUTED', 'yes')):
-            text = text.replace('{{' + key + '}}', value)
+        text = render_individual_hook(text)
         dest = root / HOOK_DEST_DIR / INDIVIDUAL_HOOK
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(text, encoding='utf-8')
@@ -6352,9 +6390,7 @@ def _drift_upstream_already_has(tools_drift, path_drift, dest_tools, clone,
             + [(n, w, ROOT / n, by_local.get(n)) for n, w in path_drift]):
         blob = None
         if commit and up and why != 'missing' and here.is_file():
-            r = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:{up}'],
-                               capture_output=True)
-            blob = r.stdout if r.returncode == 0 else None
+            blob = _engine_path_blob(clone, commit, up)
         if blob is not None and here.read_bytes() == blob:
             same.append(name)
         else:

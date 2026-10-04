@@ -512,8 +512,10 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
             # A rule deleted outright has no stub: its record line says where.
             for s_ in sources:
                 if s_.get('level') == 'universal' and s_.get('path'):
+                    hist_ = pr.withdrawn_history(s_['path'])
                     for slug_, gone_ in pr.withdrawn_record(s_['path']).items():
-                        gone_to.setdefault((slug_, s_.get('name')), gone_)
+                        gone_to.setdefault((slug_, s_.get('name')),
+                                           (*gone_, slug_ in hist_))
 
             def _where(s, src):
                 # Where the rule went, as THIS resolution found it -- the
@@ -532,6 +534,9 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 if live is not None:
                     return f", now in force as {live}"
                 gone = gone_to.get((s, src))
+                if gone and gone[2:3] == (True,):
+                    return (f", a retired name withdrawn from universal on "
+                            f"{gone[0]}; kept as history in `{gone[1]}`")
                 if gone:
                     return (f", withdrawn from universal on {gone[0]}; in force "
                             f"in `{gone[1]}` for the people who bring or declare it")
@@ -725,8 +730,12 @@ def _where_removed_went(repo, user_config, removed):
         return out
     for s in sources:
         if s.get('level') == 'universal' and s.get('path'):
+            history = pr.withdrawn_history(s['path'])
             for slug, (date, name) in pr.withdrawn_record(s['path']).items():
-                if slug in out:
+                if slug in out and slug in history:
+                    out[slug] = (None, f'a retired name, withdrawn from universal '
+                                       f'on {date}; kept as history in `{name}`')
+                elif slug in out:
                     out[slug] = (None, f'withdrawn from universal on {date}; in '
                                        f'force in `{name}` for the people who '
                                        f'bring or declare it')

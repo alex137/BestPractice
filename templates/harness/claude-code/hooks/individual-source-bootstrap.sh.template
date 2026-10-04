@@ -48,9 +48,15 @@ set -uo pipefail
 # $HOME/precedent-individual -- measured 2026-10-02 against a sandbox with
 # the set attached first: linked with the variable set, a second full clone
 # without it, which is what a consumer's session got running this hook by
-# hand. This file sits at <repo>/.claude/hooks/, so the repo is two levels
-# up from it, and that answer is exported for the engine.
-_here_repo="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." 2>/dev/null && pwd)"
+# hand. The repo is the one holding this file: git says which, and
+# two levels up is the answer where git cannot (this file sits at
+# <repo>/.claude/hooks/ in a consumer). The individual set runs its own copy
+# from <set>/bootstrap/, one level down, where two levels up named the
+# directory above the set (2026-10-04). That answer is exported for the
+# engine.
+_here_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+_here_repo="$(git -C "${_here_dir:-.}" rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$_here_repo" ] || _here_repo="$(cd "${_here_dir:-.}/../.." 2>/dev/null && pwd)"
 PRECEDENT_PROJECT_DIR="${PRECEDENT_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-${_here_repo:-.}}}"
 export PRECEDENT_PROJECT_DIR
 ENGINE="${CLAUDE_PROJECT_DIR:-$PRECEDENT_PROJECT_DIR}/tools/precedent_source_bootstrap.py"

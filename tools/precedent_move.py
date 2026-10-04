@@ -150,6 +150,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp    # noqa: E402
 import frontmatter_yaml         # noqa: E402  (FIELD_ORDER)
 import precedent_time           # noqa: E402  (practice: timestamps-carry-offset)
+import precedent_resolve as _pr  # noqa: E402  (the withdrawal record's one format)
 
 LEVELS = ('individual', 'shared', 'universal')
 LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
@@ -868,6 +869,20 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     fm, sections = _read(src)
     today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
     dest = _practice_path(to_path, slug)
+    # A retired name (a deduplicated stub forwarding to another rule) leaves
+    # universal too, when the rule it forwards to does: the set keeps its
+    # own stub as history. 2026-10-02: the ladder took four such names with
+    # it, this tool refused them (their set copies are not active, by
+    # design), so their record lines were written by hand in a shape the
+    # record's reader did not know -- and the first consumer to update past
+    # them was refused on two of them (2026-10-04).
+    forwarded_to = None
+    if withdraw and _field(fm, 'status') == 'deduplicated':
+        forwarded_to = _field(fm, 'in_force_at') or None
+        if not forwarded_to or forwarded_to in ('null', 'none', slug):
+            raise MoveRefused(f'{src} is deduplicated but forwards nowhere '
+                              f'(in_force_at: {forwarded_to or "absent"}) -- fix its '
+                              f'in_force_at before withdrawing it')
 
     if dedupe_only:
         if not dest.is_file():
@@ -875,7 +890,13 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                               f'in force at the destination yet, so the source copy '
                               f'may not be withdrawn')
         dfm, _ = _read(dest)
-        if _field(dfm, 'status') not in ('', 'active'):
+        if forwarded_to:
+            if _field(dfm, 'status') != 'deduplicated':
+                raise MoveRefused(f'{src} is a retired name forwarding to '
+                                  f'`{forwarded_to}`; {dest} is status: '
+                                  f'{_field(dfm, "status") or "active"}, not the same '
+                                  f'retired name kept as history there')
+        elif _field(dfm, 'status') not in ('', 'active'):
             raise MoveRefused(f'{dest} is status: {_field(dfm, "status")}, not active -- '
                               f'the rule would be in force nowhere')
         if from_level == 'universal':
@@ -982,11 +1003,8 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         src_new = _append_story(src_new, line)
         if withdraw:
             record = pathlib.Path(from_path) / WITHDRAWN_RECORD
-            entry = (f'- {today}: `{slug}` withdrawn from universal, '
-                     f'deliberately; in force only from the {to_level} set '
-                     f'`{to_name}`, for the people who bring or declare it. '
-                     f'Approved by {approved_by}. Its full text and Story are '
-                     f'there.\n')
+            entry = _pr.withdrawn_record_line(today, slug, to_level, to_name,
+                                              approved_by, forwarded_to)
             plan.append(('delete', src, None))
             plan.append(('append', record, entry))
             # The set's copy was made by a duplicate move, whose approval
@@ -1127,6 +1145,11 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                 f'universal practice carries one. Fill it in the pull request -- what a '
                 f'repo adopting `{slug}` does to take it up -- or leave it empty if '
                 f'there is nothing.')
+    elif withdraw and forwarded_to:
+        say(f'DISCLOSE TO THE HUMAN: the retired name `{slug}` (forwarding to '
+            f'`{forwarded_to}`) is now WITHDRAWN from universal and its file there '
+            f'is deleted; the {to_level} set {to_name} keeps it as history. The '
+            f'withdrawal is recorded in {WITHDRAWN_RECORD}. Commit both sets.')
     elif withdraw:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` is now WITHDRAWN from universal and its '
             f'file there is deleted; it is in force only from the {to_level} set '
@@ -1162,11 +1185,12 @@ def mentions_only(slug, from_level, from_path, to_level, to_path,
     """Step 3 alone, for a move made before the tool fixed mentions."""
     to_level = LEVEL_ALIASES.get(to_level, to_level)
     src, dest = _practice_path(from_path, slug), _practice_path(to_path, slug)
-    checks = [(dest, 'active')]
-    record = pathlib.Path(from_path) / WITHDRAWN_RECORD
-    withdrawn = (not src.is_file() and record.is_file()
-                 and f'`{slug}` withdrawn from universal' in
-                 record.read_text(encoding='utf-8'))
+    withdrawn = (not src.is_file()
+                 and slug in _pr.withdrawn_record(from_path))
+    # A retired name withdrawn with the rule it forwarded to is kept as
+    # history at the destination, never active there.
+    checks = [(dest, 'deduplicated' if withdrawn
+               and slug in _pr.withdrawn_history(from_path) else 'active')]
     if not withdrawn:
         # A rule deleted by --withdraw-from-universal has no stub to read;
         # its record line is the proof it left. Anything else must be a

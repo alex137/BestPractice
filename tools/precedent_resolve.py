@@ -1553,29 +1553,72 @@ def withdrawn_from_universal(sections):
 
 
 # The committed record precedent_move.py --withdraw-from-universal keeps of
-# every rule it deleted from universal on purpose, one line each:
-# "- <date>: `<slug>` withdrawn from universal, deliberately; in force only
-# from the <level> set `<name>`, ...". The file itself is gone, so no stub
-# can say where it went; this line is the forwarding address. Shipped to
-# consumers with the catalogue (checkin.py's VENDORING_RULES) so a sync
-# there can tell a withdrawal from a loss.
+# every rule it deleted from universal on purpose, one line each, in one of
+# two shapes (withdrawn_record_line writes both, so writer and reader share
+# them):
+#   a rule:  "- <date>: `<slug>` withdrawn from universal, deliberately; in
+#            force only from the <level> set `<name>`, ..."
+#   a stub:  "- <date>: `<slug>` (a retired name that forwarded to <slug2>)
+#            withdrawn from universal, deliberately; kept as history in the
+#            <level> set `<name>`, ..."
+# The file itself is gone, so no stub can say where it went; this line is
+# the forwarding address. Shipped to consumers with the catalogue
+# (checkin.py's VENDORING_RULES) so a sync there can tell a withdrawal from
+# a loss. 2026-10-04: the four stubs the ladder took with it were written in
+# the second shape by hand, this reader knew only the first, and the first
+# consumer to update past them was refused on plan-it and push-directly.
 WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
 _WITHDRAWN_LINE_RE = re.compile(
-    r'^- (\d{4}-\d\d-\d\d): `([^`]+)` withdrawn from universal\b.*?'
-    r'in force only from the \w+ set `([^`]+)`', re.M)
+    r'^- (\d{4}-\d\d-\d\d): `([^`]+)`(?: \([^)\n]*\))? withdrawn from '
+    r'universal\b[^\n]*?(in force only from|kept as history in) the \w+ set '
+    r'`([^`]+)`', re.M)
+_WITHDRAWN_HISTORY = 'kept as history in'
+
+
+def withdrawn_record_line(date, slug, level, name, approved_by, forwarded_to=None):
+    """The record line for one withdrawal, newline included: a rule's shape,
+    or, with `forwarded_to`, a retired name's. The one writer of the shapes
+    _WITHDRAWN_LINE_RE reads."""
+    if forwarded_to:
+        return (f'- {date}: `{slug}` (a retired name that forwarded to '
+                f'`{forwarded_to}`) withdrawn from universal, deliberately; '
+                f'kept as history in the {level} set `{name}`, beside the rule '
+                f'it forwards to. Approved by {approved_by}.\n')
+    return (f'- {date}: `{slug}` withdrawn from universal, deliberately; in '
+            f'force only from the {level} set `{name}`, for the people who '
+            f'bring or declare it. Approved by {approved_by}. Its full text '
+            f'and Story are there.\n')
+
+
+def withdrawn_record_entries(text):
+    """-> [(date, slug, set name, is_history)] for every line of a withdrawal
+    record's text that this module can read, in file order."""
+    return [(date, slug, name, how == _WITHDRAWN_HISTORY)
+            for date, slug, how, name in _WITHDRAWN_LINE_RE.findall(text or '')]
+
+
+def _withdrawn_entries(source_path):
+    try:
+        text = (pathlib.Path(source_path) / WITHDRAWN_RECORD).read_text(
+            encoding='utf-8')
+    except OSError:
+        return []
+    return withdrawn_record_entries(text)
 
 
 def withdrawn_record(source_path):
     """-> {slug: (date, set name)} from a universal source's withdrawal
     record; {} when it has none or it cannot be read. The last line for a
     slug wins."""
-    try:
-        text = (pathlib.Path(source_path) / WITHDRAWN_RECORD).read_text(
-            encoding='utf-8')
-    except OSError:
-        return {}
     return {slug: (date, name)
-            for date, slug, name in _WITHDRAWN_LINE_RE.findall(text)}
+            for date, slug, name, _hist in _withdrawn_entries(source_path)}
+
+
+def withdrawn_history(source_path):
+    """-> the slugs in a universal source's withdrawal record that left as
+    retired names kept as history, not as rules in force somewhere."""
+    last = {slug: hist for _d, slug, _n, hist in _withdrawn_entries(source_path)}
+    return {slug for slug, hist in last.items() if hist}
 
 
 def follow_in_force_at(slug, resolved, retired):
