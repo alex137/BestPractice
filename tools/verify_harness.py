@@ -51470,6 +51470,93 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
+    """A consumer's session searched the clones for "Debut" (2026-10-04).
+
+    The ladder's stage words live in a set the person brings, which is
+    deferred to the untracked .precedent/SESSION_PRACTICES.md. A practice
+    set's own hook hands that file back as context; a consumer's session-start
+    hook only ran precedent_session_practices.py, which wrote the file and
+    printed nothing, and the consumer's generated Standing instruction never
+    pointed at it, because a brought set is left out of defers_sources.
+
+    1. The write prints the block on stdout -- a SessionStart hook's output
+       is what reaches the session -- with a spoken trigger's line in it.
+    2. --quiet writes the same file and prints nothing, and the set's own
+       hook, which emits the file itself, passes it. A consumer declines that
+       hook, so its start-up script (templates/bootstrap.sh) runs the write.
+    3. A loader block whose sources are all tracked still carries the
+       read-it-too sentence."""
+    import io, contextlib, tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_practices as psp
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-spoken-trigger-'))
+    saved_collect = psp.collect
+    try:
+        practices = tmp / 'set' / 'practices'
+        practices.mkdir(parents=True)
+        (practices / 'debut.md').write_text(
+            '---\n'
+            'slug: debut\n'
+            'title: Debut\n'
+            'tier: on-demand\n'
+            'status: active\n'
+            'occasion: "a person says \\"Debut\\""\n'
+            'index_clause: "stage 4: pre-staging into staging, full checks"\n'
+            'command: {"Debut": "Stage 4."}\n'
+            '---\n\n## Rule\n\nMove pre-staging into staging.\n\n'
+            '## Why\n\nSo staging is tested.\n', encoding='utf-8')
+        extra = bv.load_practices(practices)
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        psp.collect = lambda r, skip_brought=False: (
+            extra, {'debut': 'shared'},
+            [('deferred', 'a brought set, deferred to this file')])
+
+        def run(*flags):
+            out, saved_argv = io.StringIO(), sys.argv
+            sys.argv = ['precedent_session_practices.py', '--repo', str(repo), *flags]
+            try:
+                with contextlib.redirect_stdout(out), \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    psp.main()
+            finally:
+                sys.argv = saved_argv
+            written = repo / '.precedent' / 'SESSION_PRACTICES.md'
+            return out.getvalue(), (written.read_text(encoding='utf-8')
+                                    if written.is_file() else '')
+        said, written = run()
+        line = 'When a person says "Debut":'
+        cases.append(('1. the session-start write prints the block, spoken trigger and all',
+                      line in said and line in written))
+        (repo / '.precedent' / 'SESSION_PRACTICES.md').unlink()
+        said, written = run('--quiet')
+        cases.append(('2. --quiet writes the same file and prints nothing',
+                      said == '' and line in written))
+        hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
+        cases.append(("2. ...and the set's hook, which emits the file whole, passes --quiet",
+                      'precedent_session_practices.py" --repo "$P" --quiet' in hook))
+        boot = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+        cases.append(("2. ...and a consumer's start-up script runs the write at all",
+                      'python3 tools/precedent_session_practices.py' in boot))
+        block, _t, _n = bv.build_loader_block(extra, defers_sources=False)
+        cases.append(('3. a block that defers nothing still points at the file',
+                      '.precedent/SESSION_PRACTICES.md` exists, read it too' in block))
+    except (OSError, TypeError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        psp.collect = saved_collect
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views():
     """Two Update Vendors defects a consumer hit on 2026-10-04.
 
@@ -57910,6 +57997,9 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('a set the person brings reaches the session at start: printed, not just '
+          'written, and the block always points at the file',
+          *check_a_brought_sets_spoken_trigger_reaches_the_session_at_start())
     check('Update Vendors builds the views again after stamping their source, and a '
           'consumer\'s view check skips a view it never had',
           *check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views())

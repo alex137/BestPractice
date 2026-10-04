@@ -41,12 +41,24 @@ omitted -- "this source was unreachable" and "this source has no practices"
 must not look the same, which is the failure mode this repo's own
 environment-gotchas section already records twice.
 
+PRINTED AS WELL AS WRITTEN (2026-10-04). A file on disk is not in a
+session's context (gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-
+not-the-session-loadi). A practice set's own hook,
+precedent-universal-catalogue.sh, hands the file back as context, but a
+consumer's session-start hook only ran this tool, so a set the person brings
+-- the ladder's stage words, among them -- reached a consumer's session as an
+unread file, and "Debut" had to be searched for. So the write also prints
+the block on stdout, where a SessionStart hook's output becomes context.
+`--quiet` writes without printing, for a hook that emits the file itself.
+
 Run:
-  python3 tools/precedent_session_practices.py            # write the file
+  python3 tools/precedent_session_practices.py            # write the file and print it
+  python3 tools/precedent_session_practices.py --quiet    # write it, print nothing
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
 """
 import json
+import os
 import pathlib
 import sys
 
@@ -417,8 +429,8 @@ def brought_share(repo=None):
     return max(0, bv._approx_tokens(full) - bv._approx_tokens(bare)), names
 
 
-def main():
-    args = sys.argv[1:]
+def main(argv=None):
+    args = sys.argv[1:] if argv is None else list(argv)
     if any(a in ('--help', '-h') for a in args):
         print((__doc__ or '').strip())
         return 0
@@ -430,6 +442,7 @@ def main():
             return 0
         repo = args[i + 1]
     check_only = '--check' in args
+    quiet = '--quiet' in args
 
     extra, levels, notes = collect(repo)
     try:
@@ -462,7 +475,11 @@ def main():
     out_dir = pathlib.Path(repo) / OUT_DIR
     try:
         out_dir.mkdir(exist_ok=True)
-        (out_dir / OUT_NAME).write_text(text, encoding='utf-8')
+        # Written whole, then renamed into place: a hook that reads the file
+        # while another hook rewrites it never reads half of it.
+        tmp = out_dir / f'.{OUT_NAME}.{os.getpid()}.tmp'
+        tmp.write_text(text, encoding='utf-8')
+        os.replace(tmp, out_dir / OUT_NAME)
     except OSError as e:
         # Never fatal: a session-start hook that fails takes the session
         # with it, and not having the extra practices is a degraded session,
@@ -479,6 +496,9 @@ def main():
         print(f'precedent session practices: {OUT_DIR}/{OUT_NAME} written '
               f'({len(extra)} practice(s): {detail}). Read it -- these bind '
               f'work here and are not in AGENTS.md.', file=sys.stderr)
+        if not quiet:
+            # On stdout, so it is in the session's context, not just on disk.
+            print(text)
     return 0
 
 

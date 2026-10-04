@@ -1573,7 +1573,15 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     # So the caller now passes whether sources_for_tracked_block() actually
     # deferred anything, which is the question, and the two reasons cannot
     # drift apart from it again.
-    if instruction and defers_sources:
+    #
+    # And then it was too narrow a third time: a set a PERSON brings is
+    # deferred too, but left out of defers_sources so a tracked file reads the
+    # same whoever regenerates it -- so a consumer's block never pointed at
+    # the file that carried the ladder's stage words, and a session there had
+    # to search for "Debut" (2026-10-04). The sentence is conditional on the
+    # file existing, so it is true in every repository and the same for every
+    # person: it is always carried.
+    if instruction:
         instruction.append(
             "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
             "practices in force from the other sources this repo declares, which are "
