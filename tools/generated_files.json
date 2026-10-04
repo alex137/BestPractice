@@ -19,11 +19,11 @@
   "files": [
     {"path": "MAP.md", "generated_by": "tools/build_views.py",
      "edit_instead": "practices/*.md", "regenerate": "python3 tools/build_views.py",
-     "inputs": ["practices/*.md", "tools/*.py", "*.json"],
+     "inputs": ["practices/*.md", "tools/*.py", "*.json", "MAP.source.md", "MAP.source/*"],
      "check": ["tools/build_views.py", "--check"]},
     {"path": "GLOSSARY.md", "generated_by": "tools/build_views.py",
      "edit_instead": "practices/*.md", "regenerate": "python3 tools/build_views.py",
-     "inputs": ["practices/*.md", "tools/*.py", "*.json"],
+     "inputs": ["practices/*.md", "tools/*.py", "*.json", "GLOSSARY.source.md", "GLOSSARY.source/*"],
      "check": ["tools/build_views.py", "--check"]},
     {"path": "AGENTS.md", "part": "<!-- BEGIN GENERATED: precedent-loader -->",
      "generated_by": "tools/build_views.py", "edit_instead": "practices/*.md",

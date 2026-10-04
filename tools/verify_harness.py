@@ -5953,6 +5953,92 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_source_directory_splits_and_assembles():
+    """MAP.source.md and GLOSSARY.source.md may live as directories, one
+    file per heading and per table row, so two branches that each add a row
+    add two files and never conflict (build_views.py, THE SOURCE AS A
+    DIRECTORY; Alex, 2026-10-04). What can go wrong is all loss or drift:
+    a split that changes a word, a row added between two others that lands
+    in the wrong place, a heading inside a code fence taken for a section,
+    a repository holding both forms with nobody told, a commit to the
+    directory that does not rebuild the view, and a view that stops
+    carrying the repository's own text."""
+    import tempfile, fnmatch
+    import precedent_migrate_views as mv
+    name = 'a source directory splits and assembles word for word'
+    cases = []
+    text = ('# Repository map\n\nIntro line.\n\n'
+            '## Layout\n\nWhat lives where.\n\n| Path | What |\n|---|---|\n'
+            '| `a/` | first |\n| `b/` | second |\n| `c/` | third |\n\nAfter the table.\n\n'
+            '## Notes\n\n```\n## not a heading\n```\n\nPlain.\n')
+    entries = mv.split_entries(text)
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'MAP.source'
+        for rel, content in entries.items():
+            (d / rel).parent.mkdir(parents=True, exist_ok=True)
+            (d / rel).write_text(content, encoding='utf-8')
+        cases.append(('the split reassembles to the same text, exactly',
+                      bv.assemble_source_dir(d) == text.strip('\n')))
+        sec = [r for r in entries if r.endswith('/' + bv.SECTION_HEAD)]
+        cases.append(('the table section is split into head, rows and tail',
+                      len(sec) == 1 and sum(1 for r in entries if r.startswith(
+                          sec[0].split('/')[0] + '/')) == 5))
+        cases.append(('a heading inside a code fence is not a section',
+                      not any('not-a-heading' in r for r in entries)))
+        secdir = d / sec[0].split('/')[0]
+        (secdir / '0015-ab.md').write_text('| `ab/` | between |\n', encoding='utf-8')
+        out = bv.assemble_source_dir(d)
+        cases.append(('a row added as 0015- lands between rows 0010- and 0020-',
+                      out.index('`a/`') < out.index('`ab/`') < out.index('`b/`')))
+        cases.append(('the directory counts as the source',
+                      bv.has_own_source(td, 'MAP.source.md')
+                      and bv.own_source_label(td, 'MAP.source.md') == 'MAP.source/'))
+        (pathlib.Path(td) / 'MAP.source.md').write_text('x\n', encoding='utf-8')
+        try:
+            bv.own_source_path(td, 'MAP.source.md')
+            both = False
+        except SystemExit:
+            both = True
+        cases.append(('holding both the file and the directory is refused', both))
+    entry = next(e for e in json.loads((ROOT / 'tools' / 'generated_files.json')
+                                       .read_text(encoding='utf-8'))['files']
+                 if e.get('path') == 'MAP.md' and not e.get('part'))
+    cases.append(('a commit to a row file rebuilds MAP.md',
+                  any(fnmatch.fnmatch('MAP.source/0020-layout/0015-ab.md', g)
+                      for g in entry['inputs'])))
+    # End to end: a repository's one-file source split, then its view rebuilt.
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-04"\n'
+            'approved_by: "Fixture, 2026-10-04"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        (repo / 'MAP.source.md').write_text(text, encoding='utf-8')
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'), '--repo',
+                        str(repo), '--views-only'], capture_output=True, text=True)
+        before = (repo / 'MAP.md').read_text(encoding='utf-8') if (repo / 'MAP.md').exists() else ''
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_migrate_views.py'),
+                            '--repo', str(repo), '--split'], capture_output=True, text=True)
+        after = (repo / 'MAP.md').read_text(encoding='utf-8') if (repo / 'MAP.md').exists() else ''
+        strip_label = lambda t: t.split('\n---\n', 1)[-1]
+        cases.append(('--split replaces the file with the directory',
+                      r.returncode == 0 and (repo / 'MAP.source').is_dir()
+                      and not (repo / 'MAP.source.md').exists()))
+        cases.append(('...and the rebuilt view carries the same text',
+                      bool(before) and strip_label(before) == strip_label(after)
+                      and 'Intro line.' in after and '`c/`' in after))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
     into MAP.source.md and GLOSSARY.source.md and generates both from then
@@ -56638,6 +56724,7 @@ def main():
     check_commit_rebuilds_generated_files()
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
+    check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
