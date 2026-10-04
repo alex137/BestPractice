@@ -28292,6 +28292,33 @@ def check_sync_copies_work_from_above_once_checked():
             git(two, 'commit', '-q', '-m', 'a workflow with its pull_request trigger commented out')
             cases.append(('a commented-out pull_request trigger is not a GitHub test',
                           pb.github_tests(two, 'HEAD') == []))
+
+            # A `paths:` filter (2026-10-04): a Produce whose diff did not touch
+            # a docs check's paths never ran it, rightly, and the wait said
+            # "Do not merge" for good. Required only when the diff reaches it.
+            (wfd / 'docs.yml').write_text(
+                'name: Docs\non:\n  pull_request:\n    branches: [main]\n    paths:\n'
+                '      - "docs/**"\n      - README.md\n  workflow_dispatch:\njobs: {}\n',
+                encoding='utf-8')
+            (wfd / 'lint.yml').write_text(
+                'name: Lint\non:\n  pull_request:\n    branches:\n      - main\n'
+                '    paths-ignore: [\'notes/**\']\njobs: {}\n', encoding='utf-8')
+            (two / 'tools' / 'touched.py').write_text('x = 1\n', encoding='utf-8')
+            git(two, 'add', '-A')
+            git(two, 'commit', '-q', '-m', 'two path-filtered workflows, a tool change')
+            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
+            cases.append(('a workflow whose paths: the diff into main does not reach '
+                          'is not required; one whose paths-ignore: it gets past is, '
+                          'with its branches given as a list',
+                          '.github/workflows/docs.yml' not in got
+                          and '.github/workflows/lint.yml' in got))
+            (two / 'README.md').write_text('changed\n', encoding='utf-8')
+            git(two, 'add', '-A')
+            git(two, 'commit', '-q', '-m', 'README')
+            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
+            cases.append(('CONTROL: once the diff touches one of its paths, it is '
+                          'required', '.github/workflows/docs.yml' in got))
+            git(two, 'reset', '-q', '--hard', 'HEAD~2')
             said = []
             saved = dict(os.environ)
             os.environ.update({k: v for k, v in env.items()
@@ -28314,6 +28341,8 @@ def check_sync_copies_work_from_above_once_checked():
                     self.posted = []
 
                 def call(self, path, cache=True):
+                    if path == 'repos/o/r':
+                        return {'full_name': 'o/r'}, None
                     if '/pulls' in path:
                         return self.pulls, None
                     if 'head_sha=HEAD' in path:
@@ -28333,6 +28362,35 @@ def check_sync_copies_work_from_above_once_checked():
             st, why = pb.github_test_state(two, 'SHA', tests, GH([]))
             cases.append(('no run on the commit or its pull request reads "none"',
                           st == 'none'))
+
+            # 2026-10-04: after a rename, the OLD name's run list answered with
+            # no runs and no error, and this said "never ran" on a test that
+            # had passed. Asked under the name GitHub gives now, it reads the
+            # run; when GitHub cannot name the repository, it is unknown.
+            class RenamedGH(GH):
+                def __init__(self, runs, named=True):
+                    super().__init__(runs)
+                    self.named = named
+
+                def call(self, path, cache=True):
+                    if path == 'repos/old/r':
+                        return ({'full_name': 'new/r'}, None) if self.named \
+                            else (None, 'HTTP 404')
+                    if path.startswith('repos/old/r/'):
+                        return ({'workflow_runs': []} if 'actions' in path else []), None
+                    return super().call(path, cache)
+            pb._slug = lambda root: 'old/r'
+            pb._CURRENT_SLUG.clear()
+            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run]))
+            cases.append(('a repository renamed since origin was set is asked under '
+                          'its new name, and the old one is said',
+                          st == 'passed' and 'new/r' in why and 'old name' in why))
+            pb._CURRENT_SLUG.clear()
+            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run], named=False))
+            cases.append(('when GitHub cannot name the repository, no run reads '
+                          '"unknown", never "none"', st == 'unknown'))
+            pb._slug = lambda root: 'o/r'
+            pb._CURRENT_SLUG.clear()
             st, why = pb.github_test_state(two, 'SHA', tests, GH(
                 [], pulls=[{'number': 7, 'base': {'ref': 'main'},
                             'head': {'sha': 'HEAD'}}], pr_runs=[ok_run]))
@@ -50371,6 +50429,100 @@ def check_withdrawal_record_lines_all_read_back():
             'unreadable line(s): ' + ' | '.join(unread))
 
 
+def check_sync_check_passes_from_another_checkout():
+    """A view sync, committed, then `precedent_sync_views.py --check` from a
+    worktree of the same commit, passes: nothing is stale. 2026-10-04: a
+    consumer's Promote, which checks its composition in a throwaway
+    worktree, failed every time on "MANIFEST.json differs from what a fresh
+    sync writes" -- the manifest recorded each source's resolved absolute
+    path, so the worktree's own path differed for the two sources inside
+    the repository. Another machine differs the same way.
+
+    CONTROL 1: a source outside the repository is compared by level and
+    name, so a manifest recording it somewhere else still passes; changing
+    its NAME still fails. CONTROL 2: a source inside the repository recorded
+    at a different relative path still fails."""
+    import shutil, tempfile
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-sync-worktree-'))
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_ALLOW_ANY_AUTHOR': '1'}
+    cases = []
+    try:
+        (tmp / 'home').mkdir()
+        repo = tmp / 'consumer'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env,
+                       capture_output=True)
+        (repo / 'local' / 'practices').mkdir(parents=True)
+        (repo / 'local' / 'practices' / 'zz-local.md').write_text(
+            _move_fixture_practice('zz-local'), encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+                        {'level': 'repo-local', 'name': 'local', 'path': 'local'}]})
+            + '\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+
+        def sync(where, *extra):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                                '--repo', str(where), *extra], cwd=str(where), env=env,
+                               capture_output=True, text=True, timeout=600)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = sync(repo)
+        mf = repo / 'MANIFEST.json'
+        recorded = json.loads(mf.read_text(encoding='utf-8')).get('sources') if mf.is_file() else None
+        cases.append(('the sync records the source inside the repository as it is '
+                      'declared, relative', rc == 0 and recorded is not None
+                      and {'level': 'repo-local', 'name': 'local', 'path': 'local'} in recorded,
+                      f'rc={rc} {recorded!r} {out[-400:]}'))
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, capture_output=True)
+        made = subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'synced'], env=env,
+                              capture_output=True, text=True)
+        wt = tmp / 'elsewhere' / 'composed'
+        added = subprocess.run(['git', '-C', str(repo), 'worktree', 'add', '-q', str(wt),
+                                'HEAD'], env=env, capture_output=True, text=True)
+        cases.append(('fixture: the sync is committed and checked out in a worktree '
+                      'elsewhere', made.returncode == 0 and added.returncode == 0
+                      and (wt / 'MANIFEST.json').is_file(),
+                      (made.stderr + added.stderr)[-400:]))
+        rc, out = sync(wt, '--check')
+        cases.append(('--check from a worktree of the same commit passes',
+                      rc == 0, out[-600:]))
+
+        def with_sources(edit):
+            data = json.loads((wt / 'MANIFEST.json').read_text(encoding='utf-8'))
+            data['sources'] = [edit(dict(e)) for e in data['sources']]
+            (wt / 'MANIFEST.json').write_text(json.dumps(data, indent=2) + '\n',
+                                              encoding='utf-8')
+        original = (wt / 'MANIFEST.json').read_text(encoding='utf-8')
+        with_sources(lambda e: {**e, 'path': '/another/machine/BestPractice'}
+                     if e['level'] == 'universal' else e)
+        rc, out = sync(wt, '--check')
+        cases.append(('CONTROL 1: a source outside the repository recorded at '
+                      'another path still passes', rc == 0, out[-400:]))
+        (wt / 'MANIFEST.json').write_text(original, encoding='utf-8')
+        with_sources(lambda e: {**e, 'name': 'renamed'} if e['level'] == 'universal' else e)
+        rc, out = sync(wt, '--check')
+        cases.append(('CONTROL 1: ...and the same source under another name fails',
+                      rc != 0 and 'MANIFEST.json differs' in out, out[-400:]))
+        (wt / 'MANIFEST.json').write_text(original, encoding='utf-8')
+        with_sources(lambda e: {**e, 'path': 'elsewhere'} if e['name'] == 'local' else e)
+        rc, out = sync(wt, '--check')
+        cases.append(('CONTROL 2: a source inside the repository recorded at '
+                      'another relative path fails',
+                      rc != 0 and 'MANIFEST.json differs' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:500]}' for n, d in bad))
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
@@ -56559,6 +56711,9 @@ def main():
     check('every line of the withdrawal record reads back, so no consumer\'s sync '
           'refuses a deliberate withdrawal as a loss',
           *check_withdrawal_record_lines_all_read_back())
+    check('a view sync passes its own --check from another checkout of the same '
+          'commit, as a Promote checks it',
+          *check_sync_check_passes_from_another_checkout())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
