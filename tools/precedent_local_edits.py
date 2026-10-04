@@ -140,18 +140,54 @@ def _git(cwd, *args, data=None):
                           capture_output=True)
 
 
+# commit -> the cache repository a commit was fetched into, when the clone
+# itself lacked it (see _has_commit).
+_FETCHED = {}
+
+
+def _where(clone, commit):
+    """-> the repository that holds `commit`: the clone, or the cache it was
+    fetched into."""
+    return _FETCHED.get(commit, clone)
+
+
 def _show(clone, commit, rel):
-    r = _git(clone, 'show', f'{commit}:{rel}')
+    r = _git(_where(clone, commit), 'show', f'{commit}:{rel}')
     return r.stdout if r.returncode == 0 else None
 
 
-def _has_commit(clone, commit):
+def _has_commit(clone, commit, url=None):
     if _git(clone, 'cat-file', '-e', f'{commit}^{{commit}}').returncode == 0:
         return True
     # A shallow or single-branch clone can lack the commit something was
     # vendored from; ask origin for it once rather than guessing a base.
     _git(clone, 'fetch', '--quiet', 'origin', commit)
-    return _git(clone, 'cat-file', '-e', f'{commit}^{{commit}}').returncode == 0
+    if _git(clone, 'cat-file', '-e', f'{commit}^{{commit}}').returncode == 0:
+        return True
+    # Run from a consuming repository, the clone is that repository, whose
+    # origin never had the upstream commit: `status` said "cannot judge" for
+    # every engine file unless a BestPractice clone sat beside it (Alex,
+    # 2026-10-04: "fold the vendor engines" into the send/take loop). The
+    # manifests record where the files came from, so fetch that one commit
+    # from there. NEVER into the clone itself: a --depth fetch there wrote
+    # the upstream commit into the clone's .git/shallow and turned a full
+    # checkout shallow, so every history check refused to run (found the
+    # same day, in the first consumer it ran in). It goes into a bare cache
+    # repository inside the clone's git directory, which nothing else reads.
+    if not url:
+        return False
+    gd = _git(clone, 'rev-parse', '--absolute-git-dir')
+    if gd.returncode != 0:
+        return False
+    gitdir = gd.stdout.decode().strip()
+    cache = pathlib.Path(gitdir) / 'precedent-upstream.git'
+    if not cache.is_dir():
+        _git(gitdir, 'init', '--quiet', '--bare', str(cache))
+    _git(cache, 'fetch', '--quiet', '--no-tags', '--depth', '1', url, commit)
+    if _git(cache, 'cat-file', '-e', f'{commit}^{{commit}}').returncode == 0:
+        _FETCHED[commit] = cache
+        return True
+    return False
 
 
 class Edit:
@@ -207,7 +243,7 @@ def engine_edits(repo, source=SOURCE):
             problems.append((rel, 'the manifest does not say which upstream file '
                              'it was vendored from'))
             continue
-        if not commit or not _has_commit(source, commit):
+        if not commit or not _has_commit(source, commit, manifest.get('source_repo')):
             problems.append((rel, f'the commit it was vendored from '
                              f'({commit[:12] or "none recorded"}) is not in '
                              f'{source}, so there is nothing to compare with'))
@@ -235,10 +271,10 @@ def catalogue_edits(repo, source=SOURCE):
     if not recorded:
         return [], [('process/manifest.json', 'records no upstream.commit, so a '
                       'local change cannot be told from upstream drift')]
-    if not _has_commit(source, recorded):
+    if not _has_commit(source, recorded, up.get('repo')):
         return [], [(tree, f'the recorded upstream.commit {recorded[:12]} is not in '
                      f'{source}, so there is nothing to compare with')]
-    changed = ck.local_changes(source, recorded)
+    changed = ck.local_changes(_where(source, recorded), recorded)
     if changed is None:
         return [], [(tree, f'could not read {recorded[:12]} in {source}')]
     return [Edit(CATALOGUE, f'{tree}/{p.as_posix()}', p.as_posix(),

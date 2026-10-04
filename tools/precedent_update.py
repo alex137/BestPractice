@@ -251,11 +251,72 @@ def ensure_headroom_floor(repo):
     return True
 
 
+
+def ensure_session_load_registry(repo):
+    """Seed tools/session_load_budgets.json in a repository that has none.
+    -> {surface: measured tokens} when it wrote one, else None.
+
+    The session-load-budget check binds only where the registry exists, so a
+    repository installed without one skipped it on every run, and a skip
+    reads like a pass. A consumer's instructions file grew to about 38,000
+    tokens that way, loaded into every session with no ceiling, and nobody
+    was told (Alex, 2026-10-04: "If it is already a best practice, why
+    didn't we adopt?"). New practice sets have been seeded at bootstrap
+    since 2026-09-22; this is the same seed for a repository that uses
+    Precedent. Each ceiling is what the surface measures now plus ~20%:
+    a watermark declaring the status quo, never a judgment that it is the
+    right size -- reducing it is the reduction pass the practice asks for."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    if path.exists():
+        return None
+    import precedent_bootstrap_source as _pbs
+    _pbs._write_session_load_budget(repo, occasion='Update Vendors')
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    out = {}
+    for rel, e in (data.get('surfaces') or {}).items():
+        m = re.match(r'(\d+) tokens', e.get('_note', ''))
+        out[rel] = int(m.group(1)) if m else None
+    return out
+
 # precedent_resolve.check_source_manifest's refusal, as the view sync prints it.
 SOURCE_NAME_MISMATCH = re.compile(
     r"the source at (?P<path>\S+) calls itself '(?P<own>[^']+)' in its \S+, "
     r"but this repository declares it as '(?P<declared>[^']+)'")
 _REPOINTED = re.compile(r"repointed precedent\.json source '([^']+)' to '([^']+)'")
+
+
+def brought_sets_step(rep, fetch=None):
+    """Clone or pull the sets the person's individual set brings, before
+    the views are synced against them. Session start does this
+    (precedent_source_bootstrap.sources_from_brings), but only from an engine
+    that has the step: the first update that brings the step in syncs in a
+    session that started without it, and a brought set not on disk read as
+    every one of its rules lost (2026-10-04, a consumer's first update after
+    the ladder moved into a brought set). Reports what it did; never fails
+    the update -- a set it cannot fetch is said, and the sync judges the rest."""
+    if fetch is None:
+        try:
+            import precedent_source_bootstrap as psb
+            fetch = psb.sources_from_brings
+        except Exception:                                   # noqa: BLE001
+            return
+    try:
+        results = fetch()
+    except Exception as e:                                  # noqa: BLE001
+        results = [('brought sets', False, f'{type(e).__name__}: {e}')]
+    if not results:
+        return
+    good = [n for n, ok, _o in results if ok]
+    bad = [(n, o) for n, ok, o in results if not ok]
+    if good:
+        rep.step('brought sets', 'on disk and current: ' + ', '.join(good))
+    for name, out in bad:
+        rep.leave(f'brought set {name}', f'could not be fetched ({str(out)[-200:]}), '
+                  f'so its rules are not in force for this sync; attach it '
+                  f'and run this again')
 
 
 def removed_links_step(rep, out):
@@ -490,7 +551,20 @@ def migrate_views_step(repo, rep):
             # repository's call, with the tool that applies the rule.
             srcs = [n.replace('.md', '.source.md') for n in moved]
             tc = repo / 'tools' / 'title_case.py'
-            if tc.is_file():
+            # A repository that declares headline-capitalization not binding
+            # (precedent.json `not_binding`, with its written reason) has
+            # already answered this question; asking it again blocked an
+            # update for a call the repo had made (consumer repo, 2026-10-04).
+            try:
+                import precedent_resolve as pr
+                exempt = pr.load_not_binding(repo).get('headline-capitalization')
+            except Exception:
+                exempt = None
+            if exempt:
+                rep.step('headings kept', ' and '.join(srcs) + ' keep their '
+                         'headings as moved: this repository declares '
+                         'headline-capitalization not binding (' + exempt + ')')
+            elif tc.is_file():
                 rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
                 if rc2 != 0:
                     rep.leave(' and '.join(srcs),
@@ -512,7 +586,7 @@ def generated_full_views(repo):
     return [name for name in FULL_VIEWS
             if (pathlib.Path(repo) / name).is_file()
             and (_bv.is_generated_view(pathlib.Path(repo) / name)
-                 or (srcs.get(name) and (pathlib.Path(repo) / srcs[name]).is_file()))]
+                 or (srcs.get(name) and _bv.has_own_source(repo, srcs[name])))]
 
 
 def source_is_its_own_clone():
@@ -853,6 +927,17 @@ def universal_catalogue_path(repo):
 # 52 files refused as local edits that were every one upstream's own text.
 CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
 
+# The source's own files that travel with its catalogue, beside practices/,
+# read at the same commit. precedent-source.json carries universal's
+# occasion-index allowance (2026-09-29). The withdrawal record is the
+# forwarding address of every rule deleted from universal on purpose, which
+# a sync's removal guard reads at <universal source>/record/ -- here, inside
+# this vendored tree. Without it the first update after the ladder left
+# universal refused all fourteen of its rules as lost in every repository
+# that vendors the catalogue this way (2026-10-04); the process/upstream/
+# mirror already carried it (checkin.py's VENDORED_DESPITE_DIR).
+CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md')
+
 
 def _blob_id(data):
     """-> the git object id of `data` as a blob (git's default sha1 format)."""
@@ -1032,16 +1117,15 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
             'why': 'the upstream commit practices/ here was last replaced from; '
                    'the next update judges local edits against it'}, indent=2) + '\n',
             encoding='utf-8')
-        # THE SOURCE'S OWN MANIFEST travels with its catalogue (2026-09-29). A
-        # consumer's occasion-index cap is the sum of what its sources declare
-        # in their precedent-source.json, and the vendored universal tree never
-        # carried that file, so universal's allowance was unreadable here.
-        shown = subprocess.run(['git', '-C', str(SOURCE), 'show',
-                                f'{rev}:precedent-source.json'],
-                               capture_output=True, text=True)
-        if shown.returncode == 0 and shown.stdout.strip():
-            (repo / rel / 'precedent-source.json').write_text(shown.stdout,
-                                                              encoding='utf-8')
+        # The source's own files that travel with it (CATALOGUE_COMPANIONS),
+        # by the same read at the same commit.
+        for comp in CATALOGUE_COMPANIONS:
+            shown = subprocess.run(['git', '-C', str(SOURCE), 'show', f'{rev}:{comp}'],
+                                   capture_output=True, text=True)
+            if shown.returncode == 0 and shown.stdout.strip():
+                dest = repo / rel / comp
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(shown.stdout, encoding='utf-8')
         n = sum(1 for _ in target.glob('*.md'))
         note = (f'; local edits judged against {basis}' if not unread else
                 '; no record of the last sync here, so only uncommitted edits '
@@ -2009,7 +2093,8 @@ def update(repo, skip_check=False, ref=None):
         if rel:
             before = {p for p in before if not (p.startswith(f'{rel}/practices/')
                                                 or p == f'{rel}/{CATALOGUE_SYNC_NAME}'
-                                                or p == f'{rel}/precedent-source.json')}
+                                                or p in {f'{rel}/{c}' for c in
+                                                         CATALOGUE_COMPANIONS})}
 
     # After the templates have moved: what they replaced that an update
     # cannot convert for the repo, the install-once file an update can
@@ -2039,6 +2124,7 @@ def update(repo, skip_check=False, ref=None):
     # four of Morgan's sets stopped on exactly that, one new MAP.md row
     # each, fixed by hand. A set has no precedent_sync_views.py anyway --
     # so it gets the full build, the same one its check compares against.
+    brought_sets_step(rep)
     sync = repo / 'tools' / 'precedent_sync_views.py'
     build = repo / 'tools' / 'build_views.py'
     try:
@@ -2103,6 +2189,14 @@ def update(repo, skip_check=False, ref=None):
                  'list, and the practice audit fails a list that is neither '
                  'present nor declined')
 
+    seeded = ensure_session_load_registry(repo)
+    if seeded:
+        big = max(seeded.items(), key=lambda kv: kv[1] or 0)
+        rep.step('session-load budget', 'tools/session_load_budgets.json '
+                 'seeded at today\'s sizes (' + ', '.join(
+                     f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
+                 f'), so the load check now binds here; {big[0]} is the '
+                 f'largest, and a reduction pass is how it comes down')
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '

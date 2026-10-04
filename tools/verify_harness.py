@@ -5953,6 +5953,134 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_seeds_the_session_load_registry():
+    """Update Vendors gives a repository with no
+    tools/session_load_budgets.json one seeded at today's sizes, so the
+    session-load-budget check binds there instead of skipping on every run
+    (Alex, 2026-10-04: "If it is already a best practice, why didn't we
+    adopt?" -- a consumer's instructions file had grown to about 38,000
+    tokens behind a skip). Both directions: an existing registry, however
+    small, is never touched, and a second run writes nothing."""
+    import tempfile
+    import precedent_update as pu
+    name = 'Update Vendors seeds a missing session-load registry'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('word ' * 300, encoding='utf-8')
+        seeded = pu.ensure_session_load_registry(repo)
+        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                         .read_text(encoding='utf-8'))
+        s = reg.get('surfaces', {})
+        cases.append(('both surfaces are declared, each ceiling at or above '
+                      'what it measures', set(s) == {'CLAUDE.md', 'AGENTS.md'}
+                      and all(s[k]['ceiling'] >= (seeded[k] or 0) for k in s)))
+        cases.append(('the early-warning floor is on', reg.get('headroom_floor_pct') == 5))
+        cases.append(('it says it was seeded at Update Vendors',
+                      'Update Vendors' in s['CLAUDE.md'].get('_note', '')))
+        before = (repo / 'tools' / 'session_load_budgets.json').read_bytes()
+        again = pu.ensure_session_load_registry(repo)
+        cases.append(('a second run writes nothing', again is None and before ==
+                      (repo / 'tools' / 'session_load_budgets.json').read_bytes()))
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        mine = '{"surfaces": {"CLAUDE.md": {"ceiling": 10}}}\n'
+        (repo / 'tools' / 'session_load_budgets.json').write_text(mine, encoding='utf-8')
+        (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
+        cases.append(('an existing registry is never touched, even one over its ceiling',
+                      pu.ensure_session_load_registry(repo) is None and
+                      (repo / 'tools' / 'session_load_budgets.json').read_text(
+                          encoding='utf-8') == mine))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+def check_source_directory_splits_and_assembles():
+    """MAP.source.md and GLOSSARY.source.md may live as directories, one
+    file per heading and per table row, so two branches that each add a row
+    add two files and never conflict (build_views.py, THE SOURCE AS A
+    DIRECTORY; Alex, 2026-10-04). What can go wrong is all loss or drift:
+    a split that changes a word, a row added between two others that lands
+    in the wrong place, a heading inside a code fence taken for a section,
+    a repository holding both forms with nobody told, a commit to the
+    directory that does not rebuild the view, and a view that stops
+    carrying the repository's own text."""
+    import tempfile, fnmatch
+    import precedent_migrate_views as mv
+    name = 'a source directory splits and assembles word for word'
+    cases = []
+    text = ('# Repository map\n\nIntro line.\n\n'
+            '## Layout\n\nWhat lives where.\n\n| Path | What |\n|---|---|\n'
+            '| `a/` | first |\n| `b/` | second |\n| `c/` | third |\n\nAfter the table.\n\n'
+            '## Notes\n\n```\n## not a heading\n```\n\nPlain.\n')
+    entries = mv.split_entries(text)
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'MAP.source'
+        for rel, content in entries.items():
+            (d / rel).parent.mkdir(parents=True, exist_ok=True)
+            (d / rel).write_text(content, encoding='utf-8')
+        cases.append(('the split reassembles to the same text, exactly',
+                      bv.assemble_source_dir(d) == text.strip('\n')))
+        sec = [r for r in entries if r.endswith('/' + bv.SECTION_HEAD)]
+        cases.append(('the table section is split into head, rows and tail',
+                      len(sec) == 1 and sum(1 for r in entries if r.startswith(
+                          sec[0].split('/')[0] + '/')) == 5))
+        cases.append(('a heading inside a code fence is not a section',
+                      not any('not-a-heading' in r for r in entries)))
+        secdir = d / sec[0].split('/')[0]
+        (secdir / '0015-ab.md').write_text('| `ab/` | between |\n', encoding='utf-8')
+        out = bv.assemble_source_dir(d)
+        cases.append(('a row added as 0015- lands between rows 0010- and 0020-',
+                      out.index('`a/`') < out.index('`ab/`') < out.index('`b/`')))
+        cases.append(('the directory counts as the source',
+                      bv.has_own_source(td, 'MAP.source.md')
+                      and bv.own_source_label(td, 'MAP.source.md') == 'MAP.source/'))
+        (pathlib.Path(td) / 'MAP.source.md').write_text('x\n', encoding='utf-8')
+        try:
+            bv.own_source_path(td, 'MAP.source.md')
+            both = False
+        except SystemExit:
+            both = True
+        cases.append(('holding both the file and the directory is refused', both))
+    entry = next(e for e in json.loads((ROOT / 'tools' / 'generated_files.json')
+                                       .read_text(encoding='utf-8'))['files']
+                 if e.get('path') == 'MAP.md' and not e.get('part'))
+    cases.append(('a commit to a row file rebuilds MAP.md',
+                  any(fnmatch.fnmatch('MAP.source/0020-layout/0015-ab.md', g)
+                      for g in entry['inputs'])))
+    # End to end: a repository's one-file source split, then its view rebuilt.
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-04"\n'
+            'approved_by: "Fixture, 2026-10-04"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        (repo / 'MAP.source.md').write_text(text, encoding='utf-8')
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'), '--repo',
+                        str(repo), '--views-only'], capture_output=True, text=True)
+        before = (repo / 'MAP.md').read_text(encoding='utf-8') if (repo / 'MAP.md').exists() else ''
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_migrate_views.py'),
+                            '--repo', str(repo), '--split'], capture_output=True, text=True)
+        after = (repo / 'MAP.md').read_text(encoding='utf-8') if (repo / 'MAP.md').exists() else ''
+        strip_label = lambda t: t.split('\n---\n', 1)[-1]
+        cases.append(('--split replaces the file with the directory',
+                      r.returncode == 0 and (repo / 'MAP.source').is_dir()
+                      and not (repo / 'MAP.source.md').exists()))
+        cases.append(('...and the rebuilt view carries the same text',
+                      bool(before) and strip_label(before) == strip_label(after)
+                      and 'Intro line.' in after and '`c/`' in after))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
     into MAP.source.md and GLOSSARY.source.md and generates both from then
@@ -10314,6 +10442,53 @@ def check_update_vendors_resolves_a_catalogue_edit():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_local_edits_fetch_the_vendored_commit_from_upstream():
+    """precedent_local_edits.py judges a consuming repository's edits to
+    received files against the commit they were vendored from. Run from
+    the consumer, that commit was never in the consumer's own history, so
+    every file read "cannot judge" unless an upstream clone sat beside it
+    (Alex, 2026-10-04: fold the vendor engines into the send/take loop).
+    It now fetches that one commit from the upstream the manifest records.
+    Both directions: with no upstream named, a missing commit is still
+    reported missing, and a fetch creates no branch or tag."""
+    import tempfile
+    import precedent_local_edits as le
+    name = 'local-edit status fetches the vendored-from commit from upstream'
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    with tempfile.TemporaryDirectory() as td:
+        up, mine = pathlib.Path(td) / 'up', pathlib.Path(td) / 'mine'
+        for d in (up, mine):
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)], env=env)
+        (up / 'a.py').write_text('x = 1\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(up), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'u'], env=env)
+        sha = subprocess.run(['git', '-C', str(up), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True).stdout.strip()
+        (mine / 'b.py').write_text('y = 2\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(mine), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(mine), 'commit', '-qm', 'm'], env=env)
+        refs_before = subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
+                                     capture_output=True, text=True).stdout
+        cases.append(('with no upstream named, the missing commit is reported missing',
+                      not le._has_commit(mine, sha)))
+        cases.append(('with the recorded upstream, the commit is fetched',
+                      le._has_commit(mine, sha, str(up))
+                      and le._show(mine, sha, 'a.py') == b'x = 1\n'))
+        cases.append(('...and the clone stays complete: never marked shallow',
+                      not (mine / '.git' / 'shallow').exists()
+                      and subprocess.run(['git', '-C', str(mine), 'rev-parse',
+                                          '--is-shallow-repository'], capture_output=True,
+                                         text=True).stdout.strip() == 'false'))
+        cases.append(('...and no branch or tag is created',
+                      subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
+                                     capture_output=True, text=True).stdout == refs_before))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_send_carries_a_local_edit_upstream():
     """tools/precedent_local_edits.py send turns a consumer's committed edit
     to a received engine file into a branch in the owner's clone, merged
@@ -10364,6 +10539,12 @@ def check_send_carries_a_local_edit_upstream():
         fx.sh('git', 'clone', '-q', '--bare', str(owner), str(bare), cwd=fx.tmp)
         fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=owner)
         heads_before = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+        # The owner is cloned from this checkout, so it starts on whatever
+        # branch this checkout is on -- a local-edit/ branch itself when the
+        # check runs on the branch send made (2026-10-04: the deep check of
+        # such a branch failed here, counting its own branch as left behind).
+        # Only a branch send leaves is a leftover.
+        local_before = set(fx.git(owner, 'branch', '--list', 'local-edit/*').split())
 
         def send(consumer, why):
             return fx.sh(*tool, 'send', '--repo', str(consumer), '--owner-clone',
@@ -10392,7 +10573,7 @@ def check_send_carries_a_local_edit_upstream():
         f.write_bytes(_insert(base, f'# this {word} is a local fix\n'))
         fx.commit(repo, 'a local fix with a word the gate refuses')
         rc, out = send(repo, 'it crashed')
-        leftover = fx.git(owner, 'branch', '--list', 'local-edit/*')
+        leftover = set(fx.git(owner, 'branch', '--list', 'local-edit/*').split()) - local_before - {'*'}
         cases.append(('an edit carrying a leak-gate word is refused before '
                       'anything is pushed, and no branch is left behind',
                       rc == 2 and 'REFUSED before anything left this machine' in out
@@ -10821,6 +11002,117 @@ def check_acronym_scan_skips_wrapped_code_spans():
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_lint_flags_a_table_with_no_render():
+    """doc_lint check 7 (practice `tabular-shared-renderer`): a document
+    whose widest table has RENDER_MIN_COLUMNS+ columns and is not in the
+    host's render registry is reported, so a new one can fail the gate
+    (origin: a dependent repo's product specification with eight
+    multi-column tables landed as markdown only). Both directions: a
+    registered document, a two-column table, a fenced table, a record
+    document and the opt-out marker are all left alone, and with no
+    registry configured the check stands aside."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    wide = '# T\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 | 3 |\n'
+    docs = {
+        'wide.md': wide,
+        'registered.md': wide,
+        'narrow.md': '| a | b |\n|---|---|\n| 1 | 2 |\n',
+        'fenced.md': '```\n| a | b | c |\n|---|---|---|\n```\n',
+        'optout.md': wide + '\n<!--no-render-->\n',
+        'thing_record.md': wide,
+    }
+    for n, t in docs.items():
+        (tmp / n).write_text(t)
+    saved = (dl.ROOT, dl.RENDER_REGISTRY)
+    try:
+        dl.ROOT = tmp
+        dl.RENDER_REGISTRY = lambda: ['registered.md']
+        got = {d for d, _c in dl.check_unrendered(list(docs))}
+        dl.RENDER_REGISTRY = None
+        off = dl.check_unrendered(list(docs))
+    finally:
+        dl.ROOT, dl.RENDER_REGISTRY = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('a three-column table with no render is flagged', 'wide.md' in got),
+        ('a registered document is not', 'registered.md' not in got),
+        ('a two-column table is not', 'narrow.md' not in got),
+        ('a table inside a code fence is not', 'fenced.md' not in got),
+        ('the opt-out marker is honoured', 'optout.md' not in got),
+        ('a record document is exempt', 'thing_record.md' not in got),
+        ('no registry configured: the check stands aside', off == []),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'doc_lint flags a multi-column table with no render ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
+def check_thread_renders_never_touch_the_shared_ledger():
+    """doc_html's thread ledger: on a working branch a render the branch
+    changed is checked against, and recorded in, the thread's own local
+    ledger with its own artifact URL; the shared ledger and the shared URLs
+    are the trunk's alone (origin: several branches publishing to one
+    shared URL overwrote each other). Both directions: on the trunk, or
+    with --trunk, or with no thread ledger configured, the shared ledger
+    governs as before."""
+    import json, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_html as dh
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    (tmp / 'a.html').write_text('<p>v2</p>')
+    shared, thread = tmp / 'shared.json', tmp / 'thread.json'
+    shared.write_text(json.dumps({'a.html': dh._sha256(tmp / 'a.html')}))
+    saved = {k: getattr(dh, k) for k in ('ROOT', 'RENDER_LEDGER', 'THREAD_LEDGER',
+             '_current_branch', '_default_branch', '_changed_vs_base', '_render_units')}
+    branch = ['feature']
+    try:
+        dh.ROOT, dh.RENDER_LEDGER, dh.THREAD_LEDGER = tmp, str(shared), str(thread)
+        dh._current_branch = lambda: branch[0]
+        dh._default_branch = lambda: 'main'
+        dh._changed_vs_base = lambda: {'a.html'}
+        dh._render_units = lambda: [('a.html', [], 'https://shared.example/a')]
+        _b, on_branch = dh.stale()
+        _b, trunk_flag = dh.stale(trunk=True)
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            dh.record_published(['a.html@https://thread.example/a'])
+        after = dh.stale()[1]
+        rec = json.loads(thread.read_text()).get('a.html', {})
+        shared_kept = json.loads(shared.read_text()) == {'a.html': dh._sha256(tmp / 'a.html')}
+        branch[0] = 'main'
+        _b, on_trunk = dh.stale()
+        dh.THREAD_LEDGER = None
+        branch[0] = 'feature'
+        _b, unconfigured = dh.stale()
+    finally:
+        for k, v in saved.items():
+            setattr(dh, k, v)
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('a branch render with no thread artifact is unpublished',
+         [r for r, _w in on_branch] == ['a.html']),
+        ('--trunk checks the shared ledger, which is current', trunk_flag == []),
+        ('recording on a branch writes the thread URL and hash',
+         rec.get('url') == 'https://thread.example/a' and bool(rec.get('sha'))),
+        ('after recording, the branch is current', after == []),
+        ('the shared ledger is untouched by a branch record', shared_kept),
+        ('on the trunk the shared ledger governs', on_trunk == []),
+        ('no thread ledger configured: the shared ledger governs', unconfigured == []),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'thread renders never touch the shared ledger ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed))
 
 
 def check_changed_files_only_judges_the_change():
@@ -11377,6 +11669,34 @@ def check_update_vendors_updates_a_section_0_catalogue():
                       'commit\'s practices/, exactly', ok is True and got == want))
         cases.append(('...and the report says so',
                       any(n == 'catalogue' and 'replaced' in o for n, o in rep.steps)))
+
+        # The withdrawal record travels with the catalogue, and the sync's
+        # removal guard reads it there (2026-10-04: a consumer vendoring the
+        # catalogue this way had all fourteen of the ladder's rules refused
+        # as lost on its first update after they left universal; the record
+        # only ever reached the process/upstream/ mirror).
+        import precedent_resolve as _pr
+        import precedent_sync_views as _psv
+        vend = d / 'precedent' / 'universal'
+        withdrawn = _pr.withdrawn_record(vend)
+        cases.append(('the withdrawal record is vendored beside the catalogue, at '
+                      'the same commit, and reads back',
+                      (vend / _pr.WITHDRAWN_RECORD).is_file()
+                      and withdrawn == _pr.withdrawn_record(ROOT) and len(withdrawn) >= 14))
+        if withdrawn:
+            gone = sorted(withdrawn)[0]
+            (d / 'MANIFEST.json').write_text(json.dumps({'practices': [
+                {'slug': gone, 'source': 'precedent'}]}), encoding='utf-8')
+            subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+            subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'manifest'],
+                           env=env, check=True)
+            lost = _psv._lost_practices(d, {'practices': {'kept': {}}, 'retired': []},
+                                        [{'name': 'precedent', 'level': 'universal',
+                                          'path': str(vend)}], ())
+            cases.append(('...so a sync against that vendored catalogue lets a '
+                          'withdrawn rule go without --allow-removals',
+                          (gone, 'precedent') in lost.get('withdrawn_upstream', [])
+                          and (gone, 'precedent') not in lost['blocking']))
 
         d = repo_with(universal)
         (d / 'precedent' / 'universal' / 'practices' / 'retired-long-ago.md'
@@ -50523,6 +50843,97 @@ def check_sync_check_passes_from_another_checkout():
             '; '.join(f'{n} -- {str(d)[:500]}' for n, d in bad))
 
 
+def check_generated_index_of_nothing_yet_passes():
+    """generated-files-registered passes a repository whose generated index
+    has no sources YET -- gotchas/INDEX.md with no gotcha written -- when the
+    index's own generator check passes. 2026-10-04, a consumer with no
+    gotchas: listed, "edit_instead ... matches nothing here"; unlisted,
+    "gotchas/INDEX.md ... is not listed", so no state passed.
+
+    CONTROL 1: the same entry whose generator check FAILS is still reported
+    as pointing nowhere. CONTROL 2: an edit_instead whose directory does not
+    exist is still reported, check passing or not."""
+    import shutil, tempfile
+    import precedent_check as pc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-empty-index-'))
+    saved = pc.ROOT
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'gotchas').mkdir()
+        (tmp / 'tools').mkdir()
+        (tmp / 'gotchas' / 'INDEX.md').write_text(
+            '---\ngenerated_by: tools/build_gotcha_index.py\n---\n\n# None yet\n',
+            encoding='utf-8')
+        gen = tmp / 'tools' / 'build_gotcha_index.py'
+
+        def registry(glob):
+            (tmp / 'tools' / 'generated_files.json').write_text(json.dumps({'files': [
+                {'path': 'gotchas/INDEX.md', 'generated_by': 'tools/build_gotcha_index.py',
+                 'edit_instead': glob, 'regenerate': 'python3 tools/build_gotcha_index.py',
+                 'check': ['tools/build_gotcha_index.py', '--check']}]}), encoding='utf-8')
+            subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True)
+
+        def nowhere(check_rc, glob='gotchas/gotcha-*.md'):
+            gen.write_text(f'import sys\nsys.exit({check_rc})\n', encoding='utf-8')
+            registry(glob)
+            pc.ROOT = tmp
+            found = pc._generated_files_registered(None)
+            return any("matches nothing" in f.detail for f in found), found
+
+        hit, found = nowhere(0)
+        cases.append(('an index of no gotchas yet, its generator check passing, is '
+                      'not reported as pointing nowhere', not hit,
+                      [f.detail for f in found]))
+        hit, found = nowhere(1)
+        cases.append(('CONTROL 1: with its generator check failing, it is', hit,
+                      [f.detail for f in found]))
+        hit, found = nowhere(0, 'nowhere/gotcha-*.md')
+        cases.append(('CONTROL 2: a glob into a directory that does not exist is '
+                      'reported, check passing or not', hit, [f.detail for f in found]))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:300]}' for n, d in bad))
+
+
+def check_update_fetches_brought_sets_before_the_views():
+    """Update Vendors clones or pulls the sets the person's individual set
+    brings before it syncs the views (2026-10-04: a consumer's first update
+    after the ladder moved into a brought set ran in a session whose start
+    predated the engine that clones it, and the sync listed the set's rules
+    as lost). Function-level, with the fetch stood in: a fetched set is a
+    step, one that could not be fetched is left for the person, none is
+    silence, and in run order the step comes before the view sync."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rep = pu.Report()
+    pu.brought_sets_step(rep, fetch=lambda: [('fx-ladder', True, 'cloned')])
+    cases.append(('a brought set fetched is reported as a step',
+                  any(n == 'brought sets' and 'fx-ladder' in o for n, o in rep.steps)
+                  and not rep.left))
+    rep = pu.Report()
+    pu.brought_sets_step(rep, fetch=lambda: [('fx-ladder', False, 'HTTP 404')])
+    cases.append(('one that could not be fetched is left for the person, by name',
+                  any('fx-ladder' in w and 'HTTP 404' in why for w, why in rep.left)))
+    rep = pu.Report()
+    pu.brought_sets_step(rep, fetch=lambda: [])
+    cases.append(('a person who brings nothing hears nothing', not rep.steps
+                  and not rep.left))
+    src = (ROOT / 'tools' / 'precedent_update.py').read_text(encoding='utf-8')
+    cases.append(('in run order, the step comes before the view sync',
+                  0 < src.find('    brought_sets_step(rep)\n')
+                  < src.find("    sync = repo / 'tools' / 'precedent_sync_views.py'")))
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
@@ -56638,6 +57049,8 @@ def main():
     check_commit_rebuilds_generated_files()
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
+    check_update_seeds_the_session_load_registry()
+    check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
@@ -56689,6 +57102,7 @@ def main():
           *check_merge_takes_the_vendor_update())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
+    check_local_edits_fetch_the_vendored_commit_from_upstream()
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',
@@ -56714,6 +57128,10 @@ def main():
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
+    check('a generated index with no sources yet passes when its own check does',
+          *check_generated_index_of_nothing_yet_passes())
+    check('Update Vendors fetches the sets a person brings before it syncs the views',
+          *check_update_fetches_brought_sets_before_the_views())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
@@ -56841,6 +57259,8 @@ def main():
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
     check_acronym_scan_skips_wrapped_code_spans()
+    check_lint_flags_a_table_with_no_render()
+    check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()

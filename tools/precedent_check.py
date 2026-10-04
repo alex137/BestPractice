@@ -2399,12 +2399,8 @@ def _generated_files_registered(ctx):
                                     f'{gen} (generated_by: frontmatter for '
                                     f'Markdown, _generated_by for JSON) -- '
                                     f'run {e.get("regenerate") or gen}'))
-        src = e.get('edit_instead')
-        if src and not any(ROOT.glob(src)):
-            out.append(Finding(GENERATED_REGISTRY,
-                               f'{rel}: edit_instead {src!r} matches nothing '
-                               f'here, so it sends a reader nowhere'))
         cmd = e.get('check')
+        rc = said = None
         if cmd:
             key = tuple(cmd)
             if key not in ran:
@@ -2412,6 +2408,18 @@ def _generated_files_registered(ctx):
                                    cwd=str(ROOT), capture_output=True, text=True)
                 ran[key] = (r.returncode, r.stdout + r.stderr)
             rc, said = ran[key]
+        src = e.get('edit_instead')
+        # A glob that matches nothing YET is no wrong pointer: a repository
+        # with no gotcha so far has an index of none, which its generator's
+        # own check confirms. Listed or not, it failed (2026-10-04, a
+        # consumer with no gotchas: "matches nothing" with the entry, "not
+        # listed" without it). The glob's directory must still exist.
+        if src and not any(ROOT.glob(src)) and not (
+                rc == 0 and (ROOT / pathlib.PurePosixPath(src).parent).is_dir()):
+            out.append(Finding(GENERATED_REGISTRY,
+                               f'{rel}: edit_instead {src!r} matches nothing '
+                               f'here, so it sends a reader nowhere'))
+        if cmd:
             # One check can cover several files (build_todo_index --check
             # writes both indexes); when it names the files that drifted,
             # only those are reported.
@@ -2609,6 +2617,7 @@ def _generated_artifact_provenance(ctx):
         if 'build_views.py' not in head:
             source = ROOT / name.replace('.md', '.source.md')
             if p.exists() and not source.exists() and \
+                    not source.with_name(source.name[:-len('.md')]).is_dir() and \
                     _tool_path('tools/precedent_migrate_views.py') is not None:
                 out.append(Finding(name, 'is written by hand, and MAP.md and '
                                          'GLOSSARY.md are generated in every '
