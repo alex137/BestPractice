@@ -490,7 +490,20 @@ def migrate_views_step(repo, rep):
             # repository's call, with the tool that applies the rule.
             srcs = [n.replace('.md', '.source.md') for n in moved]
             tc = repo / 'tools' / 'title_case.py'
-            if tc.is_file():
+            # A repository that declares headline-capitalization not binding
+            # (precedent.json `not_binding`, with its written reason) has
+            # already answered this question; asking it again blocked an
+            # update for a call the repo had made (consumer repo, 2026-10-04).
+            try:
+                import precedent_resolve as pr
+                exempt = pr.load_not_binding(repo).get('headline-capitalization')
+            except Exception:
+                exempt = None
+            if exempt:
+                rep.step('headings kept', ' and '.join(srcs) + ' keep their '
+                         'headings as moved: this repository declares '
+                         'headline-capitalization not binding (' + exempt + ')')
+            elif tc.is_file():
                 rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
                 if rc2 != 0:
                     rep.leave(' and '.join(srcs),
