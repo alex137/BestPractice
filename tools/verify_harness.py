@@ -10364,6 +10364,12 @@ def check_send_carries_a_local_edit_upstream():
         fx.sh('git', 'clone', '-q', '--bare', str(owner), str(bare), cwd=fx.tmp)
         fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=owner)
         heads_before = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+        # The owner is cloned from this checkout, so it starts on whatever
+        # branch this checkout is on -- a local-edit/ branch itself when the
+        # check runs on the branch send made (2026-10-04: the deep check of
+        # such a branch failed here, counting its own branch as left behind).
+        # Only a branch send leaves is a leftover.
+        local_before = set(fx.git(owner, 'branch', '--list', 'local-edit/*').split())
 
         def send(consumer, why):
             return fx.sh(*tool, 'send', '--repo', str(consumer), '--owner-clone',
@@ -10392,7 +10398,7 @@ def check_send_carries_a_local_edit_upstream():
         f.write_bytes(_insert(base, f'# this {word} is a local fix\n'))
         fx.commit(repo, 'a local fix with a word the gate refuses')
         rc, out = send(repo, 'it crashed')
-        leftover = fx.git(owner, 'branch', '--list', 'local-edit/*')
+        leftover = set(fx.git(owner, 'branch', '--list', 'local-edit/*').split()) - local_before - {'*'}
         cases.append(('an edit carrying a leak-gate word is refused before '
                       'anything is pushed, and no branch is left behind',
                       rc == 2 and 'REFUSED before anything left this machine' in out
