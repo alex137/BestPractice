@@ -51470,6 +51470,128 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views():
+    """Two Update Vendors defects a consumer hit on 2026-10-04.
+
+    1. precedent_update.py stamped MAP.source.md's version header AFTER the
+       views step had built MAP.md from it, and MAP.md copies that header, so
+       the basic check failed on a stale MAP.md on every run.
+       rebuild_views_after_stamp() builds the views again when a stamped path
+       is a view's source, re-stages only a view the update had staged, and
+       says so when the build fails.
+    2. `build_views.py --check` demanded a root GLOSSARY.md that a consumer
+       whose glossary lives in docs/ never has; the 2026-10-03 fix covered
+       --views-only only. A consumer's check now skips a view it lacks and
+       has no source for, and BestPractice's own check still calls a deleted
+       view drift."""
+    import io, contextlib, tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    rebuild = getattr(pu, 'rebuild_views_after_stamp', None)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stamp-views-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True)
+    try:
+        r = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', str(r)], env=env, check=True)
+        (r / 'tools').mkdir()
+        # A stand-in build: MAP.md carries the generated header and copies
+        # its source's version line, the thing the real build does.
+        (r / 'tools' / 'build_views.py').write_text(
+            'import pathlib, sys\n'
+            'src = pathlib.Path("MAP.source.md").read_text().strip()\n'
+            'pathlib.Path("MAP.md").write_text("---\\ngenerated_by: '
+            'tools/build_views.py\\n---\\n" + src + "\\n")\n'
+            'if pathlib.Path("FAIL").exists():\n'
+            '    sys.exit("build_views FAIL: planted")\n', encoding='utf-8')
+        (r / 'MAP.source.md').write_text('version: 1\n', encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/build_views.py'], cwd=r, check=True)
+        git(r, 'add', '-A')
+        git(r, 'commit', '-qm', 'base')
+        # The update edits the source and the views step builds MAP.md from it.
+        (r / 'MAP.source.md').write_text('version: 1\nedited\n', encoding='utf-8')
+        subprocess.run([sys.executable, 'tools/build_views.py'], cwd=r, check=True)
+        git(r, 'add', 'MAP.source.md', 'MAP.md')
+        # Then the stamp bumps the source's version, after the build.
+        (r / 'MAP.source.md').write_text('version: 2\nedited\n', encoding='utf-8')
+        git(r, 'add', 'MAP.source.md')
+        got = rebuild(r, ['MAP.source.md']) if rebuild else None
+        cases.append(('1. a stamped source builds its view again and re-stages it',
+                      got == ['MAP.md']
+                      and 'version: 2' in git(r, 'show', ':MAP.md').stdout))
+        before = (r / 'MAP.md').read_text()
+        (r / 'MAP.md').write_text(before + 'x\n')
+        cases.append(('1. ...a stamp of anything else builds nothing',
+                      rebuild is not None and rebuild(r, ['AGENTS.md']) == []
+                      and (r / 'MAP.md').read_text().endswith('x\n')))
+        git(r, 'commit', '-qm', 'staged')
+        (r / 'MAP.source.md').write_text('version: 3\nedited\n', encoding='utf-8')
+        git(r, 'add', 'MAP.source.md')
+        (r / 'MAP.md').write_text(before)
+        got = rebuild(r, ['MAP.source.md']) if rebuild else None
+        staged = git(r, 'diff', '--cached', '--name-only').stdout.split()
+        cases.append(('1. ...a view the update had not staged is rebuilt but left unstaged',
+                      got == [] and 'MAP.md' not in staged))
+        (r / 'FAIL').write_text('')
+        try:
+            said = rebuild(r, ['MAP.source.md']) if rebuild else None
+        except RuntimeError as e:
+            said = str(e)
+        cases.append(('1. ...and a failed build is said, by its own words',
+                      isinstance(said, str) and 'build_views FAIL: planted' in said))
+
+        repo = tmp / 'bp'
+        shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
+            '.git', '__pycache__', '*.pyc', 'prompts'))
+        (repo / 'GLOSSARY.md').unlink()
+        # where_things_are.json links GLOSSARY.md, and its own guard would
+        # refuse first; the view check is what this case judges.
+        (repo / 'where_things_are.json').unlink()
+
+        def check_names_glossary(consumer):
+            saved, saved_argv = getattr(bv, 'repo_is_consumer', None), sys.argv
+            bv.repo_is_consumer = lambda root: consumer
+            sys.argv = ['build_views.py', '--repo', str(repo), '--check']
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                    try:
+                        bv.main()
+                    except SystemExit as e:
+                        buf.write(f'\n{e.code}\n')
+            finally:
+                sys.argv = saved_argv
+                if saved is None:
+                    del bv.repo_is_consumer
+                else:
+                    bv.repo_is_consumer = saved
+            out = buf.getvalue()
+            return 'drifted from regeneration' in out and 'GLOSSARY.md' in out
+        cases.append(("2. a consumer's --check does not demand a GLOSSARY.md it never had",
+                      not check_names_glossary(True)))
+        cases.append(("2. ...BestPractice's own --check still calls a deleted one drift",
+                      check_names_glossary(False)))
+        cases.append(('2. ...and the consumer test reads the manifest kind, nothing else',
+                      hasattr(bv, 'repo_is_consumer')
+                      and not bv.repo_is_consumer(ROOT)))
+    except (OSError, subprocess.CalledProcessError, TypeError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_adopts_an_earlier_runs_catalogue_mirror():
     """A re-run of Update Vendors stages the catalogue mirror an earlier run
     wrote, when the catalogue manifest names the pinned commit and every
@@ -57788,6 +57910,9 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('Update Vendors builds the views again after stamping their source, and a '
+          'consumer\'s view check skips a view it never had',
+          *check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
