@@ -447,6 +447,41 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     if not check:
         _lost = _lost_practices(repo, res, sources,
                                 locals().get('withheld_slugs'))
+        # A RULE THAT IS STILL THERE, waiting on a set that is not (2026-10-04,
+        # a consumer's update): a practice whose `requires:` names something
+        # no source on disk provides is left out by the resolver, and read
+        # here as lost. The generic refusal below then offered
+        # `--allow-removals` -- which would have deleted two of a person's
+        # own rules because the set that switches them on had not been
+        # cloned yet. Said separately, with the set and the remedy, and never
+        # with --allow-removals: nothing is gone.
+        waiting = _waiting_on_a_capability(sources, _lost['blocking'])
+        if waiting:
+            _lost['blocking'] = [b for b in _lost['blocking'] if b not in waiting]
+            missing = _brought_not_on_disk(sources)
+            if pr.no_ladders():
+                why = (f"this session runs with {pr.NO_LADDERS_ENV}=1, which "
+                       f"turns those capabilities off on purpose -- run the "
+                       f"sync from a session without it")
+            elif missing:
+                why = ('; '.join(f"`{b['name']}`, brought by your individual "
+                                 f"set, is not on disk at {b['path']}"
+                                 for b in missing)
+                       + " -- fetch it with `python3 tools/precedent_source_"
+                         "bootstrap.py --teams-from .` (or attach it beside "
+                         "the individual set) and run this again")
+            else:
+                why = ("no source this session resolved provides it -- attach "
+                       "the set that does, and run this again")
+            raise pm.MaterializeError(
+                "refusing to WRITE: these practice(s) are still in force at "
+                "their source, but each `requires:` something no source on "
+                "disk provides, so this sync would drop them -- "
+                + '; '.join(f"{s} (from {src}, requires "
+                            f"{', '.join(sorted(n))})"
+                            for (s, src), n in sorted(waiting.items()))
+                + f". {why}. Do NOT pass --allow-removals: the rules are not "
+                "gone, and it would delete them.")
         if _lost['blocking'] and not (allow_removals or allow_missing):
             raise pm.MaterializeError(
                 "refusing to WRITE: this sync would remove "
@@ -718,6 +753,40 @@ def _refresh_generated_views(repo, check=False):
 
 
 _PRACTICE_LINK_RE = re.compile(r'(?<![\w/-])((?:\.\./)*practices/)([a-z0-9][a-z0-9-]*)\.md\b')
+
+
+def _waiting_on_a_capability(sources, blocking):
+    """-> {(slug, source): needed capabilities} for each blocked removal
+    whose practice is still active at its source and names a `requires:`
+    capability no resolved source provides."""
+    out = {}
+    by_name = {s.get('name'): s for s in sources}
+    provided = set()
+    for s in sources:
+        if s.get('path'):
+            provided |= pr.source_provides(s['path'])
+    for slug, src in blocking:
+        s = by_name.get(src)
+        if not s:
+            continue
+        loaded, _why = pr.load_source(s)
+        p = (loaded or {}).get(slug)
+        if not p or bv._json_str(p['fm'].get('status', 'active')) != pr.IN_FORCE_STATUS:
+            continue
+        needs = pr._requires(p['fm'])
+        if needs and not needs <= provided:
+            out[(slug, src)] = needs - provided
+    return out
+
+
+def _brought_not_on_disk(sources):
+    """-> the brought-set entries the individual source declares that are
+    not on disk."""
+    ind = next((s for s in sources if s.get('level') == 'individual'), None)
+    if not ind or not ind.get('path'):
+        return []
+    return [b for b in pr.brought_sources(ind['path'], warn=False)
+            if not pathlib.Path(b['path']).exists()]
 
 
 def _where_removed_went(repo, user_config, removed):

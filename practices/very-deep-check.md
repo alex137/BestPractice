@@ -1824,10 +1824,8 @@ Last because none of it strands an adopter, and none of it is cheap.
   (`git merge-base --is-ancestor`), true whether or not GitHub's own
   "merged" flag is set, which it is not for a repo that lands pull requests
   (PRs) by direct push rather than the merge button. Apply the
-  branch-cleanup method an individual practice set may already define (one
-  real individual set names this in its own `next-steps-after-commit`
-  practice; the repo is private, so this names the practice rather than
-  linking a page most readers cannot open): skip the repo's default branch
+  branch-cleanup method [the-boildown](the-boildown.md) carries for every
+  reply (it took the place of an individual set's own rule): skip the repo's default branch
   and its protected integration branch, and report each remaining one with
   a one-click delete link. **The link form, the encoding, the substring
   check and the separated unmerged list are
