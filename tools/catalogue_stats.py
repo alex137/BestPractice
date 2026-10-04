@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""catalogue_stats.py — the figures about this catalogue that documents cite.
+"""The figures about the catalogue that other documents cite, computed rather than hand-typed
+
+catalogue_stats.py — the figures about this catalogue that documents cite.
 
 Every number here was, until phase 4, hand-typed into prose in several
 documents at once. That is the failure `docs-track-models` describes, and it
@@ -113,9 +115,12 @@ def self_check():
 
 ANCHORS = [
     # The plan states the resident target as a figure of record. This script
-    # re-derives the cap from build_views.py, so the two can disagree.
+    # re-derives the cap from build_views.py, so the two can disagree. 1,750
+    # since 2026-10-02: 250 of the 2,000 went to the set that provides the
+    # five-stage ladder with the resident rule that moved there, and the
+    # plan says so beside its target (spec/LADDER_OPT_IN_PLAN.md D15).
     ('PRACTICE_ENGINE_PLAN.md, "The resident block ... Target ~2,000 tokens"',
-     2000, 2000, lambda: (stats()['budget'], stats()['budget'])),
+     1750, 1750, lambda: (stats()['budget'], stats()['budget'])),
     # spec/PRACTICE_FORMAT.md's phase-3 column records the catalogue as this
     # session inherited it: originally 15 practices with a Detail, 8 Rules
     # over 150 words. Scoped to the original 52 (phase3_snapshot_stats), not
@@ -145,10 +150,13 @@ ANCHORS = [
     # mechanism working on its own author. Then 23->24 on 2026-10-01 when
     # scrub-gate gained one: the paragraph on work carried straight into the
     # public repo, added to its Rule that day, took the Rule past 150 words,
-    # and moved word for word into a Detail it did not have yet.
+    # and moved word for word into a Detail it did not have yet. Then 24->23
+    # on 2026-10-02, when merge-authorization-keyword, one of the original 52
+    # and carrying a Detail, was withdrawn from universal into the set that
+    # provides the five-stage ladder (spec/LADDER_OPT_IN_PLAN.md).
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     24, 24, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     23, 23, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as

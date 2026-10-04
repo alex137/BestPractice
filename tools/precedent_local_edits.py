@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_local_edits.py -- a consuming repo's committed edits to files it
+"""A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, merged, or replaced by upstream's with the commit that holds them named -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)
+
+precedent_local_edits.py -- a consuming repo's committed edits to files it
 received from BestPractice: found, resolved at Update Vendors, and sent
 upstream as a ready branch.
 
@@ -780,10 +782,9 @@ WHAT WENT WRONG THERE
 WHAT TO DO
 Read the branch's diff and decide whether the bug is real here. If it is,
 add a test that fails without the fix, then run this repository's checks
-(practice: upstream-bug-stops-here -- a fix without its test is not booked).
+(practice: upstream-bug-stops-here -- a fix without its test is not done).
 If it is not, say why, and nothing lands. Land it only when a person says
-"Booked" (step 3 of 5; "Go update" is the same word). No merge authorization
-comes with this prompt.
+to, in their own words. No merge authorization comes with this prompt.
 
 AFTER IT LANDS
 The vendoring repository keeps its local edit until its next Update Vendors,

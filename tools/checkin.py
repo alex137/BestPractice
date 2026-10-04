@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""checkin.py — drive the periodic check-in (INSTALL.md §4) mechanically.
+"""Drives the periodic check-in (INSTALL.md §4) mechanically
+
+checkin.py — drive the periodic check-in (INSTALL.md §4) mechanically.
 
 Runs from a dependent repo (script lives at process/upstream/tools/). The
 check-in loop — sync the vendored tree into a clone of the upstream repo,
@@ -366,6 +368,20 @@ def _rev_parse_quiet(clone, ref):
 NOT_VENDORED = frozenset({'evals', 'philosophy', 'spec', 'todo', 'decisions',
                           'deck', 'record'})
 
+# Single files inside a NOT_VENDORED directory that a consumer does need,
+# named one by one so the directory stays home. The withdrawal record is the
+# forwarding address a consumer's sync reads for every rule deleted from
+# universal on purpose (precedent_resolve.withdrawn_record, 2026-10-03).
+VENDORED_DESPITE_DIR = frozenset({'record/WITHDRAWN_FROM_UNIVERSAL.md'})
+
+
+def _excluded_dir(rel):
+    """-> the NOT_VENDORED component that keeps `rel` home, or None."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
+    if rel.as_posix() in VENDORED_DESPITE_DIR:
+        return None
+    return next((part for part in rel.parts if part in NOT_VENDORED), None)
+
 # Root-only exclusions -- matched by exact top-level path, NEVER as a path
 # component the way NOT_VENDORED is. `_files()`'s component match is right
 # for a subject-matter directory (the same "gotchas" can only ever mean
@@ -474,6 +490,7 @@ VENDORING_RULES = (
     ('GEMINI.md', False, "this repo's own session instructions"),
     ('MAP.md', False, "this repo's own map"),
     ('WHERE_THINGS_ARE.md', False, "this repo's own index"),
+    ('where_things_are.json', False, "the source of this repo's own index"),
     ('TODO.md', False, "this repo's to-do redirect stub"),
     ('MANIFEST.json', False, "a materialization record: which sources' "
                              "practices were copied into this repo"),
@@ -486,6 +503,12 @@ VENDORING_RULES = (
     ('decisions/', False, "this repo's decision records"),
     ('philosophy/', False, 'the reasoning behind Precedent, for its builders'),
     ('evals/', False, "this repo's evaluations"),
+    # The one record a consumer needs: the forwarding address of every rule
+    # deleted from universal on purpose, which a sync's removal guard reads
+    # (precedent_resolve.withdrawn_record). Without it the first sync after
+    # a withdrawal refused on every withdrawn rule (2026-10-03).
+    ('record/WITHDRAWN_FROM_UNIVERSAL.md', True,
+     "where each rule withdrawn from universal went; a consumer's sync reads it"),
     ('record/', False, "this repo's run records and ledgers"),
     # Traps a session using Precedent can hit, and environment-gotchas (a
     # resident practice) tells every session to grep gotchas/ before calling
@@ -533,7 +556,7 @@ def _in_copy(rel, carries_tools=None):
     apply to it: only NOT_VENDORED does, as before 2026-09-30, and _files()
     narrows it to CODE_DIRS."""
     rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix())
-    if any(part in NOT_VENDORED for part in rel.parts):
+    if _excluded_dir(rel):
         return False
     if CODE_DIRS is not None:
         if pathlib.Path(rel) in _NOT_VENDORED_ROOT_PATHS:
@@ -1076,7 +1099,7 @@ def _report_excluded_content():
         if not p.is_file() or '.git' in p.parts:
             continue
         rel = p.relative_to(UPSTREAM)
-        excluded = [part for part in rel.parts if part in NOT_VENDORED]
+        excluded = [_excluded_dir(rel)] if _excluded_dir(rel) else []
         if not excluded and rel in _NOT_VENDORED_ROOT_PATHS:
             excluded = [str(rel)]
         if excluded:
@@ -1093,11 +1116,16 @@ def _report_excluded_content():
           f"confirm nothing there is still needed, then  git rm -r {rm}  and commit.")
 
 
-def update(clone, force=False, allow_pinned=False):
+def update(clone, force=False, allow_pinned=False, ref=None):
     """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
     install tracks into the vendored tree, refusing to clobber unexported
     local work. Reads the clone; never checks it out, pulls in it, or moves
-    its HEAD."""
+    its HEAD.
+
+    `ref` mirrors that commit instead of the tracked branch's tip -- the
+    catalogue half of precedent_update.py --from-ref, which took its engine
+    from the ref and its catalogue from the branch until 2026-10-03 (found
+    by a consumer rehearsal of a release still on staging)."""
     _pinned_branch_hold(clone, allow=allow_pinned)
     branch = _tracked_branch(clone)
     # Fetch updates remote-tracking refs only -- it does not touch the
@@ -1111,6 +1139,12 @@ def update(clone, force=False, allow_pinned=False):
               f"already has for {branch}, which may be behind.")
     src_ref = _rev_parse_quiet(clone, f'origin/{branch}') or \
         _rev_parse_quiet(clone, branch)
+    if ref:
+        src_ref = _rev_parse_quiet(clone, ref)
+        if not src_ref:
+            sys.exit(f"checkin FAIL: --from-ref {ref!r} does not name a commit "
+                     f"in {clone}.")
+        branch = ref
     if not src_ref:
         sys.exit(f"checkin FAIL: {clone} has no {branch} or origin/{branch} to "
                  f"mirror from. This install records upstream.branch = "
@@ -1664,7 +1698,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
              "deliberate; nothing recorded.")
 
 
-def record(clone, note, accept_loss=False, resolving=()):
+def record(clone, note, accept_loss=False, resolving=(), from_ref=None):
     # Neither a checkout nor a pull, for the same two reasons update() no
     # longer does either: the clone is a SOURCE the caller passed, not this
     # tool's to move (it silently relocated a session's checkout off
@@ -1685,6 +1719,14 @@ def record(clone, note, accept_loss=False, resolving=()):
     # _landed_commit). Recording HEAD stamped whatever branch the clone
     # happened to be on as the upstream commit.
     ref, head = _landed_commit(clone)
+    if from_ref:
+        # The commit update() mirrored when it was given --from-ref: the
+        # record compares against that, or it refuses on every rule the
+        # ref changed relative to the tracked branch (2026-10-03).
+        ref, head = from_ref, _rev_parse_quiet(clone, from_ref)
+        if not head:
+            sys.exit(f"checkin FAIL: --from-ref {from_ref!r} does not name a "
+                     f"commit in {clone}.")
     with tempfile.TemporaryDirectory() as landed_dir:
         landed = _tree_at(clone, head, landed_dir)
         _carry_check(clone, accept_loss, landed, head, resolving)
@@ -1858,15 +1900,19 @@ def _main():
     if args[0] == 'status':
         return status(clone)
     if args[0] == 'update':
+        ref = (args[args.index('--from-ref') + 1]
+               if '--from-ref' in args[:-1] else None)
         return update(clone, force='--force' in args,
-                     allow_pinned='--allow-pinned' in args)
+                     allow_pinned='--allow-pinned' in args, ref=ref)
     if args[0] == 'push':
         why = args[args.index('--why') + 1] if '--why' in args[:-1] else ''
         return push(clone, why=why, force='--force' in args)
     note = args[args.index('--note') + 1] if '--note' in args else ''
     resolving = [args[i + 1] for i, a in enumerate(args[:-1]) if a == '--resolving']
     return record(clone, note, accept_loss='--accept-loss' in sys.argv,
-                  resolving=resolving)
+                  resolving=resolving,
+                  from_ref=(args[args.index('--from-ref') + 1]
+                            if '--from-ref' in args[:-1] else None))
 
 
 if __name__ == '__main__':

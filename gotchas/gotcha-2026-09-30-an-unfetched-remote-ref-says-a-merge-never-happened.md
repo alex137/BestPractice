@@ -8,10 +8,10 @@ retires_when:    null
 ---
 ## Symptom
 
-`git branch -r --contains SHA` or `git log origin/pre-staging` says a commit
+`git branch -r --contains SHA` or `git log origin/<branch>` says a commit
 is not on a remote branch, and it is. A session tells the person a change
-"never reached pre-staging" while it is already there, and sometimes already
-promoted further.
+never reached the branch while it is already there, and sometimes already
+moved further.
 
 ## Story
 

@@ -5,14 +5,15 @@ tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
-index_required: true
 gates:       ["merge"]
 index_clause: "PRs target pre-staging or staging; main moves only by a Promote or when the person names main"
+index_required: false
 checked_by:  null
 defines:     []
+status:      retired
+in_force_at: none
 expires:     null
-status:      active
-in_force_at: null
+requires:    ["ladder"]
 supersedes:  []
 overrides:   null
 added:       null
@@ -24,7 +25,7 @@ branch, never `main`**: `pre-staging` for a person whose landing branch is
 `pre-staging`, `staging` otherwise
 (`python3 tools/precedent_branches.py --landing` says which). Work moves on
 from there only by a Promote: `pre-staging` into `staging`, then `staging`
-into `main` ([promote](../../practices/promote.md);
+into `main` (`promote`;
 [spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)). **Check the
 base branch explicitly before opening or merging** — never assume `main`
 because it is the repository's configured default branch.
@@ -40,7 +41,7 @@ decided; Alex's word relayed by Morgan). Once a PR's own deep check
 
 **This rule is this repository's alone and is never vendored**: a
 repository that takes updates from here works on its own primary branch,
-usually `main` ([primary-branch](../../practices/primary-branch.md)).
+usually `main` (`primary-branch`).
 Consuming repositories vendor from `main` (`SOURCE_BRANCH` in
 `tools/precedent_vendor_engine.py`, since 2026-09-25).
 
@@ -114,8 +115,8 @@ file's git history.
 
 ## Install
 **No mechanical check, since 2026-09-27.** The rule is carried by the tools
-that pick a branch: [promote](../../practices/promote.md) and
-[go-update](../../practices/go-update.md) land work on the branch
+that pick a branch: `promote` and
+`go-update` land work on the branch
 `python3 tools/precedent_branches.py --landing` names, and only a Promote
 moves `staging` into `main`. `gates: ["merge"]` surfaces this Rule through
 `python3 tools/precedent_gate.py merge`, which is the check-before step.
@@ -132,3 +133,5 @@ deep check for a state nobody had got wrong. Its record is in
 It is in AGENTS.md's occasion index (`index_required: true`), and
 [AGENTS.md](../../AGENTS.md)'s opening paragraph carries the rule in prose so
 it is read before any PR.
+
+2026-10-03: retired (Morgan: "retire it", strength: decided). Everything it said is said elsewhere: AGENTS.md's opening paragraph carries the targeting rule, the named-main rule and the no-sign-off rule for everyone, and the ladder set's `go-update`, `promote` and `produce` carry it for the people who bring the ladder. Its one sentence of its own, that the rule holds even when `main` and `staging` point at the same commit, moved into that opening paragraph. Since the ladder became opt-in it applied only to people on the ladder (`requires: ["ladder"]`), so it no longer bound anyone off it either.

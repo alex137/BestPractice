@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""full_practice_audit.py -- the full practice audit (practice:
+"""The full practice audit — on-demand, whole-catalogue sweep across every source
+
+full_practice_audit.py -- the full practice audit (practice:
 full-practice-audit).
 
 Enumerates EVERY practice in force for this checkout -- universal, team, and

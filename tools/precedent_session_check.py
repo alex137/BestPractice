@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Did this session's SessionStart hooks actually run? -- and repair it.
+"""Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did
+
+Did this session's SessionStart hooks actually run? -- and repair it.
 
 practice: session-bootstrap, fail-gracefully
 
@@ -68,6 +70,15 @@ def _git(*args):
 
 
 def _declared_branch():
+    """The branch this checkout is measured against: the repository's
+    declared base_branch -- or, for a person off the ladder, main, the only
+    branch their work lands on (spec/LADDER_OPT_IN_PLAN.md D3)."""
+    try:
+        import precedent_branches as _pb
+        if _pb.ladder_in_force(ROOT) is False:
+            return _pb.MAIN
+    except Exception:                                       # noqa: BLE001
+        pass
     try:
         cfg = json.loads((ROOT / 'precedent.json').read_text())
         return cfg.get('base_branch')
@@ -531,28 +542,10 @@ def checks(offline=False):
     # (practice: checkable-gets-checked).
     raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
     name = 'PRECEDENT_FRESHNESS_ALSO, if set, names repositories that are there'
-    want = _attachable_sources()
-    # COMPUTED FOR THIS DISK, and that sentence is load-bearing.
-    #
-    # 2026-09-21: a known-good value was passed from one container to
-    # another and was wrong in the second one. Both had a duplicated
-    # source; they duplicated DIFFERENT ones. In the first, `~` held the
-    # only copy of the individual set and the stale copies of the shared
-    # sets; in the second, `~` held the STALE individual set and the shared
-    # sets were single. So a line that correctly names `~/precedent-
-    # individual` on one machine names the copy holding no work on the
-    # other -- silently, because an also-list entry that resolves to a real
-    # git repository is never questioned again.
-    #
-    # The value below is read off the directories actually present here,
-    # which is the only way it can be right; the warning is what stops it
-    # being copied somewhere it is not.
-    suggestion = ('Set it to (each set anchored where it lives -- a shared set '
-                  'beside the project, the individual set in $HOME -- so one '
-                  'value holds in every repo of the environment; in a shell '
-                  'script, single-quote it so nothing expands early): '
-                  'PRECEDENT_FRESHNESS_ALSO='
-                  + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
+    # The row once offered a value to set, naming every attachable practice
+    # set, computed for this disk (2026-09-21). Since 2026-09-30 the guard
+    # checks every declared set on its own, so that value was the stale
+    # advice a session reported on 2026-10-03; the row now never offers one.
     if raw is None:
         # Not a gap any more (2026-09-30): the freshness guard checks every
         # practice set this repo and this person declare, from the
@@ -562,24 +555,61 @@ def checks(offline=False):
                     'practice set this repo and you declare on its own. Set it '
                     'only for a repository nothing declares'))
     else:
-        bad = []
+        # WHEN THE ANSWER IS "DELETE IT" (2026-10-03). Since 2026-09-30 the
+        # guard checks every practice set this repo and the person declare on
+        # its own, so an entry naming one is redundant, and an entry naming a
+        # retired precedent-team-* set (renamed precedent-shared-* on
+        # 2026-09-28) names nothing at all. A session reported this row
+        # warning at the top of every turn about a variable still naming the
+        # old team paths, and offering a corrected value -- for a variable
+        # nobody needs. When every entry is one of the two, the remedy is to
+        # delete it; a replacement value is only offered for entries naming a
+        # repository nothing else covers.
+        bad, retired, redundant, extra = [], [], [], []
         for entry in (e.strip() for e in raw.split(';')):
             if not entry:
                 continue
             if '=' not in entry:
                 bad.append(f'{entry!r} has no =<base branch>')
+                extra.append(entry)
                 continue
             written = entry.split('=', 1)[0].strip()
             resolved = _expand_source_path(written)
+            if pathlib.Path(written).name.startswith('precedent-team-'):
+                retired.append(written)
+                continue
+            if (pathlib.Path(resolved) / 'precedent-source.json').is_file():
+                redundant.append(written)
+                continue
+            extra.append(entry)
             if not (pathlib.Path(resolved) / '.git').exists():
                 shown = (f'{written!r}' if resolved == written
                          else f'{written!r} (-> {resolved!r})')
                 bad.append(f'{shown} is not a git repository')
-        ok = not bad
-        out.append((name, ok, '' if ok else
-                    '; '.join(bad) + '. Each of these is SKIPPED, silently by '
-                    'design -- the variable reads as coverage and covers '
-                    'nothing. ' + suggestion))
+        if not extra:
+            said = []
+            if retired:
+                said.append(f'{len(retired)} name{"s" if len(retired) == 1 else ""} '
+                            f'the retired precedent-team-* '
+                            f'sets, renamed precedent-shared-* on 2026-09-28')
+            if redundant:
+                said.append(f'{len(redundant)} name{"s" if len(redundant) == 1 else ""} '
+                            f'a practice set, which the '
+                            f'freshness guard checks on its own when this repo '
+                            f'or you declare it')
+            out.append((name, not retired,
+                        'set, and not needed: ' + '; '.join(said) + '. Delete '
+                        'PRECEDENT_FRESHNESS_ALSO from your environment\'s '
+                        'settings, where it was set -- do not replace it.'))
+        else:
+            ok = not bad and not retired
+            out.append((name, ok, '' if ok else
+                        '; '.join(bad + [f'{r!r} is a retired precedent-team-* '
+                                         f'name -- drop it' for r in retired])
+                        + '. Each of these is SKIPPED, silently by design -- the '
+                        'variable reads as coverage and covers nothing. Drop each '
+                        'one; keep only repositories that exist and that nothing '
+                        'declares -- a practice set needs no entry.'))
 
     # 9. One source, one clone.
     #
@@ -593,8 +623,8 @@ def checks(offline=False):
     # Measured 2026-09-21 on this project's own container: three shared
     # sets were cloned twice, once under $HOME and once beside this repo,
     # and one of the three (`precedent-shared-writing`) had ALREADY
-    # diverged between its two copies. The also-list suggestion above was
-    # dutifully naming both, which is honest and is also the tell -- a
+    # diverged between its two copies. The also-list suggestion this row
+    # then offered was dutifully naming both, which is honest and is also the tell -- a
     # suggestion listing seven entries for four sources is reporting a
     # duplicate nobody had noticed.
     #
@@ -791,7 +821,94 @@ def checks(offline=False):
     # tagged -- and fails only when a cadence was asked for and nothing on
     # this machine can apply it.
     out.append(_ci_cadence_row())
+
+    # 11-13. The sets a person brings, where their work lands, and what this
+    # session loads against this repository's ceilings
+    # (spec/LADDER_OPT_IN_PLAN.md D8).
+    out.extend(_brought_sets_rows())
+    out.append(_landing_row())
+    out.extend(_session_load_rows())
     return out
+
+
+def _individual_path():
+    """The individual set's path from the user config, or None."""
+    try:
+        import precedent_resolve as pr
+        cfg_path = pathlib.Path(os.environ.get(
+            pr.USER_CONFIG_ENV, str(pr.DEFAULT_USER_CONFIG))).expanduser()
+        ind = json.loads(cfg_path.read_text(encoding='utf-8')).get('individual')
+        return pathlib.Path(ind['path']).expanduser() if ind and ind.get(
+            'path') else None
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+def _brought_sets_rows():
+    """One row, and only for a person whose individual set brings other
+    sets: every one of them is cloned and carries practices. A set that
+    failed to arrive takes its rules out of every session of theirs, with
+    nothing else saying so."""
+    try:
+        import precedent_resolve as pr
+    except Exception:                                        # noqa: BLE001
+        return []
+    brought = pr.brought_sources(_individual_path(), warn=False)
+    if not brought:
+        return []
+    name = 'every set your individual set brings is here'
+    missing = [b for b in brought
+               if not (pathlib.Path(b['path']) / 'practices').is_dir()]
+    if not missing:
+        return [(name, True, '')]
+    return [(name, False,
+             'not here: ' + ', '.join(f"{b['name']} (expected at {b['path']})"
+                                       for b in missing)
+             + '. Its rules are absent from this session, and nothing else '
+             'says so. Fetch it: python3 tools/precedent_source_bootstrap.py')]
+
+
+def _landing_row():
+    """Where this person's work lands here, said once (D3)."""
+    name = 'where your work lands here'
+    try:
+        import precedent_branches as pb
+        branch, why = pb.landing_branch(ROOT)
+    except Exception as e:                                   # noqa: BLE001
+        return (name, None, f'could not be worked out: {e}')
+    return (name, True, f'{branch} -- {why}' if why else branch)
+
+
+def _session_load_rows():
+    """What this person's session loads before any work, against the
+    ceilings this repository declares. The session file is rendered per
+    person, so a set one person brings can take theirs over a ceiling the
+    repository's own check, run by someone else, never sees."""
+    try:
+        import session_load_trend as slt
+    except Exception:                                        # noqa: BLE001
+        return []
+    reg = slt.registry() or {}
+    surfaces = reg.get('surfaces') or {}
+    over, measured = [], []
+    for rel in ('AGENTS.md', '.precedent/SESSION_PRACTICES.md'):
+        f = ROOT / rel
+        cap = (surfaces.get(rel) or {}).get('ceiling')
+        if not f.is_file() or not cap:
+            continue
+        n = slt.approx_tokens(slt.as_measured(
+            rel, f.read_text(encoding='utf-8', errors='replace')))
+        measured.append(f'{rel} ~{n:,} of {cap:,}')
+        if n > cap:
+            over.append(f'{rel} is ~{n:,} tokens, over its ceiling of {cap:,}')
+    if not measured:
+        return []
+    name = "what this session loads fits this repository's ceilings"
+    if over:
+        return [(name, False, '; '.join(over) + '. Each of these is read '
+                 'before any work; a reduction pass brings it back '
+                 '(practice: session-load-budget)')]
+    return [(name, True, '; '.join(measured))]
 
 
 def _ci_cadence_row():
@@ -1070,6 +1187,38 @@ def _declared_source_clones():
             continue
         out.append((str(path), 'main' if src.get('level') == 'universal'
                     else None))
+    # AND THE UNIVERSAL CLONE EACH ATTACHED SET READS (2026-10-02). A set
+    # under another parent -- the individual set in $HOME beside a project
+    # elsewhere -- declares ../BestPractice as a clone of its own, which this
+    # row never named from the project: /root/BestPractice sat 131 commits
+    # behind while every row here passed. Session start now pulls it
+    # (precedent_source_bootstrap.sources_from_attached_sets); this is the
+    # row that says so when it could not.
+    for shown, _base in _attachable_sources():
+        set_root = pathlib.Path(_expand_source_path(shown)).resolve()
+        try:
+            scfg = json.loads((set_root / 'precedent.json')
+                              .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for src in (scfg.get('sources') if isinstance(scfg, dict) else None) or []:
+            if not isinstance(src, dict) or src.get('level') != 'universal':
+                continue
+            raw = src.get('path')
+            if not isinstance(raw, str) or not raw:
+                continue
+            path = pathlib.Path(os.path.expandvars(raw)).expanduser()
+            path = (path if path.is_absolute() else set_root / path).resolve()
+            if path in (ROOT.resolve(), set_root) or not (path / '.git').exists():
+                continue
+            # Only a clone the bootstrap made (its marker in .git). A person's
+            # own BestPractice working copy at that path is on whatever branch
+            # their work is, and naming it "behind main" would be a false
+            # alarm about their work -- the sync leaves it alone for the same
+            # reason (precedent_source_bootstrap.CLONE_MARKER).
+            if not (path / '.git' / 'precedent-source-clone').is_file():
+                continue
+            out.append((str(path), 'main'))
     return out
 
 

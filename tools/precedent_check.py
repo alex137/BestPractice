@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_check.py — the ENFORCED loading channel, made real (phase 4).
+"""The ENFORCED loading channel — runs every practice's `checked_by` script
+
+precedent_check.py — the ENFORCED loading channel, made real (phase 4).
 
 PRACTICE_ENGINE_PLAN.md, "How an Agent Knows Which Practices to Load", names
 four channels. Three were built in phase 2 and 3; this is the fourth:
@@ -1102,6 +1104,130 @@ def _retired_branch_name_ships(ctx):
     return out
 
 
+
+
+# ---- the ladder stays opt-in (spec/LADDER_OPT_IN_PLAN.md D7) ---------------
+def _individual_set_brings_the_ladder(_pr):
+    """-> why this check stands aside, when ROOT is an individual set whose
+    person brings a set that provides the ladder; '' otherwise.
+
+    An individual set is read by one person only. When that person brings
+    the ladder, its words in their own set are theirs, the same as in the
+    set that provides it -- and refusing them refused that person's own next
+    Update Vendors (found rehearsing a Produce, 2026-10-03). A brought set
+    that is not cloned beside the individual set cannot say what it
+    provides, so it does not count: the check still runs."""
+    try:
+        man = json.loads((ROOT / 'precedent-source.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return ''
+    if not isinstance(man, dict) or _pr.normalize_level(
+            man.get('level')) != 'individual':
+        return ''
+    for b in _pr.brought_sources(ROOT, warn=False):
+        if _pr.LADDER_CAPABILITY in _pr.source_provides(b['path']):
+            return (f"this is one person's individual set and it brings "
+                    f"{b['name']}, which provides the ladder, so its words "
+                    f"are that person's own")
+    return ''
+
+
+@check('ladder-words-stay-in-the-ladder-set', 'tree',
+       'a practice set that does not provide the five-stage ladder carries '
+       'none of its words -- step labels, numbered Promotes, its commands '
+       'written as commands, the tier branch names, links to the practices '
+       'that moved into the ladder set -- in a practice, a template, a '
+       'person-facing document, the reply rules or the word list '
+       '(tools/ladder_words.py, the one matcher)',
+       'records: todo/, record/, spec/, gotcha and practice Stories, ledgers, '
+       'git history, and the dated approved_by and *_why fields -- they say '
+       'what happened in the words of the day. Ordinary English: "consider", '
+       '"act", lowercase "promote" and "booked" never match. Engine OUTPUT is '
+       'held by verify_harness instead, which runs the tools off the ladder. '
+       "An individual set whose person brings the ladder: one person reads "
+       'it, and the words are theirs.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'local/practices/*.md',
+                   'templates/**/*.md', 'documentation/*.md', '*.md',
+                   'reply_check.json', 'tools/our_language.json',
+                   'tools/ladder_words.py'))
+def _ladder_words_stay_in_the_ladder_set(ctx):
+    """A person off the ladder reads the universal set and the shared sets
+    their repositories declare. Every ladder word in those is a word they
+    meet for a method they never chose -- which is the whole problem the
+    opt-in fixed (2026-10-02: 638 hits in this repository before the move,
+    0 after). Only a set that provides the ladder may say them."""
+    if not (ROOT / 'precedent-source.json').is_file():
+        raise NotApplicable('not a practice set: a repository that consumes '
+                            'practices writes its own documents in its own '
+                            'words')
+    try:
+        import precedent_resolve as _pr
+        if _pr.LADDER_CAPABILITY in _pr.source_provides(ROOT):
+            raise NotApplicable('this set provides the ladder, so its words '
+                                'are its own')
+        brought = _individual_set_brings_the_ladder(_pr)
+        if brought:
+            raise NotApplicable(brought)
+    except ImportError:
+        pass
+    try:
+        import ladder_words
+    except ImportError:
+        raise NotApplicable('tools/ladder_words.py did not import')
+    out = []
+    for path in ladder_words.scoped_files(ROOT):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        for n, kind, text in ladder_words.file_hits(path):
+            out.append(Finding(
+                f'{rel}:{n}', f'{kind}, {text!r}: a person off the ladder '
+                f'reads this. Say it plainly, or move the rule into the set '
+                f'that provides the ladder'))
+    return out
+
+
+@check('ladder-set-is-brought-not-declared', 'tree',
+       "no repository's precedent.json declares a set that provides the "
+       'five-stage ladder: a declared set is in force for everyone who works '
+       'there, and the ladder is something each person brings for themselves',
+       'a declared set whose clone is not on this machine -- what it provides '
+       'cannot be read, so it is passed over. It does not look at what a '
+       'person brings: that is theirs to choose.',
+       practice_backed=False,
+       selects_on=('precedent.json',))
+def _ladder_set_is_brought_not_declared(ctx):
+    """The opt-in works person by person: two people in one repository, one
+    bringing the ladder set from their own individual set and one not, each
+    get their own. A repository that declares the set takes that choice
+    away from everybody at once, and nothing else would say so."""
+    try:
+        import precedent_resolve as _pr
+    except ImportError:
+        raise NotApplicable('precedent_resolve.py did not import')
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        if not isinstance(entry, dict) or not entry.get('path'):
+            continue
+        if _pr.normalize_level(entry.get('level')) in ('repo-local',
+                                                        'individual'):
+            continue
+        path = _pr._declared_path(ROOT.resolve(), entry['path'])
+        if _pr.LADDER_CAPABILITY in _pr.source_provides(path):
+            out.append(Finding(
+                'precedent.json',
+                f"declares {entry.get('name') or path.name}, which provides "
+                f'the five-stage ladder, so everyone who works here gets it. '
+                f'Take it out of this file; each person who wants it lists it '
+                f'under "brings" in their own individual set\'s '
+                f'precedent-source.json'))
+    return out
 
 
 # ---- frontmatter-field-order ----------------------------------------------
@@ -2214,6 +2340,19 @@ def _vendoring_decided(ctx):
             if rel and checkin.vendoring_rule(rel) is None]
 
 
+def _vendored_trees():
+    """-> the path prefixes that hold copies of another repository's files
+    (precedent_regenerate.VENDORED_TREES, its one definition)."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_regenerate
+        return tuple(precedent_regenerate.VENDORED_TREES)
+    except Exception:
+        return ()
+    finally:
+        sys.path.pop(0)
+
+
 @check('generated-files-registered', 'tree',
        'every file a tool here writes wholesale is listed in '
        'tools/generated_files.json, carries its label naming that tool, points '
@@ -2288,6 +2427,10 @@ def _generated_files_registered(ctx):
         if not rel.endswith(('.md', '.json')) or rel in listed:
             continue
         if 'evals' in pathlib.PurePosixPath(rel).parts[:-1]:
+            continue
+        # A copy of another repository's generated file is that
+        # repository's to list (precedent_regenerate.VENDORED_TREES).
+        if rel.startswith(_vendored_trees()):
             continue
         try:
             text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
@@ -2451,24 +2594,28 @@ def _generated_artifact_provenance(ctx):
         raise NotApplicable('tools/build_views.py is absent, so nothing here '
                             'declares which artifacts are generated')
     # Which of the two this repo actually GENERATES, read off the files
-    # themselves. build_views.py can write all three views, but a
-    # consuming repo runs it as `--agents-only` on purpose: MAP.md and
-    # GLOSSARY.md "assume THIS repo's layout" (build_views.py's own
-    # docstring, and INSTALL.md section 0's caveat, which says so in
-    # as many words), so a consumer hand-authors them from
-    # templates/MAP.md.template. Before this distinction, that documented,
-    # intended state was a VIOLATION in every consuming repo -- both files
-    # reported "carries no stamp" and then `build_views.py --check`
-    # reported them as drifted, for a repo that never generated them and
-    # never should. A file with no stamp is not a stale generated file;
-    # it is a hand-authored one, and orientation-map already requires
-    # MAP.md to exist and say something.
+    # themselves. Until 2026-10-03 a repository using Precedent hand-wrote
+    # MAP.md and GLOSSARY.md, and a file with no stamp was skipped here as
+    # that intended design. It no longer is: both are generated in every
+    # repository and never hand-edited (spec/GENERATED_FILES_PLAN.md;
+    # Morgan, 2026-10-03, strength: decided), a repository's own text living
+    # in MAP.source.md / GLOSSARY.source.md. A hand-written view with no
+    # source file is named, with the command that migrates it word for word.
     generated_here = []
     for name in GENERATED_VIEWS:
         p = ROOT / name
         head = p.read_text(encoding='utf-8', errors='ignore')[:1200] \
             if p.exists() else ''
         if 'build_views.py' not in head:
+            source = ROOT / name.replace('.md', '.source.md')
+            if p.exists() and not source.exists() and \
+                    _tool_path('tools/precedent_migrate_views.py') is not None:
+                out.append(Finding(name, 'is written by hand, and MAP.md and '
+                                         'GLOSSARY.md are generated in every '
+                                         'repository -- move it into '
+                                         f'{source.name} word for word with '
+                                         'python3 tools/precedent_migrate_views.py '
+                                         '--repo . (Update Vendors runs it)'))
             continue
         generated_here.append(name)
         if not re.search(r'do not (hand-)?edit|never hand-edit|generated',
@@ -2495,10 +2642,20 @@ def _generated_artifact_provenance(ctx):
         argv.append('--agents-only')
     r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
     if r.returncode != 0:
-        out.append(Finding('', 'a generated view is stale or hand-edited: '
-                               + (r.stdout + r.stderr).strip().splitlines()[-1]
-                               if (r.stdout + r.stderr).strip() else
-                               'build_views.py --check failed'))
+        # The line that says WHAT drifted. build_views.py prints notices
+        # after it (a set deferred, a practice not in force), and quoting the
+        # last line instead sent a session after missing sources, when a
+        # source had only changed since the last sync (2026-10-03).
+        lines = (r.stdout + r.stderr).strip().splitlines()
+        said = next((l for l in lines if '--check FAIL' in l or 'drifted' in l),
+                    lines[-1] if lines else 'build_views.py --check failed')
+        fix = ('most often a practice source this repository declares changed '
+               'since its last sync; fix: python3 tools/precedent_sync_views.py '
+               '--repo . , review the diff, commit'
+               if _tool_path('tools/precedent_sync_views.py') is not None else
+               'fix: python3 tools/build_views.py, review the diff, commit')
+        out.append(Finding('', f'a generated view is stale or hand-edited: {said} '
+                               f'-- {fix}'))
     return out
 
 
@@ -2623,6 +2780,13 @@ def _practice_change_propagates(ctx):
                 old = parts[1]
                 if _manifest_entry(old) is not None:
                     continue                    # materialized output, not ours
+                if parts[0] == 'D' and old in _decommissioned_paths():
+                    # A deletion somebody recorded on purpose: the
+                    # decommissioning registry says what went and why
+                    # (precedent_decommission.py, or precedent_move.py
+                    # --withdraw-from-universal, which deletes a rule meant
+                    # only for the people who bring another set, 2026-10-02).
+                    continue
                 if parts[0].startswith('R') and len(parts) > 2 and \
                         pathlib.Path(parts[1]).name == pathlib.Path(parts[2]).name:
                     continue                    # same slug, moved directory
@@ -2657,6 +2821,20 @@ def _withdrawn_here_cited_elsewhere(ppr, base, successors, wmap):
         return []
     gone = {slug for slug, what in changed.items()
             if not what.startswith('Rule reworded')}
+    # A consumer's practices/ is a sync's output: a rule the base's
+    # committed MANIFEST.json recorded left because its source moved it, not
+    # because this branch deleted anything (2026-10-03, a consumer rehearsal:
+    # every rule the ladder took out of universal was reported here as
+    # "deleted by this branch", though it lives on in the ladder set).
+    r = _git('show', f'{base}:MANIFEST.json')
+    if r is not None and r.returncode == 0:
+        try:
+            synced = {e.get('slug') for e in
+                      (json.loads(r.stdout).get('practices') or [])
+                      if isinstance(e, dict)}
+        except ValueError:
+            synced = set()
+        gone -= synced
     if not gone:
         return []
     out = []
@@ -3151,6 +3329,7 @@ def _practice_is_reachable(ctx):
     # present, the session-start hook invokes it, and the repo is public, so
     # the tool carries exactly these levels.
     session_channel_levels = ()
+    wired = False
     try:
         import build_views as _bv
         hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
@@ -3182,7 +3361,10 @@ def _practice_is_reachable(ctx):
             continue
         if slug in named:
             continue                       # resident block or occasion index
-        if s['level'] in session_channel_levels:
+        if s['level'] in session_channel_levels or (wired and s.get('brought')):
+            # A set the person brings is never in a tracked view, public
+            # repository or private (build_views.sources_for_tracked_block),
+            # so wherever the channel is wired it reaches them through it.
             via_session.append(slug)       # .precedent/SESSION_PRACTICES.md
             continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
@@ -7654,6 +7836,42 @@ def _paths_this_repo_removed():
             and not (ROOT / g).exists() and not _lives_on_in_own_engine(g)}
 
 
+_PATH_RUN = re.compile(r'[\w./-]+')
+
+
+def gone_path_matcher(gone):
+    """-> f(line): the first path of `gone`, in sorted order, that `line`
+    names on a boundary -- not after [\\w./-], not before [\\w-], so
+    `other-repo/practices/x.md` is not `practices/x.md` -- or None.
+
+    The same answer as one regex per path tried in sorted order, which is
+    what this check did until 2026-10-02 and what the harness compares it
+    with. That cost one regex per deleted path over every line of every
+    document: five to ten minutes on a consumer with thousands of documents
+    and a long history of deletions. A path made only of [\\w./-] can match
+    only where a run of those characters starts (the boundary before it
+    rules out any later start), and ends at the run's end or at a `.` or
+    `/` inside it, so its candidates are a handful of prefixes of each run,
+    looked up in a set. A path with any other character keeps its regex."""
+    simple, odd = set(), []
+    for g in sorted(gone):
+        if _PATH_RUN.fullmatch(g):
+            simple.add(g)
+        else:
+            odd.append((g, re.compile(r'(?<![\w./-])' + re.escape(g) + r'(?![\w-])')))
+
+    def first(line):
+        hits = []
+        if simple:
+            for m in _PATH_RUN.finditer(line):
+                run = m.group()
+                ends = [k for k, c in enumerate(run) if c in './'] + [len(run)]
+                hits += [run[:k] for k in ends if run[:k] in simple]
+        hits += [g for g, pat in odd if pat.search(line)]
+        return min(hits) if hits else None
+    return first
+
+
 @check('change-updates-its-docs', 'tree',
        'no live document names a path this repository once had and has '
        'since deleted or renamed away',
@@ -7670,10 +7888,7 @@ def _docs_name_no_removed_path(ctx):
     if not gone:
         raise NotApplicable('this repository\'s history deletes no path that '
                             'is still gone')
-    # One pattern per path, on a boundary, so `other-repo/practices/x.md`
-    # is not `practices/x.md`.
-    pats = [(g, re.compile(r'(?<![\w./-])' + re.escape(g) + r'(?![\w-])'))
-            for g in sorted(gone)]
+    first_gone = gone_path_matcher(gone)
     exempt = _declared_record_paths() + _decommissioning_record_exemptions()
     # A link to this repository's own branch names a path here too:
     # `https://github.com/<this>/blob/staging/practices/x.md` is x.md.
@@ -7704,7 +7919,7 @@ def _docs_name_no_removed_path(ctx):
             # A consumer's mirror of this repository's own file, as
             # INSTALL-era docs name it: `process/upstream/<path here>`.
             live += ' ' + live.replace('process/upstream/', ' ')
-            hit = next((g for g, pat in pats if pat.search(live)), None)
+            hit = first_gone(live)
             if hit and _sentences_saying_gone(lines, i - 1, hit):
                 continue
             if hit:
@@ -9072,6 +9287,18 @@ def _exempt_matches(rel, exempt_entry):
     return rel == exempt_entry
 
 
+def _decommissioned_paths():
+    """-> the set of paths the decommissioning registry records as deleted
+    on purpose, or an empty set."""
+    try:
+        cfg = json.loads(
+            (ROOT / DECOMMISSIONED_PATHS_REGISTRY).read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return set()
+    return {e.get('path') for e in cfg.get('decommissioned') or []
+            if isinstance(e, dict) and e.get('path')}
+
+
 def _decommissioning_record_exemptions():
     """-> the `exempt_files` list from the decommissioning registry, or [].
 
@@ -10135,8 +10362,8 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
        'the occasion index and this source\'s own occasion share, as '
        '`build_views.py --budgets` measures them',
        'anything outside the loader block -- the whole instructions file is '
-       'session-load-budget\'s. On the way into pre-staging a finding here '
-       'warns and does not refuse (SIZE_CAP_CHECKS); the full check refuses',
+       'session-load-budget\'s. At the quick check a finding here warns and '
+       'does not refuse (SIZE_CAP_CHECKS); the full check refuses',
        practice_backed=False,
        selects_on=('practices/*.md', 'local/practices/*.md', 'AGENTS.md',
                    _BUDGET_REGISTRY, 'precedent-source.json',
@@ -10245,6 +10472,35 @@ def _session_load_budgets():
         return None
 
 
+def _charge_brought_share(n):
+    """-> (n less the brought sets' share, Finding or None) for the session
+    file. The share is measured by rendering the file with and without the
+    sets the person brings; it is held to `brought_sets_tokens` in their
+    individual set's precedent-source.json. With no such budget the share
+    stays charged to the repository, as it was before the budget existed."""
+    try:
+        import precedent_session_practices as _psp
+        share, names = _psp.brought_share(ROOT)
+    except Exception:                                         # noqa: BLE001
+        return n, None
+    if not share:
+        return n, None
+    budget, ind = _psp.brought_budget(ROOT)
+    rel = '.precedent/SESSION_PRACTICES.md'
+    if budget is None:
+        # Undeclared: charged to the repository, as before the budget
+        # existed, so nobody's check changes until they declare one -- and a
+        # rollout need not land the individual set first.
+        return n, None
+    if share > budget:
+        return n - share, Finding(rel, (
+            f"{share:,} tokens of it come from the set(s) this person brings "
+            f"({', '.join(names)}), over the {budget:,}-token "
+            f"`{_psp.BROUGHT_BUDGET_KEY}` budget in their individual set. "
+            f"Reduce in the brought set, or the person raises their own budget"))
+    return n - share, None
+
+
 @check('session-load-budget', 'tree',
        'every file a session loads before it works is declared in '
        'tools/session_load_budgets.json and is under its declared ceiling, '
@@ -10311,6 +10567,13 @@ def _session_load_budget(ctx):
             out.append(Finding(rel, 'has a registry entry with no integer '
                                     '"ceiling"'))
             continue
+        if rel == '.precedent/SESSION_PRACTICES.md':
+            # The sets a person brings are charged to that person's own
+            # budget, not to this repository's ceiling (Morgan, 2026-10-03,
+            # strength: assented; precedent_session_practices.brought_share).
+            n, brought_finding = _charge_brought_share(n)
+            if brought_finding:
+                out.append(brought_finding)
         if n > ceiling:
             out.append(Finding(rel, f'{n:,} tokens, every session, over its '
                                     f'declared ceiling of {ceiling:,}. Run the '
@@ -10996,10 +11259,10 @@ def main():
             print(f'    {line}')
 
     for slug, _st, findings, _why, _uv in held_for_staging:
-        print(f'\nWARNING    {slug} — over a size cap. Allowed onto '
-              f'pre-staging; the full check refuses it at the Debut, so it '
-              f'must be brought under the cap before this can go to staging. '
-              f'Tell the person (practice: reduction-pass).')
+        print(f'\nWARNING    {slug} — over a size cap. The quick check '
+              f'lets it through; the full check refuses it, so it must be '
+              f'brought under the cap before it goes further. Tell the '
+              f'person (practice: reduction-pass).')
         for f in findings:
             print(f'    {f}')
 

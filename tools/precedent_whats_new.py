@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_whats_new.py -- the mechanics behind "What's new?".
+"""The mechanics behind "What's new?": which finished days on main a project's running log lacks, what changed on each, today so far, and marking the log current -- the entries themselves are the session's to write
+
+precedent_whats_new.py -- the mechanics behind "What's new?".
 
 A project keeps one running log of what changed in it, newest first:
 WHATS_NEW.md at the root, or wherever precedent.json's `whats_new_path`

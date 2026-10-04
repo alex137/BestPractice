@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""doc_lint.py — markdown hygiene checks (practice: doc-references-are-links).
+"""Markdown hygiene checks — strikethrough, links, acronyms
+
+doc_lint.py — markdown hygiene checks (practice: doc-references-are-links).
 
 Markdown hygiene checks, each born from a real bug (an outward-facing document
 that rendered with unintended strikethrough; file references written as bare
@@ -939,6 +941,37 @@ def check_frontmatter(path):
     return frontmatter_yaml.frontmatter_yaml_error(text)
 
 
+def check_index_clause(path):
+    """-> why a practice file's index_clause is refused, or None.
+
+    build_views.py refuses an on-demand practice's index_clause over its
+    INDEX_CLAUSE_MAX when the clause was written or changed in this repo,
+    but only when somebody runs it, and in a practice set that is the
+    Debut's full check. A clause written too long was committed, pushed and
+    landed on pre-staging, then refused at the Debut, more than once
+    (2026-10-02, name-the-branch at 92 characters). This asks the
+    builder's own question, through its own function, at the commit the
+    clause is written in -- the doc-lint gate runs this light pass on every
+    commit, and the quick push check runs it again. A clause nobody touched
+    is left alone, exactly as the builder leaves it (practice:
+    gates-fail-fast)."""
+    parts = pathlib.PurePath(path).parts
+    if 'practices' not in parts or not str(path).endswith('.md'):
+        return None
+    try:
+        import build_views as _bv
+        import split_practices as _sp
+        fm, sections = _sp._read_practice_file(ROOT / path)
+        over = _bv.over_long_index_clauses([(fm, sections, ROOT / path)], ROOT)
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not over:
+        return None
+    return (f"index_clause is {over[0][1]} characters, over the "
+            f"{_bv.INDEX_CLAUSE_MAX}-character limit -- shorten it here; the "
+            f"views build refuses it, and in a practice set that is the Debut")
+
+
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
@@ -1342,13 +1375,16 @@ def main():
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     unsourced_lines, residue_lines, broken_link_lines = [], [], []
-    skip_lines, frontmatter_lines = [], []
+    skip_lines, frontmatter_lines, index_lines = [], [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
         fm_err = check_frontmatter(f)
         if fm_err:
             frontmatter_lines.append(f"  {f}: {fm_err}")
+        ix_err = check_index_clause(f)
+        if ix_err:
+            index_lines.append(f"  {f}: {ix_err}")
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
         for i, target, why in check_broken_links(f):
@@ -1421,9 +1457,14 @@ def main():
         if len(frontmatter_lines) > 40:
             print(f"  … and {len(frontmatter_lines) - 40} more")
 
+    if index_lines:
+        print(f"\nINDEX LINE OVER THE LIMIT — {len(index_lines)} file(s) "
+              f"(FAIL; the views build refuses a newly written one):")
+        print('\n'.join(index_lines[:40]))
+
     if (not strike_lines and not unlinked_lines and not unglossed_lines
             and not target_lines and not unsourced_lines and not broken_link_lines
-            and not skip_lines and not frontmatter_lines):
+            and not skip_lines and not frontmatter_lines and not index_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no broken relative links, no unlinked references, no unglossed "
               f"acronyms, no target= anchors, no skipped heading levels, no "
@@ -1577,6 +1618,7 @@ def main():
         classes = (('accidental strikethrough', strike_lines),
                    ('broken relative link', broken_link_lines),
                    ('invalid frontmatter', frontmatter_lines),
+                   ('index line over the limit', index_lines),
                    ('skipped heading level', skip_lines),
                    ('process residue', residue_lines),
                    ('unsourced quantity', unsourced_lines),
@@ -1618,11 +1660,12 @@ def main():
               "references may be\n  right to -- judge each one.")
         return 1
 
-    if gate and (fatal or findability or frontmatter_lines):
+    if gate and (fatal or findability or frontmatter_lines or index_lines):
         _where = ("on lines this change touched" if scope is not None
                   else "in the file(s) named")
         print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) {_where}" + (f", {len(findability)} unfindable analysis(es)" if findability else "")
               + (f", {len(frontmatter_lines)} file(s) with invalid frontmatter" if frontmatter_lines else "")
+              + (f", {len(index_lines)} index line(s) over the limit" if index_lines else "")
               + ":")
         print('\n'.join(fatal[:40]))
         return 1

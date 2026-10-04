@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""practice_simulation.py -- phase 2 of spec/SIMULATION_BRIEF.md: synthetic
+"""Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark
+
+practice_simulation.py -- phase 2 of spec/SIMULATION_BRIEF.md: synthetic
 scenario generation, replacing tools/routing_eval.py's fixed 20-commit case
 set with cases that are INVENTED, not replayed.
 

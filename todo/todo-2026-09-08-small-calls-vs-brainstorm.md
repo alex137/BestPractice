@@ -18,7 +18,7 @@ closed:            null
 
 - <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and
     nothing mechanical stops it.** Opened 2026-09-08 alongside
-    [brainstorm-holds-commits](../practices/brainstorm-holds-commits.md), and
+    `brainstorm-holds-commits`, and
     **corrected the same day** — the first version of this item said the team
     rule "wins on precedence," which is wrong. `PRECEDENCE` is
     `team > repo-local > individual > universal` **by slug**, and these are

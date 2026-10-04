@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""routing_eval_synthetic.py -- a targeted stress test of the occasion-index
+"""Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits
+
+routing_eval_synthetic.py -- a targeted stress test of the occasion-index
 channel, using eight hand-written synthetic tasks instead of real commits.
 
 See evals/routing_synthetic/PREDICTION.md for why this exists, what it can

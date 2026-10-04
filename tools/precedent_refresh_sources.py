@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_refresh_sources.py -- find the practice-set sources attached to
+"""Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none
+
+precedent_refresh_sources.py -- find the practice-set sources attached to
 this session and tell whether their vendored engine is out of date; with
 --apply, bring them up to date.
 
@@ -283,6 +285,23 @@ def committed_engine(repo):
         return ''
 
 
+def _engine_ahead_of(recorded, tip):
+    """True when `recorded` is a commit this checkout knows that `tip` does
+    not contain (precedent_vendor_engine.engine_is_ahead's question). A
+    commit it cannot place is not called ahead."""
+    if not recorded or not tip:
+        return False
+    known, _ = _git('cat-file', '-e', f'{recorded}^{{commit}}')
+    if not known:
+        return False
+    try:
+        r = subprocess.run(['git', 'merge-base', '--is-ancestor', recorded, tip],
+                           cwd=str(ROOT), capture_output=True)
+    except OSError:
+        return False
+    return r.returncode == 1
+
+
 def survey(extra_paths=()):
     """-> (tip, [{repo, kind, recorded, stale, error}]). One entry per repo
     that actually carries a vendored engine; everything else is not this
@@ -304,8 +323,16 @@ def survey(extra_paths=()):
         # reads as stale -- which is the honest answer: nobody can tell what
         # those bytes are.
         stale = None if not tip else (recorded != tip)
+        # A recorded engine the tip does not contain is newer, not older:
+        # refreshing it would roll it back (2026-10-02, a practice set made
+        # from a working branch, rolled back at every session start). Asked
+        # of the history here, the same question refresh itself asks.
+        ahead = bool(stale) and _engine_ahead_of(recorded, tip)
+        if ahead:
+            stale = False
         found.append({'repo': repo, 'kind': man.get('kind', '?'),
                       'recorded': recorded, 'stale': stale, 'error': None,
+                      'ahead': ahead,
                       'committed': committed_engine(repo),
                       'hooks': hook_state(repo),
                       'branch': branch_state(repo)})
@@ -900,7 +927,7 @@ def apply_to(entry, commit=False, branch=None):
     # build_views.py against one used to render MAP.md's "## The engine"
     # table over the consumer's whole tools/ directory, which holds the
     # consumer's OWN scripts alongside the vendored engine, and hard-fail
-    # the moment one of them had no TOOLS_DESCRIPTIONS entry -- a script
+    # the moment one of them had no description entry -- a script
     # this repo wrote can never have one for a script it has never seen.
     # Found 2026-09-14 against a real consumer, on
     # `tools/check_file_mention_links.py`: the refresh had already written
@@ -1060,6 +1087,11 @@ def main(argv):
             print(f"  STALE  {_label(e['repo'])} ({e['kind']}): has engine "
                   f"{e['recorded'][:12] or '(none)'}, BestPractice {tip_ref} "
                   f"is {tip[:12]}")
+        elif e.get('ahead'):
+            print(f"  AHEAD  {_label(e['repo'])} ({e['kind']}): has engine "
+                  f"{e['recorded'][:12]}, newer than BestPractice {tip_ref} "
+                  f"({tip[:12]}) -- left as it is; it is refreshed once that "
+                  f"work reaches {tip_ref}")
         elif e.get('committed') and e['committed'] != e['recorded']:
             # Written here at every session start, by decision (2026-09-15),
             # and never committed by this tool: the copy is regenerable, not

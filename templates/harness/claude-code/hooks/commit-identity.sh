@@ -853,6 +853,22 @@ case "\$0" in
     ;;
 esac
 
+# The engine's own commit-time fixer (spec/GENERATED_FILES_PLAN.md step 3):
+# it rebuilds the generated files whose inputs this commit touches, with the
+# repository's own copy of the engine, and stages them, so a generated file
+# never goes out stale and nobody has to remember. It never refuses a commit.
+# After the person's fixer: a header that fixer stamps on a source (MAP.source.md,
+# say) must be in place before the view is rebuilt from it, or the view goes out
+# stale (found 2026-10-03 rehearsing a consumer).
+case "\$0" in
+  *pre-commit)
+    _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    for _rg in "\$_top/tools/precedent_regenerate.py" "\$_top/process/upstream/tools/precedent_regenerate.py"; do
+      if [ -n "\$_top" ] && [ -f "\$_rg" ]; then python3 "\$_rg" --staged || true; break; fi
+    done
+    ;;
+esac
+
 [ "\${PRECEDENT_ALLOW_ANY_AUTHOR:-}" = "1" ] && exit 0
 
 ident="\$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)"
@@ -1072,6 +1088,22 @@ case "\$0" in
   *pre-commit)
     _fix="$person_fixer"
     if [ -n "\$_fix" ] && [ -x "\$_fix" ]; then "\$_fix" || true; fi
+    ;;
+esac
+
+# The engine's own commit-time fixer (spec/GENERATED_FILES_PLAN.md step 3):
+# it rebuilds the generated files whose inputs this commit touches, with the
+# repository's own copy of the engine, and stages them, so a generated file
+# never goes out stale and nobody has to remember. It never refuses a commit.
+# After the person's fixer: a header that fixer stamps on a source (MAP.source.md,
+# say) must be in place before the view is rebuilt from it, or the view goes out
+# stale (found 2026-10-03 rehearsing a consumer).
+case "\$0" in
+  *pre-commit)
+    _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    for _rg in "\$_top/tools/precedent_regenerate.py" "\$_top/process/upstream/tools/precedent_regenerate.py"; do
+      if [ -n "\$_top" ] && [ -f "\$_rg" ]; then python3 "\$_rg" --staged || true; break; fi
+    done
     ;;
 esac
 

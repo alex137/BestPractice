@@ -23,7 +23,7 @@ used to read on turn one.
 
 ## The commands
 
-- **"Go update"** and **"Approved"** ([go-update](../practices/go-update.md)) —
+- **"Go update"** and **"Approved"** (`go-update`) —
   classify first: a direct push, straight to the shared branch, no PR, is now
   the **default**; only a **high-risk** change (touches enforcement/gating
   code, changes a governance or authorization practice, is hard to reverse
@@ -257,7 +257,7 @@ practice audit's scrub-gate and practice-export-loop (2026-10-02), seconds
 -- unless the person's
 `branch_push_checks` says `full`. A push or pull request into
 `pre-staging` also checks the files it changes, and nothing more, in
-seconds ([checks-follow-the-tier](../practices/checks-follow-the-tier.md)). A pull request merged through GitHub
+seconds (`checks-follow-the-tier`). A pull request merged through GitHub
 gets the same check at its base branch's tier, from `merge-check-gate.sh`.
 `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
 `0 violated`, never a passed/skipped count** — those grow as checks are

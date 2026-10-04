@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_reply_check.py — the reply gate, made BLOCKING.
+"""The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires
+
+precedent_reply_check.py — the reply gate, made BLOCKING.
 
 WHAT THIS IS FOR. Every other channel in this engine is advisory: the
 resident block, the occasion index, the path triggers and
@@ -189,7 +191,52 @@ def declared_requirements(repo):
                 continue
             item['_source'] = f"{s['level']}/{s['name']}"
             reqs.append(item)
-    return reqs, notes
+    return _settle(reqs, repo), notes
+
+
+def _settle(reqs, repo):
+    """Two generic keys a requirement may carry (spec/LADDER_OPT_IN_PLAN.md
+    D11, 2026-10-02):
+
+    `id`: a later source -- the resolver's order is weakest first, so a
+    shared or individual set comes after universal -- that declares the same
+    id REPLACES the earlier requirement rather than adding a second one.
+    That is how a set states the same rule in its own words (the ladder
+    set's Boildown first bullet names the step; universal's names only the
+    branch) without the person seeing two.
+
+    `requires`: a list of capabilities (precedent_resolve.LADDER_CAPABILITY
+    is the one named today). The requirement is in force only while every
+    one is -- a person's own ladder rule goes quiet in a session started
+    with PRECEDENT_NO_LADDERS, or once they stop bringing the set."""
+    # The replacement takes the FIRST declaration's place in the list, so a
+    # person reads their requirements in the order they always did.
+    last, first = {}, {}
+    for i, r in enumerate(reqs):
+        rid = r.get('id')
+        if isinstance(rid, str) and rid:
+            last[rid] = r
+            first.setdefault(rid, i)
+    kept = []
+    for i, r in enumerate(reqs):
+        rid = r.get('id')
+        if isinstance(rid, str) and rid:
+            if first[rid] == i:
+                kept.append(last[rid])
+            continue
+        kept.append(r)
+    needs = [r for r in kept if r.get('requires')]
+    if needs:
+        try:
+            import precedent_ladder as pl
+            ladder = pl.ladder_in_force(repo)
+        except Exception:                                   # noqa: BLE001
+            ladder = False
+        have = {'ladder'} if ladder else set()
+        kept = [r for r in kept
+                if not r.get('requires')
+                or set(r['requires']) <= have]
+    return kept
 
 
 def last_assistant_text(transcript):
@@ -462,6 +509,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_landed_if_says',
     'unless_reply_declares_loss',
     # conditions and metadata
+    'id', 'requires',            # see _settle (2026-10-02)
     'require_when_context_grew_tokens',
     'advisory',
     'practice',

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_push_check.py -- run, before a push, what CI used to run after it.
+"""Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch runs its basic tier only, and a push to main the full one
+
+precedent_push_check.py -- run, before a push, what CI used to run after it.
 
 WHY THIS EXISTS (Morgan, 2026-09-25, strength: decided). Three switches now
 keep GitHub Actions from running on most of his pushes: `ci_workflows`
@@ -162,6 +164,16 @@ FINDING = re.compile(r'^\s*(?:[\w.-]+ )?(VIOLATION|ERROR|FAIL(ED|URE)?)\b')
 FINDING_LINES = 30
 
 
+
+def _ladder_off():
+    """True only when tools/precedent_ladder.py is here and says the ladder
+    is not in force for this person; without it, the old wording stands."""
+    try:
+        import precedent_ladder
+        return precedent_ladder.ladder_in_force(Path(__file__).resolve().parent.parent) is False
+    except Exception:                                       # noqa: BLE001
+        return False
+
 def _finding_lines(out):
     """The finding headers in `out`, each with the indented lines under it
     (its findings, not the rule text after them), capped at FINDING_LINES."""
@@ -246,7 +258,7 @@ CI_WORKFLOWS_CHECK = (
     'no workflow -- the check that keeps workflows from being added unasked')
 # Entries a repo may simply not have: skipped with a note, never a failure.
 OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
-            'light_check'}
+            'light_check', 'views_sync'}
 # The BASIC tier: what a push to pre-staging or any other working branch
 # runs. Everything else in a kind's list is FULL-only. The leak gate is
 # here because a push IS publication in a public repository, and cannot
@@ -256,12 +268,16 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # reaches ANY branch GitHub runs it on; light_check is the repo's own fast
 # check, and its secret scan wants every push (practice: ci-workflow-approved;
 # Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
+# build_views joins it for a practice set (2026-10-03, spec/
+# GENERATED_FILES_PLAN.md step 4): a stale or hand-edited view used to pass
+# the push to pre-staging and fail only at the Debut. It takes under a second.
 # The practice audit's two checks join it for a consumer (2026-10-02): a
 # classic install migrated onto the loader carried stale manifest baselines
 # and no scrub blocklist, both full-tier findings, so its pre-staging pushes
 # passed and the first Debut failed on both. They run in seconds.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
-                'session_trailer', 'ci_workflows', 'light_check',
+                'session_trailer', 'ci_workflows', 'light_check', 'build_views',
+                'views_sync',
                 'scrub_gate', 'practice_export_loop'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
@@ -321,6 +337,15 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
         CI_WORKFLOWS_CHECK,
+        # Whether the generated views still match the practice sources
+        # (2026-10-03): a reduction pass retired practices in the shared sets,
+        # a consumer's views were never re-synced, and nothing said so until a
+        # Debut's full check -- whose message sent the session after missing
+        # sources. Basic tier, so the push to pre-staging says it; sources
+        # that cannot be resolved here are said and skipped, never failed.
+        ('views_sync', ['{engine}/precedent_sync_views.py', '--repo', '.',
+                        '--check', '--skip-unresolved'],
+         'nothing -- a stale view surfaced only at the full check'),
         # The repo's OWN light check, where it has one: what its
         # light-check.yml ran on GitHub, run here instead of there.
         ('light_check', ['tools/light_check.py'],
@@ -669,7 +694,10 @@ def _promote_only_refusal(root, argv):
 # still waits for staging.
 # What a step prints when a session-load size cap is exceeded but not
 # refused: precedent_check.py's pre-staging WARNING, build_views.py's.
-SIZE_CAP_WARNINGS = ('over a size cap. Allowed onto pre-staging',
+SIZE_CAP_WARNINGS = ('over a size cap. The quick check',
+                     # precedent_check.py's wording until 2026-10-02, kept
+                     # so a check vendored before then is still recognised
+                     'over a size cap. Allowed onto pre-staging',
                      'build_views WARNING:')
 CAP_WARNED = []           # the steps that printed one, this run
 
@@ -678,7 +706,11 @@ def _cap_warning_last():
     """Say it last, where the push gate's short tail of a pass shows it:
     a size cap is over, allowed onto pre-staging, refused at the Debut
     (Morgan, 2026-09-30: warn on pre-staging, no change for staging)."""
-    if CAP_WARNED:
+    if CAP_WARNED and _ladder_off():
+        print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
+              f'above). Allowed onto this branch; the full check refuses it, '
+              f'so bring it under first (a Reduction pass). Tell the person.')
+    elif CAP_WARNED:
         print(f'WARNING: over a session-load size cap ({", ".join(CAP_WARNED)}, '
               f'above). Allowed onto pre-staging; the Debut into staging '
               f'refuses it, so bring it under first (a Reduction pass). Tell '
@@ -862,13 +894,13 @@ def changed_files_check(root, since):
                 f'tests/test_{name}.sh, invoking check_{name}.py by name; '
                 f'run_all.sh runs only test_*.sh, so without it the deep '
                 f'check never runs this check and check_deep_check.py '
-                f'refuses the next Promote')
+                f'refuses the next full check')
         elif f'check_{name}.py' not in (root / test).read_text(
                 encoding='utf-8', errors='replace'):
             problems.append(
                 f'{test}: never names check_{name}.py -- a check\'s test must '
                 f'invoke it by name, or check_deep_check.py refuses the next '
-                f'Promote')
+                f'full check')
         text = path.read_text(encoding='utf-8', errors='replace')
         if not re.search(r'^SOURCE_ROOT\s*=', text, re.M) \
                 or not re.search(r'PRECEDENT_CHECK_ROOT["\']', text):
@@ -879,7 +911,7 @@ def changed_files_check(root, since):
                 f'.parent` and `ROOT = pathlib.Path(os.environ.get('
                 f'"PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)`, and resolve '
                 f'PRACTICE_FILE against SOURCE_ROOT, or check_deep_check.py '
-                f'refuses the next Promote')
+                f'refuses the next full check')
     if repo_kind(HERE) == 'upstream' and any(
             rel in ('tools/precedent_check.py', 'tools/verify_harness.py')
             or re.match(r'(?:local/)?tools/checks/check_\w+\.py$', rel)
@@ -890,7 +922,7 @@ def changed_files_check(root, since):
                 f"case('{slug}', <plant>) to check_precedent_check_fires in "
                 f'tools/verify_harness.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
-                f'the full check at the next Debut runs it')
+                f'the next full check runs it')
     for test in tests:
         try:
             r = subprocess.run(['bash', test], cwd=root, capture_output=True,
@@ -996,9 +1028,15 @@ def _default_destination(root, argv):
         sys.path.pop(0)
     if not landing:
         return argv
-    print(f'precedent_push_check: no destination named, so this checks what '
-          f'a push to {landing}, your landing branch, gets. The full check is the Debut\'s: '
-          f'--tier full --because "<reason>".', flush=True)
+    if _ladder_off():
+        # Off the ladder a person lands on main, which IS the full check
+        # (spec/LADDER_OPT_IN_PLAN.md D3) -- there is no later step to name.
+        print(f'precedent_push_check: no destination named, so this checks what '
+              f'a push to {landing}, your landing branch, gets.', flush=True)
+    else:
+        print(f'precedent_push_check: no destination named, so this checks what '
+              f'a push to {landing}, your landing branch, gets. The full check is the Debut\'s: '
+              f'--tier full --because "<reason>".', flush=True)
     return list(argv) + ['--push-command', f'origin HEAD:{landing}']
 
 
@@ -1413,6 +1451,17 @@ def ensure_gate_packages(packages=GATE_PACKAGES, importable=_importable,
     return True, f'installed {", ".join(missing)}, which the gates import'
 
 
+def _test_session_refusal():
+    """The No ladders test session pushes nothing (precedent_ladder.py).
+    A repository without the helper has no such session: None."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_ladder
+    except Exception:                                        # noqa: BLE001
+        return None
+    return precedent_ladder.test_session_refusal()
+
+
 def main(argv):
     root_s = git(HERE, 'rev-parse', '--show-toplevel')
     if not root_s:
@@ -1420,6 +1469,11 @@ def main(argv):
               'check.', file=sys.stderr)
         return 2
     root = Path(root_s)
+    if '--gate' in argv:
+        refusal = _test_session_refusal()
+        if refusal:
+            print(f'precedent_push_check: {refusal}')
+            return 1
     # A run from inside a different repo reads THIS repo, silently -- say so
     # (precedent_which_repo.py; gotcha-2026-09-29). Warn only; never fatal.
     try:
@@ -1442,6 +1496,19 @@ def main(argv):
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
+    if '--tier' in argv:
+        i = argv.index('--tier')
+        value = argv[i + 1] if i + 1 < len(argv) else ''
+        if value not in (BASIC, FULL):
+            # Refused, not run full: a misspelt tier used to run the full
+            # suite silently and so skipped the --because refusal --tier
+            # full has (found by a consumer rehearsal, 2026-10-03, which ran
+            # "--tier main" believing it named a tier).
+            print(f'precedent_push_check: REFUSED -- --tier {value!r} is not '
+                  f'a tier. The tiers are {BASIC} and {FULL}; a branch name '
+                  f'such as main is not one. Run this bare to get the tier '
+                  f'your landing branch takes.', file=sys.stderr)
+            return 1
     tier, why = _tier_from_args(root, argv)
     kind, checks = plan(root, tier=tier)
     if '--changed-files-check' in argv:
@@ -1469,7 +1536,7 @@ def main(argv):
 
     if '--list' in argv:
         print(f'{root.name} is {"an" if kind[0] in "aeiou" else "a"} {kind} '
-              f'repository. Before a push to staging or main (full); a push '
+              f'repository. Before a push to {"main" if _ladder_off() else "staging or main"} (full); a push '
               f'to any other branch runs only the checks marked basic:')
         for name, a, replaces in plan(root, tier=FULL)[1]:
             mark = 'basic' if name in BASIC_CHECKS else 'full '

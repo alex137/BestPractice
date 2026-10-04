@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_install.py -- install Precedent into a project in one command.
+"""Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt
+
+precedent_install.py -- install Precedent into a project in one command.
 
 Run from a clone of Precedent (this repository), pointed at the project:
 
@@ -75,9 +77,12 @@ UNIVERSAL_PATH = 'precedent/universal'
 # on purpose (it doubles as the rendered sample).
 ROOT_FILES = {
     'AGENTS.md': 'AGENTS.md.loader.template',
-    'MAP.md': 'MAP.md.template',
+    # The repository's own text for its map and glossary: MAP.md and
+    # GLOSSARY.md are generated from these by the sync, never hand-written
+    # (spec/GENERATED_FILES_PLAN.md step 5; Morgan, 2026-10-03).
+    'MAP.source.md': 'MAP.md.template',
     'TODO.md': 'TODO.md.template',
-    'GLOSSARY.md': 'GLOSSARY.md.template',
+    'GLOSSARY.source.md': 'GLOSSARY.md.template',
     'GETTING_STARTED.md': 'GETTING_STARTED.md',
     # The one trap every install inherits, as a file in the catalogue
     # rather than an entry inlined into AGENTS.md: resident
@@ -227,10 +232,14 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'always written explicitly here.',
         ],
         'sources': sources,
-        precedent_branches.LANDING_SETTING: precedent_branches.REPO_LANDING_DEFAULT,
-        '_' + precedent_branches.LANDING_SETTING + '_comment':
-            precedent_branches.REPO_LANDING_COMMENT,
     }
+    # The tiered default only when the person installing is on the ladder
+    # (spec/LADDER_OPT_IN_PLAN.md D3): for anyone else a repository has its
+    # main branch, and its precedent.json says nothing about tiers.
+    if precedent_branches.ladder_in_force(path.parent) is not False:
+        doc[precedent_branches.LANDING_SETTING] = precedent_branches.REPO_LANDING_DEFAULT
+        doc['_' + precedent_branches.LANDING_SETTING + '_comment'] = \
+            precedent_branches.REPO_LANDING_COMMENT
     if output_paths:
         doc['output_paths'] = output_paths
         doc['_output_paths_comment'] = [
@@ -326,7 +335,7 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
             f"  when it suits the project (say `Update Vendors` to an assistant;\n"
             f"  the procedure is [{UPSTREAM_DOCS}/INSTALL.md]({UPSTREAM_DOCS}/INSTALL.md) §2).",
         },
-        'MAP.md': {
+        'MAP.source.md': {
             "| `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see [AGENTS.md](AGENTS.md) \"Practice export\". |":
             f"| `{UNIVERSAL_PATH}/` | The vendored Precedent practice catalogue — never hand-edited; refreshed by `Update Vendors`. The engine that reads it is in `tools/`. |",
         },
@@ -611,12 +620,17 @@ def _tiers(dest):
         return f'branch tiers: no origin yet -- {later}'
     lines = []
     try:
-        rc = precedent_branches.ensure_tiers(dest, apply=True, say=lines.append)
+        rc = precedent_branches.ensure_tiers(dest, apply=True, say=lines.append,
+                                             new_install=True)
     except Exception as e:                                     # noqa: BLE001
         rc, lines = 1, [f'{type(e).__name__}: {e}']
     if rc != 0:
         return f'branch tiers: not made yet ({" ".join(lines)[-200:]}) -- {later}'
     made = [l for l in lines if l.startswith(('created ', 'wrote '))]
+    if not made and not lines:
+        # Nothing was asked of the tiers: the person installing is not on
+        # the ladder, so this repository has its main branch and no more.
+        return ''
     return 'branch tiers: ' + ('; '.join(made) if made
                                else 'pre-staging, staging and main all present')
 
@@ -670,13 +684,18 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  {_record_hooks(dest)}')
     for line in _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         say(f'  {line}')
-    say(f'  {_tiers(dest)}')
+    _tier_note = _tiers(dest)
+    if _tier_note:
+        say(f'  {_tier_note}')
 
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
     if r.returncode != 0:
         raise InstallRefused(f'the sync failed:\n{r.stdout}{r.stderr}')
     for line in _tool_lines(r, 'precedent_sync_views OK'):
         say(f'  {line}')
+    # The repository's own list of generated files, so its commits rebuild
+    # MAP.md and GLOSSARY.md and its checks judge them from the first push.
+    _run([sys.executable, 'tools/precedent_migrate_views.py', '--repo', '.'], dest)
 
     all_instantiated = list(ROOT_FILES) + list(LOCAL_PRACTICE_FILES)
     md = all_instantiated + ['README.md']

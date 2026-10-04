@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""model_audit -- run each computing script's self-assertions, and check the
+"""Runs each computing script's own self-assertions and checks the figures it recites
+
+model_audit -- run each computing script's self-assertions, and check the
 figures its authoritative source documents recite (practice: scripts-assert-properties).
 
 The failure mode this kills is NOT a stale copy, and that is the whole point.
@@ -187,13 +189,23 @@ SETTLED_WORDS = ("doctrine", "as built", "settled")
 
 # ---------------------------------------------------------------------------
 # The changed-only gate (--changed). A model's self-check and anchors can only
-# move when its own code or code it imports moves, so a turn that touched a
+# move when its own code or code it loads moves, so a turn that touched a
 # few models audits those, and the full run stays the pre-merge gate. The
 # closure is static: import statements resolved to files in the repo, the
-# model's own directory first, then SEARCH_DIRS. A change under
-# ALWAYS_FULL_PREFIXES (vendored engines loaded by path, which no import
-# statement names) falls back to the full list. Hosts set BASE_REF (the ref
-# the branch is compared with) and SEARCH_DIRS.
+# model's own directory first, then SEARCH_DIRS -- and, for the engines
+# under ALWAYS_FULL_PREFIXES, which a shim loads by path and no import
+# statement names, any engine whose file name (`table_fmt.py`) a string in
+# the closure spells -- the path a loader is handed. A comment or docstring
+# that mentions one does not count: followed that loosely, every engine's
+# prose names another and the closure is the whole of tools/.
+# Hosts set BASE_REF (the ref the branch is compared with) and SEARCH_DIRS.
+#
+# Until 2026-10-02 any changed .py under those prefixes audited every model.
+# A consumer's Update Vendors rewrites a dozen engine files under tools/ that
+# no model loads (the lint, the view builder, checkin.py), and so every merge
+# carrying one re-audited all 59 of its models. Now an engine change selects
+# only the models whose closure names it; a change to a file no model loads
+# -- a manifest, a blocklist, an engine nothing names -- selects none.
 BASE_REF = "origin/HEAD"
 SEARCH_DIRS = []
 ALWAYS_FULL_PREFIXES = ("process/", "tools/")
@@ -223,46 +235,159 @@ def changed_files(base=None):
     return out
 
 
-def import_closure(path):
-    """The repo files a script imports, transitively (static: import
-    statements resolved against its own directory, then SEARCH_DIRS)."""
+def engine_index():
+    """{name: [paths]} of the .py files under ALWAYS_FULL_PREFIXES -- the
+    engines a shim may load by path, keyed by the name a loader would
+    spell. A name starting with `_` (`__init__`) is left out: every file
+    says it."""
+    out = {}
+    for args in (("ls-files", "--", *ALWAYS_FULL_PREFIXES),
+                 ("ls-files", "--others", "--exclude-standard", "--", *ALWAYS_FULL_PREFIXES)):
+        for rel in (_git(*args) or "").splitlines():
+            stem = Path(rel).stem
+            if rel.endswith(".py") and not stem.startswith("_"):
+                out.setdefault(stem, []).append((ROOT / rel).resolve())
+    return out
+
+
+_PY_NAME = r"([A-Za-z0-9_]+)\.py\b"
+
+
+def _named_py_files(text):
+    """The `X` of every `X.py` a string literal in `text` spells, docstrings
+    left out -- the files a loader may be handed by path."""
+    import ast, re
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return set(re.findall(_PY_NAME, text))
+    docs = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if isinstance(body, list) and body and isinstance(body[0], ast.Expr) \
+                and isinstance(getattr(body[0], "value", None), ast.Constant):
+            docs.add(id(body[0].value))
+    out = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                and id(node) not in docs and ".py" in node.value:
+            out.update(re.findall(_PY_NAME, node.value))
+    return out
+
+
+def import_closure(path, engines=None, _cache=None):
+    """The repo files a script loads, transitively: import statements
+    resolved against its own directory, then SEARCH_DIRS; and, with
+    `engines` (engine_index()), every engine whose file name a string in
+    the closure spells."""
     import re
     imp = re.compile(r"^\s*(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)", re.M)
     dirs = [ROOT / d for d in SEARCH_DIRS]
+    cache = {} if _cache is None else _cache
     seen, todo = set(), [Path(path).resolve()]
     while todo:
         q = todo.pop()
         if q in seen or not q.exists():
             continue
         seen.add(q)
-        for name in imp.findall(q.read_text(errors="replace")):
+        if q not in cache:
+            text = q.read_text(errors="replace")
+            cache[q] = (imp.findall(text), _named_py_files(text) if engines else None)
+        imports, named = cache[q]
+        for name in imports:
             for d in [q.parent, *dirs]:
                 c = d / f"{name}.py"
                 if c.exists():
                     if c.resolve() not in seen:
                         todo.append(c.resolve())
                     break
+        if engines:
+            if named is None:
+                named = _named_py_files(q.read_text(errors="replace"))
+                cache[q] = (imports, named)
+            for name in named & engines.keys():
+                todo += [e for e in engines[name] if e not in seen]
     return seen
 
 
 def select_changed(scripts, base=None):
     """(the scripts whose closure holds a changed file, a note). Every
-    script when git cannot say or a changed file is under
-    ALWAYS_FULL_PREFIXES."""
+    script when git cannot say."""
     ch = changed_files(base)
     if ch is None:
         return list(scripts), f"--changed: no merge base with {base or BASE_REF}; auditing all"
-    full = sorted(c for c in ch if c.startswith(ALWAYS_FULL_PREFIXES) and c.endswith(".py"))
-    if full:
-        return list(scripts), f"--changed: {full[0]} changed (an engine no import names); auditing all"
+    # The memo plumbing a host lists for the ledger (LEDGER_IGNORE, below)
+    # reaches every model and decides none of their answers, so a change to
+    # it selects none of them either.
+    ch = {c for c in ch if c not in LEDGER_IGNORE}
     chp = {(ROOT / c).resolve() for c in ch if c.endswith(".py")}
-    keep = []
+    engines = engine_index() if any(c.startswith(ALWAYS_FULL_PREFIXES) for c in ch
+                                    if c.endswith(".py")) else None
+    cache, keep = {}, []
     for rel in scripts:
         p = ROOT / rel
-        if p.exists() and import_closure(p) & chp:
+        if p.exists() and import_closure(p, engines, cache) & chp:
             keep.append(rel)
-    return keep, (f"--changed: {len(keep)} of {len(scripts)} instrumented script(s) import "
+    return keep, (f"--changed: {len(keep)} of {len(scripts)} instrumented script(s) load "
                   f"code changed against {base or BASE_REF}; the full run is the merge gate")
+
+
+def self_check_changed():
+    """-> [failure]: --changed against a scratch repository. A model, a
+    shim it imports, and the engine the shim loads by path; then one change
+    at a time, each asserting which models it selects."""
+    import subprocess, tempfile
+    global ROOT, SEARCH_DIRS, LEDGER_IGNORE
+    saved = ROOT, SEARCH_DIRS, LEDGER_IGNORE
+    fails = []
+    with tempfile.TemporaryDirectory(prefix="model-audit-changed-") as tmp:
+        root = Path(tmp)
+        files = {
+            "models/a_model.py": "import fmt_shim\nX = 1\n",
+            "models/b_model.py": "_m = 'tools/memo_store.py'\nY = 2\n",
+            "models/fmt_shim.py": '"""Formats as tools/doc_lint.py would."""\n'
+                                  "import importlib.util\n"
+                                  "_p = 'tools/table_fmt.py'  # loaded by path\n",
+            "tools/table_fmt.py": "# doc_lint.py has the same rule\nZ = 3\n",
+            "tools/doc_lint.py": "W = 4\n",
+            "tools/memo_store.py": "V = 5\n",
+            "process/manifest.json": "{}\n",
+            "process/scrub_blocklist.txt": "word\n",
+        }
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text)
+        env = {**__import__("os").environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+               "PRECEDENT_ALLOW_ANY_AUTHOR": "1"}
+        g = lambda *a: subprocess.run(["git", "-C", tmp, "-c", "core.hooksPath=/dev/null", *a],
+                                      capture_output=True, text=True, env=env)
+        g("init", "-q", "-b", "main")
+        g("add", "-A")
+        g("commit", "-qm", "base")
+        base = g("rev-parse", "HEAD").stdout.strip()
+        scripts = ["models/a_model.py", "models/b_model.py"]
+        cases = [
+            ("a manifest and a blocklist only", ["process/manifest.json",
+                                                 "process/scrub_blocklist.txt"], []),
+            ("an engine no model loads", ["tools/doc_lint.py"], []),
+            ("the engine a shim loads by path", ["tools/table_fmt.py"], ["models/a_model.py"]),
+            ("memo plumbing the host lists", ["tools/memo_store.py"], []),
+            ("a model itself", ["models/b_model.py"], ["models/b_model.py"]),
+        ]
+        try:
+            ROOT, SEARCH_DIRS, LEDGER_IGNORE = root, [], ("tools/memo_store.py",)
+            for what, touched, want in cases:
+                g("checkout", "-q", base, "--", ".")
+                for rel in touched:
+                    with open(root / rel, "a") as fh:
+                        fh.write("# changed\n")
+                got, _note = select_changed(scripts, base)
+                if sorted(got) != sorted(want):
+                    fails.append(f"--changed, {what}: selected {got}, want {want}")
+        finally:
+            ROOT, SEARCH_DIRS, LEDGER_IGNORE = saved
+    return fails
 
 
 def check_constants_register():
@@ -465,7 +590,16 @@ def main():
                     help="audit only the scripts whose import closure changed against "
                          "BASE (default BASE_REF); the full run stays the merge gate")
     ap.add_argument("--full", action="store_true", help="ignore the ledger and audit every script")
+    ap.add_argument("--self-check", action="store_true",
+                    help="check this engine's own --changed selection on a scratch repo")
     args = ap.parse_args()
+    if args.self_check:
+        fails = self_check_changed()
+        for f in fails:
+            print(f"model_audit SELF-CHECK FAIL: {f}")
+        if not fails:
+            print("model_audit self-check OK: --changed selects only the models a change reaches")
+        return 1 if fails else 0
 
     failures, warnings, checked, anchors_ok = [], [], 0, 0
     failures.extend(check_constants_register())

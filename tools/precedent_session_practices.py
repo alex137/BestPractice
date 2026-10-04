@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_session_practices.py — write the practices in force from EVERY
+"""Writes the shared/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed
+
+precedent_session_practices.py — write the practices in force from EVERY
 declared source into an untracked file a session reads at start.
 
 THE PROBLEM (measured, spec/PRELAUNCH_AUDIT.md, 2026-09-06). This repo's
@@ -64,8 +66,10 @@ OUT_NAME = 'SESSION_PRACTICES.md'
 # and this file would have duplicated it into every session.
 
 
-def collect(repo):
-    """-> (extra_practices, levels, notes). `extra_practices` is in
+def collect(repo, skip_brought=False):
+    """-> (extra_practices, levels, notes). `skip_brought` leaves out the
+    sets the person brings, for measuring what bringing them costs
+    (brought_share). `extra_practices` is in
     build_views.load_practices()' (fm, sections, file) shape so the loader
     block is rendered by the SAME code that renders AGENTS.md -- a second
     renderer here would drift from that one, which is the whole reason
@@ -83,6 +87,8 @@ def collect(repo):
         sources = pr.load_config(repo)
     except Exception as e:                                   # noqa: BLE001
         return [], {}, [('unresolved', f'no source set could be read: {e}')]
+    if skip_brought:
+        sources = [s for s in sources if not s.get('brought')]
 
     try:
         res = pr.resolve(sources)
@@ -254,6 +260,14 @@ def render(extra, levels, notes, repo=None):
     # SessionStart hook and no practices at all. The registry already had the
     # right row; nothing read it.
     budget = bv.surface_budget(f'{OUT_DIR}/{OUT_NAME}', 4000)
+    # ...plus the person's own budget for the sets they bring, when they
+    # bring any (BROUGHT_BUDGET_KEY): their share is not the repo's to pay.
+    if repo:
+        try:
+            if any(s.get('brought') for s in pr.load_config(str(repo))):
+                budget += brought_budget(repo)[0] or 0
+        except Exception:                                    # noqa: BLE001
+            pass
     # The tracked AGENTS.md is loaded every session alongside this file, so a
     # standing-instruction sentence or index note it already carries word for
     # word is left out of this one (build_loader_block's `carried`).
@@ -316,7 +330,7 @@ def without_target_warning(text):
     return text
 
 
-def _with_target_warning(repo, text):
+def _with_target_warning(repo, text, brought=0):
     """-> `text` with a warning under its title when the file is over the
     `target` its registry entry declares, else `text` unchanged.
 
@@ -334,7 +348,10 @@ def _with_target_warning(repo, text):
         return text
     if not isinstance(target, int):
         return text
-    n = bv._approx_tokens(text)
+    # The repo's part only: `brought`, the share of `text` the sets the
+    # person brings account for, has its own budget (brought_share; main
+    # measures it once for the file it writes).
+    n = bv._approx_tokens(text) - brought
     lines = text.split('\n')
     at = next((i for i, l in enumerate(lines) if l.startswith('# ')), None)
     if n <= target or at is None:
@@ -345,6 +362,59 @@ def _with_target_warning(repo, text):
                f'reduction-pass). Never raise the target or the ceiling '
                f'without their own words for it.')
     return '\n'.join(lines[:at + 1] + ['', warning] + lines[at + 1:])
+
+
+# THE SETS A PERSON BRINGS HAVE A BUDGET OF THEIR OWN (Morgan, 2026-10-03,
+# strength: assented). Bringing the ladder is one person's choice, so its
+# cost is charged to a budget in that person's individual set
+# (`brought_sets_tokens` in its precedent-source.json), not to the ceiling a
+# repository declared for everyone who works in it. A consumer rehearsal
+# found the ladder put two repositories' session files over their ceilings,
+# which refused every push there.
+BROUGHT_BUDGET_KEY = 'brought_sets_tokens'
+
+
+def brought_budget(repo=None):
+    """-> (tokens or None, individual set path or None): the budget the
+    person's individual set declares for the sets it brings."""
+    try:
+        sources = pr.load_config(repo or str(_ENGINE_DIR.parent))
+    except Exception:                                        # noqa: BLE001
+        return None, None
+    ind = next((s for s in sources if s.get('level') == 'individual'), None)
+    if not ind:
+        return None, None
+    try:
+        man = json.loads((pathlib.Path(ind['path']) / pr.SOURCE_MANIFEST)
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None, ind['path']
+    v = man.get(BROUGHT_BUDGET_KEY) if isinstance(man, dict) else None
+    return (v if isinstance(v, int) else None), ind['path']
+
+
+def brought_share(repo=None):
+    """-> (tokens, [names]): how much of this file the sets the person
+    brings account for, measured as the file rendered with them minus the
+    file rendered without them -- so a rule of the person's own that needs
+    the ladder counts as part of bringing it. (0, []) when nothing is
+    brought or either rendering fails."""
+    repo = str(repo or _ENGINE_DIR.parent)
+    try:
+        names = [s['name'] for s in pr.load_config(repo) if s.get('brought')]
+    except Exception:                                        # noqa: BLE001
+        return 0, []
+    if not names:
+        return 0, []
+    import contextlib, io
+    try:
+        # The renders' own notes were already printed by the real run.
+        with contextlib.redirect_stderr(io.StringIO()):
+            full = render(*collect(repo), repo=repo)
+            bare = render(*collect(repo, skip_brought=True), repo=repo)
+    except Exception:                                        # noqa: BLE001
+        return 0, names
+    return max(0, bv._approx_tokens(full) - bv._approx_tokens(bare)), names
 
 
 def main():
@@ -388,7 +458,7 @@ def main():
               f'written; {n_bad} source(s) unresolved.')
         return 0
 
-    text = _with_target_warning(repo, text)
+    text = _with_target_warning(repo, text, brought=brought_share(repo)[0])
     out_dir = pathlib.Path(repo) / OUT_DIR
     try:
         out_dir.mkdir(exist_ok=True)

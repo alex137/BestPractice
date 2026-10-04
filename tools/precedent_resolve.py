@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_resolve.py — resolve the four sources into one set of practices
+"""Resolves the universal, shared and individual sources into one set, by precedence
+
+precedent_resolve.py — resolve the four sources into one set of practices
 (PRACTICE_ENGINE_PLAN.md, "Source — Who a Practice Belongs To" and
 "Precedence, and the One Case Where the Individual Does Not Win").
 
@@ -152,6 +154,20 @@ def _self_heal_individual_source(repo_root):
         return 'not-remote'
     if _scratch_copy_of(repo_root):
         return 'scratch-copy'
+    # A config named on purpose OUTSIDE $HOME belongs to somebody other than
+    # the person whose home the hook works in: the hook clones and syncs
+    # under $HOME. Running it anyway reached past the named person to the
+    # real one -- every test fixture that named a config of its own put this
+    # machine's individual clone back on its pinned branch (2026-10-02,
+    # found as a branch that kept moving mid-session). An absent config
+    # named there is a definite "none", as on a local machine. A fixture
+    # that moves $HOME with its config is still healed, in its own home.
+    named = os.environ.get(USER_CONFIG_ENV)
+    if named:
+        home = pathlib.Path.home().resolve()
+        where = pathlib.Path(named).expanduser().resolve()
+        if where != home and home not in where.parents:
+            return 'not-remote'
     hook = repo_root / INDIVIDUAL_BOOTSTRAP_HOOK
     if not hook.is_file():
         return 'no-hook'
@@ -255,6 +271,64 @@ def _stale_render_hours(repo_root):
     return hours if isinstance(hours, int) and hours > 0 else 1
 
 
+def _ref_mtime(clone):
+    """-> the mtime of the ref a clone has checked out, or None. Read off the
+    filesystem, never from git: this runs on every load_config(), so it must
+    cost a stat or two. A pull or a checkout rewrites that ref (or HEAD
+    itself); a packed ref falls back to packed-refs. Follows a `.git` FILE
+    (a worktree or submodule) to its gitdir."""
+    try:
+        git = pathlib.Path(clone) / '.git'
+        if git.is_file():
+            line = git.read_text(encoding='utf-8').strip()
+            if not line.startswith('gitdir:'):
+                return None
+            git = (pathlib.Path(clone) / line[len('gitdir:'):].strip()).resolve()
+        head = git / 'HEAD'
+        stamps = [head.stat().st_mtime]
+        text = head.read_text(encoding='utf-8').strip()
+        if text.startswith('ref:'):
+            ref = text[4:].strip()
+            common = git
+            cfile = git / 'commondir'
+            if cfile.is_file():
+                common = (git / cfile.read_text(encoding='utf-8').strip()).resolve()
+            loose = common / ref
+            packed = common / 'packed-refs'
+            if loose.is_file():
+                stamps.append(loose.stat().st_mtime)
+            elif packed.is_file():
+                stamps.append(packed.stat().st_mtime)
+        return max(stamps)
+    except (OSError, ValueError):
+        return None
+
+
+def _render_older_than_sources(repo_root, rendered_at):
+    """-> the declared source whose checkout moved after the render was
+    written, or None. The render is built FROM those checkouts, so one that
+    moved since makes it stale however young it is (2026-10-02: a resume
+    fast-forwarded the shared sets an individual set reads, its render stayed
+    as it was, and the reply gate reported a session load about 300 tokens
+    over what a rebuild measured). Read off declared_source_paths(), which
+    never clones or fetches."""
+    try:
+        declared = declared_source_paths(repo_root)
+    except Exception:                                       # noqa: BLE001
+        return None
+    # A stamp from the future is ignored, not trusted: a clone unpacked with
+    # future mtimes, or a clock that stepped back, would otherwise read as
+    # "moved after the render" on every call and re-render forever.
+    now = time.time() + 60
+    for path, _level, name, note in declared:
+        if note or not path:
+            continue
+        moved = _ref_mtime(path)
+        if moved is not None and rendered_at < moved <= now:
+            return name
+    return None
+
+
 # Set in the environment of the renderer _self_heal_stale_render spawns, so
 # the renderer's own load_config() never spawns a second one.
 SELF_HEAL_RENDER_ENV = 'PRECEDENT_SELF_HEAL_RENDER'
@@ -273,8 +347,9 @@ def _self_heal_stale_render(repo_root):
     spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md (Shape C, the shape this
     implements) for the fuller account.
 
-    Fires when the rendered file is ABSENT or older than
-    _stale_render_hours() above. Judged from the file's mtime ON DISK,
+    Fires when the rendered file is ABSENT, older than
+    _stale_render_hours() above, or older than a checkout it was rendered
+    from (_render_older_than_sources, 2026-10-02). Judged from mtimes ON DISK,
     never from session state: there is no reliable in-session signal for
     whether SessionStart actually ran (CLAUDE_PROJECT_DIR being unset
     proves nothing either way, per tools/precedent_session_check.py's own
@@ -306,10 +381,12 @@ def _self_heal_stale_render(repo_root):
     target = repo_root / '.precedent' / 'SESSION_PRACTICES.md'
     if target.is_file():
         try:
-            age_hours = (time.time() - target.stat().st_mtime) / 3600
+            rendered_at = target.stat().st_mtime
+            age_hours = (time.time() - rendered_at) / 3600
         except OSError:
-            age_hours = None
-        if age_hours is not None and age_hours < _stale_render_hours(repo_root):
+            rendered_at = age_hours = None
+        if age_hours is not None and age_hours < _stale_render_hours(repo_root) \
+                and _render_older_than_sources(repo_root, rendered_at) is None:
             return 'fresh'
     try:
         subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
@@ -650,6 +727,104 @@ def _declared_path(repo_root, raw):
     return entry_path
 
 
+# SETS A PERSON BRINGS (spec/LADDER_OPT_IN_PLAN.md D2, 2026-10-02).
+#
+# A repository declares the shared sets everyone working in it reads. A
+# PERSON may want more than that -- a working method of their own team, say
+# -- without putting it on everyone else in every repository they touch. So
+# the individual set's own precedent-source.json may list `brings`: shared
+# sets that load wherever that person works, at the shared level, cloned
+# beside the individual set. Nobody else's session ever sees them, and they
+# are never rendered into a committed file (build_views defers them, D6).
+#
+# Each entry is {"name": <slug>, "repo_url": <full URL>}. A full URL, not a
+# bare name: a teammate who brings somebody else's set would otherwise look
+# for it under their own account.
+#
+# A set may say what it PROVIDES (`provides` in its own
+# precedent-source.json). One capability is named today, "ladder": the
+# five-stage working method. PRECEDENT_NO_LADDERS=1 drops every source that
+# provides it, so a person on the ladder can start a session that sees what
+# a person off it sees (D13) -- before the session reads anything, which is
+# the only point at which leaving text out of a session is possible.
+NO_LADDERS_ENV = 'PRECEDENT_NO_LADDERS'
+LADDER_CAPABILITY = 'ladder'
+
+
+# For a test fixture of the tier machinery itself -- Promote, promote_only,
+# a pre-staging landing -- whose person brings no set: treat the ladder as
+# in force. Never set in a session; PRECEDENT_NO_LADDERS wins over it.
+ASSUME_LADDER_ENV = 'PRECEDENT_ASSUME_LADDER'
+
+
+def assume_ladder():
+    return os.environ.get(ASSUME_LADDER_ENV, '').strip() == '1'
+
+
+def no_ladders():
+    """True when this session was started with the ladder switched off."""
+    return os.environ.get(NO_LADDERS_ENV, '').strip().lower() not in (
+        '', '0', 'false', 'no', 'off')
+
+
+def source_provides(path):
+    """-> the capabilities a source's own precedent-source.json declares, as
+    a set of strings; empty when it declares none or cannot be read."""
+    try:
+        man = json.loads((pathlib.Path(path) / SOURCE_MANIFEST).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    got = man.get('provides') if isinstance(man, dict) else None
+    return {str(x) for x in got} if isinstance(got, list) else set()
+
+
+# What a `brings` URL may look like. Anything else -- above all a string that
+# starts with "-", which git would read as an option to `git clone` rather
+# than a repository -- is skipped, never handed to git.
+_BRING_URL_RE = re.compile(r'^(?:(?:https?|ssh|git|file)://[^\s]+|git@[^\s:]+:[^\s]+)$')
+
+
+def brought_sources(individual_path, warn=True):
+    """-> [{'level': 'shared', 'name', 'path', 'repo', 'brought': True}] for
+    every set the individual set at `individual_path` brings, at the path it
+    is cloned to: beside the individual set, named for the set. Entries that
+    are not a dict with a valid slug name and a repo_url are skipped, with a
+    one-line note on stderr: a typo in one person's file must not take every
+    session of theirs down."""
+    if not individual_path:
+        return []
+    ind = pathlib.Path(individual_path).expanduser()
+    try:
+        man = json.loads((ind / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    raw = man.get('brings') if isinstance(man, dict) else None
+    if not isinstance(raw, list):
+        return []
+    out, seen = [], set()
+    for item in raw:
+        name = item.get('name') if isinstance(item, dict) else None
+        url = item.get('repo_url') if isinstance(item, dict) else None
+        target = (ind.resolve().parent / name).resolve() \
+            if isinstance(name, str) and SLUG_RE.match(name or '') else None
+        if not isinstance(name, str) or not SLUG_RE.match(name or '') \
+                or not isinstance(url, str) or not _BRING_URL_RE.match(url.strip()) \
+                or name in seen or target == ind.resolve():
+            if warn:
+                print(f"precedent resolve: {ind / SOURCE_MANIFEST} has a "
+                      f"`brings` entry that is not {{\"name\": <slug>, "
+                      f"\"repo_url\": <url>}}, or that names this set "
+                      f"itself ({item!r}); it is skipped.",
+                      file=sys.stderr)
+            continue
+        seen.add(name)
+        out.append({'level': 'shared', 'name': name,
+                    'path': str((ind.resolve().parent / name)),
+                    'repo': url.strip(), 'brought': True})
+    return out
+
+
 def declared_source_paths(repo, user_config=None):
     """-> [(path, level, name, note)] for every practice source this repo and
     this person DECLARE, at the paths load_config() resolves -- without
@@ -693,6 +868,15 @@ def declared_source_paths(repo, user_config=None):
             note = '' if (path / '.git').exists() else 'not cloned here yet'
             out.append((str(path), 'individual',
                         ind.get('name') or DEFAULT_INDIVIDUAL_NAME, note))
+        have = {pathlib.Path(p).resolve() for p, *_ in out if p}
+        for b in brought_sources(path, warn=False):
+            bp = pathlib.Path(b['path']).resolve()
+            if bp == repo_root or bp in have:
+                continue
+            if no_ladders() and LADDER_CAPABILITY in source_provides(bp):
+                continue
+            note = '' if (bp / '.git').exists() else 'not cloned here yet'
+            out.append((str(bp), 'shared', b['name'], note))
     return out
 
 
@@ -887,6 +1071,22 @@ def load_config(repo, user_config=None):
         warn_name_matches_path('individual', entry['name'], entry['path'],
                                str(user_cfg_path))
         sources.append(entry)
+        if usable:
+            have = {s['name'] for s in sources}
+            for b in brought_sources(entry['path']):
+                # A repository that already declares the set wins: it is the
+                # same set, and the repository's declaration is the one
+                # everybody there reads.
+                if b['name'] in have:
+                    continue
+                if pathlib.Path(b['path']).resolve() == repo_root:
+                    continue
+                sources.append(b)
+    if no_ladders():
+        # D13: everything that provides the ladder leaves the session,
+        # wherever it was declared.
+        sources = [s for s in sources
+                   if LADDER_CAPABILITY not in source_provides(s['path'])]
     sources.sort(key=lambda s: _precedence_rank(s['level']))
     # practice: session-bootstrap -- every load_config() caller (_check,
     # _paths, _show, _gate) is a chance to notice the rendered catalogue is
@@ -1113,14 +1313,36 @@ def load_source(source):
     return out, None
 
 
-def resolve(sources):
+def _requires(fm):
+    """-> the capabilities a practice's `requires:` names, as a set."""
+    raw = fm.get('requires')
+    if raw in (None, '', 'null', '[]'):
+        return set()
+    try:
+        got = json.loads(raw) if isinstance(raw, str) else raw
+    except ValueError:
+        got = [raw]
+    if isinstance(got, str):
+        got = [got]
+    return {str(x).strip() for x in got or [] if str(x).strip()}
+
+
+def resolve(sources, context=()):
     """-> {'practices': {slug: practice}, 'shadowed': [...], 'blocked': [...],
            'missing': [...], 'retired': [...]}
 
     Sources are walked lowest precedence first, so a later source simply
     replaces what an earlier one put in place -- except where the practice it
     would replace is `severity: blocking`, which no source ranked above it
-    can override by precedence alone (see _is_blocking)."""
+    can override by precedence alone (see _is_blocking).
+
+    `context` is sources in force for this person that the caller will not
+    write: the sets a person brings, left out of a committed view
+    (spec/LADDER_OPT_IN_PLAN.md D6). They are never in the result, but what
+    they provide counts for `requires`, and a rule in force in one counts as
+    in force for a deduplicated stub that points at it. Without that, a
+    sync that left a brought set out also dropped every rule that needs the
+    ladder it provides (found by a consumer rehearsal, 2026-10-03)."""
     by_source, missing = [], []
     for s in sources:
         loaded, why = load_source(s)
@@ -1146,11 +1368,36 @@ def resolve(sources):
     # between them to fall back on -- regardless of which source(s) at that
     # level they came from.
     override_claims_by_level = {}
+    # `requires` (spec/LADDER_OPT_IN_PLAN.md D11, 2026-10-02): a practice
+    # that names a capability is in force only while a source in force
+    # provides it -- a person's own "for me, the ladder" rule goes quiet in
+    # a session started with PRECEDENT_NO_LADDERS, which load_config has
+    # already applied to `sources`. Left out, not retired: nothing about the
+    # practice is stale, the session simply does not have what it needs.
+    provided = set()
+    for _s, _loaded in by_source:
+        provided |= source_provides(_s['path'])
+    in_context = set()
+    # What a brought set provides counts for the PERSON's own rules only (an
+    # individual set's "for me, the ladder"). A rule a repository declares
+    # stays keyed to what the repository declares, so a committed view comes
+    # out the same whoever regenerates it (spec/LADDER_OPT_IN_PLAN.md, test E).
+    provided_for_person = set(provided)
+    for _s in context or ():
+        provided_for_person |= source_provides(_s['path'])
+        _loaded, _why = load_source(_s)
+        in_context |= {slug for slug, p in (_loaded or {}).items()
+                       if bv._json_str(p['fm'].get('status', 'active'))
+                       == IN_FORCE_STATUS}
     for _s, loaded in by_source:                      # lowest precedence first
         claims = override_claims_by_level.setdefault(_s['level'], {})
         for slug, practice in sorted(loaded.items()):
             if bv._json_str(practice['fm'].get('status', 'active')) != IN_FORCE_STATUS:
                 retired.append(practice)
+                continue
+            needs = _requires(practice['fm'])
+            has = provided_for_person if _s['level'] == 'individual' else provided
+            if needs and not needs <= has:
                 continue
             # A practice replaces the same slug from a lower source, and may
             # additionally name a differently-named lower practice in
@@ -1245,7 +1492,8 @@ def resolve(sources):
             continue
         msg = bv.status_contract_violation(
             practice['fm'], practice.get('sections'),
-            slug_in_force=lambda s: follow_in_force_at(s, resolved, retired) is not None)
+            slug_in_force=lambda s: (s in in_context or follow_in_force_at(
+                s, resolved, retired) is not None))
         if msg:
             entry = {'slug': practice['slug'], 'source': practice['source'],
                      'level': practice['level'], 'file': practice['file'],
@@ -1287,6 +1535,32 @@ def withdrawn_from_universal(sections):
     story = (sections or {}).get('story') or ''
     found = _WITHDRAWN_RE.findall(story)
     return tuple(found[-1]) if found else None
+
+
+# The committed record precedent_move.py --withdraw-from-universal keeps of
+# every rule it deleted from universal on purpose, one line each:
+# "- <date>: `<slug>` withdrawn from universal, deliberately; in force only
+# from the <level> set `<name>`, ...". The file itself is gone, so no stub
+# can say where it went; this line is the forwarding address. Shipped to
+# consumers with the catalogue (checkin.py's VENDORING_RULES) so a sync
+# there can tell a withdrawal from a loss.
+WITHDRAWN_RECORD = 'record/WITHDRAWN_FROM_UNIVERSAL.md'
+_WITHDRAWN_LINE_RE = re.compile(
+    r'^- (\d{4}-\d\d-\d\d): `([^`]+)` withdrawn from universal\b.*?'
+    r'in force only from the \w+ set `([^`]+)`', re.M)
+
+
+def withdrawn_record(source_path):
+    """-> {slug: (date, set name)} from a universal source's withdrawal
+    record; {} when it has none or it cannot be read. The last line for a
+    slug wins."""
+    try:
+        text = (pathlib.Path(source_path) / WITHDRAWN_RECORD).read_text(
+            encoding='utf-8')
+    except OSError:
+        return {}
+    return {slug: (date, name)
+            for date, slug, name in _WITHDRAWN_LINE_RE.findall(text)}
 
 
 def follow_in_force_at(slug, resolved, retired):

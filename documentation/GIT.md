@@ -32,9 +32,9 @@ need eight ideas. (Throughout, a "session" is one AI conversation. Every
 git and GitHub word used below is defined in
 [The Words, Defined](#the-words-defined), further down.)
 
-- **`main` is the shared truth, reached in steps.** Work lands on
-  `pre-staging` (or `staging`), and a Promote moves it up; nothing is final
-  until it reaches `main` ([Tier branch](../practices/tier-branch.md)).
+- **`main` is the shared truth.** Your work lands on `main`, pushed
+  straight to it or merged in by a pull request; nothing is final until it
+  is there.
 - **Each thread works on its own branch** — a private copy of the repo where
   a session (or a person) can make any number of commits without disturbing
   anyone else. Two threads on two branches never conflict *while working*;
@@ -115,8 +115,8 @@ section covers git's and GitHub's own.
   GitHub, that your clone knows how to talk to. A clone can know several.
 - **`origin`** — **the name of the remote you cloned from.** It is a
   nickname, not a place, and it means "the copy on GitHub this one came
-  from". Nothing about it says which *branch*: `origin/main` and
-  `origin/staging` are both on `origin`.
+  from". Nothing about it says which *branch*: `origin/main` and a
+  branch of your own on GitHub are both on `origin`.
 - **Fork** — your own copy of somebody else's repository on GitHub, which you
   can push to. Used when you cannot write to theirs.
 
@@ -130,9 +130,7 @@ section covers git's and GitHub's own.
   Making a branch costs nothing; it is a label, not a copy.
 - **`main`** — the branch a repository treats as its shared truth, by
   convention. Also called the **default branch**, because it is what GitHub
-  shows first and what a fresh clone lands on. **In Precedent's own repository the real
-  work happens on `staging` instead**, which is why "the default
-  branch" and "the branch we merge into" are not the same sentence here.
+  shows first and what a fresh clone lands on.
 - **`HEAD`** — where your clone is standing right now: the commit you would
   build the next one on top of.
 - **Tag** — a permanent name pinned to one commit, usually a release. Unlike

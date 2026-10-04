@@ -178,9 +178,8 @@ not this section.
    team can read leaks its existence and location to them.
 
    The installer also writes `"base_branch"` (the repository's default
-   branch) and `"landing_branch": "pre-staging"`; write both by hand too,
-   or a hand install lands Booked (`Go update`) on a different branch than a tool
-   install ([tier-branch](practices/tier-branch.md)).
+   branch); write it by hand too, or a hand install lands your work on a
+   different branch than a tool install.
 
    Two optional keys are worth setting in the same file, because both
    default to the safe-but-noisy answer and only this repo knows the real
@@ -276,20 +275,13 @@ not this section.
    sync, regenerated on every run; commit them, never hand-edit them.
    The generated block's own header names `build_views.py` as the
    regeneration command; in a consuming repo the command is this one,
-   `precedent_sync_views.py --repo .` — `build_views.py --check` alone
-   reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
-   they are not.
+   `precedent_sync_views.py --repo .`. A hand-templated `MAP.md` or
+   `GLOSSARY.md` (one without `build_views.py`'s `generated_by` header) is
+   the repository's own: neither tool writes or checks it. A generated one
+   is rebuilt by the sync, and a link elsewhere in the repository to a
+   practice the sync removed is repointed to its successor, or reported
+   when there is none.
 
-   **Then give the repo its three branches** -- `precedent_install.py` does
-   it when the repo already has an origin with `main`, and the first Update
-   Vendors does it otherwise; by hand it is
-   `python3 tools/precedent_branches.py --ensure-tiers --apply`. It creates
-   `staging` and `pre-staging` on origin where they are missing and, in a
-   repo whose staging tier was `main`, writes `"staging_branch": "staging"`
-   into `precedent.json` — commit that with the rest. Work then lands on
-   pre-staging, Promote moves it to staging, and a later Promote takes
-   staging into main by pull request (the same step closes out every Update Vendors: the
-   [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 10(h)).
 7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
    loose at the repo root except the instantiated files above and step 6's
    `practices/` and `MANIFEST.json` — the vendored engine and universal
@@ -403,9 +395,15 @@ What is still untested is the rest of [spec/PHASE6_BRIEF.md](https://github.com/
 list, not the install itself. Two things this section deliberately does **not**
 cover, by design and not oversight:
 
-- **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
-  deliberately does not build these for a consuming repo (see its own
-  docstring) — they stay hand-templated, same as §1.
+- **`MAP.md` and `GLOSSARY.md` are generated, never hand-written** (since
+  2026-10-03, [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/GENERATED_FILES_PLAN.md)).
+  The repository's own text for each lives in `MAP.source.md` and
+  `GLOSSARY.source.md`; [tools/precedent_sync_views.py](tools/precedent_sync_views.py) copies it in word for
+  word and adds the sections generated from the practice catalogue and the
+  engine. Edit the source file, never the view. A repository installed
+  before then moves its hand-written views into the source files at its next
+  `Update Vendors` ([tools/precedent_migrate_views.py](tools/precedent_migrate_views.py), which puts
+  everything back rather than lose a word).
 - **The creation pipeline isn't wired into a fresh install yet.**
   Candidates, promotion, and approval routing
   (`tools/precedent_candidate.py` and friends) exist in Precedent's own
@@ -500,9 +498,10 @@ cover, by design and not oversight:
      **harness-neutral** canonical instructions file. Fill the quick-index
      table with this repo's real lookups; adapt the merge runbook's file
      classes; keep the section structure.
-   - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
-     `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
-     domain-appropriate name).
+   - `templates/MAP.md.template` → `MAP.source.md`; `templates/TODO.md.template` →
+     `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.source.md`.
+     `MAP.md` and `GLOSSARY.md` are generated from the two source files
+     (§0's note on them), never written by hand.
    - `templates/gotchas/stale-checkout.md.template` →
      `gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md`,
      unchanged: the one trap every install inherits, and the start of the
@@ -1391,7 +1390,7 @@ stay manual:
    (or `checkin.py push <upstream-clone> --why "..."`, which calls it) —
    merges each committed change onto upstream's landing branch three ways,
    so nothing upstream gained since the mirror is reverted; runs **this
-   repo's scrub audit and the upstream's leak gate and basic tier first
+   repo's scrub audit and the upstream's leak gate and basic checks first
    (nothing is pushed on a failure)**; then pushes a branch in the clone
    and prints the prompt for the session that lands it.
 3. That session opens the PR against Precedent. Human review of it is the

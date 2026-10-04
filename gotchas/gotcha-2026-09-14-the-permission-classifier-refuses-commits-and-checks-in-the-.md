@@ -19,7 +19,7 @@ another session** rather than from the person typing it.
 ## Story
 
 **The symptom.** You are working in an individual practice set, adding the
-one field [relayed-authorization](../practices/relayed-authorization.md)
+one field `relayed-authorization`
 tells you to add. The moment the field is in the file, commands that ran a
 minute earlier in the same repository come back as
 

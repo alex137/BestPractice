@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Say whether anything this repo vendors or resolves live has fallen behind
+"""Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes
+
+Say whether anything this repo vendors or resolves live has fallen behind
 the upstream it came from -- every declared source, not only the engine.
 
 THE GAP THIS CLOSES. Every check in this system runs inside one repository.
@@ -475,8 +477,10 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
         # "Update Vendors" moves a vendored engine or catalogue; a live
         # clone behind its own origin takes the pull named on its own line,
         # and pointing it here sent sessions to the wrong fix (2026-09-30).
-        print('  Nothing has been changed -- this is a notice. To take it: '
-              '"Update Vendors" (practices/vendor-update-runbook.md).', file=out)
+        print('  Nothing has been changed -- this is a notice. At a merge, '
+              'python3 tools/precedent_merge_vendors.py takes it as a commit '
+              'of its own; otherwise "Update Vendors". Both are in '
+              'practices/vendor-update-runbook.md.', file=out)
     if quiet and unverified_sources:
         print(f'freshness: NOT VERIFIED -- {unverified_sources} source(s) '
               f'could not be checked this session; run python3 '

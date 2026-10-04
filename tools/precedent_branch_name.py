@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""precedent_branch_name.py -- the name for a session's feature branch, built
-the same way every time (practice: act).
+"""The name for a session's feature branch, built the same way every time -- `claude/<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none
+
+precedent_branch_name.py -- the name for a session's feature branch, built
+the same way every time.
 
     claude/2026-10-01-branch-naming-convention-awpkv
     <prefix><date>-<slug>-<id>

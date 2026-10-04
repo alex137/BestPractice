@@ -10,27 +10,18 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
-| Act | [act](practices/act.md) |
 | allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
 | API budget | [github-api-budget](practices/github-api-budget.md) |
-| Approved | [go-update](practices/go-update.md) |
 | Archive | [archive-status-check](practices/archive-status-check.md) |
 | Archive? | [archive-status-check](practices/archive-status-check.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Boildown | [the-boildown](practices/the-boildown.md) |
-| Book | [go-update](practices/go-update.md) |
-| Book it | [go-update](practices/go-update.md) |
-| Booked | [go-update](practices/go-update.md) |
-| Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [capture-gate](practices/capture-gate.md) |
-| Chief of Staff | [chief-of-staff](practices/chief-of-staff.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
-| Consider | [consider](practices/consider.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
-| Debut | [debut](practices/debut.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
@@ -44,34 +35,20 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | filtered branches page | [branch-delete-links](practices/branch-delete-links.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
-| Go update | [go-update](practices/go-update.md) |
-| Graduate | [promote](practices/promote.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
-| Landing branch | [tier-branch](practices/tier-branch.md) |
 | lease board | [lease-in-flight-work](practices/lease-in-flight-work.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | live citation | [practice-change-propagates](practices/practice-change-propagates.md) |
-| Make live | [produce](practices/produce.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
-| One-line plan | [consider](practices/consider.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
-| Plan it | [consider](practices/consider.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
-| pre-staging | [promote](practices/promote.md) |
-| Primary branch | [primary-branch](practices/primary-branch.md) |
-| Produce | [produce](practices/produce.md) |
-| production | [produce](practices/produce.md) |
-| Promote | [promote](practices/promote.md) |
-| Promote N | [promote](practices/promote.md) |
-| Promotion Reviews | [chief-of-staff](practices/chief-of-staff.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
-| Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
@@ -81,20 +58,13 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
-| Shared Save | [go-update](practices/go-update.md) |
 | Simple please | [plain-words](practices/plain-words.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | source manifest | [source-naming](practices/source-naming.md) |
-| Spec it out | [write-it-up](practices/write-it-up.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | subject: | [session-tags](practices/session-tags.md) |
-| Test Readiness | [debut](practices/debut.md) |
-| the desk | [chief-of-staff](practices/chief-of-staff.md) |
-| the five stages | [promote](practices/promote.md) |
 | the origin artifact | [upstream-fix](practices/upstream-fix.md) |
-| the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
-| Tier branch | [tier-branch](practices/tier-branch.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
@@ -102,7 +72,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | wants: | [session-tags](practices/session-tags.md) |
 | Weak yes | [weak-yes](practices/weak-yes.md) |
 | What's new | [whats-new](practices/whats-new.md) |
-| Write it up | [write-it-up](practices/write-it-up.md) |
 
 ## Engine vocabulary
 
@@ -115,7 +84,7 @@ The words the mechanism itself is made of. No single practice owns these, so the
 | **level repo** | Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just "the source", or "the individual set" / "a shared set" when the level matters. Naming conventions for those repositories are in source-naming. | [practices/source-naming.md](practices/source-naming.md) |
 | **catalogue** | All the practice files of one source, taken together -- what that source teaches. "The catalogue" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated. | [spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md) |
 | **in force** | A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk. | [spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md) |
-| **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-update` is practices/go-update.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |
+| **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`park-it` is practices/park-it.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |
 | **gate** | A named moment when practices are loaded, rather than a kind of file. Four exist -- merge, review, push, reply -- and a practice lists the ones it fires at. Gates carry the rules no path pattern can reach: "before pushing" is not a file. | [tools/precedent_gate.py](tools/precedent_gate.py) |
 | **resident block** | The handful of practices written into a repository's instructions file in full, so they are read every session without anyone asking. Everything else is on-demand, reached through the occasion index. The block has a token budget, which is what stops it becoming the whole catalogue. | [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md) |
 | **occasion index** | The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it. | [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOADER.md) |

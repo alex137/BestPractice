@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""behavioral_replay.py — phase-2's own done-when condition, the one the
+"""Measures the path-triggered loader against this repo's own commit history
+
+behavioral_replay.py — phase-2's own done-when condition, the one the
 plan calls out by name (Sequence row 2: "and the premise is measured, not
 assumed"; Risks: "Phase 2 is not done when the plumbing works; it is done
 when the loading model has been measured against real work — replay past

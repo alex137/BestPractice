@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_candidate.py — Stage 2 of PRACTICE_ENGINE_PLAN.md's creation
+"""Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates
+
+precedent_candidate.py — Stage 2 of PRACTICE_ENGINE_PLAN.md's creation
 pipeline: raise, list, and expire candidates. See spec/CANDIDATE_FORMAT.md
 for the file schema this reads and writes.
 

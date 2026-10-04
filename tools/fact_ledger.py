@@ -1,4 +1,6 @@
-"""fact_ledger -- verified facts that let a gate skip work that cannot have
+"""Verified facts (code fingerprint, recorded reads, result) that let a drift gate or an audit skip a unit whose fact still holds
+
+fact_ledger -- verified facts that let a gate skip work that cannot have
 changed (practice: slow-steps-report-and-cache).
 
 A gate that re-runs a script to prove its output still matches spends most

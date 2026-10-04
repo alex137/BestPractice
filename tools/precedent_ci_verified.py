@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_ci_verified.py -- did CI actually run on the commit about to be
+"""Did CI actually run, and pass, on the commit about to be merged — advisory, one API call
+
+precedent_ci_verified.py -- did CI actually run on the commit about to be
 merged, and did it pass?
 
 THE FAILURE THIS ANSWERS, 2026-09-23 in alex137/BestPractice. A pull request

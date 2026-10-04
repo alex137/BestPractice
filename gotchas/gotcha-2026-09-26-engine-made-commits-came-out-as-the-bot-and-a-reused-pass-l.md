@@ -8,12 +8,12 @@ retires_when:    every practice set and consumer has refreshed its vendored engi
 ---
 ## Symptom
 
-Promote, the sync into pre-staging, the Promote lock, or an engine refresh
-makes a commit, and **the commit is authored by the container's bot**
+A commit the engine makes for you -- a branch sync, its lock branch, an
+engine refresh -- comes out **authored by the container's bot**
 (`Claude <noreply@anthropic.com>`), sometimes in the repository's fallback
 zone too. Nothing refuses it at the time. Later, the repository's own
 `precedent_check.py --full-sweep` fails `commit-author` on its staging
-branch. Re-running Promote does not help, because its full check fails
+branch. Re-running the step does not help, because its full check fails
 inside its worktree on `consumer_shape`: "`.git` here is not a directory".
 
 ## Story

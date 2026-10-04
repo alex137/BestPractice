@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""routing_audit.py -- the routing audit (practice: routing-audit).
+"""The routing audit — mechanical coverage check plus a rotating deep-read slice
+
+routing_audit.py -- the routing audit (practice: routing-audit).
 
 PRACTICE_ENGINE_PLAN.md's "The Routing Audit Checks Coverage, Not Content"
 names a periodic, two-part mechanism for the standing risk the loader's own

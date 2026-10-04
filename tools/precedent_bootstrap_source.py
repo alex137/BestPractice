@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_bootstrap_source.py — give a brand-new adopter with NO
+"""Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet
+
+precedent_bootstrap_source.py — give a brand-new adopter with NO
 individual or shared practice repo yet a real, working one in one command.
 
 THE GAP THIS CLOSES. Every source in PRACTICE_ENGINE_PLAN.md's three-source
@@ -68,6 +70,8 @@ Usage:
                                       # if anything is missing.
 
   --force true    # allow writing into a non-empty --dest
+  --off-main true # copy the engine from a checkout main does not contain
+                  # (refused otherwise; the manifest names the branch)
 
 Exit: 0 on success (prints the resulting config wiring either way); 1 on a
 refusal (existing non-empty dest without --force, missing --approver for a
@@ -1272,7 +1276,7 @@ def _git(*args):
 
 
 def bootstrap(level, name, dest, approvers=None, force=False,
-              visibility='private'):
+              visibility='private', off_main=False):
     level = LEVEL_ALIASES.get(level, level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
@@ -1291,6 +1295,15 @@ def bootstrap(level, name, dest, approvers=None, force=False,
             '--approver "Full Name:github-handle" (whoever is creating this '
             "set is its first approver, per PRACTICE_ENGINE_PLAN.md's Stage 4)")
 
+    _warn_if_clone_is_stale()
+    # Before anything is written: seed() refuses the same thing, but only
+    # after the skeleton is already on disk.
+    head = precedent_vendor_engine._head_commit(ROOT)
+    where = precedent_vendor_engine.off_source_branch(ROOT, head)
+    if where and not (off_main or precedent_vendor_engine.seed_off_main_allowed()):
+        raise BootstrapRefused(precedent_vendor_engine.off_main_refusal(where, head)
+                               .replace('--off-main', '--off-main true'))
+
     dest.mkdir(parents=True, exist_ok=True)
     mapping = {'NAME': name, 'DEST_PATH': str(dest)}
     if level == 'shared':
@@ -1298,7 +1311,6 @@ def bootstrap(level, name, dest, approvers=None, force=False,
         mapping['APPROVER_NAME'] = first['name']
         mapping['APPROVER_GITHUB'] = first['github']
 
-    _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
     written.append(_write_source_manifest(dest, level, name, visibility))
     if level == 'shared':
@@ -1311,9 +1323,9 @@ def bootstrap(level, name, dest, approvers=None, force=False,
     _cfg, _changed = ensure_universal_source(dest)
     if _changed:
         written.append(_cfg)
-    if precedent_branches.ensure_repo_landing(dest) and _cfg not in written:
+    if precedent_branches.ensure_repo_landing(dest, new_install=True) and _cfg not in written:
         written.append(_cfg)
-    written += precedent_vendor_engine.seed(dest)
+    written += precedent_vendor_engine.seed(dest, off_main=off_main)
     # AFTER seed(), not before: seed()/_write_engine_files builds
     # ENGINE_MANIFEST.json fresh on every call, so recording the CI
     # workflow files' hashes before this point would be silently wiped the
@@ -1323,6 +1335,7 @@ def bootstrap(level, name, dest, approvers=None, force=False,
     written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
     written.append(_write_session_load_budget(dest))
+    written.append(write_generated_files(dest))
     if level == 'shared':
         written.append(_write_codeowners(dest))
 
@@ -1358,6 +1371,64 @@ def _write_codeowners(dest):
         raise BootstrapRefused(f"generating CODEOWNERS from approvers.json "
                                f"failed: {out}")
     return pathlib.Path(dest) / 'CODEOWNERS'
+
+
+SET_GENERATED_FILES = (
+    ('MAP.md', None), ('GLOSSARY.md', None),
+    ('AGENTS.md', '<!-- BEGIN GENERATED: precedent-loader -->'),
+)
+
+
+def write_generated_files(dest):
+    """Write tools/generated_files.json, a practice set's own list of what
+    its tools generate: the three views build_views.py writes. -> its path.
+
+    The list is what a set's commit rebuilds and its check reads
+    (spec/GENERATED_FILES_PLAN.md step 4; Morgan, 2026-10-03: generated
+    files are never hand-edited, in every repository). It is the set's own
+    declaration, as tools/session_load_budgets.json is, never vendored.
+    Existing sets got theirs from this same function, so a set's list has
+    one definition. An entry already there is kept, so a set that lists
+    more of its own generated files does not lose them."""
+    dest = pathlib.Path(dest)
+    path = dest / 'tools' / 'generated_files.json'
+    data = _load_json(path) if path.is_file() else None
+    data = data if isinstance(data, dict) else {}
+    have = {(e.get('path'), e.get('part')) for e in data.get('files') or []}
+    files = list(data.get('files') or [])
+    for rel, part in SET_GENERATED_FILES:
+        if (rel, part) in have:
+            continue
+        entry = {'path': rel}
+        if part:
+            entry['part'] = part
+        entry.update({'generated_by': 'tools/build_views.py',
+                      'edit_instead': 'practices/*.md',
+                      'inputs': ['practices/*.md', 'tools/*.py', '*.json'],
+                      'regenerate': 'python3 tools/build_views.py',
+                      'check': ['tools/build_views.py', '--check']})
+        files.append(entry)
+    # A set may generate more than the views -- a todo index, say. Each
+    # labelled file it tracks is listed from its own label, or with the
+    # entry this engine's own list gives the same file when the label is
+    # too old to name its source (spec/GENERATED_FILES_PLAN.md G5).
+    import precedent_regenerate as _rg
+    upstream = _load_json(pathlib.Path(__file__).resolve().parent / 'generated_files.json')
+    known = {(e.get('path'), e.get('generated_by')): e
+             for e in (upstream or {}).get('files') or [] if not e.get('part')}
+    files += _rg.labelled_entries(dest, 'tools', {e.get('path') for e in files
+                                                   if not e.get('part')}, known)
+    data.setdefault('_comment', [
+        "Every file, or part of a file, a tool here writes wholesale: what",
+        "precedent_check.py's generated-files-registered checks and what the",
+        "commit backstop rebuilds when one of its inputs changes",
+        "(tools/precedent_regenerate.py). Never edit those files by hand: change",
+        "their sources and let them be rebuilt. This list is this set's own.",
+    ])
+    data['files'] = files
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return path
 
 
 def _write_session_load_budget(dest):
@@ -1848,7 +1919,8 @@ def main():
 
     try:
         result = bootstrap(level, name, dest, approvers=approvers, force=force,
-                           visibility=args.get('--visibility', 'private'))
+                           visibility=args.get('--visibility', 'private'),
+                           off_main=args.get('--off-main', 'false').lower() == 'true')
     except BootstrapRefused as e:
         print(f"REFUSED: {e}")
         return 1

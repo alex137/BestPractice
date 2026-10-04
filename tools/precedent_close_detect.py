@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_close_detect.py — the one moment a session offers a practice.
+"""Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material
+
+precedent_close_detect.py — the one moment a session offers a practice.
 
 WHAT THIS IS FOR. PRACTICE_ENGINE_PLAN.md puts the automation "at the two
 ends: the system notices, and the system enforces." Enforcement got built

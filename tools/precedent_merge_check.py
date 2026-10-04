@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_merge_check.py -- run the push check on a pull request before
+"""The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees, and again on the merge commit after it, reverting a merge that fails because the base moved in between
+
+precedent_merge_check.py -- run the push check on a pull request before
 it is merged through GitHub, since that merge is a push no local hook sees.
 
 WHY THIS EXISTS (spec/BRANCH_TIERS_PLAN.md, "Three holes this has to
@@ -448,6 +450,17 @@ def main(argv):
 
     if '--landed' in argv:
         return landed(argv, pb, search)
+
+    # The No ladders test session merges nothing (precedent_ladder.py).
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_ladder
+        refusal = precedent_ladder.test_session_refusal()
+    except Exception:                                        # noqa: BLE001
+        refusal = None
+    if refusal:
+        print(f'precedent_merge_check: {refusal}')
+        return 1
 
     if '--head' in argv:
         root_s = git(search[0], 'rev-parse', '--show-toplevel')

@@ -42,7 +42,7 @@
     },
     {
       "term": "slug",
-      "definition": "A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-update` is practices/go-update.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit.",
+      "definition": "A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`park-it` is practices/park-it.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit.",
       "see": "practices/rename-updates-links.md"
     },
     {

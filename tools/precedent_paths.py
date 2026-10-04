@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_paths.py — the path-triggered loading channel
+"""The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`
+
+precedent_paths.py — the path-triggered loading channel
 (PRACTICE_ENGINE_PLAN.md, "How an Agent Knows Which Practices to Load":
 "A PreToolUse hook matches the edited file against every practice's
 applies_to globs and prints the matching ## Rule sections.").
@@ -229,6 +231,66 @@ def load_on_demand_practices(practices_dir=None):
     return out
 
 
+def _on_demand_entry(fm, sections):
+    """(slug, narrow globs, rule) for a practice this channel routes, or None."""
+    if not bv.is_in_force(fm) or fm.get('tier') != 'on-demand':
+        return None
+    raw = fm.get('applies_to', '[]')
+    globs = raw if isinstance(raw, list) else _globs(raw)
+    narrow = [g for g in globs if g != '**']
+    return (fm['slug'], narrow, sections.get('rule', '')) if narrow else None
+
+
+# index_clause of each rule with_sources_in_force() added from outside
+# practices/, for the brief "already loaded" line.
+_OUTSIDE_CLAUSES = {}
+
+
+def with_sources_in_force(root, practices_dir, own):
+    """`own` (this repository's practices/) plus every practice in force here
+    that lives OUTSIDE it: the person's individual set, a set they bring, and
+    -- in a practice set or BestPractice itself, which receive nothing into
+    practices/ -- the sets the repository declares. A consumer's practices/
+    already holds the declared sets' copies; those are its own.
+
+    Until 2026-10-02 this channel read practices/ alone, so a rule in the
+    individual set or a brought set whose applies_to named a path never
+    fired: found when checks-follow-the-tier moved into the set that
+    provides the five-stage ladder and stopped reaching the person who
+    brings it. What is in force is the resolver's answer, so precedence,
+    overrides and `requires` hold here exactly as everywhere else. Without
+    the resolver (an engine older than it), `own` alone, as before."""
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as pr
+        resolved = pr.resolve(pr.load_config(str(root)))['practices']
+    except (Exception, SystemExit):                          # noqa: BLE001
+        return own
+    finally:
+        if sys.path and sys.path[0] == str(_ENGINE_DIR):
+            sys.path.pop(0)
+    here = pathlib.Path(practices_dir).resolve()
+    out = {slug: (slug, globs, rule) for slug, globs, rule in own}
+    for slug, p in resolved.items():
+        f = pathlib.Path(p.get('file') or '')
+        try:
+            inside = f.resolve().parent == here
+        except OSError:
+            inside = False
+        if inside:
+            continue
+        entry = _on_demand_entry(p.get('fm') or {}, p.get('sections') or {})
+        if entry:
+            out[slug] = entry
+            _OUTSIDE_CLAUSES[slug] = bv._json_str(
+                (p.get('fm') or {}).get('index_clause', '')) or ''
+        else:
+            # The rule in force here comes from elsewhere and routes no
+            # path; this repository's copy of the slug is not in force.
+            out.pop(slug, None)
+    return list(out.values())
+
+
 def matches_for_paths(paths, practices=None, root_dir=None):
     """-> list of (slug, path) for every (practice, path) pair where the
     path matches one of the practice's narrower-than-** applies_to globs."""
@@ -272,6 +334,8 @@ def _clause_for(practices_dir, slug):
     """The practice's own one-line `index_clause` -- the same sentence the
     generated occasion index uses, so the brief reminder and the index
     agree by construction instead of by a second hand-written summary."""
+    if _OUTSIDE_CLAUSES.get(slug):
+        return _OUTSIDE_CLAUSES[slug]
     path = practices_dir / f'{slug}.md'
     try:
         fm, _sections = sp._read_practice_file(path)
@@ -312,7 +376,8 @@ def main():
     if not paths:
         sys.exit(__doc__)
 
-    practices = load_on_demand_practices(practices_dir)
+    practices = with_sources_in_force(root, practices_dir,
+                                      load_on_demand_practices(practices_dir))
     hits = matches_for_paths(paths, practices, root)
     if not hits:
         if matches_only:

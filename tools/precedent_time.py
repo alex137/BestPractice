@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""One formatter for the quantity kind "a moment in time" (practice: one-formatter-per-quantity).
+"""The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered
+
+One formatter for the quantity kind "a moment in time" (practice: one-formatter-per-quantity).
 
 WHAT THIS IS FOR. Two records say "Morgan 19:00" and "John 18:00" and
 nobody can order them, because neither says which zone it is. That is not

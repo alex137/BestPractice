@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""todo_migrate.py — one-time converter from the old TODO.md / gotchas-index
+"""One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default
+
+todo_migrate.py — one-time converter from the old TODO.md / gotchas-index
 format into the per-item file format spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
 specifies (Part 1: open items under todo/, Part 2: gotchas under gotchas/).
 

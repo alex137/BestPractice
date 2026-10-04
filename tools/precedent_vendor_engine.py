@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""precedent_vendor_engine.py — vendors Precedent's engine into a repo that
+"""Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable
+
+precedent_vendor_engine.py — vendors Precedent's engine into a repo that
 consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 
@@ -219,6 +221,11 @@ Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
   python3 tools/precedent_vendor_engine.py seed <consumer-repo> --kind consumer
 
+seed copies this checkout's HEAD, and refuses a HEAD that main does not
+contain: such an engine is one main has never had, and no refresh brings
+it current until that work lands. --off-main does it on purpose, and the
+manifest then names the real branch as seeded_from_branch (2026-10-02).
+
 SOURCE_BRANCH is 'main', for every install at once, since 2026-09-25 --
 the branch whose content has passed every local check AND the GitHub test
 on the pull request into it (spec/BRANCH_TIERS_PLAN.md, "Installs take
@@ -421,6 +428,15 @@ ENGINE_FILES = [
     # design without precedent_resolve.py -- which a source set does not get
     # -- reading that repo's own practices/ and saying so.
     'precedent_vocabulary.py',
+    # Whether the five-stage ladder is in force for the person here
+    # (spec/LADDER_OPT_IN_PLAN.md D5, 2026-10-02). In ENGINE_FILES because
+    # every engine line that says a ladder word asks it first, in a practice
+    # set as much as a consumer, and the hooks call its --in-force exit code.
+    # It imports precedent_resolve, which is in this list too.
+    'precedent_ladder.py',
+    # The one matcher for the ladder's own words (D7), which precedent_check's
+    # ladder-words-stay-in-the-ladder-set imports in every practice set.
+    'ladder_words.py',
     # Its second list, "Our language" (2026-09-29,
     # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
     # loader precedent_vocabulary.py imports to read it. They travel with it
@@ -580,6 +596,11 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # ...and what takes the notice at a merge (2026-10-02, Alex: "Can we
+    # set up a system so merge also does vendor updates?"): behind, it runs
+    # Update Vendors from the source clone and commits the result on its
+    # own, or takes it all back and says why. Never blocks the merge.
+    'precedent_merge_vendors.py',
     # "What's new?" works in every project, so the log's mechanics ship
     # (practice: whats-new); each project's own log never does.
     'precedent_whats_new.py',
@@ -654,6 +675,14 @@ ENGINE_FILES = [
     # tier of the push check a push to each one gets. precedent_push_check.py
     # asks it whenever the push gate names the push; every kind pushes.
     'precedent_branches.py',
+    # The commit backstop's engine fixer (spec/GENERATED_FILES_PLAN.md step
+    # 3): commit-identity.sh's hook runs it from the repository's own copy,
+    # so every kind that receives the hook receives the script it calls.
+    'precedent_regenerate.py',
+    # The one-time move of a hand-written MAP.md / GLOSSARY.md into their
+    # source files (spec/GENERATED_FILES_PLAN.md step 5): a repository runs
+    # its own copy at its next Update Vendors.
+    'precedent_migrate_views.py',
     # The merge gate's engine: the push check, run on the merge GitHub would
     # make, before a session merges a pull request through GitHub -- a push
     # no local hook sees. merge-check-gate.sh calls it; every kind merges.
@@ -1597,7 +1626,8 @@ def _rewrite_manifest_file_list(dest_tools, kind):
                     encoding='utf-8')
 
 
-def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND):
+def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND,
+                        seeded_from=None):
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {sorted(KINDS)}, got {kind!r}")
     # Only what _source_tools_at could actually extract: a name this (possibly
@@ -1628,6 +1658,10 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
         'source_repo': SOURCE_REPO,
         'source_branch': SOURCE_BRANCH,
         'source_commit': source_commit,
+        # Only when seed was told --off-main: the branch the engine really
+        # came from. source_branch stays what refresh follows; links and
+        # the universal clone are built from it. A refresh drops this.
+        **({'seeded_from_branch': seeded_from} if seeded_from else {}),
         'files': files + ['routing_scope.json'],
         'sha256': hashes,
         '_note': (f"The vendored Precedent {kind}-repo engine (see "
@@ -5392,7 +5426,8 @@ def _head_commit(repo_dir):
     return _rev(repo_dir, 'HEAD')
 
 
-def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
+def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None,
+                seeded_from=None):
     """_write_engine_files, plus the cleanup seed never did, plus the hook
     scripts when `hooks_dir` is given -- seed()'s two branches source hooks
     from different places (the working tree vs. an extracted commit), so the
@@ -5437,7 +5472,8 @@ def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
                   f"read, so files dropped from this kind since the last "
                   f"vendoring cannot be identified and are left in place.",
                   file=sys.stderr)
-    written = _write_engine_files(dest_tools, engine_dir, stamp, kind)
+    written = _write_engine_files(dest_tools, engine_dir, stamp, kind,
+                                  seeded_from=seeded_from)
     if previous:
         _remove_dropped_engine_files(dest_tools, previous, kind)
     if hooks_dir is not None:
@@ -5446,7 +5482,47 @@ def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
     return written
 
 
-def seed(dest, kind=DEFAULT_KIND):
+def off_source_branch(repo_dir, commit):
+    """-> what `repo_dir` is on (a branch name, or 'a detached HEAD') when
+    SOURCE_BRANCH, as this checkout knows it, does not contain `commit`;
+    None when it does, or when that cannot be told (no SOURCE_BRANCH ref,
+    or no commit).
+
+    2026-10-02: a practice set was created from a working branch, and its
+    manifest said source_branch "main" over a commit main did not have.
+    Nothing could tell, so every session start "refreshed" it backwards
+    (practice: generated-artifact-provenance)."""
+    tip = _rev(repo_dir, f'origin/{SOURCE_BRANCH}') or _rev(repo_dir, SOURCE_BRANCH)
+    if not tip or not commit or commit == 'unknown':
+        return None
+    if not engine_is_ahead(repo_dir, commit, tip):
+        return None
+    r = subprocess.run(['git', '-C', str(repo_dir), 'symbolic-ref', '--short',
+                        '-q', 'HEAD'], capture_output=True, text=True)
+    return r.stdout.strip() or 'a detached HEAD'
+
+
+def seed_off_main_allowed():
+    """The test harness seeds from the commit under test by the dozen, which
+    is the on-purpose case, so it sets PRECEDENT_SEED_OFF_MAIN=1 once
+    rather than passing --off-main at every fixture (the same pattern as
+    PRECEDENT_ALLOW_ANY_AUTHOR). Nothing outside the harness sets it."""
+    return os.environ.get('PRECEDENT_SEED_OFF_MAIN') == '1'
+
+
+def off_main_refusal(where, commit):
+    """The one sentence seed and the bootstrap refuse with."""
+    return (f"this BestPractice checkout is on {where} at {commit[:12]}, which "
+            f"{SOURCE_BRANCH} does not contain, so the engine it would copy is "
+            f"one {SOURCE_BRANCH} has never had. Every refresh leaves such a "
+            f"repo as it is until that work reaches {SOURCE_BRANCH}, and if it "
+            f"never does, nothing brings it current. Copy from {SOURCE_BRANCH} "
+            f"(`git switch {SOURCE_BRANCH} && git pull`), or pass --off-main to "
+            f"do this on purpose: the manifest then records {where} as "
+            f"seeded_from_branch.")
+
+
+def seed(dest, kind=DEFAULT_KIND, off_main=False):
     """Run from BestPractice's own checkout: dest is a NEW source-set or
     consumer repo's root (tools/precedent_bootstrap_source.py's own --dest,
     for kind='source' only -- a consumer has no bootstrap tool of its own,
@@ -5462,6 +5538,12 @@ def seed(dest, kind=DEFAULT_KIND):
         raise ValueError(f"kind must be one of {sorted(KINDS)}, got {kind!r}")
     dest = pathlib.Path(dest).resolve()
     commit = _head_commit(ROOT) or 'unknown'
+    # Refused before anything is written, never recorded as main: see
+    # off_source_branch(). With off_main, the record names the real branch.
+    seeded_from = off_source_branch(ROOT, commit)
+    if seeded_from and not (off_main or seed_off_main_allowed()):
+        sys.exit(f"precedent_vendor_engine seed REFUSED: "
+                 f"{off_main_refusal(seeded_from, commit)}")
     # From the COMMIT, not the working tree. This used to copy whatever
     # was on disk in ENGINE_DIR while stamping HEAD's hash into
     # ENGINE_MANIFEST.json, so seeding from a checkout with any
@@ -5495,7 +5577,8 @@ def seed(dest, kind=DEFAULT_KIND):
                   f"provenance record.", file=sys.stderr)
         stamp = commit if commit == 'unknown' else f'{commit}+dirty'
         return _seed_write(dest / 'tools', ENGINE_DIR, stamp, kind,
-                           hooks_dir=ROOT / HOOK_SOURCE_DIR)
+                           hooks_dir=ROOT / HOOK_SOURCE_DIR,
+                           seeded_from=seeded_from)
     _c, engine_dir = _source_tools_at(ROOT, kind=kind, ref=commit, fetch=False)
     try:
         dirty = [n for n in wanted
@@ -5508,7 +5591,8 @@ def seed(dest, kind=DEFAULT_KIND):
                   f"written; commit them and re-run to ship them.",
                   file=sys.stderr)
         return _seed_write(dest / 'tools', engine_dir, commit, kind,
-                           hooks_dir=engine_dir / 'hooks')
+                           hooks_dir=engine_dir / 'hooks',
+                           seeded_from=seeded_from)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
 
@@ -6218,6 +6302,66 @@ def _apply_individual_hook(dest_root, kind, clone, commit):
     return written
 
 
+def engine_is_ahead(clone, recorded, tip):
+    """True when the engine a repo records (`recorded`) came from a
+    BestPractice commit that `tip` does not contain: newer work, from a
+    branch that has not reached SOURCE_BRANCH, so a refresh to `tip` would
+    roll it back. False when `tip` contains it (an ordinary stale engine).
+
+    2026-10-02: a practice set made from a working branch recorded that
+    branch's commit, and every session start "refreshed" it to main's older
+    engine in the working tree -- deleting files the set had committed --
+    because refresh compared the two commits only for equality. The tip is
+    asked about its history, never only compared. A recorded commit the
+    clone does not have cannot be placed, and is treated as stale, as
+    before."""
+    try:
+        known = subprocess.run(['git', '-C', str(clone), 'cat-file', '-e',
+                                f'{recorded}^{{commit}}'],
+                               capture_output=True).returncode == 0
+        if not known:
+            return False
+        return subprocess.run(['git', '-C', str(clone), 'merge-base',
+                               '--is-ancestor', recorded, tip],
+                              capture_output=True).returncode == 1
+    except OSError:
+        return False
+
+
+def _drift_upstream_already_has(tools_drift, path_drift, dest_tools, clone,
+                                ref, engine_paths):
+    """-> (drift still to refuse on, [names already identical to upstream]).
+
+    A file that differs from its recorded hash but is byte-for-byte
+    upstream's copy holds no edit to lose: the usual way in is a hand-carried
+    upstream fix, committed before the refresh that would have brought it.
+    Refusing on it left a set stale at every session start until someone
+    forced it (precedent-individual, found rehearsing a Produce, 2026-10-03).
+
+    Upstream is read as the clone already has it -- `ref`, else
+    origin/SOURCE_BRANCH, else SOURCE_BRANCH -- with no fetch, so a refusal
+    still comes before anything is fetched. Engine files in tools/
+    (`tools_drift`) and declared engine paths (`path_drift`) are judged this
+    way; hooks and CI workflows keep their own review. A missing file, or
+    one upstream's copy cannot be read for, still counts as drift."""
+    commit = ref or _rev(clone, f'origin/{SOURCE_BRANCH}') or _rev(clone, SOURCE_BRANCH)
+    by_local = {local: up for up, local in engine_paths.items()}
+    keep, same = [], []
+    for name, why, here, up in (
+            [(n, w, dest_tools / n, f'tools/{n}') for n, w in tools_drift]
+            + [(n, w, ROOT / n, by_local.get(n)) for n, w in path_drift]):
+        blob = None
+        if commit and up and why != 'missing' and here.is_file():
+            r = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:{up}'],
+                               capture_output=True)
+            blob = r.stdout if r.returncode == 0 else None
+        if blob is not None and here.read_bytes() == blob:
+            same.append(name)
+        else:
+            keep.append((name, why))
+    return keep, same
+
+
 def refresh(clone, force=False, ref=None):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving SOURCE_BRANCH there.
@@ -6267,9 +6411,15 @@ def refresh(clone, force=False, ref=None):
                  f"own, or drop the entry. Not waived by --force.")
 
     if not force:
-        drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
-                 + _ci_workflow_drift(ROOT, manifest, kind)
-                 + _engine_path_drift(ROOT, manifest))
+        drift, same = _drift_upstream_already_has(
+            _local_drift(dest_tools, manifest), _engine_path_drift(ROOT, manifest),
+            dest_tools, clone, ref, engine_paths)
+        drift += (_hook_drift(ROOT, manifest)
+                  + _ci_workflow_drift(ROOT, manifest, kind))
+        for name in same:
+            print(f"  {name}: differs from the recorded hash, but is already "
+                  f"identical to upstream's copy -- nothing to lose, so it "
+                  f"does not hold the refresh up")
         if drift:
             for name, why in drift:
                 print(f"  {name}: {why}")
@@ -6296,6 +6446,18 @@ def refresh(clone, force=False, ref=None):
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
+    recorded = str(manifest.get('source_commit') or '')
+    if (ref is None and not force and recorded and recorded != new_commit
+            and engine_is_ahead(clone, recorded, new_commit)):
+        shutil.rmtree(engine_dir, ignore_errors=True)
+        print(f"precedent_vendor_engine refresh: this repo's engine came from "
+              f"BestPractice {recorded[:12]}, which {SOURCE_BRANCH} "
+              f"({new_commit[:12]}) does not contain -- newer work, not older. "
+              f"Refreshing would roll it back, so it is left as it is. Once "
+              f"that work reaches {SOURCE_BRANCH}, a refresh takes it from "
+              f"there; to vendor a particular commit, pass --ref; to roll it "
+              f"back on purpose, --force.")
+        return
     try:
         # Read now, compared now, BEFORE any write: a first-run refusal
         # after the engine files were already rewritten would leave a
@@ -6543,7 +6705,7 @@ def refresh(clone, force=False, ref=None):
     # 37fc3b55 until a moment earlier, 2026-09-28.
     was = os.environ.get(_WAS_COMMIT_ENV) or manifest.get('source_commit') or '?'
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
-          f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
+          f"from {ref if ref else SOURCE_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
@@ -6802,10 +6964,12 @@ def main():
         if kind not in KINDS:
             sys.exit(f"precedent_vendor_engine FAIL: --kind must be one of "
                      f"{', '.join(sorted(KINDS))}, got {kind!r}.")
+        off_main = '--off-main' in rest
+        rest = [a for a in rest if a != '--off-main']
         if rest:
             sys.exit(f"precedent_vendor_engine FAIL: unknown argument(s) to seed: "
                      f"{', '.join(rest)}.")
-        written = seed(args[1], kind=kind)
+        written = seed(args[1], kind=kind, off_main=off_main)
         print(f"SEEDED ({kind}): {len(written)} engine file(s) into "
               f"{pathlib.Path(args[1]).resolve() / 'tools'}")
         for f in written:

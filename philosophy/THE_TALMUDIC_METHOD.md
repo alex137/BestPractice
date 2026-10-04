@@ -33,7 +33,7 @@ flatten what the argument produced, then make it citable later.
    doesn't count until it's been genuinely tested.
    [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model)
    names exactly that failure mode for a model that just agrees, and
-   [`brainstorm-holds-commits`](../practices/brainstorm-holds-commits.md)
+   `brainstorm-holds-commits`
    enforces the same discipline structurally — the repository stays
    untouched until the argument has actually run.
 

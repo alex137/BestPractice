@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""build_views.py — phase-2 generated views (PRACTICE_ENGINE_PLAN.md,
+"""This file, GLOSSARY.md, and AGENTS.md's loader block — generated views
+
+build_views.py — phase-2 generated views (PRACTICE_ENGINE_PLAN.md,
 Sequence row 2: "make AGENTS.md, MAP.md, GLOSSARY.md and the index
 generated"). Regenerates:
 
@@ -35,10 +37,14 @@ Run:
   python3 tools/build_views.py --agents-only [--check]
       # write (or check) only AGENTS.md's loader block. MAP.md and
       # GLOSSARY.md's content is specific to how THIS repo is laid out
-      # (render_map_md()'s TOOLS_DESCRIPTIONS table, its "this repo is
+      # (render_map_md()'s engine table, its "this repo is
       # BestPractice itself" prose); a shared or individual source repo
       # vendoring this same file for its own practices/ catalogue wants
       # the resident-block/occasion-index mechanism, not those two.
+  python3 tools/build_views.py --views-only [--check]
+      # write (or check) MAP.md, GLOSSARY.md and WHERE_THINGS_ARE.md, never
+      # AGENTS.md -- what a repository using Precedent runs, since its
+      # loader block is precedent_sync_views.py's to write
   python3 tools/build_views.py --repo DIR [--agents-only] [--check]
       # operate on DIR's practices/AGENTS.md/MAP.md/GLOSSARY.md instead of
       # this repo's own -- --repo defaults to this script's own parent
@@ -79,6 +85,30 @@ GLOSSARY_MD = ROOT / 'GLOSSARY.md'
 # exactly the mistake engine_owned_paths' own docstring says it must never
 # make, so AGENTS.md stays a person's file for that purpose.
 FULLY_GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
+
+
+def is_generated_view(path):
+    """True when `path` is missing or carries this tool's own
+    `generated_by: tools/build_views.py` header -- the only MAP.md or
+    GLOSSARY.md it may write. An adopter's hand-made map is theirs: the plain
+    form used to replace it with this repository's own
+    (todo-2026-09-21-pass-1-install-and-update-findings, finding 1), and a
+    consumer whose map IS generated still needs it kept current after a sync
+    removes practices (a consumer's report, 2026-10-03)."""
+    try:
+        head = pathlib.Path(path).read_text(encoding='utf-8')[:2000]
+    except FileNotFoundError:
+        return True
+    except (OSError, UnicodeDecodeError):
+        return False
+    return bool(GENERATED_BY_RE.match(head))
+
+
+# The header render_map_md / render_glossary_md write (generated_label), read
+# back: front matter whose generated_by names this tool, quoted or not. The
+# one definition -- precedent_update.generated_full_views asks this too.
+GENERATED_BY_RE = re.compile(
+    r'\A---\n(?:.*\n)*?generated_by:\s*["\']?tools/build_views\.py', re.M)
 
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
@@ -1714,6 +1744,25 @@ def sources_for_tracked_block(root, declared):
     tree the text lives in, not what the level is called.
     """
     notes = []
+    # A set a PERSON brings (spec/LADDER_OPT_IN_PLAN.md D2, D6) is never
+    # rendered into a committed file, whatever the repository: it is in force
+    # for that one person, so writing it into a tracked view would hand it to
+    # everyone who works here -- and make the view differ by who regenerated
+    # it last.
+    brought = [s for s in declared if s.get('brought')]
+    if brought:
+        declared = [s for s in declared if not s.get('brought')]
+        notes.append(
+            f"{', '.join(s['name'] for s in brought)} deferred to "
+            f".precedent/SESSION_PRACTICES.md -- brought by the person "
+            f"working here, not declared by this repository")
+    tracked, deferred, more = _split_declared(root, declared)
+    return tracked, brought + deferred, notes + more
+
+
+def _split_declared(root, declared):
+    """sources_for_tracked_block's split of what the repository DECLARES."""
+    notes = []
     if repo_is_practice_source(root):
         deferred = [s for s in declared if s['level'] != 'repo-local'
                     and not _same_repository(s['path'], root)]
@@ -1768,7 +1817,14 @@ def defers_any_source(root):
               file=sys.stderr)
         return False
     _tracked, deferred, _notes = sources_for_tracked_block(root, declared)
-    return bool(deferred)
+    # Only what THIS REPOSITORY declares. A set the person brings is deferred
+    # too, but reaches their session through the session-start hook, and a
+    # tracked file must read the same whoever regenerates it: counting it
+    # here wrote the pointer for a person who brings a set and not for one
+    # who does not, so in a repository that uses Precedent build_views.py
+    # and the view sync disagreed, and its full check failed for everyone
+    # who brings one (found 2026-10-03, migrating a real consumer's copy).
+    return any(not s.get('brought') for s in deferred)
 
 
 def source_levels_from_manifest(root):
@@ -1873,7 +1929,9 @@ def loader_practices(root, own_practices):
     if len(declared) <= 1:
         return own_practices, source_levels_from_manifest(root)
 
-    res = _pr.resolve(declared)
+    # A brought set is left out of the block but still counts for what is in
+    # force (precedent_resolve.resolve's `context`).
+    res = _pr.resolve(declared, context=[s for s in _deferred if s.get('brought')])
     if res['missing']:
         # A declared source that does not resolve HERE makes the block
         # unverifiable, not stale. A shared source is a sibling clone and an
@@ -1932,10 +1990,10 @@ BUDGETS_NOT_VERIFIED = 'build_views --budgets NOT VERIFIED'
 def _over_cap_warning(msg):
     """Say that a loader cap is exceeded, and that it is allowed onto
     pre-staging but not staging (see render_agents_md)."""
-    print(f"build_views WARNING: {msg} Written anyway: this may land on "
-          f"pre-staging, but it must be brought under the cap before it "
-          f"can go to staging -- the full check at the Debut refuses it "
-          f"(loader-within-caps). Tell the person.", file=sys.stderr)
+    print(f"build_views WARNING: {msg} Written anyway: the quick check lets "
+          f"it through, but the full check refuses it (loader-within-caps), "
+          f"so bring it under the cap before it goes further. Tell the "
+          f"person.", file=sys.stderr)
 
 
 def render_agents_md(practices, agents_md=None, source_levels=None,
@@ -2166,7 +2224,7 @@ def _engine_scope_files():
     durable signal a vendored copy carries about itself; its absence means
     every *.py here really is this project's own tooling, same as always).
 
-    render_map_md()'s "no TOOLS_DESCRIPTIONS entry" assertion below used to
+    render_map_md()'s "every engine file is described" assertion used to
     run over every *.py sitting beside this script (`_ENGINE_DIR.glob`),
     which cannot tell the vendored engine apart from a CONSUMER's own local
     scripts living in that identical directory -- `tools/` in a consumer
@@ -2212,22 +2270,140 @@ def generated_label(generated_by, edit_instead, regenerate):
             'note: "' + note.replace('"', "'") + '"', '---']
 
 
-def render_map_md(practices, withdrawn=()):
+# WHERE_THINGS_ARE.md AND AGENTS.md'S SHORT TABLE, FROM ONE SOURCE
+# (spec/GENERATED_FILES_PLAN.md step 2; Morgan, 2026-10-03: generated files
+# are never hand-edited, and a copy "should either cite the original instead
+# of repeating it OR make sure they are kept in sync"). The short table was a
+# hand copy of a dozen rows of the full one, and by then several read
+# differently -- the full one still named the reply's closing section by its
+# old name. Both render from where_things_are.json now; a repository without
+# that file has neither, and nothing here touches it.
+WHERE_SOURCE = 'where_things_are.json'
+WHERE_PAGE = 'WHERE_THINGS_ARE.md'
+QUICK_BEGIN = '<!-- BEGIN GENERATED: where-things-are -->'
+QUICK_END = '<!-- END GENERATED: where-things-are -->'
+_ROW_LINK = re.compile(r'\]\(([^)\s]+)\)')
+
+
+def _where_source(root):
+    """-> where_things_are.json's content, or None when the repository has
+    none. Every relative link in a row must resolve, or the build stops
+    naming each one: a row that sends a reader to a file that moved is the
+    staleness this page exists to prevent."""
+    path = pathlib.Path(root) / WHERE_SOURCE
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError as e:
+        sys.exit(f"build_views FAIL: {WHERE_SOURCE} is not valid JSON: {e}")
+    broken = []
+    for row in data.get('rows') or []:
+        for cell in (row.get('looking_for', ''), row.get('go_to', '')):
+            for target in _ROW_LINK.findall(cell):
+                if re.match(r'[a-z]+:|#', target):
+                    continue
+                rel = target.split('#', 1)[0]
+                if rel and not (pathlib.Path(root) / rel).exists():
+                    broken.append(f"{row.get('looking_for', '')[:60]!r} -> {target}")
+    if broken:
+        sys.exit(f"build_views FAIL: {WHERE_SOURCE} links to paths that do not "
+                 f"exist -- fix the row there, then run this again:\n  "
+                 + '\n  '.join(broken))
+    return data
+
+
+def _where_row(row):
+    return f"| {row['looking_for']} | {row['go_to']} |"
+
+
+def render_where_things_are(data):
+    """-> WHERE_THINGS_ARE.md: the label, the intro and every row."""
+    lines = [*generated_label('tools/build_views.py', WHERE_SOURCE,
+                              'python3 tools/build_views.py'),
+             '', '# Where things are — the full index', '',
+             *data.get('intro', []), '',
+             '| Looking for… | Go to |', '|---|---|',
+             *(_where_row(r) for r in data.get('rows') or [])]
+    return '\n'.join(lines) + '\n'
+
+
+def splice_quick_index(text, data):
+    """-> `text` (AGENTS.md) with the rows marked `quick` written between
+    QUICK_BEGIN and QUICK_END, in their `quick` order, and a last row
+    pointing at the full page."""
+    if QUICK_BEGIN not in text or QUICK_END not in text:
+        sys.exit(f"build_views FAIL: {WHERE_SOURCE} exists but AGENTS.md has no "
+                 f"{QUICK_BEGIN} / {QUICK_END} markers for its short table.")
+    quick = sorted((r for r in data.get('rows') or [] if r.get('quick')),
+                   key=lambda r: r['quick'])
+    block = [QUICK_BEGIN, '| Looking for… | Go to |', '|---|---|',
+             *(_where_row(r) for r in quick),
+             f'| Anything else — the full index | [{WHERE_PAGE}]({WHERE_PAGE}) |',
+             QUICK_END]
+    pre = text[:text.index(QUICK_BEGIN)]
+    post = text[text.index(QUICK_END) + len(QUICK_END):]
+    return pre + '\n'.join(block) + post
+
+
+# A REPOSITORY'S OWN SECTIONS (spec/GENERATED_FILES_PLAN.md step 5; Morgan,
+# 2026-10-03: MAP.md and GLOSSARY.md are generated in every repository, and
+# a repository that uses Precedent keeps what it wrote). What a repository
+# says about itself -- its deliverables, who depends on it, its own names --
+# lives in MAP.source.md and GLOSSARY.source.md, written by hand, and is
+# copied into the generated view word for word, ahead of the sections
+# generated from the catalogue and the engine. A repository with neither
+# file gets the views exactly as before.
+MAP_SOURCE = 'MAP.source.md'
+GLOSSARY_SOURCE = 'GLOSSARY.source.md'
+
+
+def _own_source(root, name):
+    """-> a repository's own hand-written section text, or None."""
+    path = pathlib.Path(root or ROOT) / name
+    if not path.is_file():
+        return None
+    return path.read_text(encoding='utf-8').rstrip('\n')
+
+
+def _vendored_engine(root):
+    """True when `root` carries a vendored copy of the engine -- a practice
+    set or a repository that uses Precedent -- rather than being the
+    engine's own repository. Only there may MAP.md introduce itself as
+    Precedent's own map: until 2026-10-03 every generated map, in every set
+    and consumer, opened with this repository's introduction."""
+    root = pathlib.Path(root or ROOT)
+    return any((root / d / 'ENGINE_MANIFEST.json').is_file()
+               for d in ('tools', 'process/upstream/tools'))
+
+
+def render_map_md(practices, withdrawn=(), root=None):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
+    own = _own_source(root, MAP_SOURCE)
     # The label every generated file opens with (tools/generated_files.json
     # lists them all): visible as a small table on GitHub, read by
     # precedent_check.py's generated-files-registered (Morgan, 2026-09-29).
-    lines = [
+    head = ([*generated_label('tools/build_views.py',
+                              f'{MAP_SOURCE} and practices/*.md',
+                              'python3 tools/build_views.py'), '', own, '']
+            if own is not None else [
         *generated_label('tools/build_views.py', 'practices/*.md',
                          'python3 tools/build_views.py'),
         '',
         "# Repository map — where to find things",
         '',
+        *([("This repository's map of the practice catalogue in force here and "
+            "the engine's own code, generated, never hand-edited. What this "
+            "repository says about itself goes in MAP.source.md, which this map "
+            "then carries first.")]
+          if _vendored_engine(root) else [
         "Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "
         '"make AGENTS.md, MAP.md, GLOSSARY.md and the index generated"). '
         "For the plan and format spec, see AGENTS.md's quick index instead — this file "
-        "indexes the practice catalogue and the engine's own code, not the whole repo's prose.",
-        '',
+        "indexes the practice catalogue and the engine's own code, not the whole repo's prose."]),
+        ''])
+    lines = [
+        *head,
         "## The practice catalogue",
         '',
         f"`practices/` holds {len(practices)} practice files "
@@ -2256,127 +2432,37 @@ def render_map_md(practices, withdrawn=()):
     if engine_scope is not None:
         engine_names = [n for n in engine_names if n in engine_scope]
     for name in engine_names:
-        try:
-            desc = TOOLS_DESCRIPTIONS[name]
-        except KeyError:
-            sys.exit(f"build_views FAIL: tools/{name} exists but has no entry "
-                     f"in TOOLS_DESCRIPTIONS (build_views.py) -- this table used "
-                     f"to be a hand-written list that silently omitted whatever "
-                     f"wasn't added to it (missing over half of tools/ by the "
-                     f"time a 2026-09-01 deep-check audit found it, including "
-                     f"precedent_check.py and precedent_gate.py). Add a "
-                     f"one-line description for tools/{name} rather than "
-                     f"leaving it out.")
+        desc = tool_summary(_ENGINE_DIR / name)
+        if not desc:
+            # Every engine file is described, or the build stops: this table
+            # once silently omitted over half of tools/, including
+            # precedent_check.py and precedent_gate.py (a 2026-09-01 audit).
+            sys.exit(f"build_views FAIL: tools/{name} has no module docstring "
+                     f"to describe it in MAP.md. Give it one whose first line "
+                     f"says what it is -- that line is its row in the map.")
         lines.append(f"| [tools/{name}](tools/{name}) | {desc} |")
     lines.append('')
     return '\n'.join(lines) + '\n'
 
 
-# One entry per file in tools/*.py -- render_map_md() asserts every file that
-# EXISTS has one, so a new script silently missing from MAP.md's "## The
-# engine" table (the gap a 2026-09-01 deep-check audit found: 9 hardcoded
-# rows against 20 real files, missing precedent_check.py and
-# precedent_gate.py -- the implementations of two of the plan's four loading
-# channels -- from the very table orientation-map, a RESIDENT practice, exists
-# to keep current) fails the build instead of shipping quietly incomplete.
-TOOLS_DESCRIPTIONS = {
-    'behavioral_replay.py': "Measures the path-triggered loader against this repo's own commit history",
-    'build_views.py': "This file, GLOSSARY.md, and AGENTS.md's loader block — generated views",
-    'build_codeowners.py': "CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json",
-    'catalogue_stats.py': "The figures about the catalogue that other documents cite, computed rather than hand-typed",
-    'checkin.py': "Drives the periodic check-in (INSTALL.md §4) mechanically",
-    'doc_html.py': "The one sortable-table HTML renderer for repo documents",
-    'result_cache.py': "The shared result cache -- code-keyed memos on one snapshot branch, a leased cold solve that peers wait for",
-    'reach_key.py': "A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing",
-    'parse_check.py': "Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check",
-    'doc_lint.py': "Markdown hygiene checks — strikethrough, links, acronyms",
-    'frontmatter_yaml.py': "The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift",
-    'generated_blocks.py': "Whether a line is inside a generated block, in both marker styles, closing marker required -- the one answer every scan that skips generated text uses",
-    'doc_lifecycle.py': "The document status header — kind, status, "
-                        "supersession — checked across spec/ and record/",
-    'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",
-    'branch_store.py': "Small records on a dedicated branch of a shared remote, with the push as the lock: the git plumbing shared by the lease board and the result cache",
-    'content_record.py': "Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check",
-    'fact_ledger.py': "Verified facts (code fingerprint, recorded reads, result) that let a drift gate or an audit skip a unit whose fact still holds",
-    'full_practice_audit.py': "The full practice audit — on-demand, whole-catalogue sweep across every source",
-    'lease_board.py': "The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock",
-    'leak_gate.py': "The push-time leak gate — structural rules always, private-term blocklist when configured",
-    'model_audit.py': "Runs each computing script's own self-assertions and checks the figures it recites",
-    'practice_audit.py': "Audits the practice-export layer for a repo that vendors one (this repo does not)",
-    'practice_simulation.py': "Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark",
-    'precedent_check.py': "The ENFORCED loading channel — runs every practice's `checked_by` script",
-    'precedent_ci_verified.py': "Did CI actually run, and pass, on the commit about to be merged — advisory, one API call",
-    'precedent_gate.py': "The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)",
-    'precedent_reply_check.py': "The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires",
-    'precedent_container_safe.py': "Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work",
-    'precedent_close_detect.py': "Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material",
-    'precedent_bootstrap_source.py': "Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet",
-    'precedent_source_bootstrap.py': "Clone-or-pull for a privately-scoped individual or shared source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal",
-    'precedent_source_credentials.py': "Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo",
-    'github_budget.py': "What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session",
-    'precedent_source_names.py': "Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it",
-    'precedent_boundary_check.py': "Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass",
-    'precedent_owned_paths.py': "Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it",
-    'precedent_candidate.py': "Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates",
-    'precedent_detect.py': "Stage 1 (phase 5) — the mechanical half of candidate detection",
-    'precedent_land.py': "Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant",
-    'precedent_materialize.py': "Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools",
-    'philosophy_backlinks.py': "EXPERIMENTAL — reports item-to-item citations in "
-        "philosophy/ that run one way only; the return sentence is written by hand, "
-        "never generated",
-    'precedent_whats_new.py': "The mechanics behind \"What's new?\": which finished days on main a project's running log lacks, what changed on each, today so far, and marking the log current -- the entries themselves are the session's to write",
-    'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch or pre-staging runs its basic tier only",
-    'precedent_branch_name.py': "The name for a session's feature branch, built the same way every time -- `claude/<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none (practice: act)",
-    'precedent_branches.py': "The three branch tiers -- which branch is pre-staging, staging and main here, and whether a push to one gets the basic or the full push check (spec/BRANCH_TIERS_PLAN.md)",
-    'precedent_consumer_shape.py': "A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores, in a copy without the source's own tools/ (only the engine, tools/checks/ and what practices ship) -- so a test that passes only in its home layout fails at home; a source's push check runs it",
-    'precedent_merge_check.py': "The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees, and again on the merge commit after it, reverting a merge that fails because the base moved in between",
-    'precedent_practice_refs.py': "Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors",
-    'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
-    'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
-    'precedent_local_edits.py': "A consuming repo's committed edits to files it received (engine files in tools/, process/upstream/): resolved at Update Vendors -- kept, merged, or replaced by upstream's with the commit that holds them named -- and sent upstream as a scrubbed branch by `send` (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)",
-    'precedent_update.py': "Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)",
-    'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",
-    'precedent_resolve.py': "Resolves the universal, shared and individual sources into one set, by precedence",
-    'precedent_run_session_hooks.py': "Runs each repo's own SessionStart hooks for a session opened in the folder above them",
-    'precedent_identity.py': "Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing",
-    'precedent_decommission.py': "Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it",
-    'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
-    'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
-    'precedent_session_practices.py': "Writes the shared/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
-    'precedent_access_check.py': "Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after",
-    'precedent_session_check.py': "Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did",
-    'precedent_beta_watermark_check.py': "Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert",
-    'routing_reasons.py': "Every on-demand practice's routing choice on one page, built from each practice's applies_to_why and gates_why into spec/ROUTING_REASONS.md",
-    'our_language.py': "Our language: the short list of words a person needs to follow a conversation about Precedent, read from tools/our_language.json and rendered into documentation/OUR_LANGUAGE.md's generated table (spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md)",
-    'precedent_which_repo.py': "Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory",
-    'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
-    'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
-    'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",
-    'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
-    'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
-    'precedent_move.py': "Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name",
-    'precedent_install.py': "Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt",
-    'precedent_vendor_engine.py': "Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or shared set, and keeps it refreshable",
-    'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
-    'todo_progress.py': 'which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict',
-    'move_paths.py': "Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten",
-    'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",
-    'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
-    'routing_eval_synthetic.py': "Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits",
-    'session_load_trend.py': "How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print",
-    'split_practices.py': "PRACTICES.md ↔ practices/ converter",
-    'summary_text.py': "Turns prose into a summary field: links out first, then the cut — run bare to self-check",
-    'table_fmt.py': "One formatter per quantity kind — the engine",
-    'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",
-    'todo_migrate.py': "One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default",
-    'build_todo_index.py': "todo/TODO.md and todo/CLOSED.md, generated from todo/*.md's frontmatter",
-    'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
-    'verify_harness.py': "The verification harness — run before trusting any change here",
-    'ci_fleet_audit.py': "Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs",
-    'precedent_review_page.py': "The very deep check's session-only page: branches to delete, with a link each, and every active practice by source",
-    'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
-    'precedent_engine_freshness.py': "Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes",
-}
+def tool_summary(path):
+    """-> the first line of a tool's own module docstring: what MAP.md's
+    "## The engine" table says about it, or None when it has none.
+
+    Read from the tool itself since 2026-10-03 (spec/GENERATED_FILES_PLAN.md
+    step 1, Morgan: generated files are never hand-edited; a change goes
+    into their sources). It used to be TOOLS_DESCRIPTIONS, a hand-typed
+    table here: a second copy of what each tool already says about itself,
+    edited by hand inside the generator. Each entry moved into its tool as
+    that first line, word for word, so the map did not change. Parsed, never
+    imported: a tool's imports are not this generator's business."""
+    import ast
+    try:
+        doc = ast.get_docstring(ast.parse(pathlib.Path(path).read_text(encoding='utf-8')))
+    except (OSError, SyntaxError, ValueError):
+        return None
+    first = (doc or '').strip().splitlines()
+    return first[0].strip() if first and first[0].strip() else None
 
 
 def render_glossary_md(practices, root=None):
@@ -2387,12 +2473,16 @@ def render_glossary_md(practices, root=None):
         for term in _json_list(raw):
             terms.append((term, fm['slug']))
     terms.sort(key=lambda t: t[0].lower())
+    own = _own_source(root, GLOSSARY_SOURCE)
     lines = [
         *generated_label('tools/build_views.py',
-                         "the defines: field of practices/*.md",
+                         (f"{GLOSSARY_SOURCE} and the defines: field of practices/*.md"
+                          if own is not None else
+                          "the defines: field of practices/*.md"),
                          'python3 tools/build_views.py'),
         '',
-        "# Canonical names",
+        *([own, '', "## Names the practices define"] if own is not None
+          else ["# Canonical names"]),
         '',
         "Built from every practice's `defines:` frontmatter field -- the terms that "
         "practice owns (PRACTICE_ENGINE_PLAN.md, The Practice File). A term with no row "
@@ -2551,7 +2641,7 @@ def main():
     check = '--check' in argv
     # --agents-only: regenerate just AGENTS.md's loader block (resident
     # block, occasion index, standing instruction), skip MAP.md and
-    # GLOSSARY.md. render_map_md()'s TOOLS_DESCRIPTIONS table and "this repo
+    # GLOSSARY.md. render_map_md()'s engine table and "this repo
     # is BestPractice itself" prose are specific to this repo; a team or
     # individual source repo vendoring this same engine for its OWN
     # catalogue (practice: layered-practice-packs -- every level needs the
@@ -2560,6 +2650,13 @@ def main():
     # wants only the loader-block mechanism, not BestPractice's own MAP/
     # GLOSSARY conventions.
     agents_only = '--agents-only' in argv
+    # --views-only: MAP.md, GLOSSARY.md and WHERE_THINGS_ARE.md, never
+    # AGENTS.md. In a repository that uses Precedent the loader block is the
+    # view sync's to write (precedent_sync_views.py renders it across every
+    # source); rebuilding the views must not rewrite it from practices/
+    # alone. Found 2026-10-03 migrating a real consumer: a full run here
+    # left AGENTS.md different from a fresh sync.
+    views_only = '--views-only' in argv
     global STRICT_BUDGETS
     STRICT_BUDGETS = '--budgets' in argv
     practices = load_practices(practices_dir)
@@ -2619,7 +2716,12 @@ def main():
         print("build_views --budgets OK: the resident block, the occasion "
               "index and this source's occasion share are within their caps")
         return 0
-    targets = [(agents_md, new_agents)]
+    where = _where_source(root)
+    if where is not None:
+        new_agents = splice_quick_index(new_agents, where)
+    targets = [] if views_only else [(agents_md, new_agents)]
+    if where is not None and not agents_only:
+        targets.append((root / WHERE_PAGE, render_where_things_are(where)))
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()
         # drops withdrawn practices by design (that filter is what stopped a
@@ -2628,8 +2730,24 @@ def main():
         _all = load_practices(practices_dir, in_force_only=False)
         _in_force = {id(t) for t in practices}
         withdrawn = [t for t in _all if not is_in_force(t[0])]
-        targets.append((map_md, render_map_md(practices, withdrawn)))
-        targets.append((glossary_md, render_glossary_md(practices, root)))
+        for path, render in ((map_md, lambda: render_map_md(practices, withdrawn, root)),
+                             (glossary_md, lambda: render_glossary_md(practices, root))):
+            # A view whose own source file exists has been migrated: it is
+            # generated from now on, whatever the file on disk says.
+            src = MAP_SOURCE if path.name == 'MAP.md' else GLOSSARY_SOURCE
+            # A views-only rebuild (a consumer's sync, migration or commit
+            # backstop) keeps the views a repository has and never adds one
+            # it lacks: a consumer whose glossary lives in docs/ got a root
+            # GLOSSARY.md, untracked, every time its MAP.source.md changed
+            # (2026-10-03).
+            if views_only and not path.exists() and not (root / src).is_file():
+                continue
+            if is_generated_view(path) or (root / src).is_file():
+                targets.append((path, render()))
+            else:
+                print(f"build_views: {path.name} has no generated_by header, so "
+                      f"it is this repository's own and is left alone.",
+                      file=sys.stderr)
 
     if check:
         drift = []

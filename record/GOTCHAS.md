@@ -1325,7 +1325,7 @@ tools (the local clone before the API, a repo-scoped `list_*` before a
 ## 42. <a id="g42"></a>The permission classifier refuses commits and checks in the very practice set whose `identity.json` declares `relayed_authorization: accepted`
 
 **The symptom.** You are working in an individual practice set, adding the
-one field [relayed-authorization](../practices/relayed-authorization.md)
+one field `relayed-authorization`
 tells you to add. The moment the field is in the file, commands that ran a
 minute earlier in the same repository come back as
 
@@ -1390,11 +1390,11 @@ repository.
 
 ## 43. <a id="g43"></a>A spawned session's seeded prompt cannot pre-authorize a merge — the classifier refuses the `create_session` call itself
 
-**The symptom.** [go-update](../practices/go-update.md) and
+**The symptom.** `go-update` and
 [session-text](../practices/session-text.md) both say a relayed `Go merge`
 travels with a seeded prompt: the receiving session merges without asking
 again, bounded by
-[relayed-authorization](../practices/relayed-authorization.md)'s check on the
+`relayed-authorization`'s check on the
 target repository's own `identity.json`. A `create_session` call seeding a
 cross-owner repository with a prompt that said, in effect, "commit, push,
 open the pull request, and merge it" was refused before the new session ever

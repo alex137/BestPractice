@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""build_todo_index.py — the ongoing generator for spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's
+"""todo/TODO.md and todo/CLOSED.md, generated from todo/*.md's frontmatter
+
+build_todo_index.py — the ongoing generator for spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's
 open-item format (Part 1). Reads every `todo/todo-*.md` file's frontmatter and
 writes two generated files, the way tools/build_views.py generates AGENTS.md's
 loader block, MAP.md and GLOSSARY.md from practices/*.md: hand-editing either
