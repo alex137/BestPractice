@@ -16,8 +16,8 @@ closed:            null
 ---
 ## What
 
-- <a id="two-small-engine-leftovers-from-the-produce"></a>**Two small
-  engine leftovers, found landing the 2026-10-04 Produce; neither is wrong
+- <a id="two-small-engine-leftovers-from-the-produce"></a>**Three small
+  engine leftovers, found landing the 2026-10-04 Produce; none is wrong
   today.**
 
   1. **A second answer to "which paths are someone else's copy".**
@@ -41,12 +41,21 @@ closed:            null
      update should either refuse a clone not at REF or run REF's own
      copy.
 
-  Queued rather than done in the session that found them: both sit
-  outside the launch that was authorized, and neither blocks anything.
+  3. **A Promote into main says a GitHub test is due where none exists.**
+     For a practice set that is not declared private,
+     `precedent_branches.py --promote --to main` printed "GitHub test: DUE
+     -- every Promote gets it", and `--wait-main-test` on the same branch
+     answered "no GitHub test is installed here" (all four shared sets,
+     2026-10-04). The Promote's line should read the same installed-test
+     fact the wait reads.
+
+  Queued rather than done in the session that found them: all sit
+  outside the launch that was authorized, and none blocks anything.
 
 ## Closes when
 
 Both readers of vendored paths derive from `mirrored_prefixes`, with no
 second list left, and `--from-ref` names the ref it took and refuses or
-re-runs from a clone not at that ref. Each change has a harness case shown
+re-runs from a clone not at that ref, and a Promote into main reports a
+GitHub test as due only where one is installed. Each change has a harness case shown
 failing without it.
