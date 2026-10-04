@@ -3,16 +3,16 @@ slug:              todo-2026-10-04-individual-set-declares-its-rendered-hook
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       null
 remind_on:         null
-blocked_on:        "BestPractice main carrying render_individual_hook and the rendered engine path (tools/precedent_vendor_engine.py, 2026-10-04)"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-04
-closed:            null
+closed:            2026-10-04
 ---
 ## What
 
@@ -46,3 +46,19 @@ closed:            null
 The declaration is on precedent-individual's main, its
 `tools/ENGINE_MANIFEST.json` records the path's hash, and a refresh with
 the template changed rewrites the set's copy.
+
+## Notes
+
+- 2026-10-04, closed on its condition, all three parts:
+  - the declaration is on precedent-individual's main (53e6837, through
+    themorgan/precedent-individual#268), after BestPractice main carried the
+    renderer (369c1d9c, [alex137/BestPractice#852](https://github.com/alex137/BestPractice/pull/852));
+  - that set's `tools/ENGINE_MANIFEST.json` records the path, with a sha256
+    equal to the file's;
+  - a refresh with the template changed rewrites the copy: verify_harness
+    case I in `check_vendor_engine_keeps_a_declared_engine_path`, against a
+    throwaway upstream whose template moves.
+
+  The set's engine was refreshed first, in a pass of its own, and the
+  declaration came second; the second refresh adopted the file unchanged,
+  since it already was the render.
