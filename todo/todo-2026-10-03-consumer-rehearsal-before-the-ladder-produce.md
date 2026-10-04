@@ -3,16 +3,16 @@ slug:              todo-2026-10-03-consumer-rehearsal-before-the-ladder-produce
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          "A separate session-load budget for the sets a person brings, set in their individual set, rather than charging them to a repository's ceiling or trimming the ladder"
 decision_strength: assented
-waiting_on:        "Morgan: land claude/staging-optional-user-display-i4tewn into staging, then the set rollout order below"
+waiting_on:        null
 noted:             2026-10-03
-closed:            null
+closed:            2026-10-04
 ---
 ## What
 
@@ -112,6 +112,26 @@ included, passes in every consumer it reaches.
   the migration has no glossary restore. Another consumer does not
   declare `precedent-shared-writing`, so sixteen rules that moved there
   read as in force nowhere; staging's engine says so, the current one hid it.
-- Stays open: the rerun passes on the branch, not on staging as it stands.
-  Closes when the branch is on staging and a short rerun there agrees.
+- <a id="rerun-on-staging-2026-10-04"></a>**The short rerun on staging
+  `0211eaa7` (2026-10-04) agrees; closed on its condition.** Fresh scratch
+  clones of the four consumers' mains, the sets at their staging, the
+  individual set's own Update Vendors taken first, then a full Update
+  Vendors in each consumer from a BestPractice clone checked out at that
+  ref. The nine stay fixed and nothing new appeared: the catalogue came
+  from the ref; the ladder-dependent rules are in every file a session
+  reads at start; nothing was left unstaged; the migration is byte for
+  byte where a view was hand-written, and gives an already-generated one
+  an empty source and a list; a source edit rebuilds the view at commit,
+  after the person's fixer; a hand edit is caught with its real cause; a
+  rebuild never touches AGENTS.md; no root GLOSSARY.md appears where a
+  consumer keeps its glossary elsewhere; no vendored engine file is
+  listed as the consumer's. One consumer passes its bare push check on
+  the committed update; the other three fail only on their own links to
+  rules that moved (step 13's). One of those, a hook's link to a practice
+  a shared set renamed earlier, is still not listed by Update Vendors,
+  because the earlier rename removed it before the sync step ran; it
+  predates this release.
+- The migration's own clean-up of a view its build had added was dropped
+  the same day: build_views' views-only skip, whose revert fails its
+  harness case, already prevents the view, so the clean-up could not run.
 
