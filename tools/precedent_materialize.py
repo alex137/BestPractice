@@ -1216,7 +1216,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
                                adapters_written, withheld=withheld,
                                excluded_engine_dev=excluded_engine_dev,
                                ships_written=ships_written,
-                               declined_ships=declined_rows)
+                               declined_ships=declined_rows, base=out_dir)
     if not dry_run:
         write_manifest(out_dir / 'MANIFEST.json', manifest)
     return {'written': written, 'checks': checks_written,
@@ -1242,10 +1242,33 @@ def write_manifest(mf, manifest):
                   encoding='utf-8')
 
 
+# Where a source sits, as the manifest records it. A source inside the
+# directory the manifest describes is recorded relative to it, as
+# precedent.json declares it: the resolved absolute path named the checkout
+# that ran the sync, so the same commit checked from another checkout --
+# the throwaway worktree a Promote checks its composition in, or another
+# machine -- "differed from what a fresh sync writes" with nothing stale
+# (a consumer's Promote, 2026-10-04). A source outside it keeps its absolute
+# path: that is where this machine found it, nothing else can say so, and
+# _check compares only its level and name.
+def _manifest_source_path(path, base):
+    try:
+        rel = pathlib.Path(path).resolve().relative_to(pathlib.Path(base).resolve())
+    except (ValueError, OSError, TypeError):
+        return path
+    return rel.as_posix() or '.'
+
+
+def _outside(entry):
+    """True for a recorded source path outside the manifest's directory."""
+    path = str((entry or {}).get('path') or '')
+    return path.startswith(('/', '~')) or '..' in pathlib.PurePosixPath(path).parts
+
+
 def _build_manifest(sources, written, checks_written, rstats,
                     adapters_written=(), withheld=None,
                     excluded_engine_dev=None, ships_written=(),
-                    declined_ships=()):
+                    declined_ships=(), base=None):
     """`withheld` names the slugs a PUBLIC repo's visibility keeps out of this
     tree -- recorded because "absent" and "never existed" look identical on
     disk, and several checks turn that difference into a finding.
@@ -1273,7 +1296,9 @@ def _build_manifest(sources, written, checks_written, rstats,
                 'precedent_materialize.py with the same --repo/--user-config; '
                 'this file records exactly what produced the snapshot so drift '
                 'is visible, per generated-artifact-provenance.',
-        'sources': [{'level': s['level'], 'name': s['name'], 'path': s['path']}
+        'sources': [{'level': s['level'], 'name': s['name'],
+                     'path': (s['path'] if base is None
+                              else _manifest_source_path(s['path'], base))}
                     for s in sources],
         'resident': rstats,
         'practices': written,
@@ -1417,7 +1442,7 @@ def drift(sources, res, out_dir, withheld=None):
                            adapters_written, withheld=withheld,
                            excluded_engine_dev=excluded_engine_dev,
                            ships_written=plan['ships'],
-                           declined_ships=plan['declined_ships'])
+                           declined_ships=plan['declined_ships'], base=out_dir)
     if not mf.is_file():
         found.append('MANIFEST.json is missing -- a fresh sync writes it')
     else:
@@ -1430,6 +1455,15 @@ def drift(sources, res, out_dir, withheld=None):
             have.pop('generated_at_utc', None)
             want_cmp = dict(want)
             want_cmp.pop('generated_at_utc', None)
+            # A source outside this directory is compared by level and name:
+            # its path is where the checkout that synced found it, which
+            # another machine's layout changes with nothing stale.
+            for side in (have, want_cmp):
+                if isinstance(side.get('sources'), list):
+                    side['sources'] = [
+                        {k: v for k, v in e.items() if k != 'path'}
+                        if isinstance(e, dict) and _outside(e) else e
+                        for e in side['sources']]
             if have != want_cmp:
                 found.append('MANIFEST.json differs from what a fresh sync writes '
                               '(ignoring its generated_at_utc timestamp)')
