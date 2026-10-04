@@ -48483,6 +48483,33 @@ def check_update_vendors_rehearsal_findings():
                       rc == pu.FAILED and 'the engine landed at 111111111111' in text
                       and f'{pve.SOURCE_BRANCH} @ {tip[:12]}' in text, text[-800:]))
         verdict('Update Vendors brings install-once files and migrations forward', cases)
+
+        # -- a command the update repoints is staged with the rest ----------
+        # Found 2026-10-03 rehearsing a consumer: the repoint ran after the
+        # update staged its work, so `tools/bootstrap.sh` kept calling
+        # process/upstream/tools/... `|| true` in the commit the report told
+        # the person to make, and the session-start step silently did nothing.
+        cases = []
+        repo = planted('repointed', tip)
+        (repo / 'tools' / 'checkin.py').write_text('', encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            'python3 process/upstream/tools/checkin.py fresh || true\n', encoding='utf-8')
+        (repo / 'NOTES.md').write_text('mine\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'startup script')
+        (repo / 'NOTES.md').write_text('mine, unfinished\n', encoding='utf-8')
+        rc, text = run_update(repo)
+        staged = git(repo, 'diff', '--cached', '--name-only').stdout.split()
+        unstaged = git(repo, 'diff', '--name-only').stdout.split()
+        boot = git(repo, 'show', ':tools/bootstrap.sh').stdout
+        cases.append(('the repointed startup script is staged, so the commit the '
+                      'report asks for carries it',
+                      'tools/bootstrap.sh' in staged and 'tools/bootstrap.sh' not in unstaged
+                      and 'python3 tools/checkin.py fresh' in boot, text[-600:]))
+        cases.append(('...and a file already uncommitted before the update stays unstaged',
+                      'NOTES.md' in unstaged and 'NOTES.md' not in staged,
+                      f'staged={staged} unstaged={unstaged}'))
+        verdict('Update Vendors stages the commands it repoints', cases)
     finally:
         pu.SOURCE, pu.run = saved_source, saved_run
 

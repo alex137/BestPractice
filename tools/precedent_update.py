@@ -2108,6 +2108,24 @@ def update(repo, skip_check=False, ref=None):
     # already has, never a change to one that exists.
     tiers_step(repo, rep)
 
+    # 4c. Commands that name an engine file at the mirrored path the
+    # catalogue copy no longer carries (repoint_moved_engine_mentions).
+    # Before the staging below, so the commit the report asks for carries
+    # the repoint: run after it, tools/bootstrap.sh kept calling
+    # process/upstream/tools/... `|| true` in that commit, and the
+    # session-start step silently did nothing (a consumer rehearsal,
+    # 2026-10-03).
+    moved, stranded = repoint_moved_engine_mentions(repo)
+    for rel, n, path in stranded:
+        rep.leave(f'{rel}:{n}', f'calls {path}, which is gone, and tools/ has '
+                  f'no copy -- that step no longer runs. Remove it, or point '
+                  f'it at what replaced it')
+    if moved:
+        rep.step('repointed', 'process/upstream/tools/ is gone and tools/ holds '
+                 'the engine, so these now name tools/: '
+                 + ', '.join(f'{rel} ({n} line{"s" if n != 1 else ""})'
+                             for rel, n in moved))
+
     # Staged before the check, so it judges what the commit will hold.
     adopted = adopt_engine_output(repo, before, head.strip())
     if adopted:
@@ -2128,19 +2146,6 @@ def update(repo, skip_check=False, ref=None):
         rep.leave(where, f'still names {gone}, which this update deleted -- '
                   f'repoint or remove the mention; the full check '
                   f'(rename-updates-links) refuses it')
-
-    # 4c. Commands that name an engine file at the mirrored path the
-    # catalogue copy no longer carries (repoint_moved_engine_mentions).
-    moved, stranded = repoint_moved_engine_mentions(repo)
-    for rel, n, path in stranded:
-        rep.leave(f'{rel}:{n}', f'calls {path}, which is gone, and tools/ has '
-                  f'no copy -- that step no longer runs. Remove it, or point '
-                  f'it at what replaced it')
-    if moved:
-        rep.step('repointed', 'process/upstream/tools/ is gone and tools/ holds '
-                 'the engine, so these now name tools/: '
-                 + ', '.join(f'{rel} ({n} line{"s" if n != 1 else ""})'
-                             for rel, n in moved))
 
     # Citations of what the update withdrew or reworded, in THIS repo's
     # own files. A consumer is where a renamed practice's old name survives
