@@ -766,7 +766,16 @@ def _links_to_removed(repo, user_config, removed, check=False, present=None):
     # is reported and left as it is.
     r = subprocess.run(['git', '-C', str(repo), 'ls-files'],
                        capture_output=True, text=True)
-    skip = ('practices/', 'process/', 'tools/checks/')
+    # A mirror of another repository's catalogue (precedent/universal/,
+    # process/upstream/) is upstream's, like a vendored engine file: never
+    # this repository's to fix. mirrored_prefixes is the one place that is
+    # answered; a hand-kept list here missed precedent/universal/ once this
+    # scan reached earlier removals (2026-10-04).
+    try:
+        mirrors = tuple(pr.mirrored_prefixes(repo))
+    except Exception:                                        # noqa: BLE001
+        mirrors = ()
+    skip = ('practices/', 'process/', 'tools/checks/') + mirrors
     # AGENTS.md is scanned too, outside its generated loader block: the
     # hand-written text around the block is the repository's own, and the
     # full check refuses a link there to a removed practice just as it does
