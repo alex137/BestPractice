@@ -217,6 +217,18 @@ COMPOSITE_RENDERS = {}
 # artifact is behind it is a hash written down at publish time.
 RENDER_LEDGER = None
 
+# The thread ledger: a LOCAL, untracked JSON file (repo-relative .html path
+# -> {"sha": sha256, "url": the thread's own artifact}) for renders published
+# from a working branch. A thread publishes each render it changes as its
+# OWN artifact, so the person sees the render evolve in the conversation,
+# and never publishes to the shared URLs in RENDER_URLS/COMPOSITE_RENDERS:
+# those carry the trunk's renders only, published when the branch lands.
+# Why split: several threads publishing to one shared URL overwrite each
+# other, the page shows whichever unmerged branch published last, and every
+# overwrite forces the next publisher to re-read the live copy first. None
+# keeps the single-ledger behavior (every branch checks the shared URLs).
+THREAD_LEDGER = None
+
 CSS = """
 .renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
 td span[data-view] { display: none; }
@@ -1682,7 +1694,9 @@ def build_all():
 #                    for a render that has a hosted URL.
 # `--stale` prints both lists and exits 1 when either is non-empty, so a
 # stop hook can refuse to end a turn on it; `--published REL...` records the
-# hashes after the hosted copies are refreshed.
+# hashes after the hosted copies are refreshed. With THREAD_LEDGER set, a
+# working branch checks and records its own artifacts (`REL@URL`), and
+# `--trunk` checks or records the shared URLs (the landing step's job).
 # ---------------------------------------------------------------------------
 def _sha256(path):
     import hashlib
@@ -1729,11 +1743,36 @@ def _ledger():
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def stale():
+def _current_branch():
+    r = subprocess.run(["git", "-C", str(ROOT), "branch", "--show-current"],
+                       capture_output=True, text=True)
+    return r.stdout.strip()
+
+
+def _thread_mode(trunk=False):
+    """True on a working branch when a thread ledger is configured: its
+    publishes go to its own artifacts and the shared URLs are left alone."""
+    if trunk or THREAD_LEDGER is None:
+        return False
+    b = _current_branch()
+    return bool(b) and b != _default_branch()
+
+
+def _thread_ledger():
+    import json
+    p = Path(THREAD_LEDGER)
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def stale(trunk=False):
     """(renders behind their sources, hosted copies behind their renders):
-    two lists of (html_rel, reason)."""
+    two lists of (html_rel, reason). On a working branch with a thread
+    ledger, the second list is the renders this branch changed whose
+    thread artifact is behind; with trunk=True (or on the trunk) it is the
+    shared URLs behind the shared ledger."""
     changed = _changed_vs_base()
-    ledger = _ledger()
+    thread = _thread_mode(trunk)
+    ledger = _thread_ledger() if thread else _ledger()
     behind, unpublished = [], []
     for html_rel, sources, url in _render_units():
         html = ROOT / html_rel
@@ -1750,7 +1789,13 @@ def stale():
             if newer:
                 behind.append((html_rel, "source newer on disk than the render: "
                                + ", ".join(newer)))
-        if url and ledger is not None:
+        if thread:
+            if html_rel in changed:
+                have = ledger.get(html_rel) or {}
+                if have.get("sha") != _sha256(html):
+                    unpublished.append((html_rel, have.get("url") or
+                                        "a new artifact of this thread's own (publish without a url)"))
+        elif url and ledger is not None:
             have = ledger.get(html_rel)
             if have != _sha256(html):
                 unpublished.append((html_rel, url if have else
@@ -1758,33 +1803,50 @@ def stale():
     return behind, unpublished
 
 
-def record_published(html_rels):
-    """Write the current hash of each named render into the ledger."""
+def record_published(args, trunk=False):
+    """Write the current hash of each named render into the ledger. On a
+    working branch with a thread ledger, an argument is REL@URL (the URL
+    of the thread's own artifact; it may be left off once recorded)."""
     import json
-    if RENDER_LEDGER is None:
-        raise SystemExit("RENDER_LEDGER is not configured")
-    p = Path(RENDER_LEDGER)
-    led = _ledger()
     known = {u[0] for u in _render_units()}
-    for rel in html_rels:
+    thread = _thread_mode(trunk)
+    if not thread and RENDER_LEDGER is None:
+        raise SystemExit("RENDER_LEDGER is not configured")
+    p = Path(THREAD_LEDGER if thread else RENDER_LEDGER)
+    led = _thread_ledger() if thread else _ledger()
+    for arg in args:
+        rel, _, url = arg.partition("@")
         rel = str(Path(rel).with_suffix(".html"))
         if rel not in known:
             raise SystemExit(f"{rel}: not a registered render")
-        led[rel] = _sha256(ROOT / rel)
+        if thread:
+            url = url or (led.get(rel) or {}).get("url")
+            if not url:
+                raise SystemExit(f"{rel}: give the thread artifact's URL as {rel}@URL")
+            led[rel] = {"sha": _sha256(ROOT / rel), "url": url}
+        else:
+            led[rel] = _sha256(ROOT / rel)
+    p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(dict(sorted(led.items())), indent=2) + "\n",
                  encoding="utf-8")
-    print(f"recorded {len(html_rels)} render(s) as published in {p.relative_to(ROOT)}")
+    print(f"recorded {len(args)} render(s) as published in "
+          f"{'the thread ledger ' if thread else ''}{p.relative_to(ROOT)}")
 
 
-def report_stale():
+def report_stale(trunk=False):
     """Print the two lists; True when both are empty."""
-    behind, unpublished = stale()
+    behind, unpublished = stale(trunk)
+    thread = _thread_mode(trunk)
     for rel, why in behind:
         print(f"RENDER STALE   {rel}: {why}")
     for rel, where in unpublished:
-        print(f"UNPUBLISHED    {rel}: republish to {where}, then --published {rel}")
+        if thread:
+            print(f"UNPUBLISHED    {rel} (this thread's render): publish to {where}, "
+                  f"then --published {rel}@URL")
+        else:
+            print(f"UNPUBLISHED    {rel}: republish to {where}, then --published --trunk {rel}")
     if not behind and not unpublished:
-        print("renders and hosted copies are current")
+        print("renders and " + ("this thread's" if thread else "hosted") + " copies are current")
     return not behind and not unpublished
 
 
@@ -1799,9 +1861,10 @@ if __name__ == "__main__":
         for rel, title in DOCS:
             print(f"  {rel}  ->  {Path(rel).with_suffix('.html')}  ({title})")
     elif "--stale" in sys.argv:
-        sys.exit(0 if report_stale() else 1)
+        sys.exit(0 if report_stale("--trunk" in sys.argv) else 1)
     elif "--published" in sys.argv:
-        record_published(sys.argv[sys.argv.index("--published") + 1:])
+        record_published([a for a in sys.argv[sys.argv.index("--published") + 1:]
+                          if a != "--trunk"], "--trunk" in sys.argv)
     elif len(sys.argv) > 1:
         src = Path(sys.argv[1]).resolve()
         rel = str(src.relative_to(ROOT))
