@@ -5993,6 +5993,9 @@ def check_update_seeds_the_session_load_registry():
                       pu.ensure_session_load_registry(repo) is None and
                       (repo / 'tools' / 'session_load_budgets.json').read_text(
                           encoding='utf-8') == mine))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_source_directory_splits_and_assembles():
     """MAP.source.md and GLOSSARY.source.md may live as directories, one
     file per heading and per table row, so two branches that each add a row
@@ -6077,7 +6080,6 @@ def check_source_directory_splits_and_assembles():
                       and 'Intro line.' in after and '`c/`' in after))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
 
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
