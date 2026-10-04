@@ -11670,6 +11670,34 @@ def check_update_vendors_updates_a_section_0_catalogue():
         cases.append(('...and the report says so',
                       any(n == 'catalogue' and 'replaced' in o for n, o in rep.steps)))
 
+        # The withdrawal record travels with the catalogue, and the sync's
+        # removal guard reads it there (2026-10-04: a consumer vendoring the
+        # catalogue this way had all fourteen of the ladder's rules refused
+        # as lost on its first update after they left universal; the record
+        # only ever reached the process/upstream/ mirror).
+        import precedent_resolve as _pr
+        import precedent_sync_views as _psv
+        vend = d / 'precedent' / 'universal'
+        withdrawn = _pr.withdrawn_record(vend)
+        cases.append(('the withdrawal record is vendored beside the catalogue, at '
+                      'the same commit, and reads back',
+                      (vend / _pr.WITHDRAWN_RECORD).is_file()
+                      and withdrawn == _pr.withdrawn_record(ROOT) and len(withdrawn) >= 14))
+        if withdrawn:
+            gone = sorted(withdrawn)[0]
+            (d / 'MANIFEST.json').write_text(json.dumps({'practices': [
+                {'slug': gone, 'source': 'precedent'}]}), encoding='utf-8')
+            subprocess.run(['git', '-C', str(d), 'add', '-A'], env=env, check=True)
+            subprocess.run(['git', '-C', str(d), 'commit', '-qm', 'manifest'],
+                           env=env, check=True)
+            lost = _psv._lost_practices(d, {'practices': {'kept': {}}, 'retired': []},
+                                        [{'name': 'precedent', 'level': 'universal',
+                                          'path': str(vend)}], ())
+            cases.append(('...so a sync against that vendored catalogue lets a '
+                          'withdrawn rule go without --allow-removals',
+                          (gone, 'precedent') in lost.get('withdrawn_upstream', [])
+                          and (gone, 'precedent') not in lost['blocking']))
+
         d = repo_with(universal)
         (d / 'precedent' / 'universal' / 'practices' / 'retired-long-ago.md'
          ).write_text('edited here\n', encoding='utf-8')
@@ -50815,6 +50843,97 @@ def check_sync_check_passes_from_another_checkout():
             '; '.join(f'{n} -- {str(d)[:500]}' for n, d in bad))
 
 
+def check_generated_index_of_nothing_yet_passes():
+    """generated-files-registered passes a repository whose generated index
+    has no sources YET -- gotchas/INDEX.md with no gotcha written -- when the
+    index's own generator check passes. 2026-10-04, a consumer with no
+    gotchas: listed, "edit_instead ... matches nothing here"; unlisted,
+    "gotchas/INDEX.md ... is not listed", so no state passed.
+
+    CONTROL 1: the same entry whose generator check FAILS is still reported
+    as pointing nowhere. CONTROL 2: an edit_instead whose directory does not
+    exist is still reported, check passing or not."""
+    import shutil, tempfile
+    import precedent_check as pc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-empty-index-'))
+    saved = pc.ROOT
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'gotchas').mkdir()
+        (tmp / 'tools').mkdir()
+        (tmp / 'gotchas' / 'INDEX.md').write_text(
+            '---\ngenerated_by: tools/build_gotcha_index.py\n---\n\n# None yet\n',
+            encoding='utf-8')
+        gen = tmp / 'tools' / 'build_gotcha_index.py'
+
+        def registry(glob):
+            (tmp / 'tools' / 'generated_files.json').write_text(json.dumps({'files': [
+                {'path': 'gotchas/INDEX.md', 'generated_by': 'tools/build_gotcha_index.py',
+                 'edit_instead': glob, 'regenerate': 'python3 tools/build_gotcha_index.py',
+                 'check': ['tools/build_gotcha_index.py', '--check']}]}), encoding='utf-8')
+            subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True)
+
+        def nowhere(check_rc, glob='gotchas/gotcha-*.md'):
+            gen.write_text(f'import sys\nsys.exit({check_rc})\n', encoding='utf-8')
+            registry(glob)
+            pc.ROOT = tmp
+            found = pc._generated_files_registered(None)
+            return any("matches nothing" in f.detail for f in found), found
+
+        hit, found = nowhere(0)
+        cases.append(('an index of no gotchas yet, its generator check passing, is '
+                      'not reported as pointing nowhere', not hit,
+                      [f.detail for f in found]))
+        hit, found = nowhere(1)
+        cases.append(('CONTROL 1: with its generator check failing, it is', hit,
+                      [f.detail for f in found]))
+        hit, found = nowhere(0, 'nowhere/gotcha-*.md')
+        cases.append(('CONTROL 2: a glob into a directory that does not exist is '
+                      'reported, check passing or not', hit, [f.detail for f in found]))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:300]}' for n, d in bad))
+
+
+def check_update_fetches_brought_sets_before_the_views():
+    """Update Vendors clones or pulls the sets the person's individual set
+    brings before it syncs the views (2026-10-04: a consumer's first update
+    after the ladder moved into a brought set ran in a session whose start
+    predated the engine that clones it, and the sync listed the set's rules
+    as lost). Function-level, with the fetch stood in: a fetched set is a
+    step, one that could not be fetched is left for the person, none is
+    silence, and in run order the step comes before the view sync."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rep = pu.Report()
+    pu.brought_sets_step(rep, fetch=lambda: [('fx-ladder', True, 'cloned')])
+    cases.append(('a brought set fetched is reported as a step',
+                  any(n == 'brought sets' and 'fx-ladder' in o for n, o in rep.steps)
+                  and not rep.left))
+    rep = pu.Report()
+    pu.brought_sets_step(rep, fetch=lambda: [('fx-ladder', False, 'HTTP 404')])
+    cases.append(('one that could not be fetched is left for the person, by name',
+                  any('fx-ladder' in w and 'HTTP 404' in why for w, why in rep.left)))
+    rep = pu.Report()
+    pu.brought_sets_step(rep, fetch=lambda: [])
+    cases.append(('a person who brings nothing hears nothing', not rep.steps
+                  and not rep.left))
+    src = (ROOT / 'tools' / 'precedent_update.py').read_text(encoding='utf-8')
+    cases.append(('in run order, the step comes before the view sync',
+                  0 < src.find('    brought_sets_step(rep)\n')
+                  < src.find("    sync = repo / 'tools' / 'precedent_sync_views.py'")))
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
@@ -57009,6 +57128,10 @@ def main():
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
+    check('a generated index with no sources yet passes when its own check does',
+          *check_generated_index_of_nothing_yet_passes())
+    check('Update Vendors fetches the sets a person brings before it syncs the views',
+          *check_update_fetches_brought_sets_before_the_views())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
