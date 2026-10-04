@@ -848,16 +848,92 @@ def _slug(root):
     return f'{m.group(1)}/{m.group(2)}' if m else None
 
 
+def _trigger_list(block, key):
+    """-> the list under `key:` in a trigger's block, inline (`[a, b]`) or
+    one `- item` per line, quotes stripped; None when the key is absent."""
+    m = re.search(rf'^([ \t]*){re.escape(key)}:[ \t]*(.*)\n((?:\1[ \t]+.*\n|[ \t]*#.*\n|\n)*)',
+                  block if block.endswith('\n') else block + '\n', re.M)
+    if not m:
+        return None
+    inline = m.group(2).split('#', 1)[0].strip()
+    if inline.startswith('['):
+        items = inline.strip('[]').split(',')
+    elif inline:
+        items = [inline]
+    else:
+        items = [l.strip()[1:] for l in m.group(3).splitlines()
+                 if l.strip().startswith('-')]
+    return [i.split(' #', 1)[0].strip().strip('"\'') for i in items
+            if i.strip().strip('"\'')]
+
+
+def _glob_re(pattern):
+    """GitHub's path filter pattern as a regex: `*` stays inside one
+    directory, `**` crosses them, `?` is one character."""
+    out, i = '', 0
+    while i < len(pattern):
+        c = pattern[i]
+        if pattern.startswith('**/', i):     # any directories, or none
+            out, i = out + '(?:.*/)?', i + 3
+            continue
+        if pattern.startswith('**', i):
+            out, i = out + '.*', i + 2
+            continue
+        out += {'*': '[^/]*', '?': '[^/]'}.get(c, re.escape(c))
+        i += 1
+    return re.compile(out + r'\Z')
+
+
+def _path_filter_runs(paths, ignore, changed):
+    """-> does a pull_request trigger with these `paths:` / `paths-ignore:`
+    lists run for a diff touching `changed`? GitHub's rules: with `paths`,
+    a file counts when the LAST pattern it matches is not a `!` one, and
+    one counting file runs it; with `paths-ignore`, it runs unless every
+    file is ignored."""
+    if paths is not None:
+        def counts(f):
+            hit = False
+            for pat in paths:
+                neg = pat.startswith('!')
+                if _glob_re(pat[1:] if neg else pat).match(f):
+                    hit = not neg
+            return hit
+        return any(counts(f) for f in changed)
+    if ignore is not None:
+        return not all(any(_glob_re(p).match(f) for p in ignore) for f in changed)
+    return True
+
+
+def _changed_into_main(root, sha):
+    """-> the paths a pull request of `sha` into main changes (from where
+    they parted), or None when that cannot be read."""
+    base = _remote_tip(root, MAIN) or _git(root, 'rev-parse', '--verify', '-q', MAIN)
+    if not base:
+        return None
+    r = _run(root, 'diff', '--name-only', f'{base}...{sha}')
+    if r.returncode != 0:
+        return None
+    return [l for l in r.stdout.splitlines() if l.strip()]
+
+
 def github_tests(root, sha):
     """-> [(path, dispatchable)] for each workflow in `sha`'s tree that runs
-    on a pull request into main: main's GitHub test. [] when the repository
-    has none installed (github_ci_workflows disabled, or no workflows).
+    on a pull request of `sha` into main: main's GitHub test. [] when the
+    repository has none installed (github_ci_workflows disabled, or no
+    workflows).
 
     Read off the tree rather than a list, as precedent_ci_verified.py reads
-    them, and blind the same way to `paths:` filters and glob branch
-    patterns. A commented-out trigger never counts: the keys are anchored
-    to the start of a line."""
+    them, and blind the same way to glob branch patterns. A commented-out
+    trigger never counts: the keys are anchored to the start of a line.
+
+    A `paths:` or `paths-ignore:` filter is honoured: a workflow the pull
+    request's own diff does not reach is not one GitHub runs, so it is not
+    required. 2026-10-04: a consumer's Produce touched neither path of its
+    docs check, GitHub rightly never ran it, and the wait said "never ran
+    on it. Do not merge" for good. When the diff cannot be read, the
+    workflow is required, as before."""
     out = []
+    changed = False   # read once, and only for a workflow with a path filter
     names = _git(root, 'ls-tree', '--name-only', f'{sha}:.github/workflows') or ''
     for name in names.splitlines():
         if not name.endswith(('.yml', '.yaml')):
@@ -871,9 +947,15 @@ def github_tests(root, sha):
         pr = re.search(r'^([ \t]+)pull_request:[ \t]*\n((?:\1[ \t]+.*\n|[ \t]*#.*\n|\n)*)',
                        body, re.M)
         if pr:
-            filt = re.search(r'^\s*branches:[ \t]*\[(.*?)\]', pr.group(2), re.M)
-            wanted = not filt or MAIN in [b.strip().strip('"\'')
-                                          for b in filt.group(1).split(',')]
+            branches = _trigger_list(pr.group(2), 'branches')
+            wanted = branches is None or MAIN in branches
+            paths = _trigger_list(pr.group(2), 'paths')
+            ignore = _trigger_list(pr.group(2), 'paths-ignore')
+            if wanted and (paths is not None or ignore is not None):
+                if changed is False:
+                    changed = _changed_into_main(root, sha)
+                if changed is not None:
+                    wanted = _path_filter_runs(paths, ignore, changed)
         else:
             wanted = 'pull_request' in inline
         if wanted:
@@ -890,7 +972,22 @@ def _runs_on(gh, slug, sha):
     return data.get('workflow_runs') or [], None
 
 
-def github_test_state(root, sha, tests, gh=None, via_pulls=True):
+_CURRENT_SLUG = {}
+
+
+def _current_slug(gh, slug):
+    """-> (the repository's current owner/name per GitHub, None) or (None,
+    why). One call per slug per process: a wait asks this on every poll."""
+    if slug not in _CURRENT_SLUG:
+        data, err = gh.call(f'repos/{slug}', cache=False)
+        name = data.get('full_name') if isinstance(data, dict) else None
+        _CURRENT_SLUG[slug] = (name, None) if name else (
+            None, err or 'its answer named no repository')
+    return _CURRENT_SLUG[slug]
+
+
+def github_test_state(root, sha, tests, gh=None, via_pulls=True,
+                      _slug_override=None, _renamed_from=None):
     """-> (state, detail): did main's GitHub test run on `sha` and pass?
 
     A run counts from either of two places: on the commit itself (a workflow
@@ -905,7 +1002,7 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True):
     by github_budget.py (practice: github-api-budget); one with
     `via_pulls` off, which is how a run started on the commit is awaited."""
     gh = gh or _sibling('github_budget')
-    slug = _slug(root)
+    slug = _slug_override or _slug(root)
     if gh is None or not slug:
         return 'unknown', ('no github.com origin could be read here'
                            if not slug else 'github_budget.py is not beside this file')
@@ -963,6 +1060,24 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True):
         return 'failed', ', '.join(f'{p} ({newest[p].get("conclusion")}, '
                                    f'{newest[p].get("html_url", "")})' for p in bad)
     if missing:
+        # "Never ran" is only true of the repository GitHub knows by this
+        # name. After a rename the old name's run list answered with no runs
+        # and no error, and this said "never ran" on a test that had passed
+        # (2026-10-04). Ask once what the repository is called now: under a
+        # new name, ask again there; when GitHub cannot say, it is unknown.
+        if not _renamed_from:
+            current, why = _current_slug(gh, slug)
+            if current is None:
+                return 'unknown', (', '.join(missing) + f' shows no run under {slug}, '
+                                   f'and GitHub could not confirm that is still the '
+                                   f'repository\'s name: {why}')
+            if current.lower() != slug.lower():
+                state, detail = github_test_state(root, sha, tests, gh, via_pulls,
+                                                  _slug_override=current,
+                                                  _renamed_from=slug)
+                return state, (f'{detail} (asked as {current}: origin still names '
+                               f'{slug}, the repository\'s old name -- '
+                               f'git remote set-url origin to the new one)')
         return 'none', ', '.join(missing) + ' never ran on it'
     if busy:
         return 'running', ', '.join(busy) + ' has not finished'

@@ -28292,6 +28292,33 @@ def check_sync_copies_work_from_above_once_checked():
             git(two, 'commit', '-q', '-m', 'a workflow with its pull_request trigger commented out')
             cases.append(('a commented-out pull_request trigger is not a GitHub test',
                           pb.github_tests(two, 'HEAD') == []))
+
+            # A `paths:` filter (2026-10-04): a Produce whose diff did not touch
+            # a docs check's paths never ran it, rightly, and the wait said
+            # "Do not merge" for good. Required only when the diff reaches it.
+            (wfd / 'docs.yml').write_text(
+                'name: Docs\non:\n  pull_request:\n    branches: [main]\n    paths:\n'
+                '      - "docs/**"\n      - README.md\n  workflow_dispatch:\njobs: {}\n',
+                encoding='utf-8')
+            (wfd / 'lint.yml').write_text(
+                'name: Lint\non:\n  pull_request:\n    branches:\n      - main\n'
+                '    paths-ignore: [\'notes/**\']\njobs: {}\n', encoding='utf-8')
+            (two / 'tools' / 'touched.py').write_text('x = 1\n', encoding='utf-8')
+            git(two, 'add', '-A')
+            git(two, 'commit', '-q', '-m', 'two path-filtered workflows, a tool change')
+            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
+            cases.append(('a workflow whose paths: the diff into main does not reach '
+                          'is not required; one whose paths-ignore: it gets past is, '
+                          'with its branches given as a list',
+                          '.github/workflows/docs.yml' not in got
+                          and '.github/workflows/lint.yml' in got))
+            (two / 'README.md').write_text('changed\n', encoding='utf-8')
+            git(two, 'add', '-A')
+            git(two, 'commit', '-q', '-m', 'README')
+            got = [p for p, _ in pb.github_tests(two, 'HEAD')]
+            cases.append(('CONTROL: once the diff touches one of its paths, it is '
+                          'required', '.github/workflows/docs.yml' in got))
+            git(two, 'reset', '-q', '--hard', 'HEAD~2')
             said = []
             saved = dict(os.environ)
             os.environ.update({k: v for k, v in env.items()
@@ -28314,6 +28341,8 @@ def check_sync_copies_work_from_above_once_checked():
                     self.posted = []
 
                 def call(self, path, cache=True):
+                    if path == 'repos/o/r':
+                        return {'full_name': 'o/r'}, None
                     if '/pulls' in path:
                         return self.pulls, None
                     if 'head_sha=HEAD' in path:
@@ -28333,6 +28362,35 @@ def check_sync_copies_work_from_above_once_checked():
             st, why = pb.github_test_state(two, 'SHA', tests, GH([]))
             cases.append(('no run on the commit or its pull request reads "none"',
                           st == 'none'))
+
+            # 2026-10-04: after a rename, the OLD name's run list answered with
+            # no runs and no error, and this said "never ran" on a test that
+            # had passed. Asked under the name GitHub gives now, it reads the
+            # run; when GitHub cannot name the repository, it is unknown.
+            class RenamedGH(GH):
+                def __init__(self, runs, named=True):
+                    super().__init__(runs)
+                    self.named = named
+
+                def call(self, path, cache=True):
+                    if path == 'repos/old/r':
+                        return ({'full_name': 'new/r'}, None) if self.named \
+                            else (None, 'HTTP 404')
+                    if path.startswith('repos/old/r/'):
+                        return ({'workflow_runs': []} if 'actions' in path else []), None
+                    return super().call(path, cache)
+            pb._slug = lambda root: 'old/r'
+            pb._CURRENT_SLUG.clear()
+            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run]))
+            cases.append(('a repository renamed since origin was set is asked under '
+                          'its new name, and the old one is said',
+                          st == 'passed' and 'new/r' in why and 'old name' in why))
+            pb._CURRENT_SLUG.clear()
+            st, why = pb.github_test_state(two, 'SHA', tests, RenamedGH([ok_run], named=False))
+            cases.append(('when GitHub cannot name the repository, no run reads '
+                          '"unknown", never "none"', st == 'unknown'))
+            pb._slug = lambda root: 'o/r'
+            pb._CURRENT_SLUG.clear()
             st, why = pb.github_test_state(two, 'SHA', tests, GH(
                 [], pulls=[{'number': 7, 'base': {'ref': 'main'},
                             'head': {'sha': 'HEAD'}}], pr_runs=[ok_run]))
