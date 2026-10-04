@@ -252,11 +252,21 @@ def _from_declared_sources(root, slugs):
     except Exception as e:                                    # noqa: BLE001
         return {}, f'the declared sources could not be resolved ({e})'
     found = {}
+    practices = res.get('practices', {})
     for slug in slugs:
-        practice = res.get('practices', {}).get(slug)
+        practice = practices.get(slug)
+        live = slug
+        if not (practice and practice.get('file')):
+            # A slug deduplicated into another rule, in any declared source,
+            # however many hops (2026-10-04: file-mention-links, merged into
+            # rule-links by way of the writing set, answered "unknown slug",
+            # while current-rule-governs tells every session this tool
+            # follows a deduplicated copy to the live one).
+            live = pr.follow_in_force_at(slug, practices, res.get('retired') or [])
+            practice = practices.get(live) if live else None
         if practice and practice.get('file'):
             found[slug] = (practice.get('level') or 'unknown level',
-                           pathlib.Path(practice['file']))
+                           pathlib.Path(practice['file']), live)
     missed = [f"{m['level']}/{m['name']}" for m in res.get('missing', [])]
     note = (f"{', '.join(missed)} did not resolve this session, so a practice "
             f"of theirs cannot be shown") if missed else ''
@@ -374,17 +384,20 @@ def main():
         for slug in list(missing):
             if slug not in found:
                 continue
-            level, path = found[slug]
+            level, path, live = found[slug]
             try:
                 _fm, sections = sp._read_practice_file(path)
             except sp.PracticeFileError as e:
                 sys.exit(f"precedent show FAIL: {e}")
             body = sections.get(section, '').strip()
-            block = (f"### {slug} ({level})\n"
+            head = (f"### {slug} ({level})" if live == slug else
+                    f"### {slug} -> {live} ({level})\n`{slug}` was merged into "
+                    f"`{live}`; this is `{live}`'s {section}, the rule in force.")
+            block = (f"{head}\n"
                      f"{body if body else '(no ' + section + ' recorded yet)'}")
-            banner = _not_in_force_banner(_fm, slug)
+            banner = _not_in_force_banner(_fm, live)
             if banner:
-                block = f"### {slug} ({level})\n{banner}\n\n{body}"
+                block = f"{head}\n{banner}\n\n{body}"
             out.append(block)
             missing.remove(slug)
     if missing:
