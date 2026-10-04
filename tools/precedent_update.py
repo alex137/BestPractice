@@ -525,7 +525,7 @@ def generated_full_views(repo):
     return [name for name in FULL_VIEWS
             if (pathlib.Path(repo) / name).is_file()
             and (_bv.is_generated_view(pathlib.Path(repo) / name)
-                 or (srcs.get(name) and (pathlib.Path(repo) / srcs[name]).is_file()))]
+                 or (srcs.get(name) and _bv.has_own_source(repo, srcs[name])))]
 
 
 def source_is_its_own_clone():
