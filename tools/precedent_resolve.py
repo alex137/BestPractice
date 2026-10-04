@@ -802,11 +802,26 @@ def brought_sources(individual_path, warn=True):
     raw = man.get('brings') if isinstance(man, dict) else None
     if not isinstance(raw, list):
         return []
+    # Beside the individual set as it really lives. In a linked worktree --
+    # a Debut or Produce checks the individual set in one under the temp
+    # directory -- nothing is beside it, so the ladder set it brings read
+    # as providing nothing, the ladder-words check stopped standing aside,
+    # and the set's own Debut was refused for its owner's own words
+    # (2026-10-04). Resolved the way _declared_path resolves a relative
+    # source: beside the worktree when there, else beside the main checkout.
+    main = None
     out, seen = [], set()
     for item in raw:
         name = item.get('name') if isinstance(item, dict) else None
         url = item.get('repo_url') if isinstance(item, dict) else None
-        target = (ind.resolve().parent / name).resolve() \
+        home = ind.resolve().parent
+        if isinstance(name, str) and SLUG_RE.match(name or '') \
+                and not (home / name).exists():
+            if main is None:
+                main = _main_checkout(ind.resolve()) or False
+            if main and (main.parent / name).exists():
+                home = main.parent
+        target = (home / name).resolve() \
             if isinstance(name, str) and SLUG_RE.match(name or '') else None
         if not isinstance(name, str) or not SLUG_RE.match(name or '') \
                 or not isinstance(url, str) or not _BRING_URL_RE.match(url.strip()) \
@@ -820,7 +835,7 @@ def brought_sources(individual_path, warn=True):
             continue
         seen.add(name)
         out.append({'level': 'shared', 'name': name,
-                    'path': str((ind.resolve().parent / name)),
+                    'path': str(home / name),
                     'repo': url.strip(), 'brought': True})
     return out
 
