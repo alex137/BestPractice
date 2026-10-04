@@ -71,6 +71,8 @@ import subprocess
 import sys
 
 MANIFEST = pathlib.Path('tools') / 'ENGINE_MANIFEST.json'
+# The section 0 catalogue's own sync record (precedent_update.CATALOGUE_SYNC_NAME).
+CATALOGUE_SYNC = 'CATALOGUE_SYNC.json'
 REPO_CONFIG = 'precedent.json'
 DEFAULT_USER_CONFIG = '~/.config/precedent/config.json'
 USER_CONFIG_ENV = 'PRECEDENT_USER_CONFIG'
@@ -294,6 +296,32 @@ def collect_targets(root='.'):
                 rows.append({'label': label, 'kind': 'vendored',
                              'problem': f'{mp.relative_to(root)} records no '
                                         f'upstream repo, branch and commit'})
+        # A section 0 catalogue (a copy of the universal practices inside
+        # this repository) records its own sync in CATALOGUE_SYNC.json, which
+        # precedent_update.py writes: the commit it was replaced from, of the
+        # same repository and branch the engine comes from. Until 2026-10-04
+        # nothing here read it, and a consumer holding 159 practices there
+        # was told at every session start that they were absent.
+        sync = src['path'] / CATALOGUE_SYNC
+        if not mp.is_file() and sync.is_file():
+            reached += 1
+            m, why = _read_json(sync)
+            commit = (m or {}).get('source_commit')
+            where = (str(src['path'].relative_to(root))
+                     if src['path'].is_relative_to(root) else str(src['path']))
+            label = f'{who} vendored at {where}'
+            url = (manifest or {}).get('source_repo')
+            branch = (manifest or {}).get('source_branch')
+            if m is None:
+                rows.append({'label': label, 'kind': 'vendored', 'problem': why})
+            elif commit and url and branch:
+                rows.append({'label': label, 'kind': 'vendored', 'url': url,
+                             'branch': branch, 'recorded': commit})
+            else:
+                rows.append({'label': label, 'kind': 'vendored',
+                             'problem': f'{CATALOGUE_SYNC} records no source_commit, '
+                                        f'or the engine manifest names no repository '
+                                        f'and branch to compare it with'})
         live = _live_clone(src['path'], root)
         if live is not None:
             reached += 1

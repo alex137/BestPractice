@@ -2242,6 +2242,11 @@ def _promote_to_main(root, say=print):
     else:
         say(f'the full check ran on the batch and passed, in {took:.0f}s.')
     due, why = main_test_due(root, stip)
+    # No GitHub test runs on this pull request at all -- none is installed,
+    # or every one is path-filtered off this change. "DUE", then "wait for
+    # it", read as a test to wait on where none would ever start (2026-10-04,
+    # all four shared sets and a consumer); --wait-main-test said the same.
+    none_runs = not github_tests(root, stip)
     copy = _to_main_copy(root, due)
     p = _run(root, 'push', '-q', 'origin', f'{stip}:refs/heads/{copy}')
     if p.returncode != 0:
@@ -2251,7 +2256,11 @@ def _promote_to_main(root, say=print):
         f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
         f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
         f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
-        + (f'GitHub test: DUE -- {why}.\n\n' if due else
+        + (f'GitHub test: NONE -- no GitHub test runs on this pull request '
+           f'(none is installed here, or its path filter does not reach this '
+           f'change), so the full local check above is the whole check.\n\n'
+           if none_runs else
+           f'GitHub test: DUE -- {why}.\n\n' if due else
            f'GitHub test: ON THE PUSH TO {MAIN.upper()} -- {why}. Its pull request '
            f'shows the test as skipped, which starts no runner and costs nothing.\n\n'
            if 'never the pull request' in why else
@@ -2259,10 +2268,12 @@ def _promote_to_main(root, say=print):
            f'skipped, which starts no runner and costs nothing.\n\n') +
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
-        f'commit(s))", wait for its GitHub test with\n'
-        f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
-        f'and merge it with a merge commit once that says PASSED'
-        + ('' if due else ' (or, for this not-due copy, NOT DUE)') +
+        f'commit(s))", '
+        + ('and merge it with a merge commit' if none_runs else
+           f'wait for its GitHub test with\n'
+           f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
+           f'and merge it with a merge commit once that says PASSED'
+           + ('' if due else ' (or, for this not-due copy, NOT DUE)')) +
         f'. Never open it from {staging} itself.')
     return PROMOTE_MAIN_NOT_MOVED
 

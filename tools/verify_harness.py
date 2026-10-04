@@ -28040,6 +28040,21 @@ def check_main_test_minutes_rule():
                 after = set(git(work, 'ls-remote', '--heads', 'origin').stdout.split())
                 pushed[label] = (rc, sorted(r[len('refs/heads/'):] for r in after - before
                                             if r.startswith('refs/heads/')), said)
+            # No GitHub test runs on the pull request at all (2026-10-04):
+            # "DUE", then "wait for its GitHub test", read as a wait for a
+            # test that would never start.
+            git(work, 'checkout', '-q', '-B', 'staging', 'origin/staging')
+            (work / 'notes.md').write_text('no test\n', encoding='utf-8')
+            git(work, 'commit', '-qam', 'work: no test')
+            git(work, 'push', '-q', 'origin', 'staging')
+            saved_tests = pb2.github_tests
+            pb2.github_tests = lambda root, sha: []
+            try:
+                said = []
+                rc = pb2._promote_to_main(str(work), said.append)
+            finally:
+                pb2.github_tests = saved_tests
+            pushed['none runs'] = (rc, [], said)
         finally:
             for k, v in saved_env.items():
                 if v is None:
@@ -28061,6 +28076,13 @@ def check_main_test_minutes_rule():
                       and not refs[0].startswith(pb2.NOT_DUE_PREFIX)
                       and any('GitHub test: DUE' in x for x in said)
                       and starts('pull_request', 'main', True, refs[0])))
+        rc, _refs, said = pushed.get('none runs', (None, [], []))
+        text = '\n'.join(said)
+        cases.append(('...and where no GitHub test runs on the pull request: says '
+                      'NONE, never DUE, and gives no wait step',
+                      rc == pb2.PROMOTE_MAIN_NOT_MOVED and 'GitHub test: NONE' in text
+                      and 'GitHub test: DUE' not in text
+                      and '--wait-main-test' not in text))
     if saved_force is not None:
         os.environ[pb.FORCE_ENV] = saved_force
     failed = [n for n, ok in cases if not ok]
@@ -37800,7 +37822,7 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
         (repo / 'tools').mkdir(parents=True)
         (repo / '.claude').mkdir()
         (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
-            {'kind': 'consumer', 'source_commit': 'fixture-tip'}), encoding='utf-8')
+            {'kind': 'consumer', 'source_commit': 'fixture-old'}), encoding='utf-8')
         (repo / '.claude' / 'settings.json').write_text('{}\n', encoding='utf-8')
         return repo
 
@@ -37827,6 +37849,18 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
                       'LEFT ALONE: a consumer repo' in out, out[-600:]))
         cases.append(('...and not one byte of it changes',
                       snapshot(repo) == before, out[-600:]))
+        # Said once, as a consumer (2026-10-04): no STALE row beside the
+        # LEFT ALONE block, no BRANCH row (nothing syncs from a consumer),
+        # and no set hooks reported "present" in a repo that never had them.
+        rows = [l for l in out.splitlines() if str(repo) in l or 'consumer' in l]
+        cases.append(('a stale consumer is said once: the LEFT ALONE block names '
+                      'its engine as behind, with no STALE row beside it',
+                      'behind BestPractice' in out
+                      and not any(l.lstrip().startswith('STALE') for l in rows),
+                      out[-800:]))
+        cases.append(('...and it gets no BRANCH or set-hook row',
+                      'BRANCH on' not in out and 'hooks present' not in out
+                      and 'hooks not wired' not in out, out[-800:]))
         cases.append(('...and the run says it wrote nothing, exiting 0',
                       rc == 0 and 'nothing written' in out, out[-600:]))
         cases.append(('a practice set is still one --apply may write into',
@@ -37838,10 +37872,9 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
         before = snapshot(repo)
         prs._may_write = lambda entry, asked=(): True
         rc, out = run(repo, ['--apply'])
-        cases.append(('CONTROL: with the guard neutered the same consumer IS '
-                      'written, so the quiet case above came from the guard',
-                      snapshot(repo) != before
-                      and 'LEFT ALONE' not in out, out[-600:]))
+        cases.append(('CONTROL: with the guard neutered the same consumer is '
+                      'not left alone, so the quiet case above came from the guard',
+                      'LEFT ALONE' not in out, out[-600:]))
     finally:
         prs.candidate_dirs, prs.head_commit, prs._may_write = saved
         shutil.rmtree(tmp, ignore_errors=True)
@@ -49126,8 +49159,10 @@ def check_update_vendors_rehearsal_findings():
                      line=7, slug='gone-hard', must_fix=True),
                 dict(source='precedent', kind='live', file='practices/y.md',
                      line=1, slug='go-merge', must_fix=False)]
+        argv_file = tmp / 'refs-argv.json'
         (fake / 'tools' / 'precedent_practice_refs.py').write_text(
-            'import json\nprint(json.dumps(' + repr({
+            'import json, sys\nopen(' + repr(str(argv_file)) + ', "w").write('
+            'json.dumps(sys.argv[1:]))\nprint(json.dumps(' + repr({
                 'slugs': {'go-merge': 'deduplicated', 'reworded-one': 'Rule reworded',
                           'gone-hard': 'retired'},
                 'successors': {'go-merge': 'go-update'}, 'hits': hits}) + '))\n',
@@ -49144,6 +49179,13 @@ def check_update_vendors_rehearsal_findings():
                           for r in read), str(read)))
         cases.append(('...beside a reworded one, and nothing from another source',
                       'docs/X.md:5' in read and len(read) == 2, str(read)))
+        # Code too (2026-10-04, a consumer): a tool the update never touched
+        # kept citing a slug a shared set had deduplicated, the update said
+        # "no live citation of a withdrawn practice to fix", and only the
+        # full check at Debut found it. The lookup read Markdown only.
+        asked = json.loads(argv_file.read_text()) if argv_file.is_file() else []
+        cases.append(('the lookup is asked to read code as well as Markdown',
+                      '--code' in asked, str(asked)))
         verdict('Update Vendors lists a bare mention of a renamed practice', cases)
 
         # -- a vendored copy refuses before any fetch ------------------------
@@ -51159,6 +51201,153 @@ def check_update_fetches_brought_sets_before_the_views():
                   < src.find("    sync = repo / 'tools' / 'precedent_sync_views.py'")))
     bad = [n for n, ok in cases if not ok]
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_freshness_reads_a_section0_catalogues_own_sync():
+    """The session-start freshness notice reads a section 0 catalogue (the
+    universal practices copied into the repository) by its own
+    CATALOGUE_SYNC.json, as vendored at that commit, of the repository and
+    branch the engine comes from. 2026-10-04, a consumer: 159 practices at
+    precedent/universal/ were reported at every session start as "declared,
+    but neither a vendored manifest nor a git clone is there -- its
+    practices are absent this session". CONTROL: with no sync record, the
+    same tree is still reported absent."""
+    import shutil, tempfile
+    import precedent_engine_freshness as pef
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-fresh-s0-'))
+    saved = os.environ.get(pef.USER_CONFIG_ENV)
+    os.environ[pef.USER_CONFIG_ENV] = str(tmp / 'no-user-config.json')
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'source_repo': 'https://github.com/o/Precedent', 'source_branch': 'main',
+            'source_commit': 'a' * 40}), encoding='utf-8')
+        (tmp / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}),
+            encoding='utf-8')
+        cat = tmp / 'precedent' / 'universal'
+        (cat / 'practices').mkdir(parents=True)
+        (cat / 'practices' / 'x.md').write_text('x\n', encoding='utf-8')
+        rows = pef.collect_targets(tmp)
+        cases.append(('CONTROL: with no sync record the catalogue reads absent',
+                      any(r.get('kind') == 'absent' for r in rows), rows))
+        (cat / 'CATALOGUE_SYNC.json').write_text(json.dumps({'source_commit': 'b' * 40}),
+                                                 encoding='utf-8')
+        rows = pef.collect_targets(tmp)
+        vend = [r for r in rows if r.get('kind') == 'vendored']
+        cases.append(('with its sync record it reads vendored at that commit, of the '
+                      'engine\'s repository and branch, and never absent',
+                      not any(r.get('kind') == 'absent' for r in rows) and len(vend) == 1
+                      and vend[0].get('recorded') == 'b' * 40
+                      and vend[0].get('url') == 'https://github.com/o/Precedent'
+                      and vend[0].get('branch') == 'main', rows))
+    finally:
+        if saved is None:
+            os.environ.pop(pef.USER_CONFIG_ENV, None)
+        else:
+            os.environ[pef.USER_CONFIG_ENV] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
+def check_update_asks_headings_only_of_published_files():
+    """Update Vendors' view migration asks for headline case only on a moved
+    source file the headline-capitalization check itself would judge
+    (title_case.is_outward). 2026-10-04, a consumer whose precedent.json
+    declares `"output_paths": []` was asked to recase MAP.source.md and
+    GLOSSARY.source.md, which nothing of its publishes. Driven with the
+    migration and the heading tool stood in. CONTROL: a moved file the check
+    does reach is still asked about."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import title_case as tc
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-migrate-headings-'))
+    saved_run, saved_out = pu.run, tc.is_outward
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        for n in ('precedent_migrate_views.py', 'title_case.py'):
+            (tmp / 'tools' / n).write_text('', encoding='utf-8')
+        asked = []
+
+        def fake_run(argv, cwd):
+            if argv[1].endswith('precedent_migrate_views.py'):
+                return 0, 'MAP.md -> MAP.source.md\nGLOSSARY.md -> GLOSSARY.source.md\n'
+            asked.append(argv[2:])
+            return 1, 'not headline case'
+        pu.run = fake_run
+        rep = pu.Report()
+        pu.migrate_views_step(tmp, rep)
+        cases.append(('moved source files nothing publishes are not asked about',
+                      asked == [] and not rep.left
+                      and any(n == 'headings kept' for n, _o in rep.steps),
+                      (asked, rep.left, rep.steps)))
+        tc.is_outward = lambda rel, root='.': rel == 'MAP.source.md'
+        asked.clear()
+        rep = pu.Report()
+        pu.migrate_views_step(tmp, rep)
+        cases.append(('CONTROL: one the check does reach is still asked about',
+                      asked == [['MAP.source.md']] and rep.left, (asked, rep.left)))
+    finally:
+        pu.run, tc.is_outward = saved_run, saved_out
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
+def check_vocabulary_reads_a_materialized_practice_as_one():
+    """Vocabulary does not call a practice "defined twice" because the view
+    sync wrote it into a consumer's practices/: MANIFEST.json records that
+    file as the sync's own output. 2026-10-04, a consumer: a note for nearly
+    every practice it has, about 57 KB, in which a real shadow could not be
+    seen. CONTROL: a local file the manifest does not record, under a
+    universal practice's name, is still noted."""
+    import shutil, tempfile
+    import precedent_vocabulary as pv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vocab-twice-'))
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-user-config.json')
+    cases = []
+    try:
+        uni = tmp / 'universal'
+        (uni / 'practices').mkdir(parents=True)
+        for slug in ('zz-synced', 'zz-shadowed'):
+            (uni / 'practices' / f'{slug}.md').write_text(
+                _move_fixture_practice(slug), encoding='utf-8')
+        repo = tmp / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)}]}),
+            encoding='utf-8')
+        shutil.copy(uni / 'practices' / 'zz-synced.md', repo / 'practices' / 'zz-synced.md')
+        (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
+            {'slug': 'zz-synced', 'source': 'precedent'}]}), encoding='utf-8')
+        _e, notes = pv.collect(repo)
+        cases.append(('a practice the sync wrote, recorded in MANIFEST.json, is not '
+                      '"defined twice"', not any('zz-synced is defined twice' in n
+                                                 for n in notes), notes))
+        shutil.copy(uni / 'practices' / 'zz-shadowed.md', repo / 'practices' / 'zz-shadowed.md')
+        _e, notes = pv.collect(repo)
+        cases.append(('CONTROL: a local file the manifest does not record is noted',
+                      any('zz-shadowed is defined twice' in n for n in notes), notes))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
 
 
 def check_ladder_off_engine_says_no_ladder_words():
@@ -57362,6 +57551,12 @@ def main():
           *check_generated_index_of_nothing_yet_passes())
     check('Update Vendors fetches the sets a person brings before it syncs the views',
           *check_update_fetches_brought_sets_before_the_views())
+    check('the freshness notice reads a section 0 catalogue by its own sync record',
+          *check_freshness_reads_a_section0_catalogues_own_sync())
+    check('Update Vendors asks for headline case only on files the check judges',
+          *check_update_asks_headings_only_of_published_files())
+    check('Vocabulary reads a practice the sync wrote as one practice, not two',
+          *check_vocabulary_reads_a_materialized_practice_as_one())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())

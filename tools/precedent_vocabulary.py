@@ -189,12 +189,25 @@ def collect(root=ROOT, resolved_view=False, committed=False):
     found = {}                      # slug -> (level, source, fm)
     local_files = {}                # slug -> the local path it came from
 
+    # In a consumer, practices/ is the view sync's own output, and its
+    # MANIFEST.json says so practice by practice. A file it records is the
+    # resolved practice written down, not a second definition: read as one,
+    # a consumer got "defined twice" for nearly every practice it has, about
+    # 57 KB of notes in which a real shadow could not be seen (2026-10-04).
+    try:
+        written = {e.get('slug') for e in json.loads(
+            (root / 'MANIFEST.json').read_text(encoding='utf-8')).get('practices') or []
+            if isinstance(e, dict)}
+    except (OSError, ValueError, AttributeError):
+        written = set()
     local = root / 'practices'
     if local.is_dir():
         for f in sorted(local.glob('*.md')):
             try:
                 fm, _ = sp._read_practice_file(f)
             except sp.PracticeFileError:
+                continue
+            if fm['slug'] in written:
                 continue
             found[fm['slug']] = ('universal', '', fm)
             local_files[fm['slug']] = f.resolve()

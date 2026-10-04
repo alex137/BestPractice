@@ -34,6 +34,13 @@ the target branch out loud, commit, push, open the pull request, merge --
 without going back for a second authorization. That is step 12, and it is
 part of the phrase rather than a separate grant.
 
+**Claude Code's auto mode may still refuse that merge** ("Merge Without
+Review"): the phrase names an update, and its safety check clears a merge
+only on words that name the merge. That is not this repository's rules.
+Say so in one line and ask for it by name -- "Merge PR #N into
+<landing branch>" -- and never route around it
+([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)).
+
 **The sequence is one command, since 2026-09-27.** From the consuming repo,
 run the BestPractice clone's own copy -- never a vendored one:
 
