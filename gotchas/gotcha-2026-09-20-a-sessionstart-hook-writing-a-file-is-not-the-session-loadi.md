@@ -63,3 +63,13 @@ fixes — is
 **Test it from outside the session**, since from inside there is no reliable
 way to tell what was loaded: run the hook and check that its stdout parses as
 JSON and that `hookSpecificOutput.additionalContext` is the size you expect.
+
+**It came back in consumers (2026-10-04).** The hook above was wired only
+into practice sets. A consumer's session-start hook ran
+[precedent_session_practices.py](../tools/precedent_session_practices.py), which wrote the file and printed nothing,
+so a set the person brings -- the ladder's stage words -- reached a
+consumer's session as an unread file, and a session there searched the
+clones for "Debut". The tool now prints the block on stdout as it writes it
+(a SessionStart hook's plain stdout is context too), the set hook passes
+`--quiet` because it emits the file itself, and every generated Standing
+instruction carries the read-it-too sentence.

@@ -83,7 +83,9 @@ fi
 if [ -f "$P/tools/precedent_source_bootstrap.py" ]; then
   python3 "$P/tools/precedent_source_bootstrap.py" --sources-from "$P" || true
 fi
-python3 "$P/tools/precedent_session_practices.py" --repo "$P" || true
+# --quiet: the file is emitted below, whole; printing it here as well would
+# put it in the context twice.
+python3 "$P/tools/precedent_session_practices.py" --repo "$P" --quiet || true
 
 # THIRD STEP, added 2026-09-14: which repos in force can this session actually
 # push to? (practice: spawn-session.)
