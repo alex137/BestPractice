@@ -10477,6 +10477,11 @@ def check_local_edits_fetch_the_vendored_commit_from_upstream():
         cases.append(('with the recorded upstream, the commit is fetched',
                       le._has_commit(mine, sha, str(up))
                       and le._show(mine, sha, 'a.py') == b'x = 1\n'))
+        cases.append(('...and the clone stays complete: never marked shallow',
+                      not (mine / '.git' / 'shallow').exists()
+                      and subprocess.run(['git', '-C', str(mine), 'rev-parse',
+                                          '--is-shallow-repository'], capture_output=True,
+                                         text=True).stdout.strip() == 'false'))
         cases.append(('...and no branch or tag is created',
                       subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
                                      capture_output=True, text=True).stdout == refs_before))
