@@ -229,6 +229,16 @@ RENDER_LEDGER = None
 # keeps the single-ledger behavior (every branch checks the shared URLs).
 THREAD_LEDGER = None
 
+# Whether the renders are committed. False when a host builds them on
+# demand and keeps them out of git (Alex, 2026-10-04: "why are we committing
+# build output more generally? By definition they can be built from other
+# stuff"). Then a render carries its build time and differs on every build,
+# so neither "the render changed on this branch" nor its hash says anything:
+# staleness is a render missing or older than its sources, and a ledger
+# records the fingerprint of what the render was built FROM (its sources and
+# this renderer), which is the same on every machine that builds it.
+RENDERS_TRACKED = True
+
 CSS = """
 .renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
 td span[data-view] { display: none; }
@@ -1720,6 +1730,27 @@ def _changed_vs_base():
     return out
 
 
+def _fingerprint(sources):
+    """sha256 of what a render is built from: this renderer and each source,
+    by path and content."""
+    import hashlib
+    h = hashlib.sha256(Path(__file__).read_bytes())
+    for rel in sorted(sources):
+        h.update(rel.encode() + b"\0")
+        p = ROOT / rel
+        h.update(p.read_bytes() if p.exists() else b"<missing>")
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def _published_hash(html_rel, sources):
+    """What the ledger records for a render: its own hash when renders are
+    committed, the fingerprint of its sources when they are not."""
+    if RENDERS_TRACKED:
+        return _sha256(ROOT / html_rel)
+    return _fingerprint(sources)
+
+
 def _render_units():
     """Every render with its sources and hosted URL: DOCS entries first,
     then the composites."""
@@ -1780,7 +1811,7 @@ def stale(trunk=False):
             behind.append((html_rel, "no render on disk"))
             continue
         moved = [s for s in sources if s in changed]
-        if moved and html_rel not in changed:
+        if RENDERS_TRACKED and moved and html_rel not in changed:
             behind.append((html_rel, "source changed on this branch, render not: "
                            + ", ".join(moved)))
         else:
@@ -1790,14 +1821,14 @@ def stale(trunk=False):
                 behind.append((html_rel, "source newer on disk than the render: "
                                + ", ".join(newer)))
         if thread:
-            if html_rel in changed:
+            if (html_rel in changed) if RENDERS_TRACKED else moved:
                 have = ledger.get(html_rel) or {}
-                if have.get("sha") != _sha256(html):
+                if have.get("sha") != _published_hash(html_rel, sources):
                     unpublished.append((html_rel, have.get("url") or
                                         "a new artifact of this thread's own (publish without a url)"))
         elif url and ledger is not None:
             have = ledger.get(html_rel)
-            if have != _sha256(html):
+            if have != _published_hash(html_rel, sources):
                 unpublished.append((html_rel, url if have else
                                     f"{url} (never recorded as published)"))
     return behind, unpublished
@@ -1808,7 +1839,8 @@ def record_published(args, trunk=False):
     working branch with a thread ledger, an argument is REL@URL (the URL
     of the thread's own artifact; it may be left off once recorded)."""
     import json
-    known = {u[0] for u in _render_units()}
+    units = {u[0]: u[1] for u in _render_units()}
+    known = set(units)
     thread = _thread_mode(trunk)
     if not thread and RENDER_LEDGER is None:
         raise SystemExit("RENDER_LEDGER is not configured")
@@ -1823,9 +1855,9 @@ def record_published(args, trunk=False):
             url = url or (led.get(rel) or {}).get("url")
             if not url:
                 raise SystemExit(f"{rel}: give the thread artifact's URL as {rel}@URL")
-            led[rel] = {"sha": _sha256(ROOT / rel), "url": url}
+            led[rel] = {"sha": _published_hash(rel, units[rel]), "url": url}
         else:
-            led[rel] = _sha256(ROOT / rel)
+            led[rel] = _published_hash(rel, units[rel])
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(dict(sorted(led.items())), indent=2) + "\n",
                  encoding="utf-8")

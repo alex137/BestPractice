@@ -67,6 +67,18 @@ formatter's declared affix and the grammar, not a bug in either. Put the
 magnitude in the column header ("Cost, $M") and print the bare number;
 the check then holds and the column still sorts.
 
+**One module per family of kinds, not one module for everything.** The
+module that declares the house kinds is imported by nearly every emitter,
+so anything that decides what to re-check by which files changed — a
+changed-only audit, a cache keyed by file — treats an edit there as an
+edit to every emitter. A kind that only one product line prints belongs
+in that line's own formatter module, which imports the house module and
+runs the same seam check on its own kinds; the house module changes only
+for kinds every line shares. (Origin: one product line added its few
+units to the house module, and an edit touching only that line re-audited
+every other line's models until the audit timed out; moved to the line's
+own module, the same edit re-audited three.)
+
 **Keep formatting out of the computed path, and assert it.** When an
 expensive computation builds a record that also carries printed labels,
 a memo keyed on the code it reaches will treat every formatter edit as a

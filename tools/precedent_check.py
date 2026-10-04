@@ -7697,7 +7697,18 @@ def _rename_updates_links(ctx):
     skipped = len(old_paths) - len(searchable)
     out = []
     tracked = _git('ls-files').stdout.split()
+    # A path this branch took out of git that the repository now IGNORES was
+    # not deleted: it became build output, built on demand and kept out of
+    # the history (a consumer stopped committing its document renders,
+    # 2026-10-04, and every ledger and index naming a render read as broken).
+    # A reference to it still resolves wherever the build has run.
+    _ign = subprocess.run(['git', '-C', str(ROOT), 'check-ignore', '--no-index',
+                           '--stdin'], input='\n'.join(o for o, n in searchable if not n),
+                          capture_output=True, text=True)
+    ignored_now = set(_ign.stdout.split()) if _ign.returncode in (0, 1) else set()
     for old, new_path in searchable:
+        if old in ignored_now:
+            continue          # build output now, not deleted -- see above
         for rel in tracked:
             if rel == new_path or rel == old:
                 continue
