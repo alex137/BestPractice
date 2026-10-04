@@ -1801,6 +1801,44 @@ def stamp_headers(repo):
     return stamped
 
 
+def rebuild_views_after_stamp(repo, stamped):
+    """-> [view] build_views.py built again because stamp_headers() bumped
+    its source.
+
+    MAP.md and GLOSSARY.md copy their source's version header, and the views
+    step built them BEFORE stamp_headers() bumped MAP.source.md, so the check
+    failed on a stale MAP.md on every run (2026-10-04, a consumer's Update
+    Vendors). The views are built again; only a view the update had staged is
+    staged again, the way stamp_headers() treats what it stamps."""
+    build = pathlib.Path(repo) / 'tools' / 'build_views.py'
+    if not build.is_file():
+        return []
+    import build_views as _bv
+    sources = {getattr(_bv, 'MAP_SOURCE', None),
+               getattr(_bv, 'GLOSSARY_SOURCE', None)} - {None}
+    # A source can be a file or its directory form (MAP.source/).
+    prefixes = {_bv.source_dir_name(s) + '/' for s in sources}
+    if not any(p in sources or p.startswith(tuple(prefixes)) for p in stamped):
+        return []
+    views = generated_full_views(repo)
+    if not views:
+        return []
+    staged = set(subprocess.run(
+        ['git', '-C', str(repo), 'diff', '--cached', '--name-only'],
+        capture_output=True, text=True).stdout.split())
+    rc, out = run([sys.executable, str(build), '--repo', '.', '--views-only'], repo)
+    if rc != 0:
+        # Said, never swallowed: the check would then fail on the stale view
+        # with nothing pointing at why.
+        raise RuntimeError(tail(out, repo=repo))
+    changed = set(subprocess.run(['git', '-C', str(repo), 'diff', '--name-only'],
+                                 capture_output=True, text=True).stdout.split())
+    rebuilt = [v for v in views if v in changed and v in staged]
+    if rebuilt:
+        subprocess.run(['git', '-C', str(repo), 'add', '--', *rebuilt],
+                       capture_output=True)
+    return rebuilt
+
 def judged_as_committed(repo, argv):
     """-> (rc, output) of `argv`, run against the tree the commit will hold.
 
@@ -2462,6 +2500,14 @@ def closing_check(repo, rep, skip_check=False):
         if stamped:
             rep.step('file headers', 'stamped before the check, as the commit '
                      'would: ' + ', '.join(stamped))
+            try:
+                rebuilt = rebuild_views_after_stamp(repo, stamped)
+            except RuntimeError as e:
+                return rep.close(f"the view build after the header stamp "
+                                 f"failed:\n{e}")
+            if rebuilt:
+                rep.step('views', 'built again from the stamped source: '
+                         + ', '.join(rebuilt))
         if tier == pb.FULL:
             # The basic tier first: seconds, where the full one is minutes,
             # and a finding there is reported without paying for the rest.
