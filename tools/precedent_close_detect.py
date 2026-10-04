@@ -164,6 +164,11 @@ def person_messages(records):
     results are dropped by block type; hook and harness injections are
     dropped by their envelopes.
 
+    The assistant's own sentences, quoted back, are dropped too
+    (_without_quoted_assistant): a quoted span or `>` blockquote that
+    appears word for word in an EARLIER assistant message of this
+    transcript is what the session said, not the person.
+
     The summary a compaction writes is dropped by its record flag. Claude
     Code stores it as a `type: user` record carrying `"isCompactSummary":
     true`, and `"isMeta": true` marks the other records the harness writes
@@ -178,7 +183,10 @@ def person_messages(records):
             'UserPromptSubmit hook', 'SessionStart', 'Caveat: The messages below',
             '<wake ', '<event ', '<webhook-payload>')
     out = []
+    said = ''                     # every assistant text so far, folded
     for rec in records:
+        said += ' ' + _fold(' '.join(b.get('text', '') for b in _blocks(rec, 'assistant')
+                                     if b.get('type') == 'text'))
         if rec.get('isCompactSummary') or rec.get('isMeta'):
             continue              # the harness's words, not the person's
         for b in _blocks(rec, 'user'):
@@ -187,10 +195,60 @@ def person_messages(records):
             text = b.get('text') or ''
             if not text.strip() or any(m in text for m in skip):
                 continue
-            text = _without_other_sessions_words(text)
+            text = _without_quoted_assistant(_without_other_sessions_words(text), said)
             if text.strip():
                 out.append(text)
     return out
+
+
+# A quoted span: straight or curly double quotes, across lines if need be.
+_QUOTED = re.compile(r'"([^"]+)"|\u201c([^\u201d]+)\u201d')
+
+
+def _fold(s):
+    """Text folded for "did the assistant already say this": _norm's case
+    and apostrophe fold, Markdown emphasis and code marks and curly double
+    quotes dropped (a paste of a rendered reply loses them), whitespace run
+    together."""
+    s = re.sub(r'[*`\u201c\u201d"]', '', _norm(s))
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _without_quoted_assistant(text, said):
+    """`text` without the spans the person quoted from what the assistant
+    already said (`said`, folded by _fold): a double-quoted span, straight
+    or curly, or a run of `>` blockquote lines, removed only when it appears
+    word for word in that earlier text. What the person typed around it
+    stays, and so does a quote of anything else -- someone else's words, or
+    the person's own rule written down.
+
+    2026-10-04, a consumer: the person pasted a quoted paragraph of the
+    assistant's ("... has a single commit that never reached pre-staging.")
+    and added "review those"; at close, the paragraph was read as two
+    explicit instructions the person gave."""
+    if not said.strip():
+        return text
+
+    def known(span):
+        f = _fold(span)
+        return bool(f) and f in said
+
+    text = _QUOTED.sub(lambda m: ' ' if known(m.group(1) or m.group(2)) else m.group(0),
+                       text)
+    lines, out, block = text.splitlines(), [], []
+
+    def flush():
+        if block and not known(' '.join(l.lstrip()[1:] for l in block)):
+            out.extend(l for l in block if not known(l.lstrip()[1:]))
+        block.clear()
+    for line in lines:
+        if line.lstrip().startswith('>'):
+            block.append(line)
+            continue
+        flush()
+        out.append(line)
+    flush()
+    return '\n'.join(out)
 
 
 # The first line every prompt one session puts into another carries
