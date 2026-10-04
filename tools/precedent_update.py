@@ -560,11 +560,27 @@ def migrate_views_step(repo, rep):
                 exempt = pr.load_not_binding(repo).get('headline-capitalization')
             except Exception:
                 exempt = None
-            if exempt:
+            # Only a file the check itself reaches: one the repository
+            # treats as published (title_case.is_outward -- output_paths,
+            # internal_paths and the defaults). Naming a file to title_case.py
+            # judges it whatever the repo declared, so a repo with
+            # `"output_paths": []` was asked to recase two internal files
+            # (2026-10-04, a consumer).
+            try:
+                import title_case as _tc
+                inward = [n for n in srcs if not _tc.is_outward(n, repo)]
+            except Exception:
+                inward = []
+            if inward:
+                rep.step('headings kept', ' and '.join(inward) + ' keep their '
+                         'headings as moved: this repository does not publish '
+                         'them (precedent.json output_paths / internal_paths)')
+            srcs = [n for n in srcs if n not in inward]
+            if exempt and srcs:
                 rep.step('headings kept', ' and '.join(srcs) + ' keep their '
                          'headings as moved: this repository declares '
                          'headline-capitalization not binding (' + exempt + ')')
-            elif tc.is_file():
+            elif srcs and tc.is_file():
                 rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
                 if rc2 != 0:
                     rep.leave(' and '.join(srcs),
@@ -1615,8 +1631,12 @@ def citations(repo):
     refs = SOURCE / 'tools' / 'precedent_practice_refs.py'
     if not refs.is_file():
         return None
+    # --code: a citation in a tool the update never touched is as live as
+    # one in a document (2026-10-04: a consumer's tools/*.py kept citing a
+    # slug a shared set had deduplicated, this said there was nothing to
+    # fix, and only the full check at Debut found it).
     r = subprocess.run([sys.executable, str(refs), '--repo', str(repo),
-                        '--withdrawn', '--changed-since', 'HEAD', '--staged',
+                        '--withdrawn', '--code', '--changed-since', 'HEAD', '--staged',
                         '--json'], cwd=str(repo), capture_output=True,
                        text=True, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
     try:
