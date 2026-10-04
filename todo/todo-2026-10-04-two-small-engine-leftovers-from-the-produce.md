@@ -59,3 +59,12 @@ second list left, and `--from-ref` names the ref it took and refuses or
 re-runs from a clone not at that ref, and a Promote into main reports a
 GitHub test as due only where one is installed. Each change has a harness case shown
 failing without it.
+
+## Notes
+
+- 2026-10-04: leftover 3 is fixed. A Promote into main now says "GitHub
+  test: NONE" and gives no wait step where no GitHub test runs on the pull
+  request: none installed, or every one path-filtered off the change
+  (`precedent_branches.github_tests`, which reads `paths:` since that day).
+  The case is in `check_main_test_minutes_rule` and fails on the old code.
+  Leftovers 1 and 2 are still open, so the item stays open.

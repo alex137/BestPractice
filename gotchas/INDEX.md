@@ -171,3 +171,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A practice set's working copy shows engine files under `tools/` modified or deleted at the start of a session, with nobody having touched them. `git status` in the set lists them, and checks run there use an older engine than the one the set committed.** [story](gotcha-2026-10-02-a-set-made-from-a-working-branch-had-its-engine-rolled-back-at.md)
 
 - **The session-start survey shows a practice set as STALE at every session start, with a FAIL row ending "A reason is required. Do NOT reach for `record-ci` here". The file the refresh calls hand-edited is identical to BestPractice's own copy.** [story](gotcha-2026-10-03-a-file-carried-by-hand-to-match-upstream-held-every-refresh-up.md)
+
+- **"Update Vendors" runs to DONE, opens its pull request, and the merge that the phrase carries comes back `Denied by auto mode classifier` with the reason `[Merge Without Review]`. Nothing in the repository refused it, and the same merge goes through once the person's message names it.** [story](gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)
