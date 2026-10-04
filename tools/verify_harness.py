@@ -11502,10 +11502,18 @@ def check_update_vendors_reports_what_it_says_it_lists():
         (uni / 'record' / 'WITHDRAWN_FROM_UNIVERSAL.md').write_text(
             '# Rules withdrawn\n\n- 2026-10-02: `deleted-on-purpose` withdrawn '
             'from universal, deliberately; in force only from the shared set '
-            '`fx-ladder`, for the people who bring or declare it.\n',
+            '`fx-ladder`, for the people who bring or declare it.\n'
+            # The retired-name shape (2026-10-04: a consumer's update was
+            # refused on plan-it and push-directly, which the record named
+            # only in this shape).
+            '- 2026-10-02: `retired-stub` (a retired name that forwarded to a '
+            'ladder rule) withdrawn from universal, deliberately; kept as '
+            'history in the shared set `fx-ladder`, beside the rule it '
+            'forwards to. Approved by F.\n',
             encoding='utf-8')
         (repo / 'MANIFEST.json').write_text(json.dumps({'practices': [
             {'slug': 'deleted-on-purpose', 'source': 'precedent'},
+            {'slug': 'retired-stub', 'source': 'precedent'},
             {'slug': 'went-missing', 'source': 'precedent'}]}), encoding='utf-8')
         subprocess.run(['git', '-C', str(repo), 'commit', '-qam', 'm2'], env=env, check=True)
         lost = psv._lost_practices(repo, {'practices': {'kept': {}}, 'retired': []},
@@ -11514,8 +11522,21 @@ def check_update_vendors_reports_what_it_says_it_lists():
         cases.append(('a rule deleted from universal with a record line does not block',
                       ('deleted-on-purpose', 'precedent') in lost.get('withdrawn_upstream', [])
                       and ('deleted-on-purpose', 'precedent') not in lost['blocking']))
+        cases.append(('a retired name recorded as kept as history does not block',
+                      ('retired-stub', 'precedent') in lost.get('withdrawn_upstream', [])
+                      and ('retired-stub', 'precedent') not in lost['blocking']))
         cases.append(('CONTROL: beside it, a rule with no record line still blocks',
                       ('went-missing', 'precedent') in lost['blocking']))
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(uni)}]}), encoding='utf-8')
+        _went = psv._where_removed_went(repo, tmp / 'no-user-config.json',
+                                        ['retired-stub'])
+        cases.append(("a removed retired name is reported as history, never as "
+                      "a rule in force",
+                      'kept as history in `fx-ladder`' in _went['retired-stub'][1]
+                      and 'in force' not in _went['retired-stub'][1]))
         import checkin as _ci
         cases.append(('the withdrawal record ships with the catalogue, and the '
                       'rest of record/ does not',
@@ -30332,6 +30353,21 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
         cases.append(('CONTROL: with the project dir pointed elsewhere there '
                       'is no attach copy to find, and nothing is linked',
                       not link.is_symlink(), (r.stdout + r.stderr)[-500:]))
+        # The individual set runs its own copy from <set>/bootstrap/, one
+        # level down, not two: "two levels up" named the directory above
+        # the repo there (2026-10-04). Git's answer is the repo itself.
+        subprocess.run(['git', 'init', '-q', str(proj)], env=env0, capture_output=True)
+        (proj / 'bootstrap').mkdir()
+        shallow = proj / 'bootstrap' / 'precedent-individual-bootstrap.sh'
+        shutil.copy(hook, shallow)
+        shutil.rmtree(home / '.config', ignore_errors=True)
+        r = subprocess.run(['bash', str(shallow)], env=dict(env0, HOME=str(home)),
+                           cwd=str(w), capture_output=True, text=True, timeout=120)
+        cases.append(('run by hand from a repo\'s bootstrap/, one level down, '
+                      'the hook still finds that repo and links the attached '
+                      'copy beside it',
+                      link.is_symlink() and link.resolve() == attached.resolve(),
+                      (r.stdout + r.stderr)[-500:]))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'a hand-run individual-set hook links the attached set '
           f'({len(cases)} stated cases)', not bad,
@@ -38538,6 +38574,36 @@ def check_vendor_engine_keeps_a_declared_engine_path():
                           refused == refused_want and (refused_want or
                           'identical to upstream' in out_h),
                           f'rc={rc_h} {out_h[-500:]}'))
+
+        # I -- a TEMPLATE declared as an engine path is kept RENDERED, the
+        # way a consumer's refresh renders it (2026-10-04: precedent-
+        # individual's hand-rendered bootstrap hook fell behind its template
+        # twice, and its adapter shipped the stale copy over every
+        # consumer's). First run adopts a copy identical to the render;
+        # CONTROL: the raw template's placeholders never reach the file.
+        tpl_up = f'{pve.HOOK_SOURCE_DIR}/{pve.INDIVIDUAL_HOOK_TEMPLATE}'
+        tpl_local = 'bootstrap/' + pve.INDIVIDUAL_HOOK
+        raw = ('#!/bin/bash\nNAME="{{SOURCE_NAME}}"\nURL="{{SOURCE_REPO_URL}}"\n'
+               'if [ "{{SOURCE_REPO_URL_SUBSTITUTED}}" != "yes" ]; then exit 0; fi\n')
+        c_t = upstream_commit(raw, path=tpl_up)
+        repo_i = make_repo('rendered', {tpl_up: tpl_local})
+        (repo_i / tpl_local).parent.mkdir(parents=True, exist_ok=True)
+        (repo_i / tpl_local).write_text(pve.render_individual_hook(raw),
+                                        encoding='utf-8')
+        refused_i = one_pass(repo_i, c_t)
+        body_i = (repo_i / tpl_local).read_text(encoding='utf-8')
+        cases.append(('I: a template engine path is adopted when the local copy '
+                      'is its render, and kept rendered, never raw',
+                      refused_i == [] and '{{' not in body_i
+                      and 'NAME="precedent-individual"' in body_i
+                      and tpl_local in manifest_of(repo_i).get('engine_paths_sha256', {}),
+                      repr(refused_i) + body_i[:300]))
+        c_t2 = upstream_commit(raw + '# moved upstream\n', path=tpl_up)
+        one_pass(repo_i, c_t2)
+        body_i2 = (repo_i / tpl_local).read_text(encoding='utf-8')
+        cases.append(('I: when the template moves, the rendered copy follows it',
+                      '# moved upstream' in body_i2 and '{{' not in body_i2
+                      and os.access(repo_i / tpl_local, os.X_OK), body_i2[:300]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -50231,6 +50297,44 @@ def check_ladder_opt_in_loader():
             dangling = None
         cases.append(('a consumer of universal alone sees no IN FORCE NOWHERE for it',
                       dangling == [], (r.stdout + r.stderr)[-400:]))
+        # 8b. A retired name leaves with the rule it forwards to, and the
+        # tool writes its record line, in the shape the record's reader
+        # knows. 2026-10-02: four such names were withdrawn by hand, because
+        # the tool refused them, in a shape the reader did not know; the
+        # first consumer to update past them was refused (2026-10-04).
+        stub_fm = lambda: (_move_fixture_practice('zz-old-name')
+                           .replace('status:      active\nin_force_at: null',
+                                    'status:      deduplicated\nin_force_at: zz-gone'))
+        (uclone / 'practices' / 'zz-old-name.md').write_text(stub_fm(), encoding='utf-8')
+        (team / 'practices' / 'zz-old-name.md').write_text(
+            _move_fixture_practice('zz-old-name'), encoding='utf-8')
+        r = move('--slug', 'zz-old-name', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--withdraw-from-universal',
+                 '--approved-by', 'Fixture Approver')
+        cases.append(("CONTROL: a retired name whose set copy is ACTIVE is refused, "
+                      "by that reason, and nothing is deleted",
+                      r.returncode == 1 and 'not the same retired name kept as history' in r.stderr
+                      and (uclone / 'practices' / 'zz-old-name.md').is_file(),
+                      (r.stdout + r.stderr)[-400:]))
+        (team / 'practices' / 'zz-old-name.md').write_text(
+            stub_fm(), encoding='utf-8')
+        r = move('--slug', 'zz-old-name', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--withdraw-from-universal',
+                 '--approved-by', 'Fixture Approver')
+        hist = pr.withdrawn_history(uclone)
+        rec = pr.withdrawn_record(uclone)
+        cases.append(('a retired name is withdrawn by the tool, and its record line '
+                      'reads back as history beside the rule it forwards to',
+                      r.returncode == 0
+                      and not (uclone / 'practices' / 'zz-old-name.md').exists()
+                      and 'zz-old-name' in hist and 'zz-gone' not in hist
+                      and set(rec) >= {'zz-gone', 'zz-old-name'},
+                      (r.stdout + r.stderr)[-500:] + repr(rec)))
+        text = record.read_text(encoding='utf-8')
+        cases.append(('every line the tool wrote to the record reads back',
+                      len(pr.withdrawn_record_entries(text))
+                      == sum(1 for l in text.splitlines() if l.startswith('- ')),
+                      text[-600:]))
     finally:
         for k, v in saved.items():
             if v is None:
@@ -50244,6 +50348,27 @@ def check_ladder_opt_in_loader():
           f'committed view, answers precedent_ladder, and a universal rule can be '
           f'withdrawn to it cleanly ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {str(d)[:400]}" for n, d in bad))
+
+
+def check_withdrawal_record_lines_all_read_back():
+    """Every line of this repository's record/WITHDRAWN_FROM_UNIVERSAL.md is
+    one precedent_resolve.withdrawn_record reads. The record ships to every
+    consumer, whose sync reads it to tell a withdrawal from a loss; a line it
+    cannot read is a rule that sync refuses as lost. 2026-10-04: four lines
+    written by hand in a second shape were unreadable, and the first
+    consumer to update past them was refused on two of them."""
+    import precedent_resolve as pr
+    path = ROOT / pr.WITHDRAWN_RECORD
+    if not path.is_file():
+        return True, 'no withdrawal record in this repository', ''
+    text = path.read_text(encoding='utf-8')
+    lines = [l for l in text.splitlines() if l.startswith('- ')]
+    read = {e[1] for e in pr.withdrawn_record_entries(text)}
+    unread = [l[:120] for l in lines
+              if not any(f'`{slug}`' in l.split(' withdrawn from ')[0] for slug in read)]
+    return (not unread and len(pr.withdrawn_record_entries(text)) == len(lines),
+            f'{len(lines)} line(s), every one read back',
+            'unreadable line(s): ' + ' | '.join(unread))
 
 
 def check_ladder_off_engine_says_no_ladder_words():
@@ -50287,10 +50412,14 @@ def check_ladder_off_engine_says_no_ladder_words():
         # the ladder meets the same titles in `git log`. Found 2026-10-03:
         # inside a Debut the checked copy sits on the Debut's own merge
         # commit, titled "Promote pre-staging into staging", and the reply
-        # gate lists it as unlanded work.
+        # gate lists it as unlanded work. So is a command still running in
+        # the session ("  pid N, running MM:SS: <command>",
+        # precedent_container_safe): the person's own words, quoted. Found
+        # 2026-10-04: a set's Debut, running beside this check, failed it.
         lines = [l for l in text.splitlines()
                  if not any(x in l for x in excused)
-                 and not re.match(r'\s+[0-9a-f]{7,40} \S', l)]
+                 and not re.match(r'\s+[0-9a-f]{7,40} \S', l)
+                 and not re.match(r'\s+pid \d+, running [\d:-]+: ', l)]
         found = lw.output_hits('\n'.join(lines))
         # The lines themselves, not only the words: a hit that appeared only
         # inside a Debut (2026-10-03) could not be found from the words.
@@ -56427,6 +56556,9 @@ def main():
     check('Update Vendors lists what it says it lists, lets a renamed practice go, '
           'and keeps an unchanged timestamp',
           *check_update_vendors_reports_what_it_says_it_lists())
+    check('every line of the withdrawal record reads back, so no consumer\'s sync '
+          'refuses a deliberate withdrawal as a loss',
+          *check_withdrawal_record_lines_all_read_back())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
