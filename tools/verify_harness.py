@@ -11775,10 +11775,15 @@ def check_update_vendors_migrates_hand_written_views():
                       any(n == 'views migrated' and 'MAP.md and GLOSSARY.md' in o
                           for n, o in rep.steps)
                       and (d / 'MAP.source.md').read_text(encoding='utf-8') == hand_map))
-        cases.append(('...and hands the person the moved headings the headline '
-                      'rule now reaches, with the command that fixes them',
-                      any('MAP.source.md' in w and 'title_case.py --write' in why
-                          for w, why in rep.left)))
+        # Since 2026-10-03 the moved source files are internal everywhere
+        # (title_case.INTERNAL_FILES): the headline rule never reaches them,
+        # so the step keeps their headings and asks nothing (2026-10-04, a
+        # consumer was asked to recase two files no check judges).
+        cases.append(('...and asks nothing of the moved headings, which no '
+                      'headline check reaches, saying it kept them',
+                      not any('title_case.py --write' in why for _w, why in rep.left)
+                      and any(n == 'headings kept' and 'MAP.source.md' in o
+                              for n, o in rep.steps)))
         rep = pu.Report()
         pu.migrate_views_step(d, rep)
         cases.append(('a rerun reports nothing and leaves nothing',
