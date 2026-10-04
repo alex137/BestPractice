@@ -51470,6 +51470,130 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_update_vendors_onegplanning_findings():
+    """Six upstream defects a consumer's Update Vendors hit on 2026-10-04,
+    each planted here.
+
+    1. gotchas/ was linked and never created; the update now starts it with
+       the trap every install inherits, and names an inline copy left behind.
+    2. A refreshed generator's output was left stale (todo/TODO.md): the
+       update rebuilds what its staged inputs make due, and the check that
+       would have said so runs at the basic tier.
+    3. A placeholder filled without its backticks read as divergence.
+    4. Repointing settings.json duplicated allow rules.
+    5. Citations of live, merely reworded slugs in code, and any citation in
+       an engine-owned file, were sent to the consumer to read.
+    6. The start-up pip install threw its error away."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_vendor_engine as pve
+        import precedent_push_check as ppc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-oneg-findings-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True)
+    try:
+        r = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', str(r)], env=env, check=True)
+        (r / 'AGENTS.md').write_text(
+            '# A\n\n- **A session\'s checkout can be stale enough to look '
+            'complete while missing real, merged work.**\n', encoding='utf-8')
+        rep = pu.Report()
+        seed = getattr(pu, 'gotchas_seed_step', None)
+        if seed:
+            seed(r, rep, 'HEAD')
+        seeded = r / 'gotchas' / 'gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md'
+        cases.append(('1. a consumer with no gotchas/ gets the seed trap',
+                      seeded.is_file() and '## Symptom' in seeded.read_text()))
+        cases.append(('1. ...and is told to remove the inline copy',
+                      any(w == 'AGENTS.md' and 'inline' in why for w, why in rep.left)))
+
+        (r / 'tools').mkdir()
+        (r / 'tools' / 'gen.py').write_text(
+            'import pathlib, sys\n'
+            'out = "generated v2\\n"\n'
+            'if "--check" in sys.argv:\n'
+            '    sys.exit(0 if pathlib.Path("OUT.md").read_text() == out else 1)\n'
+            'pathlib.Path("OUT.md").write_text(out)\n', encoding='utf-8')
+        (r / 'OUT.md').write_text('generated v1\n', encoding='utf-8')
+        (r / 'tools' / 'generated_files.json').write_text(json.dumps({'files': [
+            {'path': 'OUT.md', 'regenerate': 'python3 tools/gen.py',
+             'check': ['tools/gen.py', '--check'], 'edit_instead': 'tools/gen.py'}]}))
+        git(r, 'add', '-A')
+        git(r, 'commit', '-qm', 'base')
+        (r / 'tools' / 'gen.py').write_text(
+            (r / 'tools' / 'gen.py').read_text() + '# refreshed\n', encoding='utf-8')
+        git(r, 'add', 'tools/gen.py')
+        rep = pu.Report()
+        step = getattr(pu, 'regenerated_step', None)
+        got = step(r, rep) if step else None
+        cases.append(('2. a refreshed generator rebuilds and stages its output',
+                      got == ['OUT.md']
+                      and git(r, 'show', ':OUT.md').stdout == 'generated v2\n'))
+        kinds_ok = all(any(e[0] == 'generated_files' for e in ppc.PUSH_CHECKS[k])
+                       for k in ('upstream', 'source', 'consumer'))
+        cases.append(('2. ...and the generated-files check runs at the basic tier',
+                      'generated_files' in ppc.BASIC_CHECKS and kinds_ok))
+
+        tmpl = ('## X\n\n- **Deep check** -- the full suite, and `<your own audits>`. '
+                'Gates a push and a merge.\n')
+        local = ('## X\n\n- **Deep check** -- the full suite, and python3 '
+                 'tools/oneg_audit.py. Gates a push and a merge.\n')
+        cases.append(('3. a placeholder filled without its backticks is carried',
+                      pve.missing_markdown_blocks(local, tmpl) == []))
+        cases.append(('3. ...and a sentence really dropped is still reported',
+                      pve.missing_markdown_blocks('## X\n\nnothing here at all\n', tmpl) != []))
+
+        dedupe = getattr(pu, '_without_duplicate_permissions', None)
+        doubled = json.dumps({'permissions': {'allow': [
+            'Bash(python3 tools/doc_lint.py)', 'Bash(git status)',
+            'Bash(python3 tools/doc_lint.py)']}}, indent=2)
+        once = json.loads(dedupe(doubled)) if dedupe else {}
+        cases.append(('4. a repointed allow list keeps one copy of each rule, in order',
+                      once.get('permissions', {}).get('allow') ==
+                      ['Bash(python3 tools/doc_lint.py)', 'Bash(git status)']))
+
+        find = getattr(pu, 'citation_findings', None)
+        data = {'slugs': {'upstream-fix': 'Rule reworded', 'gone': 'withdrawn'},
+                'successors': {},
+                'hits': [
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'upstream-fix',
+                     'file': 'tools/bootstrap.sh', 'line': 389},
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'upstream-fix',
+                     'file': '.claude/hooks/freshness-guard.sh', 'line': 13},
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'upstream-fix',
+                     'file': 'docs/notes.md', 'line': 4},
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'gone',
+                     'file': '.claude/hooks/freshness-guard.sh', 'line': 9,
+                     'must_fix': True}]}
+        fix, read = find(data, {'.claude/hooks/freshness-guard.sh'}) if find else (None, None)
+        cases.append(('5. a reworded live slug is a read only in a document, and '
+                      'nothing in an engine-owned file is reported',
+                      fix == [] and read == ['docs/notes.md:4']))
+
+        for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
+            boot = (ROOT / rel).read_text(encoding='utf-8')
+            cases.append((f'6. {rel} installs with python3 -m pip and keeps its error',
+                          'python3 -m pip install --quiet cmarkgfm markdown' in boot
+                          and 'pip install --quiet cmarkgfm markdown 2>/dev/null' not in boot))
+    except (OSError, subprocess.CalledProcessError, TypeError, ValueError,
+            AttributeError, KeyError) as e:
+        cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     """A consumer's session searched the clones for "Debut" (2026-10-04).
 
@@ -57997,6 +58121,9 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('Update Vendors: gotchas/ seeded, generated files rebuilt, filled placeholders '
+          'carried, allow rules once, live citations quiet, pip errors kept',
+          *check_update_vendors_onegplanning_findings())
     check('a set the person brings reaches the session at start: printed, not just '
           'written, and the block always points at the file',
           *check_a_brought_sets_spoken_trigger_reaches_the_session_at_start())

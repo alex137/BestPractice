@@ -4647,6 +4647,13 @@ _GENERATED_BEGIN = '<!-- BEGIN GENERATED'
 _GENERATED_END = '<!-- END GENERATED'
 _MD_HEADING_RE = re.compile(r'^(#{1,3})\s+\S')
 _MD_PLACEHOLDER_RE = re.compile(r'<[A-Za-z][^<>\n]{0,70}>')
+# A placeholder WITH the code span, quotes or emphasis wrapped round it, for
+# matching: a repo that filled `<your own audits>` with a plain sentence, or
+# `<upstream URL>` with a Markdown link, dropped the backticks along with the
+# placeholder, and every such section was reported as diverging -- five of a
+# consumer's seven LEFT FOR YOU items on 2026-10-04 were filled placeholders,
+# each needing a two-hash kept entry that goes stale on the next upstream edit.
+_MD_WRAPPED_PLACEHOLDER_RE = re.compile(r'[`"*_]?<[A-Za-z][^<>\n]{0,70}>[`"*_]?')
 _MD_ITEM_RE = re.compile(r'^\s*(?:[-*+]|\d+\.)\s')
 # A block whose own words, placeholders aside, are fewer than this is an
 # example row for the repo to replace ("| <key deliverable> and its
@@ -4960,7 +4967,7 @@ def _wildcard(text):
     """A regex for `text` in which each remaining template placeholder
     matches whatever a repo filled it in with -- or None when the text
     carries too few words of its own to be lacked (_MIN_LITERAL_WORDS)."""
-    pieces = _MD_PLACEHOLDER_RE.split(text)
+    pieces = _MD_WRAPPED_PLACEHOLDER_RE.split(text)
     if len(re.findall(r'[A-Za-z]{2,}', ' '.join(pieces))) < _MIN_LITERAL_WORDS:
         return None
     return re.compile('.+?'.join(re.escape(p) for p in pieces))
