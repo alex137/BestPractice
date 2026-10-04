@@ -33,6 +33,7 @@ It never loses work (practice: repair-cannot-discard-work):
 import fnmatch
 import json
 import pathlib
+import os
 import shlex
 import shutil
 import subprocess
@@ -43,6 +44,27 @@ REGISTRY = 'tools/generated_files.json'
 # vendored catalogue mirror. A labelled file there was generated upstream and
 # is copied here; it is the upstream list's to name, never this repository's.
 VENDORED_TREES = ('process/upstream/',)
+
+
+# What a git hook's environment carries that points every git command at the
+# repository being committed. The rebuilds this runs read OTHER repositories
+# too -- build_views asks each declared source's own clone what it is -- and
+# with GIT_DIR set, `git -C <that clone>` answered about this one instead.
+# Measured 2026-10-04: a practice set's commit, through this fixer, rebuilt
+# AGENTS.md with the person's individual practices inlined (11 resident,
+# ~1214 tokens) where a plain build defers them all (1 resident, ~62); the
+# set's push check refused it, and every set's Update Vendors failed on it.
+# The rebuild commands get an environment without them; this fixer's own
+# `git add` and `git diff` keep the hook's, so they stage into the index the
+# commit is being made from.
+HOOK_GIT_ENV = ('GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_PREFIX',
+                'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY',
+                'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_QUARANTINE_PATH')
+
+
+def _tool_env():
+    """-> os.environ without the variables a git hook sets (HOOK_GIT_ENV)."""
+    return {k: v for k, v in os.environ.items() if k not in HOOK_GIT_ENV}
 
 
 def _git(root, *args):
@@ -146,7 +168,8 @@ def regenerate(root, entries, say=print, stage=True):
         argv = shlex.split(cmd)
         if argv and argv[0] in ('python3', 'python'):
             argv[0] = sys.executable
-        r = subprocess.run(argv, cwd=str(root), capture_output=True, text=True)
+        r = subprocess.run(argv, cwd=str(root), capture_output=True, text=True,
+                           env=_tool_env())
         if r.returncode != 0:
             say(f'precedent_regenerate: `{cmd}` failed, so what it writes was '
                 f'left as it was; the push check will say what is stale. '
@@ -203,7 +226,7 @@ def refresh_blocks(root, staged, say=print):
         return []
     dirty = set(_git(root, 'diff', '--name-only').stdout.split())
     r = subprocess.run([sys.executable, str(tool), '--write'], cwd=str(root),
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=_tool_env())
     written = sorted({l.split()[2] for l in (r.stdout + r.stderr).splitlines()
                       if l.startswith('[doc_sync] WROTE ') and len(l.split()) > 2})
     staged_now = []

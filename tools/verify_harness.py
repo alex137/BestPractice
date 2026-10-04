@@ -5730,6 +5730,69 @@ def check_where_things_are_from_one_source():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_commit_rebuild_runs_outside_the_hook_git_env():
+    """The commit-time rebuild runs its commands without the git hook's
+    GIT_DIR/GIT_INDEX_FILE (2026-10-04). Inside the hook those point every
+    git command at the repository being committed, so a rebuild that asks
+    another repository's clone a question got this one's answer: a practice
+    set's AGENTS.md came out with the person's individual practices inlined,
+    and every set's Update Vendors failed its push check on it. Its own
+    staging keeps the hook's index."""
+    import tempfile, shutil
+    name = 'the commit-time rebuild runs outside the git hook environment'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_regenerate as rg
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='regen-hook-env-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull)
+    for k in ('GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_PREFIX',
+              'GIT_COMMON_DIR'):
+        env.pop(k, None)
+    hook_vars = ('GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_PREFIX',
+                 'GIT_COMMON_DIR')
+    cases = []
+    saved = {k: os.environ.get(k) for k in hook_vars}
+    try:
+        repo, other = tmp / 'repo', tmp / 'other'
+        for d in (repo, other):
+            subprocess.run(['git', 'init', '-q', str(d)], env=env, check=True)
+        (repo / 'src.txt').write_text('x\n', encoding='utf-8')
+        cmd = (f'python3 -c "import subprocess,pathlib;pathlib.Path(\'out.txt\')'
+               f'.write_text(subprocess.run([\'git\',\'-C\',r\'{other}\','
+               f'\'rev-parse\',\'--absolute-git-dir\'],capture_output=True,'
+               f'text=True).stdout)"')
+        subprocess.run(['git', '-C', str(repo), 'add', 'src.txt'], env=env, check=True)
+        # The hook's environment, as git sets it for pre-commit.
+        os.environ['GIT_DIR'] = str(repo / '.git')
+        os.environ['GIT_INDEX_FILE'] = str(repo / '.git' / 'index')
+        staged = rg.regenerate(repo, [{'path': 'out.txt', 'regenerate': cmd,
+                                       'inputs': ['src.txt']}], say=lambda m: None)
+        got = (repo / 'out.txt').read_text(encoding='utf-8').strip() \
+            if (repo / 'out.txt').is_file() else ''
+        cases.append(('a rebuild asking ANOTHER repository gets that repository\'s '
+                      'answer, not the one being committed',
+                      got == str((other / '.git').resolve()), got))
+        idx = subprocess.run(['git', '-C', str(repo), 'diff', '--cached', '--name-only'],
+                             env=env, capture_output=True, text=True).stdout.split()
+        cases.append(('...and what it rewrote is staged into the commit\'s index',
+                      'out.txt' in idx and 'out.txt' in staged, f'{idx} {staged}'))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} -- {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_commit_rebuilds_generated_files():
     """The commit backstop rebuilds the generated files whose inputs a commit
     touches and stages them (spec/GENERATED_FILES_PLAN.md step 3; Morgan,
@@ -56292,6 +56355,7 @@ def main():
     check_map_reads_each_tools_own_summary()
     check_where_things_are_from_one_source()
     check_commit_rebuilds_generated_files()
+    check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
