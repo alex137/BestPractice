@@ -6064,6 +6064,26 @@ def check_migrate_views_keeps_every_word():
                       and 'GLOSSARY.source.md' in (repo / 'GLOSSARY.md')
                       .read_text(encoding='utf-8').split('---', 2)[1]
                       and (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
+
+        # A hand-written map and no glossary at all: the migration makes no
+        # glossary, and the list names nothing that is not there. Found
+        # 2026-10-03 in a consumer whose glossary lives in docs/: it came out
+        # with a new root GLOSSARY.md and a list pointing at a missing
+        # GLOSSARY.source.md, which generated-files-registered refused.
+        for f in ('MAP.source.md', 'GLOSSARY.source.md', 'GLOSSARY.md'):
+            (repo / f).unlink(missing_ok=True)
+        (repo / 'tools' / 'generated_files.json').unlink(missing_ok=True)
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        rc, out = migrate()
+        listed = ({e['path']: e.get('edit_instead') for e in
+                   _json.loads(lst.read_text(encoding='utf-8'))['files']}
+                  if lst.is_file() else {})
+        cases.append(('a repository with no glossary gets none, and its list names '
+                      'only the map and its real source',
+                      rc == 0 and not (repo / 'GLOSSARY.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()
+                      and listed.get('MAP.md') == 'MAP.source.md'
+                      and 'GLOSSARY.md' not in listed))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -25509,8 +25529,10 @@ def check_global_backstop_runs_person_fixer():
                        encoding='utf-8')
         mark = tmp / 'ran'
         fixer = indiv / 'bootstrap' / 'pre-commit-fix'
-        fixer.write_text('#!/bin/sh\necho ran >> "%s"\necho fixed > FIXED.txt\n'
-                         'git add FIXED.txt\nexit 3\n' % mark, encoding='utf-8')
+        order = tmp / 'order'
+        fixer.write_text('#!/bin/sh\necho ran >> "%s"\necho fixer >> "%s"\n'
+                         'echo fixed > FIXED.txt\n'
+                         'git add FIXED.txt\nexit 3\n' % (mark, order), encoding='utf-8')
         fixer.chmod(0o755)
         env = dict(os.environ, HOME=str(home), TZ='UTC',
                    GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
@@ -25527,6 +25549,12 @@ def check_global_backstop_runs_person_fixer():
                       str(fixer) in (hooks / 'pre-commit').read_text(encoding='utf-8')
                       if (hooks / 'pre-commit').exists() else False))
         (work / 'a.txt').write_text('a\n', encoding='utf-8')
+        # The engine's rebuild of generated files, stubbed to record when it
+        # ran: it must come after the fixer, or a header the fixer stamps on
+        # a source (MAP.source.md, say) leaves the view built from the old one.
+        (work / 'tools').mkdir()
+        (work / 'tools' / 'precedent_regenerate.py').write_text(
+            'open(%r, "a").write("regenerate\\n")\n' % str(order), encoding='utf-8')
         subprocess.run(['git', '-C', str(work), 'add', 'a.txt'],
                        capture_output=True, env=env)
         c = subprocess.run(['git', '-C', str(work), '-c', 'user.name=T', '-c',
@@ -25540,6 +25568,10 @@ def check_global_backstop_runs_person_fixer():
                                text=True, env=env).stdout.split()
         cases.append(('what the fixer stages lands in the same commit',
                       'FIXED.txt' in files))
+        ran = order.read_text(encoding='utf-8').split() if order.exists() else []
+        cases.append(('the fixer runs before the rebuild of generated files, so a '
+                      'source it stamps is what the view is built from',
+                      ran == ['fixer', 'regenerate']))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -40371,6 +40403,10 @@ def check_title_case_output_paths_inverts_the_default():
             (declared, 'book-joseph/voice-pack/tone.md', False,
              'internal_paths WINS over output_paths -- the vendored-subtree case'),
             (absent, 'README.md', True, 'absent: unchanged, everything not excluded is output'),
+            (absent, 'MAP.source.md', False,
+             "a map's source is internal like the map it feeds (a consumer, 2026-10-03)"),
+            (absent, 'GLOSSARY.source.md', False,
+             "...and so is a glossary's"),
             (absent, 'notes/x.md', True, 'absent: unchanged for a working directory too'),
             (empty, 'README.md', False,
              'an EMPTY output_paths is a declaration ("we publish nothing"), not an absence'),

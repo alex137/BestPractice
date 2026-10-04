@@ -92,6 +92,13 @@ def write_list(repo):
     files = [e for e in data.get('files') or [] if e.get('path') not in ('MAP.md', 'GLOSSARY.md')
              or e.get('part')]
     for view, source in VIEWS:
+        # Only a view that is here, with the source it is built from: an entry
+        # naming a missing source sends a reader nowhere, and
+        # generated-files-registered refuses it (a consumer with no root
+        # glossary, 2026-10-03). A labelled view with no source still joins
+        # the list below, from its own label.
+        if not ((repo / view).is_file() and (repo / source).is_file()):
+            continue
         files.append({'path': view, 'generated_by': 'tools/build_views.py',
                       'edit_instead': source,
                       'inputs': [source, 'practices/*.md', '*.json'],
@@ -170,6 +177,13 @@ def migrate(repo, restore_from=None, say=print):
             f'text unchanged after regeneration, so everything was put back as it was. '
             f'{(r.stdout + r.stderr).strip()[-400:]}')
         return 1
+    # build_views writes every view; one this repository never had, and has
+    # no source for, is not this migration's to add (a consumer whose
+    # glossary lives in docs/ came out with a second one at its root,
+    # 2026-10-03).
+    for view, source in VIEWS:
+        if before[view] is None and not (repo / source).is_file():
+            (repo / view).unlink(missing_ok=True)
     write_list(repo)
     for view, source, _t in todo:
         say(f'precedent_migrate_views: {view} -> {source}, word for word; {view} is now '
