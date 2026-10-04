@@ -10314,6 +10314,48 @@ def check_update_vendors_resolves_a_catalogue_edit():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_local_edits_fetch_the_vendored_commit_from_upstream():
+    """precedent_local_edits.py judges a consuming repository's edits to
+    received files against the commit they were vendored from. Run from
+    the consumer, that commit was never in the consumer's own history, so
+    every file read "cannot judge" unless an upstream clone sat beside it
+    (Alex, 2026-10-04: fold the vendor engines into the send/take loop).
+    It now fetches that one commit from the upstream the manifest records.
+    Both directions: with no upstream named, a missing commit is still
+    reported missing, and a fetch creates no branch or tag."""
+    import tempfile
+    import precedent_local_edits as le
+    name = 'local-edit status fetches the vendored-from commit from upstream'
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    with tempfile.TemporaryDirectory() as td:
+        up, mine = pathlib.Path(td) / 'up', pathlib.Path(td) / 'mine'
+        for d in (up, mine):
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)], env=env)
+        (up / 'a.py').write_text('x = 1\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(up), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'u'], env=env)
+        sha = subprocess.run(['git', '-C', str(up), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True).stdout.strip()
+        (mine / 'b.py').write_text('y = 2\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(mine), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(mine), 'commit', '-qm', 'm'], env=env)
+        refs_before = subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
+                                     capture_output=True, text=True).stdout
+        cases.append(('with no upstream named, the missing commit is reported missing',
+                      not le._has_commit(mine, sha)))
+        cases.append(('with the recorded upstream, the commit is fetched',
+                      le._has_commit(mine, sha, str(up))
+                      and le._show(mine, sha, 'a.py') == b'x = 1\n'))
+        cases.append(('...and no branch or tag is created',
+                      subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
+                                     capture_output=True, text=True).stdout == refs_before))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_send_carries_a_local_edit_upstream():
     """tools/precedent_local_edits.py send turns a consumer's committed edit
     to a received engine file into a branch in the owner's clone, merged
@@ -56689,6 +56731,7 @@ def main():
           *check_merge_takes_the_vendor_update())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
+    check_local_edits_fetch_the_vendored_commit_from_upstream()
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',
