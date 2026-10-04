@@ -258,6 +258,21 @@ SOURCE_NAME_MISMATCH = re.compile(
 _REPOINTED = re.compile(r"repointed precedent\.json source '([^']+)' to '([^']+)'")
 
 
+def removed_links_step(rep, out):
+    """List, for the person, each link in this repo's own files that the
+    sync reported dangling: to a practice the sync removed, or an earlier
+    update did (2026-10-04: a hook's link from a rename weeks before went
+    unlisted, and the push after the update was refused for it), with no
+    successor here to repoint it to -- the repo's call."""
+    for line in re.findall(r'precedent_sync_views: (\S+:\d+): links `([^`]+)`, '
+                           r'which (this sync removed|is not in practices/ -- an '
+                           r'earlier update removed it) -- (.*?)\. Repoint', out):
+        when = ('this update removed' if line[2] == 'this sync removed'
+                else 'an earlier update removed')
+        rep.leave(line[0], f'links `{line[1]}`, which {when} '
+                           f'({line[3]}). Repoint it or remove it')
+
+
 def renamed_sources_step(repo, rep, engine_out):
     """Repoint every precedent-team-* source to its precedent-shared-* name,
     path and level, from THIS copy of the engine -- a consumer whose own
@@ -2039,12 +2054,7 @@ def update(repo, skip_check=False, ref=None):
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
         in_force_nowhere_step(repo, rep, out)
-        # A link in this repo's own files to a practice the sync removed,
-        # with no successor here to repoint it to: the repo's call.
-        for line in re.findall(r'precedent_sync_views: (\S+:\d+): links `([^`]+)`, '
-                               r'which this sync removed -- (.*?)\. Repoint', out):
-            rep.leave(line[0], f'links `{line[1]}`, which this update removed '
-                               f'({line[2]}). Repoint it or remove it')
+        removed_links_step(rep, out)
         if rc != 0:
             # A declared source whose clone answers to another name is a
             # call about this repo's own precedent.json, so it is left for

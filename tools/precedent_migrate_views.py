@@ -177,13 +177,10 @@ def migrate(repo, restore_from=None, say=print):
             f'text unchanged after regeneration, so everything was put back as it was. '
             f'{(r.stdout + r.stderr).strip()[-400:]}')
         return 1
-    # build_views writes every view; one this repository never had, and has
-    # no source for, is not this migration's to add (a consumer whose
-    # glossary lives in docs/ came out with a second one at its root,
-    # 2026-10-03).
-    for view, source in VIEWS:
-        if before[view] is None and not (repo / source).is_file():
-            (repo / view).unlink(missing_ok=True)
+    # A view this repository never had, with no source, is never added here:
+    # build_views --views-only skips it (a consumer whose glossary lives in
+    # docs/ came out with a second one at its root, 2026-10-03), so there is
+    # nothing to clean up after the build.
     write_list(repo)
     for view, source, _t in todo:
         say(f'precedent_migrate_views: {view} -> {source}, word for word; {view} is now '

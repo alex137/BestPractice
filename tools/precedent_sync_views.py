@@ -740,25 +740,42 @@ def _where_removed_went(repo, user_config, removed):
     return out
 
 
-def _links_to_removed(repo, user_config, removed, check=False):
-    """Every tracked Markdown file outside the generated tree that links to a
-    practice this sync removed: repointed where the rule's successor is in
+def _links_to_removed(repo, user_config, removed, check=False, present=None):
+    """Every tracked file outside the generated tree that links to a practice
+    this sync removed, or to one an earlier update removed (`present`, the
+    practices this sync leaves): repointed where the rule's successor is in
     practices/ now, reported where it is not. -> [report lines].
+
+    An EARLIER removal counts too (2026-10-04). A consumer rehearsal found a
+    hook still linking a practice a shared-set rename had removed weeks
+    before: this report knew only this sync's removals, said nothing, and
+    the push after the update was refused for exactly that link. The report
+    now names every link the full check refuses.
 
     rename-updates-links asks a rename to repoint every link in the same
     change; a sync that removes a practice is the same event for the repo
     that receives it, and until 2026-10-03 it repointed and reported nothing
     -- open items naming removed practices failed the next Promote."""
-    if not removed:
+    if not removed and present is None:
         return []
     repo = pathlib.Path(repo)
+    gone = set(removed)
     # Every tracked file, not only Markdown: a hook or a blocklist that names
     # a removed practice is refused by rename-updates-links too (a
     # consumer, 2026-10-03). Only Markdown is ever rewritten; anything else
     # is reported and left as it is.
     r = subprocess.run(['git', '-C', str(repo), 'ls-files'],
                        capture_output=True, text=True)
-    skip = ('practices/', 'process/', 'tools/checks/')
+    # A mirror of another repository's catalogue (precedent/universal/,
+    # process/upstream/) is upstream's, like a vendored engine file: never
+    # this repository's to fix. mirrored_prefixes is the one place that is
+    # answered; a hand-kept list here missed precedent/universal/ once this
+    # scan reached earlier removals (2026-10-04).
+    try:
+        mirrors = tuple(pr.mirrored_prefixes(repo))
+    except Exception:                                        # noqa: BLE001
+        mirrors = ()
+    skip = ('practices/', 'process/', 'tools/checks/') + mirrors
     # AGENTS.md is scanned too, outside its generated loader block: the
     # hand-written text around the block is the repository's own, and the
     # full check refuses a link there to a removed practice just as it does
@@ -775,7 +792,18 @@ def _links_to_removed(repo, user_config, removed, check=False):
     files = [f for f in r.stdout.splitlines()
              if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
              and f not in engine]
-    went = _where_removed_went(repo, user_config, removed)
+    if present is not None:
+        linked = set()
+        for rel in files:
+            try:
+                linked.update(m.group(2) for m in _PRACTICE_LINK_RE.finditer(
+                    (repo / rel).read_text(encoding='utf-8')))
+            except (OSError, UnicodeDecodeError):
+                continue
+        gone |= linked - set(present)
+    if not gone:
+        return []
+    went = _where_removed_went(repo, user_config, gone)
     lines = []
     for rel in files:
         path = repo / rel
@@ -799,15 +827,18 @@ def _links_to_removed(repo, user_config, removed, check=False):
             def fix(m):
                 nonlocal changed
                 slug = m.group(2)
-                if slug not in removed:
+                if slug not in gone:
                     return m.group(0)
                 succ, why = went.get(slug, (None, ''))
                 if markdown and succ and (repo / 'practices' / f'{succ}.md').is_file():
                     changed = True
                     lines.append(f"{rel}:{n}: repointed `{slug}` to `{succ}` ({why})")
                     return f'{m.group(1)}{succ}.md'
-                lines.append(f"{rel}:{n}: links `{slug}`, which this sync "
-                             f"removed -- {why}. Repoint or remove it")
+                lines.append(f"{rel}:{n}: links `{slug}`, which "
+                             + ("this sync removed" if slug in removed else
+                                "is not in practices/ -- an earlier update "
+                                "removed it")
+                             + f" -- {why}. Repoint or remove it")
                 return m.group(0)
             out_lines.append(_PRACTICE_LINK_RE.sub(fix, line))
         if changed and not check:
@@ -870,7 +901,8 @@ def main():
              {f.stem for f in (pathlib.Path(repo) / 'practices').glob('*.md')})
     removed = before - after
     view_problems = _refresh_generated_views(repo, check=check)
-    for line in _links_to_removed(repo, user_config, removed, check=check):
+    for line in _links_to_removed(repo, user_config, removed, check=check,
+                                  present=after):
         print(f"precedent_sync_views: {line}", file=sys.stderr)
 
     if check:
