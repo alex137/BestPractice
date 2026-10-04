@@ -755,9 +755,13 @@ def _links_to_removed(repo, user_config, removed, check=False):
     r = subprocess.run(['git', '-C', str(repo), 'ls-files', '*.md'],
                        capture_output=True, text=True)
     skip = ('practices/', 'process/', 'tools/checks/')
+    # AGENTS.md is scanned too, outside its generated loader block: the
+    # hand-written text around the block is the repository's own, and the
+    # full check refuses a link there to a removed practice just as it does
+    # anywhere else (two consumers, 2026-10-03: an update said there was
+    # nothing to fix, and the push after it was refused).
     files = [f for f in r.stdout.splitlines()
-             if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
-             and f != 'AGENTS.md']
+             if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS]
     went = _where_removed_went(repo, user_config, removed)
     lines = []
     for rel in files:
@@ -768,7 +772,16 @@ def _links_to_removed(repo, user_config, removed, check=False):
             continue
         changed = False
         out_lines = []
+        in_block = False
         for n, line in enumerate(text.split('\n'), 1):
+            if rel == 'AGENTS.md':
+                if bv.BEGIN_MARKER in line:
+                    in_block = True
+                if in_block:
+                    if bv.END_MARKER in line:
+                        in_block = False
+                    out_lines.append(line)
+                    continue
             def fix(m):
                 nonlocal changed
                 slug = m.group(2)

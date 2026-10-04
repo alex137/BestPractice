@@ -6084,6 +6084,15 @@ def check_migrate_views_keeps_every_word():
                       and not (repo / 'GLOSSARY.source.md').exists()
                       and listed.get('MAP.md') == 'MAP.source.md'
                       and 'GLOSSARY.md' not in listed))
+        # ...and no later rebuild makes one either: the commit backstop runs
+        # build_views --views-only whenever MAP.source.md changes, and it
+        # wrote a root GLOSSARY.md each time, untracked, in that consumer.
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo), '--views-only'],
+                       capture_output=True, text=True, env=env)
+        cases.append(('...and a later views-only rebuild does not create one either',
+                      not (repo / 'GLOSSARY.md').exists()
+                      and (repo / 'MAP.md').is_file()))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -53607,7 +53616,8 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
         (repo / 'todo').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
         (repo / 'AGENTS.md').write_text(
-            f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+            f'# C\n\nSee [gone](practices/gone-rule.md).\n\n'
+            f'{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent',
@@ -53655,6 +53665,13 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
                         'where it went', '../practices/gone-rule.md' in got
                         and 'todo/todo-x.md:3: links `gone-rule`' in out
                         and 'fx-ladder' in out, out[-500:]))
+        results.append(('2b: ...and so is one in AGENTS.md\'s own text outside the '
+                        'generated block, which the full check refuses just the same '
+                        '(two consumers, 2026-10-03)',
+                        'AGENTS.md:3: links `gone-rule`' in out
+                        and not any(l.startswith('AGENTS.md:') and 'AGENTS.md:3:' not in l
+                                    and 'gone-rule' in l for l in out.splitlines()),
+                        out[-500:]))
         results.append(('3: the generated MAP.md is rebuilt without the removed rules',
                         r.returncode == 0 and 'practices/gone-rule.md' not in map_after
                         and 'practices/kept-rule.md' in map_after, out[-300:]))
