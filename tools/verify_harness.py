@@ -5953,6 +5953,49 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_seeds_the_session_load_registry():
+    """Update Vendors gives a repository with no
+    tools/session_load_budgets.json one seeded at today's sizes, so the
+    session-load-budget check binds there instead of skipping on every run
+    (Alex, 2026-10-04: "If it is already a best practice, why didn't we
+    adopt?" -- a consumer's instructions file had grown to about 38,000
+    tokens behind a skip). Both directions: an existing registry, however
+    small, is never touched, and a second run writes nothing."""
+    import tempfile
+    import precedent_update as pu
+    name = 'Update Vendors seeds a missing session-load registry'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('word ' * 300, encoding='utf-8')
+        seeded = pu.ensure_session_load_registry(repo)
+        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                         .read_text(encoding='utf-8'))
+        s = reg.get('surfaces', {})
+        cases.append(('both surfaces are declared, each ceiling at or above '
+                      'what it measures', set(s) == {'CLAUDE.md', 'AGENTS.md'}
+                      and all(s[k]['ceiling'] >= (seeded[k] or 0) for k in s)))
+        cases.append(('the early-warning floor is on', reg.get('headroom_floor_pct') == 5))
+        cases.append(('it says it was seeded at Update Vendors',
+                      'Update Vendors' in s['CLAUDE.md'].get('_note', '')))
+        before = (repo / 'tools' / 'session_load_budgets.json').read_bytes()
+        again = pu.ensure_session_load_registry(repo)
+        cases.append(('a second run writes nothing', again is None and before ==
+                      (repo / 'tools' / 'session_load_budgets.json').read_bytes()))
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        mine = '{"surfaces": {"CLAUDE.md": {"ceiling": 10}}}\n'
+        (repo / 'tools' / 'session_load_budgets.json').write_text(mine, encoding='utf-8')
+        (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
+        cases.append(('an existing registry is never touched, even one over its ceiling',
+                      pu.ensure_session_load_registry(repo) is None and
+                      (repo / 'tools' / 'session_load_budgets.json').read_text(
+                          encoding='utf-8') == mine))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
 def check_source_directory_splits_and_assembles():
     """MAP.source.md and GLOSSARY.source.md may live as directories, one
     file per heading and per table row, so two branches that each add a row
@@ -6037,7 +6080,6 @@ def check_source_directory_splits_and_assembles():
                       and 'Intro line.' in after and '`c/`' in after))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
-
 
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
@@ -10398,6 +10440,53 @@ def check_update_vendors_resolves_a_catalogue_edit():
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'Update Vendors resolves a committed local edit in process/upstream/ '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_local_edits_fetch_the_vendored_commit_from_upstream():
+    """precedent_local_edits.py judges a consuming repository's edits to
+    received files against the commit they were vendored from. Run from
+    the consumer, that commit was never in the consumer's own history, so
+    every file read "cannot judge" unless an upstream clone sat beside it
+    (Alex, 2026-10-04: fold the vendor engines into the send/take loop).
+    It now fetches that one commit from the upstream the manifest records.
+    Both directions: with no upstream named, a missing commit is still
+    reported missing, and a fetch creates no branch or tag."""
+    import tempfile
+    import precedent_local_edits as le
+    name = 'local-edit status fetches the vendored-from commit from upstream'
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    with tempfile.TemporaryDirectory() as td:
+        up, mine = pathlib.Path(td) / 'up', pathlib.Path(td) / 'mine'
+        for d in (up, mine):
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)], env=env)
+        (up / 'a.py').write_text('x = 1\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(up), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'u'], env=env)
+        sha = subprocess.run(['git', '-C', str(up), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True).stdout.strip()
+        (mine / 'b.py').write_text('y = 2\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(mine), 'add', '-A'], env=env)
+        subprocess.run(['git', '-C', str(mine), 'commit', '-qm', 'm'], env=env)
+        refs_before = subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
+                                     capture_output=True, text=True).stdout
+        cases.append(('with no upstream named, the missing commit is reported missing',
+                      not le._has_commit(mine, sha)))
+        cases.append(('with the recorded upstream, the commit is fetched',
+                      le._has_commit(mine, sha, str(up))
+                      and le._show(mine, sha, 'a.py') == b'x = 1\n'))
+        cases.append(('...and the clone stays complete: never marked shallow',
+                      not (mine / '.git' / 'shallow').exists()
+                      and subprocess.run(['git', '-C', str(mine), 'rev-parse',
+                                          '--is-shallow-repository'], capture_output=True,
+                                         text=True).stdout.strip() == 'false'))
+        cases.append(('...and no branch or tag is created',
+                      subprocess.run(['git', '-C', str(mine), 'for-each-ref'],
+                                     capture_output=True, text=True).stdout == refs_before))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_send_carries_a_local_edit_upstream():
@@ -56841,6 +56930,7 @@ def main():
     check_commit_rebuilds_generated_files()
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
+    check_update_seeds_the_session_load_registry()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
@@ -56893,6 +56983,7 @@ def main():
           *check_merge_takes_the_vendor_update())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
+    check_local_edits_fetch_the_vendored_commit_from_upstream()
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',
