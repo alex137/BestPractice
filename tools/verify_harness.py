@@ -50328,6 +50328,35 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                           (n is None and because in why) if want is None else
                           (n is not None and n >= want and all(':9:' not in str(f) and ':10:' not in str(f) for f in got)),
                           f'got {n} {why!r}: {[str(f) for f in (got if n else [])][:4]}'))
+        # The same individual set checked from a linked worktree elsewhere
+        # (2026-10-04): a Debut or Produce checks the set in a throwaway
+        # worktree under the temp directory, where nothing sits beside it.
+        # The ladder set it brings is found beside the main checkout, so the
+        # check still stands aside -- before, the set's own Debut was refused.
+        _genv = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+                     GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+                     GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        subprocess.run(['git', 'init', '-q', str(ind_lad)], env=_genv, check=True)
+        subprocess.run(['git', '-C', str(ind_lad), 'add', '-A'], env=_genv, check=True)
+        subprocess.run(['git', '-C', str(ind_lad), 'commit', '-qm', 'x', '--no-verify'],
+                       env=_genv, check=True)
+        _elsewhere = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ladder-wt-'))
+        _wt = _elsewhere / 'wt'
+        subprocess.run(['git', '-C', str(ind_lad), 'worktree', 'add', '-q', '--detach',
+                        str(_wt)], env=_genv, check=True)
+        try:
+            pc.ROOT = _wt
+            why = ''
+            try:
+                n = len(pc._ladder_words_stay_in_the_ladder_set(None))
+            except pc.NotApplicable as e:
+                n, why = None, str(e)
+            cases.append(('Check E in an individual set that brings it, checked '
+                          'from a linked worktree elsewhere: skipped',
+                          n is None and 'brings ladder-set' in why,
+                          f'got {n} {why!r}'))
+        finally:
+            shutil.rmtree(_elsewhere, ignore_errors=True)
         repo = tmp / 'repo'
         repo.mkdir()
         for declared, want, what in (('ladder-set', 1, 'declares the ladder set'),
