@@ -698,9 +698,18 @@ def _refresh_generated_views(repo, check=False):
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode == 0:
         return []
-    names = ', '.join(p.name for p in views)
+    # The cause is build_views' own FAIL line, on stdout. Its stderr carries
+    # notices -- a set the person brings, deferred -- that print after it and
+    # are not the cause; the last line of both together named the notice
+    # (found 2026-10-03 on a consumer's hand-edited MAP.md).
+    lines = [l for l in (r.stdout + '\n' + r.stderr).splitlines() if l.strip()]
+    why = next((l for l in lines if 'FAIL' in l), lines[-1] if lines else
+               f'exit {r.returncode}, no output')
+    drifted = [p.name for p in views if why.rstrip().endswith(p.name)
+               or f' {p.name},' in why or f': {p.name}' in why]
+    names = ', '.join(drifted or [p.name for p in views])
     return [f"{names}: {'stale against' if check else 'could not be rebuilt by'} "
-            f"build_views.py ({(r.stdout + r.stderr).strip().splitlines()[-1:]})"]
+            f"build_views.py -- {why.strip()}"]
 
 
 _PRACTICE_LINK_RE = re.compile(r'(?<![\w/-])((?:\.\./)*practices/)([a-z0-9][a-z0-9-]*)\.md\b')

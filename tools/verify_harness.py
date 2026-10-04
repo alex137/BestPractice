@@ -6058,6 +6058,44 @@ def check_migrate_views_keeps_every_word():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_stale_view_names_its_real_cause():
+    """The view sync's check names why a generated MAP.md or GLOSSARY.md is
+    stale, and only the view that is. build_views.py prints the drift on
+    stdout and, for a person who brings a set, a notice on stderr after it;
+    the sync quoted the last line of both together, so a hand edit to MAP.md
+    was reported as the brought-set notice, against both views. Found
+    2026-10-03 rehearsing a consumer's push check after Update Vendors."""
+    import tempfile
+    name = 'a stale generated view is reported with its own cause, and only that view'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_sync_views as sv
+    finally:
+        sys.path.pop(0)
+    if not hasattr(sv, '_refresh_generated_views'):
+        not_applicable(name, 'precedent_sync_views has no _refresh_generated_views')
+        return
+    header = '---\ngenerated_by: tools/build_views.py\nedit_instead: "x"\n---\n# View\n'
+    real_run = sv.subprocess.run
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'MAP.md').write_text(header, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(header, encoding='utf-8')
+        sv.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            a[0] if a else [], 1,
+            stdout='build_views --check FAIL: hand-edited or stale, drifted from '
+                   'regeneration: MAP.md\n',
+            stderr='build_views: precedent-shared-ladder deferred to '
+                   '.precedent/SESSION_PRACTICES.md -- brought by the person working '
+                   'here, not declared by this repository.\n')
+        try:
+            got = ' '.join(sv._refresh_generated_views(repo, check=True))
+        finally:
+            sv.subprocess.run = real_run
+    check(name, 'hand-edited or stale' in got and 'MAP.md' in got
+          and 'deferred' not in got and 'GLOSSARY.md' not in got, got)
+
+
 def check_tracked_views_read_the_same_whoever_regenerates():
     """The standing instruction in a tracked AGENTS.md points at
     .precedent/SESSION_PRACTICES.md only when a source THIS REPOSITORY
@@ -56069,6 +56107,7 @@ def main():
     check_where_things_are_from_one_source()
     check_commit_rebuilds_generated_files()
     check_migrate_views_keeps_every_word()
+    check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
     check_stale_freshness_also_says_delete_it()
