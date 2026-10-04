@@ -1431,7 +1431,7 @@ def write_generated_files(dest):
     return path
 
 
-def _write_session_load_budget(dest):
+def _write_session_load_budget(dest, occasion='bootstrap'):
     """Seed tools/session_load_budgets.json so a new set starts with the
     early-warning notice ON, instead of silently absent until someone
     remembers to opt in by hand (practice: session-load-budget).
@@ -1473,14 +1473,14 @@ def _write_session_load_budget(dest):
         ceiling = ((int(measured * 1.2) + 49) // 50) * 50 if measured else 50
         surfaces[rel] = {
             'ceiling': ceiling,
-            '_note': f'{measured} tokens measured at bootstrap ({today}). '
+            '_note': f'{measured} tokens measured at {occasion} ({today}). '
                      f'Ceiling is current + ~20%.',
         }
     path = dest / 'tools' / 'session_load_budgets.json'
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({
         '_comment': [
-            'Seeded at bootstrap (practice: session-load-budget) so the '
+            f'Seeded at {occasion} (practice: session-load-budget) so the '
             'early-warning notice starts ON. headroom_floor_pct matches '
             "BestPractice's own value; each surface's ceiling is measured "
             'plus ~20% headroom, the convention every hand-written entry '

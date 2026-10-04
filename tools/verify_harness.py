@@ -5953,6 +5953,50 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_seeds_the_session_load_registry():
+    """Update Vendors gives a repository with no
+    tools/session_load_budgets.json one seeded at today's sizes, so the
+    session-load-budget check binds there instead of skipping on every run
+    (Alex, 2026-10-04: "If it is already a best practice, why didn't we
+    adopt?" -- a consumer's instructions file had grown to about 38,000
+    tokens behind a skip). Both directions: an existing registry, however
+    small, is never touched, and a second run writes nothing."""
+    import tempfile
+    import precedent_update as pu
+    name = 'Update Vendors seeds a missing session-load registry'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('word ' * 300, encoding='utf-8')
+        seeded = pu.ensure_session_load_registry(repo)
+        reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                         .read_text(encoding='utf-8'))
+        s = reg.get('surfaces', {})
+        cases.append(('both surfaces are declared, each ceiling at or above '
+                      'what it measures', set(s) == {'CLAUDE.md', 'AGENTS.md'}
+                      and all(s[k]['ceiling'] >= (seeded[k] or 0) for k in s)))
+        cases.append(('the early-warning floor is on', reg.get('headroom_floor_pct') == 5))
+        cases.append(('it says it was seeded at Update Vendors',
+                      'Update Vendors' in s['CLAUDE.md'].get('_note', '')))
+        before = (repo / 'tools' / 'session_load_budgets.json').read_bytes()
+        again = pu.ensure_session_load_registry(repo)
+        cases.append(('a second run writes nothing', again is None and before ==
+                      (repo / 'tools' / 'session_load_budgets.json').read_bytes()))
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        mine = '{"surfaces": {"CLAUDE.md": {"ceiling": 10}}}\n'
+        (repo / 'tools' / 'session_load_budgets.json').write_text(mine, encoding='utf-8')
+        (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
+        cases.append(('an existing registry is never touched, even one over its ceiling',
+                      pu.ensure_session_load_registry(repo) is None and
+                      (repo / 'tools' / 'session_load_budgets.json').read_text(
+                          encoding='utf-8') == mine))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_migrate_views_keeps_every_word():
     """precedent_migrate_views.py moves a hand-written MAP.md and GLOSSARY.md
     into MAP.source.md and GLOSSARY.source.md and generates both from then
@@ -56638,6 +56682,7 @@ def main():
     check_commit_rebuilds_generated_files()
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
+    check_update_seeds_the_session_load_registry()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
