@@ -93,6 +93,18 @@ if [ -f precedent.json ] && [ -f tools/precedent_source_bootstrap.py ]; then
   python3 tools/precedent_source_bootstrap.py --sources-from . --remote-only false || true
 fi
 
+# The practices in force here that AGENTS.md cannot carry -- a set the person
+# brings, above all -- written to .precedent/SESSION_PRACTICES.md and PRINTED,
+# since this script's output is what reaches the session. Until 2026-10-04 no
+# consumer step ran it: a set's own hook did, and a consumer declines that
+# hook, so the ladder's stage words reached a consumer session nowhere and a
+# session there searched the clones for "Debut". After the clone above, so a
+# set it brings is on disk to render.
+if [ -f precedent.json ] && [ -f tools/precedent_session_practices.py ]; then
+  python3 tools/precedent_session_practices.py || \
+    echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the practices in force here that AGENTS.md does not carry" >&2
+fi
+
 # Repair a single-branch clone's refspec before anything tries to fetch.
 # A repository attached mid-session (Claude Code's `add_repo`, and any
 # `git clone --single-branch`) is handed exactly one refspec --
