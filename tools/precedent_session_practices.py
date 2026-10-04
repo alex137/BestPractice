@@ -49,11 +49,20 @@ consumer's session-start hook only ran this tool, so a set the person brings
 -- the ladder's stage words, among them -- reached a consumer's session as an
 unread file, and "Debut" had to be searched for. So the write also prints
 the block on stdout, where a SessionStart hook's output becomes context.
-`--quiet` writes without printing, for a hook that emits the file itself.
+`--quiet` prints only the spoken commands (below), for a hook that emits
+the file itself.
+
+SPOKEN COMMANDS FIRST, AND SMALL (2026-10-04, the review of the above). A
+session opened above several repos gets every repo's start-up output joined
+and cut at a cap, and with five sets attached the ladder lines came after
+the cut. So before anything else -- with --quiet too -- this prints one line
+per practice here that defines a spoken command: its words, its slug and its
+one-line clause, under SPOKEN_HEAD. A session-start runner lifts those
+blocks to the front of everything it hands over (precedent_run_session_hooks.py).
 
 Run:
   python3 tools/precedent_session_practices.py            # write the file and print it
-  python3 tools/precedent_session_practices.py --quiet    # write it, print nothing
+  python3 tools/precedent_session_practices.py --quiet    # write it, print the spoken commands
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
 """
@@ -69,6 +78,10 @@ import precedent_resolve as pr      # noqa: E402
 
 OUT_DIR = '.precedent'
 OUT_NAME = 'SESSION_PRACTICES.md'
+# The first line of the spoken-commands block, which is this line and the
+# `- ` lines right after it. precedent_run_session_hooks.py finds it by this.
+SPOKEN_HEAD = ('Spoken commands in force here that AGENTS.md does not carry '
+               '(load one with: python3 tools/precedent_show.py SLUG):')
 
 # WHICH LEVELS THIS FILE CARRIES: exactly the ones a public repo's tracked
 # loader block leaves out, which is build_views.PRIVATE_LEVELS -- imported
@@ -429,6 +442,27 @@ def brought_share(repo=None):
     return max(0, bv._approx_tokens(full) - bv._approx_tokens(bare)), names
 
 
+def spoken_block(extra):
+    """-> the spoken-commands block for `extra`, or '' when none of them
+    defines a command: SPOKEN_HEAD, then one line per practice --
+    `"Debut" -> debut: stage 4: pre-staging into staging, full checks`."""
+    import precedent_vocabulary as voc
+    lines = []
+    for fm, sections, f in extra:
+        try:
+            words = list(voc._commands_in(fm))
+        except (ValueError, AttributeError):
+            continue
+        if not words:
+            continue
+        slug = bv._json_str(fm.get('slug', '')) or f.stem
+        clause = bv._index_clause(fm, sections)
+        lines.append(', '.join(f'"{w}"' for w in words) + f' -> {slug}: {clause}')
+    if not lines:
+        return ''
+    return '\n'.join([SPOKEN_HEAD] + [f'- {l}' for l in sorted(lines)]) + '\n'
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else list(argv)
     if any(a in ('--help', '-h') for a in args):
@@ -445,6 +479,17 @@ def main(argv=None):
     quiet = '--quiet' in args
 
     extra, levels, notes = collect(repo)
+    if not check_only:
+        # First, and with --quiet too: whatever cuts the start-up output
+        # short, these lines come before it (SPOKEN COMMANDS FIRST above).
+        try:
+            spoken = spoken_block(extra)
+        except Exception as e:                               # noqa: BLE001
+            spoken = ''
+            print(f'precedent session practices: could not list the spoken '
+                  f'commands ({type(e).__name__}: {e})', file=sys.stderr)
+        if spoken:
+            print(spoken)
     try:
         text = render(extra, levels, notes, repo=repo)
     except Exception as e:                                   # noqa: BLE001

@@ -51470,6 +51470,75 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_spoken_commands_lead_the_session_start():
+    """With five sets attached, a session opened above them got every repo's
+    start-up output joined and cut, and the ladder's stage words came after
+    the cut (2026-10-04, the review of the first fix).
+
+    1. precedent_session_practices.py prints the spoken-commands block
+       first, one line per practice defining a command.
+    2. precedent_run_session_hooks.py lifts every repo's block to the front,
+       merged, before the cut -- even a block from the LAST repo, under a cap
+       the first repo alone overflows.
+    3. The two files agree on how the block begins."""
+    import io, contextlib, tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_practices as psp
+        import precedent_run_session_hooks as rsh
+    finally:
+        sys.path.pop(0)
+    cases = []
+    head = getattr(psp, 'SPOKEN_HEAD', None)
+    prefix = getattr(rsh, 'SPOKEN_PREFIX', None)
+    cases.append(('3. the writer and the runner agree on the block\'s first line',
+                  bool(head and prefix and head.startswith(prefix))))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-spoken-first-'))
+    saved_cap = getattr(rsh, 'CONTEXT_CAP', None)
+    try:
+        for name, out in (('a-first', 'x' * 400),
+                          ('z-last', f'{head}\n- "Debut" -> debut: stage 4'
+                                     f'\nnoise after the block')):
+            repo = tmp / name
+            (repo / '.git').mkdir(parents=True)
+            (repo / '.claude').mkdir()
+            (repo / 'out.txt').write_text(out + '\n', encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+                'SessionStart': [{'hooks': [{'type': 'command',
+                                             'command': 'cat out.txt'}]}]}}))
+        rsh.CONTEXT_CAP = 100
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            rsh.run(tmp, log=tmp / 'hooks.log')
+        ctx = json.loads(buf.getvalue())['hookSpecificOutput']['additionalContext']
+        cases.append(("2. the last repo's spoken commands lead, ahead of a first repo "
+                      "that overflows the cap",
+                      ctx.startswith(f'{head}\n- "Debut" -> debut: stage 4')))
+        cases.append(('2. ...and the block ends where its `- ` lines do',
+                      'noise after the block' not in ctx.split('\n\n')[0]))
+        practices = tmp / 'set' / 'practices'
+        practices.mkdir(parents=True)
+        (practices / 'debut.md').write_text(
+            '---\nslug: debut\ntitle: Debut\ntier: on-demand\nstatus: active\n'
+            'occasion: "a person says \\"Debut\\""\n'
+            'index_clause: "stage 4: pre-staging into staging, full checks"\n'
+            'command: {"Debut": "Stage 4."}\n---\n\n## Rule\n\nMove it.\n', encoding='utf-8')
+        import build_views as bv
+        block = psp.spoken_block(bv.load_practices(practices)) \
+            if hasattr(psp, 'spoken_block') else ''
+        cases.append(('1. a practice with a command is one line of the block',
+                      block == f'{head}\n- "Debut" -> debut: stage 4: pre-staging '
+                               f'into staging, full checks\n'))
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
+    finally:
+        if saved_cap is not None:
+            rsh.CONTEXT_CAP = saved_cap
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_vendors_onegplanning_findings():
     """Six upstream defects a consumer's Update Vendors hit on 2026-10-04,
     each planted here.
@@ -51660,8 +51729,10 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
                       line in said and line in written))
         (repo / '.precedent' / 'SESSION_PRACTICES.md').unlink()
         said, written = run('--quiet')
-        cases.append(('2. --quiet writes the same file and prints nothing',
-                      said == '' and line in written))
+        cases.append(('2. --quiet writes the same file and prints only the spoken commands',
+                      said.startswith(getattr(psp, 'SPOKEN_HEAD', '\0'))
+                      and '"Debut" -> debut' in said
+                      and 'Occasion index' not in said and line in written))
         hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
                 / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
         cases.append(("2. ...and the set's hook, which emits the file whole, passes --quiet",
@@ -58121,6 +58192,8 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('spoken commands lead the session-start output, from every repo, before any cut',
+          *check_spoken_commands_lead_the_session_start())
     check('Update Vendors: gotchas/ seeded, generated files rebuilt, filled placeholders '
           'carried, allow rules once, live citations quiet, pip errors kept',
           *check_update_vendors_onegplanning_findings())
