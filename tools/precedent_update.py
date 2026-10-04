@@ -501,9 +501,39 @@ def repoint_moved_engine_mentions(repo):
                 n += 1
                 lines[i] = new
         if n:
-            f.write_text('\n'.join(lines), encoding='utf-8')
+            text = '\n'.join(lines)
+            if rel == '.claude/settings.json':
+                text = _without_duplicate_permissions(text)
+            f.write_text(text, encoding='utf-8')
             done.append((rel, n))
     return done, stranded
+
+
+def _without_duplicate_permissions(text):
+    """settings.json's text with each permission list keeping one copy of
+    each entry, first place kept. Repointing process/upstream/tools/X to
+    tools/X made a second copy wherever the repo already allowed tools/X --
+    a consumer had both forms of its doc_lint.py allow rules twice
+    (2026-10-04). Unparseable, or nothing repeated: the text as it was."""
+    try:
+        data = json.loads(text)
+        perms = data.get('permissions') or {}
+    except (ValueError, AttributeError):
+        return text
+    changed = False
+    for key in ('allow', 'ask', 'deny'):
+        rules = perms.get(key)
+        if isinstance(rules, list):
+            kept = list(dict.fromkeys(r for r in rules if isinstance(r, str)))
+            kept += [r for r in rules if not isinstance(r, str)]
+            if len(kept) != len(rules):
+                perms[key] = kept
+                changed = True
+    if not changed:
+        return text
+    indent = next((len(l) - len(l.lstrip(' ')) for l in text.split('\n')
+                   if l.startswith(' ')), 2)
+    return json.dumps(data, indent=indent, ensure_ascii=False) + '\n'
 
 
 def retired_mentions(repo, engine_out):
@@ -776,6 +806,43 @@ def gitignore_step(repo, rep, rev):
     elif added:
         rep.step('.gitignore', f'{len(added)} line(s) the template now carries '
                  f'appended: ' + ', '.join(added))
+
+
+GOTCHA_SEED_TEMPLATE = 'templates/gotchas/stale-checkout.md.template'
+GOTCHA_SEED = 'gotchas/gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md'
+# The bullet AGENTS.md carried before the trap moved into gotchas/.
+GOTCHA_SEED_INLINE = 'stale enough to look complete'
+
+
+def gotchas_seed_step(repo, rep, rev):
+    """Start gotchas/ with the trap every install inherits, where it is
+    missing, and name an inline copy of that trap left in AGENTS.md.
+
+    The template's AGENTS.md links gotchas/, and INSTALL.md section 1 seeds
+    it -- but only at install, so a consumer installed before the catalogue
+    had no gotchas/. Taking the template's paragraph into its AGENTS.md put
+    in a link to nothing, and the push check failed on it (2026-10-04, a
+    consumer's Update Vendors). A practice set keeps no gotchas/ of its own."""
+    import build_views as _bv
+    if _bv.repo_is_practice_source(repo):
+        return
+    seed = repo / GOTCHA_SEED
+    if not (repo / 'gotchas').exists():
+        text = _source_text(rev, GOTCHA_SEED_TEMPLATE) if rev else None
+        if text is None:
+            return
+        seed.parent.mkdir(parents=True, exist_ok=True)
+        seed.write_text(text, encoding='utf-8')
+        rep.step('gotchas', f'started with {GOTCHA_SEED}, the trap every '
+                 f'install inherits (INSTALL.md section 1), so the template\'s '
+                 f'link to gotchas/ has somewhere to go')
+    try:
+        agents = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+    except OSError:
+        return
+    if seed.is_file() and GOTCHA_SEED_INLINE in agents:
+        rep.leave('AGENTS.md', f'still carries the stale-checkout trap inline; '
+                  f'{GOTCHA_SEED} holds it now, so remove the inline bullet')
 
 
 # The files an install writes ONCE from a template and never looks at again,
@@ -1515,6 +1582,39 @@ def stage_update(repo, before):
     return len(ours)
 
 
+def regenerated_step(repo, rep):
+    """Rebuild the generated files whose inputs this update staged -- the
+    commit backstop's own rule (precedent_regenerate.py), run here so the
+    update's check judges current files.
+
+    An update that refreshed tools/build_todo_index.py rebuilt MAP.md and
+    GLOSSARY.md but not todo/TODO.md, whose new header the new tool writes;
+    the basic check passed, and only the Debut's full check failed on it
+    (2026-10-04, a consumer's Update Vendors). Only what the update staged
+    is matched, so a person's own unstaged work is never swept in -- the
+    regenerator stages a rebuilt file only where nothing of theirs is
+    unstaged there, and says so where something is."""
+    import precedent_regenerate as preg
+    entries = preg._entries(repo)
+    if not entries:
+        return []
+    staged = [l for l in subprocess.run(
+        ['git', '-C', str(repo), 'diff', '--cached', '--name-only'],
+        capture_output=True, text=True).stdout.splitlines() if l]
+    todo = preg.due(entries, staged)
+    if not todo:
+        return []
+    said = []
+    rebuilt = preg.regenerate(repo, todo, say=said.append)
+    if rebuilt:
+        rep.step('generated files', 'rebuilt from this update\'s inputs: '
+                 + ', '.join(rebuilt))
+    for line in said:
+        if 'failed' in line or 'NOT added' in line:
+            rep.leave('generated files', line.split(': ', 1)[-1])
+    return rebuilt
+
+
 STAGED_RECORD = 'precedent-update-staged.json'
 
 
@@ -1701,6 +1801,19 @@ def adopt_catalogue_output(repo, before, pinned):
     return mine
 
 
+def _engine_owned(repo):
+    """-> the repo-relative paths tools/ENGINE_MANIFEST.json says the engine
+    vendored here (its files under tools/, its hooks under .claude/hooks/),
+    or an empty set where there is no readable manifest."""
+    try:
+        mf = json.loads((pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json')
+                        .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    return ({f'tools/{f}' for f in mf.get('files') or []}
+            | {f'.claude/hooks/{f}' for f in mf.get('hook_files') or []})
+
+
 def citations(repo):
     """-> ([(where, why)] to fix, [where] to read), or None when the lookup
     could not run. Asks the SOURCE clone's copy of the lookup, for the same
@@ -1720,10 +1833,22 @@ def citations(repo):
         data = json.loads(r.stdout)
     except ValueError:
         return None
+    return citation_findings(data, _engine_owned(repo))
+
+
+def citation_findings(data, engine=frozenset()):
+    """-> ([(where, why)] to fix, [where] to read) from
+    precedent_practice_refs.py's JSON, leaving out the paths in `engine`."""
     fix, read = [], []
     slugs, successors = data.get('slugs', {}), data.get('successors', {})
     for h in data.get('hits', []):
         if h.get('source') != 'this repository' or h.get('kind') != 'live':
+            continue
+        # A file the engine owns is not this repo's to edit: the next
+        # refresh rewrites it, and its citations are upstream's to keep
+        # current (2026-10-04: a consumer was sent to read four lines of a
+        # vendored hook and one of tools/bootstrap.sh).
+        if h['file'] in engine:
             continue
         where = f"{h['file']}:{h['line']}"
         succ = successors.get(h['slug'])
@@ -1732,7 +1857,12 @@ def citations(repo):
                         + (f" -- cite `{succ}`" if succ else
                            " anywhere -- say in prose what it covered")))
         elif slugs.get(h['slug']) == 'Rule reworded':
-            read.append(where)
+            # Still in force under the same name: only prose can carry the
+            # old rule's wording, so only a document is worth a read. A
+            # `practice: SLUG` comment in code names the rule, whatever its
+            # wording -- the same consumer was sent to read five of those.
+            if h['file'].endswith('.md'):
+                read.append(where)
         elif h['slug'] in slugs:
             # A bare mention of a renamed or withdrawn slug. The check
             # does not refuse it (it may be lineage), but it is a citation
@@ -2238,6 +2368,7 @@ def update(repo, skip_check=False, ref=None):
     for old, why in legacy_root_docs(repo, head.strip() if head_ok else None, rep):
         rep.leave(old, why)
     gitignore_step(repo, rep, head.strip() if head_ok else None)
+    gotchas_seed_step(repo, rep, head.strip() if head_ok else None)
     dropped_template_lines_step(repo, rep, head.strip() if head_ok else None)
 
     # 3b. Where Go update lands, for a repository that has never said.
@@ -2379,6 +2510,7 @@ def update(repo, skip_check=False, ref=None):
                  f'path(s) were an earlier run\'s mirror of the pinned commit, '
                  f'byte for byte; staged as this update\'s')
     n = stage_update(repo, before)
+    regenerated_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
     rep.step('staged', f'{n} path(s) this update wrote or deleted'
              + (f'; {len(before)} already uncommitted before it ran, left as they were'

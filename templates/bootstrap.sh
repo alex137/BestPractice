@@ -39,8 +39,19 @@ local_session="${PRECEDENT_LOCAL_SESSION:-}"
 if [ "$local_session" = "1" ]; then
   echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
 else
-  pip install --quiet cmarkgfm markdown 2>/dev/null || \
-    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
+  # `python3 -m pip`, the interpreter every tool here imports with -- a bare
+  # `pip` can belong to another Python -- and pip's own last line in the
+  # warning: a consumer's first prompt warned the markdown package was
+  # missing, the push check later installed it without trouble, and with the
+  # error thrown away nothing said why (2026-10-04). The import is checked
+  # after, so a quiet install into the wrong place is said too.
+  _pip_rc=0
+  _pip_out=$(python3 -m pip install --quiet cmarkgfm markdown 2>&1) || _pip_rc=$?
+  if [ "$_pip_rc" -ne 0 ]; then
+    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped: $(printf '%s\n' "$_pip_out" | tail -n 1)" >&2
+  elif ! python3 -c 'import cmarkgfm, markdown' 2>/dev/null; then
+    echo "WARN: pip install reported success but $(command -v python3) cannot import cmarkgfm and markdown: $(printf '%s\n' "$_pip_out" | tail -n 1)" >&2
+  fi
 fi
 
 # Set the commit author to whoever is actually running this session, not
