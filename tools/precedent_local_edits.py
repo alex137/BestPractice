@@ -258,21 +258,8 @@ def engine_edits(repo, source=SOURCE):
 
 
 def _deleted_here(repo, rel):
-    """True when `rel` is absent because THIS repository removed it: it was
-    committed here once, and the commit that removed it was not a vendor
-    sync. A sync records a new upstream commit in process/manifest.json in
-    the same commit; a deletion riding one was upstream's, made when the
-    copy rules left the file out."""
-    r = _git(repo, 'log', '--diff-filter=D', '--format=%H', '-1', '--', rel)
-    if r.returncode != 0:
-        return True
-    c = r.stdout.decode().strip()
-    if not c:
-        return False                       # never had it: never shipped here
-    d = _git(repo, 'diff', f'{c}^', c, '--', 'process/manifest.json')
-    if d.returncode != 0:
-        return True
-    return not re.search(r'^\+\s*"commit":', d.stdout.decode(errors='replace'), re.M)
+    """checkin.deleted_here, for a path relative to `repo`."""
+    return _checkin(repo).deleted_here(repo / rel)
 
 
 def catalogue_edits(repo, source=SOURCE):
@@ -295,15 +282,6 @@ def catalogue_edits(repo, source=SOURCE):
     changed = ck.local_changes(_where(source, recorded), recorded)
     if changed is None:
         return [], [(tree, f'could not read {recorded[:12]} in {source}')]
-    # A file upstream has and this copy lacks is a local DELETION only if this
-    # repository removed it. One a vendor sync removed was upstream's doing:
-    # the copy rules left gotchas/ out for a day (2026-09-30), a sync deleted
-    # them, the rules shipped them again from 2026-10-01, and every later
-    # update read their absence as the consumer's own edit, "kept" it, and
-    # never copied them back -- a consumer went without 46 live gotchas
-    # (found 2026-10-04).
-    changed = [p for p in changed
-               if (ck.UPSTREAM / p).exists() or _deleted_here(repo, f'{tree}/{p.as_posix()}')]
     return [Edit(CATALOGUE, f'{tree}/{p.as_posix()}', p.as_posix(),
                  _show(source, recorded, p.as_posix()),
                  _read(ck.UPSTREAM / p), recorded)

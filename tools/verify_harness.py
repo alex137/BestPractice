@@ -10631,6 +10631,21 @@ def check_a_sync_deletion_is_not_a_local_edit():
                       not le._deleted_here(repo, rel('never-had.md'))))
         cases.append(('removed by the consumer: still a local edit',
                       le._deleted_here(repo, rel('mine-away.md'))))
+        # checkin.py's own guard asks the same question through
+        # local_changes(); it once counted the sync's deletion and refused
+        # every update (found 2026-10-04, after the fix above).
+        src = pathlib.Path(td) / 'source'
+        s = lambda *a: subprocess.run(['git', '-C', str(src), *a], env=env,
+                                      capture_output=True, text=True)
+        (src / 'gotchas').mkdir(parents=True)
+        for n in ('synced-away.md', 'mine-away.md'):
+            (src / 'gotchas' / n).write_text('x\n')
+        s('init', '-q', '-b', 'main'); s('add', '-A'); s('commit', '-qm', 'upstream')
+        head = s('rev-parse', 'HEAD').stdout.strip()
+        ck = le._checkin(repo)
+        drift = [p.as_posix() for p in (ck.local_changes(src, head) or [])]
+        cases.append(("checkin's guard: the consumer's deletion only",
+                      drift == ['gotchas/mine-away.md']))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
