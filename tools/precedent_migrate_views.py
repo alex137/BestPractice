@@ -92,6 +92,13 @@ def write_list(repo):
     files = [e for e in data.get('files') or [] if e.get('path') not in ('MAP.md', 'GLOSSARY.md')
              or e.get('part')]
     for view, source in VIEWS:
+        # Only a view that is here, with the source it is built from: an entry
+        # naming a missing source sends a reader nowhere, and
+        # generated-files-registered refuses it (a consumer with no root
+        # glossary, 2026-10-03). A labelled view with no source still joins
+        # the list below, from its own label.
+        if not ((repo / view).is_file() and (repo / source).is_file()):
+            continue
         files.append({'path': view, 'generated_by': 'tools/build_views.py',
                       'edit_instead': source,
                       'inputs': [source, 'practices/*.md', '*.json'],
@@ -121,7 +128,29 @@ def migrate(repo, restore_from=None, say=print):
     if not todo:
         # A repository already on source files keeps its list complete: a
         # fresh install writes the sources itself, and a later labelled file
-        # joins the list here.
+        # joins the list here. One whose views a vendor update had already
+        # overwritten has no source file yet: it gets an empty one, as a
+        # fresh install would, so the list names a file that exists and a
+        # commit that edits it rebuilds the view. Without both, the commit
+        # backstop rebuilt nothing there (found 2026-10-03 rehearsing a
+        # consumer overwritten on 2026-09-15).
+        made = [s for v, s in VIEWS if not (repo / s).is_file()
+                and (repo / v).is_file() and bv.is_generated_view(repo / v)]
+        if made:
+            for s in made:
+                (repo / s).write_text('', encoding='utf-8')
+            r = subprocess.run([sys.executable, str(HERE / 'build_views.py'), '--repo',
+                                str(repo), '--views-only'], capture_output=True, text=True)
+            if r.returncode != 0:
+                for s in made:
+                    (repo / s).unlink(missing_ok=True)
+                say(f'precedent_migrate_views: could not regenerate the views with '
+                    f'empty {", ".join(made)}, so none was written. '
+                    f'{(r.stdout + r.stderr).strip()[-400:]}')
+                return 1
+            say(f'precedent_migrate_views: {", ".join(made)} written empty -- the '
+                f'views were already generated; what this repository says about '
+                f'itself goes there, and the view follows it at commit.')
         if any((repo / s).is_file() for _v, s in VIEWS):
             write_list(repo)
         say('precedent_migrate_views: nothing to migrate -- MAP.md and GLOSSARY.md '
@@ -148,6 +177,13 @@ def migrate(repo, restore_from=None, say=print):
             f'text unchanged after regeneration, so everything was put back as it was. '
             f'{(r.stdout + r.stderr).strip()[-400:]}')
         return 1
+    # build_views writes every view; one this repository never had, and has
+    # no source for, is not this migration's to add (a consumer whose
+    # glossary lives in docs/ came out with a second one at its root,
+    # 2026-10-03).
+    for view, source in VIEWS:
+        if before[view] is None and not (repo / source).is_file():
+            (repo / view).unlink(missing_ok=True)
     write_list(repo)
     for view, source, _t in todo:
         say(f'precedent_migrate_views: {view} -> {source}, word for word; {view} is now '

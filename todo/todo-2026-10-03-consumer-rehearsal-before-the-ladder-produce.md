@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          "A separate session-load budget for the sets a person brings, set in their individual set, rather than charging them to a repository's ceiling or trimming the ladder"
 decision_strength: assented
-waiting_on:        null
+waiting_on:        "Morgan: land claude/staging-optional-user-display-i4tewn into staging, then the set rollout order below"
 noted:             2026-10-03
 closed:            null
 ---
@@ -62,3 +62,56 @@ closed:            null
 Points 1 to 4 are fixed in BestPractice with harness cases shown failing
 without each fix, and a rerun of the consumer rehearsal, Update Vendors
 included, passes in every consumer it reaches.
+
+## Notes
+
+- <a id="rerun-2026-10-03"></a>**The rerun (2026-10-03, against staging
+  `2f1e5895`, then this branch).** Same four consumers, scratch clones of
+  each main with real sibling sets beside them, three states plus a full
+  Update Vendors against a BestPractice whose main is staging, and again
+  with `--from-ref`.
+  - **Points 1 to 4 are gone.** `ladder-required` and `promote-only` are
+    in AGENTS.md, practices/ and MANIFEST.json in all four; no removal
+    refusal and no `--allow-removals`; the session file is within budget
+    with the sets at their staging; no follow-up notes; `--from-ref` takes
+    the catalogue from the ref when run from a clone checked out at that
+    ref. Its opening line still says `main @ <the ref's commit>`.
+  - **Nine more failures only a consumer shows, all fixed on
+    `claude/staging-optional-user-display-i4tewn`,** each with a harness
+    case shown failing without it: a view already generated got no list
+    (`6077a9ca`, `81489d13`); a stale view named the wrong cause
+    (`a66e1b0f`); Update Vendors left its repoint of
+    `process/upstream/tools/` unstaged, so the commit it asks for kept a
+    session-start step silently doing nothing (`a746d690`); a root
+    GLOSSARY.md was created where a repository keeps its glossary in
+    docs/, the commit backstop rebuilt views before the person's fixer
+    stamped their source, and `MAP.source.md` was outward-facing to the
+    headline check (`99273a89`, `90c95eaf`); links to a removed practice
+    in AGENTS.md's own text and in non-Markdown files went unlisted, and
+    vendored engine files were listed as the repository's
+    (`90c95eaf`, `776a88eb`, `fe8e0783`).
+  - **With that branch, every consumer passes on what the release owns.**
+    One passes its bare push check on the committed update. Two fail only
+    on their own AGENTS.md link to `go-update`, which Update Vendors now
+    names as left for the repo; the fourth only on its own hook's link to
+    `file-mention-links`, from an earlier shared-set rename and not this
+    release. Those are step 13's.
+- <a id="rollout-order"></a>**Rollout order the rerun measured.** With the
+  sets at their main, the session file is 650 tokens against two
+  consumers' ceilings of 500 and 300: the brought-set
+  budget lives on precedent-individual's staging, so its main must carry it
+  before Produce. Consumers get the commit backstop from the individual
+  set's `bootstrap/commit-identity.sh`, which has neither the rebuild nor
+  the new fixer order until that set takes Update Vendors after Produce;
+  until then a commit does not rebuild MAP.md, and the push check's
+  views_sync catches it.
+- <a id="calls-for-morgan"></a>**Calls for Morgan, not made here.**
+  One consumer's hand-written GLOSSARY.md (a rule its own AGENTS.md says
+  lives there) was overwritten on 2026-09-15 with its map;
+  the instruction to regenerate rather than restore named the map only, and
+  the migration has no glossary restore. Another consumer does not
+  declare `precedent-shared-writing`, so sixteen rules that moved there
+  read as in force nowhere; staging's engine says so, the current one hid it.
+- Stays open: the rerun passes on the branch, not on staging as it stands.
+  Closes when the branch is on staging and a short rerun there agrees.
+

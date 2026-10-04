@@ -698,9 +698,18 @@ def _refresh_generated_views(repo, check=False):
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode == 0:
         return []
-    names = ', '.join(p.name for p in views)
+    # The cause is build_views' own FAIL line, on stdout. Its stderr carries
+    # notices -- a set the person brings, deferred -- that print after it and
+    # are not the cause; the last line of both together named the notice
+    # (found 2026-10-03 on a consumer's hand-edited MAP.md).
+    lines = [l for l in (r.stdout + '\n' + r.stderr).splitlines() if l.strip()]
+    why = next((l for l in lines if 'FAIL' in l), lines[-1] if lines else
+               f'exit {r.returncode}, no output')
+    drifted = [p.name for p in views if why.rstrip().endswith(p.name)
+               or f' {p.name},' in why or f': {p.name}' in why]
+    names = ', '.join(drifted or [p.name for p in views])
     return [f"{names}: {'stale against' if check else 'could not be rebuilt by'} "
-            f"build_views.py ({(r.stdout + r.stderr).strip().splitlines()[-1:]})"]
+            f"build_views.py -- {why.strip()}"]
 
 
 _PRACTICE_LINK_RE = re.compile(r'(?<![\w/-])((?:\.\./)*practices/)([a-z0-9][a-z0-9-]*)\.md\b')
@@ -743,30 +752,57 @@ def _links_to_removed(repo, user_config, removed, check=False):
     if not removed:
         return []
     repo = pathlib.Path(repo)
-    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '*.md'],
+    # Every tracked file, not only Markdown: a hook or a blocklist that names
+    # a removed practice is refused by rename-updates-links too (a
+    # consumer, 2026-10-03). Only Markdown is ever rewritten; anything else
+    # is reported and left as it is.
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files'],
                        capture_output=True, text=True)
     skip = ('practices/', 'process/', 'tools/checks/')
+    # AGENTS.md is scanned too, outside its generated loader block: the
+    # hand-written text around the block is the repository's own, and the
+    # full check refuses a link there to a removed practice just as it does
+    # anywhere else (two consumers, 2026-10-03: an update said there was
+    # nothing to fix, and the push after it was refused).
+    # A vendored engine file is upstream's: a refresh rewrites it, so a link
+    # in one is never this repository's to fix, and is fixed upstream.
+    try:
+        engine = {f'tools/{f}' for f in json.loads(
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+            .get('files') or []}
+    except (OSError, ValueError, AttributeError):
+        engine = set()
     files = [f for f in r.stdout.splitlines()
              if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
-             and f != 'AGENTS.md']
+             and f not in engine]
     went = _where_removed_went(repo, user_config, removed)
     lines = []
     for rel in files:
         path = repo / rel
         try:
             text = path.read_text(encoding='utf-8')
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
+        markdown = rel.endswith('.md')
         changed = False
         out_lines = []
+        in_block = False
         for n, line in enumerate(text.split('\n'), 1):
+            if rel == 'AGENTS.md':
+                if bv.BEGIN_MARKER in line:
+                    in_block = True
+                if in_block:
+                    if bv.END_MARKER in line:
+                        in_block = False
+                    out_lines.append(line)
+                    continue
             def fix(m):
                 nonlocal changed
                 slug = m.group(2)
                 if slug not in removed:
                     return m.group(0)
                 succ, why = went.get(slug, (None, ''))
-                if succ and (repo / 'practices' / f'{succ}.md').is_file():
+                if markdown and succ and (repo / 'practices' / f'{succ}.md').is_file():
                     changed = True
                     lines.append(f"{rel}:{n}: repointed `{slug}` to `{succ}` ({why})")
                     return f'{m.group(1)}{succ}.md'
