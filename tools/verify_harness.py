@@ -7293,13 +7293,24 @@ def check_default_blocklist_runs_the_vocabulary_layer():
     # load_blocklist() discovers the container's real individual set and
     # `private_configured` comes back True in a check whose subject is the
     # state where nothing is configured.
+    #
+    # Neighbours count as configuration too (2026-10-04). Since 2026-10-01
+    # load_blocklist also reads the leak-blocklist.txt of every repository
+    # checked out beside this one, so a clone with a practice set beside it
+    # came back `private_configured` and this check failed or passed by
+    # where the clone sat on disk -- red in the main clone of a session with
+    # its sets attached, green in a scratch worktree. "Nothing configured"
+    # means no neighbours either.
     def _unconfigured(fn):
         _saved = os.environ.get('HOME')
+        _saved_neighbours = lg.discovered_neighbour_blocklists
         os.environ['HOME'] = _scratch_home
         os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        lg.discovered_neighbour_blocklists = lambda root=None: []
         try:
             return fn()
         finally:
+            lg.discovered_neighbour_blocklists = _saved_neighbours
             if _saved is None:
                 os.environ.pop('HOME', None)
             else:
@@ -7366,9 +7377,14 @@ def check_default_blocklist_runs_the_vocabulary_layer():
         priv = pathlib.Path(td) / 'private.txt'
         priv.write_text('acme-corp-secret-codename\n', encoding='utf-8')
         os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(priv)  # wins over discovery
+        # Neighbours stay out of the count, as in _unconfigured: the
+        # arithmetic below is the default plus this one list, nothing else.
+        _saved_neighbours = lg.discovered_neighbour_blocklists
+        lg.discovered_neighbour_blocklists = lambda root=None: []
         try:
             merged, src, configured = lg.load_blocklist()
         finally:
+            lg.discovered_neighbour_blocklists = _saved_neighbours
             os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
         cases.append(('a private list is MERGED with the default, never replaces '
                       'it -- configuring one must not silently drop the other',
