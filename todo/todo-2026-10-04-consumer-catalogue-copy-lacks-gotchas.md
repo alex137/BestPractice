@@ -3,7 +3,7 @@ slug:              todo-2026-10-04-consumer-catalogue-copy-lacks-gotchas
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            closed
 disposition:       null
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-04
-closed:            null
+closed:            2026-10-04
 ---
 ## What
 
@@ -32,3 +32,8 @@ closed:            null
   Not in scope for the PR that surfaced it. **Why queued:** the fix needs a
   decision on which side is wrong, the rule or the update's copy step, and a
   look at a consumer's update log to see where the directory went.
+
+## Resolution
+
+Closed 2026-10-04 on its condition, the same day it was opened, by tracing it rather than waiting for a decision. Neither the rule nor the copy step was wrong. The consumer had these files until an update on 2026-09-30, made while the copy rules briefly left `gotchas/` out, deleted them. The rules shipped `gotchas/` again from 2026-10-01, but `precedent_local_edits.py` read every file upstream has and the copy lacks as the consumer's own deletion, so each later update "kept the local edit" and never copied them back. Fixed at the cause: a missing file counts as a local edit only when the consumer itself removed it, never when a vendor sync did (`_deleted_here`; test `check_a_sync_deletion_is_not_a_local_edit`). The consumer's next update brings the 67 files back.
+

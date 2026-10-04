@@ -10489,6 +10489,47 @@ def check_local_edits_fetch_the_vendored_commit_from_upstream():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_a_sync_deletion_is_not_a_local_edit():
+    """precedent_local_edits.py reads a file upstream has and a consumer's
+    copy lacks as the consumer's own deletion -- and every later update then
+    "keeps" it out. A file removed by a vendor sync (the copy rules once
+    left it out) or never shipped at all is upstream's doing, not the
+    consumer's: a consumer went without 46 live gotchas for days after
+    gotchas/ shipped again on 2026-10-01 (found 2026-10-04). Both
+    directions: a deletion the consumer committed on its own still counts."""
+    import tempfile
+    import precedent_local_edits as le
+    name = 'a deletion made by a vendor sync is not a local edit'
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / 'process' / 'upstream' / 'gotchas').mkdir(parents=True)
+        man = repo / 'process' / 'manifest.json'
+        man.write_text('{"upstream": {\n  "commit": "aaa"\n}}\n')
+        for n in ('synced-away.md', 'mine-away.md'):
+            (repo / 'process' / 'upstream' / 'gotchas' / n).write_text('x\n')
+        g('add', '-A'); g('commit', '-qm', 'vendor at aaa')
+        (repo / 'process' / 'upstream' / 'gotchas' / 'synced-away.md').unlink()
+        man.write_text('{"upstream": {\n  "commit": "bbb"\n}}\n')
+        g('add', '-A'); g('commit', '-qm', 'a sync whose rules left the file out')
+        (repo / 'process' / 'upstream' / 'gotchas' / 'mine-away.md').unlink()
+        g('add', '-A'); g('commit', '-qm', 'the consumer deletes one itself')
+        rel = lambda n: f'process/upstream/gotchas/{n}'
+        cases.append(('removed by a sync: not a local edit',
+                      not le._deleted_here(repo, rel('synced-away.md'))))
+        cases.append(('never shipped here: not a local edit',
+                      not le._deleted_here(repo, rel('never-had.md'))))
+        cases.append(('removed by the consumer: still a local edit',
+                      le._deleted_here(repo, rel('mine-away.md'))))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_send_carries_a_local_edit_upstream():
     """tools/precedent_local_edits.py send turns a consumer's committed edit
     to a received engine file into a branch in the owner's clone, merged
@@ -11000,6 +11041,45 @@ def check_acronym_scan_skips_wrapped_code_spans():
          [i for i, tok in dl.scan_unglossed('a `b\nc` d\nQZXA\n', set(), 'x.md')
           if tok == 'QZXA'] == [3]),
     ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_lint_runs_the_hosts_shim():
+    """A consumer configures doc_lint from a host shim, but the push check
+    runs the engine file directly, so the consumer's settings never reached
+    its gate (2026-10-04: a folder the consumer had exempted failed its
+    push). A consumer names its shim in tools/doc_lint_host.json, and
+    running the engine runs the shim. Both directions: with no host file
+    the engine runs as itself."""
+    import tempfile, shutil
+    name = 'doc_lint hands off to the host shim a consumer names'
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        (repo / 'tools').mkdir()
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py'):
+            shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}\n')
+        (repo / 'host').mkdir()
+        (repo / 'host' / 'lint_shim.py').write_text(
+            'import sys\nprint("HOST SHIM RAN", sys.argv[1:])\nsys.exit(0)\n')
+        run = lambda: subprocess.run([sys.executable, 'tools/doc_lint.py', '--all'],
+                                     cwd=repo, capture_output=True, text=True, env=env)
+        r = run()
+        cases.append(('with no host file the engine runs as itself',
+                      'HOST SHIM RAN' not in r.stdout))
+        (repo / 'tools' / 'doc_lint_host.json').write_text('{"shim": "host/lint_shim.py"}\n')
+        r = run()
+        cases.append(('with a host file, running the engine runs the shim, with its arguments',
+                      "HOST SHIM RAN ['--all']" in r.stdout and r.returncode == 0))
+        (repo / 'tools' / 'doc_lint_host.json').write_text('{"shim": "host/missing.py"}\n')
+        r = run()
+        cases.append(('a host file naming a missing shim fails loudly',
+                      r.returncode != 0 and 'does not exist' in (r.stdout + r.stderr)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -56984,6 +57064,7 @@ def main():
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
     check_local_edits_fetch_the_vendored_commit_from_upstream()
+    check_a_sync_deletion_is_not_a_local_edit()
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',
@@ -57137,6 +57218,7 @@ def main():
     check_update_adopts_engine_written_ahead()
     check_acronym_scan_skips_wrapped_code_spans()
     check_lint_flags_a_table_with_no_render()
+    check_lint_runs_the_hosts_shim()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
