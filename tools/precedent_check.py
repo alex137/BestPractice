@@ -2609,6 +2609,7 @@ def _generated_artifact_provenance(ctx):
         if 'build_views.py' not in head:
             source = ROOT / name.replace('.md', '.source.md')
             if p.exists() and not source.exists() and \
+                    not source.with_name(source.name[:-len('.md')]).is_dir() and \
                     _tool_path('tools/precedent_migrate_views.py') is not None:
                 out.append(Finding(name, 'is written by hand, and MAP.md and '
                                          'GLOSSARY.md are generated in every '

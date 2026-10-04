@@ -5993,6 +5993,88 @@ def check_update_seeds_the_session_load_registry():
                       pu.ensure_session_load_registry(repo) is None and
                       (repo / 'tools' / 'session_load_budgets.json').read_text(
                           encoding='utf-8') == mine))
+def check_source_directory_splits_and_assembles():
+    """MAP.source.md and GLOSSARY.source.md may live as directories, one
+    file per heading and per table row, so two branches that each add a row
+    add two files and never conflict (build_views.py, THE SOURCE AS A
+    DIRECTORY; Alex, 2026-10-04). What can go wrong is all loss or drift:
+    a split that changes a word, a row added between two others that lands
+    in the wrong place, a heading inside a code fence taken for a section,
+    a repository holding both forms with nobody told, a commit to the
+    directory that does not rebuild the view, and a view that stops
+    carrying the repository's own text."""
+    import tempfile, fnmatch
+    import precedent_migrate_views as mv
+    name = 'a source directory splits and assembles word for word'
+    cases = []
+    text = ('# Repository map\n\nIntro line.\n\n'
+            '## Layout\n\nWhat lives where.\n\n| Path | What |\n|---|---|\n'
+            '| `a/` | first |\n| `b/` | second |\n| `c/` | third |\n\nAfter the table.\n\n'
+            '## Notes\n\n```\n## not a heading\n```\n\nPlain.\n')
+    entries = mv.split_entries(text)
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td) / 'MAP.source'
+        for rel, content in entries.items():
+            (d / rel).parent.mkdir(parents=True, exist_ok=True)
+            (d / rel).write_text(content, encoding='utf-8')
+        cases.append(('the split reassembles to the same text, exactly',
+                      bv.assemble_source_dir(d) == text.strip('\n')))
+        sec = [r for r in entries if r.endswith('/' + bv.SECTION_HEAD)]
+        cases.append(('the table section is split into head, rows and tail',
+                      len(sec) == 1 and sum(1 for r in entries if r.startswith(
+                          sec[0].split('/')[0] + '/')) == 5))
+        cases.append(('a heading inside a code fence is not a section',
+                      not any('not-a-heading' in r for r in entries)))
+        secdir = d / sec[0].split('/')[0]
+        (secdir / '0015-ab.md').write_text('| `ab/` | between |\n', encoding='utf-8')
+        out = bv.assemble_source_dir(d)
+        cases.append(('a row added as 0015- lands between rows 0010- and 0020-',
+                      out.index('`a/`') < out.index('`ab/`') < out.index('`b/`')))
+        cases.append(('the directory counts as the source',
+                      bv.has_own_source(td, 'MAP.source.md')
+                      and bv.own_source_label(td, 'MAP.source.md') == 'MAP.source/'))
+        (pathlib.Path(td) / 'MAP.source.md').write_text('x\n', encoding='utf-8')
+        try:
+            bv.own_source_path(td, 'MAP.source.md')
+            both = False
+        except SystemExit:
+            both = True
+        cases.append(('holding both the file and the directory is refused', both))
+    entry = next(e for e in json.loads((ROOT / 'tools' / 'generated_files.json')
+                                       .read_text(encoding='utf-8'))['files']
+                 if e.get('path') == 'MAP.md' and not e.get('part'))
+    cases.append(('a commit to a row file rebuilds MAP.md',
+                  any(fnmatch.fnmatch('MAP.source/0020-layout/0015-ab.md', g)
+                      for g in entry['inputs'])))
+    # End to end: a repository's one-file source split, then its view rebuilt.
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'practices' / 'zz-fixture.md').write_text(
+            '---\nslug:        zz-fixture\ntitle:       A fixture practice\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  ["fixture/**"]\n'
+            'occasion:    "fixture"\ngates:       []\nindex_clause: "fixture"\n'
+            'checked_by:  null\ndefines:     ["Fixture Term"]\nstatus:      active\n'
+            'in_force_at: null\nsupersedes:  []\noverrides:   null\nadded:       "2026-10-04"\n'
+            'approved_by: "Fixture, 2026-10-04"\n---\n\n## Rule\nDo it.\n\n## Why\nBecause.\n\n'
+            '## Story\nOnce.\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            '# Agents\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        (repo / 'MAP.source.md').write_text(text, encoding='utf-8')
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'), '--repo',
+                        str(repo), '--views-only'], capture_output=True, text=True)
+        before = (repo / 'MAP.md').read_text(encoding='utf-8') if (repo / 'MAP.md').exists() else ''
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_migrate_views.py'),
+                            '--repo', str(repo), '--split'], capture_output=True, text=True)
+        after = (repo / 'MAP.md').read_text(encoding='utf-8') if (repo / 'MAP.md').exists() else ''
+        strip_label = lambda t: t.split('\n---\n', 1)[-1]
+        cases.append(('--split replaces the file with the directory',
+                      r.returncode == 0 and (repo / 'MAP.source').is_dir()
+                      and not (repo / 'MAP.source.md').exists()))
+        cases.append(('...and the rebuilt view carries the same text',
+                      bool(before) and strip_label(before) == strip_label(after)
+                      and 'Intro line.' in after and '`c/`' in after))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -10408,6 +10490,12 @@ def check_send_carries_a_local_edit_upstream():
         fx.sh('git', 'clone', '-q', '--bare', str(owner), str(bare), cwd=fx.tmp)
         fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=owner)
         heads_before = fx.sh('git', 'ls-remote', '--heads', str(bare), cwd=fx.tmp)[1]
+        # The owner is cloned from this checkout, so it starts on whatever
+        # branch this checkout is on -- a local-edit/ branch itself when the
+        # check runs on the branch send made (2026-10-04: the deep check of
+        # such a branch failed here, counting its own branch as left behind).
+        # Only a branch send leaves is a leftover.
+        local_before = set(fx.git(owner, 'branch', '--list', 'local-edit/*').split())
 
         def send(consumer, why):
             return fx.sh(*tool, 'send', '--repo', str(consumer), '--owner-clone',
@@ -10436,7 +10524,7 @@ def check_send_carries_a_local_edit_upstream():
         f.write_bytes(_insert(base, f'# this {word} is a local fix\n'))
         fx.commit(repo, 'a local fix with a word the gate refuses')
         rc, out = send(repo, 'it crashed')
-        leftover = fx.git(owner, 'branch', '--list', 'local-edit/*')
+        leftover = set(fx.git(owner, 'branch', '--list', 'local-edit/*').split()) - local_before - {'*'}
         cases.append(('an edit carrying a leak-gate word is refused before '
                       'anything is pushed, and no branch is left behind',
                       rc == 2 and 'REFUSED before anything left this machine' in out
@@ -10865,6 +10953,117 @@ def check_acronym_scan_skips_wrapped_code_spans():
     ]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_lint_flags_a_table_with_no_render():
+    """doc_lint check 7 (practice `tabular-shared-renderer`): a document
+    whose widest table has RENDER_MIN_COLUMNS+ columns and is not in the
+    host's render registry is reported, so a new one can fail the gate
+    (origin: a dependent repo's product specification with eight
+    multi-column tables landed as markdown only). Both directions: a
+    registered document, a two-column table, a fenced table, a record
+    document and the opt-out marker are all left alone, and with no
+    registry configured the check stands aside."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    wide = '# T\n\n| a | b | c |\n|---|---|---|\n| 1 | 2 | 3 |\n'
+    docs = {
+        'wide.md': wide,
+        'registered.md': wide,
+        'narrow.md': '| a | b |\n|---|---|\n| 1 | 2 |\n',
+        'fenced.md': '```\n| a | b | c |\n|---|---|---|\n```\n',
+        'optout.md': wide + '\n<!--no-render-->\n',
+        'thing_record.md': wide,
+    }
+    for n, t in docs.items():
+        (tmp / n).write_text(t)
+    saved = (dl.ROOT, dl.RENDER_REGISTRY)
+    try:
+        dl.ROOT = tmp
+        dl.RENDER_REGISTRY = lambda: ['registered.md']
+        got = {d for d, _c in dl.check_unrendered(list(docs))}
+        dl.RENDER_REGISTRY = None
+        off = dl.check_unrendered(list(docs))
+    finally:
+        dl.ROOT, dl.RENDER_REGISTRY = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('a three-column table with no render is flagged', 'wide.md' in got),
+        ('a registered document is not', 'registered.md' not in got),
+        ('a two-column table is not', 'narrow.md' not in got),
+        ('a table inside a code fence is not', 'fenced.md' not in got),
+        ('the opt-out marker is honoured', 'optout.md' not in got),
+        ('a record document is exempt', 'thing_record.md' not in got),
+        ('no registry configured: the check stands aside', off == []),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'doc_lint flags a multi-column table with no render ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
+def check_thread_renders_never_touch_the_shared_ledger():
+    """doc_html's thread ledger: on a working branch a render the branch
+    changed is checked against, and recorded in, the thread's own local
+    ledger with its own artifact URL; the shared ledger and the shared URLs
+    are the trunk's alone (origin: several branches publishing to one
+    shared URL overwrote each other). Both directions: on the trunk, or
+    with --trunk, or with no thread ledger configured, the shared ledger
+    governs as before."""
+    import json, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_html as dh
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    (tmp / 'a.html').write_text('<p>v2</p>')
+    shared, thread = tmp / 'shared.json', tmp / 'thread.json'
+    shared.write_text(json.dumps({'a.html': dh._sha256(tmp / 'a.html')}))
+    saved = {k: getattr(dh, k) for k in ('ROOT', 'RENDER_LEDGER', 'THREAD_LEDGER',
+             '_current_branch', '_default_branch', '_changed_vs_base', '_render_units')}
+    branch = ['feature']
+    try:
+        dh.ROOT, dh.RENDER_LEDGER, dh.THREAD_LEDGER = tmp, str(shared), str(thread)
+        dh._current_branch = lambda: branch[0]
+        dh._default_branch = lambda: 'main'
+        dh._changed_vs_base = lambda: {'a.html'}
+        dh._render_units = lambda: [('a.html', [], 'https://shared.example/a')]
+        _b, on_branch = dh.stale()
+        _b, trunk_flag = dh.stale(trunk=True)
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            dh.record_published(['a.html@https://thread.example/a'])
+        after = dh.stale()[1]
+        rec = json.loads(thread.read_text()).get('a.html', {})
+        shared_kept = json.loads(shared.read_text()) == {'a.html': dh._sha256(tmp / 'a.html')}
+        branch[0] = 'main'
+        _b, on_trunk = dh.stale()
+        dh.THREAD_LEDGER = None
+        branch[0] = 'feature'
+        _b, unconfigured = dh.stale()
+    finally:
+        for k, v in saved.items():
+            setattr(dh, k, v)
+        shutil.rmtree(tmp, ignore_errors=True)
+    cases = [
+        ('a branch render with no thread artifact is unpublished',
+         [r for r, _w in on_branch] == ['a.html']),
+        ('--trunk checks the shared ledger, which is current', trunk_flag == []),
+        ('recording on a branch writes the thread URL and hash',
+         rec.get('url') == 'https://thread.example/a' and bool(rec.get('sha'))),
+        ('after recording, the branch is current', after == []),
+        ('the shared ledger is untouched by a branch record', shared_kept),
+        ('on the trunk the shared ledger governs', on_trunk == []),
+        ('no thread ledger configured: the shared ledger governs', unconfigured == []),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'thread renders never touch the shared ledger ({len(cases)} stated '
+          f'cases)', not failed, '; '.join(failed))
 
 
 def check_changed_files_only_judges_the_change():
@@ -56683,6 +56882,7 @@ def main():
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
     check_update_seeds_the_session_load_registry()
+    check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
@@ -56886,6 +57086,8 @@ def main():
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
     check_acronym_scan_skips_wrapped_code_spans()
+    check_lint_flags_a_table_with_no_render()
+    check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()

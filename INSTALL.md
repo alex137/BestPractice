@@ -400,7 +400,10 @@ cover, by design and not oversight:
   The repository's own text for each lives in `MAP.source.md` and
   `GLOSSARY.source.md`; [tools/precedent_sync_views.py](tools/precedent_sync_views.py) copies it in word for
   word and adds the sections generated from the practice catalogue and the
-  engine. Edit the source file, never the view. A repository installed
+  engine. Edit the source file, never the view. Either source may instead
+  be a directory, `MAP.source/` or `GLOSSARY.source/`, with one file per
+  entry, so concurrent branches adding rows never conflict
+  (`precedent_migrate_views.py --split` converts one). A repository installed
   before then moves its hand-written views into the source files at its next
   `Update Vendors` ([tools/precedent_migrate_views.py](tools/precedent_migrate_views.py), which puts
   everything back rather than lose a word).

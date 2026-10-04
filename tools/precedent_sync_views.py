@@ -681,7 +681,7 @@ def _generated_views(repo):
     # (a fresh install writes MAP.source.md, and this sync makes MAP.md).
     return [p for p in (pathlib.Path(repo) / n for n in bv.FULLY_GENERATED_VIEWS)
             if (p.is_file() and bv.is_generated_view(p)) or (
-                sources.get(p.name) and (pathlib.Path(repo) / sources[p.name]).is_file())]
+                sources.get(p.name) and bv.has_own_source(repo, sources[p.name]))]
 
 
 def _refresh_generated_views(repo, check=False):
