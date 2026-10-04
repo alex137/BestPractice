@@ -2797,6 +2797,111 @@ def check_rename_links_leaves_dated_records_alone():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_rename_links_spares_a_path_moved_into_gitignore():
+    """A branch that stops committing build output (`git rm --cached` plus a
+    .gitignore line) has not deleted anything a reader needs: the file is
+    built on demand. rename-updates-links flagged every index and ledger
+    naming it (2026-10-04, a consumer that stopped committing its document
+    renders). CONTROL: a file the same branch really deleted is still
+    flagged."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='ignored-output-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'rename-updates-links.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'page.html').write_text('<p>built</p>\n', encoding='utf-8')
+        (repo / 'docs' / 'gone.md').write_text('old\n', encoding='utf-8')
+        (repo / 'README.md').write_text('Read docs/page.html.\nAnd docs/gone.md.\n',
+                                        encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'stop-committing-renders')
+        g('rm', '-q', '--cached', 'docs/page.html')
+        (repo / '.gitignore').write_text('docs/*.html\n', encoding='utf-8')
+        g('rm', '-q', 'docs/gone.md')
+        g('add', '.gitignore'); g('commit', '-qm', 'renders built on demand; gone.md removed')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'rename-updates-links'], cwd=str(repo), capture_output=True,
+                           text=True, env=env, timeout=300)
+        out = r.stdout + r.stderr
+        cases.append(('a path moved into .gitignore is not a deletion',
+                      'docs/page.html' not in out, out[-400:]))
+        cases.append(('CONTROL: a really deleted file is still flagged',
+                      'docs/gone.md' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'rename-updates-links spares build output moved into .gitignore '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_untracked_renders_use_source_fingerprints():
+    """A host that stops committing its renders (doc_html RENDERS_TRACKED =
+    False) cannot judge a page by the render's own hash: a render carries
+    its build time and differs on every build (2026-10-04). The ledger then
+    records a fingerprint of the sources. Both directions: a rebuild with
+    the same sources stays published; a source edit makes the page
+    unpublished."""
+    import json as _json, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_html as dh
+    finally:
+        sys.path.pop(0)
+    name = 'untracked renders are judged by their sources, not their own hash'
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    (tmp / 'a.md').write_text('# A\n')
+    (tmp / 'a.html').write_text('<p>built at 1</p>')
+    led = tmp / 'shared.json'
+    saved = {k: getattr(dh, k) for k in ('ROOT', 'RENDER_LEDGER', 'THREAD_LEDGER', 'RENDERS_TRACKED',
+             '_current_branch', '_default_branch', '_changed_vs_base', '_render_units')}
+    cases = []
+    try:
+        dh.ROOT, dh.RENDER_LEDGER, dh.THREAD_LEDGER = tmp, str(led), None
+        dh.RENDERS_TRACKED = False
+        dh._current_branch = lambda: 'main'
+        dh._default_branch = lambda: 'main'
+        dh._changed_vs_base = lambda: set()
+        dh._render_units = lambda: [('a.html', ['a.md'], 'https://shared.example/a')]
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            dh.record_published(['a.html'], trunk=True)
+        rec = _json.loads(led.read_text()).get('a.html')
+        cases.append(('the ledger records the source fingerprint, not the render hash',
+                      rec == dh._fingerprint(['a.md']) and rec != dh._sha256(tmp / 'a.html')))
+        (tmp / 'a.html').write_text('<p>built at 2</p>')
+        cases.append(('a rebuild from the same sources stays published',
+                      dh.stale(trunk=True)[1] == []))
+        (tmp / 'a.md').write_text('# A, edited\n')
+        (tmp / 'a.html').write_text('<p>built at 3</p>')
+        cases.append(('a source edit makes the page unpublished',
+                      [r for r, _u in dh.stale(trunk=True)[1]] == ['a.html']))
+    finally:
+        for k, v in saved.items():
+            setattr(dh, k, v)
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_deletes_a_shipped_voice_md():
     """An update deletes a root VOICE.md that is still the shipped template
     (comments aside) and drops its process/manifest.json entry, and asks for
@@ -57285,6 +57390,8 @@ def main():
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
+    check_rename_links_spares_a_path_moved_into_gitignore()
+    check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
     check_todo_migrate_refuses_a_subdirectory()
