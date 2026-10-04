@@ -53627,6 +53627,9 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
         item = ('# An open item\n\nSee [gone](../practices/gone-rule.md) and '
                 '[old](../practices/old-name.md).\n')
         (repo / 'todo' / 'todo-x.md').write_text(item, encoding='utf-8')
+        (repo / 'hooks').mkdir()
+        hook = '#!/bin/sh\n# see practices/gone-rule.md\nexit 0\n'
+        (repo / 'hooks' / 'h.sh').write_text(hook, encoding='utf-8')
         sync = [sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
                 '--repo', str(repo)]
         r = subprocess.run(sync, env=env, capture_output=True, text=True)
@@ -53671,6 +53674,11 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
                         'AGENTS.md:3: links `gone-rule`' in out
                         and not any(l.startswith('AGENTS.md:') and 'AGENTS.md:3:' not in l
                                     and 'gone-rule' in l for l in out.splitlines()),
+                        out[-500:]))
+        results.append(('2c: ...and one in a tracked file that is not Markdown is '
+                        'reported and left byte for byte (a consumer\'s hook, 2026-10-03)',
+                        'hooks/h.sh:2: links `gone-rule`' in out
+                        and (repo / 'hooks' / 'h.sh').read_text(encoding='utf-8') == hook,
                         out[-500:]))
         results.append(('3: the generated MAP.md is rebuilt without the removed rules',
                         r.returncode == 0 and 'practices/gone-rule.md' not in map_after

@@ -752,7 +752,11 @@ def _links_to_removed(repo, user_config, removed, check=False):
     if not removed:
         return []
     repo = pathlib.Path(repo)
-    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '*.md'],
+    # Every tracked file, not only Markdown: a hook or a blocklist that names
+    # a removed practice is refused by rename-updates-links too (a
+    # consumer, 2026-10-03). Only Markdown is ever rewritten; anything else
+    # is reported and left as it is.
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files'],
                        capture_output=True, text=True)
     skip = ('practices/', 'process/', 'tools/checks/')
     # AGENTS.md is scanned too, outside its generated loader block: the
@@ -768,8 +772,9 @@ def _links_to_removed(repo, user_config, removed, check=False):
         path = repo / rel
         try:
             text = path.read_text(encoding='utf-8')
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
+        markdown = rel.endswith('.md')
         changed = False
         out_lines = []
         in_block = False
@@ -788,7 +793,7 @@ def _links_to_removed(repo, user_config, removed, check=False):
                 if slug not in removed:
                     return m.group(0)
                 succ, why = went.get(slug, (None, ''))
-                if succ and (repo / 'practices' / f'{succ}.md').is_file():
+                if markdown and succ and (repo / 'practices' / f'{succ}.md').is_file():
                     changed = True
                     lines.append(f"{rel}:{n}: repointed `{slug}` to `{succ}` ({why})")
                     return f'{m.group(1)}{succ}.md'
