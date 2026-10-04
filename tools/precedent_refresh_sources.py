@@ -330,12 +330,18 @@ def survey(extra_paths=()):
         ahead = bool(stale) and _engine_ahead_of(recorded, tip)
         if ahead:
             stale = False
-        found.append({'repo': repo, 'kind': man.get('kind', '?'),
+        kind = man.get('kind', '?')
+        # A consumer is not judged as a practice set (2026-10-04): nothing
+        # syncs from it, so its branch is its own landing branch, not a
+        # tree others read; and its hooks are the consumer kind's, which its
+        # own Update Vendors wires and checks -- the set hooks were reported
+        # "present but not wired" in a consumer that never had them.
+        found.append({'repo': repo, 'kind': kind,
                       'recorded': recorded, 'stale': stale, 'error': None,
                       'ahead': ahead,
                       'committed': committed_engine(repo),
-                      'hooks': hook_state(repo),
-                      'branch': branch_state(repo)})
+                      'hooks': {} if kind == 'consumer' else hook_state(repo),
+                      'branch': None if kind == 'consumer' else branch_state(repo)})
     return tip, tip_ref, found
 
 
@@ -784,6 +790,10 @@ def _repairable(entry):
     to the tool while being exactly what the tool had just been taught to
     fix.
     """
+    # A consumer's hooks are the consumer kind's, wired and checked by its
+    # own Update Vendors; the set hooks below were never its to have.
+    if entry.get('kind') == 'consumer':
+        return []
     found = [m for m in (entry.get('hooks') or {}).get('missing', [])
              if 'will not guess' not in m]
     repo = pathlib.Path(entry['repo'])
@@ -1075,7 +1085,14 @@ def main(argv):
         return 0
 
     stale = [e for e in found if e['stale']]
+    named = {pathlib.Path(x).expanduser().resolve() for x in extra}
     for e in found:
+        # A stale consumer nothing here will write into is said once, in its
+        # LEFT ALONE block below, with the engine fact folded in -- not as a
+        # STALE row beside it in a second vocabulary (2026-10-04).
+        if '--apply' in argv and e['stale'] and not e['error'] \
+                and not _may_write(e, named) and e['kind'] == 'consumer':
+            continue
         if e['error']:
             print(f"  ?      {_label(e['repo'])}: {e['error']}")
         elif e['stale']:
@@ -1122,7 +1139,7 @@ def main(argv):
             print(f"         HOOKS  {', '.join(h['missing'])} — sessions in "
                   f"that set run with those guards off, silently")
         elif h.get('unwired'):
-            print(f"         hooks present but no settings*.json wires "
+            print(f"         hooks not wired: no settings*.json declares "
                   f"{', '.join(h['unwired'])} — read that file yourself; "
                   f"this tool never rewrites one")
 
@@ -1219,11 +1236,13 @@ def main(argv):
     held = [e for e in {id(e): e for e in (*stale, *hookbad)}.values()
             if not _may_write(e, asked)]
     for e in held:
+        behind = (f", its engine {e['recorded'][:12] or '(none)'} behind "
+                  f"BestPractice {tip_ref} {tip[:12]}" if e['stale'] else '')
         why = ("not named -- with --path, --apply writes only into the repos "
                "it names" if asked else
-               "a consumer repo -- its engine and hooks move by \"Update "
-               "Vendors\" there, which checks and commits them. Name it with "
-               "--path to write into it from here")
+               f"a consumer repo{behind} -- its engine and hooks move by "
+               "\"Update Vendors\" there, which checks and commits them. Name "
+               "it with --path to write into it from here")
         print(f"\n--- {_label(e['repo'])}\n  LEFT ALONE: {why}.")
     stale = [e for e in stale if _may_write(e, asked)]
     hookbad = [e for e in hookbad if _may_write(e, asked)]

@@ -155,7 +155,8 @@ def rebaseline_vendored_entries(repo, rewritten=()):
             continue
         if not rel.startswith(tree):
             up = str(e.get('upstream_path') or '')
-            ours = rel in rewritten and up.startswith('templates/')
+            ours = (rel in rewritten and up.startswith('templates/')) \
+                or _is_generated_view(repo, rel)
             if not ours and (not up or not (repo / tree / up).is_file()
                              or (repo / tree / up).read_bytes() != f.read_bytes()):
                 continue
@@ -167,6 +168,36 @@ def rebaseline_vendored_entries(repo, rewritten=()):
         mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                       encoding='utf-8')
     return done
+
+
+def _is_generated_view(repo, rel):
+    """True when `rel` is a view a generator writes wholesale: listed in the
+    repo's tools/generated_files.json, or opening with a `generated_by:`
+    label. Its content answers to that generator's own --check, not to a
+    recorded hash, so its baseline is re-recorded whenever it differs.
+    2026-10-04, a consumer: MAP.md, regenerated between two runs after its
+    source's headings were fixed, kept the hash an earlier run recorded,
+    and the practice audit failed it as DRIFT; the only way past re-recorded
+    every other baseline too."""
+    try:
+        reg = json.loads((repo / 'tools' / 'generated_files.json').read_text(
+            encoding='utf-8')).get('files') or []
+        if any(isinstance(x, dict) and x.get('path') == rel and not x.get('part')
+               for x in reg):
+            return True
+    except (OSError, ValueError, AttributeError):
+        pass
+    if not rel.endswith('.md'):
+        return False
+    try:
+        head = (repo / rel).read_text(encoding='utf-8', errors='ignore')[:3000]
+    except OSError:
+        return False
+    if not head.startswith('---\n'):
+        return False
+    end = head.find('\n---', 4)
+    return bool(re.search(r'^generated_by:[ \t]*\S', head[:end if end > 0 else len(head)],
+                          re.M))
 
 
 def ensure_scrub_blocklist_decision(repo):
@@ -286,6 +317,37 @@ SOURCE_NAME_MISMATCH = re.compile(
     r"the source at (?P<path>\S+) calls itself '(?P<own>[^']+)' in its \S+, "
     r"but this repository declares it as '(?P<declared>[^']+)'")
 _REPOINTED = re.compile(r"repointed precedent\.json source '([^']+)' to '([^']+)'")
+
+
+def brought_sets_step(rep, fetch=None):
+    """Clone or pull the sets the person's individual set brings, before
+    the views are synced against them. Session start does this
+    (precedent_source_bootstrap.sources_from_brings), but only from an engine
+    that has the step: the first update that brings the step in syncs in a
+    session that started without it, and a brought set not on disk read as
+    every one of its rules lost (2026-10-04, a consumer's first update after
+    the ladder moved into a brought set). Reports what it did; never fails
+    the update -- a set it cannot fetch is said, and the sync judges the rest."""
+    if fetch is None:
+        try:
+            import precedent_source_bootstrap as psb
+            fetch = psb.sources_from_brings
+        except Exception:                                   # noqa: BLE001
+            return
+    try:
+        results = fetch()
+    except Exception as e:                                  # noqa: BLE001
+        results = [('brought sets', False, f'{type(e).__name__}: {e}')]
+    if not results:
+        return
+    good = [n for n, ok, _o in results if ok]
+    bad = [(n, o) for n, ok, o in results if not ok]
+    if good:
+        rep.step('brought sets', 'on disk and current: ' + ', '.join(good))
+    for name, out in bad:
+        rep.leave(f'brought set {name}', f'could not be fetched ({str(out)[-200:]}), '
+                  f'so its rules are not in force for this sync; attach it '
+                  f'and run this again')
 
 
 def removed_links_step(rep, out):
@@ -529,11 +591,27 @@ def migrate_views_step(repo, rep):
                 exempt = pr.load_not_binding(repo).get('headline-capitalization')
             except Exception:
                 exempt = None
-            if exempt:
+            # Only a file the check itself reaches: one the repository
+            # treats as published (title_case.is_outward -- output_paths,
+            # internal_paths and the defaults). Naming a file to title_case.py
+            # judges it whatever the repo declared, so a repo with
+            # `"output_paths": []` was asked to recase two internal files
+            # (2026-10-04, a consumer).
+            try:
+                import title_case as _tc
+                inward = [n for n in srcs if not _tc.is_outward(n, repo)]
+            except Exception:
+                inward = []
+            if inward:
+                rep.step('headings kept', ' and '.join(inward) + ' keep their '
+                         'headings as moved: this repository does not publish '
+                         'them (precedent.json output_paths / internal_paths)')
+            srcs = [n for n in srcs if n not in inward]
+            if exempt and srcs:
                 rep.step('headings kept', ' and '.join(srcs) + ' keep their '
                          'headings as moved: this repository declares '
                          'headline-capitalization not binding (' + exempt + ')')
-            elif tc.is_file():
+            elif srcs and tc.is_file():
                 rc2, out2 = run([sys.executable, str(tc), *srcs], repo)
                 if rc2 != 0:
                     rep.leave(' and '.join(srcs),
@@ -896,6 +974,17 @@ def universal_catalogue_path(repo):
 # 52 files refused as local edits that were every one upstream's own text.
 CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
 
+# The source's own files that travel with its catalogue, beside practices/,
+# read at the same commit. precedent-source.json carries universal's
+# occasion-index allowance (2026-09-29). The withdrawal record is the
+# forwarding address of every rule deleted from universal on purpose, which
+# a sync's removal guard reads at <universal source>/record/ -- here, inside
+# this vendored tree. Without it the first update after the ladder left
+# universal refused all fourteen of its rules as lost in every repository
+# that vendors the catalogue this way (2026-10-04); the process/upstream/
+# mirror already carried it (checkin.py's VENDORED_DESPITE_DIR).
+CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md')
+
 
 def _blob_id(data):
     """-> the git object id of `data` as a blob (git's default sha1 format)."""
@@ -1075,16 +1164,15 @@ def vendor_universal_catalogue(repo, rep, rev, last_synced=None):
             'why': 'the upstream commit practices/ here was last replaced from; '
                    'the next update judges local edits against it'}, indent=2) + '\n',
             encoding='utf-8')
-        # THE SOURCE'S OWN MANIFEST travels with its catalogue (2026-09-29). A
-        # consumer's occasion-index cap is the sum of what its sources declare
-        # in their precedent-source.json, and the vendored universal tree never
-        # carried that file, so universal's allowance was unreadable here.
-        shown = subprocess.run(['git', '-C', str(SOURCE), 'show',
-                                f'{rev}:precedent-source.json'],
-                               capture_output=True, text=True)
-        if shown.returncode == 0 and shown.stdout.strip():
-            (repo / rel / 'precedent-source.json').write_text(shown.stdout,
-                                                              encoding='utf-8')
+        # The source's own files that travel with it (CATALOGUE_COMPANIONS),
+        # by the same read at the same commit.
+        for comp in CATALOGUE_COMPANIONS:
+            shown = subprocess.run(['git', '-C', str(SOURCE), 'show', f'{rev}:{comp}'],
+                                   capture_output=True, text=True)
+            if shown.returncode == 0 and shown.stdout.strip():
+                dest = repo / rel / comp
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(shown.stdout, encoding='utf-8')
         n = sum(1 for _ in target.glob('*.md'))
         note = (f'; local edits judged against {basis}' if not unread else
                 '; no record of the last sync here, so only uncommitted edits '
@@ -1567,6 +1655,52 @@ def adopt_engine_output(repo, before, pinned):
     return ours
 
 
+def adopt_catalogue_output(repo, before, pinned):
+    """-> the paths in `before` under the vendored catalogue tree that are
+    this update's own mirror, written by an earlier run, to stage as the
+    update's; [] when any is not.
+
+    2026-10-04, a consumer's fourth run: 80 process/upstream/ files an
+    earlier run's mirror wrote (62 modified, 18 deleted) were "already
+    uncommitted before it ran, left as they were", every one byte for byte
+    upstream's, while process/manifest.json was staged naming the new
+    commit -- so committing what was staged would have recorded that commit
+    over the old tree. A path is the update's when the catalogue manifest
+    names the pinned commit and the file is upstream's blob at that commit,
+    or is gone where upstream has none or the mirror leaves it out. One
+    mismatch means someone else's edit is in the mix, and nothing is taken."""
+    mf = repo / 'process' / 'manifest.json'
+    try:
+        up = json.loads(mf.read_text(encoding='utf-8')).get('upstream') or {}
+    except (OSError, ValueError, AttributeError):
+        return []
+    if pinned not in (up.get('synced_from'), up.get('commit')):
+        return []
+    tree = str(up.get('vendored_at') or 'process/upstream').rstrip('/')
+    mine = sorted(p for p in before if p.startswith(tree + '/'))
+    if not mine:
+        return []
+    try:
+        import checkin as _ci
+        in_copy = _ci._in_copy
+    except Exception:                                       # noqa: BLE001
+        return []
+    for path in mine:
+        rel = path[len(tree) + 1:]
+        here = repo / path
+        shown = subprocess.run(['git', '-C', str(SOURCE), 'show', f'{pinned}:{rel}'],
+                               capture_output=True)
+        theirs = shown.stdout if shown.returncode == 0 and in_copy(rel) else None
+        if here.is_file():
+            if theirs is None or here.read_bytes() != theirs:
+                return []
+        elif theirs is not None:
+            return []
+    if 'process/manifest.json' in before:
+        mine.append('process/manifest.json')
+    return mine
+
+
 def citations(repo):
     """-> ([(where, why)] to fix, [where] to read), or None when the lookup
     could not run. Asks the SOURCE clone's copy of the lookup, for the same
@@ -1574,8 +1708,12 @@ def citations(repo):
     refs = SOURCE / 'tools' / 'precedent_practice_refs.py'
     if not refs.is_file():
         return None
+    # --code: a citation in a tool the update never touched is as live as
+    # one in a document (2026-10-04: a consumer's tools/*.py kept citing a
+    # slug a shared set had deduplicated, this said there was nothing to
+    # fix, and only the full check at Debut found it).
     r = subprocess.run([sys.executable, str(refs), '--repo', str(repo),
-                        '--withdrawn', '--changed-since', 'HEAD', '--staged',
+                        '--withdrawn', '--code', '--changed-since', 'HEAD', '--staged',
                         '--json'], cwd=str(repo), capture_output=True,
                        text=True, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
     try:
@@ -2052,7 +2190,8 @@ def update(repo, skip_check=False, ref=None):
         if rel:
             before = {p for p in before if not (p.startswith(f'{rel}/practices/')
                                                 or p == f'{rel}/{CATALOGUE_SYNC_NAME}'
-                                                or p == f'{rel}/precedent-source.json')}
+                                                or p in {f'{rel}/{c}' for c in
+                                                         CATALOGUE_COMPANIONS})}
 
     # After the templates have moved: what they replaced that an update
     # cannot convert for the repo, the install-once file an update can
@@ -2082,6 +2221,7 @@ def update(repo, skip_check=False, ref=None):
     # four of Morgan's sets stopped on exactly that, one new MAP.md row
     # each, fixed by hand. A set has no precedent_sync_views.py anyway --
     # so it gets the full build, the same one its check compares against.
+    brought_sets_step(rep)
     sync = repo / 'tools' / 'precedent_sync_views.py'
     build = repo / 'tools' / 'build_views.py'
     try:
@@ -2194,6 +2334,12 @@ def update(repo, skip_check=False, ref=None):
         rep.step('engine, written ahead', f'{len(adopted)} uncommitted path(s) '
                  f'already held the pinned engine (a source refresh ran first); '
                  f'staged as this update\'s: ' + ', '.join(adopted))
+    mirrored = adopt_catalogue_output(repo, before, head.strip())
+    if mirrored:
+        before = before - set(mirrored)
+        rep.step('catalogue, written ahead', f'{len(mirrored)} uncommitted '
+                 f'path(s) were an earlier run\'s mirror of the pinned commit, '
+                 f'byte for byte; staged as this update\'s')
     n = stage_update(repo, before)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
     rep.step('staged', f'{n} path(s) this update wrote or deleted'
