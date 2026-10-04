@@ -1629,6 +1629,18 @@ def repo_is_practice_source(root):
         return False
 
 
+def repo_is_consumer(root):
+    """Whether this repo CONSUMES the practice sets: tools/ENGINE_MANIFEST.json
+    says `kind: consumer`. BestPractice itself has no manifest and a practice
+    set says `source`, so neither reads as one; an unreadable manifest is not
+    one either."""
+    mf = root / 'tools' / 'ENGINE_MANIFEST.json'
+    try:
+        return json.loads(mf.read_text()).get('kind') == 'consumer'
+    except Exception:                                        # noqa: BLE001
+        return False
+
+
 def _same_repository(path, root):
     """Whether `path` and `root` are the same REPOSITORY, not merely the same
     directory.
@@ -2834,8 +2846,13 @@ def main():
             # backstop) keeps the views a repository has and never adds one
             # it lacks: a consumer whose glossary lives in docs/ got a root
             # GLOSSARY.md, untracked, every time its MAP.source.md changed
-            # (2026-10-03).
-            if views_only and not path.exists() and not has_own_source(root, src):
+            # (2026-10-03). A consumer's --check judges the same set: one
+            # whose glossary lives in docs/ failed every check on a root
+            # GLOSSARY.md no rebuild of its own would ever write (2026-10-04,
+            # a consumer's Update Vendors). Everywhere else a deleted view is
+            # still drift -- BestPractice and a practice set write both.
+            if (views_only or (check and repo_is_consumer(root))) \
+                    and not path.exists() and not has_own_source(root, src):
                 continue
             if is_generated_view(path) or has_own_source(root, src):
                 targets.append((path, render()))
