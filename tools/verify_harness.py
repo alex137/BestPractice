@@ -53630,6 +53630,13 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
         (repo / 'hooks').mkdir()
         hook = '#!/bin/sh\n# see practices/gone-rule.md\nexit 0\n'
         (repo / 'hooks' / 'h.sh').write_text(hook, encoding='utf-8')
+        # A vendored engine file is BestPractice's, rewritten on every refresh:
+        # never this repository's to fix, so never reported here.
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'eng.py').write_text('# reads practices/gone-rule.md\n',
+                                               encoding='utf-8')
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer', 'files': ['eng.py']}), encoding='utf-8')
         sync = [sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
                 '--repo', str(repo)]
         r = subprocess.run(sync, env=env, capture_output=True, text=True)
@@ -53680,6 +53687,8 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
                         'hooks/h.sh:2: links `gone-rule`' in out
                         and (repo / 'hooks' / 'h.sh').read_text(encoding='utf-8') == hook,
                         out[-500:]))
+        results.append(('2d: ...but a vendored engine file is not, being upstream\'s',
+                        'tools/eng.py' not in out, out[-500:]))
         results.append(('3: the generated MAP.md is rebuilt without the removed rules',
                         r.returncode == 0 and 'practices/gone-rule.md' not in map_after
                         and 'practices/kept-rule.md' in map_after, out[-300:]))

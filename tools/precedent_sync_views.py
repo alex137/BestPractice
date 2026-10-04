@@ -764,8 +764,17 @@ def _links_to_removed(repo, user_config, removed, check=False):
     # full check refuses a link there to a removed practice just as it does
     # anywhere else (two consumers, 2026-10-03: an update said there was
     # nothing to fix, and the push after it was refused).
+    # A vendored engine file is upstream's: a refresh rewrites it, so a link
+    # in one is never this repository's to fix, and is fixed upstream.
+    try:
+        engine = {f'tools/{f}' for f in json.loads(
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+            .get('files') or []}
+    except (OSError, ValueError, AttributeError):
+        engine = set()
     files = [f for f in r.stdout.splitlines()
-             if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS]
+             if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
+             and f not in engine]
     went = _where_removed_went(repo, user_config, removed)
     lines = []
     for rel in files:

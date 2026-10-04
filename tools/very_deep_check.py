@@ -2218,8 +2218,9 @@ def _config_key_reads(repo_dir, others=()):
 
     Each row is (file, key, scripts here, repos in force whose scripts
     mention it, practices that name it). The last is the READER THAT IS A
-    SESSION (2026-09-28): `writeup_dir` is read by whoever follows
-    practices/write-it-up.md, not by any script, and was reported as read
+    SESSION (2026-09-28): `writeup_dir` is read by whoever follows the
+    write-it-up practice (in the ladder set since 2026-10-02), not by any
+    script, and was reported as read
     by nothing on every run until practice files joined the search."""
     repo_dir = pathlib.Path(repo_dir)
     practice_texts = _practice_texts(
