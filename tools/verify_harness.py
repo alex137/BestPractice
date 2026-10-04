@@ -6048,12 +6048,22 @@ def check_migrate_views_keeps_every_word():
         listed = ({e['path']: e.get('edit_instead') for e in
                    _json.loads(lst.read_text(encoding='utf-8'))['files']}
                   if lst.is_file() else {})
-        cases.append(('views already generated, with no source and no list: nothing '
-                      'to migrate, and the list is written all the same',
+        cases.append(('views already generated, with no source and no list: each '
+                      'gets an empty source, as a fresh install would, and the list '
+                      'names both',
                       rc == 0 and 'nothing to migrate' in out
                       and listed.get('MAP.md') == 'MAP.source.md'
                       and listed.get('GLOSSARY.md') == 'GLOSSARY.source.md'
-                      and not (repo / 'MAP.source.md').exists()))
+                      and (repo / 'MAP.source.md').is_file()
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == ''
+                      and (repo / 'GLOSSARY.source.md').is_file()
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8') == ''))
+        cases.append(('...and each view now names its source, with AGENTS.md untouched',
+                      'MAP.source.md' in (repo / 'MAP.md').read_text(encoding='utf-8')
+                      .split('---', 2)[1]
+                      and 'GLOSSARY.source.md' in (repo / 'GLOSSARY.md')
+                      .read_text(encoding='utf-8').split('---', 2)[1]
+                      and (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
