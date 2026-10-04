@@ -21959,6 +21959,48 @@ def check_close_detect_counts_only_this_sessions_reverts():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_close_detect_ignores_the_assistant_quoted_back():
+    """The practice-candidate detector does not read the assistant's own
+    sentences, quoted back by the person, as the person's instruction.
+
+    2026-10-04, a consumer: the assistant wrote "Each one, from Sept 11 to
+    Sept 25, has a single commit that never reached pre-staging."; the person
+    pasted it in quotes and added "review those", and the close check
+    reported "the person said: ... never reached ..." as an explicit
+    instruction. CONTROL: a quote the assistant never wrote still fires, and
+    so does the person's own unquoted rule."""
+    import precedent_close_detect as pcd
+    said = ('Here is what I found. Each one, from Sept 11 to Sept 25, has a '
+            '**single commit** that never reached pre-staging. Nothing else.')
+
+    def session(person):
+        return [{'type': 'assistant', 'message': {'role': 'assistant',
+                 'content': [{'type': 'text', 'text': said}]}},
+                {'type': 'user', 'message': {'role': 'user', 'content': person}}]
+
+    def fired(person):
+        return [d for n, d in pcd.signals(session(person), ROOT)
+                if n == 'explicit-instruction']
+    quoted = ('"Each one, from Sept 11 to Sept 25, has a single commit that '
+              'never reached pre-staging." review those')
+    block = ('> Each one, from Sept 11 to Sept 25, has a single commit\n'
+             '> that never reached pre-staging.\n\nreview those')
+    cases = [
+        ('the assistant\'s sentence quoted back is not the person\'s instruction',
+         fired(quoted) == [], fired(quoted)),
+        ('...nor as a > blockquote across lines', fired(block) == [], fired(block)),
+        ('...and what the person typed around it is still read',
+         'review those' in ' '.join(pcd.person_messages(session(quoted))), ''),
+        ('CONTROL: a quote the assistant never wrote still fires',
+         len(fired('\u201cNever merge into main without asking.\u201d Keep that.')) == 1,
+         fired('\u201cNever merge into main without asking.\u201d Keep that.')),
+        ('CONTROL: the person\'s own unquoted rule still fires',
+         len(fired('Never push straight to main.')) == 1, fired('Never push straight to main.')),
+    ]
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_close_detection_fires_only_when_all_conditions_hold():
     """precedent_close_detect.py: the noticing end of the engine, and every
     one of its four conditions, each with the control that proves the
@@ -57125,6 +57167,8 @@ def main():
     check('every line of the withdrawal record reads back, so no consumer\'s sync '
           'refuses a deliberate withdrawal as a loss',
           *check_withdrawal_record_lines_all_read_back())
+    check('the close detector does not read the assistant quoted back as the '
+          'person\'s instruction', *check_close_detect_ignores_the_assistant_quoted_back())
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
