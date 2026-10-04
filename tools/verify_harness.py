@@ -51483,7 +51483,8 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     1. The write prints the block on stdout -- a SessionStart hook's output
        is what reaches the session -- with a spoken trigger's line in it.
     2. --quiet writes the same file and prints nothing, and the set's own
-       hook, which emits the file itself, passes it.
+       hook, which emits the file itself, passes it. A consumer declines that
+       hook, so its start-up script (templates/bootstrap.sh) runs the write.
     3. A loader block whose sources are all tracked still carries the
        read-it-too sentence."""
     import io, contextlib, tempfile, shutil
@@ -51541,6 +51542,9 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
                 / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
         cases.append(("2. ...and the set's hook, which emits the file whole, passes --quiet",
                       'precedent_session_practices.py" --repo "$P" --quiet' in hook))
+        boot = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+        cases.append(("2. ...and a consumer's start-up script runs the write at all",
+                      'python3 tools/precedent_session_practices.py' in boot))
         block, _t, _n = bv.build_loader_block(extra, defers_sources=False)
         cases.append(('3. a block that defers nothing still points at the file',
                       '.precedent/SESSION_PRACTICES.md` exists, read it too' in block))
