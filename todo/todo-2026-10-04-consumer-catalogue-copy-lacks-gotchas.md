@@ -3,7 +3,7 @@ slug:              todo-2026-10-04-consumer-catalogue-copy-lacks-gotchas
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            closed
+status:            done
 disposition:       null
 remind_on:         null
 blocked_on:        null
