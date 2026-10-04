@@ -12166,6 +12166,24 @@ def check_update_vendors_second_consumer_findings():
                       entries[0]['local_sha256'] == hashlib.sha256(b'new upstream\n').hexdigest()))
         cases.append(('3. ...and one outside it still reads as drift',
                       entries[1]['local_sha256'] == 'old'))
+        # 3b. A generated view outside the tree is the generator's output:
+        # re-recorded whenever it differs, on any run (2026-10-04, a
+        # consumer's MAP.md, regenerated between two runs, failed as DRIFT).
+        (r / 'MAP.md').write_text('---\ngenerated_by: tools/build_views.py\n---\n\n# Map\n',
+                                  encoding='utf-8')
+        data = json.loads((r / 'process' / 'manifest.json').read_text())
+        data['entries'].append({'practice': 'orientation-map', 'status': 'synced',
+                                'granularity': 'file', 'local_path': 'MAP.md',
+                                'upstream_path': 'templates/MAP.md.template',
+                                'local_sha256': 'old'})
+        (r / 'process' / 'manifest.json').write_text(json.dumps(data))
+        rebased = pu.rebaseline_vendored_entries(r)
+        entries = json.loads((r / 'process' / 'manifest.json').read_text())['entries']
+        cases.append(('3b. a generated view outside the tree is re-baselined on a run '
+                      'that did not itself rewrite it',
+                      'MAP.md' in (rebased or []) and entries[-1]['local_sha256'] != 'old'))
+        cases.append(('3b. ...while the hand-kept file beside it still reads as drift',
+                      entries[1]['local_sha256'] == 'old'))
 
         wf = '.github/workflows/light-check.yml'
         (r / 'precedent.json').write_text(json.dumps({
@@ -51350,6 +51368,193 @@ def check_vocabulary_reads_a_materialized_practice_as_one():
             '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
 
 
+def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
+    """A sync that would drop a person's rule because the set providing its
+    `requires:` capability is not on disk refuses with that reason and the
+    remedy, and never points at --allow-removals. 2026-10-04, a consumer's
+    update: ladder-required and promote-only read as removed, the refusal
+    offered --allow-removals for "the source DELETED the file", and following
+    it would have deleted two of the person's own rules. CONTROL: a rule its
+    source really stopped producing still gets the old refusal."""
+    import shutil, tempfile
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-sync-waiting-'))
+    ind = tmp / 'precedent-individual'
+    (ind / 'practices').mkdir(parents=True)
+    (ind / 'precedent-source.json').write_text(json.dumps({
+        'name': 'precedent-individual', 'level': 'individual'}), encoding='utf-8')
+    for slug in ('zz-mine', 'zz-goes'):
+        (ind / 'practices' / f'{slug}.md').write_text(
+            _move_fixture_practice(slug), encoding='utf-8')
+    (tmp / 'user-config.json').write_text(json.dumps({'individual': {
+        'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+    env = {**os.environ, 'HOME': str(tmp), 'PRECEDENT_USER_CONFIG': str(tmp / 'user-config.json'),
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t', 'GIT_COMMITTER_NAME': 't',
+           'GIT_COMMITTER_EMAIL': 't@t', 'PRECEDENT_ALLOW_ANY_AUTHOR': '1'}
+    env.pop('PRECEDENT_NO_LADDERS', None)
+    repo = tmp / 'consumer'
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env,
+                       capture_output=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]}),
+            encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+
+        def sync():
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                                '--repo', str(repo)], cwd=str(repo), env=env,
+                               capture_output=True, text=True, timeout=600)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = sync()
+        recorded = json.loads((repo / 'MANIFEST.json').read_text()).get('practices') \
+            if (repo / 'MANIFEST.json').is_file() else []
+        cases.append(('fixture: the first sync records the person\'s two rules',
+                      rc == 0 and {'zz-mine', 'zz-goes'} <= {e.get('slug') for e in recorded},
+                      out[-500:]))
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'synced'], env=env,
+                       capture_output=True)
+        # The person's set now brings a ladder set that is not on disk, and
+        # one rule requires what it provides.
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'precedent-individual', 'level': 'individual',
+            'brings': [{'name': 'fx-ladder', 'repo_url': 'https://example.invalid/o/fx-ladder'}]}),
+            encoding='utf-8')
+        mine = ind / 'practices' / 'zz-mine.md'
+        mine.write_text(mine.read_text().replace(
+            'defines:     []\n', 'defines:     []\nrequires:    ["ladder"]\n'), encoding='utf-8')
+        rc, out = sync()
+        cases.append(('a rule waiting on a brought set that is not on disk is refused '
+                      'by that reason, naming the set and the remedy',
+                      rc != 0 and 'zz-mine (from precedent-individual, requires ladder)' in out
+                      and '`fx-ladder`, brought by your individual set, is not on disk' in out,
+                      out[-700:]))
+        cases.append(('...and the refusal never offers --allow-removals as the answer',
+                      'is the answer, not a workaround' not in out
+                      and 'Do NOT pass --allow-removals' in out, out[-700:]))
+        mine.write_text(mine.read_text().replace('requires:    ["ladder"]\n', ''),
+                        encoding='utf-8')
+        (ind / 'practices' / 'zz-goes.md').unlink()
+        rc, out = sync()
+        cases.append(('CONTROL: a rule its source stopped producing still gets the '
+                      'old refusal', rc != 0 and 'zz-goes (from precedent-individual)' in out
+                      and 'requires ladder' not in out, out[-700:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
+
+
+def check_update_adopts_an_earlier_runs_catalogue_mirror():
+    """A re-run of Update Vendors stages the catalogue mirror an earlier run
+    wrote, when the catalogue manifest names the pinned commit and every
+    such file is upstream's at it (or gone where the mirror has none).
+    2026-10-04, a consumer's fourth run: 80 process/upstream/ files of an
+    earlier run's mirror were left unstaged beside a staged manifest naming
+    the new commit. CONTROL: one edited file means nothing is taken."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                          capture_output=True, text=True).stdout.strip()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-adopt-mirror-'))
+    saved = pu.SOURCE
+    cases = []
+    try:
+        pu.SOURCE = ROOT
+        tree = tmp / 'process' / 'upstream'
+        (tree / 'practices').mkdir(parents=True)
+        upstream = subprocess.run(['git', '-C', str(ROOT), 'show', f'{head}:practices/park-it.md'],
+                                  capture_output=True).stdout
+        (tree / 'practices' / 'park-it.md').write_bytes(upstream)
+        (tmp / 'process' / 'manifest.json').write_text(json.dumps({'upstream': {
+            'vendored_at': 'process/upstream', 'commit': head}}), encoding='utf-8')
+        before = {'process/upstream/practices/park-it.md',
+                  'process/upstream/practices/zz-never-upstream.md',
+                  'process/manifest.json', 'NOTES.md'}
+        got = pu.adopt_catalogue_output(tmp, before, head)
+        cases.append(('an earlier run\'s mirror, byte for byte upstream\'s, and a path '
+                      'upstream has none of, are adopted with the manifest; the '
+                      'person\'s own file is not',
+                      set(got) == before - {'NOTES.md'}, got))
+        (tree / 'practices' / 'park-it.md').write_bytes(upstream + b'mine\n')
+        got = pu.adopt_catalogue_output(tmp, before, head)
+        cases.append(('CONTROL: one edited file means nothing is taken', got == [], got))
+        (tree / 'practices' / 'park-it.md').write_bytes(upstream)
+        got = pu.adopt_catalogue_output(tmp, before, 'f' * 40)
+        cases.append(('...nor when the manifest names another commit', got == [], got))
+    finally:
+        pu.SOURCE = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:300]}' for n, d in bad))
+
+
+def check_show_follows_a_deduplicated_slug_across_sources():
+    """precedent_show.py SLUG follows a deduplicated slug to the rule in
+    force, across declared sources and through a set's copy that names its
+    own slug (in force under that name elsewhere). 2026-10-04: file-mention-
+    links, merged into rule-links by way of the writing set, answered
+    "unknown slug", while current-rule-governs tells every session this tool
+    follows a deduplicated copy to the live one. CONTROL: a slug nothing
+    declares is still unknown."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-chain-'))
+    cases = []
+
+    def practice(slug, status='active', to='null', rule='Do the thing.'):
+        return (_move_fixture_practice(slug)
+                .replace('status:      active\nin_force_at: null',
+                         f'status:      {status}\nin_force_at: {to}')
+                .replace('## Rule\nDo the thing.', '## Rule\n' + rule))
+    try:
+        a, b = tmp / 'set-a', tmp / 'set-b'
+        for d, name in ((a, 'fx-set-a'), (b, 'fx-set-b')):
+            (d / 'practices').mkdir(parents=True)
+            (d / 'precedent-source.json').write_text(json.dumps({'name': name, 'level': 'shared'}),
+                                                     encoding='utf-8')
+        (a / 'practices' / 'zz-old.md').write_text(practice('zz-old', 'deduplicated', 'zz-old'),
+                                                   encoding='utf-8')
+        (b / 'practices' / 'zz-old.md').write_text(practice('zz-old', 'deduplicated', 'zz-new'),
+                                                   encoding='utf-8')
+        (b / 'practices' / 'zz-new.md').write_text(practice('zz-new', rule='The live rule.'),
+                                                   encoding='utf-8')
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(json.dumps({'format_version': 1, 'sources': [
+            {'level': 'shared', 'name': 'fx-set-a', 'path': str(a)},
+            {'level': 'shared', 'name': 'fx-set-b', 'path': str(b)}]}), encoding='utf-8')
+        env = {**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json')}
+
+        def show(slug):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_show.py'),
+                                '--repo', str(repo), slug], capture_output=True, text=True,
+                               env=env, timeout=120)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = show('zz-old')
+        cases.append(('a slug deduplicated through a set\'s own-name copy shows the rule '
+                      'it was merged into, and says so',
+                      rc == 0 and 'zz-old -> zz-new' in out and 'The live rule.' in out
+                      and 'was merged into `zz-new`' in out, out[-500:]))
+        rc, out = show('zz-nothing')
+        cases.append(('CONTROL: a slug nothing declares is still unknown',
+                      rc != 0 and 'unknown slug' in out, out[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
 def check_ladder_off_engine_says_no_ladder_words():
     """spec/LADDER_OPT_IN_PLAN.md assertion B, on the engine's own output: a
     person with no practice set of their own -- the ladder not in force --
@@ -57557,6 +57762,12 @@ def main():
           *check_update_asks_headings_only_of_published_files())
     check('Vocabulary reads a practice the sync wrote as one practice, not two',
           *check_vocabulary_reads_a_materialized_practice_as_one())
+    check('a sync refuses a rule waiting on a brought set by that reason, never '
+          'with --allow-removals', *check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name())
+    check('a re-run of Update Vendors stages an earlier run\'s catalogue mirror as its own',
+          *check_update_adopts_an_earlier_runs_catalogue_mirror())
+    check('precedent_show follows a deduplicated slug to the rule in force, across sources',
+          *check_show_follows_a_deduplicated_slug_across_sources())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
