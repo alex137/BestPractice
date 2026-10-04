@@ -50412,10 +50412,14 @@ def check_ladder_off_engine_says_no_ladder_words():
         # the ladder meets the same titles in `git log`. Found 2026-10-03:
         # inside a Debut the checked copy sits on the Debut's own merge
         # commit, titled "Promote pre-staging into staging", and the reply
-        # gate lists it as unlanded work.
+        # gate lists it as unlanded work. So is a command still running in
+        # the session ("  pid N, running MM:SS: <command>",
+        # precedent_container_safe): the person's own words, quoted. Found
+        # 2026-10-04: a set's Debut, running beside this check, failed it.
         lines = [l for l in text.splitlines()
                  if not any(x in l for x in excused)
-                 and not re.match(r'\s+[0-9a-f]{7,40} \S', l)]
+                 and not re.match(r'\s+[0-9a-f]{7,40} \S', l)
+                 and not re.match(r'\s+pid \d+, running [\d:-]+: ', l)]
         found = lw.output_hits('\n'.join(lines))
         # The lines themselves, not only the words: a hit that appeared only
         # inside a Debut (2026-10-03) could not be found from the words.
