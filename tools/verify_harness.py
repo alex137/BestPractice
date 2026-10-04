@@ -6030,8 +6030,109 @@ def check_migrate_views_keeps_every_word():
                       and not (repo / 'GLOSSARY.source.md').exists()
                       and (repo / 'MAP.md').read_text(encoding='utf-8') == hand_map
                       and (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == hand_glossary))
+
+        # Views a vendor update already overwrote, with no source file and no
+        # list: nothing to migrate, but the list is still written, or a commit
+        # that adds a source never rebuilds the view. Found 2026-10-03 in a
+        # real consumer whose map and glossary were overwritten on 2026-09-15.
+        (repo / 'AGENTS.md').write_text(agents_before, encoding='utf-8')
+        (repo / 'MAP.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "practices/*.md"\n'
+            '---\n# Repository map\n', encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(
+            '---\ngenerated_by: tools/build_views.py\nedit_instead: "practices/*.md"\n'
+            '---\n# Canonical names\n', encoding='utf-8')
+        (repo / 'tools' / 'generated_files.json').unlink(missing_ok=True)
+        rc, out = migrate()
+        lst = repo / 'tools' / 'generated_files.json'
+        listed = ({e['path']: e.get('edit_instead') for e in
+                   _json.loads(lst.read_text(encoding='utf-8'))['files']}
+                  if lst.is_file() else {})
+        cases.append(('views already generated, with no source and no list: each '
+                      'gets an empty source, as a fresh install would, and the list '
+                      'names both',
+                      rc == 0 and 'nothing to migrate' in out
+                      and listed.get('MAP.md') == 'MAP.source.md'
+                      and listed.get('GLOSSARY.md') == 'GLOSSARY.source.md'
+                      and (repo / 'MAP.source.md').is_file()
+                      and (repo / 'MAP.source.md').read_text(encoding='utf-8') == ''
+                      and (repo / 'GLOSSARY.source.md').is_file()
+                      and (repo / 'GLOSSARY.source.md').read_text(encoding='utf-8') == ''))
+        cases.append(('...and each view now names its source, with AGENTS.md untouched',
+                      'MAP.source.md' in (repo / 'MAP.md').read_text(encoding='utf-8')
+                      .split('---', 2)[1]
+                      and 'GLOSSARY.source.md' in (repo / 'GLOSSARY.md')
+                      .read_text(encoding='utf-8').split('---', 2)[1]
+                      and (repo / 'AGENTS.md').read_text(encoding='utf-8') == agents_before))
+
+        # A hand-written map and no glossary at all: the migration makes no
+        # glossary, and the list names nothing that is not there. Found
+        # 2026-10-03 in a consumer whose glossary lives in docs/: it came out
+        # with a new root GLOSSARY.md and a list pointing at a missing
+        # GLOSSARY.source.md, which generated-files-registered refused.
+        for f in ('MAP.source.md', 'GLOSSARY.source.md', 'GLOSSARY.md'):
+            (repo / f).unlink(missing_ok=True)
+        (repo / 'tools' / 'generated_files.json').unlink(missing_ok=True)
+        (repo / 'MAP.md').write_text(hand_map, encoding='utf-8')
+        rc, out = migrate()
+        listed = ({e['path']: e.get('edit_instead') for e in
+                   _json.loads(lst.read_text(encoding='utf-8'))['files']}
+                  if lst.is_file() else {})
+        cases.append(('a repository with no glossary gets none, and its list names '
+                      'only the map and its real source',
+                      rc == 0 and not (repo / 'GLOSSARY.md').exists()
+                      and not (repo / 'GLOSSARY.source.md').exists()
+                      and listed.get('MAP.md') == 'MAP.source.md'
+                      and 'GLOSSARY.md' not in listed))
+        # ...and no later rebuild makes one either: the commit backstop runs
+        # build_views --views-only whenever MAP.source.md changes, and it
+        # wrote a root GLOSSARY.md each time, untracked, in that consumer.
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                        '--repo', str(repo), '--views-only'],
+                       capture_output=True, text=True, env=env)
+        cases.append(('...and a later views-only rebuild does not create one either',
+                      not (repo / 'GLOSSARY.md').exists()
+                      and (repo / 'MAP.md').is_file()))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_stale_view_names_its_real_cause():
+    """The view sync's check names why a generated MAP.md or GLOSSARY.md is
+    stale, and only the view that is. build_views.py prints the drift on
+    stdout and, for a person who brings a set, a notice on stderr after it;
+    the sync quoted the last line of both together, so a hand edit to MAP.md
+    was reported as the brought-set notice, against both views. Found
+    2026-10-03 rehearsing a consumer's push check after Update Vendors."""
+    import tempfile
+    name = 'a stale generated view is reported with its own cause, and only that view'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_sync_views as sv
+    finally:
+        sys.path.pop(0)
+    if not hasattr(sv, '_refresh_generated_views'):
+        not_applicable(name, 'precedent_sync_views has no _refresh_generated_views')
+        return
+    header = '---\ngenerated_by: tools/build_views.py\nedit_instead: "x"\n---\n# View\n'
+    real_run = sv.subprocess.run
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'MAP.md').write_text(header, encoding='utf-8')
+        (repo / 'GLOSSARY.md').write_text(header, encoding='utf-8')
+        sv.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            a[0] if a else [], 1,
+            stdout='build_views --check FAIL: hand-edited or stale, drifted from '
+                   'regeneration: MAP.md\n',
+            stderr='build_views: precedent-shared-ladder deferred to '
+                   '.precedent/SESSION_PRACTICES.md -- brought by the person working '
+                   'here, not declared by this repository.\n')
+        try:
+            got = ' '.join(sv._refresh_generated_views(repo, check=True))
+        finally:
+            sv.subprocess.run = real_run
+    check(name, 'hand-edited or stale' in got and 'MAP.md' in got
+          and 'deferred' not in got and 'GLOSSARY.md' not in got, got)
 
 
 def check_tracked_views_read_the_same_whoever_regenerates():
@@ -25437,8 +25538,10 @@ def check_global_backstop_runs_person_fixer():
                        encoding='utf-8')
         mark = tmp / 'ran'
         fixer = indiv / 'bootstrap' / 'pre-commit-fix'
-        fixer.write_text('#!/bin/sh\necho ran >> "%s"\necho fixed > FIXED.txt\n'
-                         'git add FIXED.txt\nexit 3\n' % mark, encoding='utf-8')
+        order = tmp / 'order'
+        fixer.write_text('#!/bin/sh\necho ran >> "%s"\necho fixer >> "%s"\n'
+                         'echo fixed > FIXED.txt\n'
+                         'git add FIXED.txt\nexit 3\n' % (mark, order), encoding='utf-8')
         fixer.chmod(0o755)
         env = dict(os.environ, HOME=str(home), TZ='UTC',
                    GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
@@ -25455,6 +25558,12 @@ def check_global_backstop_runs_person_fixer():
                       str(fixer) in (hooks / 'pre-commit').read_text(encoding='utf-8')
                       if (hooks / 'pre-commit').exists() else False))
         (work / 'a.txt').write_text('a\n', encoding='utf-8')
+        # The engine's rebuild of generated files, stubbed to record when it
+        # ran: it must come after the fixer, or a header the fixer stamps on
+        # a source (MAP.source.md, say) leaves the view built from the old one.
+        (work / 'tools').mkdir()
+        (work / 'tools' / 'precedent_regenerate.py').write_text(
+            'open(%r, "a").write("regenerate\\n")\n' % str(order), encoding='utf-8')
         subprocess.run(['git', '-C', str(work), 'add', 'a.txt'],
                        capture_output=True, env=env)
         c = subprocess.run(['git', '-C', str(work), '-c', 'user.name=T', '-c',
@@ -25468,6 +25577,10 @@ def check_global_backstop_runs_person_fixer():
                                text=True, env=env).stdout.split()
         cases.append(('what the fixer stages lands in the same commit',
                       'FIXED.txt' in files))
+        ran = order.read_text(encoding='utf-8').split() if order.exists() else []
+        cases.append(('the fixer runs before the rebuild of generated files, so a '
+                      'source it stamps is what the view is built from',
+                      ran == ['fixer', 'regenerate']))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -40299,6 +40412,10 @@ def check_title_case_output_paths_inverts_the_default():
             (declared, 'book-joseph/voice-pack/tone.md', False,
              'internal_paths WINS over output_paths -- the vendored-subtree case'),
             (absent, 'README.md', True, 'absent: unchanged, everything not excluded is output'),
+            (absent, 'MAP.source.md', False,
+             "a map's source is internal like the map it feeds (a consumer, 2026-10-03)"),
+            (absent, 'GLOSSARY.source.md', False,
+             "...and so is a glossary's"),
             (absent, 'notes/x.md', True, 'absent: unchanged for a working directory too'),
             (empty, 'README.md', False,
              'an EMPTY output_paths is a declaration ("we publish nothing"), not an absence'),
@@ -48421,6 +48538,33 @@ def check_update_vendors_rehearsal_findings():
                       rc == pu.FAILED and 'the engine landed at 111111111111' in text
                       and f'{pve.SOURCE_BRANCH} @ {tip[:12]}' in text, text[-800:]))
         verdict('Update Vendors brings install-once files and migrations forward', cases)
+
+        # -- a command the update repoints is staged with the rest ----------
+        # Found 2026-10-03 rehearsing a consumer: the repoint ran after the
+        # update staged its work, so `tools/bootstrap.sh` kept calling
+        # process/upstream/tools/... `|| true` in the commit the report told
+        # the person to make, and the session-start step silently did nothing.
+        cases = []
+        repo = planted('repointed', tip)
+        (repo / 'tools' / 'checkin.py').write_text('', encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            'python3 process/upstream/tools/checkin.py fresh || true\n', encoding='utf-8')
+        (repo / 'NOTES.md').write_text('mine\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'startup script')
+        (repo / 'NOTES.md').write_text('mine, unfinished\n', encoding='utf-8')
+        rc, text = run_update(repo)
+        staged = git(repo, 'diff', '--cached', '--name-only').stdout.split()
+        unstaged = git(repo, 'diff', '--name-only').stdout.split()
+        boot = git(repo, 'show', ':tools/bootstrap.sh').stdout
+        cases.append(('the repointed startup script is staged, so the commit the '
+                      'report asks for carries it',
+                      'tools/bootstrap.sh' in staged and 'tools/bootstrap.sh' not in unstaged
+                      and 'python3 tools/checkin.py fresh' in boot, text[-600:]))
+        cases.append(('...and a file already uncommitted before the update stays unstaged',
+                      'NOTES.md' in unstaged and 'NOTES.md' not in staged,
+                      f'staged={staged} unstaged={unstaged}'))
+        verdict('Update Vendors stages the commands it repoints', cases)
     finally:
         pu.SOURCE, pu.run = saved_source, saved_run
 
@@ -53472,7 +53616,8 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
         (repo / 'todo').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
         (repo / 'AGENTS.md').write_text(
-            f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+            f'# C\n\nSee [gone](practices/gone-rule.md).\n\n'
+            f'{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent',
@@ -53482,6 +53627,16 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
         item = ('# An open item\n\nSee [gone](../practices/gone-rule.md) and '
                 '[old](../practices/old-name.md).\n')
         (repo / 'todo' / 'todo-x.md').write_text(item, encoding='utf-8')
+        (repo / 'hooks').mkdir()
+        hook = '#!/bin/sh\n# see practices/gone-rule.md\nexit 0\n'
+        (repo / 'hooks' / 'h.sh').write_text(hook, encoding='utf-8')
+        # A vendored engine file is BestPractice's, rewritten on every refresh:
+        # never this repository's to fix, so never reported here.
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'eng.py').write_text('# reads practices/gone-rule.md\n',
+                                               encoding='utf-8')
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer', 'files': ['eng.py']}), encoding='utf-8')
         sync = [sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
                 '--repo', str(repo)]
         r = subprocess.run(sync, env=env, capture_output=True, text=True)
@@ -53520,6 +53675,20 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
                         'where it went', '../practices/gone-rule.md' in got
                         and 'todo/todo-x.md:3: links `gone-rule`' in out
                         and 'fx-ladder' in out, out[-500:]))
+        results.append(('2b: ...and so is one in AGENTS.md\'s own text outside the '
+                        'generated block, which the full check refuses just the same '
+                        '(two consumers, 2026-10-03)',
+                        'AGENTS.md:3: links `gone-rule`' in out
+                        and not any(l.startswith('AGENTS.md:') and 'AGENTS.md:3:' not in l
+                                    and 'gone-rule' in l for l in out.splitlines()),
+                        out[-500:]))
+        results.append(('2c: ...and one in a tracked file that is not Markdown is '
+                        'reported and left byte for byte (a consumer\'s hook, 2026-10-03)',
+                        'hooks/h.sh:2: links `gone-rule`' in out
+                        and (repo / 'hooks' / 'h.sh').read_text(encoding='utf-8') == hook,
+                        out[-500:]))
+        results.append(('2d: ...but a vendored engine file is not, being upstream\'s',
+                        'tools/eng.py' not in out, out[-500:]))
         results.append(('3: the generated MAP.md is rebuilt without the removed rules',
                         r.returncode == 0 and 'practices/gone-rule.md' not in map_after
                         and 'practices/kept-rule.md' in map_after, out[-300:]))
@@ -56045,6 +56214,7 @@ def main():
     check_where_things_are_from_one_source()
     check_commit_rebuilds_generated_files()
     check_migrate_views_keeps_every_word()
+    check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
     check_stale_freshness_also_says_delete_it()

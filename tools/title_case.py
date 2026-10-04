@@ -117,6 +117,13 @@ INTERNAL_FILES = (
     # decided -- the same accident that left record/ out of INTERNAL_DIRS
     # above until somebody noticed the twin.
     "WHERE_THINGS_ARE.md",
+    # MAP.source.md and GLOSSARY.source.md joined on 2026-10-03, the day a
+    # consumer's hand-written map moved into one (spec/GENERATED_FILES_PLAN.md
+    # step 5): they are the hand-written half of MAP.md and GLOSSARY.md, so
+    # the same text kept its classification when it changed files, and the
+    # first push after the migration stopped refusing headings it had
+    # always had.
+    "MAP.source.md", "GLOSSARY.source.md",
 )
 
 

@@ -2735,6 +2735,13 @@ def main():
             # A view whose own source file exists has been migrated: it is
             # generated from now on, whatever the file on disk says.
             src = MAP_SOURCE if path.name == 'MAP.md' else GLOSSARY_SOURCE
+            # A views-only rebuild (a consumer's sync, migration or commit
+            # backstop) keeps the views a repository has and never adds one
+            # it lacks: a consumer whose glossary lives in docs/ got a root
+            # GLOSSARY.md, untracked, every time its MAP.source.md changed
+            # (2026-10-03).
+            if views_only and not path.exists() and not (root / src).is_file():
+                continue
             if is_generated_view(path) or (root / src).is_file():
                 targets.append((path, render()))
             else:
