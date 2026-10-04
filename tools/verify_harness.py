@@ -2797,6 +2797,111 @@ def check_rename_links_leaves_dated_records_alone():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_rename_links_spares_a_path_moved_into_gitignore():
+    """A branch that stops committing build output (`git rm --cached` plus a
+    .gitignore line) has not deleted anything a reader needs: the file is
+    built on demand. rename-updates-links flagged every index and ledger
+    naming it (2026-10-04, a consumer that stopped committing its document
+    renders). CONTROL: a file the same branch really deleted is still
+    flagged."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='ignored-output-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'rename-updates-links.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'page.html').write_text('<p>built</p>\n', encoding='utf-8')
+        (repo / 'docs' / 'gone.md').write_text('old\n', encoding='utf-8')
+        (repo / 'README.md').write_text('Read docs/page.html.\nAnd docs/gone.md.\n',
+                                        encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'stop-committing-renders')
+        g('rm', '-q', '--cached', 'docs/page.html')
+        (repo / '.gitignore').write_text('docs/*.html\n', encoding='utf-8')
+        g('rm', '-q', 'docs/gone.md')
+        g('add', '.gitignore'); g('commit', '-qm', 'renders built on demand; gone.md removed')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'rename-updates-links'], cwd=str(repo), capture_output=True,
+                           text=True, env=env, timeout=300)
+        out = r.stdout + r.stderr
+        cases.append(('a path moved into .gitignore is not a deletion',
+                      'docs/page.html' not in out, out[-400:]))
+        cases.append(('CONTROL: a really deleted file is still flagged',
+                      'docs/gone.md' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'rename-updates-links spares build output moved into .gitignore '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_untracked_renders_use_source_fingerprints():
+    """A host that stops committing its renders (doc_html RENDERS_TRACKED =
+    False) cannot judge a page by the render's own hash: a render carries
+    its build time and differs on every build (2026-10-04). The ledger then
+    records a fingerprint of the sources. Both directions: a rebuild with
+    the same sources stays published; a source edit makes the page
+    unpublished."""
+    import json as _json, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_html as dh
+    finally:
+        sys.path.pop(0)
+    name = 'untracked renders are judged by their sources, not their own hash'
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    (tmp / 'a.md').write_text('# A\n')
+    (tmp / 'a.html').write_text('<p>built at 1</p>')
+    led = tmp / 'shared.json'
+    saved = {k: getattr(dh, k) for k in ('ROOT', 'RENDER_LEDGER', 'THREAD_LEDGER', 'RENDERS_TRACKED',
+             '_current_branch', '_default_branch', '_changed_vs_base', '_render_units')}
+    cases = []
+    try:
+        dh.ROOT, dh.RENDER_LEDGER, dh.THREAD_LEDGER = tmp, str(led), None
+        dh.RENDERS_TRACKED = False
+        dh._current_branch = lambda: 'main'
+        dh._default_branch = lambda: 'main'
+        dh._changed_vs_base = lambda: set()
+        dh._render_units = lambda: [('a.html', ['a.md'], 'https://shared.example/a')]
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            dh.record_published(['a.html'], trunk=True)
+        rec = _json.loads(led.read_text()).get('a.html')
+        cases.append(('the ledger records the source fingerprint, not the render hash',
+                      rec == dh._fingerprint(['a.md']) and rec != dh._sha256(tmp / 'a.html')))
+        (tmp / 'a.html').write_text('<p>built at 2</p>')
+        cases.append(('a rebuild from the same sources stays published',
+                      dh.stale(trunk=True)[1] == []))
+        (tmp / 'a.md').write_text('# A, edited\n')
+        (tmp / 'a.html').write_text('<p>built at 3</p>')
+        cases.append(('a source edit makes the page unpublished',
+                      [r for r, _u in dh.stale(trunk=True)[1]] == ['a.html']))
+    finally:
+        for k, v in saved.items():
+            setattr(dh, k, v)
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_deletes_a_shipped_voice_md():
     """An update deletes a root VOICE.md that is still the shipped template
     (comments aside) and drops its process/manifest.json entry, and asks for
@@ -10489,6 +10594,47 @@ def check_local_edits_fetch_the_vendored_commit_from_upstream():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_a_sync_deletion_is_not_a_local_edit():
+    """precedent_local_edits.py reads a file upstream has and a consumer's
+    copy lacks as the consumer's own deletion -- and every later update then
+    "keeps" it out. A file removed by a vendor sync (the copy rules once
+    left it out) or never shipped at all is upstream's doing, not the
+    consumer's: a consumer went without 46 live gotchas for days after
+    gotchas/ shipped again on 2026-10-01 (found 2026-10-04). Both
+    directions: a deletion the consumer committed on its own still counts."""
+    import tempfile
+    import precedent_local_edits as le
+    name = 'a deletion made by a vendor sync is not a local edit'
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / 'process' / 'upstream' / 'gotchas').mkdir(parents=True)
+        man = repo / 'process' / 'manifest.json'
+        man.write_text('{"upstream": {\n  "commit": "aaa"\n}}\n')
+        for n in ('synced-away.md', 'mine-away.md'):
+            (repo / 'process' / 'upstream' / 'gotchas' / n).write_text('x\n')
+        g('add', '-A'); g('commit', '-qm', 'vendor at aaa')
+        (repo / 'process' / 'upstream' / 'gotchas' / 'synced-away.md').unlink()
+        man.write_text('{"upstream": {\n  "commit": "bbb"\n}}\n')
+        g('add', '-A'); g('commit', '-qm', 'a sync whose rules left the file out')
+        (repo / 'process' / 'upstream' / 'gotchas' / 'mine-away.md').unlink()
+        g('add', '-A'); g('commit', '-qm', 'the consumer deletes one itself')
+        rel = lambda n: f'process/upstream/gotchas/{n}'
+        cases.append(('removed by a sync: not a local edit',
+                      not le._deleted_here(repo, rel('synced-away.md'))))
+        cases.append(('never shipped here: not a local edit',
+                      not le._deleted_here(repo, rel('never-had.md'))))
+        cases.append(('removed by the consumer: still a local edit',
+                      le._deleted_here(repo, rel('mine-away.md'))))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_send_carries_a_local_edit_upstream():
     """tools/precedent_local_edits.py send turns a consumer's committed edit
     to a received engine file into a branch in the owner's clone, merged
@@ -11000,6 +11146,45 @@ def check_acronym_scan_skips_wrapped_code_spans():
          [i for i, tok in dl.scan_unglossed('a `b\nc` d\nQZXA\n', set(), 'x.md')
           if tok == 'QZXA'] == [3]),
     ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_lint_runs_the_hosts_shim():
+    """A consumer configures doc_lint from a host shim, but the push check
+    runs the engine file directly, so the consumer's settings never reached
+    its gate (2026-10-04: a folder the consumer had exempted failed its
+    push). A consumer names its shim in tools/doc_lint_host.json, and
+    running the engine runs the shim. Both directions: with no host file
+    the engine runs as itself."""
+    import tempfile, shutil
+    name = 'doc_lint hands off to the host shim a consumer names'
+    env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        (repo / 'tools').mkdir()
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py'):
+            shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}\n')
+        (repo / 'host').mkdir()
+        (repo / 'host' / 'lint_shim.py').write_text(
+            'import sys\nprint("HOST SHIM RAN", sys.argv[1:])\nsys.exit(0)\n')
+        run = lambda: subprocess.run([sys.executable, 'tools/doc_lint.py', '--all'],
+                                     cwd=repo, capture_output=True, text=True, env=env)
+        r = run()
+        cases.append(('with no host file the engine runs as itself',
+                      'HOST SHIM RAN' not in r.stdout))
+        (repo / 'tools' / 'doc_lint_host.json').write_text('{"shim": "host/lint_shim.py"}\n')
+        r = run()
+        cases.append(('with a host file, running the engine runs the shim, with its arguments',
+                      "HOST SHIM RAN ['--all']" in r.stdout and r.returncode == 0))
+        (repo / 'tools' / 'doc_lint_host.json').write_text('{"shim": "host/missing.py"}\n')
+        r = run()
+        cases.append(('a host file naming a missing shim fails loudly',
+                      r.returncode != 0 and 'does not exist' in (r.stdout + r.stderr)))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -57103,6 +57288,7 @@ def main():
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
     check_local_edits_fetch_the_vendored_commit_from_upstream()
+    check_a_sync_deletion_is_not_a_local_edit()
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',
@@ -57260,6 +57446,7 @@ def main():
     check_update_adopts_engine_written_ahead()
     check_acronym_scan_skips_wrapped_code_spans()
     check_lint_flags_a_table_with_no_render()
+    check_lint_runs_the_hosts_shim()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
@@ -57326,6 +57513,8 @@ def main():
     check_received_hooks_and_moved_engine_files()
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
+    check_rename_links_spares_a_path_moved_into_gitignore()
+    check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
     check_todo_migrate_refuses_a_subdirectory()
