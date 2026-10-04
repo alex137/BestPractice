@@ -91,7 +91,7 @@ Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
 (In a repo that vendors this the classic way, the path is
 process/upstream/tools/doc_lint.py.)
 """
-import re, sys, subprocess, pathlib
+import json, re, sys, subprocess, pathlib
 import frontmatter_yaml
 import generated_blocks
 
@@ -1757,6 +1757,40 @@ def main():
         print('\n'.join(fatal[:40]))
         return 1
     return 0
+
+# A CONSUMER'S LINT RUNS WITH ITS OWN SETTINGS (2026-10-04). A consumer
+# configures this engine from a host shim (its record-class names, index
+# files, render registry...), but the push check runs this file directly,
+# so none of that reached the gate that matters most: a folder the consumer
+# had exempted failed its push. As tools/model_audit.py does, a consumer
+# names its shim in tools/doc_lint_host.json ({"shim": "path/to/shim.py"})
+# and running this file runs the shim. The shim loads this engine under its
+# own module name, so this hand-off never runs twice.
+HOST_FILE = 'tools/doc_lint_host.json'
+
+
+def _host_shim():
+    f = ROOT / HOST_FILE
+    if not f.is_file() or not (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        return None
+    try:
+        shim = json.loads(f.read_text(encoding='utf-8')).get('shim')
+    except ValueError as e:
+        sys.exit(f'doc_lint FAIL: {HOST_FILE} is not valid JSON ({e})')
+    if not shim:
+        return None
+    p = ROOT / shim
+    if not p.is_file():
+        sys.exit(f'doc_lint FAIL: {HOST_FILE} names shim {shim}, which does not exist')
+    return p
+
+
+if __name__ == '__main__' and _host_shim() is not None:
+    import runpy
+    _shim = _host_shim()
+    sys.argv[0] = str(_shim)
+    runpy.run_path(str(_shim), run_name='__main__')
+    sys.exit(0)
 
 if __name__ == '__main__':
     # `--help` is what anyone types first. Before 2026-09-06 the tools here
