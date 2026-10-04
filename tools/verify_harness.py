@@ -7293,13 +7293,24 @@ def check_default_blocklist_runs_the_vocabulary_layer():
     # load_blocklist() discovers the container's real individual set and
     # `private_configured` comes back True in a check whose subject is the
     # state where nothing is configured.
+    #
+    # Neighbours count as configuration too (2026-10-04). Since 2026-10-01
+    # load_blocklist also reads the leak-blocklist.txt of every repository
+    # checked out beside this one, so a clone with a practice set beside it
+    # came back `private_configured` and this check failed or passed by
+    # where the clone sat on disk -- red in the main clone of a session with
+    # its sets attached, green in a scratch worktree. "Nothing configured"
+    # means no neighbours either.
     def _unconfigured(fn):
         _saved = os.environ.get('HOME')
+        _saved_neighbours = lg.discovered_neighbour_blocklists
         os.environ['HOME'] = _scratch_home
         os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        lg.discovered_neighbour_blocklists = lambda root=None: []
         try:
             return fn()
         finally:
+            lg.discovered_neighbour_blocklists = _saved_neighbours
             if _saved is None:
                 os.environ.pop('HOME', None)
             else:
@@ -7366,9 +7377,14 @@ def check_default_blocklist_runs_the_vocabulary_layer():
         priv = pathlib.Path(td) / 'private.txt'
         priv.write_text('acme-corp-secret-codename\n', encoding='utf-8')
         os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(priv)  # wins over discovery
+        # Neighbours stay out of the count, as in _unconfigured: the
+        # arithmetic below is the default plus this one list, nothing else.
+        _saved_neighbours = lg.discovered_neighbour_blocklists
+        lg.discovered_neighbour_blocklists = lambda root=None: []
         try:
             merged, src, configured = lg.load_blocklist()
         finally:
+            lg.discovered_neighbour_blocklists = _saved_neighbours
             os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
         cases.append(('a private list is MERGED with the default, never replaces '
                       'it -- configuring one must not silently drop the other',
@@ -53694,6 +53710,40 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
                         and 'practices/kept-rule.md' in map_after, out[-300:]))
         results.append(('4: CONTROL: a hand-made GLOSSARY.md is left byte for byte',
                         (repo / 'GLOSSARY.md').read_text(encoding='utf-8') == glossary, ''))
+        # 5. An EARLIER removal (a consumer rehearsal, 2026-10-04): the next
+        # sync removes nothing, and a link to the rule the last one removed
+        # is still reported -- the full check refuses it whichever update
+        # took the rule out. A link to a rule still present is not.
+        (repo / 'todo' / 'todo-y.md').write_text(
+            '# Another\n\nSee [kept](../practices/kept-rule.md).\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], env=env, check=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'second sync'],
+                       env=env, check=True)
+        r = subprocess.run(sync, env=env, capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        results.append(('5: a link to a rule an EARLIER update removed is still '
+                        'reported when this sync removes nothing',
+                        r.returncode == 0
+                        and 'hooks/h.sh:2: links `gone-rule`, which is not in '
+                            'practices/' in out
+                        and 'todo/todo-x.md:3: links `gone-rule`' in out
+                        and 'kept-rule' not in out, out[-500:]))
+        # 5b. ...and Update Vendors lists it for the person, as it lists this
+        # sync's own: its parser read only "which this sync removed", so the
+        # earlier removal was printed and never listed.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_update as _pu
+        finally:
+            sys.path.pop(0)
+        _rep = _pu.Report()
+        _pu.removed_links_step(_rep, out)
+        results.append(('5b: Update Vendors lists the earlier removal\'s links for the '
+                        'person, saying an earlier update removed the rule',
+                        any(w == 'hooks/h.sh:2' and 'an earlier update removed' in y
+                            for w, y in _rep.left)
+                        and any(w == 'todo/todo-x.md:3' for w, _y in _rep.left),
+                        repr(_rep.left)[:400]))
     except (OSError, subprocess.CalledProcessError) as e:
         results.append((f'fixture could not be built ({e})', False, ''))
     finally:
