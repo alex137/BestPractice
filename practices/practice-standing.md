@@ -65,7 +65,7 @@ itself is `decided`; labels approved together as a list are `assented`.
 Every practice used to read as equally binding, so a habit of one person's
 and a rule the team cannot work without carried the same weight. That made
 two things impossible: letting a session use judgment where judgment is the
-point, and telling apart a rule the team set from a preference someone
+point, and telling apart a rule the people in charge set from a preference someone
 wrote down. The label says how binding a practice is **and on whose
 authority**, which is the part that matters wherever several people work
 to one set of rules: the people who run the work set them, and everyone,
