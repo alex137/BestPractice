@@ -1283,7 +1283,8 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
 def build_loader_block(practices, source_levels=None, defers_sources=False,
                        block_dir=None, repo_root=None, planned=(),
                        budget_tokens=None, occasion_budget_tokens=None,
-                       carried=None, regen_comment=True):
+                       carried=None, regen_comment=True,
+                       include_code_owners=False):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -1316,6 +1317,11 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     comment, which is true only of a block build_views writes into a tracked
     file -- the session-practices file is rebuilt by its own tool every
     session and has nothing to hand-edit or --check."""
+    # A practice for code owners only never goes in a block everyone reads
+    # (AGENTS.md, whichever tool renders it); the untracked session file asks
+    # for them with include_code_owners=True, for a code owner (2026-10-05).
+    if not include_code_owners:
+        practices = [p for p in practices if not _code_owners_only(p[0])]
     # Resolved, so the warning below names a path a reader can act on: a
     # caller passing `--repo .` otherwise produced "cannot be placed
     # relative to .", which says nothing.
@@ -2819,8 +2825,8 @@ def main():
     # repository, so it cannot tell a code owner from anyone else. It reaches
     # code owners through the untracked session file instead
     # (precedent_session_practices.py; Morgan, 2026-10-05).
-    block_practices = [p for p in block_practices
-                       if not _code_owners_only(p[0])]
+    # (Code-owners-only practices are left out by build_loader_block itself,
+    # so every renderer of the committed block agrees.)
     # Whatever the tracked block could not carry -- a private source in a
     # public repo, or another repository's catalogue in a practice set --
     # reaches the session only through the untracked file, so the standing

@@ -324,7 +324,7 @@ def render(extra, levels, notes, repo=None):
         carried = None
     try:
         block, _tokens, _count = bv.build_loader_block(
-            extra, source_levels=levels,
+            extra, include_code_owners=True, source_levels=levels,
             block_dir=_repo / OUT_DIR, repo_root=_repo,
             budget_tokens=budget, carried=carried, regen_comment=False)
     except bv.ResidentBudgetExceeded as e:
@@ -335,7 +335,7 @@ def render(extra, levels, notes, repo=None):
         # that refuses is build_views' own CLI, on the tracked block
         # (practice: fail-gracefully -- keep going, never look complete).
         block, _tokens, _count = bv.build_loader_block(
-            extra, source_levels=levels,
+            extra, include_code_owners=True, source_levels=levels,
             block_dir=_repo / OUT_DIR, repo_root=_repo,
             budget_tokens=e.tokens, carried=carried, regen_comment=False)
         head += [
