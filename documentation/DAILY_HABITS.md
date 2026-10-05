@@ -100,7 +100,6 @@ each one saves you a paragraph of explaining:
 |---|---|
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Full practice audit** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. Once also called a "practice check". |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening with an invitation to push back with a stronger counter-proposal, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
@@ -108,8 +107,6 @@ each one saves you a paragraph of explaining:
 | **Simple please** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
-| **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase. |
-| **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes and what each one does, then the words worth knowing to follow a conversation about it. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
 | **What's new?** | Write an entry for every finished day that changed the project and has none yet, say which days were quiet and skipped, then show the log: its link first, the newest entries, what changed today so far, and ask what you want to know more about. |

@@ -142,7 +142,22 @@ def collect(repo, skip_brought=False):
         pathlib.Path(repo), sources)
     notes += [('deferred', n) for n in split_notes]
     deferred_paths = {str(pathlib.Path(s['path']).resolve()) for s in deferred}
-    if not deferred:
+
+    # CODE OWNERS ONLY (Morgan, 2026-10-05). The tracked block never carries
+    # a practice marked `visible_to: code-owners`, since it reads the same for
+    # everyone; this file is per session, so it carries them to a code owner
+    # from EVERY source, and leaves them out for anyone else, saying why.
+    try:
+        import precedent_audience as pa
+        _owner_only = {slug for slug, p in res['practices'].items()
+                       if pa.for_code_owners(p['fm'])}
+        _is_owner, _ = pa.is_code_owner(repo)
+    except Exception:                                        # noqa: BLE001
+        pa, _owner_only, _is_owner = None, set(), False
+    if _owner_only and not _is_owner:
+        notes.append(('hidden', pa.hidden_notice(repo, sorted(_owner_only))))
+
+    if not deferred and not (_owner_only and _is_owner):
         notes.append((
             'deferred',
             'every source this repo declares is already carried by its '
@@ -151,7 +166,10 @@ def collect(repo, skip_brought=False):
 
     extra, levels = [], {}
     for slug, p in sorted(res['practices'].items()):
-        if not _from_deferred_source(p, deferred_paths):
+        if slug in _owner_only:
+            if not _is_owner:
+                continue
+        elif not _from_deferred_source(p, deferred_paths):
             continue
         extra.append((p['fm'], p['sections'], pathlib.Path(p['file'])))
         levels[slug] = p['level']
@@ -246,6 +264,10 @@ def render(extra, levels, notes, repo=None):
     ]
     unresolved = [n for kind, n in notes if kind == 'unresolved']
     deferred_notes = [n for kind, n in notes if kind == 'deferred']
+    # One line, kept short: every session pays for it.
+    head += [n for kind, n in notes if kind == 'hidden' and n]
+    if any(kind == 'hidden' and n for kind, n in notes):
+        head += ['']
     if unresolved:
         head += ['## Sources that did not resolve this session', '',
                  'These are missing, and their practices are NOT below.', '']
@@ -490,6 +512,11 @@ def main(argv=None):
                   f'commands ({type(e).__name__}: {e})', file=sys.stderr)
         if spoken:
             print(spoken)
+        # Said once, at session start, beside the commands: why the
+        # code-owners-only practices are not here (Morgan, 2026-10-05).
+        for _kind, _n in notes:
+            if _kind == 'hidden' and _n:
+                print(_n)
     try:
         text = render(extra, levels, notes, repo=repo)
     except Exception as e:                                   # noqa: BLE001

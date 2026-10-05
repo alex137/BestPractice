@@ -97,6 +97,9 @@ FIELD_ORDER = (
     'in_force_at',
     'expires',
     'requires',
+    # Who a session shows the practice to: absent for everyone, `code-owners`
+    # for the repository's code owners only (tools/precedent_audience.py).
+    'visible_to',
     'supersedes',
     'overrides',
     'added',
