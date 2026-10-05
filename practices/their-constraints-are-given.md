@@ -142,12 +142,12 @@ tool that runs every other kind of move refuses exactly this direction
 (`--from universal`) for exactly this reason, which this incident confirms
 rather than merely asserts. Reverted the same day, Morgan F: stays universal.
 
-**2026-10-01: that last sentence no longer holds.** The universal copy was
-withdrawn later on 2026-09-23 (BestPractice commit `73ad9f14`, by the move
-tool's safe path), and BestPractice's own file is now `status:
-deduplicated`, pointing here. This set's copy is the one in force. Its
-occasion-index line was shortened on 2026-10-01, same meaning, in the
-reduction pass Morgan F approved that day.
+The withdrawal went ahead in the same commit as the other one that day
+(`73ad9f14`), so from 2026-09-23 the working-style set held the rule in
+force and this file only pointed there. That set shortened its occasion
+line on 2026-10-01, same meaning. On 2026-10-05 the rule came home: the
+working-style set folded away and this copy is live again (Morgan F,
+strength: decided).
 
 ## Install
 

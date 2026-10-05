@@ -6930,7 +6930,11 @@ def _light_broken_links(root, rel, text):
        'PyYAML is not installed -- said on the run, never passed silently. '
        'Links are skipped in trees this repo mirrors and in the directories '
        'its own tools/doc_lint.py declares link-exempt.',
-       practice_backed=False)
+       practice_backed=False,
+       # Any file a change touches can bring a conflict marker or a secret,
+       # so any change summons it; the whole tree reads in about three
+       # seconds, the price of a check meant to run before every commit.
+       selects_on=('**',))
 def _light_check(ctx):
     # Ported 2026-10-05 from the repo-maintenance set's check_light_check.py.
     # Its rule was folded into universal's two-check-levels on 2026-09-28

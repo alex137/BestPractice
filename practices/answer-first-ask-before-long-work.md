@@ -96,10 +96,10 @@ move refuses exactly this direction (`--from universal`) for exactly this
 reason, which this incident confirms rather than merely asserts. Reverted
 the same day, Morgan F: stays universal, `tier: resident`, as before.
 
-**2026-10-01: that last sentence no longer holds.** The universal copy was
-withdrawn later on 2026-09-23 (BestPractice commit `73ad9f14`, by the move
-tool's safe path), and BestPractice's own file is now `status:
-deduplicated`, pointing here. This set's copy is the one in force.
+Later on 2026-09-23 (commit `73ad9f14`) this universal copy was withdrawn
+after all and pointed at the working-style set's copy, which was the one in
+force from then. **2026-10-05: this file is the live copy again**, moved
+back as the working-style set folded away (Morgan F, strength: decided).
 
 **2026-10-01, part (4) absorbed from `nonblocking-questions`**, in the
 reduction pass recorded in BestPractice's
