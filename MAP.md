@@ -10,12 +10,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 146 practice files (5 resident, 141 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 151 practice files (6 resident, 145 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
+| [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | resident | a turn that could start a computation, search or build lasting longer than a few minutes |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive" or "Archive?", or asks whether the session can be archived |
 | [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo or other binary asset the person supplies |
@@ -93,6 +94,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming or adding a file |
 | [one-formatter-per-quantity](practices/one-formatter-per-quantity.md) | on-demand | computing, quoting or tabulating figures |
 | [open-item-disposition](practices/open-item-disposition.md) | on-demand | writing or triaging an open item, or deciding whether to raise one in a reply |
+| [organize-scattered-content](practices/organize-scattered-content.md) | on-demand | about four or more end-user content files sit scattered around a repo |
 | [orientation-map](practices/orientation-map.md) | on-demand | orienting in a repo for the first time this session |
 | [outward-summary-discipline](practices/outward-summary-discipline.md) | on-demand | writing a deliverable an outside reader will see |
 | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) | on-demand | a change must propagate across several parallel artifacts |
@@ -115,6 +117,8 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing an automatic repair |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
+| [report-up-the-chain](practices/report-up-the-chain.md) | on-demand | finishing a task a session was spawned or triggered to do |
+| [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | on-demand | committing a revert, or a trailer check flags one |
 | [review-against-a-contract](practices/review-against-a-contract.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [root-issues](practices/root-issues.md) | on-demand | a person says "Root issues" or "Root fixes", or asks what this session found or fixed that should go back upstream |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
@@ -139,6 +143,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | computing, quoting or tabulating figures |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
+| [their-constraints-are-given](practices/their-constraints-are-given.md) | on-demand | a person's account of their own situation seems contradicted by the evidence |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for this shape of answer |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing, triaging or doing work on an open item |
@@ -163,11 +168,10 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-13 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+11 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
-| [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | deduplicated | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | A session launched an hours-long re-solve while four conceptual questions sat unanswered, then sat on a ninety-minute cold solve after a merge invalidated a cache, before answering a one-line question about the merge itself. |
 | [archive-command](practices/archive-command.md) | deduplicated | [archive-status-check](practices/archive-status-check.md) | **Deduplicated 2026-09-19, folded into `archive-status-check`.** Morgan: *"Note that 'Archive' and 'Archive?' are the same thing. |
 | [brief-it](practices/brief-it.md) | deduplicated | [my-options](practices/my-options.md) | Coined by Morgan, 2026-09-19. |
 | [durable-fix](practices/durable-fix.md) | deduplicated | [upstream-fix](practices/upstream-fix.md) | **Requested by Morgan, 2026-09-08, in those terms:** *"I prefer permanent fixes ... |
@@ -178,7 +182,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [response-please](practices/response-please.md) | retired | — (nowhere) | **Retired 2026-09-30.** Morgan: *"Response please probably doesn't need a phrase, because it doesn't really add anything so we can remove."* A pasted message from another session is weighed from context, and Prompt Please still hands work on. |
 | [second-pass-capture](practices/second-pass-capture.md) | deduplicated | [capture-gate](practices/capture-gate.md) | **An owner-prompted sweep found two real gaps in a single day's work.** Somebody asked "did we miss capturing anything?" of work that had already been drafted, reviewed and considered finished, and the answer was yes twice: a cross-artifact transfer that had been waved off, and a competitor-inspired idea noted in passing but never landed anywhere durable. |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
-| [their-constraints-are-given](practices/their-constraints-are-given.md) | deduplicated | [their-constraints-are-given](practices/their-constraints-are-given.md) | **2026-09-21, and this practice exists because Morgan asked for it after having the same argument more than once across different sessions.** |
 | [wide-search-needs-asking](practices/wide-search-needs-asking.md) | deduplicated | [grep-before-search](practices/grep-before-search.md) | **2026-09-28.** A session fixed the Boildown so it stopped asking which repositories to add or remove. |
 
 ## The engine

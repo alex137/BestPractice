@@ -125,7 +125,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-57 of 159 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+57 of 162 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
