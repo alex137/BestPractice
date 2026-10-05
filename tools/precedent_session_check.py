@@ -1084,15 +1084,36 @@ def _clone_behind(path, fetch=True, branch=None):
                         back = n
                     else:
                         ahead = n
+    # AHEAD IS NOT UNPUSHED (2026-10-05). A set's clone checked out on
+    # purpose at the set's staging read as "6 unpushed commit(s) ahead" of
+    # main: those commits were on origin, only not on main yet. Unpushed is
+    # what no origin branch has; the rest is named by the branch carrying
+    # it, and never by itself makes the clone stale.
+    unpushed, on_origin, carrier = ahead, '0', ''
+    if ahead != '0':
+        r = subprocess.run(['git', '-C', str(path), 'rev-list', '--count',
+                            '--no-merges', 'HEAD', '--not', '--remotes=origin',
+                            '--', '.'], capture_output=True, text=True)
+        n = r.stdout.strip()
+        if r.returncode == 0 and n.isdigit():
+            unpushed = n
+            on_origin = str(max(int(ahead) - int(n), 0))
+        r = subprocess.run(['git', '-C', str(path), 'for-each-ref', '--contains',
+                            'HEAD', '--format=%(refname:short)',
+                            'refs/remotes/origin'], capture_output=True, text=True)
+        carrier = next((x for x in r.stdout.split() if x != 'origin/HEAD'), '')
     bits = []
     if back != '0':
         bits.append(f'{back} commit(s) behind origin/{branch}')
-    if ahead != '0':
-        bits.append(f'{ahead} unpushed commit(s) ahead')
+    if unpushed != '0':
+        bits.append(f'{unpushed} unpushed commit(s) ahead')
+    held = (f'checked out off {branch}: {on_origin} commit(s) ahead of '
+            f'origin/{branch} that are on origin'
+            + (f' ({carrier})' if carrier else '')) if on_origin != '0' else ''
     if bits:
         # True even off a stale ref: behind an old origin is behind.
-        return 'behind', ' and '.join(bits)
-    return ('current', '') if fetched else ('unverified', why)
+        return 'behind', ' and '.join(bits) + (f'; {held}' if held else '')
+    return ('current', held) if fetched else ('unverified', why)
 
 
 def _git_head(path):

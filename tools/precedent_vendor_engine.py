@@ -730,6 +730,10 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # by the duplicate guard below, which is how this was caught.
     'precedent_materialize.py',
     'precedent_sync_views.py',
+    # The commit each live source was synced at, and reading a source back
+    # at it, so the views check stops depending on the branch a set's clone
+    # has checked out (2026-10-05). Imported by the two above.
+    'precedent_source_pins.py',
     # Whether each declared source repository is still CALLED what this repo
     # calls it (added 2026-09-11). CONSUMER-only for the same reason
     # precedent_resolve.py is -- it reads a multi-source config, which a
