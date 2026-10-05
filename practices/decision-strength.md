@@ -47,6 +47,15 @@ judgment you cannot be trusted to make generously. So: **write `decided`
 only if you can quote them choosing it. A bare "ok" to your own proposal is
 `assented`, written that way without asking them.** Unsure is `assented`.
 
+**Approving a list is `assented` for every item on it.** When a session
+lays out several things it means to do and the person says yes to the lot
+-- "do both", "go ahead with all of that", one word to land a batch -- each
+item is `assented`, however firm the yes sounded. They endorsed the batch;
+they did not choose each piece, and a record that says they did hands the
+next session a "you decided this" they never made. An item becomes
+`decided` only where they singled it out, chose it from options, or asked
+for it themselves.
+
 **"Without asking them" covers the clean cases -- the table below is a
 lookup, not a coin flip.** Where the register is genuinely ambiguous enough
 that a different mark was plausible, say the read out loud in the reply
@@ -144,6 +153,13 @@ same conversation that revised `go-update` and
 rather than filed silently, per Morgan's *"use your judgment and ASK the
 person if you have doubt."* The clean-case table below is unaffected — this
 is for the read that is actually a coin flip.
+
+**Extended 2026-10-05, Morgan (strength: decided):** *"when you give me a
+laundry list of stuff and I approve it, that should be 'Assented' not
+'decided'."* Found when a session told him a routing change carried his
+`decided` from 2026-10-01; the record traced back to one yes over a batch
+of items ("do both Tier 2 items"), and he did not remember making that
+call at all.
 
 ## Install
 The word the person can say to mark an approval weak at the moment they give

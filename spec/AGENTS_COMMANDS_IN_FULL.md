@@ -66,10 +66,12 @@ used to read on turn one.
   the repository's own staging branch unless their `landing_branch` says `pre-staging` or `main`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
-- **"Drop it"** ([park-it](../practices/park-it.md)) — write
-  `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
-  that same turn, say which item was marked, and **never raise it unprompted
-  again** — not this session, and not a later one that decides it has become
+- **"Drop it"** ([park-it](../practices/park-it.md)) — park the item meant
+  in that same turn with `python3 tools/todo_disposition.py park SLUG --by
+  NAME`, which sets the frontmatter `disposition: parked` and writes
+  `**Disposition:** parked (<date>, <who said it>)` in the body together (in a
+  single `TODO.md`, the body line alone), say which item was marked, and
+  **never raise it unprompted again** — not this session, and not a later one that decides it has become
   urgent. Nobody owes an explanation for parking something: do it, and never
   ask a follow-up about it. **Kept to the literal word, deliberately** —
   parking has no built-in correction, so where it only *sounds* like the

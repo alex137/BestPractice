@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "Committing a revert is a moment, not a file; the occasion index reaches it, and so does the session-trailer check that would otherwise flag the commit."
 occasion:    "committing a revert, or a trailer check flags one"
 gates:       ["push"]
-gates_why:   "The push check's trailer check already exempts a revert while this practice is in force, so a session that never sees this rule loses nothing: it adds a trailer, which the Rule calls welcome. The push gate prints it where a trailer is at issue. index_required: false records that judgment: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+gates_why:   "The push check's trailer check already exempts a revert while this practice is in force, so a session that never sees this rule loses nothing: it adds a trailer, which the Rule calls welcome. The push gate prints it where a trailer is at issue. index_required: false records that judgment: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 index_clause: "a revert commit may leave out the Session: trailer"
 index_required: false
 checked_by:  null

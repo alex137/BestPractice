@@ -4,7 +4,7 @@ title:       Bold the key phrases by default -- people skim
 tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
-applies_to_why: "Its occasion is writing a document meant to be read, so the path channel fires on markdown and nothing else. Its Rule is about documents; it never asked for bolding in chat, which is what it cost as a resident rule. Decided: promoted to universal 2026-09-07; on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+applies_to_why: "Its occasion is writing a document meant to be read, so the path channel fires on markdown and nothing else. Its Rule is about documents; it never asked for bolding in chat, which is what it cost as a resident rule. Decided: promoted to universal 2026-09-07; on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 occasion:    "writing any document meant to be read"
 gates:       []
 index_clause: "bold the key phrases by default, without being asked"
@@ -23,7 +23,7 @@ approved_by: "Morgan F, migrated from RepoPersonalPreferences by the private-set
   the team sets were simply where it was written down first. Deleted from both
   on promotion rather than left as copies. A repo this does not bind exempts it
   in `not_binding` with a stated reason, which is the mechanism that makes one
-  copy safe; tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+  copy safe; tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 ---
 ## Rule
 People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.

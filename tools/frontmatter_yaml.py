@@ -14,6 +14,19 @@ frontmatter fields, and the fixer that puts a file into it:
 
     python3 tools/frontmatter_yaml.py --fix-order [PATH ...]
     python3 tools/frontmatter_yaml.py --check-order [PATH ...]
+    python3 tools/frontmatter_yaml.py --fix-staged
+
+`--fix-staged` is what the engine's commit hook runs, so the order is kept
+rather than checked after the fact (2026-10-05: the field-order check sat
+warning-only for nine days waiting for a fixer nothing ever ran). It never
+refuses a commit, and it touches a staged practices/*.md file only when all
+of these hold: the repository declares itself a practice source (its own
+precedent-source.json), another source does not own the file, the working
+copy is exactly what is staged (rewriting and re-staging a partly staged
+file would pull unstaged edits into the commit -- practice:
+repair-cannot-discard-work), and the file carries no field this copy of the
+engine does not know (an older copy would push a newer field to the end).
+Anything it leaves alone is left to the check.
 
 With no PATH both cover this repo's own practices/*.md, leaving out any a
 committed MANIFEST.json says another source owns (those are copies, fixed
@@ -240,9 +253,63 @@ def own_practice_files(root=None):
             if p.stem not in foreign]
 
 
+def _git(root, *args):
+    import subprocess
+    return subprocess.run(['git', '-C', str(root), *args],
+                          capture_output=True, text=True)
+
+
+def fix_staged(root=None):
+    """Put the staged practice files of the repository at ROOT (default:
+    the one the current directory is in) in field order and re-stage them.
+    -> the list of paths it reordered. Never raises for a file it cannot
+    fix: it skips it, says why, and leaves it to the check."""
+    if root is None:
+        top = _git(pathlib.Path.cwd(), 'rev-parse', '--show-toplevel')
+        if top.returncode != 0:
+            return []
+        root = pathlib.Path(top.stdout.strip())
+    root = pathlib.Path(root)
+    if not (root / 'precedent-source.json').is_file():
+        return []
+    staged = _git(root, 'diff', '--cached', '--name-only', '--diff-filter=AM',
+                  '--', 'practices/*.md').stdout.split()
+    foreign = _foreign_slugs(root)
+    fixed = []
+    for rel in staged:
+        p = root / rel
+        if p.parent.name != 'practices' or p.stem in foreign or not p.is_file():
+            continue
+        if _git(root, 'diff', '--quiet', '--', rel).returncode != 0:
+            print(f'frontmatter_yaml: {rel} is only partly staged -- left '
+                  f'for the field-order check')
+            continue
+        text = p.read_text(encoding='utf-8')
+        unknown = unlisted_fields(text)
+        if unknown:
+            print(f'frontmatter_yaml: {rel} carries {", ".join(unknown)}, '
+                  f'which this copy of the engine does not know -- left alone')
+            continue
+        try:
+            new = reorder_fields(text)
+        except AssertionError as e:
+            print(f'frontmatter_yaml: {rel} not reordered ({e})')
+            continue
+        if new == text:
+            continue
+        p.write_text(new, encoding='utf-8')
+        _git(root, 'add', '--', rel)
+        fixed.append(rel)
+        print(f'frontmatter_yaml: put {rel} in field order and re-staged it')
+    return fixed
+
+
 def main(argv):
     if argv and argv[0] in ('-h', '--help'):
         print(__doc__)
+        return 0
+    if argv and argv[0] == '--fix-staged':
+        fix_staged()
         return 0
     if not argv or argv[0] not in ('--fix-order', '--check-order'):
         print(__doc__)

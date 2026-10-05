@@ -4,7 +4,7 @@ title:       "Two named check levels: a fast one for every commit, a full one be
 tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "CLAUDE.md", "GLOSSARY.md", "**/GLOSSARY.md"]
-applies_to_why: "The files its check reads: the instructions file (AGENTS.md, or CLAUDE.md where there is none) that names the two levels, and the glossary that defines them. Naming the levels happens in those files, so the path channel fires at that moment. Decided: phase 4 routing pass; real paths, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+applies_to_why: "The files its check reads: the instructions file (AGENTS.md, or CLAUDE.md where there is none) that names the two levels, and the glossary that defines them. Naming the levels happens in those files, so the path channel fires at that moment. Decided: phase 4 routing pass; real paths, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 occasion:    "naming what \"run the checks\" means in a repo"
 gates:       []
 index_clause: "name a fast check and a full check; say which gates what"
@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork); real paths, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "BestPractice (pre-fork); real paths, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 source_practice_number: 44
 ---
 ## Rule

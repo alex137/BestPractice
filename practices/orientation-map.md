@@ -4,7 +4,7 @@ title:       An orientation map, read first
 tier:        on-demand
 severity:    default
 applies_to:  ["MAP.md", "AGENTS.md", "CLAUDE.md"]
-applies_to_why: "The map and the instructions file that sends a session to it are the files this rule is about, so editing either is the moment it fires. Reading MAP.md first does not need this rule resident: the install template's first line tells every session to, and the orientation-map check refuses an instructions file that never names MAP.md. Decided: on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+applies_to_why: "The map and the instructions file that sends a session to it are the files this rule is about, so editing either is the moment it fires. Reading MAP.md first does not need this rule resident: the install template's first line tells every session to, and the orientation-map check refuses an instructions file that never names MAP.md. Decided: on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 occasion:    "orienting in a repo for the first time this session"
 gates:       []
 index_clause: "a top-level MAP.md indexes the repo; every session reads it first"
@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 source_practice_number: 2
 ---
 ## Rule
