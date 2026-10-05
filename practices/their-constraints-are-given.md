@@ -4,6 +4,7 @@ title:       "A person's account of their own constraints is given, not a claim 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "A person states a fact about their situation in a conversation, not in a file; the occasion index reaches it."
 occasion:    "a person's account of their own situation seems contradicted by the evidence"
 gates:       []
 index_clause: "say it once, then work from theirs"
@@ -11,11 +12,11 @@ checked_by:  null
 defines:     []
 command:     null
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
 approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from the shared set precedent-shared-working-style"
-in_force_at: null
 strength: decided
 ---
 ## Rule

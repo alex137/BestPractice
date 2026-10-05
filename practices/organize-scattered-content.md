@@ -4,19 +4,20 @@ title:       Scattered end-user content gets a recommendation to group it
 tier:        on-demand
 severity:    advisory
 applies_to:  ["**"]
+applies_to_why: "Scattered content is a state of the whole tree, not of one path, so no narrower glob names it; the occasion index reaches it."
 occasion:    "about four or more end-user content files sit scattered around a repo"
 gates:       []
 index_clause: "name a directory and its files, ask, move nothing until yes; recheck later"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  ["content-directory", "content-subdirs"]
 overrides:   null
 added:       "2026-10-05"
 approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from the shared set precedent-shared-working-style"
-in_force_at: null
-source_practice_number: null
 strength: decided
+source_practice_number: null
 ---
 ## Rule
 When **about four or more content files meant for end users** -- the

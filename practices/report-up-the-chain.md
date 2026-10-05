@@ -4,6 +4,7 @@ title:       Report to whoever tasked you; send noticed work up, not out
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
+applies_to_why: "Finishing a spawned or triggered task is a moment, not a file; the occasion index reaches it."
 occasion:    "finishing a task a session was spawned or triggered to do"
 gates:       []
 index_clause: "report to whoever tasked you; noticed work goes up, never out as an offer"
