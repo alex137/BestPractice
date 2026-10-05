@@ -922,9 +922,27 @@ def _index_clause(fm, sections):
     fallback so a newly added practice renders before its clause is written,
     rather than silently rendering nothing."""
     written = _json_str(fm.get('index_clause', ''))
-    if written:
-        return written
-    return _occasion_clause(sections.get('rule', ''))
+    clause = written or _occasion_clause(sections.get('rule', ''))
+    # A Principle or a Preference says so on its one line, so a session
+    # deciding from the index knows how binding it is (practice:
+    # practice-standing). A Protocol, the default, carries nothing.
+    return _standing_prefix(fm) + clause
+
+
+def _standing_note(fm):
+    try:
+        import practice_standing
+    except ImportError:                       # practice: fail-gracefully
+        return ''
+    return practice_standing.inline_note(fm)
+
+
+def _standing_prefix(fm):
+    try:
+        import practice_standing
+    except ImportError:                       # practice: fail-gracefully
+        return ''
+    return practice_standing.clause_prefix(fm)
 
 
 _INDEX_CLAUSE_LINE_RE = re.compile(r'^index_clause:.*$', re.M)
@@ -1355,7 +1373,8 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     # text that actually goes in the block.
     resident = [(fm, sections) for fm, sections, _f in resident]
     resident_text = '\n\n'.join(
-        f"**{fm['slug']}.** {rule}" for fm, _sections, rule in placed
+        f"**{fm['slug']}.** {_standing_note(fm)}{rule}"
+        for fm, _sections, rule in placed
     )
     budget = (RESIDENT_BUDGET_TOKENS if budget_tokens is None
               else budget_tokens)
