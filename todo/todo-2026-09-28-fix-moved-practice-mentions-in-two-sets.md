@@ -3,7 +3,7 @@ slug:              todo-2026-09-28-fix-moved-practice-mentions-in-two-sets
 kind:              manual
 domain:            vendoring
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         "2026-09-28"
 blocked_on:        "a Promote of BestPractice pre-staging to staging: precedent-individual's link check refuses its fixed links to fresh-before-write and dont-race-another-window until staging carries them"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-28
-closed:            null
+closed:            2026-10-05
 ---
 ## What
 
@@ -70,3 +70,5 @@ branch that carries them), rerun its push check and fast-forward its
 
 Both sets' `pre-staging` carry the fixes, and a `--mentions-only --dry-run`
 for each row above prints "nothing to fix".
+
+**Closed 2026-10-05.** Staging carries both practices, the individual set's fix landed, and the mentions dry runs print "nothing to fix"; the content-directory row is moot, since that practice was retired rather than moved (very deep check pass 4, 2026-10-05).
