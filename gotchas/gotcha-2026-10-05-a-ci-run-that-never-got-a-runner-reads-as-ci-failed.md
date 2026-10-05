@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-05-a-ci-run-that-never-got-a-runner-reads-as-ci-failed
-status:          live
+status:          retired
 noted:           2026-10-05
 severity:        notable
-retired:         null
+retired:         2026-10-05
 retires_when:    "tools/precedent_ci_verified.py tells a run that never started from one that ran and failed"
 ---
 ## Symptom
@@ -40,7 +40,8 @@ queued or cancelled the same way, GitHub has no runners for the repository
 right now and the change is not the cause. Run the same check locally --
 the leak gate locally is a superset of the CI half -- and decide on that;
 the merge gate's CI line is advisory for exactly this reason. One re-run is
-the most it is worth. The upstream fix is for that tool to
-read the job, not just the run, and say "never started" instead of
-"FAILED". It needs one more API request, and only for a run that did not
-pass.
+the most it is worth. **Fixed the same day:** that tool now reads
+the jobs of a run that did not pass -- one more API request, only then --
+and the merge gate says "CI NEVER STARTED" with this advice instead of
+"CI FAILED". GitHub's capacity can still stall a run; it no longer reads
+as a finding.

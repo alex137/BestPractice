@@ -70,6 +70,7 @@ import precedent_resolve as pr  # noqa: E402
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import precedent_source_pins as psp  # noqa: E402
 
 
 
@@ -1265,6 +1266,24 @@ def _outside(entry):
     return path.startswith(('/', '~')) or '..' in pathlib.PurePosixPath(path).parts
 
 
+def _source_entry(source, base):
+    """One `sources` entry. A source read from a git checkout outside this
+    tree also records the COMMIT it was read at (precedent_source_pins.py):
+    the views check reads the source back at that commit, so its answer
+    depends on neither the clone's checkout nor how far the source has moved
+    since. A checkout with uncommitted changes records none -- those changes
+    are on no commit anybody else can read."""
+    shown = source.get('clone_path') or source['path']
+    entry = {'level': source['level'], 'name': source['name'],
+             'path': (shown if base is None
+                      else _manifest_source_path(shown, base))}
+    if base is not None and _outside(entry):
+        commit = psp.head_commit(source['path'])
+        if commit and not psp.is_dirty(source['path']):
+            entry['commit'] = commit
+    return entry
+
+
 def _build_manifest(sources, written, checks_written, rstats,
                     adapters_written=(), withheld=None,
                     excluded_engine_dev=None, ships_written=(),
@@ -1296,10 +1315,7 @@ def _build_manifest(sources, written, checks_written, rstats,
                 'precedent_materialize.py with the same --repo/--user-config; '
                 'this file records exactly what produced the snapshot so drift '
                 'is visible, per generated-artifact-provenance.',
-        'sources': [{'level': s['level'], 'name': s['name'],
-                     'path': (s['path'] if base is None
-                              else _manifest_source_path(s['path'], base))}
-                    for s in sources],
+        'sources': [_source_entry(s, base) for s in sources],
         'resident': rstats,
         'practices': written,
         'checks': checks_written,
@@ -1457,11 +1473,13 @@ def drift(sources, res, out_dir, withheld=None):
             want_cmp.pop('generated_at_utc', None)
             # A source outside this directory is compared by level and name:
             # its path is where the checkout that synced found it, which
-            # another machine's layout changes with nothing stale.
+            # another machine's layout changes with nothing stale. Its
+            # commit is provenance, like the timestamp: the content it
+            # produced is what is compared, file by file, above.
             for side in (have, want_cmp):
                 if isinstance(side.get('sources'), list):
                     side['sources'] = [
-                        {k: v for k, v in e.items() if k != 'path'}
+                        {k: v for k, v in e.items() if k not in ('path', 'commit')}
                         if isinstance(e, dict) and _outside(e) else e
                         for e in side['sources']]
             if have != want_cmp:

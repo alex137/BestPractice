@@ -23023,6 +23023,72 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
     check(f'a Promote names a binary merge conflict ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_produce_sees_main_changes_staging_carries():
+    """A red main whose tip changes nothing staging lacks does not hold Produce.
+
+    2026-10-05: main's GitHub test went red on a Produce's own merge commit
+    because its jobs never got a runner. main_test_holds_produce asked
+    whether staging descends from main's tip, said "Debut first", and the
+    Debut had nothing to take down -- a merge commit changes no file -- so
+    the session went round in a circle. The hold now also lifts when
+    staging already carries every change main's tip brings (and its tree
+    passed the full local check). The control keeps the hold for a main
+    tip that changes a file staging lacks.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-produce-carried-'))
+    cases = []
+    try:
+        origin, r = tmp / 'origin.git', tmp / 'r'
+        def git(*a, cwd=None):
+            return subprocess.run(['git', *a], cwd=str(cwd or r),
+                                  capture_output=True, text=True)
+        git('init', '-q', '--bare', str(origin), cwd=tmp)
+        git('clone', '-q', str(origin), str(r), cwd=tmp)
+        git('config', 'user.email', 'fixture@example.com')
+        git('config', 'user.name', 'fixture')
+        (r / 'a.txt').write_text('one\n')
+        git('add', '.')
+        git('commit', '-qm', 'base')
+        git('branch', '-M', 'main')
+        git('checkout', '-qb', 'staging')
+        (r / 'a.txt').write_text('two\n')
+        git('commit', '-qam', 'work on staging')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'Merge pull request: Produce', 'staging')
+        git('push', '-q', 'origin', 'main', 'staging')
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+pb._gets_github_test = lambda root, b: True
+pb.github_tests = lambda root, sha: ['deep-check.yml']
+pb.github_test_state = lambda root, sha, tests, gh=None: ('failed', 'fixture')
+pb.staging_branch = lambda root: 'staging'
+pb._receipt = lambda root, sha: True
+print(repr(pb.main_test_holds_produce({str(r)!r}, say=lambda *a: None)))
+""", encoding='utf-8')
+        def run():
+            out = subprocess.run([sys.executable, str(script)], capture_output=True,
+                                 text=True)
+            return out.stdout.strip(), out.stderr[-400:]
+        got, err = run()
+        cases.append(("a main tip that is a no-change merge of staging does not "
+                      "hold Produce", got == 'None', got or err))
+        (r / 'b.txt').write_text('a change only main has\n')
+        git('add', '.')
+        git('commit', '-qm', 'direct push to main')
+        git('push', '-q', 'origin', 'main')
+        got, err = run()
+        cases.append(("...and a main tip with a file change staging lacks still "
+                      "holds it, naming Debut", 'Debut first' in got, got or err))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Produce sees main changes staging already carries ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
     nothing happened that is visible, or non-trivial, to the person --
@@ -29041,7 +29107,7 @@ def check_main_test_minutes_rule():
         pb2 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pb2)
         pb2.sync_pre_staging = lambda root, say=print, check=False, **_kw: True
-        pb2._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+        pb2._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
         pb2._slug = lambda root: 'o/r'
         pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
         pb2.DEFAULT_USER_CONFIG = cfg
@@ -30013,7 +30079,7 @@ def check_sync_copies_work_from_above_once_checked():
             gh = GH([])
             pb.GITHUB_POLL_SECONDS = 0
             pb._remote_tip = lambda root, branch: 'SHA'
-            pb._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+            pb._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
             pb._Worktree = type('W', (), {'__init__': lambda s, *a: None,
                                           '__enter__': lambda s: None,
                                           '__exit__': lambda s, *e: False})
@@ -31124,6 +31190,7 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
 
     cases = []
     saved_git, saved_fetch = pciv._git, pciv._fetch_runs
+    saved_jobs = pciv._fetch_jobs
 
     def stub_git(root, *a):
         if a[:1] == ('rev-parse',) and 'HEAD' in a and '--abbrev-ref' in a:
@@ -31165,9 +31232,41 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
         cases.append(('the gate says DID NOT RUN, not "failed"',
                       'DID NOT RUN' in said, said[:80]))
 
-        state, _ = run([dict(ok[0], conclusion='failure'), ok[1]])
+        pciv._fetch_jobs = lambda url: ([{'conclusion': 'failure',
+                                          'runner_name': 'GitHub Actions 7',
+                                          'runner_id': 7}], '')
+        state, _ = run([dict(ok[0], conclusion='failure', jobs_url='j'), ok[1]])
         cases.append(('a failed run is FAILED, told apart from not running',
                       state == pciv.FAILED, state))
+
+        # THE 2026-10-05 STALL: the run says `failure`, but its only job was
+        # cancelled without ever getting a machine. Not a finding.
+        idle_job = {'conclusion': 'cancelled', 'runner_name': '', 'runner_id': 0}
+        pciv._fetch_jobs = lambda url: ([idle_job,
+                                         {'conclusion': 'success',
+                                          'runner_name': 'GitHub Actions 3',
+                                          'runner_id': 3}], '')
+        state, lines = run([dict(ok[0], conclusion='failure', jobs_url='j'), ok[1]])
+        said = pciv.remind('.')
+        cases.append(('a run whose failing jobs never got a machine is '
+                      'NEVER_STARTED, and the gate does not say FAILED',
+                      state == pciv.NEVER_STARTED and 'FAILED' not in said
+                      and 'NEVER STARTED' in said, said[:90]))
+        cases.append(('a job that DID get a machine and was cancelled is still '
+                      'a failure, never excused as never started',
+                      not pciv.never_started([dict(idle_job, runner_name='GitHub '
+                                                   'Actions 9', runner_id=9)])
+                      and not pciv.never_started([])
+                      and pciv.never_started([idle_job]), ''))
+        pciv._fetch_jobs = lambda url: (None, 'GitHub answered 403')
+        state, _ = run([dict(ok[0], conclusion='failure', jobs_url='j'), ok[1]])
+        cases.append(('when the jobs cannot be read, a red run stays FAILED',
+                      state == pciv.FAILED, state))
+        asked = []
+        pciv._fetch_jobs = lambda url: (asked.append(url), ([], ''))[1]
+        run(ok)
+        cases.append(('a green commit costs no jobs request at all',
+                      asked == [], repr(asked)))
         state, _ = run([dict(ok[0], status='in_progress', conclusion=None),
                         ok[1]])
         cases.append(('an unfinished run is RUNNING, not success',
@@ -31190,6 +31289,7 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
                       state == pciv.NOT_RUN and not spent, f'{state} {spent}'))
     finally:
         pciv._git, pciv._fetch_runs = saved_git, saved_fetch
+        pciv._fetch_jobs = saved_jobs
         pciv.expected_workflows = saved_expected
 
     # THE PARSER CASE the tool got wrong on its first run: `pull_request:`
@@ -44100,6 +44200,66 @@ def check_refresh_wired_settings_is_not_lost_work():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_refreshed_agents_block_is_not_lost_work():
+    """A source clone's AGENTS.md whose only change is inside its generated
+    blocks is the refresh's output; any change outside them is a person's.
+
+    On 2026-10-05 a startup refresh rewrote precedent-shared-ladder's loader
+    block, AGENTS.md read as uncommitted work, the clone was not brought up
+    to its own origin/main and the container check said the session could
+    not be archived -- over a block a rebuild reproduced byte for byte. The
+    file is mostly a person's prose, so the other half matters as much."""
+    import tempfile
+    import precedent_refresh_sources as rs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='agents-block-'))
+    head = '# Notes\n\nA person wrote this.\n\n'
+    block = ('<!-- BEGIN GENERATED: precedent-loader -->\n{}\n'
+             '<!-- END GENERATED -->\n')
+    tail = '\n## Working here\n\nMore prose.\n'
+    try:
+        def git(*a):
+            return subprocess.run(['git', '-C', str(tmp), *a],
+                                  capture_output=True, text=True)
+        git('init', '--quiet')
+        git('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git('config', 'user.name', 'Fixture')
+        f = tmp / 'AGENTS.md'
+        f.write_text(head + block.format('old index') + tail, encoding='utf-8')
+        git('add', '-A')
+        git('commit', '--quiet', '-m', 'first')
+
+        def verdict(text):
+            f.write_text(text, encoding='utf-8')
+            return rs.classify_dirt(tmp)
+        engine, other = verdict(head + block.format('new index\nlonger') + tail)
+        cases.append(('a rewritten loader block alone is engine dirt',
+                      engine == ['AGENTS.md'] and not other,
+                      f'engine={engine} other={other}'))
+        engine, other = verdict(head.replace('wrote', 'edited') +
+                                block.format('new index') + tail)
+        cases.append(("one word of prose changed beside it is a person's",
+                      other == ['AGENTS.md'] and not engine,
+                      f'engine={engine} other={other}'))
+        engine, other = verdict(head + tail)
+        cases.append(("the block removed is a person's, never engine output",
+                      other == ['AGENTS.md'] and not engine,
+                      f'engine={engine} other={other}'))
+        git('checkout', '--quiet', '--', 'AGENTS.md')
+        f.write_text('# Notes\n\nNo block at all.\n', encoding='utf-8')
+        git('commit', '--quiet', '-am', 'no block')
+        engine, other = verdict('# Notes\n\nNo block, edited.\n')
+        cases.append(("CONTROL: a file with no generated block is a person's",
+                      other == ['AGENTS.md'] and not engine,
+                      f'engine={engine} other={other}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an AGENTS.md the refresh only rewrote the generated block of is '
+          f'engine output, and any other edit to it is a person\'s '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
 def check_generated_blocks_both_styles():
     """generated_blocks.py: the one "is this line generated?" every scan that
     skips generated text uses (added 2026-09-29). Each tool used to match
@@ -52188,6 +52348,316 @@ def check_sync_check_passes_from_another_checkout():
             '; '.join(f'{n} -- {str(d)[:500]}' for n, d in bad))
 
 
+def _pin_fixture_practice(slug, rule):
+    return (_move_fixture_practice(slug)
+            .replace('Do the thing.', rule))
+
+
+def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
+    """A consumer's views check reads each shared set at the commit its
+    MANIFEST.json records syncing it at, never at whatever branch the set's
+    clone has checked out (2026-10-05). Reported from a consumer: its
+    pre-staging took a set's Booked change, session start left the set's
+    clone on main, and every push was refused for "drift" in files it never
+    touched -- with a remedy, a plain sync, that rolled the Booked change
+    back. Twice in one session.
+
+    Each direction: a pre-staging carrying a Booked-not-Produced set change
+    passes; a write from a clone that lacks it is refused rather than
+    rolling it back; a push to staging or main carrying a set commit the set
+    has not landed on that rung is refused, with promoting the set as the
+    remedy, and passes once it has; a hand-edited generated file still
+    fails; a manifest written before pins gets one inferred; uncommitted
+    edits in a set's clone are never taken into a consumer."""
+    import shutil, tempfile
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-views-pin-'))
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_ALLOW_ANY_AUTHOR': '1'}
+    cases = []
+
+    def git(where, *args):
+        return subprocess.run(['git', '-C', str(where), *args], env=env,
+                              capture_output=True, text=True)
+
+    try:
+        (tmp / 'home').mkdir()
+        # The universal source is a plain directory: nothing to pin.
+        uni = tmp / 'u'
+        (uni / 'practices').mkdir(parents=True)
+        (uni / 'practices' / 'uni-rule.md').write_text(
+            _pin_fixture_practice('uni-rule', 'A universal rule.'), encoding='utf-8')
+        # The shared set: a clone of a bare origin, with all three rungs.
+        bare, st = tmp / 'origin-set.git', tmp / 'precedent-shared-fixture'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       env=env, capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(bare), str(st)], env=env,
+                       capture_output=True)
+        rule = st / 'practices' / 'set-rule.md'
+        rule.parent.mkdir(parents=True)
+
+        def set_commit(text, msg):
+            rule.write_text(_pin_fixture_practice('set-rule', text), encoding='utf-8')
+            git(st, 'add', '-A')
+            git(st, 'commit', '-qm', msg)
+            return git(st, 'rev-parse', 'HEAD').stdout.strip()
+
+        git(st, 'checkout', '-q', '-b', 'main')
+        set_commit('Version one.', 'v1')
+        for b in ('pre-staging', 'staging'):
+            git(st, 'branch', b)
+        git(st, 'push', '-q', 'origin', 'main', 'pre-staging', 'staging')
+        # Version two is Booked: a working branch merged into pre-staging.
+        git(st, 'checkout', '-q', '-b', 'feature', 'main')
+        set_commit('Version two.', 'v2')
+        git(st, 'checkout', '-q', 'pre-staging')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Book v2', 'feature')
+        git(st, 'push', '-q', 'origin', 'pre-staging')
+        booked = git(st, 'rev-parse', 'HEAD').stdout.strip()
+
+        repo = tmp / 'consumer'
+        subprocess.run(['git', 'init', '-q', '-b', 'pre-staging', str(repo)],
+                       env=env, capture_output=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                        {'level': 'shared', 'name': 'precedent-shared-fixture',
+                         'path': str(st)}]}) + '\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+
+        def sync(*extra):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                                '--repo', str(repo), *extra], cwd=str(repo), env=env,
+                               capture_output=True, text=True, timeout=600)
+            return r.returncode, r.stdout + r.stderr
+
+        def pinned():
+            data = json.loads((repo / 'MANIFEST.json').read_text(encoding='utf-8'))
+            return {e['name']: e.get('commit') for e in data['sources']}
+
+        def taken():
+            return (repo / 'practices' / 'set-rule.md').read_text(encoding='utf-8')
+
+        # The consumer's pre-staging takes the Booked change.
+        rc, out = sync()
+        pins = pinned() if rc == 0 else {}
+        cases.append(('a sync records the commit it read the set at, and none for a '
+                      'plain-directory source',
+                      rc == 0 and pins.get('precedent-shared-fixture') == booked
+                      and pins.get('precedent') is None and 'Version two.' in taken(),
+                      f'rc={rc} {pins} {out[-500:]}'))
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'take the Booked v2')
+
+        # Session start leaves the set's clone on main.
+        git(st, 'checkout', '-q', 'main')
+        rc, out = sync('--check')
+        cases.append(('the views check passes with the clone on main: it reads the '
+                      'set at the recorded commit (the reported refusal)',
+                      rc == 0, out[-600:]))
+        rc, out = sync('--check', '--for-branch', 'pre-staging')
+        cases.append(('...and a push to pre-staging passes: the set has v2 on its '
+                      'own pre-staging', rc == 0, out[-600:]))
+        rc, out = sync()
+        cases.append(('a sync from the clone on main is REFUSED rather than rolling '
+                      'the Booked change back, and writes nothing',
+                      rc != 0 and 'roll those changes back' in out
+                      and 'origin/pre-staging' in out and 'Version two.' in taken(),
+                      f'rc={rc} {out[-600:]}'))
+        git(st, 'checkout', '-q', '--detach', 'origin/pre-staging')
+        rc, out = sync()
+        cases.append(('CONTROL: from the clone at the set\'s pre-staging, the same '
+                      'sync goes through and changes nothing',
+                      rc == 0 and not git(repo, 'status', '--porcelain', '--',
+                                          'practices').stdout.strip(),
+                      f'rc={rc} {out[-400:]}'))
+        git(repo, 'checkout', '-q', '--', '.')
+        git(st, 'checkout', '-q', 'main')
+
+        # The rung: staging and main may not carry what the set has not landed.
+        rc, out = sync('--check', '--for-branch', 'staging')
+        cases.append(('a push to staging carrying the set\'s pre-staging-only commit '
+                      'is refused, with Debut as the remedy and never a sync',
+                      rc != 0 and 'Debut it in precedent-shared-fixture' in out
+                      and 'Do NOT sync' in out, f'rc={rc} {out[-600:]}'))
+        rc, out = sync('--check', '--for-branch', 'main')
+        cases.append(('...and so is a push to main, with Produce as the remedy',
+                      rc != 0 and 'Produce it in precedent-shared-fixture' in out,
+                      f'rc={rc} {out[-600:]}'))
+        rc, out = sync('--rung-only', '--for-branch', 'main')
+        cases.append(('the push check\'s own rung step (--rung-only) refuses the same '
+                      'push without rendering anything',
+                      rc != 0 and 'Produce it in precedent-shared-fixture' in out
+                      and 'Do NOT sync' in out, f'rc={rc} {out[-400:]}'))
+        git(st, 'checkout', '-q', 'staging')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Debut', 'origin/pre-staging')
+        git(st, 'push', '-q', 'origin', 'staging')
+        git(st, 'checkout', '-q', 'main')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Produce', 'origin/staging')
+        git(st, 'push', '-q', 'origin', 'main')
+        rc_s, out_s = sync('--check', '--for-branch', 'staging')
+        rc_m, out_m = sync('--check', '--for-branch', 'main')
+        cases.append(('once the set has Debuted and Produced it, both pushes pass',
+                      rc_s == 0 and rc_m == 0, f'{out_s[-300:]} | {out_m[-300:]}'))
+        rc, out = sync('--rung-only', '--for-branch', 'main')
+        cases.append(('...and so does the rung step', rc == 0, out[-300:]))
+
+        # A hand-edited generated file fails on every rung.
+        good = taken()
+        (repo / 'practices' / 'set-rule.md').write_text(
+            good.replace('Version two.', 'Edited by hand.'), encoding='utf-8')
+        failed = []
+        for b in (None, 'pre-staging', 'staging', 'main'):
+            rc, out = sync('--check', *(['--for-branch', b] if b else []))
+            if rc == 0 or 'set-rule.md differs' not in out:
+                failed.append(f'{b}: rc={rc} {out[-200:]}')
+        cases.append(('a hand-edited materialized practice fails the check on every '
+                      'rung', not failed, '; '.join(failed)))
+        (repo / 'practices' / 'set-rule.md').write_text(good, encoding='utf-8')
+
+        # A set moving on is said, never refused.
+        git(st, 'checkout', '-q', 'pre-staging')
+        git(st, 'merge', '-q', '--ff-only', 'origin/pre-staging')
+        set_commit('Version three.', 'v3')
+        git(st, 'push', '-q', 'origin', 'pre-staging')
+        git(st, 'checkout', '-q', 'main')
+        rc, out = sync('--check', '--for-branch', 'pre-staging')
+        cases.append(('a newer set commit on pre-staging is a note, not a refusal',
+                      rc == 0 and 'differs from what this repository took' in out,
+                      f'rc={rc} {out[-500:]}'))
+
+        # A manifest written before pins: the pin is inferred from history.
+        mf = repo / 'MANIFEST.json'
+        original = mf.read_text(encoding='utf-8')
+        data = json.loads(original)
+        for e in data['sources']:
+            e.pop('commit', None)
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        rc, out = sync('--check')
+        cases.append(('a manifest with no pins passes with the clone on main: the '
+                      'commit whose practices match is found and named',
+                      rc == 0 and 'matched' in out, f'rc={rc} {out[-500:]}'))
+        mf.write_text(original, encoding='utf-8')
+
+        # Uncommitted edits in a set's clone never reach the consumer.
+        git(st, 'checkout', '-q', '--detach', 'origin/pre-staging')
+        rule.write_text(_pin_fixture_practice('set-rule', 'Uncommitted.'),
+                        encoding='utf-8')
+        rc, out = sync()
+        cases.append(('a sync from a clone with uncommitted practice edits takes '
+                      'its commit, not the edits, and says so',
+                      rc == 0 and 'Uncommitted.' not in taken()
+                      and 'were NOT taken' in out
+                      and pinned().get('precedent-shared-fixture')
+                      == git(st, 'rev-parse', 'HEAD').stdout.strip(),
+                      f'rc={rc} {out[-500:]}'))
+        rc, out = sync('--check')
+        cases.append(('...and its own check passes straight after',
+                      rc == 0, out[-400:]))
+        cases.append(('no worktree is left behind in the set\'s clone',
+                      len(git(st, 'worktree', 'list').stdout.splitlines()) == 1,
+                      git(st, 'worktree', 'list').stdout))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:600]}' for n, d in bad))
+
+
+def check_push_destination_reaches_the_views_check():
+    """The push check knows the branch a push goes to, so a set's commits
+    are held to that rung (2026-10-05): from --push-command, the highest
+    rung it writes to; --destination, which Promote passes, wins. The rung
+    test is its own uncached step, never part of a recorded step's argv."""
+    import precedent_push_check as ppc
+    cases = [
+        ('a push to a working branch and main is judged as main',
+         ppc._destination(ROOT, ['--push-command', 'origin feat main']) == 'main'),
+        ('a push to pre-staging is pre-staging',
+         ppc._destination(ROOT, ['--push-command', 'origin HEAD:pre-staging'])
+         == 'pre-staging'),
+        ('--destination wins',
+         ppc._destination(ROOT, ['--destination', 'staging', '--push-command',
+                                 'origin main']) == 'staging'),
+        ('no destination named, none assumed',
+         ppc._destination(ROOT, ['--gate']) is None),
+    ]
+    orig = ppc.repo_kind
+    try:
+        ppc.repo_kind = lambda _e: 'consumer'
+        steps = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full')[1])
+    finally:
+        ppc.repo_kind = orig
+    cases.append(('the recorded steps carry no destination, so a pass for one '
+                  'branch is still reused for the same tree going to another '
+                  '(the first version broke Promote\'s reuse of a full pass)',
+                  'views_sync' in steps
+                  and all('--for-branch' not in v for v in steps.values())))
+    cases.append(('the rung step stands aside outside a consumer, and with no '
+                  'destination', ppc._rung_refusal(ROOT, 'upstream', 'main') is None
+                  and ppc._rung_refusal(ROOT, 'consumer', None) is None))
+    bad = [c[0] for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_session_check_names_commits_on_origin_off_main():
+    """A set's clone checked out at the set's staging was reported "6
+    unpushed commit(s) ahead" of main (2026-10-05): they were on origin,
+    only not on main. Unpushed now means on no origin branch; commits on
+    another origin branch are named by that branch, and are not stale."""
+    import shutil, tempfile
+    import precedent_session_check as psc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-clone-ahead-'))
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+
+    def git(where, *args):
+        return subprocess.run(['git', '-C', str(where), *args], env=env,
+                              capture_output=True, text=True)
+    cases = []
+    try:
+        bare, cl = tmp / 'o.git', tmp / 'clone'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       env=env, capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(bare), str(cl)], env=env,
+                       capture_output=True)
+        git(cl, 'checkout', '-q', '-b', 'main')
+        (cl / 'a').write_text('1\n')
+        git(cl, 'add', '-A'), git(cl, 'commit', '-qm', 'one')
+        git(cl, 'push', '-q', 'origin', 'main')
+        git(cl, 'checkout', '-q', '-b', 'staging')
+        (cl / 'a').write_text('2\n')
+        git(cl, 'commit', '-qam', 'two')
+        git(cl, 'push', '-q', 'origin', 'staging')
+        git(cl, 'checkout', '-q', '--detach', 'origin/staging')
+        old = os.environ.copy()
+        os.environ.update(env)
+        try:
+            v, phrase = psc._clone_behind(str(cl), fetch=True, branch='main')
+            cases.append(('a clone at the set\'s staging is not stale and nothing '
+                          'is called unpushed', v == 'current'
+                          and 'unpushed' not in phrase and 'on origin' in phrase
+                          and 'origin/staging' in phrase, f'{v}: {phrase}'))
+            (cl / 'a').write_text('3\n')
+            git(cl, 'commit', '-qam', 'three')
+            v, phrase = psc._clone_behind(str(cl), fetch=True, branch='main')
+            cases.append(('CONTROL: a commit on no origin branch is unpushed',
+                          v == 'behind' and '1 unpushed commit(s) ahead' in phrase,
+                          f'{v}: {phrase}'))
+        finally:
+            os.environ.clear()
+            os.environ.update(old)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_generated_index_of_nothing_yet_passes():
     """generated-files-registered passes a repository whose generated index
     has no sources YET -- gotchas/INDEX.md with no gotcha written -- when the
@@ -59302,6 +59772,13 @@ def main():
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
+    check('the views check reads a shared set at the commit it was synced at, '
+          'holds it to the push\'s rung, and a sync never rolls it back',
+          *check_views_check_reads_a_set_at_the_commit_it_was_synced_at())
+    check('the push check hands the views check where the push goes',
+          *check_push_destination_reaches_the_views_check())
+    check('the session check calls a commit unpushed only when no origin branch '
+          'has it', *check_session_check_names_commits_on_origin_off_main())
     check('a generated index with no sources yet passes when its own check does',
           *check_generated_index_of_nothing_yet_passes())
     check('Update Vendors fetches the sets a person brings before it syncs the views',
@@ -59431,6 +59908,7 @@ def main():
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
     check_promote_names_a_binary_conflict()
+    check_produce_sees_main_changes_staging_carries()
     check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()
     check('the archive line is refused when the container holds '
@@ -59584,6 +60062,7 @@ def main():
     check_generated_blocks_both_styles()
     check_runner_drops_findings_on_received_files()
     check_refresh_wired_settings_is_not_lost_work()
+    check_refreshed_agents_block_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_in_force_at_chain_is_followed()

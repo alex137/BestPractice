@@ -726,9 +726,11 @@ class _Worktree:
         return False
 
 
-def _check(root, wt, tier):
+def _check(root, wt, tier, dest=None):
     """-> (ok, output): the repo's own push check at `tier` in worktree
-    `wt`, reusing a pass the checkout already recorded for the same tree."""
+    `wt`, reusing a pass the checkout already recorded for the same tree.
+    `dest` is the branch the result is pushed to: the views check holds a
+    set's commits to that same rung."""
     tool = _push_check_tool(wt)
     if tool is None:
         return False, 'this repository carries no precedent_push_check.py, so nothing could be checked'
@@ -741,7 +743,8 @@ def _check(root, wt, tier):
         if src_p.is_file():
             dst_p.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_p, dst_p)
-    p = subprocess.run([sys.executable, tool, '--gate', '--tier', tier],
+    p = subprocess.run([sys.executable, tool, '--gate', '--tier', tier]
+                       + (['--destination', dest] if dest else []),
                        cwd=wt, capture_output=True, text=True)
     return p.returncode == 0, (p.stdout + p.stderr).rstrip()
 
@@ -1407,7 +1410,7 @@ def _check_tier(root, branch, tip, say, gh=None):
     request, else started and awaited."""
     with _Worktree(root, tip) as wt:
         t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL)
+        ok, out = _check(root, wt, FULL, dest=branch)
         took = time.monotonic() - t0
     if not ok:
         return False, f'the full local check failed on {tip[:12]}:\n{out}'
@@ -1698,7 +1701,7 @@ def sync_pre_staging(root, say=print, check=False):
                 say(f'{branch} and {PRE_STAGING} both changed '
                     f'{", ".join(files)}; generated, so rebuilt from the merged '
                     f'sources rather than either side taken.')
-        ok, out = _check(root, wt, BASIC)
+        ok, out = _check(root, wt, BASIC, dest=PRE_STAGING)
         if not ok:
             say(f'the merge of {" and ".join(b for b, _ in ready)} into '
                 f'{PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
@@ -2132,6 +2135,23 @@ def _to_main_copy(root, due=True):
 PROMOTE_MAIN_NOT_MOVED = 3
 
 
+def _carries_changes_of(root, tip, other):
+    """True when `tip` already has every file change `other` brings: merging
+    `other` into `tip` would leave `tip`'s tree as it is. A Produce's own
+    merge commit on main is the common case -- it changes no file, so a
+    Debut has nothing to take down and never makes staging its descendant.
+    Until 2026-10-05 main_test_holds_produce asked for ancestry alone, so a
+    main whose GitHub test went red without running (no runner) held every
+    Produce while telling the session to Debut, and the Debut had nothing to
+    do. Needs `git merge-tree --write-tree` (git 2.38); where that is
+    missing, or the merge conflicts, this answers False, the old reading."""
+    r = _run(root, 'merge-tree', '--write-tree', tip, other)
+    if r.returncode != 0:
+        return False
+    merged = r.stdout.split('\n', 1)[0].strip()
+    return bool(merged) and merged == _git(root, 'rev-parse', f'{tip}^{{tree}}')
+
+
 def main_test_holds_produce(root, say=print, gh=None):
     """-> None when a move into main may go ahead, else why not. Main's
     GitHub test on its own tip: failing holds it, still running is waited
@@ -2161,8 +2181,9 @@ def main_test_holds_produce(root, say=print, gh=None):
         staging = staging_branch(root)
         _run(root, 'fetch', '-q', 'origin', staging)
         stip = _remote_tip(root, staging)
-        carried = bool(stip) and _run(root, 'merge-base', '--is-ancestor', mtip,
-                                      stip).returncode == 0
+        carried = bool(stip) and (
+            _run(root, 'merge-base', '--is-ancestor', mtip, stip).returncode == 0
+            or _carries_changes_of(root, stip, mtip))
         # ...checked first, never taken on trust: carrying main's commit says
         # nothing about whether the tree it makes with the ladder's work
         # passes, so the hold lifts only for a staging tip whose exact tree
@@ -2232,7 +2253,7 @@ def _promote_to_main(root, say=print):
             return 1
         say(f'checking {len(batch)} commit(s) from {staging} with the full push check...')
         t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL)
+        ok, out = _check(root, wt, FULL, dest=MAIN)
         took = time.monotonic() - t0
     if not ok:
         say(f'PROMOTE REFUSED: the full check failed on {staging} merged into '
@@ -2432,7 +2453,7 @@ def _promote_unlocked(root, say=print, work=None):
             + f', then {len(batch)} commit(s) from {PRE_STAGING} -- with the full '
             f'push check...')
         t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL)
+        ok, out = _check(root, wt, FULL, dest=staging)
         took = time.monotonic() - t0
         if not ok:
             where = _where_it_fails(root, stip, above, staging)
