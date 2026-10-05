@@ -169,6 +169,9 @@ def problems(fm, repo, _authority=None):
 
 
 def main(argv):
+    if '--help' in argv or '-h' in argv:
+        print(__doc__)
+        return 0
     repo = '.'
     if '--repo' in argv:
         repo = argv[argv.index('--repo') + 1]
