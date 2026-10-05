@@ -942,6 +942,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     rehomed = []
     install_added = False
     why_missing = False
+    checked_by_rehomed = None
 
     if not dedupe_only:
         text = src.read_text(encoding='utf-8')
@@ -966,6 +967,14 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if to_level == 'universal':
             updates['approved_by'] = (f'"pending PR review -- drafted {today} by {approved_by}, '
                                       f'moved from the {from_level} set {from_name}"')
+            # A set's check is a script under its own tools/checks/; in
+            # universal the same slug is a registered check in
+            # precedent_check.py, which _check_checked_by has just confirmed.
+            # The script path would name a file universal does not have
+            # (2026-10-05: five drafts from repo-maintenance each carried it).
+            if _field(fm, 'checked_by').startswith('tools/checks/'):
+                checked_by_rehomed = _field(fm, 'checked_by')
+                updates['checked_by'] = '"tools/precedent_check.py"'
         if strength:
             updates['strength'] = strength
         new_text = _rewrite_frontmatter(text, updates)
@@ -1162,6 +1171,11 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                 f'universal practice carries one. Fill it in the pull request -- what a '
                 f'repo adopting `{slug}` does to take it up -- or leave it empty if '
                 f'there is nothing.')
+        if checked_by_rehomed:
+            say(f'REPOINTED checked_by from {checked_by_rehomed} to '
+                f'tools/precedent_check.py, where `{slug}` is registered. Reword any '
+                f'prose in the draft that still names {checked_by_rehomed}: it does '
+                f'not exist in universal.')
         if why_missing:
             say(f'ADD an applies_to_why to the draft before pushing: `{slug}` is '
                 f'on-demand, and universal\'s deep check (routing-reason) refuses an '
