@@ -30,6 +30,8 @@ slug:        the-slug-hyphenated
 title:       Human-readable title (no leading practice number)
 tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
+standing:    null             # OPTIONAL -- principle | preference; absent means protocol; see below
+standing_by: null             # OPTIONAL -- who set the standing; required with it; see below
 scope:       any-adopter        # any-adopter | engine-dev -- see "scope" section
 applies_to:  ["**"]             # path globs
 applies_to_why: "why these globs, or why **"   # required on an on-demand practice; see below
@@ -55,6 +57,30 @@ strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 source_rule_unlabeled: true       # OPTIONAL -- only on practices 47-52; see below
 ---
+
+### `standing` and `standing_by` — how binding a practice is, and who said so
+
+**Optional; absent means `protocol`**, a rule that must be followed. The
+two other values are the exceptions, and only they are written:
+`principle`, a standing philosophy applied with judgment, and
+`preference`, someone's way of doing things, followed by default and set
+aside only with the reason said. Every channel that shows a practice marks
+a Principle or a Preference beside it, in the words
+[tools/practice_standing.py](../tools/practice_standing.py) holds.
+
+`standing_by:` records who set the standing and is required with it. For a
+Protocol or a Principle it must be someone with authority over the source:
+the registry [tools/precedent_audience.py](../tools/precedent_audience.py)
+reads for code owners (`CODEOWNERS`, else `approvers.json`, else
+`precedent.json`'s `maintainers`, else an individual set's
+`identity.json`), so in the universal set that is Morgan or Alex. A
+Preference's `standing_by:` names whose it is, and anyone can hold one.
+`python3 tools/precedent_check.py --only practice-standing` checks both,
+and [practice-standing](../practices/practice-standing.md) carries the
+rule. Added 2026-10-05
+([spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md](PRACTICE_STANDING_AND_RECHECK_PLAN.md)
+step 5); no practice carries either field until the engine that knows them
+has reached every copy (step 9 there).
 
 ### `requires` — a practice that applies only where a capability is in force
 
