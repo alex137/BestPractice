@@ -24,7 +24,9 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   2026-09-23, Morgan (assented) -- a classic install is migrated, not
   updated; amended 2026-09-24, Morgan (decided) -- every update retires
   the old install's leftovers (step 10); amended 2026-09-27, Morgan
-  (decided) -- the sequence is one command, tools/precedent_update.py"
+  (decided) -- the sequence is one command, tools/precedent_update.py;
+  amended 2026-10-05, Alex (decided) -- a repo may follow staging instead
+  of main by declaring upstream_branch in its precedent.json"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -188,6 +190,22 @@ says so, both from the vendored tree under `process/upstream/`.
    on an approval Morgan
    later called assent rather than a decision; this move was made for
    every install at once so that cannot happen again.
+
+   **One repo may follow `staging` instead, since 2026-10-05, by saying so
+   in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
+   2026-10-05 (`strength: decided`), after measuring that a change took
+   about 25 minutes to reach `main` and a few to reach `staging`. The
+   default is unchanged: a repo that names nothing follows `main`. Only
+   `main` and `staging` are accepted; any other name -- the branch that
+   has had only seconds of checking among them -- is refused, with the
+   update saying so and following `main`.
+   The update reads the declaration and moves both records itself -- the
+   engine's `source_branch` and the catalogue's `upstream.branch` -- in the
+   same run, so this is still never a hand edit to either. What a repo
+   gives up by declaring it: `staging` has not had GitHub's clean-machine
+   test. Removing the declaration moves the pins back to `main`; an engine
+   already ahead of `main` is then left as it is until `main` catches up,
+   never rolled back.
 
    **The two vendored layers do not both need this, and knowing which is
    which is the whole point of the step.** The ENGINE is read by blob out of
