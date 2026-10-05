@@ -23023,6 +23023,72 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
     check(f'a Promote names a binary merge conflict ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_produce_sees_main_changes_staging_carries():
+    """A red main whose tip changes nothing staging lacks does not hold Produce.
+
+    2026-10-05: main's GitHub test went red on a Produce's own merge commit
+    because its jobs never got a runner. main_test_holds_produce asked
+    whether staging descends from main's tip, said "Debut first", and the
+    Debut had nothing to take down -- a merge commit changes no file -- so
+    the session went round in a circle. The hold now also lifts when
+    staging already carries every change main's tip brings (and its tree
+    passed the full local check). The control keeps the hold for a main
+    tip that changes a file staging lacks.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-produce-carried-'))
+    cases = []
+    try:
+        origin, r = tmp / 'origin.git', tmp / 'r'
+        def git(*a, cwd=None):
+            return subprocess.run(['git', *a], cwd=str(cwd or r),
+                                  capture_output=True, text=True)
+        git('init', '-q', '--bare', str(origin), cwd=tmp)
+        git('clone', '-q', str(origin), str(r), cwd=tmp)
+        git('config', 'user.email', 'fixture@example.com')
+        git('config', 'user.name', 'fixture')
+        (r / 'a.txt').write_text('one\n')
+        git('add', '.')
+        git('commit', '-qm', 'base')
+        git('branch', '-M', 'main')
+        git('checkout', '-qb', 'staging')
+        (r / 'a.txt').write_text('two\n')
+        git('commit', '-qam', 'work on staging')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'Merge pull request: Produce', 'staging')
+        git('push', '-q', 'origin', 'main', 'staging')
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+pb._gets_github_test = lambda root, b: True
+pb.github_tests = lambda root, sha: ['deep-check.yml']
+pb.github_test_state = lambda root, sha, tests, gh=None: ('failed', 'fixture')
+pb.staging_branch = lambda root: 'staging'
+pb._receipt = lambda root, sha: True
+print(repr(pb.main_test_holds_produce({str(r)!r}, say=lambda *a: None)))
+""", encoding='utf-8')
+        def run():
+            out = subprocess.run([sys.executable, str(script)], capture_output=True,
+                                 text=True)
+            return out.stdout.strip(), out.stderr[-400:]
+        got, err = run()
+        cases.append(("a main tip that is a no-change merge of staging does not "
+                      "hold Produce", got == 'None', got or err))
+        (r / 'b.txt').write_text('a change only main has\n')
+        git('add', '.')
+        git('commit', '-qm', 'direct push to main')
+        git('push', '-q', 'origin', 'main')
+        got, err = run()
+        cases.append(("...and a main tip with a file change staging lacks still "
+                      "holds it, naming Debut", 'Debut first' in got, got or err))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Produce sees main changes staging already carries ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
     nothing happened that is visible, or non-trivial, to the person --
@@ -59431,6 +59497,7 @@ def main():
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
     check_promote_names_a_binary_conflict()
+    check_produce_sees_main_changes_staging_carries()
     check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()
     check('the archive line is refused when the container holds '
