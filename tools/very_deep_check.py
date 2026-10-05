@@ -7796,7 +7796,7 @@ def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
         if name in held_back:
             lines.append('Held back from this file: this repo is public, '
                          'and this source is one its tracked files never '
-                         'describe (the rule `build_views.py` applies to '
+                         'describe (the rule [build_views.py](../tools/build_views.py) applies to '
                          'the loader block). The console output of the run '
                          'lists every branch here in full.')
             lines.append('')
