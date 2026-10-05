@@ -121,6 +121,9 @@ def declared_identity(repo, user_config=None):
         return {'name': ident.get('name') or '',
                 'email': ident['email'],
                 'timezone': ident.get('timezone') or '',
+                # The person's GitHub username, which is what a CODEOWNERS
+                # file names (precedent_audience.py, 2026-10-05).
+                'github': ident.get('github') or '',
                 'source': where}
 
     repo_root = pathlib.Path(repo).resolve()
@@ -148,6 +151,11 @@ def declared_identity(repo, user_config=None):
     if env_email:
         return {'name': os.environ.get('PRECEDENT_COMMIT_NAME') or '',
                 'email': env_email,
+                # Like the zone: the override names the person, and their
+                # username is their own declaration (2026-10-05).
+                'github': (os.environ.get('PRECEDENT_GITHUB_USER')
+                           or (own or {}).get('github')
+                           or (indiv or {}).get('github') or ''),
                 'timezone': (os.environ.get('PRECEDENT_COMMIT_TZ')
                              or (own or {}).get('timezone')
                              or (indiv or {}).get('timezone') or ''),

@@ -3424,6 +3424,12 @@ def _practice_is_reachable(ctx):
             continue
         if slug in named:
             continue                       # resident block or occasion index
+        # A practice for code owners only is never in a tracked view, by
+        # design: the session file carries it to them wherever that channel
+        # is wired (precedent_session_practices.py; 2026-10-05).
+        if wired and str(fm.get('visible_to') or '').strip('" \'') == 'code-owners':
+            via_session.append(slug)
+            continue
         if s['level'] in session_channel_levels or (wired and s.get('brought')):
             # A set the person brings is never in a tracked view, public
             # repository or private (build_views.sources_for_tracked_block),

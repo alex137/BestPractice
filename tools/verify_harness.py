@@ -2903,7 +2903,7 @@ def check_rename_links_spares_a_url_into_another_repository():
         (repo / 'guide').mkdir()
         (repo / 'guide' / 'go-update.md').write_text('old\n', encoding='utf-8')
         (repo / 'elsewhere.md').write_text(
-            'See [go-update](https://github.com/acme/precedent-shared-ladder/'
+            'See [go-update](https://github.com/acme/other-set/'
             'blob/main/guide/go-update.md).\n', encoding='utf-8')
         (repo / 'here.md').write_text(
             'See [go-update](https://github.com/acme/consumer/blob/main/'
@@ -21323,6 +21323,126 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_code_owners_only_practices_reach_only_code_owners():
+    """A practice marked `visible_to: code-owners` reaches only a person the
+    repository names as a code owner, and a stale-branch listing never names
+    main, staging, pre-staging or an engine branch.
+
+    Morgan, 2026-10-05 (strength: decided): rules about running a repository
+    "should NOT be shown to a user who is NOT a CODEOWNER"; in doubt, hidden;
+    and the branch list is "never pre-staging or staging".
+
+    practice: control-asserts-which-failure -- each hidden case asserts the
+    reason printed, and the controls prove an owner, an unmarked practice and
+    a merged branch all still come through.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-audience-'))
+    cases = []
+    try:
+        env = {**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_GITHUB_USER', None)
+        env.pop('PRECEDENT_COMMIT_EMAIL', None)
+
+        def audience(repo, user):
+            e = dict(env)
+            if user:
+                e['PRECEDENT_GITHUB_USER'] = user
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_audience.py'),
+                                '--repo', str(repo)], capture_output=True, text=True, env=e)
+            return r.stdout.strip()
+
+        a = tmp / 'with-codeowners'
+        (a / '.github').mkdir(parents=True)
+        (a / '.github' / 'CODEOWNERS').write_text('*  @Owner-One @org/team\n', encoding='utf-8')
+        cases.append(('a CODEOWNERS entry makes a code owner, whatever the case',
+                      audience(a, 'owner-one').startswith('code owner:'), audience(a, 'owner-one')))
+        cases.append(('someone CODEOWNERS does not name is not one',
+                      audience(a, 'someone').startswith('not a code owner:'), audience(a, 'someone')))
+        cases.append(('no username declared: hidden, and the fix named',
+                      'add "github"' in audience(a, ''), audience(a, '')))
+        b = tmp / 'with-maintainers'
+        b.mkdir()
+        (b / 'precedent.json').write_text(json.dumps(
+            {'maintainers': [{'name': 'M', 'github': 'maint'}]}), encoding='utf-8')
+        cases.append(("no CODEOWNERS: precedent.json's maintainers answer instead",
+                      audience(b, 'maint').startswith('code owner:'), audience(b, 'maint')))
+        # A commit-email override (as a cloud environment sets) still takes
+        # the username from the person's own identity.json.
+        ind = tmp / 'individual'
+        ind.mkdir()
+        (ind / 'identity.json').write_text(json.dumps(
+            {'email': 'm@example.com', 'github': 'maint'}), encoding='utf-8')
+        (tmp / 'config.json').write_text(json.dumps(
+            {'individual': {'path': str(ind)}}), encoding='utf-8')
+        e2 = dict(env, PRECEDENT_USER_CONFIG=str(tmp / 'config.json'),
+                  PRECEDENT_COMMIT_EMAIL='m@example.com')
+        r2 = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_audience.py'),
+                             '--repo', str(b)], capture_output=True, text=True, env=e2)
+        cases.append(('with a commit-email override, the username still comes '
+                      'from identity.json', r2.stdout.startswith('code owner:'),
+                      r2.stdout + r2.stderr))
+        c = tmp / 'nobody'
+        c.mkdir()
+        cases.append(('no owners named anywhere: in doubt, hidden',
+                      'names no code owners' in audience(c, 'maint'), audience(c, 'maint')))
+
+        # precedent_show prints the marked practice to an owner only.
+        (b / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md', b / 'practices')
+        shutil.copy(ROOT / 'practices' / 'repo-is-memory.md', b / 'practices')
+
+        def show(user, slug):
+            e = dict(env, PRECEDENT_GITHUB_USER=user)
+            return subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_show.py'),
+                                   '--repo', str(b), slug], capture_output=True,
+                                  text=True, env=e).stdout
+        cases.append(('precedent_show hides a marked practice from a stranger, saying why',
+                      'code owners only' in show('stranger', 'deep-check'),
+                      show('stranger', 'deep-check')[:200]))
+        cases.append(('CONTROL: an owner reads it',
+                      'code owners only' not in show('maint', 'deep-check')
+                      and 'audit' in show('maint', 'deep-check'),
+                      show('maint', 'deep-check')[:200]))
+        cases.append(('CONTROL: an unmarked practice reaches everyone',
+                      'code owners only' not in show('stranger', 'repo-is-memory'),
+                      show('stranger', 'repo-is-memory')[:200]))
+
+        # The stale-branch listing.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_stale_branches as sb
+        genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                    GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        origin, work = tmp / 'origin.git', tmp / 'work'
+
+        def g(*a, cwd=work):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=genv)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)],
+                       capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+        (work / 'a.txt').write_text('a\n'); g('add', '-A'); g('commit', '-qm', 'a')
+        g('push', '-q', 'origin', 'HEAD:main')
+        for b_ in ('staging', 'pre-staging', 'precedent-promote-lock', 'claude/done'):
+            g('push', '-q', 'origin', f'HEAD:refs/heads/{b_}')
+        g('checkout', '-q', '-b', 'claude/open')
+        (work / 'b.txt').write_text('b\n'); g('add', '-A'); g('commit', '-qm', 'b')
+        g('push', '-q', 'origin', 'claude/open')
+        g('fetch', '-q', 'origin')
+        listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
+        cases.append(('a branch already in main is listed', 'claude/done' in listed, listed))
+        cases.append(('never main, staging, pre-staging or an engine branch',
+                      not {'main', 'staging', 'pre-staging', 'precedent-promote-lock'} & set(listed),
+                      listed))
+        cases.append(('CONTROL: a branch with work main lacks is not listed',
+                      'claude/open' not in listed, listed))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     bad_cases = [(n, d) for n, ok, d in cases if not ok]
     return (not bad_cases, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
@@ -59118,6 +59238,8 @@ def main():
           *check_reply_check_keeps_practice_ideas_at_the_close())
     check('the reply check keeps quiet while a batch of background jobs runs',
           *check_reply_check_keeps_quiet_while_a_batch_runs())
+    check('a code-owners-only practice reaches only code owners',
+          *check_code_owners_only_practices_reach_only_code_owners())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())

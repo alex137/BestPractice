@@ -46,6 +46,7 @@ status:      active           # active | deduplicated | retired -- see below
 in_force_at: null             # where the rule lives now; required unless active
 expires:     null             # OPTIONAL, and almost always null -- see below
 requires:    []               # OPTIONAL -- capabilities it needs in force; see below
+visible_to:  null             # OPTIONAL -- code-owners shows it to code owners only; see below
 supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
@@ -66,6 +67,24 @@ holds the five-stage working method provides; a person's own
 "for me, the ladder" rule carries `requires: ["ladder"]`, so it goes quiet
 in a session started with `PRECEDENT_NO_LADDERS=1` and for anyone who does
 not bring that set (spec/LADDER_OPT_IN_PLAN.md D11).
+
+### `visible_to` — a practice only the repository's code owners see
+
+**Optional; absent means everyone the practice binds sees it.** The one
+value is `code-owners`, for a rule about running the repository rather than
+working in it: GitHub, branches, CI, vendoring, installs and repo audits.
+A session shows such a practice only to a person
+[tools/precedent_audience.py](../tools/precedent_audience.py) can show is a
+code owner: their GitHub username (`github` in their `identity.json`) named
+in the repository's `CODEOWNERS`, or, with no such file, in the registry it
+is generated from (`approvers.json`, then `precedent.json`'s
+`maintainers`). In doubt, it is hidden, and the session start says why.
+Committed views (`AGENTS.md`'s block) never carry one, since they read the
+same for everyone; the untracked session file carries it to code owners,
+and `precedent_show.py`, `precedent_paths.py` and the gates leave it out for
+everyone else. **Hiding changes what a session is told, never what is
+enforced**: a check behind a hidden practice still runs on every push.
+Morgan, 2026-10-05 (strength: decided).
 
 ### Field order — one order, written down in code and checked
 

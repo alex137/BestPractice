@@ -288,6 +288,19 @@ def with_sources_in_force(root, practices_dir, own):
             # The rule in force here comes from elsewhere and routes no
             # path; this repository's copy of the slug is not in force.
             out.pop(slug, None)
+    # A practice for code owners only reaches nobody else by this channel
+    # either (tools/precedent_audience.py; Morgan, 2026-10-05).
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_audience as pa
+        for slug, p in resolved.items():
+            if not pa.visible(p.get('fm') or {}, root):
+                out.pop(slug, None)
+    except Exception:                                        # noqa: BLE001
+        pass
+    finally:
+        if sys.path and sys.path[0] == str(_ENGINE_DIR):
+            sys.path.pop(0)
     return list(out.values())
 
 
