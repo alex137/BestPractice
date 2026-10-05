@@ -23023,6 +23023,72 @@ print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
     check(f'a Promote names a binary merge conflict ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_produce_sees_main_changes_staging_carries():
+    """A red main whose tip changes nothing staging lacks does not hold Produce.
+
+    2026-10-05: main's GitHub test went red on a Produce's own merge commit
+    because its jobs never got a runner. main_test_holds_produce asked
+    whether staging descends from main's tip, said "Debut first", and the
+    Debut had nothing to take down -- a merge commit changes no file -- so
+    the session went round in a circle. The hold now also lifts when
+    staging already carries every change main's tip brings (and its tree
+    passed the full local check). The control keeps the hold for a main
+    tip that changes a file staging lacks.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-produce-carried-'))
+    cases = []
+    try:
+        origin, r = tmp / 'origin.git', tmp / 'r'
+        def git(*a, cwd=None):
+            return subprocess.run(['git', *a], cwd=str(cwd or r),
+                                  capture_output=True, text=True)
+        git('init', '-q', '--bare', str(origin), cwd=tmp)
+        git('clone', '-q', str(origin), str(r), cwd=tmp)
+        git('config', 'user.email', 'fixture@example.com')
+        git('config', 'user.name', 'fixture')
+        (r / 'a.txt').write_text('one\n')
+        git('add', '.')
+        git('commit', '-qm', 'base')
+        git('branch', '-M', 'main')
+        git('checkout', '-qb', 'staging')
+        (r / 'a.txt').write_text('two\n')
+        git('commit', '-qam', 'work on staging')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'Merge pull request: Produce', 'staging')
+        git('push', '-q', 'origin', 'main', 'staging')
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+pb._gets_github_test = lambda root, b: True
+pb.github_tests = lambda root, sha: ['deep-check.yml']
+pb.github_test_state = lambda root, sha, tests, gh=None: ('failed', 'fixture')
+pb.staging_branch = lambda root: 'staging'
+pb._receipt = lambda root, sha: True
+print(repr(pb.main_test_holds_produce({str(r)!r}, say=lambda *a: None)))
+""", encoding='utf-8')
+        def run():
+            out = subprocess.run([sys.executable, str(script)], capture_output=True,
+                                 text=True)
+            return out.stdout.strip(), out.stderr[-400:]
+        got, err = run()
+        cases.append(("a main tip that is a no-change merge of staging does not "
+                      "hold Produce", got == 'None', got or err))
+        (r / 'b.txt').write_text('a change only main has\n')
+        git('add', '.')
+        git('commit', '-qm', 'direct push to main')
+        git('push', '-q', 'origin', 'main')
+        got, err = run()
+        cases.append(("...and a main tip with a file change staging lacks still "
+                      "holds it, naming Debut", 'Debut first' in got, got or err))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Produce sees main changes staging already carries ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
     nothing happened that is visible, or non-trivial, to the person --
@@ -31124,6 +31190,7 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
 
     cases = []
     saved_git, saved_fetch = pciv._git, pciv._fetch_runs
+    saved_jobs = pciv._fetch_jobs
 
     def stub_git(root, *a):
         if a[:1] == ('rev-parse',) and 'HEAD' in a and '--abbrev-ref' in a:
@@ -31165,9 +31232,41 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
         cases.append(('the gate says DID NOT RUN, not "failed"',
                       'DID NOT RUN' in said, said[:80]))
 
-        state, _ = run([dict(ok[0], conclusion='failure'), ok[1]])
+        pciv._fetch_jobs = lambda url: ([{'conclusion': 'failure',
+                                          'runner_name': 'GitHub Actions 7',
+                                          'runner_id': 7}], '')
+        state, _ = run([dict(ok[0], conclusion='failure', jobs_url='j'), ok[1]])
         cases.append(('a failed run is FAILED, told apart from not running',
                       state == pciv.FAILED, state))
+
+        # THE 2026-10-05 STALL: the run says `failure`, but its only job was
+        # cancelled without ever getting a machine. Not a finding.
+        idle_job = {'conclusion': 'cancelled', 'runner_name': '', 'runner_id': 0}
+        pciv._fetch_jobs = lambda url: ([idle_job,
+                                         {'conclusion': 'success',
+                                          'runner_name': 'GitHub Actions 3',
+                                          'runner_id': 3}], '')
+        state, lines = run([dict(ok[0], conclusion='failure', jobs_url='j'), ok[1]])
+        said = pciv.remind('.')
+        cases.append(('a run whose failing jobs never got a machine is '
+                      'NEVER_STARTED, and the gate does not say FAILED',
+                      state == pciv.NEVER_STARTED and 'FAILED' not in said
+                      and 'NEVER STARTED' in said, said[:90]))
+        cases.append(('a job that DID get a machine and was cancelled is still '
+                      'a failure, never excused as never started',
+                      not pciv.never_started([dict(idle_job, runner_name='GitHub '
+                                                   'Actions 9', runner_id=9)])
+                      and not pciv.never_started([])
+                      and pciv.never_started([idle_job]), ''))
+        pciv._fetch_jobs = lambda url: (None, 'GitHub answered 403')
+        state, _ = run([dict(ok[0], conclusion='failure', jobs_url='j'), ok[1]])
+        cases.append(('when the jobs cannot be read, a red run stays FAILED',
+                      state == pciv.FAILED, state))
+        asked = []
+        pciv._fetch_jobs = lambda url: (asked.append(url), ([], ''))[1]
+        run(ok)
+        cases.append(('a green commit costs no jobs request at all',
+                      asked == [], repr(asked)))
         state, _ = run([dict(ok[0], status='in_progress', conclusion=None),
                         ok[1]])
         cases.append(('an unfinished run is RUNNING, not success',
@@ -31190,6 +31289,7 @@ def check_merge_gate_sees_a_workflow_that_never_ran():
                       state == pciv.NOT_RUN and not spent, f'{state} {spent}'))
     finally:
         pciv._git, pciv._fetch_runs = saved_git, saved_fetch
+        pciv._fetch_jobs = saved_jobs
         pciv.expected_workflows = saved_expected
 
     # THE PARSER CASE the tool got wrong on its first run: `pull_request:`
@@ -44099,6 +44199,66 @@ def check_refresh_wired_settings_is_not_lost_work():
           f'and any other edit to it is a person\'s ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
+
+def check_refreshed_agents_block_is_not_lost_work():
+    """A source clone's AGENTS.md whose only change is inside its generated
+    blocks is the refresh's output; any change outside them is a person's.
+
+    On 2026-10-05 a startup refresh rewrote precedent-shared-ladder's loader
+    block, AGENTS.md read as uncommitted work, the clone was not brought up
+    to its own origin/main and the container check said the session could
+    not be archived -- over a block a rebuild reproduced byte for byte. The
+    file is mostly a person's prose, so the other half matters as much."""
+    import tempfile
+    import precedent_refresh_sources as rs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='agents-block-'))
+    head = '# Notes\n\nA person wrote this.\n\n'
+    block = ('<!-- BEGIN GENERATED: precedent-loader -->\n{}\n'
+             '<!-- END GENERATED -->\n')
+    tail = '\n## Working here\n\nMore prose.\n'
+    try:
+        def git(*a):
+            return subprocess.run(['git', '-C', str(tmp), *a],
+                                  capture_output=True, text=True)
+        git('init', '--quiet')
+        git('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git('config', 'user.name', 'Fixture')
+        f = tmp / 'AGENTS.md'
+        f.write_text(head + block.format('old index') + tail, encoding='utf-8')
+        git('add', '-A')
+        git('commit', '--quiet', '-m', 'first')
+
+        def verdict(text):
+            f.write_text(text, encoding='utf-8')
+            return rs.classify_dirt(tmp)
+        engine, other = verdict(head + block.format('new index\nlonger') + tail)
+        cases.append(('a rewritten loader block alone is engine dirt',
+                      engine == ['AGENTS.md'] and not other,
+                      f'engine={engine} other={other}'))
+        engine, other = verdict(head.replace('wrote', 'edited') +
+                                block.format('new index') + tail)
+        cases.append(("one word of prose changed beside it is a person's",
+                      other == ['AGENTS.md'] and not engine,
+                      f'engine={engine} other={other}'))
+        engine, other = verdict(head + tail)
+        cases.append(("the block removed is a person's, never engine output",
+                      other == ['AGENTS.md'] and not engine,
+                      f'engine={engine} other={other}'))
+        git('checkout', '--quiet', '--', 'AGENTS.md')
+        f.write_text('# Notes\n\nNo block at all.\n', encoding='utf-8')
+        git('commit', '--quiet', '-am', 'no block')
+        engine, other = verdict('# Notes\n\nNo block, edited.\n')
+        cases.append(("CONTROL: a file with no generated block is a person's",
+                      other == ['AGENTS.md'] and not engine,
+                      f'engine={engine} other={other}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an AGENTS.md the refresh only rewrote the generated block of is '
+          f'engine output, and any other edit to it is a person\'s '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 def check_generated_blocks_both_styles():
     """generated_blocks.py: the one "is this line generated?" every scan that
@@ -59431,6 +59591,7 @@ def main():
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
     check_promote_names_a_binary_conflict()
+    check_produce_sees_main_changes_staging_carries()
     check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()
     check('the archive line is refused when the container holds '
@@ -59584,6 +59745,7 @@ def main():
     check_generated_blocks_both_styles()
     check_runner_drops_findings_on_received_files()
     check_refresh_wired_settings_is_not_lost_work()
+    check_refreshed_agents_block_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_in_force_at_chain_is_followed()
