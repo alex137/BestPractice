@@ -48,6 +48,8 @@ closed:            2026-09-22
     against an incomplete sibling layout reports exactly this shape of
     false positive -- unresolvable, not wrong.
 
+**Disposition:** parked (2026-09-22, who not recorded)
+
 ## How It Closes
 
 (closed as a false alarm; no repository change needed)

@@ -9973,17 +9973,50 @@ def _item_disposition_findings(rel, text):
     fields = {}
     for mm in _DISPOSITION_FM_FIELD_RE.finditer(fm.group(1)):
         fields.setdefault(mm.group(1), mm.group(2).strip().strip('"\''))
-    if fields.get('status', '').lower() in DISPOSITION_ITEM_CLOSED:
-        return []
     value = fields.get('disposition')
-    if value is None or value in ('null', '~', '') or value in DISPOSITION_VALUES:
-        return []
     line_no = text.count('\n', 0, fm.start(1) + fm.group(1).find('disposition:')) + 1
-    return [Finding(f'{rel}:{line_no}',
+    where = f'{rel}:{line_no}'
+    body = list(DISPOSITION_RE.finditer(text, fm.end()))
+    out = []
+    # A park is a record of who said "Drop it" and when, whatever the item's
+    # status: the frontmatter says THAT it is parked, the body line says by
+    # whom. One item reached 2026-10-05 with the first and neither of the
+    # second (practice: park-it; tools/todo_disposition.py writes both).
+    if value == 'parked' and not any(
+            m.group('value') == 'parked' and m.group('stamp')
+            and DISPOSITION_STAMP_RE.match(m.group('stamp').strip())
+            for m in body):
+        out.append(Finding(where, 'parked in the frontmatter, but no '
+                                  '"**Disposition:** parked (YYYY-MM-DD, who)" '
+                                  'line records when or by whom -- write it with '
+                                  'tools/todo_disposition.py park, and "who not '
+                                  'recorded" when nobody knows'))
+    if fields.get('status', '').lower() in DISPOSITION_ITEM_CLOSED:
+        return out
+    if not (value is None or value in ('null', '~', '') or value in DISPOSITION_VALUES):
+        return out + [Finding(where,
                     f'open item has disposition {value!r}, which is not one '
                     f'of {", ".join(DISPOSITION_VALUES)} (or null, meaning '
                     f'wait) -- a session reading it cannot tell whether it '
                     f'may raise the item')]
+    # The two copies must agree, and the frontmatter is the one that counts:
+    # it is what build_todo_index.py and every reader acts on. Only checked
+    # where a body line exists -- most items carry the frontmatter alone,
+    # which is the per-item format's own convention.
+    if body:
+        said = body[-1].group('value')
+        counted = 'wait' if value in (None, 'null', '~', '') else value
+        if said in DISPOSITION_VALUES and said != counted:
+            if said == 'parked':
+                why = ('the body says parked but the frontmatter says '
+                       f'{counted!r}, so the item is still raised after it was '
+                       'dropped -- run tools/todo_disposition.py park')
+            else:
+                why = (f'the body says {said!r} but the frontmatter says '
+                       f'{counted!r}; the frontmatter is what every reader acts '
+                       'on, so make the two agree')
+            out.append(Finding(where, why))
+    return out
 
 
 @check('open-item-disposition', 'tree',

@@ -26,9 +26,10 @@ is an index entry: load the practice (`python3 tools/precedent_show.py
 SLUG`) before acting on one**, and the long form each used to carry here is
 in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 
-- **"Drop it"** ([park-it](practices/park-it.md)) — write
-  `**Disposition:** parked (<date>, <who said it>)` into the item now, and
-  never raise it again; kept to the literal word.
+- **"Drop it"** ([park-it](practices/park-it.md)) — park the item now with
+  `tools/todo_disposition.py park`, which writes the frontmatter and the
+  dated, named body line together, and never raise it again; kept to the
+  literal word.
 - **"Three Things"** ([three-things](practices/three-things.md)) — the three
   things he needs to know now, a bolded phrase and two sentences each,
   nothing else.

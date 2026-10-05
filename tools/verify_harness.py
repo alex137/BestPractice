@@ -18513,6 +18513,50 @@ def check_checks_read_what_their_rules_name():
     cases.append(('open-item-disposition: ask, null, and a CLOSED item\'s '
                   'leftover value all pass', out == '', out))
 
+    # --- open-item-disposition: the two copies of a park (2026-10-05) ----
+    # The frontmatter is what every reader acts on; the body line records
+    # who said "Drop it" and when. Each state is planted, the quiet one too
+    # (practice: checks-plant-their-state).
+    def with_body(status, disposition, line):
+        return item(status, disposition).replace(
+            'A planted item.\n', f'A planted item.\n\n{line}\n')
+    out = judge(tree({'todo/todo-2026-01-01-x.md': item('done', 'parked')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: a park with no dated, named body '
+                  'line is reported, even on a closed item',
+                  'no "**Disposition:** parked (YYYY-MM-DD, who)"' in out, out))
+    out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
+                    'open', 'ask', '**Disposition:** parked (2026-01-02, Morgan)')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: a body that says parked over a '
+                  'frontmatter that still says ask is reported as still raised',
+                  'still raised after it was dropped' in out, out))
+    out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
+                    'open', 'parked',
+                    '**Disposition:** parked (2026-01-02, who not recorded)')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: a park recorded in both places, '
+                  '"who not recorded" included, passes', out == '', out))
+
+    # --- todo_disposition.py: the writer the check backs up ---------------
+    import todo_disposition as tdisp
+    parked, _notes = tdisp.park(item('open', 'ask'), '2026-01-02', 'Morgan',
+                                conflict='some-practice')
+    again, notes2 = tdisp.park(parked, '2026-01-03', 'Alex',
+                               conflict='some-practice')
+    cases.append(('todo_disposition: park writes the frontmatter and a dated, '
+                  'named body line, and the result passes the check',
+                  tdisp.verify(parked) == []
+                  and '**Disposition:** parked (2026-01-02, Morgan)' in parked
+                  and judge(tree({'todo/todo-2026-01-01-x.md': parked}),
+                            pc._open_item_disposition) == '',
+                  parked))
+    cases.append(('todo_disposition: a second park changes nothing, and a '
+                  'conflict already raised is never raised again',
+                  again == parked
+                  and any('do not ask again' in n for n in notes2),
+                  '; '.join(notes2)))
+
     # --- two-check-levels: the pair comes from GLOSSARY.md ----------------
     gloss = ('| Term | Defined in |\n|---|---|\n'
              '| quick pass | [two-check-levels](practices/two-check-levels.md) |\n'

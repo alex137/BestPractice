@@ -85,13 +85,14 @@ One branch, landed first.
 2. **"Drop it" is recorded reliably.** Today a session writes a park by
    hand, and the practice text named only the body line while the tools
    read only the frontmatter `disposition:` field. Nothing checked that the
-   two agreed, and one parked item carries no date or name at all.
-   - `tools/todo_disposition.py park SLUG
+   two agreed, and two parked items recorded nobody's name, one no date
+   either.
+   - [tools/todo_disposition.py](../tools/todo_disposition.py) `park SLUG
      --by NAME` writes both copies in one go.
    - A check reports a per-item todo whose two copies disagree, the
      frontmatter being the copy that counts; hardest when the body says
      parked and the frontmatter still says `ask`.
-   - The unattributed item is stamped `who not recorded`, never a guessed
+   - The unattributed items are stamped `who not recorded`, never a guessed
      name ([no-invented-specifics](../practices/no-invented-specifics.md)).
    - **A park that conflicts with a practice** is carried out first, then
      the conflict is raised once -- should the practice change, or is this

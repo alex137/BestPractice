@@ -214,6 +214,8 @@ closed:            2026-09-14
     the same honest gap [82](todo-2026-09-13-session-load-under-20k.md) recorded for the
     gotchas split. **Disposition:** parked (2026-09-14, closed as done)
 
+**Disposition:** parked (2026-09-14, who not recorded)
+
 ## How It Closes
 
 Already closed 2026-09-14 -- see the item's own text above for what finished it.
