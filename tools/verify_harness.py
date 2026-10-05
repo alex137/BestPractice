@@ -2877,6 +2877,68 @@ def check_rename_links_spares_a_path_moved_into_gitignore():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_rename_links_spares_a_url_into_another_repository():
+    """A deleted path inside a link to ANOTHER repository names that
+    repository's file, not this one's. After go-update moved from the
+    universal set to the ladder set, a consumer's Update Vendors deleted
+    practices/go-update.md, said to repoint its links, and then flagged the
+    repointed https://github.com/<owner>/precedent-shared-ladder/blob/main/
+    practices/go-update.md for still containing the old path
+    (a consumer, 2026-10-05). CONTROLS: a link into this same
+    repository, and a bare path, are still flagged."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='other-repo-url-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'rename-updates-links.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        (repo / 'guide').mkdir()
+        (repo / 'guide' / 'go-update.md').write_text('old\n', encoding='utf-8')
+        (repo / 'elsewhere.md').write_text(
+            'See [go-update](https://github.com/acme/other-set/'
+            'blob/main/guide/go-update.md).\n', encoding='utf-8')
+        (repo / 'here.md').write_text(
+            'See [go-update](https://github.com/acme/consumer/blob/main/'
+            'guide/go-update.md).\n', encoding='utf-8')
+        (repo / 'bare.md').write_text('See guide/go-update.md.\n', encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('remote', 'add', 'origin', 'https://github.com/acme/consumer.git')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'go-update-moved')
+        g('rm', '-q', 'guide/go-update.md'); g('commit', '-qm', 'go-update moved away')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'rename-updates-links'], cwd=str(repo), capture_output=True,
+                           text=True, env=env, timeout=300)
+        out = r.stdout + r.stderr
+        cases.append(('a link into another repository is not a stale reference',
+                      'elsewhere.md' not in out, out[-400:]))
+        cases.append(('CONTROL: a link into this same repository is still flagged',
+                      'here.md:1' in out, out[-400:]))
+        cases.append(('CONTROL: a bare path is still flagged',
+                      'bare.md:1' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'rename-updates-links spares a URL into another repository '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_untracked_renders_use_source_fingerprints():
     """A host that stops committing its renders (doc_html RENDERS_TRACKED =
     False) cannot judge a page by the render's own hash: a render carries
@@ -12648,6 +12710,62 @@ def check_update_vendors_repoints_renamed_shared_sets():
           not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_default_branch_reads_each_repos_trunk():
+    """The host's default branch is checked against the repository's own
+    trunk, whatever it is called -- never against the name `main`.
+
+    2026-10-05: a consumer whose trunk is `master` by decision failed the
+    check, and the failure undid its Update Vendors run. Four cases, each on
+    a bare remote this test builds: a declared `master` passes; a declared
+    `trunk` the host does not show is a violation; nothing declared passes
+    whatever the host shows; and a host default that differs from
+    `base_branch` with no `trunk` is COULD NOT VERIFY (ask the person),
+    never a violation."""
+    import tempfile, types
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='default-branch-'))
+
+    def repo(name, head, declared):
+        bare = tmp / (name + '.git')
+        work = tmp / name
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', head, str(bare)],
+                       capture_output=True, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', head, str(work)],
+                       capture_output=True, check=True)
+        (work / 'precedent.json').write_text(json.dumps(declared), encoding='utf-8')
+        for args in (['add', '-A'],
+                     ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                      'commit', '-q', '-m', 'x'],
+                     ['remote', 'add', 'origin', str(bare)],
+                     ['push', '-q', 'origin', f'HEAD:refs/heads/{head}']):
+            subprocess.run(['git', *args], cwd=str(work), capture_output=True, check=True)
+        return pc._default_branch(types.SimpleNamespace(root=work))
+
+    try:
+        got = repo('master-declared', 'master', {'base_branch': 'master'})
+        cases.append(('a trunk named master, declared, passes', got == []))
+        got = repo('trunk-mismatch', 'master', {'trunk': 'main'})
+        cases.append(('a declared trunk the host does not show is a violation',
+                      len(got) == 1 and not isinstance(got[0], pc.Unverified)
+                      and "'master'" in got[0].detail and "'main'" in got[0].detail))
+        got = repo('undeclared', 'develop', {})
+        cases.append(('nothing declared: the host default is the trunk', got == []))
+        got = repo('tiered', 'main', {'base_branch': 'staging'})
+        cases.append(('base_branch differs and no trunk: ask, never a violation',
+                      len(got) == 1 and isinstance(got[0], pc.Unverified)
+                      and '`trunk`' in got[0].detail))
+        got = repo('tiered-declared', 'main', {'base_branch': 'staging', 'trunk': 'main'})
+        cases.append(('...and once trunk is declared it passes', got == []))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('default-branch checks the host against each repo\'s own trunk',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
     """A synced manifest entry OUTSIDE the vendored tree whose file the
     update replaced with exactly upstream's copy gets its baseline moved.
@@ -21054,6 +21172,126 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_code_owners_only_practices_reach_only_code_owners():
+    """A practice marked `visible_to: code-owners` reaches only a person the
+    repository names as a code owner, and a stale-branch listing never names
+    main, staging, pre-staging or an engine branch.
+
+    Morgan, 2026-10-05 (strength: decided): rules about running a repository
+    "should NOT be shown to a user who is NOT a CODEOWNER"; in doubt, hidden;
+    and the branch list is "never pre-staging or staging".
+
+    practice: control-asserts-which-failure -- each hidden case asserts the
+    reason printed, and the controls prove an owner, an unmarked practice and
+    a merged branch all still come through.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-audience-'))
+    cases = []
+    try:
+        env = {**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+        env.pop('PRECEDENT_GITHUB_USER', None)
+        env.pop('PRECEDENT_COMMIT_EMAIL', None)
+
+        def audience(repo, user):
+            e = dict(env)
+            if user:
+                e['PRECEDENT_GITHUB_USER'] = user
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_audience.py'),
+                                '--repo', str(repo)], capture_output=True, text=True, env=e)
+            return r.stdout.strip()
+
+        a = tmp / 'with-codeowners'
+        (a / '.github').mkdir(parents=True)
+        (a / '.github' / 'CODEOWNERS').write_text('*  @Owner-One @org/team\n', encoding='utf-8')
+        cases.append(('a CODEOWNERS entry makes a code owner, whatever the case',
+                      audience(a, 'owner-one').startswith('code owner:'), audience(a, 'owner-one')))
+        cases.append(('someone CODEOWNERS does not name is not one',
+                      audience(a, 'someone').startswith('not a code owner:'), audience(a, 'someone')))
+        cases.append(('no username declared: hidden, and the fix named',
+                      'add "github"' in audience(a, ''), audience(a, '')))
+        b = tmp / 'with-maintainers'
+        b.mkdir()
+        (b / 'precedent.json').write_text(json.dumps(
+            {'maintainers': [{'name': 'M', 'github': 'maint'}]}), encoding='utf-8')
+        cases.append(("no CODEOWNERS: precedent.json's maintainers answer instead",
+                      audience(b, 'maint').startswith('code owner:'), audience(b, 'maint')))
+        # A commit-email override (as a cloud environment sets) still takes
+        # the username from the person's own identity.json.
+        ind = tmp / 'individual'
+        ind.mkdir()
+        (ind / 'identity.json').write_text(json.dumps(
+            {'email': 'm@example.com', 'github': 'maint'}), encoding='utf-8')
+        (tmp / 'config.json').write_text(json.dumps(
+            {'individual': {'path': str(ind)}}), encoding='utf-8')
+        e2 = dict(env, PRECEDENT_USER_CONFIG=str(tmp / 'config.json'),
+                  PRECEDENT_COMMIT_EMAIL='m@example.com')
+        r2 = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_audience.py'),
+                             '--repo', str(b)], capture_output=True, text=True, env=e2)
+        cases.append(('with a commit-email override, the username still comes '
+                      'from identity.json', r2.stdout.startswith('code owner:'),
+                      r2.stdout + r2.stderr))
+        c = tmp / 'nobody'
+        c.mkdir()
+        cases.append(('no owners named anywhere: in doubt, hidden',
+                      'names no code owners' in audience(c, 'maint'), audience(c, 'maint')))
+
+        # precedent_show prints the marked practice to an owner only.
+        (b / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md', b / 'practices')
+        shutil.copy(ROOT / 'practices' / 'repo-is-memory.md', b / 'practices')
+
+        def show(user, slug):
+            e = dict(env, PRECEDENT_GITHUB_USER=user)
+            return subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_show.py'),
+                                   '--repo', str(b), slug], capture_output=True,
+                                  text=True, env=e).stdout
+        cases.append(('precedent_show hides a marked practice from a stranger, saying why',
+                      'code owners only' in show('stranger', 'deep-check'),
+                      show('stranger', 'deep-check')[:200]))
+        cases.append(('CONTROL: an owner reads it',
+                      'code owners only' not in show('maint', 'deep-check')
+                      and 'audit' in show('maint', 'deep-check'),
+                      show('maint', 'deep-check')[:200]))
+        cases.append(('CONTROL: an unmarked practice reaches everyone',
+                      'code owners only' not in show('stranger', 'repo-is-memory'),
+                      show('stranger', 'repo-is-memory')[:200]))
+
+        # The stale-branch listing.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_stale_branches as sb
+        genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                    GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        origin, work = tmp / 'origin.git', tmp / 'work'
+
+        def g(*a, cwd=work):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=genv)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)],
+                       capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+        (work / 'a.txt').write_text('a\n'); g('add', '-A'); g('commit', '-qm', 'a')
+        g('push', '-q', 'origin', 'HEAD:main')
+        for b_ in ('staging', 'pre-staging', 'precedent-promote-lock', 'claude/done'):
+            g('push', '-q', 'origin', f'HEAD:refs/heads/{b_}')
+        g('checkout', '-q', '-b', 'claude/open')
+        (work / 'b.txt').write_text('b\n'); g('add', '-A'); g('commit', '-qm', 'b')
+        g('push', '-q', 'origin', 'claude/open')
+        g('fetch', '-q', 'origin')
+        listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
+        cases.append(('a branch already in main is listed', 'claude/done' in listed, listed))
+        cases.append(('never main, staging, pre-staging or an engine branch',
+                      not {'main', 'staging', 'pre-staging', 'precedent-promote-lock'} & set(listed),
+                      listed))
+        cases.append(('CONTROL: a branch with work main lacks is not listed',
+                      'claude/open' not in listed, listed))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     bad_cases = [(n, d) for n, ok, d in cases if not ok]
     return (not bad_cases, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
@@ -58849,6 +59087,8 @@ def main():
           *check_reply_check_keeps_practice_ideas_at_the_close())
     check('the reply check keeps quiet while a batch of background jobs runs',
           *check_reply_check_keeps_quiet_while_a_batch_runs())
+    check('a code-owners-only practice reaches only code owners',
+          *check_code_owners_only_practices_reach_only_code_owners())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())
@@ -59008,6 +59248,7 @@ def main():
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
     check_rename_links_spares_a_path_moved_into_gitignore()
+    check_rename_links_spares_a_url_into_another_repository()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
@@ -59120,6 +59361,7 @@ def main():
     check_mirrored_prefixes_answers_both_install_models()
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
+    check_default_branch_reads_each_repos_trunk()
     check_consumer_basic_tier_runs_the_practice_audit()
     check_individual_hook_run_by_hand_links_the_attached_set()
     check_update_vendors_defaults_headroom_floor()

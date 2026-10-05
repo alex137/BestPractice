@@ -63,6 +63,15 @@
   "timezone": "{{PERSON_TIMEZONE}}",
   "pronouns": "{{PERSON_PRONOUNS}}",
   "register": "{{PERSON_REGISTER}}",
+  "github": "",
+  "_github_comment": [
+    "YOUR GITHUB USERNAME, without the @. A repository's CODEOWNERS names",
+    "people by it, and a session shows the practices about running a",
+    "repository -- GitHub, branches, CI, vendoring, installs -- only to its",
+    "code owners (BestPractice tools/precedent_audience.py). Left empty,",
+    "those practices are hidden from you everywhere, and the session start",
+    "says so."
+  ],
   "github_ci_every_hours": 0,
   "_github_ci_every_hours_comment": [
     "HOW OFTEN GITHUB ACTIONS RUNS IN YOUR PRIVATE REPOS. 0, the default,",

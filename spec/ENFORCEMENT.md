@@ -79,7 +79,7 @@ being checked by it.
 | `decision-strength` | tree | every `strength:` in a practice file or a decision record holds one of the two defined words, and the file it sits in also records who approved the thing; and every `**Strength:` line in prose records the date it was set and who set it |
 | `decommission-deletes-files` | tree | every path this repo declared decommissioned is still absent, and every decommissioning carries the reason it happened |
 | `deep-check` | tree | the deep check's mechanical half really is every audit script run together: tools/checks/tests/run_all.sh exists and globs test_*.sh, every check_*.py has a test_*.sh that invokes it by name and no test outlives its check, and every check script resolves its own rule text against SOURCE_ROOT and honors PRECEDENT_CHECK_ROOT |
-| `default-branch` | tree | the repository's default branch on its remote -- what the host's HEAD points at -- is `main` |
+| `default-branch` | tree | the repository's default branch on its remote -- what the host's HEAD points at -- is this repository's trunk, whatever it is called: the `trunk` precedent.json declares, else its `base_branch` |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
 | `derived-file-marker` | tree | every tracked file whose first lines claim `DERIVED from <source> @ <sha>` also carries the `Recipe:` and `Regenerate with:` lines and the routing sentence, within its first eight lines |
 | `doc-references-are-links` | change | a changed document must not render an accidental strikethrough span — use the approximately sign, never a tilde |
