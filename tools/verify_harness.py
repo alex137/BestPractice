@@ -15130,6 +15130,15 @@ def check_precedent_check_fires():
             git(repo, 'remote', 'add', 'origin', str(bare))
         case('default-branch', _plant_default_branch)
 
+        # derived-file-marker: a tracked file claims `DERIVED from ... @ sha`
+        # on its first line and carries none of the other three lines.
+        def _plant_derived_file_marker(repo):
+            f = repo / 'zz-derived.txt'
+            f.write_text('# DERIVED from practices/ @ 0123abc\n\nbody\n',
+                         encoding='utf-8')
+            git(repo, 'add', 'zz-derived.txt')
+        case('derived-file-marker', _plant_derived_file_marker)
+
         # ladder-words-stay-in-the-ladder-set: a ladder command and step
         # label planted in a universal practice's Rule. The clean copy is
         # this repository, which carries none.
@@ -50683,6 +50692,23 @@ def check_move_tool_covers_every_direction_and_team_removals():
                       r.returncode == 0 and frontmatter_yaml.field_order_problem(shuffled)
                       and drafted and not frontmatter_yaml.field_order_problem(drafted)
                       and 'ADD an applies_to_why' in r.stdout,
+                      (r.stdout + r.stderr)[-500:]))
+
+        # -- a universal draft whose check IS registered there gets its
+        #    checked_by repointed from the set's script to the engine
+        #    (2026-10-05: five drafts from repo-maintenance each carried
+        #    a tools/checks/ path universal does not have) --
+        (indiv / 'practices' / 'default-branch.md').write_text(
+            P('default-branch').replace(
+                'checked_by:  null', 'checked_by:  "tools/checks/check_default_branch.py"'),
+            encoding='utf-8')
+        r = run('--slug', 'default-branch', '--from', 'individual', '--from-path', str(indiv),
+                '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Owner')
+        cases.append(('a universal draft whose check universal registers names '
+                      'tools/precedent_check.py, not the set\'s script, and says so',
+                      r.returncode == 0 and 'REPOINTED checked_by' in r.stdout
+                      and 'checked_by:  "tools/precedent_check.py"'
+                      in text(clone / 'practices' / 'default-branch.md'),
                       (r.stdout + r.stderr)[-500:]))
 
         # -- a universal draft whose check universal does not register: a

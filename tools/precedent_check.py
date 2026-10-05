@@ -6760,6 +6760,52 @@ def _default_branch(ctx):
     return []
 
 
+_DERIVED_FROM_RE = re.compile(r'DERIVED from\s+(.+?)\s+@\s+(\S+)')
+_DERIVED_RECIPE_RE = re.compile(r'Recipe:\s*(\S+)')
+_DERIVED_REGEN_RE = re.compile(r'Regenerate with:\s*(.+)')
+_DERIVED_ROUTING = 'regeneration replaces this file'
+
+
+@check('derived-file-marker', 'tree',
+       'every tracked file whose first lines claim `DERIVED from <source> @ '
+       '<sha>` also carries the `Recipe:` and `Regenerate with:` lines and '
+       'the routing sentence, within its first eight lines',
+       'a regenerated file that makes no claim at all -- nothing marks a '
+       'file as derived but the file itself, by design -- and a header '
+       'written in another shape: `DERIVED from X (sha256 ...)` with no `@` '
+       'is not read as the claim. Trees this repository mirrors from '
+       'elsewhere are skipped; their source fixes them.')
+def _derived_file_marker(ctx):
+    # Ported 2026-10-05 from the repo-maintenance set's
+    # check_derived_file_marker.py, when the practice moved into universal.
+    # There is deliberately no filename convention to key off: a file comes
+    # under this check only by making the claim itself, on its opening lines.
+    mirrors = _mirrored(ctx.root)
+    out = []
+    for rel in _ls_files_on_disk(root=ctx.root):
+        if rel.startswith(mirrors):
+            continue
+        try:
+            with open(ctx.root / rel, encoding='utf-8') as fh:
+                header = ''.join(fh.readline() for _ in range(8))
+        except (UnicodeDecodeError, OSError):
+            continue
+        if not _DERIVED_FROM_RE.search(header):
+            continue
+        missing = []
+        if not _DERIVED_RECIPE_RE.search(header):
+            missing.append('a `Recipe: <path>` line')
+        if not _DERIVED_REGEN_RE.search(header):
+            missing.append('a `Regenerate with: <command>` line')
+        if _DERIVED_ROUTING not in ' '.join(header.split()):
+            missing.append('the routing sentence ("... regeneration replaces '
+                           'this file ...")')
+        if missing:
+            out.append(Finding(rel, 'claims DERIVED from but is missing '
+                               + ', '.join(missing), path=rel))
+    return out
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
