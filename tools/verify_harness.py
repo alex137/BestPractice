@@ -9747,6 +9747,97 @@ def check_refresh_repoints_a_retired_catalogue_pin():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_upstream_branch_declaration_is_followed():
+    """A consuming repo may follow `staging` instead of main by declaring
+    `"upstream_branch": "staging"` in its precedent.json (2026-10-05); one
+    that declares nothing, or a value off the list, follows SOURCE_BRANCH.
+
+    Asserted end to end where it lands: followed_branch() itself, the
+    catalogue pin moving to the declared branch and back again when the
+    declaration goes, and the engine manifest recording the branch the
+    repo follows. The negative controls are pre-staging -- seconds of
+    checking, deliberately not followable -- and a pin to a feature branch,
+    which stays somebody's own choice under either declaration.
+    """
+    import tempfile
+    import precedent_vendor_engine as pve
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-upstream-branch-'))
+
+    def repo_with(name, declared=None, pin=None):
+        repo = tmp / name
+        (repo / 'process').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        decl = {} if declared is None else {'upstream_branch': declared}
+        (repo / 'precedent.json').write_text(json.dumps(decl) + '\n',
+                                             encoding='utf-8')
+        if pin is not None:
+            (repo / 'process' / 'manifest.json').write_text(json.dumps(
+                {'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                              'branch': pin, 'commit': 'abc123'},
+                 'entries': []}, indent=2) + '\n', encoding='utf-8')
+        return repo
+
+    def pin(repo):
+        return json.loads((repo / 'process' / 'manifest.json').read_text(
+            encoding='utf-8'))['upstream']['branch']
+
+    def declare(repo, value):
+        decl = {} if value is None else {'upstream_branch': value}
+        (repo / 'precedent.json').write_text(json.dumps(decl) + '\n',
+                                             encoding='utf-8')
+
+    try:
+        plain = repo_with('plain')
+        cases.append(('a repo that declares nothing follows main',
+                      pve.followed_branch(plain) == 'main'
+                      and pve.upstream_branch_problem(plain) is None,
+                      pve.followed_branch(plain)))
+        st = repo_with('staging', 'staging')
+        cases.append(('a repo declaring staging follows staging',
+                      pve.followed_branch(st) == 'staging'
+                      and pve.upstream_branch_problem(st) is None,
+                      pve.followed_branch(st)))
+        pre = repo_with('pre', 'pre-staging')
+        cases.append(('pre-staging is not followable: main, and the problem is said',
+                      pve.followed_branch(pre) == 'main'
+                      and 'pre-staging' in (pve.upstream_branch_problem(pre) or ''),
+                      str(pve.upstream_branch_problem(pre))))
+        cases.append(('a repo with no precedent.json follows main',
+                      pve.followed_branch(tmp / 'nothing-here') == 'main', ''))
+
+        moving = repo_with('moving', 'staging', pin='main')
+        wrote = pve.repoint_catalogue_pin(moving)
+        cases.append(('declaring staging moves a main catalogue pin to staging',
+                      wrote is not None and pin(moving) == 'staging', pin(moving)))
+        cases.append(('a second run writes nothing',
+                      pve.repoint_catalogue_pin(moving) is None, pin(moving)))
+        declare(moving, None)
+        wrote = pve.repoint_catalogue_pin(moving)
+        cases.append(('removing the declaration moves the pin back to main',
+                      wrote is not None and pin(moving) == 'main', pin(moving)))
+
+        feature = repo_with('feature', 'staging', pin='some-feature')
+        cases.append(('a feature-branch pin is left alone under a staging declaration',
+                      pve.repoint_catalogue_pin(feature) is None
+                      and pin(feature) == 'some-feature', pin(feature)))
+
+        engine = pathlib.Path(pve.__file__).resolve().parent
+        out = repo_with('engine', 'staging')
+        pve._write_engine_files(out / 'tools', engine, 'abc123',
+                                kind=pve.DEFAULT_KIND)
+        recorded = json.loads((out / 'tools' / pve.MANIFEST_NAME).read_text(
+            encoding='utf-8')).get('source_branch')
+        cases.append(('the engine manifest records the branch the repo follows',
+                      recorded == 'staging', str(recorded)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_update_vendors_is_one_command():
     """tools/precedent_update.py runs Update Vendors end to end on a real
     consumer and ends in one of three outcomes, each asserted by its own
@@ -58965,6 +59056,8 @@ def main():
           *check_legacy_leftovers_retired_by_content())
     check('refresh repoints a retired catalogue pin to main, and no other pin',
           *check_refresh_repoints_a_retired_catalogue_pin())
+    check('a repo\'s upstream_branch declaration is followed, and only main or staging',
+          *check_upstream_branch_declaration_is_followed())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',

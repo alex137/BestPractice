@@ -256,7 +256,59 @@ HERE = pathlib.Path(__file__).resolve()
 ENGINE_DIR = HERE.parent
 ROOT = ENGINE_DIR.parent
 SOURCE_REPO = 'https://github.com/alex137/BestPractice'
-SOURCE_BRANCH = 'main'  # every install follows it -- see docstring
+SOURCE_BRANCH = 'main'  # the default every install follows -- see docstring
+
+# WHICH BRANCH ONE INSTALL FOLLOWS (2026-10-05). SOURCE_BRANCH is the
+# default; a consuming repo may name `staging` instead, in its own
+# precedent.json, as `"upstream_branch": "staging"`. Alex, 2026-10-05, in
+# a consumer session: "Let's do option 2" -- the per-repo choice, offered
+# because a change took about 25 minutes to reach main and only a few to
+# reach staging (strength: decided). Staging has passed every local check
+# and lacks only GitHub's clean-environment test; pre-staging has had
+# seconds of checking, so it is not on the list. Nothing else changes for
+# a repo that names nothing: it follows main, as decided 2026-09-25.
+# spec/BRANCH_TIERS_PLAN.md, "Installs take their updates from main".
+UPSTREAM_BRANCH_KEY = 'upstream_branch'
+FOLLOWABLE_BRANCHES = ('main', 'staging')
+
+
+def declared_upstream_branch(repo):
+    """-> the `upstream_branch` `repo`'s precedent.json declares, verbatim,
+    or None when it declares none (or the file cannot be read)."""
+    try:
+        value = json.loads((pathlib.Path(repo) / 'precedent.json').read_text(
+            encoding='utf-8')).get(UPSTREAM_BRANCH_KEY)
+    except (OSError, ValueError, AttributeError):
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def followed_branch(repo):
+    """-> the BestPractice branch `repo` takes its updates from: its declared
+    `upstream_branch` when that is one of FOLLOWABLE_BRANCHES, else
+    SOURCE_BRANCH. A value outside the list falls back to SOURCE_BRANCH and
+    is reported by upstream_branch_problem(), never followed."""
+    declared = declared_upstream_branch(repo)
+    return declared if declared in FOLLOWABLE_BRANCHES else SOURCE_BRANCH
+
+
+def upstream_branch_problem(repo):
+    """-> a one-line message when `repo` declares an `upstream_branch` this
+    engine will not follow, else None."""
+    declared = declared_upstream_branch(repo)
+    if declared is None or declared in FOLLOWABLE_BRANCHES:
+        return None
+    return (f"precedent.json declares {UPSTREAM_BRANCH_KEY} {declared!r}, which "
+            f"is not one of {', '.join(FOLLOWABLE_BRANCHES)}; following "
+            f"{SOURCE_BRANCH} instead")
+
+
+# The branch THIS copy's repository follows. In BestPractice's own checkout
+# that is SOURCE_BRANCH (its precedent.json declares no upstream_branch); in
+# a consumer's vendored copy it is that consumer's choice. Code that acts on
+# another repository (precedent_update.py, checkin.py) calls
+# followed_branch(that repo) instead.
+FOLLOWED_BRANCH = followed_branch(ROOT)
 
 ENGINE_FILES = [
     'build_views.py',
@@ -1672,7 +1724,7 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
         'format_version': 1,
         'kind': kind,
         'source_repo': SOURCE_REPO,
-        'source_branch': SOURCE_BRANCH,
+        'source_branch': followed_branch(dest_tools.parent),
         'source_commit': source_commit,
         # Only when seed was told --off-main: the branch the engine really
         # came from. source_branch stays what refresh follows; links and
@@ -5789,8 +5841,8 @@ def status(clone):
     # this used to bind clone_head='origin/precedent-beta-v01' -- truthy, and
     # != recorded -- and then told the reader upstream had moved and to run
     # refresh, when the truth was that this clone has no such ref at all.
-    clone_head = (_rev(clone, f'origin/{SOURCE_BRANCH}')
-                  or _rev(clone, SOURCE_BRANCH))
+    clone_head = (_rev(clone, f'origin/{FOLLOWED_BRANCH}')
+                  or _rev(clone, FOLLOWED_BRANCH))
     recorded = manifest.get('source_commit')
     print(f"kind: {kind}")
     print(f"manifest source_commit: {recorded}")
@@ -5798,16 +5850,16 @@ def status(clone):
         _status_template_instances(clone, clone_head, kind, manifest)
     if not clone_head:
         # Not "fresh" and not "moved" -- unknown. Same discipline as fresh().
-        print(f"COULD NOT VERIFY: {clone} has no {SOURCE_BRANCH} "
-              f"(neither origin/{SOURCE_BRANCH} nor a local branch of that name), so "
+        print(f"COULD NOT VERIFY: {clone} has no {FOLLOWED_BRANCH} "
+              f"(neither origin/{FOLLOWED_BRANCH} nor a local branch of that name), so "
               f"whether this vendored engine is current is UNKNOWN -- this is not "
               f"'confirmed current'. Fetch that branch in the clone, or point at a "
               f"clone of {SOURCE_REPO}.")
         return 1 if (drift or untracked or retired) else 0
-    print(f"clone origin/{SOURCE_BRANCH}: {clone_head}"
+    print(f"clone origin/{FOLLOWED_BRANCH}: {clone_head}"
           + ("  (== recorded)" if clone_head == recorded else "  (!= recorded)"))
     if clone_head != recorded:
-        print(f"NOTICE: BestPractice's {SOURCE_BRANCH} has moved since this engine was "
+        print(f"NOTICE: BestPractice's {FOLLOWED_BRANCH} has moved since this engine was "
               f"last vendored -- run `refresh` to pick it up.")
     return 1 if (drift or untracked or retired) else 0
 
@@ -5848,7 +5900,7 @@ def _status_template_instances(clone, commit, kind, manifest):
 
 
 def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
-    """Materialize SOURCE_BRANCH's tools/ out of `clone` into a throwaway
+    """Materialize FOLLOWED_BRANCH's tools/ out of `clone` into a throwaway
     directory, and return (commit, that directory).
 
     READ-ONLY with respect to `clone`, deliberately and load-bearingly so.
@@ -5875,7 +5927,7 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     kind's list, and _write_engine_files() will look for every one of them
     in the directory returned here."""
     # Exit code deliberately discarded: an offline clone, or one whose origin
-    # has no SOURCE_BRANCH, is a supported case -- the _rev fallback below
+    # has no FOLLOWED_BRANCH, is a supported case -- the _rev fallback below
     # handles it, and a hard failure here would break vendoring from a local
     # clone that is already up to date.
     # The refspec is explicit because a bare `fetch origin <branch>` writes
@@ -5884,17 +5936,17 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # origin/<branch> never appeared and the second pass failed "has no
     # main" on a clone that had just fetched it (2026-09-28).
     if fetch:
-        _git(clone, 'fetch', '--quiet', 'origin', tracking_refspec(SOURCE_BRANCH))
+        _git(clone, 'fetch', '--quiet', 'origin', tracking_refspec(FOLLOWED_BRANCH))
     # `ref`, when given, names the exact commit to read (seed() passes this
     # checkout's own HEAD -- it is not vendoring from a branch at all).
     # Otherwise: origin/<branch> first, then a local branch of that name --
     # a CI workspace carries only the ref under test, so a clone taken from
-    # it legitimately has no origin/<SOURCE_BRANCH> at all.
-    commit = ref or (_rev(clone, f'origin/{SOURCE_BRANCH}')
-                     or _rev(clone, SOURCE_BRANCH))
+    # it legitimately has no origin/<FOLLOWED_BRANCH> at all.
+    commit = ref or (_rev(clone, f'origin/{FOLLOWED_BRANCH}')
+                     or _rev(clone, FOLLOWED_BRANCH))
     if not commit:
-        sys.exit(f"precedent_vendor_engine FAIL: {clone} has no {SOURCE_BRANCH} "
-                 f"(neither origin/{SOURCE_BRANCH} nor a local branch of that name) "
+        sys.exit(f"precedent_vendor_engine FAIL: {clone} has no {FOLLOWED_BRANCH} "
+                 f"(neither origin/{FOLLOWED_BRANCH} nor a local branch of that name) "
                  f"-- is it a clone of {SOURCE_REPO}?")
 
     # file mode per entry, so a vendored file keeps the executable bit it has
@@ -5904,7 +5956,7 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     if not ok:
         # No tempdir yet at this point -- nothing to clean up.
         sys.exit(f"precedent_vendor_engine FAIL: could not list tools/ at "
-                 f"{SOURCE_BRANCH} @ {commit[:12]} in {clone}. Refusing rather than "
+                 f"{FOLLOWED_BRANCH} @ {commit[:12]} in {clone}. Refusing rather than "
                  f"vendoring with every executable bit silently dropped.")
     for line in tree.splitlines():
         meta, _tab, name = line.partition('\t')
@@ -5939,12 +5991,12 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
             # mean a broken ref rather than a removal.
             if name == HERE.name:
                 shutil.rmtree(tmp, ignore_errors=True)
-                sys.exit(f"precedent_vendor_engine FAIL: {SOURCE_BRANCH} @ "
+                sys.exit(f"precedent_vendor_engine FAIL: {FOLLOWED_BRANCH} @ "
                          f"{commit[:12]} has no tools/{name} -- that is the "
                          f"vendoring tool itself, so there is no corrected "
                          f"file list to converge on. This is a broken ref, "
                          f"not a removal.")
-            print(f"precedent_vendor_engine: {SOURCE_BRANCH} @ {commit[:12]} no "
+            print(f"precedent_vendor_engine: {FOLLOWED_BRANCH} @ {commit[:12]} no "
                   f"longer carries tools/{name} -- it was removed or renamed "
                   f"upstream. Skipping it; the second pass runs the new file "
                   f"list and cleans up the local copy.", file=sys.stderr)
@@ -6092,21 +6144,32 @@ def repoint_catalogue_pin(root):
     except (ValueError, OSError):
         return None
     up = data.get('upstream')
-    if not isinstance(up, dict) or up.get('branch') not in RETIRED_CATALOGUE_PINS:
+    target = followed_branch(root)
+    # The pins a repoint may rewrite: the retired ones, and either followable
+    # branch when the repo now declares the other (2026-10-05) -- so naming
+    # `upstream_branch` moves the catalogue with the engine, and removing it
+    # moves both back to SOURCE_BRANCH.
+    rewritable = set(RETIRED_CATALOGUE_PINS) | set(FOLLOWABLE_BRANCHES)
+    if not isinstance(up, dict) or up.get('branch') not in rewritable \
+            or up.get('branch') == target:
         return None
     repo = str(up.get('repo') or '').rstrip('/')
     if repo and re.sub(r'\.git$', '', repo.rsplit('/', 1)[-1]).lower() != 'bestpractice':
         return None
     old = up['branch']
-    up['branch'] = SOURCE_BRANCH
+    up['branch'] = target
     # checkin.py's own write shape, so the diff is the one line.
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                     encoding='utf-8')
+    why = (f"this repo's precedent.json declares {UPSTREAM_BRANCH_KEY} "
+           f"{target!r}" if declared_upstream_branch(root) == target
+           else f"every install follows {SOURCE_BRANCH} unless its "
+                f"precedent.json names {UPSTREAM_BRANCH_KEY} "
+                f"(vendor-update-runbook step 1)")
     print(f"precedent_vendor_engine refresh: repointed the practice catalogue "
           f"(process/manifest.json upstream.branch) from {old!r} to "
-          f"{SOURCE_BRANCH!r} -- every install follows {SOURCE_BRANCH} since "
-          f"2026-09-25 (vendor-update-runbook step 1). Nothing to decide: "
-          f"`checkin.py update` now takes the catalogue from {SOURCE_BRANCH}.")
+          f"{target!r} -- {why}. Nothing to decide: "
+          f"`checkin.py update` now takes the catalogue from {target}.")
     return path
 
 
@@ -6187,7 +6250,7 @@ def _warn_catalogue_skew(dest, engine_commit):
           f"catalogue does not carry yet -- if a check reports a slug as "
           f"'not a real practice', this skew is why. Take the catalogue "
           f"update too: `checkin.py update` (INSTALL.md section 2). Only a "
-          f"repo pinned to a branch other than {SOURCE_BRANCH} needs the "
+          f"repo pinned to a branch other than {FOLLOWED_BRANCH} needs the "
           f"manual mirror instead, and refresh repoints the retired pins "
           f"itself.")
 
@@ -6366,7 +6429,7 @@ def _apply_individual_hook(dest_root, kind, clone, commit):
 def engine_is_ahead(clone, recorded, tip):
     """True when the engine a repo records (`recorded`) came from a
     BestPractice commit that `tip` does not contain: newer work, from a
-    branch that has not reached SOURCE_BRANCH, so a refresh to `tip` would
+    branch that has not reached FOLLOWED_BRANCH, so a refresh to `tip` would
     roll it back. False when `tip` contains it (an ordinary stale engine).
 
     2026-10-02: a practice set made from a working branch recorded that
@@ -6400,12 +6463,12 @@ def _drift_upstream_already_has(tools_drift, path_drift, dest_tools, clone,
     forced it (precedent-individual, found rehearsing a Produce, 2026-10-03).
 
     Upstream is read as the clone already has it -- `ref`, else
-    origin/SOURCE_BRANCH, else SOURCE_BRANCH -- with no fetch, so a refusal
+    origin/FOLLOWED_BRANCH, else FOLLOWED_BRANCH -- with no fetch, so a refusal
     still comes before anything is fetched. Engine files in tools/
     (`tools_drift`) and declared engine paths (`path_drift`) are judged this
     way; hooks and CI workflows keep their own review. A missing file, or
     one upstream's copy cannot be read for, still counts as drift."""
-    commit = ref or _rev(clone, f'origin/{SOURCE_BRANCH}') or _rev(clone, SOURCE_BRANCH)
+    commit = ref or _rev(clone, f'origin/{FOLLOWED_BRANCH}') or _rev(clone, FOLLOWED_BRANCH)
     by_local = {local: up for up, local in engine_paths.items()}
     keep, same = [], []
     for name, why, here, up in (
@@ -6423,7 +6486,7 @@ def _drift_upstream_already_has(tools_drift, path_drift, dest_tools, clone,
 
 def refresh(clone, force=False, ref=None):
     """`ref`, when given, names the exact commit or ref inside `clone` to
-    vendor from, instead of resolving SOURCE_BRANCH there.
+    vendor from, instead of resolving FOLLOWED_BRANCH there.
 
     Two callers need it. A verification fixture must vendor from the tree
     it is testing, not from whatever `origin/precedent-beta-v01` happens
@@ -6510,10 +6573,10 @@ def refresh(clone, force=False, ref=None):
             and engine_is_ahead(clone, recorded, new_commit)):
         shutil.rmtree(engine_dir, ignore_errors=True)
         print(f"precedent_vendor_engine refresh: this repo's engine came from "
-              f"BestPractice {recorded[:12]}, which {SOURCE_BRANCH} "
+              f"BestPractice {recorded[:12]}, which {FOLLOWED_BRANCH} "
               f"({new_commit[:12]}) does not contain -- newer work, not older. "
               f"Refreshing would roll it back, so it is left as it is. Once "
-              f"that work reaches {SOURCE_BRANCH}, a refresh takes it from "
+              f"that work reaches {FOLLOWED_BRANCH}, a refresh takes it from "
               f"there; to vendor a particular commit, pass --ref; to roll it "
               f"back on purpose, --force.")
         return
@@ -6539,7 +6602,7 @@ def refresh(clone, force=False, ref=None):
         engine_paths_incomplete = _engine_paths_incomplete(ROOT, manifest)
         # `and not force`: found reproduced while testing this against the consumer
         # kind -- without it, `refresh --force` on a repo with a hand-edited
-        # vendored file silently did NOTHING when BestPractice's SOURCE_BRANCH
+        # vendored file silently did NOTHING when BestPractice's FOLLOWED_BRANCH
         # hadn't moved, because this short-circuit ran before --force ever got a
         # chance to matter. --force exists specifically to repair a hand-edited
         # file; "the upstream commit is unchanged" must not override that.
@@ -6659,7 +6722,7 @@ def refresh(clone, force=False, ref=None):
                 and not wiring_pending and not agents_pending \
                 and not gitignore_pending and not individual_pending:
             print(f"precedent_vendor_engine refresh: engine already current with "
-                  f"{SOURCE_BRANCH} @ {new_commit[:12]} -- "
+                  f"{FOLLOWED_BRANCH} @ {new_commit[:12]} -- "
                   + ("only the catalogue pin changed (above)." if catalogue_repointed
                      else "nothing to do."))
             # Reported here too, and this is the case that matters MOST: a
@@ -6764,7 +6827,7 @@ def refresh(clone, force=False, ref=None):
     # 37fc3b55 until a moment earlier, 2026-09-28.
     was = os.environ.get(_WAS_COMMIT_ENV) or manifest.get('source_commit') or '?'
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
-          f"from {ref if ref else SOURCE_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
+          f"from {ref if ref else FOLLOWED_BRANCH} @ {new_commit[:12]} (was {was[:12]})")
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
@@ -6909,7 +6972,7 @@ def fresh():
         if not repo or not recorded:
             return 0
         try:
-            out = subprocess.run(['git', 'ls-remote', repo, SOURCE_BRANCH],
+            out = subprocess.run(['git', 'ls-remote', repo, FOLLOWED_BRANCH],
                                  capture_output=True, text=True, timeout=10)
         except subprocess.TimeoutExpired:
             return 0  # genuinely unreachable -- stays silent, same as checkin.py's fresh()
