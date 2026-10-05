@@ -616,6 +616,30 @@ def _install_check_filter():
             globals()[name] = _skipped
 
 
+def _install_retrying_tempdir_cleanup():
+    """Every `tempfile.TemporaryDirectory()` in this harness deletes through
+    _rmtree_retrying(), not one check at a time.
+
+    gotcha-2026-09-19-verify-harnesss-fresh-container-check-can-fail-tempdir
+    converted the one check that had crashed the run with `Directory not
+    empty` on GitHub's runner, and said a recurrence on a different check
+    would argue for sharing the retry. It recurred, 2026-10-05:
+    check_session_check_adopts_a_detached_start's cleanup of its scratch
+    repository's .git crashed the "everything else" job of a Produce's GitHub
+    test, on a check that passed locally on the same tree. A directory
+    still not empty after the retries still raises, with what is left in it
+    -- loud, with evidence, never ignore_cleanup_errors' silence -- and a
+    TemporaryDirectory asked to ignore errors keeps doing so."""
+    import tempfile as _tempfile
+    original = _tempfile.TemporaryDirectory._rmtree.__func__
+
+    def _rmtree(cls, name, ignore_errors=False, repeated=False):
+        if ignore_errors:
+            return original(cls, name, ignore_errors=ignore_errors, repeated=repeated)
+        _rmtree_retrying(name)
+    _tempfile.TemporaryDirectory._rmtree = classmethod(_rmtree)
+
+
 def _install_fixture_error_guard():
     """Turn a FixtureSetupError into a FAILED check instead of a dead run.
 
@@ -51480,6 +51504,49 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_every_tempdir_cleanup_retries():
+    """A transient `Directory not empty` on a TemporaryDirectory's cleanup
+    is retried for every check, not one (2026-10-05, the recurrence on a
+    second check), and a directory that never empties still raises with
+    its contents."""
+    import tempfile
+    cases = []
+    real = shutil.rmtree
+    calls = {'n': 0}
+
+    def once_busy(path, *a, **k):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            raise OSError(39, 'Directory not empty')
+        return real(path, *a, **k)
+
+    def always_busy(path, *a, **k):
+        raise OSError(39, 'Directory not empty')
+    try:
+        shutil.rmtree = once_busy
+        with tempfile.TemporaryDirectory() as d:
+            (pathlib.Path(d) / 'f').write_text('x')
+        shutil.rmtree = real
+        cases.append(('a delete that fails once is retried and the directory goes',
+                      calls['n'] == 2 and not os.path.exists(d)))
+        shutil.rmtree = always_busy
+        said = ''
+        try:
+            with tempfile.TemporaryDirectory() as d2:
+                (pathlib.Path(d2) / 'left').write_text('x')
+        except OSError as e:
+            said = str(e)
+        shutil.rmtree = real
+        cases.append(('...one that never empties still raises, naming what is left',
+                      'still not empty' in said and 'left' in said))
+    finally:
+        shutil.rmtree = real
+        for leftover in [x for x in (locals().get('d2'),) if x]:
+            real(leftover, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_heading_anchor_keeps_combining_marks():
     """GitHub's heading anchor keeps combining marks -- its rule is Ruby's
     \\p{Word}: letters, marks, decimal digits, connector punctuation -- and
@@ -58059,6 +58126,7 @@ def check_filtered_check_does_not_break_the_unpack_family():
 
 
 def main():
+    _install_retrying_tempdir_cleanup()
     _install_check_filter()
     _install_fixture_error_guard()
     _install_check_timing()
@@ -58246,6 +58314,9 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('every TemporaryDirectory cleanup retries a transient "not empty", '
+          'and one that never empties still says what is left',
+          *check_every_tempdir_cleanup_retries())
     check('a heading anchor keeps combining marks, as GitHub\'s does (doc_lint and doc_html)',
           *check_heading_anchor_keeps_combining_marks())
     check('spoken commands lead the session-start output, from every repo, before any cut',
