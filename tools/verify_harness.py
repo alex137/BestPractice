@@ -15119,6 +15119,17 @@ def check_precedent_check_fires():
                                 body, count=1, flags=re.M), encoding='utf-8')
         case('retired-branch-name-ships', _plant_retired_branch_name)
 
+        # default-branch: `origin` is a local bare repository whose HEAD is
+        # `trunk`. The clean copy has no remote at all, which the check
+        # reports as skipped -- never a violation.
+        def _plant_default_branch(repo):
+            bare = repo.parent / (repo.name + '-remote.git')
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'trunk', str(bare)],
+                           capture_output=True, check=True)
+            git(repo, 'push', '-q', str(bare), 'HEAD:refs/heads/trunk')
+            git(repo, 'remote', 'add', 'origin', str(bare))
+        case('default-branch', _plant_default_branch)
+
         # ladder-words-stay-in-the-ladder-set: a ladder command and step
         # label planted in a universal practice's Rule. The clean copy is
         # this repository, which carries none.

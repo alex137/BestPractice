@@ -6726,6 +6726,40 @@ def _shipped_template_carries_its_script(ctx):
     return findings
 
 
+@check('default-branch', 'tree',
+       "the repository's default branch on its remote -- what the host's HEAD "
+       "points at -- is `main`",
+       'a repository with no `origin` remote, or one this run cannot reach: '
+       'both are reported as skipped, never as a pass. It reads the remote, '
+       'so a default changed on the host shows here on the next run, not '
+       'before.',
+       selects_on=('precedent.json',))
+def _default_branch(ctx):
+    # Ported 2026-10-05 from the repo-maintenance set's
+    # check_default_branch.py, when the practice moved into universal.
+    # `git ls-remote --symref` asks the host which branch HEAD names
+    # without cloning anything: the "host API where the session's tools
+    # reach that far" the practice's own Install names.
+    url = _git('remote', 'get-url', 'origin', cwd=ctx.root).stdout.strip()
+    if not url:
+        raise NotApplicable("no 'origin' remote configured")
+    try:
+        r = subprocess.run(['git', 'ls-remote', '--symref', url, 'HEAD'],
+                           capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise NotApplicable(f'could not reach {url} within 30 seconds')
+    if r.returncode != 0:
+        raise NotApplicable(f'could not reach {url}: {r.stderr.strip()[:200]}')
+    m = re.search(r'^ref:\s+refs/heads/(\S+)\s+HEAD$', r.stdout, re.M)
+    if not m:
+        raise NotApplicable(f'{url} did not say which branch HEAD names')
+    if m.group(1) != 'main':
+        return [Finding('origin', f"the remote's default branch is "
+                        f"'{m.group(1)}', not 'main' -- set it once, on the "
+                        f"host, as the practice's Install says")]
+    return []
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
