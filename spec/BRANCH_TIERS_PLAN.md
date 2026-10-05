@@ -422,6 +422,32 @@ that merge is invisible to every install.
 because no install follows staging. Only sessions working inside the
 Precedent repositories themselves see the old and new names.
 
+### One repo may follow staging (2026-10-05)
+
+**A consuming repo may declare `"upstream_branch": "staging"` in its own
+`precedent.json`**, and its updates then come from `staging`; every repo
+that declares nothing still follows `main`. Alex, 2026-10-05, in a
+consumer session, after a measurement of that day's history: each move
+into `main` took about 25 minutes from the pull request's branch to the
+merge, while `staging` is a few minutes behind a Promote. *"Let's do
+option 2"* -- the per-repo choice, over moving every install (strength:
+decided).
+
+This relaxes the 2026-09-25 condition that every install follow the same
+branch, for a repo that asks, and only for that repo. Morgan had not
+heard about it when it landed.
+
+- **Only `main` and `staging`.** Pre-staging has had seconds of checking;
+  a repo declaring it is told so and follows `main`
+  (`precedent_vendor_engine.FOLLOWABLE_BRANCHES`).
+- **The update moves both records itself**: the engine manifest's
+  `source_branch` and the catalogue's `upstream.branch`
+  (`repoint_catalogue_pin`), so the choice never becomes a hand edit.
+- **Going back** is removing the line. An engine already ahead of `main`
+  is left as it is until `main` catches up, never rolled back.
+- Asserted by `check_upstream_branch_declaration_is_followed` in
+  [verify_harness.py](../tools/verify_harness.py).
+
 ## Build steps
 
 In order. Each step leaves every repository working.
