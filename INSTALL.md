@@ -827,8 +827,8 @@ cover, by design and not oversight:
 
      | The repo is… | Declare |
      |---|---|
-     | software or tooling, maintained by a team | that team's set + the writing set + the working-style set |
-     | a document or content project | that team's set + the writing set + the working-style set |
+     | software or tooling, maintained by a team | that team's set + the writing set |
+     | a document or content project | that team's set + the writing set |
      | a practice set's own repository | the maintaining team's set + the writing set |
 
      **Check it, don't assume it**, here and on every migration and

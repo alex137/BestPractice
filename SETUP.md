@@ -41,11 +41,9 @@ nothing to choose here — this page installs §0, always.
      facts, can each live in their own repo and be wired in too. Most
      projects have neither yet — that's a complete answer on its own — but
      it costs nothing to offer setting one up in the same conversation, so
-     ask rather than assume no. Mention the two public sets anyone can
-     declare: [precedent-shared-writing](https://github.com/themorgan/precedent-shared-writing)
-     and [precedent-shared-working-style](https://github.com/themorgan/precedent-shared-working-style);
-     a documents project usually wants both, and without working-style two
-     rules withdrawn from the universal set are in force nowhere.
+     ask rather than assume no. Mention the public set anyone can
+     declare, [precedent-shared-writing](https://github.com/themorgan/precedent-shared-writing),
+     which a documents project usually wants.
    - *Which AI Assistant will actually be working in this repo* — Claude
      Code, ChatGPT connected to GitHub, or something else? Explain in one
      sentence: an AI Assistant with no access to a terminal needs
