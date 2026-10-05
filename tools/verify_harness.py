@@ -15139,6 +15139,23 @@ def check_precedent_check_fires():
             git(repo, 'add', 'zz-derived.txt')
         case('derived-file-marker', _plant_derived_file_marker)
 
+        # deep-check: a run_all.sh that globs test_*.sh, beside a check
+        # script with no test. The clean copy has no run_all.sh and
+        # declares itself a source, which the check skips.
+        def _plant_deep_check(repo):
+            tests = repo / 'tools' / 'checks' / 'tests'
+            tests.mkdir(parents=True, exist_ok=True)
+            (tests / 'run_all.sh').write_text(
+                '#!/bin/bash\nfor t in "$(dirname "$0")"/test_*.sh; do bash "$t"; done\n',
+                encoding='utf-8')
+            (repo / 'tools' / 'checks' / 'check_zz_untested.py').write_text(
+                'import os, pathlib\n'
+                'SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent\n'
+                'ROOT = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+        case('deep-check', _plant_deep_check)
+
         # ladder-words-stay-in-the-ladder-set: a ladder command and step
         # label planted in a universal practice's Rule. The clean copy is
         # this repository, which carries none.

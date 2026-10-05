@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 160 practice files (6 resident, 154 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 161 practice files (6 resident, 155 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -47,6 +47,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
 | [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism |
+| [deep-check](practices/deep-check.md) | on-demand | asked for a "deep check" |
 | [default-branch](practices/default-branch.md) | on-demand | setting up or installing into a repo |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
 | [derived-file-marker](practices/derived-file-marker.md) | on-demand | creating a file regeneration will overwrite |

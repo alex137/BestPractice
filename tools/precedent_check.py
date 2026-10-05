@@ -6760,6 +6760,101 @@ def _default_branch(ctx):
     return []
 
 
+def _declares_itself(root):
+    """Does `root`'s precedent.json name `root` itself as a source? True in
+    exactly one kind of repository, the engine's own origin (`path: "."`):
+    no practice set or consumer declares itself."""
+    try:
+        sources = json.loads((root / 'precedent.json').read_text(
+            encoding='utf-8')).get('sources') or []
+    except (OSError, ValueError, AttributeError):
+        return False
+    here = root.resolve()
+    for entry in sources:
+        if not isinstance(entry, dict) or entry.get('path') is None:
+            continue
+        p = pathlib.Path(os.path.expandvars(str(entry['path']))).expanduser()
+        if (p if p.is_absolute() else root / p).resolve() == here:
+            return True
+    return False
+
+
+@check('deep-check', 'tree',
+       "the deep check's mechanical half really is every audit script run "
+       'together: tools/checks/tests/run_all.sh exists and globs test_*.sh, '
+       'every check_*.py has a test_*.sh that invokes it by name and no test '
+       'outlives its check, and every check script resolves its own rule text '
+       'against SOURCE_ROOT and honors PRECEDENT_CHECK_ROOT',
+       "the review half -- reading the repo's rules against each other -- "
+       'which the practice names a judgment call, run only when a person asks '
+       'for a deep check by name. Whether a test is any GOOD is not checked, '
+       'only that it exists and names its script. Skipped in the engine\'s own '
+       'origin, which has no materialized check family to run together.')
+def _deep_check(ctx):
+    # Ported 2026-10-05 from the repo-maintenance set's check_deep_check.py,
+    # when the practice moved into universal. A check script added without a
+    # test is never picked up by run_all.sh's test_*.sh glob, so it silently
+    # never runs; a test left behind after its check is deleted names a file
+    # that is gone. Either way "every audit script, run together" is false.
+    checks_dir = ctx.root / 'tools' / 'checks'
+    tests_dir = checks_dir / 'tests'
+    run_all = tests_dir / 'run_all.sh'
+    if not run_all.is_file():
+        if _declares_itself(ctx.root):
+            raise NotApplicable(
+                'tools/checks/tests/run_all.sh is missing, and this repo '
+                'declares itself as a practice source: the engine\'s origin '
+                'runs its tests through its own harness')
+        return [Finding('tools/checks/tests/run_all.sh', 'is missing -- there '
+                        "is no 'every audit script, run together' entry point")]
+    out = []
+    if 'test_*.sh' not in run_all.read_text(encoding='utf-8', errors='ignore'):
+        out.append(Finding('tools/checks/tests/run_all.sh', 'no longer globs '
+                           'test_*.sh, so it may have stopped running every '
+                           'audit script together'))
+    scripts = sorted(p.stem for p in checks_dir.glob('check_*.py'))
+    for stem in scripts:
+        name = stem[len('check_'):]
+        test = tests_dir / f'test_{name}.sh'
+        if not test.is_file():
+            out.append(Finding(f'tools/checks/{stem}.py', f'has no '
+                               f'tests/test_{name}.sh, so run_all.sh never '
+                               f'exercises it -- add one that invokes {stem}.py '
+                               f'by name'))
+        elif f'{stem}.py' not in test.read_text(encoding='utf-8', errors='ignore'):
+            out.append(Finding(f'tools/checks/tests/test_{name}.sh', f'never '
+                               f'invokes {stem}.py by name, so it is not '
+                               f'testing the check it is named for'))
+    for test in sorted(tests_dir.glob('test_*.sh')):
+        name = test.stem[len('test_'):]
+        if not (checks_dir / f'check_{name}.py').is_file():
+            out.append(Finding(f'tools/checks/tests/{test.name}', f'tests '
+                               f'check_{name}.py, which no longer exists -- '
+                               f'a stale test left behind'))
+    # Every script in this family is written by copying the last one, so a
+    # property nothing checks propagates by copy: on 2026-09-06 fourteen of
+    # them resolved their own rule text against the AUDITED repo and raised
+    # from inside their violation printers. Matched as assignments at column
+    # 0, never as substrings, or this would report its own pattern.
+    for stem in scripts:
+        text = (checks_dir / f'{stem}.py').read_text(encoding='utf-8',
+                                                      errors='ignore')
+        where = f'tools/checks/{stem}.py'
+        if not re.search(r'^SOURCE_ROOT\s*=', text, re.M):
+            out.append(Finding(where, 'does not define SOURCE_ROOT, so it '
+                               'cannot tell the repo it audits from the set its '
+                               'rule text lives in'))
+            continue
+        if re.search(r'^PRACTICE_FILE\s*=\s*ROOT\b', text, re.M):
+            out.append(Finding(where, 'resolves PRACTICE_FILE against ROOT, '
+                               'the audited repo, not SOURCE_ROOT'))
+        if not re.search(r'PRECEDENT_CHECK_ROOT["\']', text):
+            out.append(Finding(where, 'ignores PRECEDENT_CHECK_ROOT, so a repo '
+                               'that declares its source without materializing '
+                               'it cannot point the check at itself'))
+    return out
+
+
 _DERIVED_FROM_RE = re.compile(r'DERIVED from\s+(.+?)\s+@\s+(\S+)')
 _DERIVED_RECIPE_RE = re.compile(r'Recipe:\s*(\S+)')
 _DERIVED_REGEN_RE = re.compile(r'Regenerate with:\s*(.+)')
