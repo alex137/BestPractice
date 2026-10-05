@@ -120,7 +120,7 @@ D was chosen. Attacking it turned up these holes, each closed in the code:
 | Session start leaves the set clones with uncommitted vendored-engine copies and a regenerated map file | "Uncommitted" counts only files a sync reads (`practices/`, `bootstrap/`, `tools/` minus the engine files `tools/ENGINE_MANIFEST.json` lists, `precedent-source.json`). Without this, no clone in a real session was ever pinned. |
 | A sync and its own check disagreed when a clone had uncommitted changes in a file a sync reads (the individual set's `bootstrap/commit-identity.sh`, rewritten by session start) | A sync now always reads committed content: a clone with uncommitted changes in synced files is read from a worktree at its commit, and the sync says the changes were not taken. What a repository commits as its views has to be reproducible from commits. |
 | A set's `main` carries the pull-request merge commits its `pre-staging` never gets, so a pin at `main`'s tip is "not on pre-staging" | A pin counts as landed on a rung when it is on that rung or any rung above it. |
-| A full-tier pass recorded for `staging` would be reused for the same tree pushed to `main`, skipping the stricter rung | The destination goes into the views step's argv as `--for-branch`, so the two sign differently. Promote passes it with `--destination`. |
+| A full-tier pass recorded for `staging` is reused for the same tree pushed to `main`, which would skip the stricter rung | The rung test is its own step (`--rung-only`), run on every push outside the recorded passes; it is git ancestry and takes seconds. The first version put the destination into the views step's argv instead, which changed every pass's signature and stopped Promote reusing a full check the tree had already passed. Promote passes the destination with `--destination`. |
 | A consumer's working branch may legitimately try a set's unbooked work | No rung refusal on a working branch; only the note. |
 | A set that squash-merges would break ancestry | Today's Book, Debut and Produce all make merge commits. A set that squashed would see a rung refusal persist after promoting; that would be the place to add a content comparison. |
 
@@ -147,14 +147,15 @@ materialize) never read a sibling set.
   committed content. The drift message no longer blames a set for moving on.
 - [`tools/precedent_push_check.py`](../tools/precedent_push_check.py): the
   destination (from `--push-command`, highest rung first, or
-  `--destination`) reaches the views step.
+  `--destination`) goes to a rung step of its own, run on every push and
+  never cached.
 - [`tools/precedent_branches.py`](../tools/precedent_branches.py): Promote's
   four checks name where their result is pushed.
 - [`tools/precedent_session_check.py`](../tools/precedent_session_check.py):
   "unpushed" means on no origin branch; commits on another origin branch
   are named by it and do not make the clone stale.
 - [`tools/verify_harness.py`](../tools/verify_harness.py): three checks,
-  `check_views_check_reads_a_set_at_the_commit_it_was_synced_at` (14
+  `check_views_check_reads_a_set_at_the_commit_it_was_synced_at` (16
   cases, each direction the handover asked for), and
   `check_push_destination_reaches_the_views_check` and
   `check_session_check_names_commits_on_origin_off_main`.

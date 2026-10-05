@@ -450,14 +450,10 @@ def repo_kind(engine=HERE):
     return None
 
 
-def plan(root, engine=HERE, tier=FULL, dest=None):
+def plan(root, engine=HERE, tier=FULL):
     """-> (kind, [(name, argv, replaces)]) with {engine} resolved relative
     to `root`, so the commands print the way a person would type them.
-    `tier` BASIC keeps only BASIC_CHECKS. `dest`, the branch the push goes
-    to, reaches the views check, which refuses a pre-staging, staging or
-    main push carrying a set at a commit the set has not landed on the same
-    rung (2026-10-05); it is in the argv, so a pass recorded for staging is
-    never reused for main."""
+    `tier` BASIC keeps only BASIC_CHECKS."""
     kind = repo_kind(engine)
     if kind is None:
         return None, []
@@ -467,8 +463,6 @@ def plan(root, engine=HERE, tier=FULL, dest=None):
         if tier == BASIC and name not in BASIC_CHECKS:
             continue
         argv = [a.replace('{engine}', str(rel)) for a in argv]
-        if name == 'views_sync' and dest:
-            argv = [*argv, '--for-branch', dest]
         if argv[0].endswith('.py'):
             argv = [sys.executable, *argv]
         out.append((name, argv, replaces))
@@ -1128,6 +1122,30 @@ def _destination(root, argv):
     return targets[0] if targets else None
 
 
+def _rung_refusal(root, kind, dest):
+    """-> the refusal text when this push would put `dest` (pre-staging,
+    staging or main) ahead of a shared set it takes from, else None.
+
+    Its own step, outside the recorded passes, on purpose: whether a set
+    has landed a commit on a rung changes with no change to this tree, and
+    putting the destination into the views step's argv (the first version,
+    2026-10-05) changed every pass's signature, so a Promote stopped reusing
+    the full check the same tree had already passed. It is git ancestry
+    only, and takes seconds. A source that cannot be resolved here is
+    skipped, as the views step skips it."""
+    if kind != 'consumer' or not dest:
+        return None
+    tool = HERE / 'precedent_sync_views.py'
+    if not tool.is_file():
+        return None
+    p = subprocess.run([sys.executable, str(tool), '--repo', str(root),
+                        '--rung-only', '--for-branch', dest],
+                       cwd=root, capture_output=True, text=True)
+    if p.returncode == 0:
+        return None
+    return (p.stdout + p.stderr).strip()
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -1559,8 +1577,7 @@ def main(argv):
                   f'your landing branch takes.', file=sys.stderr)
             return 1
     tier, why = _tier_from_args(root, argv)
-    dest = _destination(root, argv)
-    kind, checks = plan(root, tier=tier, dest=dest)
+    kind, checks = plan(root, tier=tier)
     if '--changed-files-check' in argv:
         i = argv.index('--changed-files-check')
         return changed_files_check(root, argv[i + 1] if i + 1 < len(argv)
@@ -1594,7 +1611,11 @@ def main(argv):
             print(f'  {"":16}         replaces {replaces}')
         return 0
 
-    also = [plan(root, tier=FULL, dest=dest)[1]] if tier == BASIC else []
+    refused = _rung_refusal(root, kind, _destination(root, argv))
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
+    also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
     landed, reported = None, []
     if tier == BASIC and working_branch_push(root, argv):
         memo = []

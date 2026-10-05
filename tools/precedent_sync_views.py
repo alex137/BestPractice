@@ -34,13 +34,14 @@ tools/, same as precedent_materialize.py's own docstring already says).
 
 Run:
   python3 tools/precedent_sync_views.py --repo DIR [--user-config PATH] [--check]
-      [--for-branch BRANCH] [--allow-rollback]
+      [--for-branch BRANCH] [--allow-rollback] [--rung-only]
 
   --check reads each shared set at the commit MANIFEST.json records syncing
   it at (precedent_source_pins.py), never at whatever its clone has checked
   out. --for-branch names where a push is going: pre-staging, staging or
   main may carry a set only at a commit that set has landed on the same
-  rung. A write refuses to roll a set back to a commit before the one this
+  rung; --rung-only does only that, and is what the push check runs, on
+  every push and outside its recorded passes. A write refuses to roll a set back to a commit before the one this
   repository carries; --allow-rollback when that is meant.
 
   --repo is REQUIRED and names the consuming repo's root; from that root it
@@ -1010,9 +1011,10 @@ def main():
     allow_missing = '--allow-missing-sources' in args
     skip_unresolved = '--skip-unresolved' in args
     allow_rollback = '--allow-rollback' in args
+    rung_only = '--rung-only' in args
     args = [a for a in args if a not in ('--check', '--allow-missing-sources',
                                          '--allow-removals', '--skip-unresolved',
-                                         '--allow-rollback')]
+                                         '--allow-rollback', '--rung-only')]
     repo, user_config, for_branch = None, None, None
     known = {'--repo', '--user-config', '--for-branch'}
     i = 0
@@ -1038,6 +1040,30 @@ def main():
                  "script's own parent, which is correct only where the script "
                  "is vendored at the consuming repo's tools/, and produced a "
                  "confident, wrong, hard failure everywhere else.")
+
+    if rung_only:
+        # The push check's own step (precedent_push_check._rung_refusal):
+        # whether each shared set has landed, on this push's rung, the
+        # commit this repository carries it at. No render, no views.
+        if not for_branch:
+            sys.exit("precedent_sync_views FAIL: --rung-only needs --for-branch.")
+        try:
+            sources = [s for s in pr.load_config(repo, user_config)
+                       if not s.get('brought')]
+        except pr.ResolveError as e:
+            print(f"precedent_sync_views --rung-only SKIPPED: {e}")
+            return 0
+        refused = psp.rung_refusals(repo, sources, for_branch)
+        if refused:
+            for line in refused:
+                print(f"  {line}", file=sys.stderr)
+            sys.exit(f"precedent_sync_views --rung-only FAIL: this push would "
+                     f"put {for_branch} ahead of {len(refused)} practice set(s) "
+                     f"it takes from. Nothing was written. Do NOT sync to get "
+                     f"past this.")
+        print(f"precedent_sync_views --rung-only OK: every shared set this "
+              f"repository carries is on its own {for_branch} or above")
+        return 0
 
     before = {f.stem for f in (pathlib.Path(repo) / 'practices').glob('*.md')}
     try:
@@ -1086,13 +1112,13 @@ def main():
             for line in problems:
                 print(f"  {line}", file=sys.stderr)
             sys.exit(f"precedent_sync_views --check FAIL: "
-                     f"{len(problems)} difference(s) from a fresh sync. Each "
-                     f"shared set was read at the commit MANIFEST.json records "
-                     f"syncing it at, so a set moving on since is not the "
-                     f"cause; what is: a generated file edited by hand, a "
-                     f"change to precedent.json or to a practice inside this "
-                     f"repository not yet synced, or a source with no recorded "
-                     f"commit read as its clone stands. Nothing was written. "
+                     f"{len(problems)} difference(s) from a fresh sync: a "
+                     f"practice source this repository declares changed since "
+                     f"its last sync (only one read as it stands -- a shared "
+                     f"set is read at the commit MANIFEST.json records, so its "
+                     f"moving on is never the cause), a change to precedent.json "
+                     f"or to a practice inside this repository not yet synced, "
+                     f"or a generated file edited by hand. Nothing was written. "
                      f"Fix: python3 tools/precedent_sync_views.py --repo . , "
                      f"review the diff, commit (it refuses to roll a set back).")
         print(f"precedent_sync_views --check OK: {agents_md} and the "

@@ -52286,6 +52286,11 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         cases.append(('...and so is a push to main, with Produce as the remedy',
                       rc != 0 and 'Produce it in precedent-shared-fixture' in out,
                       f'rc={rc} {out[-600:]}'))
+        rc, out = sync('--rung-only', '--for-branch', 'main')
+        cases.append(('the push check\'s own rung step (--rung-only) refuses the same '
+                      'push without rendering anything',
+                      rc != 0 and 'Produce it in precedent-shared-fixture' in out
+                      and 'Do NOT sync' in out, f'rc={rc} {out[-400:]}'))
         git(st, 'checkout', '-q', 'staging')
         git(st, 'merge', '-q', '--no-ff', '-m', 'Debut', 'origin/pre-staging')
         git(st, 'push', '-q', 'origin', 'staging')
@@ -52296,6 +52301,8 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
         rc_m, out_m = sync('--check', '--for-branch', 'main')
         cases.append(('once the set has Debuted and Produced it, both pushes pass',
                       rc_s == 0 and rc_m == 0, f'{out_s[-300:]} | {out_m[-300:]}'))
+        rc, out = sync('--rung-only', '--for-branch', 'main')
+        cases.append(('...and so does the rung step', rc == 0, out[-300:]))
 
         # A hand-edited generated file fails on every rung.
         good = taken()
@@ -52360,11 +52367,10 @@ def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
 
 
 def check_push_destination_reaches_the_views_check():
-    """The push check hands the views check the branch a push goes to, so a
-    set's commits are held to that rung (2026-10-05): from --push-command,
-    the highest rung it writes to; --destination, which Promote passes,
-    wins. The destination is in the argv, so a pass recorded for staging is
-    not reused for main."""
+    """The push check knows the branch a push goes to, so a set's commits
+    are held to that rung (2026-10-05): from --push-command, the highest
+    rung it writes to; --destination, which Promote passes, wins. The rung
+    test is its own uncached step, never part of a recorded step's argv."""
     import precedent_push_check as ppc
     cases = [
         ('a push to a working branch and main is judged as main',
@@ -52378,27 +52384,20 @@ def check_push_destination_reaches_the_views_check():
         ('no destination named, none assumed',
          ppc._destination(ROOT, ['--gate']) is None),
     ]
-    steps = [s for s in ppc.PUSH_CHECKS['consumer'] if s[0] == 'views_sync']
-    if steps:
-        orig = ppc.repo_kind
-        try:
-            ppc.repo_kind = lambda _e: 'consumer'
-            a = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full', dest='staging')[1])
-            b = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full', dest='main')[1])
-            c = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full')[1])
-        finally:
-            ppc.repo_kind = orig
-        cases.append(('the views step carries --for-branch, and only it',
-                      a['views_sync'][-2:] == ['--for-branch', 'staging']
-                      and '--for-branch' not in c['views_sync']
-                      and all('--for-branch' not in v for n, v in a.items()
-                              if n != 'views_sync')))
-        cases.append(('staging and main sign differently, so neither pass is reused '
-                      'for the other',
-                      ppc.signature(list((n, v, '') for n, v in a.items()))
-                      != ppc.signature(list((n, v, '') for n, v in b.items()))))
-    else:
-        cases.append(('a consumer\'s push check has a views step', False))
+    orig = ppc.repo_kind
+    try:
+        ppc.repo_kind = lambda _e: 'consumer'
+        steps = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full')[1])
+    finally:
+        ppc.repo_kind = orig
+    cases.append(('the recorded steps carry no destination, so a pass for one '
+                  'branch is still reused for the same tree going to another '
+                  '(the first version broke Promote\'s reuse of a full pass)',
+                  'views_sync' in steps
+                  and all('--for-branch' not in v for v in steps.values())))
+    cases.append(('the rung step stands aside outside a consumer, and with no '
+                  'destination', ppc._rung_refusal(ROOT, 'upstream', 'main') is None
+                  and ppc._rung_refusal(ROOT, 'consumer', None) is None))
     bad = [c[0] for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
