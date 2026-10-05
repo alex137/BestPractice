@@ -799,6 +799,15 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] the section under /{_rep['heading']}/i is "
                       f"refused when every line of it repeats the last "
                       f"reply's; with nothing new, it is one line{_short}.")
+        # require_quiet_while_background_runs: printed on the turn that
+        # STARTS a batch, which is where it can still shape what follows
+        # (2026-10-05).
+        if r.get('require_quiet_while_background_runs'):
+            print(f"- [{src}] when a background job wakes a turn and another "
+                  f"background command is still running -- or the wake is a "
+                  f"Monitor's progress event -- the reply says NOTHING: no "
+                  f"status line, no Boildown. Report once, when the last job "
+                  f"ends or one fails. A wake that reports a failure may speak.")
         for pair in (r.get('require_paired_with') or []):
             if pair.get('if_matches') and pair.get('must_also_match'):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "
