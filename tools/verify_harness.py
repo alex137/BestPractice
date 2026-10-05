@@ -14910,8 +14910,6 @@ def check_precedent_check_fires():
             for _k in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
                       'PRECEDENT_COMMIT_TZ'):
                 env.pop(_k, None)
-            if env_extra:
-                env.update(env_extra)
             # The fixture must not resolve whoever's individual set happens
             # to be configured on this machine. It is found by ABSOLUTE path
             # from a user-level config, so unlike the shared source (a relative
@@ -14922,6 +14920,11 @@ def check_precedent_check_fires():
             # the resolver takes its documented "this person has no
             # individual set" path rather than a half-configured one.
             env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
+            # A case's own env_extra is applied after that default, so a case
+            # that brings an individual set of its own keeps it (2026-10-05:
+            # private-repo-scrub's planted set was silently replaced).
+            if env_extra:
+                env.update(env_extra)
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
                  '--only', slug, *extra],
