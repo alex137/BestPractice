@@ -14,6 +14,7 @@ checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 in_force_at: null
+visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       null
