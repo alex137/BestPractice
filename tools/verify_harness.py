@@ -20726,6 +20726,70 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_reply_check_keeps_practice_ideas_at_the_close():
+    """A reply offering practice ideas is refused unless it is the one that
+    says the session can be archived, and the refusal says to add nothing --
+    never to add the archive line to make the pair match.
+
+    Morgan, 2026-10-05 (strength: decided): practice ideas come at the
+    natural end of a conversation, not after every message.
+
+    practice: control-asserts-which-failure -- the positive case asserts the
+    pair's own repair text; the controls prove the closing reply passes and
+    that prose merely mentioning practice ideas is not read as offering them.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ideas-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        fx.mkdir()
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        decl = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') == 'practice-ideas-only-at-the-close']
+        (fx / 'reply_check.json').write_text(json.dumps(decl), encoding='utf-8')
+
+        def replycheck(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        mid = ('Fixed.\n\n## Boildown\n- The work of this session is now on: '
+               '`claude/x`.\n- Practice ideas:\n  - Run long checks in the '
+               "background.\n- Don't archive this session.\n")
+        r1 = replycheck('mid.md', mid)
+        cases.append(('practice ideas mid-conversation are refused, and the '
+                      'refusal says to add nothing rather than the archive line',
+                      r1.returncode == 2 and 'Output NOTHING further' in r1.stderr
+                      and 'Do NOT add the archive line' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:300]}'))
+
+        close = mid.replace("- Don't archive this session.",
+                            '- You can archive this session.')
+        r2 = replycheck('close.md', close)
+        cases.append(('negative control: the same ideas in the closing reply pass',
+                      r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:200]}'))
+
+        prose = ('Practice ideas now come only at the close of a session.\n\n'
+                 '## Boildown\n- The work of this session is now on: `x`.\n')
+        r3 = replycheck('prose.md', prose)
+        cases.append(('negative control: prose about practice ideas is not an offer',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_reply_check_refuses_a_repeated_boildown():
     """`require_section_not_repeated` refuses a Boildown whose every line says
     again what the previous reply's said, and nothing else.
@@ -58624,6 +58688,8 @@ def main():
           *check_reply_check_requires_the_boildown_first_line())
     check('the reply check refuses a Boildown that only repeats the last one',
           *check_reply_check_refuses_a_repeated_boildown())
+    check('the reply check keeps practice ideas to the closing reply',
+          *check_reply_check_keeps_practice_ideas_at_the_close())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())
