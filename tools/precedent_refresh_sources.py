@@ -369,7 +369,9 @@ def engine_owned_paths(repo):
     container unsafe on every reply. The names come from build_views.py
     itself rather than being repeated here; AGENTS.md is deliberately not
     among them, because only its loader block is generated and the rest is
-    a person's prose (that file's own note says why)."""
+    a person's prose (that file's own note says why). classify_dirt judges
+    its generated blocks apart from its prose, since 2026-10-05
+    (only_generated_blocks_changed)."""
     man = read_manifest(repo)
     if not man or '_error' in man:
         return set()
@@ -515,11 +517,53 @@ def classify_dirt(repo):
         is_engine = code in ('M', '??') and path in owned
         if not is_engine and code == 'M' and path == SETTINGS_PATH:
             is_engine = _settings_dirt_is_wiring(repo)
+        if not is_engine and code == 'M' and path in BLOCK_GENERATED_VIEWS:
+            is_engine = only_generated_blocks_changed(repo, path)
         (engine if is_engine else other).append(path)
     return sorted(engine), sorted(other)
 
 
 SETTINGS_PATH = '.claude/settings.json'
+
+# Files whose generated BLOCKS the refresh rewrites while the rest of the
+# file is a person's prose -- so a name alone never makes one engine output.
+BLOCK_GENERATED_VIEWS = ('AGENTS.md',)
+
+
+def only_generated_blocks_changed(repo, path):
+    """True when `path` differs from its last commit only inside its
+    generated blocks: the same number of blocks, and every line outside them
+    unchanged. Anything else -- a block added or removed, one word of prose
+    changed, a file that cannot be read -- is a person's edit.
+
+    THE CASE (2026-10-05). A session's startup refresh rewrote the loader
+    block of precedent-shared-ladder's AGENTS.md, as it is meant to. AGENTS.md
+    was deliberately left out of engine_owned_paths, because most of it is
+    a person's prose, so the whole file read as somebody's uncommitted work:
+    the next refresh refused to bring that clone up to its own origin/main,
+    and the container check called the container unsafe to archive. A
+    rebuild in a throwaway copy came out byte-identical -- nothing in it was
+    anyone's. Judging the prose and the blocks separately keeps the guard for
+    the prose and lets the generated part go."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import generated_blocks as gb
+    except Exception:                                         # noqa: BLE001
+        return False
+    ok, committed = _git('show', f'HEAD:{path}', cwd=repo)
+    if not ok:
+        return False
+    try:
+        current = (pathlib.Path(repo) / path).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return False
+
+    def prose(text):
+        lines = text.strip('\n').split('\n')
+        return ([l for l, hide in zip(lines, gb.mask(lines)) if not hide],
+                len(gb.spans(lines)))
+    (a, na), (b, nb) = prose(committed), prose(current)
+    return na > 0 and na == nb and a == b
 
 
 def _settings_dirt_is_wiring(repo):
