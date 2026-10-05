@@ -267,8 +267,18 @@ def collect(root=ROOT, resolved_view=False, committed=False):
 
     word_names = {w.lower() for w, _m, _s in all_words(root)[0]}
     entries = []
+    try:
+        import precedent_audience as _pa
+    except ImportError:
+        _pa = None
     for slug, (level, source, fm) in found.items():
         if not bv.is_in_force(fm):
+            continue
+        # A command for code owners only: never in a committed document, which
+        # reads the same for everyone, and listed in a session only for a code
+        # owner (tools/precedent_audience.py; Morgan, 2026-10-05).
+        if _pa is not None and _pa.for_code_owners(fm) and (
+                committed or not _pa.visible(fm, root)):
             continue
         try:
             commands = _commands_in(fm)

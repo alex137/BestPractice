@@ -40,6 +40,11 @@
     "the check cannot tell which is the trunk on its own (2026-10-05)."
   ],
   "visibility": "public",
+  "_maintainers_comment": "Who runs this repository. With no owned_paths, build_codeowners.py generates no CODEOWNERS from it, so GitHub requests no reviews; tools/precedent_audience.py reads it to decide who sees the practices marked visible_to: code-owners (2026-10-05).",
+  "maintainers": [
+    {"name": "Alex", "github": "alex137"},
+    {"name": "Morgan F", "github": "themorgan"}
+  ],
   "branch_stale_days": 30,
   "_branch_stale_days_comment": [
     "How old a MERGED, undeleted branch has to be before the very deep",

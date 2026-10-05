@@ -1882,6 +1882,16 @@ class _BlockNotVerifiable(Exception):
     """A declared source is unreachable, so the block cannot be judged."""
 
 
+def _code_owners_only(fm):
+    """Whether a practice is marked `visible_to: code-owners`."""
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_audience as _pa
+    except Exception:                                        # noqa: BLE001
+        return False
+    return _pa.for_code_owners(fm)
+
+
 def loader_practices(root, own_practices):
     """-> (practices, source_levels) for the AGENTS.md loader block.
 
@@ -2804,6 +2814,13 @@ def main():
                  "incomplete source set -- that would silently drop every "
                  "practice the unreachable sources contribute. Make them "
                  "resolvable, then re-run.")
+    # A practice for code owners only (`visible_to: code-owners`) never goes
+    # in the tracked block: it reads the same for everyone who opens the
+    # repository, so it cannot tell a code owner from anyone else. It reaches
+    # code owners through the untracked session file instead
+    # (precedent_session_practices.py; Morgan, 2026-10-05).
+    block_practices = [p for p in block_practices
+                       if not _code_owners_only(p[0])]
     # Whatever the tracked block could not carry -- a private source in a
     # public repo, or another repository's catalogue in a practice set --
     # reaches the session only through the untracked file, so the standing
