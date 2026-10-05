@@ -2091,7 +2091,10 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
     pre = original[:original.index(BEGIN_MARKER)]
     post = original[original.index(END_MARKER) + len(END_MARKER):]
-    return pre + block + post, (tokens, n_resident, len(practices))
+    # The total counts what the block carries: build_loader_block leaves the
+    # code-owners-only practices out, so they are not counted either.
+    n_total = sum(1 for p in practices if not _code_owners_only(p[0]))
+    return pre + block + post, (tokens, n_resident, n_total)
 
 
 
