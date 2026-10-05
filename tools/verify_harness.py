@@ -16109,6 +16109,17 @@ def check_precedent_check_fires():
              lambda repo: rewrite(repo, 'TODO.md',
                                   lambda x: x + '\n**Disposition:** parkd (2026-09-08, Morgan)\n'))
 
+        # open-item-disposition-copies -- a park in the frontmatter with no
+        # dated, named body line: warned about, never refused (practice:
+        # format-rules-grandfather).
+        case('open-item-disposition-copies',
+             lambda repo: (repo / 'todo' / 'todo-2099-01-01-planted-park.md')
+             .write_text('---\nslug: todo-2099-01-01-planted-park\n'
+                         'status:            open\n'
+                         'disposition:       parked\nnoted: 2099-01-01\n---\n'
+                         '## What\n\nA planted item.\n', encoding='utf-8'),
+             advisory=True)
+
         # The other half of that grammar, asserted directly rather than
         # through case(): a `parked` line nobody signed. case() proves only
         # that SOMETHING failed, and this practice has two distinct

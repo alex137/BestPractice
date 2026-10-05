@@ -10284,7 +10284,8 @@ def _open_item_disposition(ctx):
                              'existed: the item still works, and the tool '
                              'that writes parks fixes it in one command '
                              '(Morgan, 2026-10-05)'},
-       practice_backed=False)
+       practice_backed=False,
+       selects_on=('todo/todo-*.md', 'tools/todo_disposition.py'))
 def _open_item_disposition_copies(ctx):
     items = _disposition_items()
     if not items:
