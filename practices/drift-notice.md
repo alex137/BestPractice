@@ -16,7 +16,7 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from the shared set precedent-shared-repo-maintenance"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05"
 strength: decided
 ---
 ## Rule

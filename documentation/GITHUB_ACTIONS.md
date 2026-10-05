@@ -401,7 +401,7 @@ than writing a block from an incomplete source set, which is the shape a
 green-but-blind check would take. So no workflow a consuming repo gets
 checks its views. What covers a consuming repo today is a session running
 `python3 tools/precedent_sync_views.py --repo . --check` where the sources
-do resolve; [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)'s
+do resolve; [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)'s
 `consumer-views-drift-uncheckable-in-ci` item holds the question of whether
 anything better is possible.
 
