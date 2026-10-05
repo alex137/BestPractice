@@ -1176,9 +1176,11 @@ def main():
                 continue
             clause = (bv._json_str(fm.get('index_clause', '')).strip()
                       or bv._json_str(fm.get('title', '')).strip())
+            clause = bv._standing_prefix(fm) + clause
             print(f"- **{slug}** ({where}) — {clause}")
             continue
-        block = f"### {slug} ({where})\n{sections.get('rule', '').strip()}"
+        block = (f"### {slug} ({where}){ps._standing_note(fm)}\n"
+                 f"{sections.get('rule', '').strip()}")
         if manifest is not None:
             note = ps._source_unreachable_note(manifest, slug)
             if note:

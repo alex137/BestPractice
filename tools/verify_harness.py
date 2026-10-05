@@ -16043,6 +16043,16 @@ def check_precedent_check_fires():
         # rule. The dangerous case is `strength: strong`, which reads as an
         # endorsement to a person skimming and matches neither defined word
         # for a session looking for one.
+        # practice-standing -- a Principle set by someone the universal
+        # set's registry (precedent.json maintainers) does not name. The
+        # check's other refusals are asserted in-process, by message.
+        case('practice-standing',
+             lambda repo: rewrite(repo, 'practices/weak-yes.md',
+                                  lambda t: t.replace(
+                                      'severity:    default\n',
+                                      'severity:    default\nstanding:    principle\n'
+                                      'standing_by: not-an-approver\n', 1)))
+
         case('decision-strength',
              lambda repo: rewrite(repo, 'practices/decision-strength.md',
                                   lambda t: t.replace('strength:    decided',
@@ -18702,6 +18712,38 @@ def check_checks_read_what_their_rules_name():
                   again == parked
                   and any('do not ask again' in n for n in notes2),
                   '; '.join(notes2)))
+
+    # --- practice_standing.py: the three words and who may set them ------
+    import practice_standing as pst
+    auth = ({'@themorgan', '@alex137'}, 'precedent.json')
+    def _probs(**fm):
+        return pst.problems(fm, '.', _authority=auth)
+    cases.append(('practice_standing: no label means Protocol, shown with no '
+                  'note anywhere',
+                  pst.standing({}) == 'protocol' and pst.label({}) == ''
+                  and pst.heading_note({}) == '' and pst.clause_prefix({}) == ''
+                  and pst.inline_note({}) == '' and _probs() == [], ''))
+    cases.append(('practice_standing: a Preference is marked with what it '
+                  'allows, in every channel\'s form',
+                  pst.clause_prefix({'standing': 'preference'}) == 'Preference: '
+                  and 'reason' in pst.heading_note({'standing': '"preference"'})
+                  and pst.inline_note({'standing': 'Principle'}).startswith('*Principle:'), ''))
+    _cases_ps = [
+        ('an unknown word', dict(standing='rule', standing_by='themorgan'), 'not one of'),
+        ('no standing_by', dict(standing='preference'), 'names nobody'),
+        ('standing_by alone', dict(standing_by='themorgan'), 'carries no'),
+        ('a Principle from outside the registry',
+         dict(standing='principle', standing_by='intern'), 'not named in'),
+    ]
+    for what, fm, needle in _cases_ps:
+        got = _probs(**fm)
+        cases.append((f'practice_standing: {what} is refused, saying so',
+                      len(got) == 1 and needle in got[0], repr(got)))
+    cases.append(('practice_standing: a Principle set by a maintainer ("@" '
+                  'optional) and anyone\'s Preference both pass',
+                  _probs(standing='principle', standing_by='@alex137') == []
+                  and _probs(standing='principle', standing_by='themorgan') == []
+                  and _probs(standing='preference', standing_by='intern') == [], ''))
 
     # --- two-check-levels: the pair comes from GLOSSARY.md ----------------
     gloss = ('| Term | Defined in |\n|---|---|\n'
