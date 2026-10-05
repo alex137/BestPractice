@@ -47,6 +47,30 @@ LOG_NAME = 'precedent-session-hooks.log'
 # hook injects its own practice list; five repos' worth unbounded would be a
 # large first turn, so what does not fit is left in the log and said so.
 CONTEXT_CAP = 24000
+# How precedent_session_practices.py's spoken-commands block begins (its
+# SPOKEN_HEAD); the block is that line and the `- ` lines right after it.
+# Not "up to a blank line": added_context() drops a hook's blank lines, so
+# a consumer's whole output once read as one block. Every repo's block is
+# lifted to the FRONT of what reaches the session, merged, before any cut:
+# with five sets attached the cut fell before the ladder's stage words, and a
+# session did not know "Debut" (2026-10-04). verify_harness checks that the
+# two files agree on this text.
+SPOKEN_PREFIX = 'Spoken commands in force here'
+
+
+def lift_spoken(ctx):
+    """-> (spoken lines, the rest of `ctx`): each spoken-commands block in
+    `ctx` taken out, its head line included, and what remains."""
+    spoken, rest, inside = [], [], False
+    for line in ctx.split('\n'):
+        if line.startswith(SPOKEN_PREFIX):
+            inside = True
+            spoken.append(line)
+            continue
+        if inside and not line.startswith('- '):
+            inside = False
+        (spoken if inside else rest).append(line)
+    return spoken, '\n'.join(rest).strip()
 
 
 def added_context(output):
@@ -143,12 +167,32 @@ def run(root, log=None, say=None):
     if fh:
         fh.close()
     if contexts:
+        # The spoken commands first, whole and once, ahead of every repo's
+        # output: what a person says must be understood before anything is
+        # cut (SPOKEN_PREFIX).
+        heads, items, lifted = [], [], []
+        for name, ctx in contexts:
+            spoken, rest = lift_spoken(ctx)
+            for line in spoken:
+                if line.startswith(SPOKEN_PREFIX):
+                    if not heads:
+                        heads.append(line)
+                elif line not in items:
+                    items.append(line)
+            if rest:
+                lifted.append((name, rest))
+        contexts = lifted
         body, used = [], 0
+        if items:
+            first = '\n'.join(heads + items)
+            body.append(first)
+            used += len(first)
         for name, ctx in contexts:
             piece = f'[{name}]\n{ctx}'
             # The first always goes in whole: a session opened in that one
             # repository would have received it in full.
-            if body and used + len(piece) > CONTEXT_CAP:
+            if (body and (used + len(piece) > CONTEXT_CAP)
+                    and (len(body) > 1 or not items)):
                 body.append(f'(more hook context did not fit; it is in {log})')
                 break
             body.append(piece)
