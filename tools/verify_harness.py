@@ -2903,7 +2903,7 @@ def check_rename_links_spares_a_url_into_another_repository():
         (repo / 'guide').mkdir()
         (repo / 'guide' / 'go-update.md').write_text('old\n', encoding='utf-8')
         (repo / 'elsewhere.md').write_text(
-            'See [go-update](https://github.com/acme/precedent-shared-ladder/'
+            'See [go-update](https://github.com/owner/precedent-shared-ladder/'
             'blob/main/guide/go-update.md).\n', encoding='utf-8')
         (repo / 'here.md').write_text(
             'See [go-update](https://github.com/acme/consumer/blob/main/'
