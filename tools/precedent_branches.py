@@ -2132,6 +2132,23 @@ def _to_main_copy(root, due=True):
 PROMOTE_MAIN_NOT_MOVED = 3
 
 
+def _carries_changes_of(root, tip, other):
+    """True when `tip` already has every file change `other` brings: merging
+    `other` into `tip` would leave `tip`'s tree as it is. A Produce's own
+    merge commit on main is the common case -- it changes no file, so a
+    Debut has nothing to take down and never makes staging its descendant.
+    Until 2026-10-05 main_test_holds_produce asked for ancestry alone, so a
+    main whose GitHub test went red without running (no runner) held every
+    Produce while telling the session to Debut, and the Debut had nothing to
+    do. Needs `git merge-tree --write-tree` (git 2.38); where that is
+    missing, or the merge conflicts, this answers False, the old reading."""
+    r = _run(root, 'merge-tree', '--write-tree', tip, other)
+    if r.returncode != 0:
+        return False
+    merged = r.stdout.split('\n', 1)[0].strip()
+    return bool(merged) and merged == _git(root, 'rev-parse', f'{tip}^{{tree}}')
+
+
 def main_test_holds_produce(root, say=print, gh=None):
     """-> None when a move into main may go ahead, else why not. Main's
     GitHub test on its own tip: failing holds it, still running is waited
@@ -2161,8 +2178,9 @@ def main_test_holds_produce(root, say=print, gh=None):
         staging = staging_branch(root)
         _run(root, 'fetch', '-q', 'origin', staging)
         stip = _remote_tip(root, staging)
-        carried = bool(stip) and _run(root, 'merge-base', '--is-ancestor', mtip,
-                                      stip).returncode == 0
+        carried = bool(stip) and (
+            _run(root, 'merge-base', '--is-ancestor', mtip, stip).returncode == 0
+            or _carries_changes_of(root, stip, mtip))
         # ...checked first, never taken on trust: carrying main's commit says
         # nothing about whether the tree it makes with the ladder's work
         # passes, so the hold lifts only for a staging tip whose exact tree
