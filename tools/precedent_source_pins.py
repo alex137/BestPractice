@@ -426,6 +426,9 @@ def main(argv):
     """`--repo DIR [--branch B]`: print each live source's pin, how it was
     found, and what the rung and freshness checks say."""
     import sys
+    if '--help' in argv or '-h' in argv:
+        print(__doc__)
+        return 0
     import precedent_resolve as pr
     repo = argv[argv.index('--repo') + 1] if '--repo' in argv else '.'
     branch = argv[argv.index('--branch') + 1] if '--branch' in argv else \
