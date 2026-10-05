@@ -257,7 +257,7 @@ IDENTITY_CHECKS = (
 GENERATED_FILES_CHECK = (
     'generated_files', ['{engine}/precedent_check.py', '--only',
                         'generated-files-registered'],
-    'nothing -- it ran only inside the full sweep, at the Debut')
+    'nothing -- it ran only inside the full sweep')
 CI_WORKFLOWS_CHECK = (
     'ci_workflows', ['{engine}/precedent_check.py', '--only',
                      'ci-workflow-approved'],
@@ -281,9 +281,11 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # classic install migrated onto the loader carried stale manifest baselines
 # and no scrub blocklist, both full-tier findings, so its pre-staging pushes
 # passed and the first Debut failed on both. They run in seconds.
-# generated_files joins every kind (2026-10-04): an Update Vendors that
-# refreshed build_todo_index.py left todo/TODO.md stale, the push to
-# pre-staging passed, and only the Debut's full check said so. Two seconds.
+# generated_files joins a consumer's and a practice set's basic tier
+# (2026-10-04): an Update Vendors that refreshed build_todo_index.py left
+# todo/TODO.md stale, the push to pre-staging passed, and only the full
+# check said so. Two seconds. Not upstream's: there precedent_check.py is
+# full-only by design, and BestPractice's commit backstop rebuilds these.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
                 'session_trailer', 'ci_workflows', 'light_check', 'build_views',
                 'views_sync',
@@ -321,7 +323,6 @@ PUSH_CHECKS = {
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'docs.yml, retired 2026-09-21'),
-        GENERATED_FILES_CHECK,
         DEEP_CHECK_SUITE,
         *IDENTITY_CHECKS,
     ),

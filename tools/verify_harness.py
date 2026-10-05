@@ -25936,6 +25936,8 @@ def check_push_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
+                   'sys.argv else "generated_files" if '
+                   '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -26480,6 +26482,8 @@ def check_merge_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
+                   'sys.argv else "generated_files" if '
+                   '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -26749,6 +26753,8 @@ def check_promote_pre_staging():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
+                   'sys.argv else "generated_files" if '
+                   '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
@@ -28720,6 +28726,8 @@ def check_sync_copies_work_from_above_once_checked():
                        'name = ("ci_workflows" if "ci-workflow-approved" in '
                        'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                        '"practice_export_loop" if "practice-export-loop" in '
+                   'sys.argv else "generated_files" if '
+                   '"generated-files-registered" in '
                        'sys.argv else "precedent_check")\n'
                        if t == 'precedent_check' else f'name = "{t}"\n')
                     + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
@@ -29163,6 +29171,8 @@ def check_promote_composes_main_and_moves_both_tiers():
                    'name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "scrub_gate" if "scrub-gate" in sys.argv else '
                    '"practice_export_loop" if "practice-export-loop" in '
+                   'sys.argv else "generated_files" if '
+                   '"generated-files-registered" in '
                    'sys.argv else "changed_practice" if "--changed-files-only" '
                    'in sys.argv else "precedent_check")\n'
                    'if name == "precedent_check" and os.environ.get("RUNS"):\n'
@@ -51652,7 +51662,7 @@ def check_update_vendors_onegplanning_findings():
                       got == ['OUT.md']
                       and git(r, 'show', ':OUT.md').stdout == 'generated v2\n'))
         kinds_ok = all(any(e[0] == 'generated_files' for e in ppc.PUSH_CHECKS[k])
-                       for k in ('upstream', 'source', 'consumer'))
+                       for k in ('source', 'consumer'))
         cases.append(('2. ...and the generated-files check runs at the basic tier',
                       'generated_files' in ppc.BASIC_CHECKS and kinds_ok))
 
@@ -51694,9 +51704,10 @@ def check_update_vendors_onegplanning_findings():
 
         for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
             boot = (ROOT / rel).read_text(encoding='utf-8')
-            cases.append((f'6. {rel} installs with python3 -m pip and keeps its error',
-                          'python3 -m pip install --quiet cmarkgfm markdown' in boot
-                          and 'pip install --quiet cmarkgfm markdown 2>/dev/null' not in boot))
+            cases.append((f'6. {rel} keeps pip\'s error and checks the import after',
+                          'pip install --quiet cmarkgfm markdown 2>"$_pip_log"' in boot
+                          and 'pip install --quiet cmarkgfm markdown 2>/dev/null' not in boot
+                          and "python3 -c 'import cmarkgfm, markdown'" in boot))
     except (OSError, subprocess.CalledProcessError, TypeError, ValueError,
             AttributeError, KeyError) as e:
         cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
