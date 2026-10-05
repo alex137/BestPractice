@@ -50653,6 +50653,21 @@ def check_move_tool_covers_every_direction_and_team_removals():
                       and 'ADDED an empty ## Install' in r.stdout
                       and 'status:      active' in text(indiv / 'practices' / 'zz-up.md'),
                       (r.stdout + r.stderr)[-500:]))
+
+        # -- a universal draft whose check universal does not register: a
+        #    refusal, not a traceback (2026-10-05, moving assorted-notes) --
+        (indiv / 'practices' / 'zz-checked.md').write_text(
+            P('zz-checked').replace(
+                'checked_by:  null', 'checked_by:  "tools/checks/check_zz_checked.py"'),
+            encoding='utf-8')
+        r = run('--slug', 'zz-checked', '--from', 'individual', '--from-path', str(indiv),
+                '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Owner')
+        cases.append(('a universal draft whose checked_by universal does not register is '
+                      'refused by name, with no traceback, and writes nothing',
+                      r.returncode == 1 and 'precedent_move FAIL' in r.stderr
+                      and 'Traceback' not in r.stderr
+                      and not (clone / 'practices' / 'zz-checked.md').exists(),
+                      r.stderr[-500:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -247,7 +247,13 @@ def _check_checked_by(fm, to_level, to_path):
         return
     if to_level == 'universal':
         import precedent_land as pl
-        pl._verify_checked_by_universal(checked_by, _field(fm, 'slug'))
+        # Re-raised as this tool's own refusal: escaping as LandRefused, it
+        # reached the caller as a traceback (2026-10-05, moving
+        # assorted-notes, whose check script universal does not register).
+        try:
+            pl._verify_checked_by_universal(checked_by, _field(fm, 'slug'))
+        except pl.LandRefused as e:
+            raise MoveRefused(str(e)) from e
         return
     name = pathlib.Path(checked_by).name
     script = pathlib.Path(to_path) / 'tools' / 'checks' / name
