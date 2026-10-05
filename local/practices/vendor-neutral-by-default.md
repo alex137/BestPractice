@@ -8,8 +8,8 @@ occasion:    "writing a hook, script, or practice-file rule in this repository t
 index_clause: "this repo ships out whole -- default new code and rules to provider-neutral"
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: vendor-neutral-by-default
 supersedes:  []
 overrides:   null
 added:       "2026-09-16"
@@ -93,6 +93,8 @@ never automatically. Naming the general rule in the same conversation —
 *"going forward, when we make code changes, we should do it in a
 vendor-neutral way to prepare for other repos"* — is what turns one
 corrected instance into a standing check for the next one.
+
+Deduplicated on 2026-10-05: the universal set now carries `vendor-neutral-by-default`, moved there from precedent-shared-repo-maintenance and generalized to any repository that vendors a layer out, which includes this one. Approved by Morgan F, as part of folding that set into universal.
 
 ## Install
 **No mechanical check, and this is a considered gap, not an unexamined

@@ -37,4 +37,10 @@ that declares it, and say the set is retired in its own README. The
 assorted-notes check script stays in the working-style repo until then:
 its deduplicated stub still links it.
 
+The places that told a new install to declare the set changed on
+2026-10-05, ahead of this: the starter template's
+[precedent.json](../templates/document-project/precedent.json) and its
+README, the guided setup in [SETUP.md](../SETUP.md), and INSTALL.md's
+table of which shared sets a repo declares.
+
 Archiving the repository on GitHub is Morgan's call.

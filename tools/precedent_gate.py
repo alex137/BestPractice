@@ -772,6 +772,33 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] a reply saying \"{pair['if_says']}\" must "
                       f"not ALSO match /{pair['must_not_say_matching']}/i -- "
                       f"the two cannot both be true. Say the one that is.")
+        # require_section_not_repeated: the previous reply's section is
+        # knowable here, before a word is written -- and here is the only
+        # place the repeat can still be avoided, since the stop hook fires
+        # after the person has read it (2026-10-05).
+        _rep = r.get('require_section_not_repeated') or {}
+        if _rep.get('heading'):
+            _prev = None
+            _path = os.environ.get('PRECEDENT_TRANSCRIPT_PATH', '').strip()
+            if _path and os.path.isfile(_path):
+                try:
+                    _tl = prc.assistant_timeline(_path) or []
+                    _prev = prc.previous_section(_tl + [(0, '\0')], '\0',
+                                                 _rep['heading'])
+                except Exception:                            # noqa: BLE001
+                    _prev = None
+            _short = f" ({_rep['one_line']})" if _rep.get('one_line') else ''
+            if _prev:
+                print(f"- [{src}] the section under /{_rep['heading']}/i is "
+                      f"refused when every line of it repeats the last "
+                      f"reply's. The last reply's said:\n"
+                      + '\n'.join(f"    {i}" for i in _prev)
+                      + f"\n  If yours would say nothing new, write the one "
+                        f"line instead{_short}.")
+            else:
+                print(f"- [{src}] the section under /{_rep['heading']}/i is "
+                      f"refused when every line of it repeats the last "
+                      f"reply's; with nothing new, it is one line{_short}.")
         for pair in (r.get('require_paired_with') or []):
             if pair.get('if_matches') and pair.get('must_also_match'):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "

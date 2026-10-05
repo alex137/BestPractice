@@ -14910,8 +14910,6 @@ def check_precedent_check_fires():
             for _k in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
                       'PRECEDENT_COMMIT_TZ'):
                 env.pop(_k, None)
-            if env_extra:
-                env.update(env_extra)
             # The fixture must not resolve whoever's individual set happens
             # to be configured on this machine. It is found by ABSOLUTE path
             # from a user-level config, so unlike the shared source (a relative
@@ -14922,6 +14920,11 @@ def check_precedent_check_fires():
             # the resolver takes its documented "this person has no
             # individual set" path rather than a half-configured one.
             env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
+            # A case's own env_extra is applied after that default, so a case
+            # that brings an individual set of its own keeps it (2026-10-05:
+            # private-repo-scrub's planted set was silently replaced).
+            if env_extra:
+                env.update(env_extra)
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
                  '--only', slug, *extra],
@@ -15118,6 +15121,94 @@ def check_precedent_check_fires():
             f.write_text(re.sub(r'^index_clause: "', 'index_clause: "on precedent-beta-v01, ',
                                 body, count=1, flags=re.M), encoding='utf-8')
         case('retired-branch-name-ships', _plant_retired_branch_name)
+
+        # default-branch: `origin` is a local bare repository whose HEAD is
+        # `trunk`. The clean copy has no remote at all, which the check
+        # reports as skipped -- never a violation.
+        def _plant_default_branch(repo):
+            bare = repo.parent / (repo.name + '-remote.git')
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'trunk', str(bare)],
+                           capture_output=True, check=True)
+            git(repo, 'push', '-q', str(bare), 'HEAD:refs/heads/trunk')
+            git(repo, 'remote', 'add', 'origin', str(bare))
+        case('default-branch', _plant_default_branch)
+
+        # derived-file-marker: a tracked file claims `DERIVED from ... @ sha`
+        # on its first line and carries none of the other three lines.
+        def _plant_derived_file_marker(repo):
+            f = repo / 'zz-derived.txt'
+            f.write_text('# DERIVED from practices/ @ 0123abc\n\nbody\n',
+                         encoding='utf-8')
+            git(repo, 'add', 'zz-derived.txt')
+        case('derived-file-marker', _plant_derived_file_marker)
+
+        # deep-check: a run_all.sh that globs test_*.sh, beside a check
+        # script with no test. The clean copy has no run_all.sh and
+        # declares itself a source, which the check skips.
+        def _plant_deep_check(repo):
+            tests = repo / 'tools' / 'checks' / 'tests'
+            tests.mkdir(parents=True, exist_ok=True)
+            (tests / 'run_all.sh').write_text(
+                '#!/bin/bash\nfor t in "$(dirname "$0")"/test_*.sh; do bash "$t"; done\n',
+                encoding='utf-8')
+            (repo / 'tools' / 'checks' / 'check_zz_untested.py').write_text(
+                'import os, pathlib\n'
+                'SOURCE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent\n'
+                'ROOT = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT") or SOURCE_ROOT)\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+        case('deep-check', _plant_deep_check)
+
+        # light-check: one of each thing the audit exists to catch. The
+        # marker and the token are assembled here, never spelled out, or
+        # this file would be the finding on the real tree.
+        def _plant_light_check(repo):
+            (repo / 'zz-conflict.txt').write_text(
+                'a\n' + '<' * 7 + ' HEAD\nb\n', encoding='utf-8')
+            (repo / 'zz-token.txt').write_text(
+                'token = ' + 'gh' + 'p_' + 'A' * 36 + '\n', encoding='utf-8')
+            (repo / 'zz-broken.json').write_text('{"a": 1,}\n', encoding='utf-8')
+            (repo / 'zz-links.md').write_text(
+                'See [nothing](zz-no-such-file.md).\n\n'
+                '`[an example](not-a-link.md)` is code, not a link.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+        case('light-check', _plant_light_check)
+
+        # private-repo-scrub: a private individual set, brought through the
+        # person's own config, whose origin is zz-owner/zz-private. The
+        # clean copy has it in force and does not name it -- a real pass,
+        # not a skip; the planted copy names it in a practice file.
+        _priv = tmp / 'zz-private-set'
+        (_priv / 'practices').mkdir(parents=True)
+        (_priv / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual',
+             'visibility': 'private'}), encoding='utf-8')
+        git(_priv, 'init', '-q')
+        git(_priv, 'remote', 'add', 'origin', 'https://github.com/zz-owner/zz-private.git')
+        _priv_cfg = tmp / 'zz-user-config.json'
+        _priv_cfg.write_text(json.dumps(
+            {'format_version': 1, 'individual': {'name': 'precedent-individual',
+                                                 'path': str(_priv)}}),
+            encoding='utf-8')
+
+        def _plant_private_repo_scrub(repo):
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8').replace(
+                '## Story\n', '## Story\nFirst seen in zz-owner/zz-private.\n', 1),
+                encoding='utf-8')
+        case('private-repo-scrub', _plant_private_repo_scrub,
+             env_extra={'PRECEDENT_USER_CONFIG': str(_priv_cfg)})
+        cases.append(('private-repo-scrub: the finding names the private repository',
+                      "'zz-owner/zz-private'" in planted['private-repo-scrub'][1]))
+        _lc = planted['light-check'][1]
+        for _what, _needle in (('conflict marker', 'zz-conflict.txt:2: unresolved conflict marker'),
+                               ('token', 'zz-token.txt: looks like a GitHub personal access token'),
+                               ('JSON', 'zz-broken.json: not valid JSON'),
+                               ('broken link', "zz-links.md:1: broken relative link to 'zz-no-such-file.md'")):
+            cases.append((f'light-check: a planted {_what} is reported', _needle in _lc))
+        cases.append(('light-check: a link inside a code span is not read as a link',
+                      'not-a-link.md' not in _lc))
 
         # ladder-words-stay-in-the-ladder-set: a ladder command and step
         # label planted in a universal practice's Rule. The clean copy is
@@ -20627,6 +20718,118 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
                  'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
         cases.append(('the reply gate PRINTS this requirement before the reply',
                       'must ALSO match' in r5.stdout, r5.stdout[-200:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
+def check_reply_check_refuses_a_repeated_boildown():
+    """`require_section_not_repeated` refuses a Boildown whose every line says
+    again what the previous reply's said, and nothing else.
+
+    Morgan, 2026-10-05 (strength: decided): "a boildown with nothing should be
+    one line", after three in a row repeated the same branch line and archive
+    verdict around one new fact. The planted repeat is that day's own pair:
+    the second rewords the first and adds nothing.
+
+    practice: control-asserts-which-failure -- the positive case asserts the
+    guard's own message and its say-nothing repair; the controls prove a new
+    fact, a changed branch, the one-line form, a first reply and a missing
+    transcript all pass.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repeat-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        fx.mkdir()
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-repeat',
+            'require_section_not_repeated': {
+                'heading': 'boildown',
+                'one_line': '- The work of this session is now on: <x>, '
+                            'unchanged since the last update.',
+                'same_when_both_say': ["Don't archive this session",
+                                       'You can archive this session']},
+        }]), encoding='utf-8')
+
+        def transcript(name, replies):
+            path = tmp / name
+            path.write_text('\n'.join(json.dumps({
+                'type': 'assistant', 'message': {
+                    'usage': {'input_tokens': 2},
+                    'content': [{'type': 'text', 'text': r}]}})
+                for r in replies) + '\n', encoding='utf-8')
+            return path
+
+        def run(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        first = ('Harness passed.\n\n## Boildown\n'
+                 '- The work of this session is now on: `claude/x-btnxe` '
+                 '(BestPractice), pushed but not landed.\n'
+                 '- **Your call:** say "Booked" to land it on `pre-staging`. '
+                 'My pick is yes.\n'
+                 "- Don't archive this session. Archived now, the work never "
+                 'lands.\n')
+        again = ('That notice is the result I already reported.\n\n## Boildown\n'
+                 '- The work of this session is now on: `claude/x-btnxe` '
+                 '(BestPractice), pushed but not landed.\n'
+                 '- Next is your "Booked" to land it on `pre-staging`.\n'
+                 "- Don't archive this session. The work would stay on its "
+                 'feature branch.\n')
+        r1 = run(transcript('repeat.jsonl', [first, again]))
+        cases.append(('a reworded Boildown with nothing new is refused, '
+                      'naming the one-line form and asking for nothing more',
+                      r1.returncode == 2 and 'previous reply' in r1.stderr
+                      and 'unchanged since the last update' in r1.stderr
+                      and 'Output NOTHING further' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:300]}'))
+
+        news = again.replace('- Next is your "Booked" to land it on `pre-staging`.',
+                             '- The harness found a broken link, fixed in the '
+                             'last commit.')
+        r2 = run(transcript('news.jsonl', [first, news]))
+        cases.append(('negative control: one new line makes it a real update',
+                      r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:200]}'))
+
+        moved = again.replace('`claude/x-btnxe` (BestPractice), pushed but not '
+                              'landed', '`pre-staging` (BestPractice), landed')
+        moved = moved.replace("- Don't archive this session. The work would stay "
+                              'on its feature branch.',
+                              "- Don't archive this session. Staging still waits.")
+        moved = moved.replace('- Next is your "Booked" to land it on `pre-staging`.',
+                              '- Landed on `pre-staging`.')
+        r3 = run(transcript('moved.jsonl', [first, moved]))
+        cases.append(('negative control: a branch that changed is a change, '
+                      'however alike the words',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+
+        short = ('Same as before.\n\n## Boildown\n- The work of this session '
+                 'is now on: `claude/x-btnxe`, unchanged since the last update.\n')
+        r4 = run(transcript('short.jsonl', [first, short]))
+        cases.append(('negative control: the one-line form passes',
+                      r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:200]}'))
+
+        r5 = run(transcript('only.jsonl', [first]))
+        cases.append(('negative control: a first Boildown has nothing to repeat',
+                      r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:200]}'))
+
+        r6 = run(tmp / 'no-such-transcript.jsonl')
+        cases.append(('negative control: no transcript, no refusal',
+                      r6.returncode == 0, f'exit {r6.returncode}: {r6.stderr[:200]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -50674,6 +50877,23 @@ def check_move_tool_covers_every_direction_and_team_removals():
                       and 'ADD an applies_to_why' in r.stdout,
                       (r.stdout + r.stderr)[-500:]))
 
+        # -- a universal draft whose check IS registered there gets its
+        #    checked_by repointed from the set's script to the engine
+        #    (2026-10-05: five drafts from repo-maintenance each carried
+        #    a tools/checks/ path universal does not have) --
+        (indiv / 'practices' / 'default-branch.md').write_text(
+            P('default-branch').replace(
+                'checked_by:  null', 'checked_by:  "tools/checks/check_default_branch.py"'),
+            encoding='utf-8')
+        r = run('--slug', 'default-branch', '--from', 'individual', '--from-path', str(indiv),
+                '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Owner')
+        cases.append(('a universal draft whose check universal registers names '
+                      'tools/precedent_check.py, not the set\'s script, and says so',
+                      r.returncode == 0 and 'REPOINTED checked_by' in r.stdout
+                      and 'checked_by:  "tools/precedent_check.py"'
+                      in text(clone / 'practices' / 'default-branch.md'),
+                      (r.stdout + r.stderr)[-500:]))
+
         # -- a universal draft whose check universal does not register: a
         #    refusal, not a traceback (2026-10-05, moving assorted-notes) --
         (indiv / 'practices' / 'zz-checked.md').write_text(
@@ -58402,6 +58622,8 @@ def main():
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
     check('the reply check requires the Boildown to open with where the work is',
           *check_reply_check_requires_the_boildown_first_line())
+    check('the reply check refuses a Boildown that only repeats the last one',
+          *check_reply_check_refuses_a_repeated_boildown())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())

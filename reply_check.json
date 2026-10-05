@@ -71,6 +71,21 @@
     }
   },
   {
+    "practice": "the-boildown",
+    "id": "boildown-not-repeated",
+    "require_section_not_repeated": {
+      "heading": "boildown",
+      "one_line": "- The work of this session is now on: <where it is>, unchanged since the last update.",
+      "same_when_both_say": [
+        "Don't archive this session",
+        "You can archive this session"
+      ],
+      "why": "a section that says again what the last one said, reworded, costs the person a read and tells them nothing"
+    },
+    "why": "Morgan, 2026-10-05 (strength: decided): three Boildowns in a row said the same three things around one new fact -- 'a boildown with nothing should be one line.' Blocking: the refusal asks for nothing further, since the repeat is already on screen; the turn-start gate shows the last Boildown so the repeat is not written at all.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
     "practice": "rule-links",
     "require_no_bare_pattern": [
       {
