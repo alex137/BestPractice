@@ -11,7 +11,7 @@ summary:       "Two ideas of Morgan's, worked through with a second session's cr
 ---
 # Practice Standing and Recheck: The Plan
 
-**Part 1 is being built now; Part 2 is not built yet.** This file is the
+**Part 1 is built (2026-10-05); Part 2 is not built yet.** This file is the
 plan adopted in the session "Practice categorization and lifecycle"
 (2026-10-05), after a second session critiqued it over several rounds. It
 records what was decided, how strongly, and why the first draft changed.
@@ -42,6 +42,8 @@ records what was decided, how strongly, and why the first draft changed.
 | Rechecks run during Update Vendors and during a very deep check | decided |
 | Every warning-only check is marked temporary or permanent | decided |
 | Morgan and Alex approve Protocols and Principles in the universal set | decided |
+| Approving a list of items a session proposed is `assented` for each item | decided |
+| The routing audit is shown whenever a practice file is edited | assented |
 | Recheck lines: at most 3, only in the reply that says the session can be archived | assented |
 | GitHub-enforced approval (CODEOWNERS) waits until there is a team with its own accounts | assented |
 

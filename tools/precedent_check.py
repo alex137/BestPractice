@@ -325,7 +325,7 @@ CHECKS = {}
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
           binds_publishers=False, binds_when=(), selects_on=(),
-          judges_received=False, advisory_term=None):
+          judges_received=False, advisory_term=None, existence_only=False):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -438,6 +438,14 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     back to it, and nothing in any update ran the fixer it waited for
     (spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md, Part 1 step 3).
 
+    `existence_only=True` marks a check that confirms a practice's own
+    machinery exists and can never report that the practice went
+    unfollowed. layered-practice-packs does not count such a check as a
+    route to a session: the routing audit passed as reachable through one
+    for a month while nothing ever prompted anyone to run it
+    (gotcha-2026-10-05-a-practice-routed-only-by-its-own-files-is-never-
+    shown-to-anyone).
+
     `judges_received=True` keeps this check's findings on files the repo
     RECEIVED -- another source's materialized practice or check, the
     vendored engine, a mirrored tree (precedent_practice_refs.py's
@@ -458,7 +466,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
                             binds_when=tuple(binds_when),
                             selects_on=tuple(selects_on),
                             judges_received=judges_received,
-                            advisory_term=advisory_term)
+                            advisory_term=advisory_term,
+                            existence_only=existence_only)
         return fn
     return deco
 
@@ -3225,6 +3234,20 @@ QUICK_INDEX_HEADER_RE = re.compile(
     re.I | re.M)
 
 
+def _self_only_route(fm):
+    """True when a practice's applies_to names only exact paths to tool
+    files: a route that fires only while someone maintains the practice's
+    own tooling, never during the work the practice is about. Measured
+    2026-10-05: the routing audit was the only practice routed this way,
+    and nothing had prompted a session to run it since 2026-09-04
+    (practice: layered-practice-packs)."""
+    raw = (fm.get('applies_to') or '').strip()
+    globs = re.findall(r'"([^"]+)"', raw) or re.findall(r"'([^']+)'", raw)
+    return bool(globs) and all(
+        g.startswith('tools/') and not any(c in g for c in '*?[')
+        for g in globs)
+
+
 @check('layered-practice-packs', 'tree',
        'every practice in force in this repo is reachable by at least one '
        'loading channel here -- resident, occasion index, a path trigger, a '
@@ -3423,11 +3446,14 @@ def _practice_is_reachable(ctx):
         #
         # A bare ["**"] is NOT a route -- it matches every file and so
         # distinguishes nothing. Same reading build_views takes.
-        if _bv_index is not None and _bv_index._routes_by_path(fm):
+        if (_bv_index is not None and _bv_index._routes_by_path(fm)
+                and not _self_only_route(fm)):
             continue                       # fires when a matching file is edited
         cb = (fm.get('checked_by') or 'null').strip('" ')
-        if cb and cb != 'null':
-            # A check only counts if something here can RUN it.
+        if cb and cb != 'null' and not CHECKS.get(slug, {}).get('existence_only'):
+            # A check only counts if something here can RUN it -- and if it
+            # can fail when the practice goes unfollowed, not merely when its
+            # tool goes missing (existence_only, see check()).
             if pathlib.Path(cb).name in reachable_names or (ROOT / cb).is_file():
                 continue
         unreachable.append((slug, s['level'], s['name']))
@@ -9053,7 +9079,8 @@ def _exemption_names_its_root_fix(ctx):
        '(if present) has no rotation entry for a practice that is not '
        'currently active',
        'whether the audit is actually being RUN or a slice actually READ -- '
-       'only that the tool exists and its own bookkeeping stays honest.')
+       'only that the tool exists and its own bookkeeping stays honest.',
+       existence_only=True)
 def _routing_audit(ctx):
     tool = _tool_path('tools/routing_audit.py')
     if tool is None:

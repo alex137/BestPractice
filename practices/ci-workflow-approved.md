@@ -7,7 +7,7 @@ applies_to:  [".github/workflows/**"]
 applies_to_why: "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run. Decided: 2026-09-25, when the practice landed."
 occasion:    "a .github/workflows file is added, edited, or found in an update or migration"
 gates:       ["push"]
-gates_why:   "The push check refuses a workflow file without the person's recorded approval, and workflow-write-gate.sh refuses one written through the GitHub tools before it lands, so a session that never saw the rule is stopped before a billed run. index_required: false records that judgment: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+gates_why:   "The push check refuses a workflow file without the person's recorded approval, and workflow-write-gate.sh refuses one written through the GitHub tools before it lands, so a session that never saw the rule is stopped before a billed run. index_required: false records that judgment: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 index_clause: "no new workflow or CI minutes without the person's words; a fix is maintenance"
 index_required: false
 checked_by:  "tools/precedent_check.py"
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-25"
-approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to this ever happening again ... It's a priority\", strength: decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to this ever happening again ... It's a priority\", strength: decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 ---
 ## Rule
 **A session never adds a GitHub Actions workflow, or adds CI work to one,

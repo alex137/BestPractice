@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-05-a-practice-routed-only-by-its-own-files-is-never-shown-to-anyone
-status:          live
+status:          retired
 noted:           2026-10-05
 severity:        notable
-retired:         null
+retired:         2026-10-05
 retires_when:    "layered-practice-packs no longer counts a route that fires only on a practice's own tool files, or a check that only confirms its tool exists, as reaching a session"
 ---
 ## Symptom
@@ -38,6 +38,6 @@ route fires. If the only answer is "maintaining this practice's own
 tooling", it is not a route. Give it one that fires during the work the
 practice is about: a glob over the files that work touches, a gate, or an
 occasion-index line. A check counts as a route only if it can fail when the
-practice goes unfollowed, not merely when its tool goes missing. Tightening
-`layered-practice-packs` to apply this test is step 4 of
+practice goes unfollowed, not merely when its tool goes missing. `layered-practice-packs` applies this test since 2026-10-05, and the routing
+audit's route now includes every practice file -- step 4 of
 [spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).

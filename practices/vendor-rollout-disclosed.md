@@ -7,7 +7,7 @@ applies_to:  ["practices/*.md", "templates/**", ".claude/hooks/*.sh"]
 applies_to_why: "A real locus for most of what it governs -- a practice file, a template, a hook script -- but not all of it: the engine files this also covers are named individually in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists rather than matched by a path glob, since that set is a curated allowlist, not every *.py file under tools/. Reached for those by the gates below instead. Decided: 2026-09-18, when the practice landed."
 occasion:    "committing a shipped practice, hook, template or engine file, before push or merge"
 gates:       ["merge", "push"]
-gates_why:   "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it. index_required: false: the push and merge gates print it before anything ships, and the vendoring-decided check refuses a new file with no vendoring rule. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+gates_why:   "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it. index_required: false: the push and merge gates print it before anything ships, and the vendoring-decided check refuses a new file with no vendoring rule. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 index_clause: "say whether shipped content must reach consumers, if it will, how it migrates"
 index_required: false
 checked_by:  null
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 strength:    assented
 ---
 ## Rule

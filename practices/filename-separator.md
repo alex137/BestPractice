@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "Every directory that holds files, which is every path -- the rule is about a directory's contents as a set, so no narrower glob describes it. Enforced tree-scope instead of routed. Decided: 2026-09-08, when the practice landed."
 occasion:    "naming or adding a file"
 gates:       ["push"]
-gates_why:   "The rule is a property of the tree at rest, and the push check's full sweep runs its tree check, so a mixed directory is refused at push before it reaches a shared branch. index_required: false records that the push arrives in time: renaming a file before it is shared costs nothing. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+gates_why:   "The rule is a property of the tree at rest, and the push check's full sweep runs its tree check, so a mixed directory is refused at push before it reaches a shared branch. index_required: false records that the push arrives in time: renaming a file before it is shared costs nothing. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 index_clause: "beside others of its kind: one word separator; never both - and _"
 index_required: false
 checked_by:  "tools/precedent_check.py"
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
-approved_by: "Morgan, 2026-09-08; push gate, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "Morgan, 2026-09-08; push gate, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 ---
 ## Rule
 **Files of the same kind, in the same directory, use the same word

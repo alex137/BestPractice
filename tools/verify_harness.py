@@ -16142,10 +16142,22 @@ def check_precedent_check_fires():
         # precedent.json whose practices never reach the generated views),
         # reproduced with only the universal source, which is the one a
         # fixture can resolve.
+        # A second shape in the same fixture (2026-10-05): a practice whose
+        # only file route names its own tool files is NOT reachable -- the
+        # routing audit's own route until that day. Reported by name below.
         def _plant_unreachable(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
                 r'\n  quote-discipline [^\n]*', '', t))
+            rewrite(repo, 'practices/routing-audit.md', lambda t: t.replace(
+                '["practices/*.md", "tools/routing_audit.py"',
+                '["tools/routing_audit.py"', 1))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
+        if 'layered-practice-packs' in planted:
+            _lpp = planted['layered-practice-packs'][1]
+            cases.append(('layered-practice-packs: a practice routed only by '
+                          'its own tool files, with an existence-only check, '
+                          'is reported unreachable',
+                          'routing-audit' in _lpp and 'quote-discipline' in _lpp))
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
