@@ -199,6 +199,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 | Path | What it is |
 |---|---|
+| [tools/artifact_publish_gate.py](tools/artifact_publish_gate.py) | The publish gate: a page reaches a link only as a fresh render of a |
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the path-triggered loader against this repo's own commit history |
 | [tools/branch_store.py](tools/branch_store.py) | Small records on a dedicated branch of a shared remote, with the push as the lock: the git plumbing shared by the lease board and the result cache |
 | [tools/build_codeowners.py](tools/build_codeowners.py) | CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json |

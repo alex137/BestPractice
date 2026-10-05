@@ -12648,6 +12648,62 @@ def check_update_vendors_repoints_renamed_shared_sets():
           not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_default_branch_reads_each_repos_trunk():
+    """The host's default branch is checked against the repository's own
+    trunk, whatever it is called -- never against the name `main`.
+
+    2026-10-05: a consumer whose trunk is `master` by decision failed the
+    check, and the failure undid its Update Vendors run. Four cases, each on
+    a bare remote this test builds: a declared `master` passes; a declared
+    `trunk` the host does not show is a violation; nothing declared passes
+    whatever the host shows; and a host default that differs from
+    `base_branch` with no `trunk` is COULD NOT VERIFY (ask the person),
+    never a violation."""
+    import tempfile, types
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='default-branch-'))
+
+    def repo(name, head, declared):
+        bare = tmp / (name + '.git')
+        work = tmp / name
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', head, str(bare)],
+                       capture_output=True, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', head, str(work)],
+                       capture_output=True, check=True)
+        (work / 'precedent.json').write_text(json.dumps(declared), encoding='utf-8')
+        for args in (['add', '-A'],
+                     ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                      'commit', '-q', '-m', 'x'],
+                     ['remote', 'add', 'origin', str(bare)],
+                     ['push', '-q', 'origin', f'HEAD:refs/heads/{head}']):
+            subprocess.run(['git', *args], cwd=str(work), capture_output=True, check=True)
+        return pc._default_branch(types.SimpleNamespace(root=work))
+
+    try:
+        got = repo('master-declared', 'master', {'base_branch': 'master'})
+        cases.append(('a trunk named master, declared, passes', got == []))
+        got = repo('trunk-mismatch', 'master', {'trunk': 'main'})
+        cases.append(('a declared trunk the host does not show is a violation',
+                      len(got) == 1 and not isinstance(got[0], pc.Unverified)
+                      and "'master'" in got[0].detail and "'main'" in got[0].detail))
+        got = repo('undeclared', 'develop', {})
+        cases.append(('nothing declared: the host default is the trunk', got == []))
+        got = repo('tiered', 'main', {'base_branch': 'staging'})
+        cases.append(('base_branch differs and no trunk: ask, never a violation',
+                      len(got) == 1 and isinstance(got[0], pc.Unverified)
+                      and '`trunk`' in got[0].detail))
+        got = repo('tiered-declared', 'main', {'base_branch': 'staging', 'trunk': 'main'})
+        cases.append(('...and once trunk is declared it passes', got == []))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('default-branch checks the host against each repo\'s own trunk',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
     """A synced manifest entry OUTSIDE the vendored tree whose file the
     update replaced with exactly upstream's copy gets its baseline moved.
@@ -59120,6 +59176,7 @@ def main():
     check_mirrored_prefixes_answers_both_install_models()
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
+    check_default_branch_reads_each_repos_trunk()
     check_consumer_basic_tier_runs_the_practice_audit()
     check_individual_hook_run_by_hand_links_the_attached_set()
     check_update_vendors_defaults_headroom_floor()

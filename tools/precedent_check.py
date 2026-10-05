@@ -6728,11 +6728,13 @@ def _shipped_template_carries_its_script(ctx):
 
 @check('default-branch', 'tree',
        "the repository's default branch on its remote -- what the host's HEAD "
-       "points at -- is `main`",
+       "points at -- is this repository's trunk, whatever it is called: the "
+       "`trunk` precedent.json declares, else its `base_branch`",
        'a repository with no `origin` remote, or one this run cannot reach: '
        'both are reported as skipped, never as a pass. It reads the remote, '
        'so a default changed on the host shows here on the next run, not '
-       'before.',
+       'before. Where nothing declared settles which branch is the trunk, it '
+       'reports COULD NOT VERIFY and asks the person, never a violation.',
        selects_on=('precedent.json',))
 def _default_branch(ctx):
     # Ported 2026-10-05 from the repo-maintenance set's
@@ -6740,6 +6742,13 @@ def _default_branch(ctx):
     # `git ls-remote --symref` asks the host which branch HEAD names
     # without cloning anything: the "host API where the session's tools
     # reach that far" the practice's own Install names.
+    #
+    # The same day it stopped insisting on the NAME `main` (S. Alexander
+    # Jacobson: "They are both the same idea. Different repos will have
+    # different names for whatever branch serves this function"). A repo
+    # whose trunk is `master` by decision failed this check, and the
+    # failure undid its whole Update Vendors run. What matters is that the
+    # host's default IS the trunk, and the trunk is the repo's to name.
     url = _git('remote', 'get-url', 'origin', cwd=ctx.root).stdout.strip()
     if not url:
         raise NotApplicable("no 'origin' remote configured")
@@ -6753,11 +6762,38 @@ def _default_branch(ctx):
     m = re.search(r'^ref:\s+refs/heads/(\S+)\s+HEAD$', r.stdout, re.M)
     if not m:
         raise NotApplicable(f'{url} did not say which branch HEAD names')
-    if m.group(1) != 'main':
-        return [Finding('origin', f"the remote's default branch is "
-                        f"'{m.group(1)}', not 'main' -- set it once, on the "
-                        f"host, as the practice's Install says")]
-    return []
+    host = m.group(1)
+    trunk = _declared_trunk(ctx.root)
+    if trunk:
+        if host != trunk:
+            return [Finding('origin', f"the remote's default branch is "
+                            f"'{host}', and this repository's trunk is "
+                            f"'{trunk}' (precedent.json `trunk`) -- set the "
+                            f"host's default to '{trunk}' once, as the "
+                            f"practice's Install says; or, if '{host}' is the "
+                            f"trunk, correct `trunk`")]
+        return []
+    base = _declared_base_branch(ctx.root)
+    if base is None or host == base:
+        # Nothing says otherwise: the branch the host shows first is the
+        # trunk, whatever it is called.
+        return []
+    return [Unverified('precedent.json', f"the host shows '{host}' first and "
+                       f"this repository's work lands on '{base}' "
+                       f"(`base_branch`), and nothing declares which of them "
+                       f"is the trunk. Ask the person once, then record the "
+                       f"answer as `trunk` in precedent.json")]
+
+
+def _declared_trunk(root):
+    """precedent.json's `trunk`: the branch everything ends up on, whatever
+    the repository calls it. None when undeclared or unreadable."""
+    try:
+        v = json.loads((pathlib.Path(root) / "precedent.json").read_text(
+            encoding='utf-8')).get('trunk')
+        return v if isinstance(v, str) and v.strip() else None
+    except (OSError, ValueError, AttributeError):
+        return None
 
 
 def _declares_itself(root):

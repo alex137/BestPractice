@@ -519,6 +519,11 @@ ENGINE_FILES = [
     # real run, the same failure shape precedent_check.py's own promotion
     # (see below) was caught by.
     'title_case.py',
+    # artifact_publish_gate.py -- docs-track-models rule 4, run by
+    # hooks/artifact-publish-gate.sh. Here rather than consumer-only because
+    # the hooks/ directory reaches both kinds (shipped-hook-carries-its-script);
+    # only a consumer wires it, and in a set it stays unwired.
+    'artifact_publish_gate.py',
     # The one way a generator copies prose into a summary field: links out,
     # then the cut (added 2026-09-25). build_todo_index.py, todo_migrate.py,
     # build_views.py and build_gotcha_index.py all import it at module level,
@@ -1019,6 +1024,9 @@ HOOK_WIRING = {
         # No workflow file written straight onto GitHub, past the push gate
         # that checks its approval (2026-09-26).
         ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
+        # Only a fresh render of a registered document reaches a link; a
+        # page typed by hand never meets a model check (2026-10-05).
+        ('PreToolUse', 'Artifact', 'artifact-publish-gate.sh', ''),
         ('Stop', None, 'stop-git-check.sh', ''),
         ('Stop', None, 'stop-reply-check.sh', ''),
     ),

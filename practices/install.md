@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "Installing touches a repository that has no Precedent files yet, so no path inside it can name the moment; the occasion index reaches it."
 occasion:    "installing Precedent or a shared set into a repo"
 gates:       []
-index_clause: "precedent_install.py, declare the set, wire the individual set, main as default"
+index_clause: "precedent_install.py, declare the set, wire the individual set, trunk as default"
 checked_by:  null
 defines:     []
 status:      active
@@ -19,7 +19,7 @@ approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from th
 strength: decided
 ---
 ## Rule
-Install Precedent with its own installer, `python3 tools/precedent_install.py` (Precedent's INSTALL.md section 0), and declare each shared set the repo uses in its `precedent.json` `sources`. A shared set is cloned beside the repo, never vendored into it; the section 1 vendored install was retired on 2026-09-23. Then wire the person's individual set, per Detail. Check that the target repo's default branch is `main`, and set it once if not, as `default-branch` says (its check still runs on its own).
+Install Precedent with its own installer, `python3 tools/precedent_install.py` (Precedent's INSTALL.md section 0), and declare each shared set the repo uses in its `precedent.json` `sources`. A shared set is cloned beside the repo, never vendored into it; the section 1 vendored install was retired on 2026-09-23. Then wire the person's individual set, per Detail. Check that the target repo's default branch is its trunk, whatever it is called, and set it once if not, as `default-branch` says (its check still runs on its own).
 
 ## Detail
 This applies the same way when the target repo already has some pieces present because they arrived indirectly -- a fork, a copy, an older install -- rather than fresh from the installer. Do the missing pieces; presence of one file is not evidence the rest came with it.
