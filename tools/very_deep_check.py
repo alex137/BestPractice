@@ -1294,9 +1294,31 @@ def _orphan_scan(repo_dir):
     checks_dir = tools_dir / 'checks'
     practices_dir = repo_dir / 'practices'
     if checks_dir.is_dir() and practices_dir.is_dir():
+        # A script's practice is the one whose `checked_by` names it, or the
+        # one its own `# practice: <slug>` line names; the filename is only
+        # the last resort. A writing-set script named for an older slug
+        # read as an orphan while its practice named it and the same run
+        # executed it (very deep check, 2026-10-05).
+        claimed = set()
+        for pf in practices_dir.glob('*.md'):
+            try:
+                head = pf.read_text(encoding='utf-8', errors='replace')[:4000]
+            except OSError:
+                continue
+            m = re.search(r'^checked_by:\s*(.+)$', head, re.M)
+            if m:
+                claimed.update(re.findall(r'check_[A-Za-z0-9_]+\.py', m.group(1)))
         for f in sorted(checks_dir.glob('check_*.py')):
             slug = f.stem[len('check_'):].replace('_', '-')
-            if (practices_dir / f'{slug}.md').is_file():
+            if (practices_dir / f'{slug}.md').is_file() or f.name in claimed:
+                continue
+            try:
+                own = re.search(r'^#\s*practice:\s*([a-z0-9-]+)\s*$',
+                                f.read_text(encoding='utf-8', errors='replace')[:4000],
+                                re.M)
+            except OSError:
+                own = None
+            if own and (practices_dir / f'{own.group(1)}.md').is_file():
                 continue
             # A script something here still RUNS has a job, whichever
             # source owns its practice: BestPractice's ported identity

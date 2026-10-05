@@ -7796,6 +7796,48 @@ def check_default_blocklist_runs_the_vocabulary_layer():
           not bad, '; '.join(bad))
 
 
+def check_orphan_scan_reads_who_claims_a_script():
+    """The very deep check's ORPHANS section names a check script whose
+    practice is gone. It went by filename alone, so a script named for an
+    older slug read as an orphan while its practice's `checked_by` named it
+    and the same run executed it (very deep check, 2026-10-05). A script is
+    owned when a practice's `checked_by` or its own `# practice:` line names
+    a practice that exists; only a script nothing claims is reported."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as _vdc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-'))
+    cases = []
+    try:
+        (fx / 'practices').mkdir()
+        (fx / 'tools' / 'checks').mkdir(parents=True)
+        (fx / 'practices' / 'new-name.md').write_text(
+            '---\nslug: new-name\nchecked_by: tools/checks/check_by_field.py\n---\n',
+            encoding='utf-8')
+        checks = fx / 'tools' / 'checks'
+        (checks / 'check_by_field.py').write_text('print(1)\n', encoding='utf-8')
+        (checks / 'check_by_header.py').write_text(
+            '# practice: new-name\nprint(1)\n', encoding='utf-8')
+        (checks / 'check_header_names_a_ghost.py').write_text(
+            '# practice: gone-name\nprint(1)\n', encoding='utf-8')
+        (checks / 'check_nobody.py').write_text('print(1)\n', encoding='utf-8')
+        out = ' '.join(_vdc._orphan_scan(fx))
+        cases.append(('a script a practice\'s checked_by names is not an orphan',
+                      'check_by_field.py' not in out))
+        cases.append(('a script whose own header names an existing practice is '
+                      'not an orphan', 'check_by_header.py' not in out))
+        cases.append(('a header naming a practice that does not exist is still '
+                      'an orphan', 'check_header_names_a_ghost.py' in out))
+        cases.append(('a script nothing claims is an orphan',
+                      'check_nobody.py' in out))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the orphan scan reads who claims a check script '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -59962,6 +60004,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
