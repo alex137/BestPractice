@@ -39,6 +39,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | lease board | [lease-in-flight-work](practices/lease-in-flight-work.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | live citation | [practice-change-propagates](practices/practice-change-propagates.md) |
+| long task | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |

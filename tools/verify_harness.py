@@ -50653,6 +50653,41 @@ def check_move_tool_covers_every_direction_and_team_removals():
                       and 'ADDED an empty ## Install' in r.stdout
                       and 'status:      active' in text(indiv / 'practices' / 'zz-up.md'),
                       (r.stdout + r.stderr)[-500:]))
+
+        # -- a universal draft is put in the spec's field order, and an
+        #    on-demand one with no applies_to_why is told to add it
+        #    (2026-10-05: five drafts from working-style failed the deep
+        #    check on both) --
+        import frontmatter_yaml
+        shuffled = P('zz-order').replace('in_force_at: null\n', '').replace(
+            'approved_by: "Fixture, 2026-09-14"\n',
+            'approved_by: "Fixture, 2026-09-14"\nin_force_at: null\n')
+        (indiv / 'practices' / 'zz-order.md').write_text(shuffled, encoding='utf-8')
+        r = run('--slug', 'zz-order', '--from', 'individual', '--from-path', str(indiv),
+                '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Owner')
+        drafted = text(clone / 'practices' / 'zz-order.md')
+        cases.append(('a universal draft from a file whose fields are out of the spec\'s '
+                      'order lands in order, and the tool asks for the applies_to_why '
+                      'an on-demand practice there must carry',
+                      r.returncode == 0 and frontmatter_yaml.field_order_problem(shuffled)
+                      and drafted and not frontmatter_yaml.field_order_problem(drafted)
+                      and 'ADD an applies_to_why' in r.stdout,
+                      (r.stdout + r.stderr)[-500:]))
+
+        # -- a universal draft whose check universal does not register: a
+        #    refusal, not a traceback (2026-10-05, moving assorted-notes) --
+        (indiv / 'practices' / 'zz-checked.md').write_text(
+            P('zz-checked').replace(
+                'checked_by:  null', 'checked_by:  "tools/checks/check_zz_checked.py"'),
+            encoding='utf-8')
+        r = run('--slug', 'zz-checked', '--from', 'individual', '--from-path', str(indiv),
+                '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Owner')
+        cases.append(('a universal draft whose checked_by universal does not register is '
+                      'refused by name, with no traceback, and writes nothing',
+                      r.returncode == 1 and 'precedent_move FAIL' in r.stderr
+                      and 'Traceback' not in r.stderr
+                      and not (clone / 'practices' / 'zz-checked.md').exists(),
+                      r.stderr[-500:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
