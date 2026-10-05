@@ -311,6 +311,166 @@ def assistant_timeline(transcript):
     return out
 
 
+# What a background job's start and finish look like in the transcript.
+# A Bash command started with run_in_background answers "Command running in
+# background with ID: X"; when it ends, the harness wakes the session with a
+# user row whose `origin.kind` is "task-notification" and whose text is a
+# <task-notification> block carrying that id and a <status>. A Monitor's
+# events arrive the same way but carry no <status>: an event is progress,
+# never the end of anything.
+_BG_STARTED_RE = re.compile(r'Command running in background with ID:\s*([A-Za-z0-9_-]+)')
+_NOTIFICATION_RE = re.compile(r'<task-notification>(.*?)</task-notification>', re.S)
+_TAG_RE = r'<{0}>(.*?)</{0}>'
+# A finished job counts as failed on a non-zero exit code; a progress event
+# counts as one when its text names a failure. Over-matching here only lets
+# the session speak, which is the safe direction.
+_EXIT_FAILED_RE = re.compile(r'\bexit code [1-9]\d*', re.I)
+_EVENT_FAILED_RE = re.compile(
+    r'\bexit(?: code)?:? [1-9]\d*|\b(?:fail(?:ed|ure|s)?|error|traceback|killed|timed out)\b',
+    re.I)
+
+
+def _row_text(d):
+    """Every piece of text in one transcript row, tool results included."""
+    msg = d.get('message')
+    content = msg.get('content') if isinstance(msg, dict) else None
+    if isinstance(content, str):
+        return content
+    out = []
+    for b in content if isinstance(content, list) else []:
+        if not isinstance(b, dict):
+            continue
+        if isinstance(b.get('text'), str):
+            out.append(b['text'])
+        c = b.get('content')
+        if isinstance(c, str):
+            out.append(c)
+        elif isinstance(c, list):
+            out.extend(x.get('text', '') for x in c
+                       if isinstance(x, dict) and isinstance(x.get('text'), str))
+    return '\n'.join(out)
+
+
+def _is_prompt_row(d):
+    """A user row that starts a turn: not a tool result, not a meta row."""
+    if d.get('type') != 'user' or d.get('isMeta'):
+        return False
+    msg = d.get('message')
+    content = msg.get('content') if isinstance(msg, dict) else None
+    if isinstance(content, list) and content and all(
+            isinstance(b, dict) and b.get('type') == 'tool_result' for b in content):
+        return False
+    return True
+
+
+def turn_wake(transcript):
+    """What started this turn, when a background job did -> dict, else None.
+
+    None for a turn a person started, and for a transcript that cannot be
+    read: only a turn the transcript plainly shows a job woke is judged here.
+    Otherwise:
+
+        {'quiet_owed': bool,   # nothing to say yet: say nothing
+         'running':    [ids],  # background commands started, not yet ended
+         'failed':     bool,   # this wake reports a failure
+         'text':       str}    # the prose of THIS turn's reply
+
+    Morgan, 2026-10-05 (strength: decided), after four Debuts run one after
+    another reported themselves one at a time, each reply with its own
+    Boildown: a reply to a job finishing gets no Boildown unless the job is
+    done, and a batch reports once -- when the whole batch is done or
+    something fails.
+
+    QUIET IS OWED when the wake is progress only (a Monitor event, which has
+    no <status>), or when a job finished while another background command
+    from this session is still running -- unless this wake reports a
+    failure, which is always worth saying at once.
+
+    `text` is read from the assistant rows AFTER the wake, never the last
+    assistant text in the file: a turn that said nothing must not be judged
+    by the previous turn's words.
+
+    Blind spot, said rather than hidden: only a Bash command's own "running
+    in background" line marks a job as started. A job launched some other
+    way is not counted as running, so its batch is judged done early -- the
+    session may then speak, which is the old behavior, never a wrong refusal.
+    """
+    try:
+        rows = [json.loads(l) for l in
+                pathlib.Path(transcript).read_text(encoding='utf-8').splitlines()
+                if l.strip()]
+    except (OSError, json.JSONDecodeError):
+        return None
+    wake_at = None
+    for i, d in enumerate(rows):
+        if _is_prompt_row(d):
+            wake_at = i
+    if wake_at is None:
+        return None
+    wake = rows[wake_at]
+    wake_text = _row_text(wake)
+    origin = wake.get('origin') if isinstance(wake.get('origin'), dict) else {}
+    if not (origin.get('kind') == 'task-notification'
+            or wake_text.lstrip().startswith('<task-notification>')):
+        return None
+
+    def tag(name, block):
+        m = re.search(_TAG_RE.format(name), block, re.S)
+        return m.group(1).strip() if m else None
+
+    # Read only where the harness itself writes: a tool result that OPENS
+    # with the started line, and a notification delivered as a turn's prompt,
+    # as an `attachment` (one that ended mid-turn), or as a `queue-operation`.
+    # Never any other tool output -- a command that prints a transcript would
+    # otherwise start and end jobs that are not this session's.
+    started, ended = [], set()
+    for d in rows[:wake_at + 1]:
+        notices = []
+        if d.get('type') == 'user':
+            content = (d.get('message') or {}).get('content')
+            for b in content if isinstance(content, list) else []:
+                if isinstance(b, dict) and b.get('type') == 'tool_result':
+                    c = b.get('content')
+                    c = c if isinstance(c, str) else '\n'.join(
+                        x.get('text', '') for x in (c or [])
+                        if isinstance(x, dict) and isinstance(x.get('text'), str))
+                    m = _BG_STARTED_RE.match(c.lstrip())
+                    if m and m.group(1) not in started:
+                        started.append(m.group(1))
+            if _is_prompt_row(d):
+                notices.append(_row_text(d))
+        elif d.get('type') == 'attachment':
+            a = d.get('attachment')
+            if isinstance(a, dict) and isinstance(a.get('prompt'), str):
+                notices.append(a['prompt'])
+        elif d.get('type') == 'queue-operation' and isinstance(d.get('content'), str):
+            notices.append(d['content'])
+        for t in notices:
+            for block in _NOTIFICATION_RE.findall(t):
+                if tag('status', block) and tag('task-id', block):
+                    ended.add(tag('task-id', block))
+    running = [i for i in started if i not in ended]
+
+    blocks = _NOTIFICATION_RE.findall(wake_text)
+    failed, progress_only = False, bool(blocks)
+    for block in blocks:
+        status = tag('status', block)
+        if status:
+            progress_only = False
+            if status.lower() != 'completed' or _EXIT_FAILED_RE.search(
+                    tag('summary', block) or ''):
+                failed = True
+        elif _EVENT_FAILED_RE.search(tag('event', block) or ''):
+            failed = True
+
+    text = '\n'.join(
+        b.get('text', '') for d in rows[wake_at + 1:] if d.get('type') == 'assistant'
+        for b in ((d.get('message') or {}).get('content') or [])
+        if isinstance(b, dict) and b.get('type') == 'text')
+    return {'quiet_owed': not failed and (progress_only or bool(running)),
+            'running': running, 'failed': failed, 'text': text}
+
+
 def offer_is_due(timeline, every, phrases):
     """Has the conversation grown by `every` tokens since one of `phrases`
     was last said? -> (bool, current_context_tokens, tokens_since).
@@ -598,6 +758,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_container_safe_if_says',
     'require_landed_if_says',
     'require_section_not_repeated',
+    'require_quiet_while_background_runs',
     'unless_reply_declares_loss',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
@@ -640,11 +801,12 @@ def _unknown_predicates(req):
                   if not k.startswith('_') and k not in KNOWN_REQUIREMENT_KEYS)
 
 
-def violations(text, reqs, timeline=None):
+def violations(text, reqs, timeline=None, wake=None):
     """-> list of records, one per unmet requirement:
 
         {'kind': 'heading' | 'first_item' | 'sentence' | 'contradiction'
-                 | 'bare_pattern' | 'paired' | 'repeat' | 'unknown_predicate',
+                 | 'bare_pattern' | 'paired' | 'repeat' | 'quiet'
+                 | 'unknown_predicate',
          'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
@@ -672,6 +834,28 @@ def violations(text, reqs, timeline=None):
     enforced: a size condition nobody could evaluate must not block a reply
     (practice: fail-gracefully).
     """
+    # require_quiet_while_background_runs: a turn a background job woke,
+    # with the batch still running, owes NO reply at all -- and so none of
+    # the requirements below, which all describe a reply that has something
+    # to say (Morgan, 2026-10-05). turn_wake() decides; this only applies it.
+    if wake and wake.get('quiet_owed'):
+        quiet = [r for r in reqs if r.get('require_quiet_while_background_runs')]
+        if quiet:
+            if not text.strip():
+                return []
+            r = quiet[0]
+            q = r['require_quiet_while_background_runs']
+            what = (f"background job(s) {', '.join(wake['running'])} are still "
+                    f"running" if wake.get('running') else
+                    "this wake is a progress event, not the end of a job")
+            return [{'kind': 'quiet', 'advisory': bool(r.get('advisory')),
+                     'message': (
+                f"[{r.get('_source', '?')}] a background job woke this turn and "
+                f"{what}, so this reply should not have been written: no status "
+                f"line, no Boildown. Report once, when the last job ends or one "
+                f"fails."
+                + (f" -- {q['why']}" if isinstance(q, dict) and q.get('why') else '')
+                + (f" (practice: {r['practice']})" if r.get('practice') else ''))}]
     out = []
     headings = [re.sub(r'^#{1,6}\s+', '', l).strip()
                 for l in text.splitlines() if re.match(r'^#{1,6}\s+\S', l)]
@@ -1187,6 +1371,10 @@ def main():
                 bits.append(f"section /{_rep['heading']}/i not a repeat of the "
                             f"previous reply's; else one line"
                             + (f": {_rep['one_line']}" if _rep.get('one_line') else ''))
+            if r.get('require_quiet_while_background_runs'):
+                bits.append('no reply at all to a background job waking the '
+                            'turn while its batch still runs (or to a progress '
+                            'event), unless it reports a failure')
             if r.get('require_landed_if_says'):
                 for ph in r['require_landed_if_says']:
                     bits.append(f'"{ph}" requires no work left on a feature '
@@ -1207,6 +1395,7 @@ def main():
         return 0
 
     timeline = None
+    wake = None
     if '--text' in argv:
         text = pathlib.Path(argv[argv.index('--text') + 1]).read_text(encoding='utf-8')
     else:
@@ -1224,6 +1413,12 @@ def main():
             return 0
         timeline = assistant_timeline(transcript)
         text = last_assistant_text(transcript)
+        # A turn a background job woke is judged by its own words only --
+        # never by the last reply's, which last_assistant_text() falls back
+        # to when this turn said nothing (2026-10-05).
+        wake = turn_wake(transcript)
+        if wake is not None:
+            text = wake['text']
         if not text:
             # No transcript we could parse, or a turn with no prose in it.
             # Never block on the check's own blindness.
@@ -1237,9 +1432,12 @@ def main():
     # A turn that opens with the fixed trivial-check-in template is the
     # documented substitute for a Boildown, not a shorter one -- exempt the
     # same way (practice: the-boildown).
-    if not reqs or not text.strip() or is_trivial_checkin(text):
+    if not reqs or not text.strip():
         return 0
-    bad = [b for b in violations(text, reqs, timeline) if not b.get('advisory')]
+    if is_trivial_checkin(text) and not (wake and wake.get('quiet_owed')):
+        return 0
+    bad = [b for b in violations(text, reqs, timeline, wake)
+           if not b.get('advisory')]
     if not bad:
         return 0
     # The reply that was just refused has ALREADY been shown to the person --
@@ -1265,7 +1463,17 @@ def main():
     # mid-conversation are repaired by withdrawing them, never by adding an
     # archive line that is not true.
     _repairs = [b['repair'] for b in bad if b.get('repair')]
-    if _repairs:
+    if any(b['kind'] == 'quiet' for b in bad):
+        # Like the repeat below, the repair is to say NOTHING: the reply is
+        # already on screen, and what this buys is the next wake handled
+        # right -- silent until the batch is done or something fails.
+        print('The reply gate blocked this turn: a background job woke it and '
+              'its batch is still running, named below, so nothing should have '
+              'been said yet. The person has ALREADY SEEN the reply above. '
+              'Output NOTHING further and end the turn. Say nothing on the '
+              'next wakes either, until the last job ends or one fails -- then '
+              'one report, with its Boildown.', file=sys.stderr)
+    elif _repairs:
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above -- do NOT repeat it. ' + ' '.join(_repairs),
               file=sys.stderr)
