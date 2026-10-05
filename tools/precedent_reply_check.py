@@ -463,6 +463,96 @@ def first_item_under_heading(text, pattern):
     return None
 
 
+def section_bullets(text, pattern):
+    """-> the bullets under the first markdown heading matching `pattern`,
+    each as one string (a bullet's continuation lines joined to it), up to
+    the next heading; None when no such heading exists. A non-bullet line
+    before the first bullet counts as an item of its own."""
+    lines, out, cur, inside = text.splitlines(), [], None, False
+    for line in lines:
+        m = re.match(r'^#{1,6}\s+(.*\S)', line)
+        if m:
+            if inside:
+                break
+            inside = bool(re.search(pattern, m.group(1), re.I))
+            continue
+        if not inside or not line.strip():
+            continue
+        if re.match(r'^\s*(?:[-*+]|\d+[.)])\s+', line):
+            if cur is not None:
+                out.append(cur)
+            cur = line.strip()
+        elif cur is not None:
+            cur += ' ' + line.strip()
+        else:
+            out.append(line.strip())
+    if cur is not None:
+        out.append(cur)
+    return out if inside or out else None
+
+
+def _item_words(s):
+    """The words of one item, with link targets and formatting dropped: what
+    it SAYS, for comparing two items that may be worded differently."""
+    s = re.sub(r'\]\([^)]*\)', ']', s)
+    s = re.sub(r'[*_`>#\[\]]', '', s).lower()
+    return set(re.findall(r"[a-z0-9][a-z0-9'./-]*", s))
+
+
+def _item_anchors(s):
+    """The things an item names: link targets and backticked names --
+    branches, files, commands. Two items naming different ones never say
+    the same thing, however alike their other words are."""
+    return (set(re.findall(r'\]\(([^)]*)\)', s))
+            | set(re.findall(r'`([^`]+)`', s)))
+
+
+def item_repeats(item, earlier, same_when_both_say=()):
+    """Does `item` say again what one of `earlier` already said?
+
+    Calibrated 2026-10-05 on a real session's twelve consecutive Boildowns,
+    where the person counted three that repeated: it flags exactly the one
+    whose every line was already said, and none of the others. Three ways an
+    item repeats one before it --
+      * the two share at least half their words (a light rewording);
+      * nearly all of the shorter one's words are in the other (a shorter
+        rewording of the same point), counted only from five words up;
+      * both carry the same fixed verdict sentence (`same_when_both_say`,
+        e.g. the archive line, whose reason changes words, not meaning) --
+    and never when the two name different things (`_item_anchors`): a
+    branch or a link that changed is a change."""
+    wi, ai, li = _item_words(item), _item_anchors(item), _norm(item)
+    for prev in earlier:
+        lp = _norm(prev)
+        if any(_norm(s) in li and _norm(s) in lp for s in same_when_both_say):
+            return True
+        wp, ap = _item_words(prev), _item_anchors(prev)
+        if (ai or ap) and ai != ap:
+            continue
+        if len(wi & wp) / max(1, len(wi | wp)) >= 0.5:
+            return True
+        small = min(len(wi), len(wp))
+        if small >= 5 and len(wi & wp) / small >= 0.8:
+            return True
+    return False
+
+
+def previous_section(timeline, text, pattern):
+    """-> the bullets of the most recent EARLIER reply carrying a section
+    under `pattern`, or None. `timeline` is assistant_timeline()'s output;
+    the current reply is its last entry with prose, and is skipped."""
+    if not timeline:
+        return None
+    entries = [t for _ctx, t in timeline if t and t.strip()]
+    if entries and entries[-1].strip() == text.strip():
+        entries = entries[:-1]
+    for t in reversed(entries):
+        items = section_bullets(t, pattern)
+        if items:
+            return items
+    return None
+
+
 def _fenced_blocks(text):
     """-> the text inside each ``` or ~~~ fenced block of `text`, in order.
     An unclosed fence runs to the end, as Markdown renders it."""
@@ -507,6 +597,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_in_fence_paired_with',
     'require_container_safe_if_says',
     'require_landed_if_says',
+    'require_section_not_repeated',
     'unless_reply_declares_loss',
     # conditions and metadata
     'id', 'requires',            # see _settle (2026-10-02)
@@ -553,7 +644,7 @@ def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
         {'kind': 'heading' | 'first_item' | 'sentence' | 'contradiction'
-                 | 'bare_pattern' | 'paired' | 'unknown_predicate',
+                 | 'bare_pattern' | 'paired' | 'repeat' | 'unknown_predicate',
          'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
@@ -644,6 +735,27 @@ def violations(text, reqs, timeline=None):
                     + (f" -- {first['why']}" if first.get('why') else '')
                     + (f" (practice: {r['practice']})"
                        if r.get('practice') else ''))})
+        # require_section_not_repeated: a section whose every item says again
+        # what the previous reply's same section said is noise the person
+        # pays to read (Morgan, 2026-10-05: three Boildowns in a row, each
+        # reworded, around one new fact). The short form the requirement
+        # names -- one item -- is what such a section is instead. Needs the
+        # timeline; skipped without one, like the size condition above.
+        rep = r.get('require_section_not_repeated')
+        if rep and rep.get('heading') and timeline is not None:
+            cur = section_bullets(text, rep['heading'])
+            prev = (previous_section(timeline, text, rep['heading'])
+                    if cur and len(cur) > 1 else None)
+            if prev and all(item_repeats(i, prev, rep.get('same_when_both_say') or ())
+                            for i in cur):
+                out.append({'kind': 'repeat', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] every line under the heading "
+                    f"matching /{rep['heading']}/i says again what the previous "
+                    f"reply's did. With nothing new in it, the whole section "
+                    f"is one line"
+                    + (f": {rep['one_line']}" if rep.get('one_line') else '')
+                    + (f" -- {rep['why']}" if rep.get('why') else '')
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
         if one_of and not any(_norm(o) in _norm(text) for o in one_of):
             out.append({'kind': 'sentence', 'advisory': advisory, 'message': (
@@ -756,7 +868,8 @@ def violations(text, reqs, timeline=None):
                 continue
             if re.search(trigger, text, re.I | re.M) and not re.search(
                     needed, text, re.I | re.M):
-                out.append({'kind': 'paired', 'advisory': advisory, 'message': (
+                out.append({'kind': 'paired', 'advisory': advisory,
+                            'repair': pair.get('repair'), 'message': (
                     f"[{r.get('_source', '?')}] this reply matches "
                     f"/{trigger}/ but nothing in it matches /{needed}/"
                     + (f" -- {pair.get('why')}" if pair.get('why') else '')
@@ -1069,6 +1182,11 @@ def main():
                     bits.append(f'"{ph}" requires a container with nothing '
                                 f'uncommitted and nothing off a remote '
                                 f'(tools/precedent_container_safe.py)')
+            _rep = r.get('require_section_not_repeated') or {}
+            if _rep.get('heading'):
+                bits.append(f"section /{_rep['heading']}/i not a repeat of the "
+                            f"previous reply's; else one line"
+                            + (f": {_rep['one_line']}" if _rep.get('one_line') else ''))
             if r.get('require_landed_if_says'):
                 for ph in r['require_landed_if_says']:
                     bits.append(f'"{ph}" requires no work left on a feature '
@@ -1141,7 +1259,17 @@ def main():
     # few minutes, you repeated the 'next steps' section two times."* A
     # sentence-only failure now says sentence-only, in the imperative, and
     # names the repeat as the thing not to do.
-    if any(b['kind'] == 'heading' for b in bad):
+    # A pairing may name its own repair (2026-10-05). The default below says
+    # "add the missing line", which is right when the line was forgotten and
+    # wrong when the TRIGGER is what does not belong: practice ideas offered
+    # mid-conversation are repaired by withdrawing them, never by adding an
+    # archive line that is not true.
+    _repairs = [b['repair'] for b in bad if b.get('repair')]
+    if _repairs:
+        print('The reply gate blocked this turn. The person has ALREADY SEEN '
+              'the reply above -- do NOT repeat it. ' + ' '.join(_repairs),
+              file=sys.stderr)
+    elif any(b['kind'] == 'heading' for b in bad):
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above, so do NOT write it again: output ONLY the '
               'missing closing section(s) named below, as a short addition to '
@@ -1153,6 +1281,16 @@ def main():
               'what is missing is its FIRST line, named below. Output that one '
               'bullet and nothing else: no new heading, no second copy of the '
               'section, no summary, no apology.', file=sys.stderr)
+    elif any(b['kind'] == 'repeat' for b in bad):
+        # The one refusal whose repair is to say NOTHING. The repeat has
+        # already been shown, and any correction is more of what the person
+        # objected to; what this buys is the next reply, written knowing.
+        print('The reply gate blocked this turn: its closing section repeats '
+              'the previous reply\'s, line for line, named below. The person '
+              'has ALREADY SEEN it. Output NOTHING further -- no correction, '
+              'no shorter copy, no apology -- and end the turn. The next '
+              'reply whose closing section has nothing new in it uses the '
+              'one-line form instead.', file=sys.stderr)
     elif any(b['kind'] == 'contradiction' for b in bad):
         print('The reply gate blocked this turn: it asserts two things named '
               'below that cannot both be true. The person has ALREADY SEEN '
