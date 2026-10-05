@@ -37665,11 +37665,11 @@ def check_kept_bootstrap_divergence_is_recorded():
     try:
         tpl = fx.template(fx.BOOT_SRC)
         # Found, not quoted: the template's package list changes (markdown
-        # joined it on 2026-10-01), and a quoted line broke this fixture.
-        pips = re.findall(rb'pip install --quiet [\w ]+? 2>/dev/null', tpl)
+        # joined it on 2026-10-01), and so does where pip's error goes (a
+        # file the warning quotes, 2026-10-05); either broke a quoted line.
+        pips = re.findall(rb'pip install --quiet [\w ]+?(?= 2>)', tpl)
         assert len(pips) == 1, 'template pip line moved; repoint this fixture'
-        ours = tpl.replace(pips[0], pips[0].replace(b' 2>/dev/null',
-                                                    b' pyyaml 2>/dev/null'))
+        ours = tpl.replace(pips[0], pips[0] + b' pyyaml')
         sha_now = hashlib.sha256(tpl).hexdigest()
 
         repo = fx.consumer('kept', boot=ours)
