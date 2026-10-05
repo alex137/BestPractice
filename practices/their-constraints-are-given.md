@@ -4,19 +4,19 @@ title:       "A person's account of their own constraints is given, not a claim 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "The occasion is something a PERSON says about their own situation, which is not a file path and not a repository -- the same shape as push-back beside it, and reached the same way, through the occasion index. Left at `**` deliberately: there is no tree state that predicts when somebody will state a constraint a session is tempted to soften. Decided: 2026-09-21, when the practice landed at universal after the same argument recurred across sessions."
-occasion:    "a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict"
+applies_to_why: "A person states a fact about their situation in a conversation, not in a file; the occasion index reaches it."
+occasion:    "a person's account of their own situation seems contradicted by the evidence"
 gates:       []
-index_clause: "their own situation is given -- say it once, then work from theirs"
+index_clause: "say it once, then work from theirs"
 checked_by:  null
 defines:     []
 command:     null
-status:      deduplicated
-in_force_at: their-constraints-are-given
+status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
-added:       "2026-09-21"
-approved_by: "requested by Morgan F, 2026-09-21, after the same argument recurred across sessions"
+added:       "2026-10-05"
+approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from the shared set precedent-shared-working-style"
 strength: decided
 ---
 ## Rule
@@ -37,7 +37,7 @@ received as an argument the person has already won and has to win again.
 
 ## Detail
 
-**This is not [push-back](push-back.md), and the line between them is the
+**This is not [push-back](https://github.com/alex137/BestPractice/blob/staging/practices/push-back.md), and the line between them is the
 whole point.** Push-back is about the *content of the work* — a stance, a
 framing, an argument the deliverable is making — where a real counter-case
 is owed and welcome. This rule is about *the person's own circumstances*,
@@ -60,7 +60,7 @@ information and calling it analysis.
 fresh, re-reads the same data, and re-derives the same correction, which
 feels novel to it and repetitive to them. Nobody is being careless. That
 is exactly why the fix cannot be "try to remember" and has to be
-[repo-is-memory](repo-is-memory.md): **a settled premise belongs in a
+[repo-is-memory](https://github.com/alex137/BestPractice/blob/staging/practices/repo-is-memory.md): **a settled premise belongs in a
 committed file**, where the next session reads it before it re-derives
 anything.
 
@@ -142,9 +142,12 @@ tool that runs every other kind of move refuses exactly this direction
 (`--from universal`) for exactly this reason, which this incident confirms
 rather than merely asserts. Reverted the same day, Morgan F: stays universal.
 
-Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
-
-Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.
+**2026-10-01: that last sentence no longer holds.** The universal copy was
+withdrawn later on 2026-09-23 (BestPractice commit `73ad9f14`, by the move
+tool's safe path), and BestPractice's own file is now `status:
+deduplicated`, pointing here. This set's copy is the one in force. Its
+occasion-index line was shortened on 2026-10-01, same meaning, in the
+reduction pass Morgan F approved that day.
 
 ## Install
 
@@ -154,4 +157,4 @@ routes it — `python3 tools/precedent_show.py their-constraints-are-given`.
 **Where a premise is settled for good, write it into the repository** so
 the next session reads it rather than re-deriving it: a line in the
 project's instructions file, or an open item recording the decision and
-its strength ([decision-strength](decision-strength.md)).
+its strength ([decision-strength](https://github.com/alex137/BestPractice/blob/staging/practices/decision-strength.md)).

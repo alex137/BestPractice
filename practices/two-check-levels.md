@@ -170,6 +170,10 @@ merge runbook ([merge-runbook](merge-runbook.md)) and in any CI wiring ([convent
 adds its own extra fast checks (secret-shaped strings, conflict markers,
 JSON/YAML syntax) folds them into the "light" name rather than inventing a
 third gate — two named gate levels is the right number for almost every repo.
+Those four are already run everywhere by the engine's own `light-check` check
+in [tools/precedent_check.py](../tools/precedent_check.py) (since 2026-10-05,
+ported from the repository-maintenance set), so a repo gets the minimum audit
+without writing one.
 
 **A rare, on-request audit is not a third level, and does not count against
 that.** The test is whether a session has to run it to land work. Something

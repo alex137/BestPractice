@@ -71,6 +71,35 @@
     }
   },
   {
+    "practice": "the-boildown",
+    "id": "boildown-not-repeated",
+    "require_section_not_repeated": {
+      "heading": "boildown",
+      "one_line": "- The work of this session is now on: <where it is>, unchanged since the last update.",
+      "same_when_both_say": [
+        "Don't archive this session",
+        "You can archive this session"
+      ],
+      "why": "a section that says again what the last one said, reworded, costs the person a read and tells them nothing"
+    },
+    "why": "Morgan, 2026-10-05 (strength: decided): three Boildowns in a row said the same three things around one new fact -- 'a boildown with nothing should be one line.' Blocking: the refusal asks for nothing further, since the repeat is already on screen; the turn-start gate shows the last Boildown so the repeat is not written at all.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
+    "id": "practice-ideas-only-at-the-close",
+    "require_paired_with": [
+      {
+        "if_matches": "^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?practice ideas?(?:\\*\\*)?\\s*:",
+        "must_also_match": "You can archive this session",
+        "why": "practice ideas are offered only at the natural end of the conversation, in the reply that says the session can be archived",
+        "repair": "It offered practice ideas, and this is not the reply that closes the session (it does not say \"You can archive this session\"). Output NOTHING further and end the turn. Do NOT add the archive line to satisfy this unless the session really is ready to archive; offer practice ideas only in the reply that is."
+      }
+    ],
+    "why": "Morgan, 2026-10-05 (strength: decided): practice ideas belong at the natural end of a conversation, not after every message. The closing list was already gated on the session being ready to archive, in prose only; this makes the gate mechanical for the one item he asked about.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
     "practice": "rule-links",
     "require_no_bare_pattern": [
       {

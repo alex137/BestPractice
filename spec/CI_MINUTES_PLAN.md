@@ -550,7 +550,7 @@ without hand-editing the workflow file. Added:
 `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` on every job in
 doc-lint.yml.template (retired 2026-09-21)
 and
-[precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template).
+[precedent-check.yml.template](https://github.com/alex137/BestPractice/blob/63881ff5c1dcd2dd13e5616e325c63e54b45878b/templates/github-actions/precedent-check.yml.template).
 Unset, nothing changes for anyone. Set as a repository variable, every job
 in that workflow moves to the named runner — the same escape hatch item 6
 describes, generalized from something only this session can apply to
@@ -582,7 +582,7 @@ Raising it further was Morgan's own call, after item 8/9's account above:
 
 **Found while making the change: the two templates had already drifted to
 different defaults.** doc-lint.yml.template (retired 2026-09-21)
-still shipped item 9's original `360`; [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+still shipped item 9's original `360`; [precedent-check.yml.template](https://github.com/alex137/BestPractice/blob/63881ff5c1dcd2dd13e5616e325c63e54b45878b/templates/github-actions/precedent-check.yml.template)
 had item 8's incident-driven `30` baked in as its own default, not just as
 the four affected repos' per-repo override — [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)
 claimed one shared default of `360` for both the whole time, which was

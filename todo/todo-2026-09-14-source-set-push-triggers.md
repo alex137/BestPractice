@@ -20,7 +20,7 @@ closed:            2026-09-30
     their checks on `pull_request` only, so a direct push to one runs
     nothing.** Upstream's half landed 2026-09-14 in
     [PR #313](https://github.com/alex137/BestPractice/pull/313):
-    [templates/github-actions/precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+    [templates/github-actions/precedent-check.yml.template](https://github.com/alex137/BestPractice/blob/63881ff5c1dcd2dd13e5616e325c63e54b45878b/templates/github-actions/precedent-check.yml.template)
     and the views-drift template (retired: a job inside
     precedent-check.yml.template since 2026-09-19)
     now carry `push:` with no branch filter, so a set bootstrapped or

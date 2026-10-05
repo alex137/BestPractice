@@ -75,8 +75,8 @@ control.
 
 ## Name It for Its Subject, Not for a Group of People
 
-`precedent-shared-writing`, `precedent-shared-repo-maintenance`,
-`precedent-shared-working-style`. **Not** `precedent-shared-my-team`.
+`precedent-shared-writing`, `precedent-shared-ladder`. **Not**
+`precedent-shared-my-team`.
 
 A subject-named set answers "should this project follow it?" by itself: a
 project that does no writing does not declare the writing set. A
