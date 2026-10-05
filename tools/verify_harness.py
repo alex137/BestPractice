@@ -2877,6 +2877,68 @@ def check_rename_links_spares_a_path_moved_into_gitignore():
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_rename_links_spares_a_url_into_another_repository():
+    """A deleted path inside a link to ANOTHER repository names that
+    repository's file, not this one's. After go-update moved from the
+    universal set to the ladder set, a consumer's Update Vendors deleted
+    practices/go-update.md, said to repoint its links, and then flagged the
+    repointed https://github.com/<owner>/precedent-shared-ladder/blob/main/
+    practices/go-update.md for still containing the old path
+    (a consumer, 2026-10-05). CONTROLS: a link into this same
+    repository, and a bare path, are still flagged."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='other-repo-url-'))
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
+            shutil.copy(f, repo / 'tools' / f.name)
+        up = repo / 'process' / 'upstream'
+        (up / 'practices').mkdir(parents=True)
+        shutil.copy(ROOT / 'practices' / 'rename-updates-links.md', up / 'practices')
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}]}),
+            encoding='utf-8')
+        (repo / 'guide').mkdir()
+        (repo / 'guide' / 'go-update.md').write_text('old\n', encoding='utf-8')
+        (repo / 'elsewhere.md').write_text(
+            'See [go-update](https://github.com/acme/precedent-shared-ladder/'
+            'blob/main/guide/go-update.md).\n', encoding='utf-8')
+        (repo / 'here.md').write_text(
+            'See [go-update](https://github.com/acme/consumer/blob/main/'
+            'guide/go-update.md).\n', encoding='utf-8')
+        (repo / 'bare.md').write_text('See guide/go-update.md.\n', encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                                  text=True, env=env)
+        g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
+        g('remote', 'add', 'origin', 'https://github.com/acme/consumer.git')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+        g('checkout', '-q', '-b', 'go-update-moved')
+        g('rm', '-q', 'guide/go-update.md'); g('commit', '-qm', 'go-update moved away')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'rename-updates-links'], cwd=str(repo), capture_output=True,
+                           text=True, env=env, timeout=300)
+        out = r.stdout + r.stderr
+        cases.append(('a link into another repository is not a stale reference',
+                      'elsewhere.md' not in out, out[-400:]))
+        cases.append(('CONTROL: a link into this same repository is still flagged',
+                      'here.md:1' in out, out[-400:]))
+        cases.append(('CONTROL: a bare path is still flagged',
+                      'bare.md:1' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'rename-updates-links spares a URL into another repository '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_untracked_renders_use_source_fingerprints():
     """A host that stops committing its renders (doc_html RENDERS_TRACKED =
     False) cannot judge a page by the render's own hash: a render carries
@@ -59064,6 +59126,7 @@ def main():
     check_loader_caps_unmeasured_without_a_declared_source()
     check_rename_links_leaves_dated_records_alone()
     check_rename_links_spares_a_path_moved_into_gitignore()
+    check_rename_links_spares_a_url_into_another_repository()
     check_untracked_renders_use_source_fingerprints()
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()

@@ -8065,6 +8065,34 @@ PINNED_PERMALINK_RE = re.compile(
     r'https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|tree|raw)/'
     r'|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+/)[0-9a-f]{40}/[^\s)\]>"\'`]*')
 
+# A URL into a GitHub repository, with the owner and name captured, so a
+# link into ANOTHER repository can be told from one into this one.
+_REPO_URL_RE = re.compile(
+    r'https?://(?:www\.)?(?:github\.com|raw\.githubusercontent\.com)/'
+    r'([^/\s]+)/([^/\s#?)\]>"\'`]+)[^\s)\]>"\'`]*')
+
+
+def _strip_other_repo_urls(line, own_slug):
+    """`line` with every URL into a repository other than `own_slug` removed.
+
+    A path this branch deleted is this repository's path. The same string
+    inside a link to a different repository names THAT repository's file,
+    which this branch did not touch: after go-update moved from the universal
+    set to the ladder set, a consumer's Update Vendors deleted
+    practices/go-update.md and was told to repoint its links -- and the
+    repointed https://github.com/<owner>/precedent-shared-ladder/blob/main/
+    practices/go-update.md was flagged again for containing the old path
+    (a consumer, 2026-10-05). With no origin to compare against, nothing
+    is removed: a URL is only "another repository" when this one is known."""
+    if not own_slug:
+        return line
+    own = own_slug.lower().removesuffix('.git')
+
+    def keep(m):
+        slug = f'{m.group(1)}/{m.group(2)}'.lower().removesuffix('.git')
+        return m.group(0) if slug == own else ''
+    return _REPO_URL_RE.sub(keep, line)
+
 
 @check('rename-updates-links', 'tree',
        'no tracked file still references a path this branch renamed away '
@@ -8079,7 +8107,9 @@ PINNED_PERMALINK_RE = re.compile(
        'each of which is overwritten by its own next sync. It also says '
        'nothing about a file the decommissioning registry exempts -- the record OF a deletion naming what went is not a reference left behind '
        'by one -- or about a path inside a permalink pinned to a 40-hex '
-       'commit, which cites the file as it was and cannot go stale. Nor '
+       'commit, which cites the file as it was and cannot go stale, or '
+       'inside a URL into another repository, which names that '
+       'repository\'s file rather than this one\'s. Nor '
        'about history, which names a path as it was: a generated view (its '
        'source is read), a closed todo item, a `## Story` section, or a '
        'record file precedent.json declares in `record_paths`.')
@@ -8127,6 +8157,7 @@ def _rename_updates_links(ctx):
 
     _retired_exempt = _decommissioning_record_exemptions()
     _records = _declared_record_paths()
+    _own_slug = _origin_slug()
 
     old_paths = []
     for line in r.stdout.splitlines():
@@ -8218,7 +8249,10 @@ def _rename_updates_links(ctx):
                 # that commit, which is the right way to cite a file that no
                 # longer exists -- it cannot go stale. A link to a branch can,
                 # and still counts.
-                if old in line and old in PINNED_PERMALINK_RE.sub('', line):
+                # And a URL into ANOTHER repository names that repository's
+                # file, not this one's (_strip_other_repo_urls).
+                if old in line and old in _strip_other_repo_urls(
+                        PINNED_PERMALINK_RE.sub('', line), _own_slug):
                     if moved and is_guarded_fallback(rel, line, old):
                         continue  # the fallback beside tools/, as templates write it
                     where = f'renamed to {new_path}' if new_path else 'deleted'
