@@ -12710,6 +12710,45 @@ def check_update_vendors_repoints_renamed_shared_sets():
           not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_light_check_skips_declared_records():
+    """The light check's broken-link scan skips a file precedent.json
+    declares in `record_paths`, and still flags the same link anywhere else.
+
+    2026-10-05: a consumer's Update Vendors run failed on links inside its
+    as-filed patent packages -- documents it had declared as records,
+    because they name files at the paths they had when filed and may never
+    be edited. Every other path-reading check honored the declaration; this
+    one did not."""
+    import tempfile, types
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='light-records-'))
+    saved = pc.ROOT
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        (tmp / 'precedent.json').write_text(json.dumps({'record_paths': [
+            {'path': 'as-filed.md', 'reason': 'held as filed'},
+            {'path': 'old-records/', 'reason': 'a directory of records'}]}), encoding='utf-8')
+        (tmp / 'old-records').mkdir()
+        for rel in ('as-filed.md', 'old-records/audit.md', 'live.md'):
+            (tmp / rel).write_text('See [the spec](moved-away.md).\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=str(tmp), capture_output=True, check=True)
+        pc.ROOT = tmp
+        got = [f.file() for f in pc._light_check(types.SimpleNamespace(root=tmp))]
+        cases.append(('a declared record file is skipped', 'as-filed.md' not in got))
+        cases.append(('a file in a declared record directory is skipped',
+                      'old-records/audit.md' not in got))
+        cases.append(('the same link in a live file is still flagged', 'live.md' in got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('the light check skips the record files a repo declares',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_default_branch_reads_each_repos_trunk():
     """The host's default branch is checked against the repository's own
     trunk, whatever it is called -- never against the name `main`.
@@ -59513,6 +59552,7 @@ def main():
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
     check_default_branch_reads_each_repos_trunk()
+    check_light_check_skips_declared_records()
     check_consumer_basic_tier_runs_the_practice_audit()
     check_individual_hook_run_by_hand_links_the_attached_set()
     check_update_vendors_defaults_headroom_floor()
