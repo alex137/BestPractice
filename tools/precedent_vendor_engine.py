@@ -382,6 +382,14 @@ ENGINE_FILES = [
     # about a catalogue, and only the second reason keeps a file out of a
     # set.
     'precedent_identity.py',
+    # Whether this session's person is one of the repository's code owners,
+    # so a practice marked `visible_to: code-owners` reaches only them
+    # (2026-10-05). Beside precedent_identity.py, which it reads, and in
+    # every kind of repo, since each channel that filters runs in all of them.
+    'precedent_audience.py',
+    # The remote branches a code owner can delete across the session's
+    # repositories, for the ladder set's stale-branch-cleanup (2026-10-05).
+    'precedent_stale_branches.py',
     # The resolver and the untracked-block writer, added 2026-09-13 so a
     # session rooted in a practice SET reads the universal catalogue instead
     # of that set's own practices alone. Until then a set resolved nothing:
@@ -519,6 +527,11 @@ ENGINE_FILES = [
     # real run, the same failure shape precedent_check.py's own promotion
     # (see below) was caught by.
     'title_case.py',
+    # artifact_publish_gate.py -- docs-track-models rule 4, run by
+    # hooks/artifact-publish-gate.sh. Here rather than consumer-only because
+    # the hooks/ directory reaches both kinds (shipped-hook-carries-its-script);
+    # only a consumer wires it, and in a set it stays unwired.
+    'artifact_publish_gate.py',
     # The one way a generator copies prose into a summary field: links out,
     # then the cut (added 2026-09-25). build_todo_index.py, todo_migrate.py,
     # build_views.py and build_gotcha_index.py all import it at module level,
@@ -1019,6 +1032,9 @@ HOOK_WIRING = {
         # No workflow file written straight onto GitHub, past the push gate
         # that checks its approval (2026-09-26).
         ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
+        # Only a fresh render of a registered document reaches a link; a
+        # page typed by hand never meets a model check (2026-10-05).
+        ('PreToolUse', 'Artifact', 'artifact-publish-gate.sh', ''),
         ('Stop', None, 'stop-git-check.sh', ''),
         ('Stop', None, 'stop-reply-check.sh', ''),
     ),

@@ -143,6 +143,13 @@ def practices_by_gate(practices_dir=None):
         # kept serving the practice the index had already removed).
         if not bv.is_in_force(fm):
             continue
+        # Code owners only: see resolved_gate_practices().
+        try:
+            import precedent_audience as pa
+            if not pa.visible(fm, practices_dir.parent):
+                continue
+        except ImportError:
+            pass
         for g in json.loads(fm.get('gates', '[]') or '[]'):
             out.setdefault(g, []).append(fm['slug'])
     return out
@@ -253,6 +260,14 @@ def resolved_gate_practices(root, gate):
         except json.JSONDecodeError:
             continue
         if gate in gates:
+            # A practice for code owners only is not printed to anyone else
+            # (tools/precedent_audience.py; Morgan, 2026-10-05).
+            try:
+                import precedent_audience as pa
+                if not pa.visible(practice['fm'], root):
+                    continue
+            except ImportError:
+                pass
             entries.append((slug, practice['level'], practice.get('source', ''),
                             pathlib.Path(practice['file'])))
     replaced = {d['slug']: d['by'].get('slug', '')
@@ -1171,6 +1186,27 @@ def main():
         print(f"{block}\n")
     if gate == 'reply':
         _print_hard_requirements(root)
+        # STALE BRANCHES, for the closing Boildown only (the ladder set's
+        # stale-branch-cleanup; Morgan, 2026-10-05). Only when that practice
+        # reached this person -- it is for code owners -- and only when there
+        # are any: "Don't do that if there aren't any."
+        if 'stale-branch-cleanup' in slugs:
+            try:
+                import precedent_stale_branches as _sb
+                _groups, _ = _sb.collect()
+                _n = sum(len(r) for *_x, r in _groups)
+            except Exception:                                 # noqa: BLE001
+                _n = 0
+            if _n:
+                print(f"- For the CLOSING Boildown only (the reply that says "
+                      f"\"You can archive this session\"): {_n} branch(es) "
+                      f"across {len(_groups)} repositor(ies) can be deleted. "
+                      f"Build the page with `python3 tools/"
+                      f"precedent_stale_branches.py --fetch --html "
+                      f"<scratchpad>/branch-cleanup.html`, publish it as an "
+                      f"artifact, and link it in one Boildown line. In any "
+                      f"other reply, say nothing about it (practice: "
+                      f"stale-branch-cleanup).")
         # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
         # requirements because for this person it is one: a reply that does
         # not say so is how a branch gets forgotten.

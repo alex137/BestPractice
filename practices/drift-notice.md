@@ -12,6 +12,7 @@ checked_by:  null
 defines:     []
 status:      active
 in_force_at: null
+visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"

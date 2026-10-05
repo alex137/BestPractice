@@ -1283,7 +1283,8 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
 def build_loader_block(practices, source_levels=None, defers_sources=False,
                        block_dir=None, repo_root=None, planned=(),
                        budget_tokens=None, occasion_budget_tokens=None,
-                       carried=None, regen_comment=True):
+                       carried=None, regen_comment=True,
+                       include_code_owners=False):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -1316,6 +1317,11 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     comment, which is true only of a block build_views writes into a tracked
     file -- the session-practices file is rebuilt by its own tool every
     session and has nothing to hand-edit or --check."""
+    # A practice for code owners only never goes in a block everyone reads
+    # (AGENTS.md, whichever tool renders it); the untracked session file asks
+    # for them with include_code_owners=True, for a code owner (2026-10-05).
+    if not include_code_owners:
+        practices = [p for p in practices if not _code_owners_only(p[0])]
     # Resolved, so the warning below names a path a reader can act on: a
     # caller passing `--repo .` otherwise produced "cannot be placed
     # relative to .", which says nothing.
@@ -1882,6 +1888,16 @@ class _BlockNotVerifiable(Exception):
     """A declared source is unreachable, so the block cannot be judged."""
 
 
+def _code_owners_only(fm):
+    """Whether a practice is marked `visible_to: code-owners`."""
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_audience as _pa
+    except Exception:                                        # noqa: BLE001
+        return False
+    return _pa.for_code_owners(fm)
+
+
 def loader_practices(root, own_practices):
     """-> (practices, source_levels) for the AGENTS.md loader block.
 
@@ -2075,7 +2091,10 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
     pre = original[:original.index(BEGIN_MARKER)]
     post = original[original.index(END_MARKER) + len(END_MARKER):]
-    return pre + block + post, (tokens, n_resident, len(practices))
+    # The total counts what the block carries: build_loader_block leaves the
+    # code-owners-only practices out, so they are not counted either.
+    n_total = sum(1 for p in practices if not _code_owners_only(p[0]))
+    return pre + block + post, (tokens, n_resident, n_total)
 
 
 
@@ -2804,6 +2823,13 @@ def main():
                  "incomplete source set -- that would silently drop every "
                  "practice the unreachable sources contribute. Make them "
                  "resolvable, then re-run.")
+    # A practice for code owners only (`visible_to: code-owners`) never goes
+    # in the tracked block: it reads the same for everyone who opens the
+    # repository, so it cannot tell a code owner from anyone else. It reaches
+    # code owners through the untracked session file instead
+    # (precedent_session_practices.py; Morgan, 2026-10-05).
+    # (Code-owners-only practices are left out by build_loader_block itself,
+    # so every renderer of the committed block agrees.)
     # Whatever the tracked block could not carry -- a private source in a
     # public repo, or another repository's catalogue in a practice set --
     # reaches the session only through the untracked file, so the standing
