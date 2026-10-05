@@ -8191,6 +8191,17 @@ def check_session_practices_load_without_publishing():
         cases.append(('...and once the hook invokes it, the same practice counts '
                       'as reachable, so the gap stops reading as open',
                       findings() == 0))
+        hook.write_text('#!/bin/bash\nbash tools/bootstrap.sh\n', encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            '#!/bin/bash\n# no loader here either\n', encoding='utf-8')
+        cases.append(('a hook that runs tools/bootstrap.sh is not wired when '
+                      'bootstrap.sh does not run the tool', findings() == 1))
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            '#!/bin/bash\npython3 tools/precedent_session_practices.py\n',
+            encoding='utf-8')
+        cases.append(('...and is wired once bootstrap.sh runs it -- the shipped '
+                      'consumer hook does exactly this, and every fresh install '
+                      'read as unwired until 2026-10-05', findings() == 0))
         (repo / 'tools' / 'precedent_session_practices.py').unlink()
         cases.append(('...and removing the tool reopens it, even with the hook '
                       'still calling it -- both halves are required',

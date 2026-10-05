@@ -3396,10 +3396,19 @@ def _practice_is_reachable(ctx):
     try:
         import build_views as _bv
         hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
+        # The hook may run the tool itself, or run tools/bootstrap.sh, which
+        # runs it -- the shipped consumer hook does the second and nothing
+        # else, so reading only the hook called every fresh install's
+        # session channel unwired (very deep check, 2026-10-05).
+        hook_text = (hook.read_text(encoding='utf-8', errors='ignore')
+                     if hook.is_file() else '')
+        boot = ROOT / 'tools' / 'bootstrap.sh'
+        runs_it = 'precedent_session_practices' in hook_text or (
+            'bootstrap.sh' in hook_text and boot.is_file()
+            and 'precedent_session_practices' in boot.read_text(
+                encoding='utf-8', errors='ignore'))
         wired = ((ROOT / 'tools' / 'precedent_session_practices.py').is_file()
-                 and hook.is_file()
-                 and 'precedent_session_practices' in hook.read_text(
-                     encoding='utf-8', errors='ignore'))
+                 and runs_it)
         if wired and _bv.repo_is_public(ROOT):
             session_channel_levels = _bv.PRIVATE_LEVELS
     except Exception:                                        # noqa: BLE001
