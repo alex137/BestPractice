@@ -55923,6 +55923,23 @@ def check_very_deep_check_bootstrap_drift():
         cases.append(('a set the generator just wrote reports no drift at all',
                       out == [], repr(out)))
 
+        # The harness allows an off-main seed process-wide
+        # (PRECEDENT_SEED_OFF_MAIN), which hid this for as long as the
+        # section existed: on a branch main lacks, the generator refused and
+        # every set read "could not be run" (very deep check, 2026-10-05).
+        # The fixture set above was seeded with the allowance; the drift
+        # comparison itself must not need it.
+        saved_seed = os.environ.pop('PRECEDENT_SEED_OFF_MAIN', None)
+        try:
+            out_bare = vdc._bootstrap_drift(src)
+        finally:
+            if saved_seed is not None:
+                os.environ['PRECEDENT_SEED_OFF_MAIN'] = saved_seed
+        cases.append(('without the harness\'s off-main allowance the '
+                      'comparison still runs, whatever branch this is',
+                      not any('could not be run' in m for m in out_bare),
+                      repr(out_bare)))
+
         cases.append(('no resolved source reads as a SKIP, in those words, '
                       'never as clean',
                       any('NOT compared' in m and 'skip' in m.lower()

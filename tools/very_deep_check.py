@@ -4633,6 +4633,27 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # the guard costing more than it protects.
             approvers = [{'name': 'drift-check placeholder', 'github': 'drift-check'}]
 
+    # The generator refuses to copy an engine main does not contain -- right
+    # for a real set, wrong here, where its output is a throwaway compared
+    # and deleted. A session's working branch is routinely ahead of main
+    # (the freshness guard merges the landing branch in on its first tool
+    # call), and the refusal turned this whole section into one FINDING per
+    # set that compared nothing (very deep check, 2026-10-05). So it runs,
+    # and says plainly what it generated from: a file this branch changed
+    # and main has not reads as drift, which is the truth about what the
+    # set's next refresh would bring once the branch lands.
+    off_main_note = None
+    try:
+        import precedent_vendor_engine as _pve
+        _head = _pve._head_commit(bootstrap_source.ROOT)
+        _where = _pve.off_source_branch(bootstrap_source.ROOT, _head)
+        if _where:
+            off_main_note = (f'note {level}: generated from {_where} at '
+                             f'{str(_head)[:12]}, which main does not contain '
+                             f'-- a file only this branch changed reads as '
+                             f'drift below')
+    except Exception:                                             # noqa: BLE001
+        pass
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-'))
     gen_root = tmp / 'generated'
     try:
@@ -4644,7 +4665,8 @@ def _bootstrap_drift_one(level, name, path, collect=None):
                 with contextlib.redirect_stdout(io.StringIO()), \
                         contextlib.redirect_stderr(_err):
                     bootstrap_source.bootstrap(level, name, gen_root,
-                                               approvers=approvers)
+                                               approvers=approvers,
+                                               off_main=True)
             finally:
                 _pass_generator_stderr_once(_err.getvalue())
         except Exception as exc:                                  # noqa: BLE001
@@ -4812,6 +4834,10 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             out.append(f'note {level} {name}: {len(notes)} skeleton-shipped '
                        f'file(s) differ, which is what a set being lived in '
                        f'looks like, not drift: {", ".join(sorted(notes))}')
+        # The note qualifies a FINDING; a clean set, or one with only
+        # skeleton notes, needs no caveat.
+        if off_main_note and any(o.startswith('FINDING') for o in out):
+            out.insert(0, off_main_note)
         return out
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
