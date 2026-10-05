@@ -868,7 +868,8 @@ def violations(text, reqs, timeline=None):
                 continue
             if re.search(trigger, text, re.I | re.M) and not re.search(
                     needed, text, re.I | re.M):
-                out.append({'kind': 'paired', 'advisory': advisory, 'message': (
+                out.append({'kind': 'paired', 'advisory': advisory,
+                            'repair': pair.get('repair'), 'message': (
                     f"[{r.get('_source', '?')}] this reply matches "
                     f"/{trigger}/ but nothing in it matches /{needed}/"
                     + (f" -- {pair.get('why')}" if pair.get('why') else '')
@@ -1258,7 +1259,17 @@ def main():
     # few minutes, you repeated the 'next steps' section two times."* A
     # sentence-only failure now says sentence-only, in the imperative, and
     # names the repeat as the thing not to do.
-    if any(b['kind'] == 'heading' for b in bad):
+    # A pairing may name its own repair (2026-10-05). The default below says
+    # "add the missing line", which is right when the line was forgotten and
+    # wrong when the TRIGGER is what does not belong: practice ideas offered
+    # mid-conversation are repaired by withdrawing them, never by adding an
+    # archive line that is not true.
+    _repairs = [b['repair'] for b in bad if b.get('repair')]
+    if _repairs:
+        print('The reply gate blocked this turn. The person has ALREADY SEEN '
+              'the reply above -- do NOT repeat it. ' + ' '.join(_repairs),
+              file=sys.stderr)
+    elif any(b['kind'] == 'heading' for b in bad):
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above, so do NOT write it again: output ONLY the '
               'missing closing section(s) named below, as a short addition to '
