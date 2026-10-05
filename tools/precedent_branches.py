@@ -726,9 +726,11 @@ class _Worktree:
         return False
 
 
-def _check(root, wt, tier):
+def _check(root, wt, tier, dest=None):
     """-> (ok, output): the repo's own push check at `tier` in worktree
-    `wt`, reusing a pass the checkout already recorded for the same tree."""
+    `wt`, reusing a pass the checkout already recorded for the same tree.
+    `dest` is the branch the result is pushed to: the views check holds a
+    set's commits to that same rung."""
     tool = _push_check_tool(wt)
     if tool is None:
         return False, 'this repository carries no precedent_push_check.py, so nothing could be checked'
@@ -741,7 +743,8 @@ def _check(root, wt, tier):
         if src_p.is_file():
             dst_p.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_p, dst_p)
-    p = subprocess.run([sys.executable, tool, '--gate', '--tier', tier],
+    p = subprocess.run([sys.executable, tool, '--gate', '--tier', tier]
+                       + (['--destination', dest] if dest else []),
                        cwd=wt, capture_output=True, text=True)
     return p.returncode == 0, (p.stdout + p.stderr).rstrip()
 
@@ -1407,7 +1410,7 @@ def _check_tier(root, branch, tip, say, gh=None):
     request, else started and awaited."""
     with _Worktree(root, tip) as wt:
         t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL)
+        ok, out = _check(root, wt, FULL, dest=branch)
         took = time.monotonic() - t0
     if not ok:
         return False, f'the full local check failed on {tip[:12]}:\n{out}'
@@ -1698,7 +1701,7 @@ def sync_pre_staging(root, say=print, check=False):
                 say(f'{branch} and {PRE_STAGING} both changed '
                     f'{", ".join(files)}; generated, so rebuilt from the merged '
                     f'sources rather than either side taken.')
-        ok, out = _check(root, wt, BASIC)
+        ok, out = _check(root, wt, BASIC, dest=PRE_STAGING)
         if not ok:
             say(f'the merge of {" and ".join(b for b, _ in ready)} into '
                 f'{PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
@@ -2250,7 +2253,7 @@ def _promote_to_main(root, say=print):
             return 1
         say(f'checking {len(batch)} commit(s) from {staging} with the full push check...')
         t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL)
+        ok, out = _check(root, wt, FULL, dest=MAIN)
         took = time.monotonic() - t0
     if not ok:
         say(f'PROMOTE REFUSED: the full check failed on {staging} merged into '
@@ -2450,7 +2453,7 @@ def _promote_unlocked(root, say=print, work=None):
             + f', then {len(batch)} commit(s) from {PRE_STAGING} -- with the full '
             f'push check...')
         t0 = time.monotonic()
-        ok, out = _check(root, wt, FULL)
+        ok, out = _check(root, wt, FULL, dest=staging)
         took = time.monotonic() - t0
         if not ok:
             where = _where_it_fails(root, stip, above, staging)

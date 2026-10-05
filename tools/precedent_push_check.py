@@ -1092,6 +1092,60 @@ def _full_tier_refusal(root, argv):
             f'--tier full --because "<reason>".')
 
 
+# Highest first: a push writing to several branches is judged by the one
+# that needs the most.
+_RUNG_ORDER = ('main', 'staging', 'precedent-beta-v01', 'pre-staging')
+
+
+def _destination(root, argv):
+    """-> the branch this push goes to, as far as it can be read: --destination
+    (Promote names it), else the highest-rung branch --push-command writes
+    to; None when neither says."""
+    if '--destination' in argv:
+        i = argv.index('--destination')
+        return argv[i + 1] if i + 1 < len(argv) else None
+    if '--push-command' not in argv:
+        return None
+    i = argv.index('--push-command')
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+        targets = precedent_branches.push_targets(
+            root, argv[i + 1] if i + 1 < len(argv) else '') or []
+    except Exception:                                        # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
+    for rung in _RUNG_ORDER:
+        if rung in targets:
+            return rung
+    return targets[0] if targets else None
+
+
+def _rung_refusal(root, kind, dest):
+    """-> the refusal text when this push would put `dest` (pre-staging,
+    staging or main) ahead of a shared set it takes from, else None.
+
+    Its own step, outside the recorded passes, on purpose: whether a set
+    has landed a commit on a rung changes with no change to this tree, and
+    putting the destination into the views step's argv (the first version,
+    2026-10-05) changed every pass's signature, so a Promote stopped reusing
+    the full check the same tree had already passed. It is git ancestry
+    only, and takes seconds. A source that cannot be resolved here is
+    skipped, as the views step skips it."""
+    if kind != 'consumer' or not dest:
+        return None
+    tool = HERE / 'precedent_sync_views.py'
+    if not tool.is_file():
+        return None
+    p = subprocess.run([sys.executable, str(tool), '--repo', str(root),
+                        '--rung-only', '--for-branch', dest],
+                       cwd=root, capture_output=True, text=True)
+    if p.returncode == 0:
+        return None
+    return (p.stdout + p.stderr).strip()
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -1557,6 +1611,10 @@ def main(argv):
             print(f'  {"":16}         replaces {replaces}')
         return 0
 
+    refused = _rung_refusal(root, kind, _destination(root, argv))
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
     also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
     landed, reported = None, []
     if tier == BASIC and working_branch_push(root, argv):
@@ -1727,7 +1785,8 @@ def main(argv):
 # than ignored: a PR template naming a flag this file never had
 # (--changed-files-only) ran the full ~14-minute suite twice, silently
 # (2026-09-30).
-VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command', '--because')
+VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command', '--because',
+                 '--destination')
 OPTIONAL_VALUE_OPTIONS = ('--changed-files-check',)
 FLAG_OPTIONS = ('--gate', '--list', '--help', '-h')
 
