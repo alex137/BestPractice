@@ -28999,7 +28999,7 @@ def check_main_test_minutes_rule():
         pb2 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pb2)
         pb2.sync_pre_staging = lambda root, say=print, check=False, **_kw: True
-        pb2._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+        pb2._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
         pb2._slug = lambda root: 'o/r'
         pb2.USER_CONFIG_ENV = '_PB_TEST_UNUSED'
         pb2.DEFAULT_USER_CONFIG = cfg
@@ -29971,7 +29971,7 @@ def check_sync_copies_work_from_above_once_checked():
             gh = GH([])
             pb.GITHUB_POLL_SECONDS = 0
             pb._remote_tip = lambda root, branch: 'SHA'
-            pb._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+            pb._check = lambda root, wt, tier, dest=None: (True, 'this exact tree already passed')
             pb._Worktree = type('W', (), {'__init__': lambda s, *a: None,
                                           '__enter__': lambda s: None,
                                           '__exit__': lambda s, *e: False})
@@ -52146,6 +52146,317 @@ def check_sync_check_passes_from_another_checkout():
             '; '.join(f'{n} -- {str(d)[:500]}' for n, d in bad))
 
 
+def _pin_fixture_practice(slug, rule):
+    return (_move_fixture_practice(slug)
+            .replace('Do the thing.', rule))
+
+
+def check_views_check_reads_a_set_at_the_commit_it_was_synced_at():
+    """A consumer's views check reads each shared set at the commit its
+    MANIFEST.json records syncing it at, never at whatever branch the set's
+    clone has checked out (2026-10-05). Reported from a consumer: its
+    pre-staging took a set's Booked change, session start left the set's
+    clone on main, and every push was refused for "drift" in files it never
+    touched -- with a remedy, a plain sync, that rolled the Booked change
+    back. Twice in one session.
+
+    Each direction: a pre-staging carrying a Booked-not-Produced set change
+    passes; a write from a clone that lacks it is refused rather than
+    rolling it back; a push to staging or main carrying a set commit the set
+    has not landed on that rung is refused, with promoting the set as the
+    remedy, and passes once it has; a hand-edited generated file still
+    fails; a manifest written before pins gets one inferred; uncommitted
+    edits in a set's clone are never taken into a consumer."""
+    import shutil, tempfile
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-views-pin-'))
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_ALLOW_ANY_AUTHOR': '1'}
+    cases = []
+
+    def git(where, *args):
+        return subprocess.run(['git', '-C', str(where), *args], env=env,
+                              capture_output=True, text=True)
+
+    try:
+        (tmp / 'home').mkdir()
+        # The universal source is a plain directory: nothing to pin.
+        uni = tmp / 'u'
+        (uni / 'practices').mkdir(parents=True)
+        (uni / 'practices' / 'uni-rule.md').write_text(
+            _pin_fixture_practice('uni-rule', 'A universal rule.'), encoding='utf-8')
+        # The shared set: a clone of a bare origin, with all three rungs.
+        bare, st = tmp / 'origin-set.git', tmp / 'precedent-shared-fixture'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       env=env, capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(bare), str(st)], env=env,
+                       capture_output=True)
+        rule = st / 'practices' / 'set-rule.md'
+        rule.parent.mkdir(parents=True)
+
+        def set_commit(text, msg):
+            rule.write_text(_pin_fixture_practice('set-rule', text), encoding='utf-8')
+            git(st, 'add', '-A')
+            git(st, 'commit', '-qm', msg)
+            return git(st, 'rev-parse', 'HEAD').stdout.strip()
+
+        git(st, 'checkout', '-q', '-b', 'main')
+        set_commit('Version one.', 'v1')
+        for b in ('pre-staging', 'staging'):
+            git(st, 'branch', b)
+        git(st, 'push', '-q', 'origin', 'main', 'pre-staging', 'staging')
+        # Version two is Booked: a working branch merged into pre-staging.
+        git(st, 'checkout', '-q', '-b', 'feature', 'main')
+        set_commit('Version two.', 'v2')
+        git(st, 'checkout', '-q', 'pre-staging')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Book v2', 'feature')
+        git(st, 'push', '-q', 'origin', 'pre-staging')
+        booked = git(st, 'rev-parse', 'HEAD').stdout.strip()
+
+        repo = tmp / 'consumer'
+        subprocess.run(['git', 'init', '-q', '-b', 'pre-staging', str(repo)],
+                       env=env, capture_output=True)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                        {'level': 'shared', 'name': 'precedent-shared-fixture',
+                         'path': str(st)}]}) + '\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+
+        def sync(*extra):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_sync_views.py'),
+                                '--repo', str(repo), *extra], cwd=str(repo), env=env,
+                               capture_output=True, text=True, timeout=600)
+            return r.returncode, r.stdout + r.stderr
+
+        def pinned():
+            data = json.loads((repo / 'MANIFEST.json').read_text(encoding='utf-8'))
+            return {e['name']: e.get('commit') for e in data['sources']}
+
+        def taken():
+            return (repo / 'practices' / 'set-rule.md').read_text(encoding='utf-8')
+
+        # The consumer's pre-staging takes the Booked change.
+        rc, out = sync()
+        pins = pinned() if rc == 0 else {}
+        cases.append(('a sync records the commit it read the set at, and none for a '
+                      'plain-directory source',
+                      rc == 0 and pins.get('precedent-shared-fixture') == booked
+                      and pins.get('precedent') is None and 'Version two.' in taken(),
+                      f'rc={rc} {pins} {out[-500:]}'))
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'take the Booked v2')
+
+        # Session start leaves the set's clone on main.
+        git(st, 'checkout', '-q', 'main')
+        rc, out = sync('--check')
+        cases.append(('the views check passes with the clone on main: it reads the '
+                      'set at the recorded commit (the reported refusal)',
+                      rc == 0, out[-600:]))
+        rc, out = sync('--check', '--for-branch', 'pre-staging')
+        cases.append(('...and a push to pre-staging passes: the set has v2 on its '
+                      'own pre-staging', rc == 0, out[-600:]))
+        rc, out = sync()
+        cases.append(('a sync from the clone on main is REFUSED rather than rolling '
+                      'the Booked change back, and writes nothing',
+                      rc != 0 and 'roll those changes back' in out
+                      and 'origin/pre-staging' in out and 'Version two.' in taken(),
+                      f'rc={rc} {out[-600:]}'))
+        git(st, 'checkout', '-q', '--detach', 'origin/pre-staging')
+        rc, out = sync()
+        cases.append(('CONTROL: from the clone at the set\'s pre-staging, the same '
+                      'sync goes through and changes nothing',
+                      rc == 0 and not git(repo, 'status', '--porcelain', '--',
+                                          'practices').stdout.strip(),
+                      f'rc={rc} {out[-400:]}'))
+        git(repo, 'checkout', '-q', '--', '.')
+        git(st, 'checkout', '-q', 'main')
+
+        # The rung: staging and main may not carry what the set has not landed.
+        rc, out = sync('--check', '--for-branch', 'staging')
+        cases.append(('a push to staging carrying the set\'s pre-staging-only commit '
+                      'is refused, with Debut as the remedy and never a sync',
+                      rc != 0 and 'Debut it in precedent-shared-fixture' in out
+                      and 'Do NOT sync' in out, f'rc={rc} {out[-600:]}'))
+        rc, out = sync('--check', '--for-branch', 'main')
+        cases.append(('...and so is a push to main, with Produce as the remedy',
+                      rc != 0 and 'Produce it in precedent-shared-fixture' in out,
+                      f'rc={rc} {out[-600:]}'))
+        git(st, 'checkout', '-q', 'staging')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Debut', 'origin/pre-staging')
+        git(st, 'push', '-q', 'origin', 'staging')
+        git(st, 'checkout', '-q', 'main')
+        git(st, 'merge', '-q', '--no-ff', '-m', 'Produce', 'origin/staging')
+        git(st, 'push', '-q', 'origin', 'main')
+        rc_s, out_s = sync('--check', '--for-branch', 'staging')
+        rc_m, out_m = sync('--check', '--for-branch', 'main')
+        cases.append(('once the set has Debuted and Produced it, both pushes pass',
+                      rc_s == 0 and rc_m == 0, f'{out_s[-300:]} | {out_m[-300:]}'))
+
+        # A hand-edited generated file fails on every rung.
+        good = taken()
+        (repo / 'practices' / 'set-rule.md').write_text(
+            good.replace('Version two.', 'Edited by hand.'), encoding='utf-8')
+        failed = []
+        for b in (None, 'pre-staging', 'staging', 'main'):
+            rc, out = sync('--check', *(['--for-branch', b] if b else []))
+            if rc == 0 or 'set-rule.md differs' not in out:
+                failed.append(f'{b}: rc={rc} {out[-200:]}')
+        cases.append(('a hand-edited materialized practice fails the check on every '
+                      'rung', not failed, '; '.join(failed)))
+        (repo / 'practices' / 'set-rule.md').write_text(good, encoding='utf-8')
+
+        # A set moving on is said, never refused.
+        git(st, 'checkout', '-q', 'pre-staging')
+        git(st, 'merge', '-q', '--ff-only', 'origin/pre-staging')
+        set_commit('Version three.', 'v3')
+        git(st, 'push', '-q', 'origin', 'pre-staging')
+        git(st, 'checkout', '-q', 'main')
+        rc, out = sync('--check', '--for-branch', 'pre-staging')
+        cases.append(('a newer set commit on pre-staging is a note, not a refusal',
+                      rc == 0 and 'differs from what this repository took' in out,
+                      f'rc={rc} {out[-500:]}'))
+
+        # A manifest written before pins: the pin is inferred from history.
+        mf = repo / 'MANIFEST.json'
+        original = mf.read_text(encoding='utf-8')
+        data = json.loads(original)
+        for e in data['sources']:
+            e.pop('commit', None)
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        rc, out = sync('--check')
+        cases.append(('a manifest with no pins passes with the clone on main: the '
+                      'commit whose practices match is found and named',
+                      rc == 0 and 'matched' in out, f'rc={rc} {out[-500:]}'))
+        mf.write_text(original, encoding='utf-8')
+
+        # Uncommitted edits in a set's clone never reach the consumer.
+        git(st, 'checkout', '-q', '--detach', 'origin/pre-staging')
+        rule.write_text(_pin_fixture_practice('set-rule', 'Uncommitted.'),
+                        encoding='utf-8')
+        rc, out = sync()
+        cases.append(('a sync from a clone with uncommitted practice edits takes '
+                      'its commit, not the edits, and says so',
+                      rc == 0 and 'Uncommitted.' not in taken()
+                      and 'were NOT taken' in out
+                      and pinned().get('precedent-shared-fixture')
+                      == git(st, 'rev-parse', 'HEAD').stdout.strip(),
+                      f'rc={rc} {out[-500:]}'))
+        rc, out = sync('--check')
+        cases.append(('...and its own check passes straight after',
+                      rc == 0, out[-400:]))
+        cases.append(('no worktree is left behind in the set\'s clone',
+                      len(git(st, 'worktree', 'list').stdout.splitlines()) == 1,
+                      git(st, 'worktree', 'list').stdout))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:600]}' for n, d in bad))
+
+
+def check_push_destination_reaches_the_views_check():
+    """The push check hands the views check the branch a push goes to, so a
+    set's commits are held to that rung (2026-10-05): from --push-command,
+    the highest rung it writes to; --destination, which Promote passes,
+    wins. The destination is in the argv, so a pass recorded for staging is
+    not reused for main."""
+    import precedent_push_check as ppc
+    cases = [
+        ('a push to a working branch and main is judged as main',
+         ppc._destination(ROOT, ['--push-command', 'origin feat main']) == 'main'),
+        ('a push to pre-staging is pre-staging',
+         ppc._destination(ROOT, ['--push-command', 'origin HEAD:pre-staging'])
+         == 'pre-staging'),
+        ('--destination wins',
+         ppc._destination(ROOT, ['--destination', 'staging', '--push-command',
+                                 'origin main']) == 'staging'),
+        ('no destination named, none assumed',
+         ppc._destination(ROOT, ['--gate']) is None),
+    ]
+    steps = [s for s in ppc.PUSH_CHECKS['consumer'] if s[0] == 'views_sync']
+    if steps:
+        orig = ppc.repo_kind
+        try:
+            ppc.repo_kind = lambda _e: 'consumer'
+            a = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full', dest='staging')[1])
+            b = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full', dest='main')[1])
+            c = dict((n, v) for n, v, _r in ppc.plan(ROOT, tier='full')[1])
+        finally:
+            ppc.repo_kind = orig
+        cases.append(('the views step carries --for-branch, and only it',
+                      a['views_sync'][-2:] == ['--for-branch', 'staging']
+                      and '--for-branch' not in c['views_sync']
+                      and all('--for-branch' not in v for n, v in a.items()
+                              if n != 'views_sync')))
+        cases.append(('staging and main sign differently, so neither pass is reused '
+                      'for the other',
+                      ppc.signature(list((n, v, '') for n, v in a.items()))
+                      != ppc.signature(list((n, v, '') for n, v in b.items()))))
+    else:
+        cases.append(('a consumer\'s push check has a views step', False))
+    bad = [c[0] for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
+def check_session_check_names_commits_on_origin_off_main():
+    """A set's clone checked out at the set's staging was reported "6
+    unpushed commit(s) ahead" of main (2026-10-05): they were on origin,
+    only not on main. Unpushed now means on no origin branch; commits on
+    another origin branch are named by that branch, and are not stale."""
+    import shutil, tempfile
+    import precedent_session_check as psc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-clone-ahead-'))
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+
+    def git(where, *args):
+        return subprocess.run(['git', '-C', str(where), *args], env=env,
+                              capture_output=True, text=True)
+    cases = []
+    try:
+        bare, cl = tmp / 'o.git', tmp / 'clone'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       env=env, capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(bare), str(cl)], env=env,
+                       capture_output=True)
+        git(cl, 'checkout', '-q', '-b', 'main')
+        (cl / 'a').write_text('1\n')
+        git(cl, 'add', '-A'), git(cl, 'commit', '-qm', 'one')
+        git(cl, 'push', '-q', 'origin', 'main')
+        git(cl, 'checkout', '-q', '-b', 'staging')
+        (cl / 'a').write_text('2\n')
+        git(cl, 'commit', '-qam', 'two')
+        git(cl, 'push', '-q', 'origin', 'staging')
+        git(cl, 'checkout', '-q', '--detach', 'origin/staging')
+        old = os.environ.copy()
+        os.environ.update(env)
+        try:
+            v, phrase = psc._clone_behind(str(cl), fetch=True, branch='main')
+            cases.append(('a clone at the set\'s staging is not stale and nothing '
+                          'is called unpushed', v == 'current'
+                          and 'unpushed' not in phrase and 'on origin' in phrase
+                          and 'origin/staging' in phrase, f'{v}: {phrase}'))
+            (cl / 'a').write_text('3\n')
+            git(cl, 'commit', '-qam', 'three')
+            v, phrase = psc._clone_behind(str(cl), fetch=True, branch='main')
+            cases.append(('CONTROL: a commit on no origin branch is unpushed',
+                          v == 'behind' and '1 unpushed commit(s) ahead' in phrase,
+                          f'{v}: {phrase}'))
+        finally:
+            os.environ.clear()
+            os.environ.update(old)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_generated_index_of_nothing_yet_passes():
     """generated-files-registered passes a repository whose generated index
     has no sources YET -- gotchas/INDEX.md with no gotcha written -- when the
@@ -59260,6 +59571,13 @@ def main():
     check('a view sync passes its own --check from another checkout of the same '
           'commit, as a Promote checks it',
           *check_sync_check_passes_from_another_checkout())
+    check('the views check reads a shared set at the commit it was synced at, '
+          'holds it to the push\'s rung, and a sync never rolls it back',
+          *check_views_check_reads_a_set_at_the_commit_it_was_synced_at())
+    check('the push check hands the views check where the push goes',
+          *check_push_destination_reaches_the_views_check())
+    check('the session check calls a commit unpushed only when no origin branch '
+          'has it', *check_session_check_names_commits_on_origin_off_main())
     check('a generated index with no sources yet passes when its own check does',
           *check_generated_index_of_nothing_yet_passes())
     check('Update Vendors fetches the sets a person brings before it syncs the views',

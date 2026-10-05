@@ -450,10 +450,14 @@ def repo_kind(engine=HERE):
     return None
 
 
-def plan(root, engine=HERE, tier=FULL):
+def plan(root, engine=HERE, tier=FULL, dest=None):
     """-> (kind, [(name, argv, replaces)]) with {engine} resolved relative
     to `root`, so the commands print the way a person would type them.
-    `tier` BASIC keeps only BASIC_CHECKS."""
+    `tier` BASIC keeps only BASIC_CHECKS. `dest`, the branch the push goes
+    to, reaches the views check, which refuses a pre-staging, staging or
+    main push carrying a set at a commit the set has not landed on the same
+    rung (2026-10-05); it is in the argv, so a pass recorded for staging is
+    never reused for main."""
     kind = repo_kind(engine)
     if kind is None:
         return None, []
@@ -463,6 +467,8 @@ def plan(root, engine=HERE, tier=FULL):
         if tier == BASIC and name not in BASIC_CHECKS:
             continue
         argv = [a.replace('{engine}', str(rel)) for a in argv]
+        if name == 'views_sync' and dest:
+            argv = [*argv, '--for-branch', dest]
         if argv[0].endswith('.py'):
             argv = [sys.executable, *argv]
         out.append((name, argv, replaces))
@@ -1092,6 +1098,36 @@ def _full_tier_refusal(root, argv):
             f'--tier full --because "<reason>".')
 
 
+# Highest first: a push writing to several branches is judged by the one
+# that needs the most.
+_RUNG_ORDER = ('main', 'staging', 'precedent-beta-v01', 'pre-staging')
+
+
+def _destination(root, argv):
+    """-> the branch this push goes to, as far as it can be read: --destination
+    (Promote names it), else the highest-rung branch --push-command writes
+    to; None when neither says."""
+    if '--destination' in argv:
+        i = argv.index('--destination')
+        return argv[i + 1] if i + 1 < len(argv) else None
+    if '--push-command' not in argv:
+        return None
+    i = argv.index('--push-command')
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+        targets = precedent_branches.push_targets(
+            root, argv[i + 1] if i + 1 < len(argv) else '') or []
+    except Exception:                                        # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
+    for rung in _RUNG_ORDER:
+        if rung in targets:
+            return rung
+    return targets[0] if targets else None
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -1523,7 +1559,8 @@ def main(argv):
                   f'your landing branch takes.', file=sys.stderr)
             return 1
     tier, why = _tier_from_args(root, argv)
-    kind, checks = plan(root, tier=tier)
+    dest = _destination(root, argv)
+    kind, checks = plan(root, tier=tier, dest=dest)
     if '--changed-files-check' in argv:
         i = argv.index('--changed-files-check')
         return changed_files_check(root, argv[i + 1] if i + 1 < len(argv)
@@ -1557,7 +1594,7 @@ def main(argv):
             print(f'  {"":16}         replaces {replaces}')
         return 0
 
-    also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
+    also = [plan(root, tier=FULL, dest=dest)[1]] if tier == BASIC else []
     landed, reported = None, []
     if tier == BASIC and working_branch_push(root, argv):
         memo = []
@@ -1727,7 +1764,8 @@ def main(argv):
 # than ignored: a PR template naming a flag this file never had
 # (--changed-files-only) ran the full ~14-minute suite twice, silently
 # (2026-09-30).
-VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command', '--because')
+VALUE_OPTIONS = ('--tier', '--changed-since', '--push-command', '--because',
+                 '--destination')
 OPTIONAL_VALUE_OPTIONS = ('--changed-files-check',)
 FLAG_OPTIONS = ('--gate', '--list', '--help', '-h')
 

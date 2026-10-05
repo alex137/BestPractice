@@ -276,6 +276,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) | Clone-or-pull for a privately-scoped individual or shared source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal |
 | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py) | Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo |
 | [tools/precedent_source_names.py](tools/precedent_source_names.py) | Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it |
+| [tools/precedent_source_pins.py](tools/precedent_source_pins.py) | Which commit of each live practice source a consumer's views were built |
 | [tools/precedent_stale_branches.py](tools/precedent_stale_branches.py) | precedent_stale_branches.py -- the remote branches you can delete, across |
 | [tools/precedent_sync_views.py](tools/precedent_sync_views.py) | One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together |
 | [tools/precedent_time.py](tools/precedent_time.py) | The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered |

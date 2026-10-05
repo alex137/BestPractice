@@ -34,6 +34,14 @@ tools/, same as precedent_materialize.py's own docstring already says).
 
 Run:
   python3 tools/precedent_sync_views.py --repo DIR [--user-config PATH] [--check]
+      [--for-branch BRANCH] [--allow-rollback]
+
+  --check reads each shared set at the commit MANIFEST.json records syncing
+  it at (precedent_source_pins.py), never at whatever its clone has checked
+  out. --for-branch names where a push is going: pre-staging, staging or
+  main may carry a set only at a commit that set has landed on the same
+  rung. A write refuses to roll a set back to a commit before the one this
+  repository carries; --allow-rollback when that is meant.
 
   --repo is REQUIRED and names the consuming repo's root; from that root it
   is `--repo .`. It used to default to this script's own directory's parent,
@@ -67,6 +75,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_resolve as pr  # noqa: E402
 import precedent_materialize as pm  # noqa: E402
 import build_views as bv  # noqa: E402
+import precedent_source_pins as psp  # noqa: E402
 
 
 
@@ -206,7 +215,78 @@ def _lost_practices(repo, res, sources, withheld):
 
 
 def sync(repo, user_config=None, check=False, allow_missing=False,
-         allow_removals=False, skip_unresolved=False):
+         allow_removals=False, skip_unresolved=False, for_branch=None,
+         allow_rollback=False):
+    """-> what _sync returns. Reads each live source (a set's clone beside
+    this repository) the way precedent_source_pins.py says: --check at the
+    commit this repository's MANIFEST.json records syncing it at, so the
+    answer depends on neither the clone's checkout nor how far the set has
+    moved since; a write from the clone as it stands, refused when that
+    would roll back a commit this repository already carries.
+
+    `for_branch` names where a push is going: a pre-staging, staging or
+    main push may carry a set only at a commit the set has landed on that
+    same rung itself, and --check refuses otherwise (2026-10-05)."""
+    loaded = pr.load_config(repo, user_config)
+    sources = [s for s in loaded if not s.get('brought')]
+    pinned = psp.pins(repo, sources)
+    if not check:
+        refused = [] if allow_rollback else psp.rollback_refusals(
+            repo, sources, pinned)
+        if refused:
+            raise pm.MaterializeError(
+                'refusing to sync: ' + ' '.join(refused))
+        for s in psp.live(sources, repo):
+            if psp.is_dirty(s['path']):
+                print(f"precedent_sync_views: {s['name']} has uncommitted "
+                      f"changes in files a sync reads, at {s['path']}; they "
+                      f"were NOT taken -- the views are built from its commit "
+                      f"{psp.head_commit(s['path'])[:10]}. Commit them there "
+                      f"to take them.", file=sys.stderr)
+        with psp.at_pins(loaded, psp.checkouts(repo, sources)) as (at, notes):
+            for line in notes:
+                print(f"precedent_sync_views: {line}", file=sys.stderr)
+            return _sync(repo, at, user_config, check=False,
+                         allow_missing=allow_missing,
+                         allow_removals=allow_removals,
+                         skip_unresolved=skip_unresolved)
+    branch = for_branch or _current_branch(repo)
+    rung = [RungRefusal(r) for r in
+            psp.rung_refusals(repo, sources, for_branch, pinned)] \
+        if for_branch else []
+    for line in psp.newer_notes(repo, sources, branch, pinned):
+        print(f"precedent_sync_views: note -- {line}", file=sys.stderr)
+    with psp.at_pins(loaded, pinned) as (at, notes):
+        for line in notes:
+            print(f"precedent_sync_views: {line}", file=sys.stderr)
+        for name, p in sorted(pinned.items()):
+            if p['how'] != 'recorded':
+                print(f"precedent_sync_views: {name} read at {p['commit'][:10]}"
+                      f" ({p['how']}; this repository's MANIFEST.json records "
+                      f"no commit for it yet -- the next sync does)",
+                      file=sys.stderr)
+        out = _sync(repo, at, user_config, check=True,
+                    allow_missing=allow_missing,
+                    allow_removals=allow_removals,
+                    skip_unresolved=skip_unresolved)
+    return (*out[:6], list(out[6]) + rung)
+
+
+class RungRefusal(str):
+    """A --check finding that is not drift: the views are what their
+    inputs produce, and one input is a set commit the set itself has not
+    landed on this push's rung. Its remedy is promoting the set, and the
+    sync the drift message recommends would destroy the work instead."""
+
+
+def _current_branch(repo):
+    r = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--abbrev-ref',
+                        'HEAD'], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
+          allow_removals=False, skip_unresolved=False):
     """-> (written, checks_written, adapters_written, rstats,
     agents_md_path, changed: bool, tree_drift: [str]).  tree_drift is always
     empty unless check=True.
@@ -220,7 +300,6 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # build_views.sources_for_tracked_block draws. Until 2026-10-02 this
     # second writer of the loader block drew no line, so a sync run by a
     # person who brings a set would have written it into the repository.
-    loaded = pr.load_config(repo, user_config)
     sources = [s for s in loaded if not s.get('brought')]
     # ...but what a brought set provides, and the rules it holds, still
     # count when deciding what is in force (pr.resolve's `context`).
@@ -930,10 +1009,12 @@ def main():
     check = '--check' in args
     allow_missing = '--allow-missing-sources' in args
     skip_unresolved = '--skip-unresolved' in args
+    allow_rollback = '--allow-rollback' in args
     args = [a for a in args if a not in ('--check', '--allow-missing-sources',
-                                         '--allow-removals', '--skip-unresolved')]
-    repo, user_config = None, None
-    known = {'--repo', '--user-config'}
+                                         '--allow-removals', '--skip-unresolved',
+                                         '--allow-rollback')]
+    repo, user_config, for_branch = None, None, None
+    known = {'--repo', '--user-config', '--for-branch'}
     i = 0
     while i < len(args):
         tok = args[i]
@@ -944,6 +1025,8 @@ def main():
             sys.exit(f"precedent_sync_views FAIL: {tok} needs a value.")
         if tok == '--repo':
             repo = args[i + 1]
+        elif tok == '--for-branch':
+            for_branch = args[i + 1]
         else:
             user_config = args[i + 1]
         i += 2
@@ -961,7 +1044,8 @@ def main():
         (written, checks_written, adapters_written, rstats, agents_md,
          changed, tree_drift) = sync(
             repo, user_config, check=check, allow_missing=allow_missing,
-            allow_removals=allow_removals, skip_unresolved=skip_unresolved)
+            allow_removals=allow_removals, skip_unresolved=skip_unresolved,
+            for_branch=for_branch, allow_rollback=allow_rollback)
     except (pr.ResolveError, pm.MaterializeError) as e:
         if check and skip_unresolved:
             # The push check's basic tier asks this where a source may not be
@@ -984,7 +1068,17 @@ def main():
         print(f"precedent_sync_views: {line}", file=sys.stderr)
 
     if check:
-        problems = list(tree_drift) + view_problems
+        rung = [l for l in tree_drift if isinstance(l, RungRefusal)]
+        problems = [l for l in tree_drift
+                    if not isinstance(l, RungRefusal)] + view_problems
+        for line in rung:
+            print(f"  {line}", file=sys.stderr)
+        if rung and not problems and not changed:
+            sys.exit(f"precedent_sync_views --check FAIL: this push would put "
+                     f"{for_branch} ahead of {len(rung)} practice set(s) it "
+                     f"takes from. The generated views are what their sources "
+                     f"produce; the sources are not on that rung yet. Nothing "
+                     f"was written. Do NOT sync to get past this.")
         if changed:
             problems.insert(0, f"{agents_md} is stale or hand-edited, "
                                 f"drifted from a fresh sync")
@@ -992,12 +1086,15 @@ def main():
             for line in problems:
                 print(f"  {line}", file=sys.stderr)
             sys.exit(f"precedent_sync_views --check FAIL: "
-                     f"{len(problems)} difference(s) from a fresh sync -- most "
-                     f"often a practice source this repository declares changed "
-                     f"since its last sync (a practice retired, merged or "
-                     f"reworded), less often a generated file edited by hand. "
-                     f"Nothing was written. Fix: python3 tools/precedent_sync_views.py "
-                     f"--repo . , review the diff, commit.")
+                     f"{len(problems)} difference(s) from a fresh sync. Each "
+                     f"shared set was read at the commit MANIFEST.json records "
+                     f"syncing it at, so a set moving on since is not the "
+                     f"cause; what is: a generated file edited by hand, a "
+                     f"change to precedent.json or to a practice inside this "
+                     f"repository not yet synced, or a source with no recorded "
+                     f"commit read as its clone stands. Nothing was written. "
+                     f"Fix: python3 tools/precedent_sync_views.py --repo . , "
+                     f"review the diff, commit (it refuses to roll a set back).")
         print(f"precedent_sync_views --check OK: {agents_md} and the "
               f"materialized tree are byte-identical to a fresh sync "
               f"({len(written)} practice(s), {len(checks_written)} check "
