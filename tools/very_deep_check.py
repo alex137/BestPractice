@@ -1743,6 +1743,23 @@ def _detectors_added(repo_dir, since):
     return sorted(after - before), '', shallow
 
 
+def _link_siblings(src, scratch):
+    """Link every directory beside `src` into `scratch`, under its own name,
+    so a copy of `src` placed in `scratch` sees the same neighbours."""
+    real = pathlib.Path(src).resolve()
+    try:
+        neighbours = list(real.parent.iterdir())
+    except OSError:
+        return
+    for n in neighbours:
+        if n.name == real.name or not n.is_dir():
+            continue
+        try:
+            (pathlib.Path(scratch) / n.name).symlink_to(n, target_is_directory=True)
+        except OSError:
+            continue
+
+
 def _scratch_tree(src, dest, engine_src):
     """Copy `src`'s tracked tree to `dest`, give it a one-commit history, and
     drop THIS checkout's precedent_check.py in as its engine.
@@ -1825,7 +1842,15 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
             rows.append((label, None, 'the origin of the fix -- swept by its '
                                       'own gate, not here'))
             continue
-        tmp = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+        # The copy sits at <scratch>/<its own name>, beside links to the
+        # real repo's siblings: a check that finds a source cloned beside the
+        # repo (a set an individual set brings, say) otherwise finds nothing
+        # there, and the ladder-words check reported the individual set in
+        # violation of a rule it is exempt from (very deep check, 2026-10-05).
+        scratch = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+        tmp = scratch / pathlib.Path(path).resolve().name
+        tmp.mkdir()
+        _link_siblings(path, scratch)
         try:
             bad = _scratch_tree(path, tmp, engine)
             if bad:
@@ -1873,7 +1898,8 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
                     verdicts.append((slug, 'did not run', ''))
             rows.append((label, verdicts, ''))
         finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+            # rmtree unlinks the sibling links; it never follows them.
+            shutil.rmtree(scratch, ignore_errors=True)
     return since, slugs, rows, '', caveat
 
 def _pending_deletions(repo_dir):

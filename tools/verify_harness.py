@@ -7796,6 +7796,45 @@ def check_default_blocklist_runs_the_vocabulary_layer():
           not bad, '; '.join(bad))
 
 
+def check_fix_sweep_copy_keeps_its_neighbours():
+    """The very deep check's fix sweep runs each new detector against a COPY
+    of every repo in force. A check that looks beside the repo for a source
+    cloned there (the ladder set an individual set brings) found nothing
+    beside a bare temporary copy, so the ladder-words check reported the
+    individual set in violation of a rule it is exempt from (very deep
+    check, 2026-10-05). The copy now sits beside links to the real repo's
+    siblings, and cleaning it up must never reach through those links."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as _vdc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-sweep-'))
+    cases = []
+    try:
+        (fx / 'me').mkdir()
+        (fx / 'neighbour').mkdir()
+        (fx / 'neighbour' / 'keep.txt').write_text('x', encoding='utf-8')
+        (fx / 'a-file').write_text('x', encoding='utf-8')
+        scratch = fx / 'scratch'
+        scratch.mkdir()
+        _vdc._link_siblings(fx / 'me', scratch)
+        link = scratch / 'neighbour'
+        cases.append(('a sibling directory is linked beside the copy',
+                      link.is_symlink() and (link / 'keep.txt').is_file()))
+        cases.append(('the repo itself is not linked -- the copy takes its place',
+                      not (scratch / 'me').exists()))
+        cases.append(('a plain file beside the repo is not linked',
+                      not (scratch / 'a-file').exists()))
+        _sh.rmtree(scratch, ignore_errors=True)
+        cases.append(('cleaning up the copy leaves the real sibling untouched',
+                      (fx / 'neighbour' / 'keep.txt').is_file()))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the fix sweep\'s copy of a repo sees that repo\'s neighbours '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_session_practices_load_without_publishing():
     """The team and individual practices reach a session here, and cannot
     reach a commit.
@@ -59806,6 +59845,7 @@ def main():
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
+    check_fix_sweep_copy_keeps_its_neighbours()
     check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
