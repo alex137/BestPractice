@@ -6964,8 +6964,9 @@ def _light_broken_links(root, rel, text):
        'a secret in a shape not on its short list (an AWS key ID, a PEM '
        'private-key header, a GitHub or Slack token), and YAML entirely when '
        'PyYAML is not installed -- said on the run, never passed silently. '
-       'Links are skipped in trees this repo mirrors and in the directories '
-       'its own tools/doc_lint.py declares link-exempt.',
+       'Links are skipped in trees this repo mirrors, in the directories '
+       'its own tools/doc_lint.py declares link-exempt, and in the record '
+       'files precedent.json declares in `record_paths`.',
        practice_backed=False,
        # Any file a change touches can bring a conflict marker or a secret,
        # so any change summons it; the whole tree reads in about three
@@ -6984,7 +6985,13 @@ def _light_check(ctx):
     except ImportError:
         _yaml = None
     mirrors = _mirrored(ctx.root)
-    exempt = mirrors + _light_link_exempt_dirs()
+    # A declared record names files at the paths they had when it was
+    # written -- an as-filed document, a dated audit -- and may never be
+    # edited to follow a move. Every other check that reads paths already
+    # honors `record_paths`; this one did not, and on 2026-10-05 it failed a
+    # consumer's whole Update Vendors run on links inside its as-filed
+    # patent packages, which that consumer had declared as records.
+    exempt = mirrors + _light_link_exempt_dirs() + tuple(_declared_record_paths())
     out, shared = [], {}
     for rel in _ls_files_on_disk(root=ctx.root):
         try:
