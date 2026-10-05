@@ -273,6 +273,21 @@ def _from_declared_sources(root, slugs):
     return found, note
 
 
+def _hidden_for_viewer(fm, root, slug):
+    """-> the line printed in place of a practice marked for code owners only
+    when this session's person is not shown to be one, else None
+    (tools/precedent_audience.py; Morgan, 2026-10-05)."""
+    try:
+        import precedent_audience as pa
+    except ImportError:
+        return None
+    if pa.visible(fm, root):
+        return None
+    _ok, why = pa.is_code_owner(root)
+    return (f"### {slug}\nFor this repository's code owners only, and this "
+            f"session's person is not shown to be one: {why}.")
+
+
 def main():
     args = sys.argv[1:]
     repo = None
@@ -368,6 +383,10 @@ def main():
             _fm, sections = sp._read_practice_file(path)
         except sp.PracticeFileError as e:
             sys.exit(f"precedent show FAIL: {e}")
+        hidden = _hidden_for_viewer(_fm, root, slug)
+        if hidden:
+            out.append(hidden)
+            continue
         body = sections.get(section, '').strip()
         block = f"### {slug}\n{body if body else '(no ' + section + ' recorded yet)'}"
         banner = _not_in_force_banner(_fm, slug)
@@ -389,6 +408,11 @@ def main():
                 _fm, sections = sp._read_practice_file(path)
             except sp.PracticeFileError as e:
                 sys.exit(f"precedent show FAIL: {e}")
+            hidden = _hidden_for_viewer(_fm, root, slug)
+            if hidden:
+                out.append(hidden)
+                missing.remove(slug)
+                continue
             body = sections.get(section, '').strip()
             head = (f"### {slug} ({level})" if live == slug else
                     f"### {slug} -> {live} ({level})\n`{slug}` was merged into "

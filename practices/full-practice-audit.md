@@ -14,6 +14,7 @@ defines:     ["full practice audit"]
 command:     {"Full practice audit": "Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. Once also called a \"practice check\"."}
 status:      active
 in_force_at: null
+visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       null

@@ -382,6 +382,14 @@ ENGINE_FILES = [
     # about a catalogue, and only the second reason keeps a file out of a
     # set.
     'precedent_identity.py',
+    # Whether this session's person is one of the repository's code owners,
+    # so a practice marked `visible_to: code-owners` reaches only them
+    # (2026-10-05). Beside precedent_identity.py, which it reads, and in
+    # every kind of repo, since each channel that filters runs in all of them.
+    'precedent_audience.py',
+    # The remote branches a code owner can delete across the session's
+    # repositories, for the ladder set's stale-branch-cleanup (2026-10-05).
+    'precedent_stale_branches.py',
     # The resolver and the untracked-block writer, added 2026-09-13 so a
     # session rooted in a practice SET reads the universal catalogue instead
     # of that set's own practices alone. Until then a set resolved nothing:
