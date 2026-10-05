@@ -51,9 +51,14 @@ two-check-levels`, since the tool only points a copy at the same slug.
 Then remove `precedent-shared-repo-maintenance` from each `precedent.json`
 that declares it. Archiving the repository on GitHub is Morgan's call.
 
-**BestPractice stopped declaring it, 2026-10-05.** Universal carries every
-rule the set still held active (light-check through `two-check-levels`), so
-this repository loses nothing by dropping it from its own `precedent.json`;
-the very deep check run that day was reading the set as in force here. The
-set copies are not deduplicated yet, and other repositories that declare it
-still do.
+**Two of the set's checks have no home yet (found by the very deep check,
+2026-10-05).** The set's commit-trailer check and its fresh-before-write
+check ship only in the set. The push check finds the trailer check through
+the set's declaration ([tools/precedent_push_check.py](../tools/precedent_push_check.py)'s
+`IDENTITY_CHECKS`), and universal's
+[session-trailer](../practices/session-trailer.md) and
+[fresh-before-write](../practices/fresh-before-write.md) name no check of
+their own. A repository that stops declaring the set stops checking both,
+silently. So BestPractice keeps declaring it, and "remove it from each
+`precedent.json`" waits on porting both as registered checks with a planted
+case each, the way the second pass above ported four others.
