@@ -15171,6 +15171,33 @@ def check_precedent_check_fires():
                 encoding='utf-8')
             git(repo, 'add', '-A')
         case('light-check', _plant_light_check)
+
+        # private-repo-scrub: a private individual set, brought through the
+        # person's own config, whose origin is zz-owner/zz-private. The
+        # clean copy has it in force and does not name it -- a real pass,
+        # not a skip; the planted copy names it in a practice file.
+        _priv = tmp / 'zz-private-set'
+        (_priv / 'practices').mkdir(parents=True)
+        (_priv / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual',
+             'visibility': 'private'}), encoding='utf-8')
+        git(_priv, 'init', '-q')
+        git(_priv, 'remote', 'add', 'origin', 'https://github.com/zz-owner/zz-private.git')
+        _priv_cfg = tmp / 'zz-user-config.json'
+        _priv_cfg.write_text(json.dumps(
+            {'format_version': 1, 'individual': {'name': 'precedent-individual',
+                                                 'path': str(_priv)}}),
+            encoding='utf-8')
+
+        def _plant_private_repo_scrub(repo):
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8').replace(
+                '## Story\n', '## Story\nFirst seen in zz-owner/zz-private.\n', 1),
+                encoding='utf-8')
+        case('private-repo-scrub', _plant_private_repo_scrub,
+             env_extra={'PRECEDENT_USER_CONFIG': str(_priv_cfg)})
+        cases.append(('private-repo-scrub: the finding names the private repository',
+                      "'zz-owner/zz-private'" in planted['private-repo-scrub'][1]))
         _lc = planted['light-check'][1]
         for _what, _needle in (('conflict marker', 'zz-conflict.txt:2: unresolved conflict marker'),
                                ('token', 'zz-token.txt: looks like a GitHub personal access token'),

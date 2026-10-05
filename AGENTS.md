@@ -93,7 +93,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~637 of 1750 token budget, 6 of 164 practices (6 universal))
+## Resident block (~637 of 1750 token budget, 6 of 165 practices (6 universal))
 
 **answer-first-ask-before-long-work.** Four parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
@@ -273,6 +273,8 @@ When writing a hook, script or rule another repo will vendor:
   vendor-neutral-by-default — default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — it carries its date, inline
+When writing content that ships into another repo:
+  private-repo-scrub — name a private repo only in general terms
 When writing or changing an automatic repair:
   repair-cannot-discard-work — it must never discard work; reporting is not repairing
 When writing, running or reviewing a gate, audit, cache or heavy solve:

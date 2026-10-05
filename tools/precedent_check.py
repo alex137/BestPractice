@@ -7014,6 +7014,75 @@ def _light_check(ctx):
     return out
 
 
+def _private_source_names(root):
+    """-> sorted owner-qualified names ("owner/repo") of every source in
+    force here that declares itself private, read from its own
+    precedent-source.json and its own `origin`. A source that says nothing
+    is private when its level is individual, as source-naming defaults it."""
+    try:
+        import precedent_resolve as pr
+        sources = pr.load_config(str(root))
+    except (Exception, SystemExit):                  # practice: fail-gracefully
+        return []
+    here, names = root.resolve(), set()
+    for s in sources:
+        path = pathlib.Path(s.get('path') or '')
+        if not path.is_dir() or path.resolve() == here:
+            continue
+        try:
+            decl = json.loads((path / 'precedent-source.json').read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            decl = {}
+        vis = decl.get('visibility') or ('private' if s.get('level') == 'individual'
+                                         else 'public')
+        if vis == 'public':
+            continue
+        url = _git('remote', 'get-url', 'origin', cwd=path).stdout.strip()
+        m = re.search(r'[/:]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$', url)
+        if m:
+            names.add(f'{m.group(1)}/{m.group(2)}')
+    return sorted(names)
+
+
+@check('private-repo-scrub', 'tree',
+       'no practice file -- the content that ships into other repositories -- '
+       'names a private source by its owner-qualified name ("owner/repo", or '
+       'its github.com URL)',
+       'a private repository this run does not have in force, since the names '
+       'come from the sources resolved here; a bare convention name such as '
+       '`precedent-individual`, which identifies nobody and is allowed; and '
+       'identifying detail about a private repo\'s layout, which no word list '
+       'can see.')
+def _private_repo_scrub(ctx):
+    # Ported 2026-10-05 from the repo-maintenance set's
+    # check_private_repo_scrub.py, when the practice moved into universal.
+    # That script carried its owner's private repositories as a literal
+    # list; a universal check cannot, so it asks each source in force
+    # whether it is private (its own `visibility`) and where it lives (its
+    # own `origin`). The owner is what identifies: since 2026-09-06 the bare
+    # set names are a convention every adopter uses.
+    names = _private_source_names(ctx.root)
+    if not names:
+        raise NotApplicable('no source in force here declares itself private')
+    out = []
+    for f in sorted((ctx.root / 'practices').glob('*.md')):
+        rel = f'practices/{f.name}'
+        try:
+            lines = f.read_text(encoding='utf-8').splitlines()
+        except (UnicodeDecodeError, OSError):
+            continue
+        for lineno, line in enumerate(lines, start=1):
+            low = line.lower()
+            for name in names:
+                if name.lower() in low:
+                    out.append(Finding(f'{rel}:{lineno}', f'names the private '
+                                       f'repository {name!r} -- describe it in '
+                                       f'general terms ("a private set", "an '
+                                       f'earlier project")', path=rel))
+    return out
+
+
 _DERIVED_FROM_RE = re.compile(r'DERIVED from\s+(.+?)\s+@\s+(\S+)')
 _DERIVED_RECIPE_RE = re.compile(r'Recipe:\s*(\S+)')
 _DERIVED_REGEN_RE = re.compile(r'Regenerate with:\s*(.+)')

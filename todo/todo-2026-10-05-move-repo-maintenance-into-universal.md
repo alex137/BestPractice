@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       ask
 remind_on:         null
-blocked_on:        "pass 2 is a separate session's work (porting five check scripts into universal's engine is hours, not a move); the set's withdrawal waits on that and on Update Vendors in every repo declaring it"
+blocked_on:        "both passes reaching main, then Update Vendors in every repository that declares precedent-shared-repo-maintenance"
 batch:             null
 decision:          "fold precedent-shared-repo-maintenance into universal, in two passes"
 decision_strength: decided
@@ -31,26 +31,22 @@ closed:            null
   2026-09-28, deduplicated. Universal's occasion share measured about 2,186
   of its 2,250-token allowance afterwards.
 
+  **Pass 2, done 2026-10-05:** default-branch, derived-file-marker,
+  deep-check and private-repo-scrub drafted into universal, each with its
+  check rewritten as a registered check in
+  [tools/precedent_check.py](../tools/precedent_check.py) and a planted case
+  in `tools/verify_harness.py`. private-repo-scrub's check no longer carries
+  a list of private names: it asks each source in force whether it is
+  private. light-check was not drafted: its rule was folded into
+  `two-check-levels` on 2026-09-28, so its audit became the engine's own
+  `light-check` check, with no second copy of the rule. Universal's
+  occasion allowance went from 2,250 to 2,500.
+
 ## Proposed
 
-**Pass 2:** deep-check, default-branch, derived-file-marker, light-check and
-private-repo-scrub. Each carries a check script in the set's
-`tools/checks/`, and universal refuses a `checked_by` it does not register.
-So each check is first rewritten as a registered check in
-[tools/precedent_check.py](../tools/precedent_check.py), with a planted case
-in [tools/verify_harness.py](../tools/verify_harness.py)'s
-`check_precedent_check_fires`, and only then moved. Two things to watch:
-
-- Their index lines push universal's share past its 2,250 allowance.
-  Morgan approved raising it for this fold on 2026-10-05; set it to the
-  measured share plus a margin, with that reason in `precedent-source.json`
-  and `tools/session_load_budgets.json`.
-- `deep-check` is not a copy of `two-check-levels`: its by-request read of
-  the repo against itself is the part universal lacks. On 2026-09-06 a
-  session dropped it as redundant and a routine check went missing for a
-  day ([very-deep-check](../practices/very-deep-check.md)'s Story).
-
-**Then:** once both passes are on main and every repo declaring the set has
-run Update Vendors, `precedent_move.py --dedupe-only` for each of the
-twelve, and remove `precedent-shared-repo-maintenance` from each
-`precedent.json`. Archiving the repository on GitHub is Morgan's call.
+Once the blocker clears, run `precedent_move.py --dedupe-only` for each of
+the eleven moved practices, from the set to universal. light-check is the
+exception: its set copy is deduplicated by hand, with `in_force_at:
+two-check-levels`, since the tool only points a copy at the same slug.
+Then remove `precedent-shared-repo-maintenance` from each `precedent.json`
+that declares it. Archiving the repository on GitHub is Morgan's call.

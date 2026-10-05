@@ -149,7 +149,7 @@ as_of: 2026-10-05
 | [`todo-2026-10-04-two-small-engine-leftovers-from-the-produce`](todo-2026-10-04-two-small-engine-leftovers-from-the-produce.md) | Three small engine leftovers, found landing the 2026-10-04 Produce; none is wrong today. | 1d | wait |  |
 | [`todo-2026-10-05-decommission-left-three-dead-links`](todo-2026-10-05-decommission-left-three-dead-links.md) | Find out why retiring `templates/github-actions/precedent-check.yml.template` left three relative links to it. | 0d | ask | out of scope for the repo-maintenance fold that found it; the links themselves a… |
 | [`todo-2026-10-05-finish-folding-the-working-style-set-away`](todo-2026-10-05-finish-folding-the-working-style-set-away.md) | Withdraw the last five rules from the working-style set, then stop declaring it. | 0d | ask | the five universal drafts landing on main, then Update Vendors in every reposito… |
-| [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 0d | ask | pass 2 is a separate session's work (porting five check scripts into universal's… |
+| [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 0d | ask | both passes reaching main, then Update Vendors in every repository that declares… |
 
 ## Decisions (the Person's Call)
 
