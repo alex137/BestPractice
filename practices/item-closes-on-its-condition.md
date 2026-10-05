@@ -4,7 +4,7 @@ title:       "Work that moves an open item records it there; only its stated con
 tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md", "**/TODO.md", "todo/todo-*.md"]
-applies_to_why: "The item is the artifact edited, so the open-items file is the locus. Deliberately NOT '**': the rule fires on work that bears on an item, and no glob can see that -- the merge gate is what reaches it, which is why the practice registers there. Decided: 2026-09-13."
+applies_to_why: "The item is the artifact edited, so the open-items file is the locus. Deliberately NOT '**': the rule fires on work that bears on an item, and no glob can see that -- the merge gate is what reaches it, which is why the practice registers there. Decided: 2026-09-13. `todo/todo-*.md` added 2026-10-05: open items live one per file there since the 2026-09-16 migration, and the root TODO.md is a redirect stub."
 occasion:    "writing, triaging or doing work on an open item"
 gates:       ["merge"]
 index_clause: "record findings in the item; close only on its condition"
