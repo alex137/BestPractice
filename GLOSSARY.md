@@ -47,8 +47,11 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
+| Preference | [practice-standing](practices/practice-standing.md) |
+| Principle | [practice-standing](practices/practice-standing.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
+| Protocol | [practice-standing](practices/practice-standing.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | repo: | [session-tags](practices/session-tags.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |

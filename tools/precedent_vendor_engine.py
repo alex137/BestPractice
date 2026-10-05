@@ -522,6 +522,9 @@ ENGINE_FILES = [
     # to run it, and every kind of repo keeps todo items -- the same reason
     # build_todo_index.py is here.
     'todo_disposition.py',
+    # A practice's standing (added 2026-10-05): every source's practices may
+    # carry one, and every channel that shows a practice reads the label.
+    'practice_standing.py',
     # title_case.py was CONSUMER-only until 2026-09-19, since headline
     # capitalization was thought of as a consumer-catalogue concern. Moved
     # here the same day build_todo_index.py was: it imports title_case at

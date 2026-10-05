@@ -1502,9 +1502,14 @@ REBUILT_BARE = ('tools/build_views.py', 'tools/build_gotcha_index.py',
 def _generator_of(wt, rel):
     """-> the repo-relative tool that writes `rel` in worktree `wt`, or None
     when `rel` is hand-written. Read from our side of a conflicted file
-    (index stage 2), so a conflict hunk cannot hide the header."""
-    ours = _run(wt, 'show', f':2:{rel}')
-    head = (ours.stdout if ours.returncode == 0 else '')[:2000]
+    (index stage 2), so a conflict hunk cannot hide the header. Read as
+    bytes: a conflicted file can be binary (a Word file), which carries no
+    header and so counts as hand-written -- the Promote stops and names it,
+    where decoding it as text crashed (2026-10-05)."""
+    ours = subprocess.run(['git', '-C', str(wt), 'show', f':2:{rel}'],
+                          capture_output=True)
+    head = (ours.stdout[:2000].decode('utf-8', errors='replace')
+            if ours.returncode == 0 else '')
     m = _GENERATED_BY_RE.search(head)
     if m and m.group(1) in REBUILT_BARE and (pathlib.Path(wt) / m.group(1)).is_file():
         return m.group(1)

@@ -10447,6 +10447,51 @@ def _todo_migrate_available_but_unused(ctx):
         'tools/build_todo_index.py` (practices/vendor-update-runbook.md)')]
 
 
+# practice: practice-standing -- a standing is one of three words, says who
+# set it, and a Protocol or a Principle was set by someone the source's own
+# registry names. The words and the rule are tools/practice_standing.py's;
+# this only walks the files.
+@check('practice-standing', 'tree',
+       'every practice this repository publishes that carries `standing:` '
+       'holds protocol, principle or preference, names who set it in '
+       '`standing_by:`, and, for a Protocol or a Principle, names someone the '
+       'source\'s authority registry lists (CODEOWNERS, approvers.json, '
+       'precedent.json maintainers, or an individual set\'s identity.json)',
+       'whether the label is RIGHT, and whether the person named really said '
+       'so in a message of their own rather than through a relayed summary. '
+       'Both live in the conversation. Blind to absence on purpose: no '
+       '`standing:` means Protocol, the default.',
+       binds_publishers=True,
+       selects_on=('practices/*.md', 'tools/practice_standing.py',
+                   'approvers.json', 'precedent.json', 'identity.json',
+                   'CODEOWNERS', '.github/CODEOWNERS'))
+def _practice_standing(ctx):
+    try:
+        import practice_standing as pst
+    except ImportError:
+        raise NotApplicable('practice_standing.py is not in this engine')
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        raise NotApplicable('this repository publishes no practices')
+    auth = None
+    out = []
+    for path in sorted(pdir.glob('*.md')):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        try:
+            fm, _sections = sp._read_practice_file(path)
+        except Exception:
+            continue                    # a parse failure is another check's
+        if not pst.declared(fm) and not pst._raw(fm, 'standing_by'):
+            continue
+        if auth is None:
+            auth = pst.authority(ROOT)
+        for p in pst.problems(fm, ROOT, _authority=auth):
+            out.append(Finding(rel, p))
+    return out
+
+
 # practice: decision-strength -- the grammar of the strength mark, so that
 # "unmarked means unknown" stays a reliable reading. A malformed or invented
 # value is the dangerous case: `strength: strong` reads as an endorsement to
