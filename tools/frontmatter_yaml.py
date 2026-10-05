@@ -92,6 +92,10 @@ FIELD_ORDER = (
     'title',
     'tier',
     'severity',
+    # How binding the practice is, and who set that: absent means Protocol
+    # (tools/practice_standing.py; spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+    'standing',
+    'standing_by',
     'scope',
     'applies_to',
     # Why applies_to is what it is -- moved here from tools/routing_scope.json

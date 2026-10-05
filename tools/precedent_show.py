@@ -99,6 +99,16 @@ SECTION_FLAGS = {'--detail': 'detail', '--why': 'why', '--story': 'story',
 SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
 
 
+def _standing_note(fm):
+    """' -- Preference: ...' after a heading for a labelled exception, ''
+    for a Protocol (practice: practice-standing)."""
+    try:
+        import practice_standing
+    except ImportError:                       # practice: fail-gracefully
+        return ''
+    return practice_standing.heading_note(fm)
+
+
 def _not_in_force_banner(fm, slug):
     """A banner for a practice whose rule does NOT apply here, or None.
 
@@ -388,10 +398,11 @@ def main():
             out.append(hidden)
             continue
         body = sections.get(section, '').strip()
-        block = f"### {slug}\n{body if body else '(no ' + section + ' recorded yet)'}"
+        head = f"### {slug}{_standing_note(_fm)}"
+        block = f"{head}\n{body if body else '(no ' + section + ' recorded yet)'}"
         banner = _not_in_force_banner(_fm, slug)
         if banner:
-            block = f"### {slug}\n{banner}\n\n{body}" if body else f"### {slug}\n{banner}"
+            block = f"{head}\n{banner}\n\n{body}" if body else f"{head}\n{banner}"
         if manifest is not None:
             note = _source_unreachable_note(manifest, slug)
             if note:
@@ -414,8 +425,9 @@ def main():
                 missing.remove(slug)
                 continue
             body = sections.get(section, '').strip()
-            head = (f"### {slug} ({level})" if live == slug else
-                    f"### {slug} -> {live} ({level})\n`{slug}` was merged into "
+            note = _standing_note(_fm)
+            head = (f"### {slug} ({level}){note}" if live == slug else
+                    f"### {slug} -> {live} ({level}){note}\n`{slug}` was merged into "
                     f"`{live}`; this is `{live}`'s {section}, the rule in force.")
             block = (f"{head}\n"
                      f"{body if body else '(no ' + section + ' recorded yet)'}")

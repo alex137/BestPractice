@@ -11,7 +11,7 @@ summary:       "Two ideas of Morgan's, worked through with a second session's cr
 ---
 # Practice Standing and Recheck: The Plan
 
-**Part 1 is built (2026-10-05); Part 2 is not built yet.** This file is the
+**Part 1 is built (2026-10-05); of Part 2, step 5's engine half is built (2026-10-05) and steps 6 to 8 are not.** This file is the
 plan adopted in the session "Practice categorization and lifecycle"
 (2026-10-05), after a second session critiqued it over several rounds. It
 records what was decided, how strongly, and why the first draft changed.
@@ -46,6 +46,8 @@ records what was decided, how strongly, and why the first draft changed.
 | The routing audit is shown whenever a practice file is edited | assented |
 | Recheck lines: at most 3, only in the reply that says the session can be archived | assented |
 | GitHub-enforced approval (CODEOWNERS) waits until there is a team with its own accounts | assented |
+| The approver field is `standing_by:`, separate from `approved_by` | assented |
+| Constants: 3 restatements, 6 months unused, 12 months quiet after "keep" | assented |
 
 ## How the first draft changed
 
@@ -137,6 +139,17 @@ A second branch, built after Part 1.
    read. A session never sets Protocol or Principle on its own say-so: an
    approval counts only as the person's own message in that session, never
    a summary relayed from another.
+
+   **Built 2026-10-05, engine half only:** the two fields are in
+   [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md) as `standing:` and
+   `standing_by:` (the structured approver, named for what it attests),
+   [tools/practice_standing.py](../tools/practice_standing.py) holds the
+   words and reads authority from the registry
+   [tools/precedent_audience.py](../tools/precedent_audience.py) already
+   reads for code owners, the `practice-standing` check enforces it, every
+   channel that shows a practice marks a Principle or a Preference, and
+   [practice-standing](../practices/practice-standing.md) carries the rule.
+   No practice carries either field yet: step 9 comes first.
 6. **Labelling.** A session drafts every label, Protocol unless shown
    otherwise. Morgan reviews only the doubtful ones (about 15) and a random
    spot check of about 10 others, widened if it finds mistakes. Individual
@@ -166,10 +179,14 @@ Calendar recheck dates; a new line at every session start; removing or
 relaxing a rule automatically; CODEOWNERS enforcement for now; a general
 scanner for "temporary" wording (marking each warning-only check covers it).
 
-## Open constants
+## Constants
 
-To be registered under
+Set 2026-10-05, Morgan (strength: assented -- *"use your picks for the
+numbers"*, a session's three proposals accepted as one): **3**
+restatements before a Preference is suggested for Protocol, **6** months
+without use before a practice is a recheck candidate, and **12** months
+that a "keep" quiets it. They live in `CONSTANTS` in
+[tools/practice_standing.py](../tools/practice_standing.py) and nowhere
+else, as inputs to revisit under
 [constants-are-risk-inputs](../practices/constants-are-risk-inputs.md),
-none yet decided: how many restatements suggest a promotion; how many
-months without use make a recheck candidate; how long "keep" quiets a
-practice.
+not settled values.
