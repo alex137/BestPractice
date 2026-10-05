@@ -1,9 +1,34 @@
 ---
-checked_through: 2026-10-01
+checked_through: 2026-10-04
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Sunday 2026-10-04: ladder-becomes-opt-in
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **The five-stage ladder is now something a team chooses, not something everyone gets**: its rules left the set every project receives and live in the ladder set for people who bring it (fourteen practices withdrawn, recorded in record/WITHDRAWN_FROM_UNIVERSAL.md; a check now finds none of the ladder's words in the universal set, down from 638; "No ladders" opens a session that sees it the other way).
+- **Generated files rebuild themselves when you commit**, so the map and glossary can no longer drift out of date by hand (tools/precedent_regenerate.py reads tools/generated_files.json and rebuilds what a commit touched; a repository's own hand-written map and glossary text moved into MAP.source.md and GLOSSARY.source.md).
+- **A Debut checks once and moves staging and pre-staging together**, so pre-staging only ever receives work that passed (the Promote into staging composes staging, any fix branch, main's direct work and pre-staging in a scratch worktree, runs the full check once, and pushes both in one step).
+- **Update Vendors got about a dozen fixes from real runs in other repositories**, and a merge now takes a pending update by itself (tools/precedent_merge_vendors.py, run before the push).
+
+## Saturday 2026-10-03: push-check-records-its-pass
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **The slow check no longer runs twice because it touched its own notes**: it used to rewrite its record files as it ran, then refuse to count its own pass, and the push gate re-ran the roughly 14-minute suite and timed out (precedent_push_check.py now records the pass over the fact ledgers its checks refreshed).
+- **A stale rendered page on main was rebuilt** (spec/PREFORK_AUDIT.html).
+
+## Friday 2026-10-02: fewer-github-test-runs
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Main's GitHub test runs at most once every few hours in a private repository**, and costs nothing when it is not due (Promote reads github_ci_every_hours and names the copy to-main-not-due-DATE, which the workflow skips before a runner starts; it also fixed a bug that read every skipped run as a failure).
+- **Branches a session leaves behind now say what they were for and which session made them** (tools/precedent_branch_name.py names them claude/, then the date, a slug and the last five characters of the session ID).
+- **A session now notices when a shared set it declares never loaded**, instead of silently working without it (precedent_session_check.py fails that row; the refresh also writes and wires the individual set's start-up hook for a consumer).
+- **"Prompt Please" invites push-back and asks for the answer back as one block to paste** (practices/prompt-please.md).
 
 ## Thursday 2026-10-01: lighter-sessions-and-root-issues
 
