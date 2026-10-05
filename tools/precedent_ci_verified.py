@@ -48,8 +48,8 @@ import json, os, pathlib, re, subprocess, sys, urllib.error, urllib.request
 API = 'https://api.github.com'
 TIMEOUT = 15
 
-VERIFIED, FAILED, NOT_RUN, RUNNING, UNVERIFIED = (
-    'verified', 'failed', 'not_run', 'running', 'unverified')
+VERIFIED, FAILED, NOT_RUN, RUNNING, UNVERIFIED, NEVER_STARTED = (
+    'verified', 'failed', 'not_run', 'running', 'unverified', 'never_started')
 
 
 def _git(root, *args):
@@ -148,7 +148,36 @@ def expected_workflows(root, branch='', base=''):
 
 def _fetch_runs(slug, sha):
     """-> (runs, error). Never raises."""
-    url = f'{API}/repos/{slug}/actions/runs?head_sha={sha}&per_page=100'
+    return _get(f'{API}/repos/{slug}/actions/runs?head_sha={sha}&per_page=100',
+                'workflow_runs')
+
+
+def _fetch_jobs(jobs_url):
+    """-> (jobs, error) for one workflow run. Never raises. Asked only for a
+    run that did not pass, so a green merge still costs one request."""
+    return _get(f'{jobs_url}?per_page=100', 'jobs')
+
+
+def never_started(jobs):
+    """True when every job of a run that did not pass was cancelled without a
+    runner ever picking it up: GitHub had no machine for it, so no check ran
+    and nothing was found.
+
+    THE INCIDENT (2026-10-05). For about an hour, roughly half of all jobs in
+    this repository, on every branch and workflow, sat queued for fifteen
+    minutes and were cancelled with `runner_id: 0` and no log. The run's own
+    conclusion read `failure`, so this tool said "CI FAILED", and a session
+    spent three quarters of an hour looking for a finding that did not exist
+    (gotchas/gotcha-2026-10-05-a-ci-run-that-never-got-a-runner-reads-as-ci-failed.md)."""
+    bad = [j for j in jobs or []
+           if j.get('conclusion') not in ('success', 'skipped', 'neutral')]
+    return bool(bad) and all(
+        j.get('conclusion') == 'cancelled' and not j.get('runner_name')
+        and not j.get('runner_id') for j in bad)
+
+
+def _get(url, key):
+    """-> (the list under `key`, error). Never raises."""
     req = urllib.request.Request(url, headers={
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'precedent-ci-verified'})
@@ -157,7 +186,7 @@ def _fetch_runs(slug, sha):
         req.add_header('Authorization', f'Bearer {token}')
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as f:
-            return json.load(f).get('workflow_runs', []), ''
+            return json.load(f).get(key, []), ''
     except urllib.error.HTTPError as e:
         if e.code == 403:
             return None, ('GitHub answered 403 -- the unauthenticated rate '
@@ -226,7 +255,7 @@ def verdict(root='.', base=None):
         if prev is None or (r.get('run_number') or 0) >= (prev.get('run_number') or 0):
             by_name[name] = r
 
-    lines, missing, bad, pending = [], [], [], []
+    lines, missing, bad, pending, idle = [], [], [], [], []
     for name in sorted(expected):
         r = by_name.get(name)
         if r is None:
@@ -238,8 +267,15 @@ def verdict(root='.', base=None):
             pending.append(name)
             lines.append(f'  {name}: {status}')
         elif concl != 'success':
-            bad.append(name)
-            lines.append(f'  {name}: {concl}')
+            jobs = (_fetch_jobs(r['jobs_url'])[0] if r.get('jobs_url')
+                    else None)
+            if never_started(jobs):
+                idle.append(name)
+                lines.append(f'  {name}: never started -- no GitHub machine '
+                             f'picked it up, so it was cancelled ({concl})')
+            else:
+                bad.append(name)
+                lines.append(f'  {name}: {concl}')
         else:
             lines.append(f'  {name}: success')
     for name in sorted(set(by_name) - expected):
@@ -255,6 +291,10 @@ def verdict(root='.', base=None):
     if missing:
         return NOT_RUN, [f'{short}: ' + ', '.join(missing) +
                          ' produced no run at all'] + lines
+    if idle:
+        return NEVER_STARTED, [f'{short}: ' + ', '.join(idle) +
+                               ' never started -- GitHub had no machine for '
+                               'it, so no check ran and nothing was found'] + lines
     if pending:
         return RUNNING, [f'{short}: ' + ', '.join(pending) +
                          ' has not finished'] + lines
@@ -277,6 +317,7 @@ def remind(root='.', prefix='precedent', base=None):
         FAILED: 'CI FAILED on the commit you are about to merge',
         NOT_RUN: 'CI DID NOT RUN on the commit you are about to merge',
         RUNNING: 'CI has not finished on the commit you are about to merge',
+        NEVER_STARTED: 'CI NEVER STARTED on the commit you are about to merge',
         UNVERIFIED: 'could not verify CI on the commit you are about to merge',
     }[state]
     out = [f'{prefix}: {head} --', *lines]
@@ -285,6 +326,12 @@ def remind(root='.', prefix='precedent', base=None):
                    'EARLIER pull request on the same branch.')
         out.append('  Re-run it before merging: the workflow\'s own '
                    '`workflow_dispatch`, never a close-and-reopen.')
+    if state == NEVER_STARTED:
+        out.append('  Not a finding: GitHub assigned no machine. Run the same '
+                   'check here (`python3 tools/precedent_push_check.py`; the '
+                   'leak gate here is a superset of its CI half) and decide on '
+                   'that. One re-run at most; other branches stuck the same '
+                   'way confirm it is GitHub, not this change.')
     return '\n'.join(out)
 
 
