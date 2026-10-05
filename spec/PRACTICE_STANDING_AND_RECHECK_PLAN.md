@@ -46,6 +46,8 @@ records what was decided, how strongly, and why the first draft changed.
 | The routing audit is shown whenever a practice file is edited | assented |
 | Recheck lines: at most 3, only in the reply that says the session can be archived | assented |
 | GitHub-enforced approval (CODEOWNERS) waits until there is a team with its own accounts | assented |
+| The approver field is `standing_by:`, separate from `approved_by` | assented |
+| Constants: 3 restatements, 6 months unused, 12 months quiet after "keep" | assented |
 
 ## How the first draft changed
 
@@ -177,10 +179,14 @@ Calendar recheck dates; a new line at every session start; removing or
 relaxing a rule automatically; CODEOWNERS enforcement for now; a general
 scanner for "temporary" wording (marking each warning-only check covers it).
 
-## Open constants
+## Constants
 
-To be registered under
+Set 2026-10-05, Morgan (strength: assented -- *"use your picks for the
+numbers"*, a session's three proposals accepted as one): **3**
+restatements before a Preference is suggested for Protocol, **6** months
+without use before a practice is a recheck candidate, and **12** months
+that a "keep" quiets it. They live in `CONSTANTS` in
+[tools/practice_standing.py](../tools/practice_standing.py) and nowhere
+else, as inputs to revisit under
 [constants-are-risk-inputs](../practices/constants-are-risk-inputs.md),
-none yet decided: how many restatements suggest a promotion; how many
-months without use make a recheck candidate; how long "keep" quiets a
-practice.
+not settled values.

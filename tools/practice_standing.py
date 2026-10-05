@@ -51,6 +51,24 @@ MEANING = {
     'preference': 'followed by default; set it aside only with the reason said',
 }
 
+# The three numbers steps 7 and 8 of the plan run on. None is a fact about
+# the world: each is a guess at where the line should sit, so each is an
+# input to revisit, not a settled value (practice: constants-are-risk-inputs).
+# Proposed by a session and accepted as proposed -- Morgan, 2026-10-05:
+# "Book it, and use your picks for the numbers" (strength: assented).
+# Change one here, with the date, who and why; nothing else holds a copy.
+CONSTANTS = {
+    # Times a Preference is restated in conversation, each noted in the
+    # person's own set, before a session suggests making it a Protocol.
+    'restatements_to_suggest_protocol': 3,
+    # Months with no sign of use in a repository's history before a practice
+    # becomes a recheck candidate there.
+    'months_unused_to_recheck': 6,
+    # Months a "keep" answer to a recheck quiets that practice in that
+    # repository before it can be a candidate again.
+    'months_keep_quiets': 12,
+}
+
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 
 
