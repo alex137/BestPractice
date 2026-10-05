@@ -21,13 +21,14 @@ something.
 
 **2026-10-05, booking the practice-standing work (PR #893).** The branch's
 leak-gate run queued, waited fifteen minutes and was cancelled; the one
-allowed re-run did the same. Runs for other sessions' feature branches were
-stuck the same way at the same time, while pushes to `pre-staging` and
-`main` were still getting runners -- until, a few minutes later, the run
-for the merge commit on `pre-staging` stalled too. Nothing in the diff was
-involved: `python3 tools/leak_gate.py --range origin/pre-staging..HEAD`,
-which runs the private blocklists on top of the structural half CI runs,
-passed locally. The session spent about three quarters of an hour finding
+allowed re-run did the same. Listing every job in the repository from
+19:30 to 20:30 UTC showed the shape: about half of all jobs, on every
+workflow and every branch -- feature branches, `pre-staging`, and the deep
+check on `main` after a Produce -- sat with no runner for fifteen minutes and
+were cancelled, while the other half ran normally, some of them on the very
+same branches. Nothing in any diff was involved:
+`python3 tools/leak_gate.py --range origin/pre-staging..HEAD`, which runs
+the private blocklists on top of the structural half CI runs, passed locally. The session spent about three quarters of an hour finding
 that out.
 
 ## Fix
@@ -41,5 +42,5 @@ the leak gate locally is a superset of the CI half -- and decide on that;
 the merge gate's CI line is advisory for exactly this reason. One re-run is
 the most it is worth. The upstream fix is for that tool to
 read the job, not just the run, and say "never started" instead of
-"FAILED"; it costs a second API request against an unauthenticated budget,
-which is why it is not done yet.
+"FAILED". It needs one more API request, and only for a run that did not
+pass.
