@@ -35,7 +35,7 @@ closed:            null
   deep-check and private-repo-scrub drafted into universal, each with its
   check rewritten as a registered check in
   [tools/precedent_check.py](../tools/precedent_check.py) and a planted case
-  in `tools/verify_harness.py`. private-repo-scrub's check no longer carries
+  in [tools/verify_harness.py](../tools/verify_harness.py). private-repo-scrub's check no longer carries
   a list of private names: it asks each source in force whether it is
   private. light-check was not drafted: its rule was folded into
   `two-check-levels` on 2026-09-28, so its audit became the engine's own
@@ -50,3 +50,10 @@ exception: its set copy is deduplicated by hand, with `in_force_at:
 two-check-levels`, since the tool only points a copy at the same slug.
 Then remove `precedent-shared-repo-maintenance` from each `precedent.json`
 that declares it. Archiving the repository on GitHub is Morgan's call.
+
+**BestPractice stopped declaring it, 2026-10-05.** Universal carries every
+rule the set still held active (light-check through `two-check-levels`), so
+this repository loses nothing by dropping it from its own `precedent.json`;
+the very deep check run that day was reading the set as in force here. The
+set copies are not deduplicated yet, and other repositories that declare it
+still do.
