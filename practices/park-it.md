@@ -10,7 +10,6 @@ gates:       ["reply"]
 gates_why:   "The obligation lands in the reply: mark the item this turn, say which one, ask nothing back."
 index_clause: "mark the item `parked` now; never raise it unprompted again"
 checked_by:  null
-ships:       ["tools/todo_disposition.py"]
 defines:     ["Drop it"]
 command:     {"Drop it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}
 status:      active
@@ -143,10 +142,10 @@ the conflict case: *"since morgan/the user said to drop it, but such-and-such
 Practice says I should not drop it, therefore, have a session conversation
 with morgan about that conflict because, perhaps, we should update the
 practice?"* Recorded in
-[spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md](../spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+[spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
 
 ## Install
-[`tools/todo_disposition.py`](../tools/todo_disposition.py) ships with this practice. The
+[`tools/todo_disposition.py`](../tools/todo_disposition.py) is part of the engine every repository receives. The
 `open-item-disposition` check in [`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) backs it up: a
 park with no dated, named body line is reported, and so is a body line that
 disagrees with the frontmatter -- hardest when the body says parked and the

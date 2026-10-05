@@ -325,7 +325,7 @@ CHECKS = {}
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
           binds_publishers=False, binds_when=(), selects_on=(),
-          judges_received=False):
+          judges_received=False, advisory_term=None):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -417,6 +417,27 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     comment, 2026-09-05), the same bar checkable-gets-checked sets for
     leaving a practice advisory-only in the first place.
 
+    `advisory_term` says whether that is forever, and every advisory check
+    must give one (`advisory-checks-declare-their-term` enforces it):
+
+      {'term': 'permanent', 'why': '...'}
+          the check flags something only a person can judge, so it warns
+          and never stops work, by design;
+      {'term': 'temporary', 'waiting_for': '...', 'owner': '...',
+       'revisit': 'YYYY-MM-DD'}
+          it should stop work one day, but switching that on now would
+          break something nobody can fix yet. Past `revisit` it is
+          reported until someone switches it on, moves the date with a
+          reason, or makes it permanent -- it never switches itself, the
+          same design as a practice's `expires:`.
+
+    WHY (2026-10-05): frontmatter-field-order was made advisory on
+    2026-09-26 "until the practice sets have taken the engine update", a
+    condition written only in a docstring, with no date and no owner. A
+    temporary advisory looked exactly like a permanent one, so nothing came
+    back to it, and nothing in any update ran the fixer it waited for
+    (spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md, Part 1 step 3).
+
     `judges_received=True` keeps this check's findings on files the repo
     RECEIVED -- another source's materialized practice or check, the
     vendored engine, a mirrored tree (precedent_practice_refs.py's
@@ -436,7 +457,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
                             binds_publishers=binds_publishers,
                             binds_when=tuple(binds_when),
                             selects_on=tuple(selects_on),
-                            judges_received=judges_received)
+                            judges_received=judges_received,
+                            advisory_term=advisory_term)
         return fn
     return deco
 
@@ -1243,10 +1265,9 @@ _SPEC_SHAPE_RE = re.compile(r'^## The Shape\n.*?^```\n---\n(.*?)\n---\n', re.S |
        'with no field the spec does not list; where the spec is present, its '
        'own example lists exactly that order',
        'whether a field\'s VALUE is right, and a practice another source owns '
-       '(a materialized copy is fixed where it is authored). ADVISORY until the '
-       'practice sets have taken the engine update and run the fixer -- see '
-       'the function\'s own note.',
-       advisory=True, practice_backed=False, binds_publishers=True,
+       '(a materialized copy is fixed where it is authored). A hard check '
+       'since 2026-10-05 -- see the function\'s own note.',
+       practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'spec/PRACTICE_FORMAT.md',
                    'tools/frontmatter_yaml.py'))
 def _frontmatter_field_order(ctx):
@@ -1262,11 +1283,17 @@ def _frontmatter_field_order(ctx):
     precedent-shared-writing. One field here, `source_rule_unlabeled`, was
     in no list at all; split_practices.py reads it, so it joined the spec.
 
-    ADVISORY, deliberately. The sets receive this check through Update
-    Vendors, and a blocking one would turn each of them red on that update
-    with nothing BestPractice can do about it. Advisory, with the fixer named
-    in every finding, lets each set clean up on its own next push. Make it
-    blocking once the sets have taken the update and run the fixer.
+    ADVISORY from 2026-09-26 to 2026-10-05, deliberately: the sets receive
+    this check through Update Vendors, and a blocking one would have turned
+    each of them red on that update with nothing BestPractice could do about
+    it. The plan was to make it blocking once the sets had run the fixer --
+    and nothing ever ran it, so it sat advisory with a condition nobody
+    owned. On 2026-10-05 the sets were tidied (14, 7, 4 and 1 files, whole
+    fields moved and nothing else) and the engine's commit hook now runs
+    the fixer on staged practice files in every practice source, so the
+    order is kept rather than checked after the fact. This is a hard check
+    from then on (practice: upstream-fix;
+    spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
     """
     try:
         import frontmatter_yaml as fy
@@ -3206,7 +3233,11 @@ QUICK_INDEX_HEADER_RE = re.compile(
        'practice that is unreachable here SHOULD bind this repo at all. It '
        'reports the gap; closing it is either wiring the practice in or '
        'saying out loud that it does not apply, and only a person can pick.',
-       advisory=True)
+       advisory=True,
+       advisory_term={'term': 'permanent',
+                      'why': 'closing a gap is wiring the practice in or '
+                             'declaring it does not apply here, and only a '
+                             'person can pick which'})
 def _practice_is_reachable(ctx):
     """A rule nothing can load is not in force; it is filed.
 
@@ -5321,6 +5352,67 @@ _ENGINE_REF_ABSENT_OK = {
 _DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 
+ADVISORY_TERM_KEYS = {'permanent': ('why',),
+                      'temporary': ('waiting_for', 'owner', 'revisit')}
+
+
+def _advisory_term_findings(checks, today):
+    """-> Findings for CHECKS' advisory declarations as of TODAY (YYYY-MM-DD).
+
+    Pure, so the harness can hand it a planted registry and a fixed date
+    (practice: fixture-owns-its-state)."""
+    out = []
+    for slug in sorted(checks):
+        entry = checks[slug]
+        term = entry.get('advisory_term')
+        where = f'tools/precedent_check.py:{slug}'
+        if not entry.get('advisory'):
+            if term:
+                out.append(Finding(where, 'declares an advisory_term but is not '
+                                          'advisory -- a leftover from when it '
+                                          'was; drop the term'))
+            continue
+        kind = (term or {}).get('term')
+        if kind not in ADVISORY_TERM_KEYS:
+            out.append(Finding(where, 'warns only, but does not say whether '
+                                      'that is permanent or temporary -- give '
+                                      'it an advisory_term (see check()\'s own '
+                                      'docstring)'))
+            continue
+        missing = [k for k in ADVISORY_TERM_KEYS[kind]
+                   if not str(term.get(k) or '').strip()]
+        if missing:
+            out.append(Finding(where, f'its {kind} advisory_term is missing '
+                                      f'{", ".join(missing)}'))
+            continue
+        if kind == 'temporary':
+            revisit = str(term['revisit']).strip()
+            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', revisit):
+                out.append(Finding(where, f'revisit {revisit!r} is not '
+                                          f'YYYY-MM-DD'))
+            elif revisit <= today:
+                out.append(Finding(where, (
+                    f'was to be looked at again by {revisit} and is still '
+                    f'warning-only. Waiting on: {term["waiting_for"]}. Owner: '
+                    f'{term["owner"]}. Switch it to a hard check, move the '
+                    f'date with a reason, or make it permanent -- it never '
+                    f'switches itself')))
+    return out
+
+
+@check('advisory-checks-declare-their-term', 'tree',
+       'every warning-only check says whether that is permanent or temporary, '
+       'and a temporary one is reported once its revisit date has passed',
+       'whether a declared term is RIGHT -- a check marked permanent that '
+       'should one day stop work reads exactly like a correct one; that is '
+       'the judgment of whoever adds or reviews the check',
+       practice_backed=False, selects_on=('tools/precedent_check.py',))
+def _advisory_checks_declare_their_term(ctx):
+    # practice: upstream-fix -- frontmatter-field-order sat warning-only for
+    # nine days on a condition nobody owned (see check()'s docstring).
+    return _advisory_term_findings(CHECKS, precedent_time.today(ROOT))
+
+
 @check('expires-is-honoured', 'tree',
        'no practice is past the date in its optional `expires:` field while '
        'still active -- an expiry forces a decision, it never withdraws a '
@@ -6017,7 +6109,11 @@ def _unguarded_branch_inferences(text):
        "BestPractice itself, the engine's own origin) and only for the "
        "'tree'-scope tiers this repo's own rotation/applies_to logic "
        "selects, same as every other tree-scope check here.",
-       advisory=True)
+       advisory=True,
+       advisory_term={'term': 'permanent',
+                      'why': 'it cannot tell a leftover workflow from a '
+                             'legitimate hand-authored one, on purpose, so '
+                             'it names the file and a person decides'})
 def _workflow_file_outside_vendoring(ctx):
     import precedent_vendor_engine as pve
 
@@ -11759,10 +11855,10 @@ def main():
     unverified = [r for r in results if r[4]]
 
     # advisory=True (see check()'s own docstring) is a per-check, incident-
-    # justified exception, not a general severity dial -- as of 2026-09-05
-    # the only member is parallel-artifact-ledger (see the dated comment
-    # above _parallel_artifact_ledger()). Its findings still print in full;
-    # they just don't fail the run.
+    # justified exception, not a general severity dial, and each one says
+    # whether it is permanent or temporary in its advisory_term
+    # (advisory-checks-declare-their-term). Its findings still print in
+    # full; they just don't fail the run.
     violated = [r for r in all_violated if not CHECKS[r[0]].get('advisory')]
     advisory = [r for r in all_violated if CHECKS[r[0]].get('advisory')]
     # Size caps warn on the way into pre-staging (SIZE_CAP_CHECKS).

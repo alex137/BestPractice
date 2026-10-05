@@ -84,9 +84,13 @@ Why it is checked: on 2026-09-26 a handoff message told a practice set to
 put the new `ships:` field "under applies_to", and the set followed the
 message rather than this example. That day 49 of 151 practices here were
 out of order, and every set had some. Morgan ruled that this order stands.
-The check is advisory until the sets have taken the engine update and run
-the fixer, so that none of them turns red on an update BestPractice can't
-fix for them.
+The check is a hard check since 2026-10-05, when every set had been
+tidied. **The order is kept at commit time, not only checked:** the engine's
+commit hook runs `python3 tools/frontmatter_yaml.py --fix-staged` in any
+repository that declares itself a practice source, reordering a fully
+staged practice file before the person's own fixer runs. A partly staged
+file, or one carrying a field that copy of the engine does not know, is
+left for the check.
 
 `source_rule_unlabeled: true` appears only on practices 47-52, which open on
 bare prose in the original numbered catalogue.

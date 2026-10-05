@@ -15354,15 +15354,16 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
 
-        # frontmatter-field-order -- ADVISORY by design (see its registration):
-        # a planted misorder reports, and does not fail the run.
+        # frontmatter-field-order -- a hard check since 2026-10-05 (advisory
+        # from 2026-09-26 until every practice set had been tidied): a
+        # planted misorder fails the run.
         def _plant_field_order(repo):
             f = repo / 'practices' / 'name-both-sides-of-ledger.md'
             body = f.read_text(encoding='utf-8')
             line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
             body = body.replace(line, '', 1)
             f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
-        case('frontmatter-field-order', _plant_field_order, advisory=True)
+        case('frontmatter-field-order', _plant_field_order)
 
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
@@ -15896,6 +15897,19 @@ def check_precedent_check_fires():
                 {'path': 'planted', 'ext': '.md', 'reason': 'planted'})
             f.write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')
         case('upstream-fix', _plant_new_exemption, setup=_setup_base)
+
+        # advisory-checks-declare-their-term -- a warning-only check whose
+        # term is neither permanent nor temporary. Planted in the fixture's
+        # own copy of precedent_check.py, the file the check reads its
+        # registry from.
+        def _plant_bad_advisory_term(repo):
+            f = repo / 'tools' / 'precedent_check.py'
+            text = f.read_text(encoding='utf-8')
+            needle = "advisory_term={'term': 'permanent',\n                      'why': 'closing a gap"
+            assert needle in text, 'planted anchor moved'
+            f.write_text(text.replace(needle, needle.replace('permanent', 'someday'), 1),
+                         encoding='utf-8')
+        case('advisory-checks-declare-their-term', _plant_bad_advisory_term)
 
         # expires-is-honoured -- a DATE expiry that has passed while the
         # practice is still `active`. The date is far in the past on purpose:
@@ -18537,6 +18551,87 @@ def check_checks_read_what_their_rules_name():
                 pc._open_item_disposition)
     cases.append(('open-item-disposition: a park recorded in both places, '
                   '"who not recorded" included, passes', out == '', out))
+
+    # --- advisory-checks-declare-their-term (2026-10-05) -----------------
+    # A planted registry and a fixed date: the verdict depends on nothing
+    # this machine holds (practice: fixture-owns-its-state).
+    reg = {
+        'no-term': dict(advisory=True),
+        'permanent': dict(advisory=True, advisory_term={
+            'term': 'permanent', 'why': 'a person must judge'}),
+        'temp-future': dict(advisory=True, advisory_term={
+            'term': 'temporary', 'waiting_for': 'the sets', 'owner': 'Morgan',
+            'revisit': '2026-12-01'}),
+        'temp-past': dict(advisory=True, advisory_term={
+            'term': 'temporary', 'waiting_for': 'the sets', 'owner': 'Morgan',
+            'revisit': '2026-10-01'}),
+        'hard-with-term': dict(advisory=False, advisory_term={
+            'term': 'permanent', 'why': 'x'}),
+        'hard': dict(advisory=False),
+    }
+    found = {f.where.split(':')[-1]: f.detail
+             for f in pc._advisory_term_findings(reg, '2026-10-05')}
+    cases.append(('advisory-checks-declare-their-term: a warning-only check '
+                  'with no term, a temporary one past its date, and a hard '
+                  'check carrying a leftover term are each reported',
+                  'permanent or temporary' in found.get('no-term', '')
+                  and 'Waiting on: the sets. Owner: Morgan' in found.get('temp-past', '')
+                  and 'not advisory' in found.get('hard-with-term', ''),
+                  repr(found)))
+    cases.append(('advisory-checks-declare-their-term: a permanent term, a '
+                  'temporary one before its date, and a plain hard check '
+                  'are quiet',
+                  not ({'permanent', 'temp-future', 'hard'} & set(found)),
+                  repr(found)))
+
+    # --- frontmatter_yaml --fix-staged: the commit hook's tidy (2026-10-05)
+    # One throwaway repository per case, its own git identity, every state
+    # planted: fixed, partly staged, unknown field, not a source.
+    import frontmatter_yaml as fyaml
+    swapped = ('---\nslug: s\ntier: on-demand\ntitle: T\n---\n## Rule\nx\n')
+    def staged_repo(files, source=True):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-fix-staged-'))
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        for k, v in (('user.name', 'Fixture'), ('user.email', 'f@example.com')):
+            subprocess.run(['git', '-C', str(d), 'config', k, v],
+                           capture_output=True)
+        if source:
+            (d / 'precedent-source.json').write_text('{}\n', encoding='utf-8')
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+            subprocess.run(['git', '-C', str(d), 'add', rel], capture_output=True)
+        return d
+    d = staged_repo({'practices/a.md': swapped,
+                     'practices/b.md': swapped,
+                     'practices/c.md': swapped.replace('title: T\n',
+                                                       'title: T\nnot_a_field: 1\n')})
+    (d / 'practices/b.md').write_text(swapped + 'unstaged edit\n', encoding='utf-8')
+    fixed = fyaml.fix_staged(d)
+    a_now = (d / 'practices/a.md').read_text(encoding='utf-8')
+    a_staged = subprocess.run(['git', '-C', str(d), 'show', ':practices/a.md'],
+                              capture_output=True, text=True).stdout
+    b_staged = subprocess.run(['git', '-C', str(d), 'show', ':practices/b.md'],
+                              capture_output=True, text=True).stdout
+    c_now = (d / 'practices/c.md').read_text(encoding='utf-8')
+    shutil.rmtree(d, ignore_errors=True)
+    cases.append(('frontmatter_yaml --fix-staged: a fully staged practice is '
+                  'reordered and re-staged; a partly staged one and one with '
+                  'an unknown field are left exactly as they were',
+                  fixed == ['practices/a.md']
+                  and a_now.index('title:') < a_now.index('tier:')
+                  and a_staged == a_now
+                  and b_staged == swapped and c_now.startswith(
+                      '---\nslug: s\ntier: on-demand\ntitle: T\nnot_a_field'),
+                  repr(fixed)))
+    d = staged_repo({'practices/a.md': swapped}, source=False)
+    fixed = fyaml.fix_staged(d)
+    untouched = (d / 'practices/a.md').read_text(encoding='utf-8') == swapped
+    shutil.rmtree(d, ignore_errors=True)
+    cases.append(('frontmatter_yaml --fix-staged: a repository that does not '
+                  'declare itself a practice source is never touched',
+                  fixed == [] and untouched, repr(fixed)))
 
     # --- todo_disposition.py: the writer the check backs up ---------------
     import todo_disposition as tdisp
