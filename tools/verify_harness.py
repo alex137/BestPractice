@@ -51470,6 +51470,49 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_heading_anchor_keeps_combining_marks():
+    """GitHub's heading anchor keeps combining marks -- its rule is Ruby's
+    \\p{Word}: letters, marks, decimal digits, connector punctuation -- and
+    Python's \\w does not. A pointed Hebrew heading lost its vowel points in
+    doc_lint's anchor and doc_html's id, so a working link read as broken and
+    the push was refused (2026-10-05, a consumer's manuscript table of
+    contents; the id was measured against GitHub's own render)."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint, doc_html
+    finally:
+        sys.path.pop(0)
+    heading = 'Be \u201cNavon\u201d: \u201c\u05e0\u05b8\u05d1\u05d5\u05b9\u05df\u201d\u2014Penetrate'
+    want = 'be-navon-\u05e0\u05b8\u05d1\u05d5\u05b9\u05dfpenetrate'
+    cases = [
+        ('doc_lint keeps the vowel points in the anchor', doc_lint.heading_slug(heading) == want),
+        ("doc_html's heading id is the same anchor", doc_html.heading_slug(heading) == want),
+        ('an ordinary heading is unchanged',
+         doc_lint.heading_slug('A `code` & thing_x (2026)') == 'a-code--thing_x-2026'
+         and doc_html.heading_slug('A <code>code</code> &amp; thing_x (2026)')
+         == 'a-code--thing_x-2026'),
+    ]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-anchor-marks-'))
+    try:
+        # The lint checks an anchor only inside the repository its own
+        # script sits in, so the document and a copy of the tools share one.
+        subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
+        shutil.copytree(ROOT / 'tools', tmp / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        doc = tmp / 'manuscript.md'
+        doc.write_text(f'# Contents\n\n- [Navon](#{want})\n\n## {heading}\n\nText.\n',
+                       encoding='utf-8')
+        r = subprocess.run([sys.executable, str(tmp / 'tools' / 'doc_lint.py'), str(doc)],
+                           capture_output=True, text=True, cwd=str(tmp))
+        cases.append(('a link to the pointed heading passes the lint',
+                       r.returncode == 0 and want not in (r.stdout + r.stderr)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_spoken_commands_lead_the_session_start():
     """With five sets attached, a session opened above them got every repo's
     start-up output joined and cut, and the ladder's stage words came after
@@ -58192,6 +58235,8 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('a heading anchor keeps combining marks, as GitHub\'s does (doc_lint and doc_html)',
+          *check_heading_anchor_keeps_combining_marks())
     check('spoken commands lead the session-start output, from every repo, before any cut',
           *check_spoken_commands_lead_the_session_start())
     check('Update Vendors: gotchas/ seeded, generated files rebuilt, filled placeholders '
