@@ -15156,6 +15156,30 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
         case('deep-check', _plant_deep_check)
 
+        # light-check: one of each thing the audit exists to catch. The
+        # marker and the token are assembled here, never spelled out, or
+        # this file would be the finding on the real tree.
+        def _plant_light_check(repo):
+            (repo / 'zz-conflict.txt').write_text(
+                'a\n' + '<' * 7 + ' HEAD\nb\n', encoding='utf-8')
+            (repo / 'zz-token.txt').write_text(
+                'token = ' + 'gh' + 'p_' + 'A' * 36 + '\n', encoding='utf-8')
+            (repo / 'zz-broken.json').write_text('{"a": 1,}\n', encoding='utf-8')
+            (repo / 'zz-links.md').write_text(
+                'See [nothing](zz-no-such-file.md).\n\n'
+                '`[an example](not-a-link.md)` is code, not a link.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+        case('light-check', _plant_light_check)
+        _lc = planted['light-check'][1]
+        for _what, _needle in (('conflict marker', 'zz-conflict.txt:2: unresolved conflict marker'),
+                               ('token', 'zz-token.txt: looks like a GitHub personal access token'),
+                               ('JSON', 'zz-broken.json: not valid JSON'),
+                               ('broken link', "zz-links.md:1: broken relative link to 'zz-no-such-file.md'")):
+            cases.append((f'light-check: a planted {_what} is reported', _needle in _lc))
+        cases.append(('light-check: a link inside a code span is not read as a link',
+                      'not-a-link.md' not in _lc))
+
         # ladder-words-stay-in-the-ladder-set: a ladder command and step
         # label planted in a universal practice's Rule. The clean copy is
         # this repository, which carries none.

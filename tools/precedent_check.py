@@ -6855,6 +6855,165 @@ def _deep_check(ctx):
     return out
 
 
+_LIGHT_CONFLICT_RE = re.compile(r'^(<{7}|={7}|>{7})(\s|$)')
+_LIGHT_SECRET_PATTERNS = (
+    ('AWS-style access key ID', re.compile(r'\bAKIA[0-9A-Z]{16}\b')),
+    ('PEM private key header',
+     re.compile(r'-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----')),
+    ('GitHub personal access token', re.compile(r'\bgh[pousr]_[A-Za-z0-9]{36}\b')),
+    ('Slack token', re.compile(r'\bxox[baprs]-[A-Za-z0-9-]{10,}\b')),
+)
+_LIGHT_FRONTMATTER_RE = re.compile(r'\A---\n(.*?)\n---\n', re.S)
+_LIGHT_MD_LINK_RE = re.compile(r'(?<!!)\[[^\]]*\]\(([^)]+)\)')
+# An inline code span or a fenced block SHOWS markdown; a link inside one is
+# example text no reader can click (2026-09-23 and 2026-09-27, in the set
+# this check came from: a materialized practice quoting `[x](GLOSSARY.md)`
+# as an example failed every consumer).
+_LIGHT_CODE_SPAN_RE = re.compile(r'(`+)(?:(?!\1).)+?\1')
+_LIGHT_FENCE_RE = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
+_SHARED_BEGIN, _SHARED_END = '# --- shared:', '# --- end shared:'
+
+
+def _light_link_exempt_dirs():
+    """The directories this repo's own tools/doc_lint.py already declares
+    link-exempt (an eval fixture, a deck's asset paths, a template's links
+    into the repo it is instantiated into). Two gates disagreeing about the
+    same link is the finding the set's version hit on 2026-09-28; the one the
+    repo wrote is the authority. An unimportable doc_lint exempts nothing."""
+    try:
+        dl = _doc_lint()
+    except NotApplicable:
+        return ()
+    dirs = ()
+    for name in ('LINK_CHECK_EXEMPT_DIRS', 'ANCHOR_CHECKED_EXEMPT_DIRS'):
+        value = getattr(dl, name, ())
+        if isinstance(value, str):
+            value = (value,)
+        dirs += tuple(str(v) for v in value if v)
+    return dirs
+
+
+def _light_broken_links(root, rel, text):
+    base = (root / rel).parent
+    fence, out = None, []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        m = _LIGHT_FENCE_RE.match(line)
+        if fence is None:
+            if m and not (m.group(1)[0] == '`' and '`' in m.group(2)):
+                fence = m.group(1)
+                continue
+        else:
+            if (m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence)
+                    and not m.group(2).strip()):
+                fence = None
+            continue
+        for target in _LIGHT_MD_LINK_RE.findall(_LIGHT_CODE_SPAN_RE.sub('', line)):
+            target = target.split(' ', 1)[0].strip()
+            if (not target or target.startswith(('http://', 'https://', 'mailto:', '#'))
+                    or target.startswith('<')):      # an install placeholder
+                continue
+            path_part = target.split('#', 1)[0]
+            if path_part and not (base / path_part).resolve().exists():
+                out.append(Finding(f'{rel}:{lineno}', f'broken relative link to '
+                                   f'{target!r}', path=rel))
+    return out
+
+
+@check('light-check', 'tree',
+       'no tracked file carries an unresolved conflict marker or a '
+       'secret-shaped string; every JSON and YAML file, and every Markdown '
+       'file\'s frontmatter, parses; every relative Markdown link resolves; '
+       'and every `# --- shared:<id> ---` block in a check script is '
+       'byte-identical wherever it is copied',
+       'a secret in a shape not on its short list (an AWS key ID, a PEM '
+       'private-key header, a GitHub or Slack token), and YAML entirely when '
+       'PyYAML is not installed -- said on the run, never passed silently. '
+       'Links are skipped in trees this repo mirrors and in the directories '
+       'its own tools/doc_lint.py declares link-exempt.',
+       practice_backed=False)
+def _light_check(ctx):
+    # Ported 2026-10-05 from the repo-maintenance set's check_light_check.py.
+    # Its rule was folded into universal's two-check-levels on 2026-09-28
+    # (Morgan, strength: assented), whose Detail carries this minimum audit
+    # list; only the script had stayed behind. two-check-levels already owns
+    # a check of its own -- that a repo names its two levels -- so this one
+    # is registered as the engine's, not a practice's: it runs in every repo
+    # that runs this engine, and no second copy of the rule is kept.
+    try:
+        import yaml as _yaml
+    except ImportError:
+        _yaml = None
+    mirrors = _mirrored(ctx.root)
+    exempt = mirrors + _light_link_exempt_dirs()
+    out, shared = [], {}
+    for rel in _ls_files_on_disk(root=ctx.root):
+        try:
+            text = (ctx.root / rel).read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if _LIGHT_CONFLICT_RE.match(line):
+                out.append(Finding(f'{rel}:{lineno}', f'unresolved conflict '
+                                   f'marker: {line.strip()!r}', path=rel))
+        for label, pattern in _LIGHT_SECRET_PATTERNS:
+            m = pattern.search(text)
+            if m:
+                out.append(Finding(rel, f'looks like a {label} '
+                                   f'({m.group(0)[:12]}...)', path=rel))
+        if rel.endswith('.md'):
+            fm = _LIGHT_FRONTMATTER_RE.match(text)
+            if fm and _yaml is not None:
+                try:
+                    _yaml.safe_load(fm.group(1))
+                except _yaml.YAMLError as e:
+                    out.append(Finding(rel, f'frontmatter is not valid YAML '
+                                       f'({str(e)[:160]})', path=rel))
+            if not rel.startswith(exempt):
+                out.extend(_light_broken_links(ctx.root, rel, text))
+        elif rel.endswith('.json'):
+            try:
+                json.loads(text)
+            except ValueError as e:
+                out.append(Finding(rel, f'not valid JSON ({e})', path=rel))
+        elif rel.endswith(('.yml', '.yaml')) and _yaml is not None:
+            try:
+                _yaml.safe_load(text)
+            except _yaml.YAMLError as e:
+                out.append(Finding(rel, f'not valid YAML ({str(e)[:160]})', path=rel))
+        # A check script runs standalone and cannot import a sibling, so a
+        # helper it needs is COPIED between scripts between marked lines;
+        # the copies must not drift, and only a consumer's tools/checks/
+        # ever holds them side by side.
+        if '/checks/' in rel and rel.endswith('.py'):
+            ident, buf = None, []
+            for line in text.splitlines():
+                if line.startswith(_SHARED_END):
+                    if ident is not None:
+                        shared.setdefault(ident, {}).setdefault(
+                            '\n'.join(buf), []).append(rel)
+                    ident, buf = None, []
+                elif line.startswith(_SHARED_BEGIN):
+                    ident = line[len(_SHARED_BEGIN):].split()[0].rstrip('-— ')
+                    buf = []
+                elif ident is not None:
+                    buf.append(line)
+            if ident is not None:
+                out.append(Finding(rel, f'a `{_SHARED_BEGIN}{ident}` block is '
+                                   f'never closed', path=rel))
+    for ident, variants in sorted(shared.items()):
+        if len(variants) > 1:
+            where = '; '.join(', '.join(sorted(f)) for f in variants.values())
+            out.append(Finding('tools/checks', f'shared block {ident!r} has '
+                               f'{len(variants)} different versions ({where}) -- '
+                               f'they are copies on purpose and must be kept '
+                               f'byte-identical'))
+    if _yaml is None:
+        print('light-check: PyYAML is not installed, so YAML syntax was not '
+              'checked here (pip install pyyaml); everything else was.',
+              file=sys.stderr)
+    return out
+
+
 _DERIVED_FROM_RE = re.compile(r'DERIVED from\s+(.+?)\s+@\s+(\S+)')
 _DERIVED_RECIPE_RE = re.compile(r'Recipe:\s*(\S+)')
 _DERIVED_REGEN_RE = re.compile(r'Regenerate with:\s*(.+)')
