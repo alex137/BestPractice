@@ -91,7 +91,7 @@ Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
 (In a repo that vendors this the classic way, the path is
 process/upstream/tools/doc_lint.py.)
 """
-import json, re, sys, subprocess, pathlib
+import json, re, sys, subprocess, pathlib, unicodedata
 import frontmatter_yaml
 import generated_blocks
 
@@ -334,11 +334,24 @@ _INLINE_MD = [(re.compile(r'`([^`]*)`'), r'\1'),
 _anchor_cache = {}
 
 
+def slug_keeps(ch):
+    """Whether GitHub keeps `ch` in a heading anchor: its rule is Ruby's
+    [^\\p{Word}\\- ] removed, and \\p{Word} is letters, marks, decimal digits
+    and connector punctuation. Python's \\w leaves the marks out, so a pointed
+    Hebrew heading ("נָבוֹן") lost its vowel points here while GitHub's id
+    kept them, and a working link read as broken (2026-10-05, a consumer's
+    manuscript table of contents)."""
+    if ch in '- ':
+        return True
+    cat = unicodedata.category(ch)
+    return cat[0] in 'LM' or cat in ('Nd', 'Pc')
+
+
 def heading_slug(text):
     """GitHub's anchor for one heading's raw markdown text."""
     for rx, rep in _INLINE_MD:
         text = rx.sub(rep, text)
-    return re.sub(r'[^\w\- ]', '', text.strip().lower()).replace(' ', '-')
+    return ''.join(c for c in text.strip().lower() if slug_keeps(c)).replace(' ', '-')
 
 
 def document_anchors(path):

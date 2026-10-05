@@ -252,6 +252,12 @@ IDENTITY_CHECKS = (
 )
 # Every workflow file is the engine's own untouched copy or carries the
 # person's approval pinned to its content (practice: ci-workflow-approved).
+# Every file a tool writes is current with its tool: basic tier
+# (BASIC_CHECKS says why). The full sweep runs it too.
+GENERATED_FILES_CHECK = (
+    'generated_files', ['{engine}/precedent_check.py', '--only',
+                        'generated-files-registered'],
+    'nothing -- it ran only inside the full sweep')
 CI_WORKFLOWS_CHECK = (
     'ci_workflows', ['{engine}/precedent_check.py', '--only',
                      'ci-workflow-approved'],
@@ -275,10 +281,15 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # classic install migrated onto the loader carried stale manifest baselines
 # and no scrub blocklist, both full-tier findings, so its pre-staging pushes
 # passed and the first Debut failed on both. They run in seconds.
+# generated_files joins a consumer's and a practice set's basic tier
+# (2026-10-04): an Update Vendors that refreshed build_todo_index.py left
+# todo/TODO.md stale, the push to pre-staging passed, and only the full
+# check said so. Two seconds. Not upstream's: there precedent_check.py is
+# full-only by design, and BestPractice's commit backstop rebuilds these.
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
                 'session_trailer', 'ci_workflows', 'light_check', 'build_views',
                 'views_sync',
-                'scrub_gate', 'practice_export_loop'}
+                'scrub_gate', 'practice_export_loop', 'generated_files'}
 BASIC, FULL = 'basic', 'full'
 # A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
 # consumer session could not push its claude/* branch: commit_author refused
@@ -324,6 +335,7 @@ PUSH_CHECKS = {
          'leak-gate.yml, retired 2026-09-21'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'doc-lint.yml, retired 2026-09-21'),
+        GENERATED_FILES_CHECK,
         CI_WORKFLOWS_CHECK,
         DEEP_CHECK_SUITE,
         CONSUMER_SHAPE_SUITE,
@@ -336,6 +348,7 @@ PUSH_CHECKS = {
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
+        GENERATED_FILES_CHECK,
         CI_WORKFLOWS_CHECK,
         # Whether the generated views still match the practice sources
         # (2026-10-03): a reduction pass retired practices in the shared sets,
