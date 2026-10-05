@@ -15484,16 +15484,16 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
 
-        # frontmatter-field-order -- a hard check since 2026-10-05 (advisory
-        # from 2026-09-26 until every practice set had been tidied): a
-        # planted misorder fails the run.
+        # frontmatter-field-order -- a permanent warning (practice:
+        # format-rules-grandfather): a planted misorder is reported, and
+        # never fails the run.
         def _plant_field_order(repo):
             f = repo / 'practices' / 'name-both-sides-of-ledger.md'
             body = f.read_text(encoding='utf-8')
             line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
             body = body.replace(line, '', 1)
             f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
-        case('frontmatter-field-order', _plant_field_order)
+        case('frontmatter-field-order', _plant_field_order, advisory=True)
 
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
@@ -18687,21 +18687,27 @@ def check_checks_read_what_their_rules_name():
         return item(status, disposition).replace(
             'A planted item.\n', f'A planted item.\n\n{line}\n')
     out = judge(tree({'todo/todo-2026-01-01-x.md': item('done', 'parked')}),
-                pc._open_item_disposition)
-    cases.append(('open-item-disposition: a park with no dated, named body '
+                pc._open_item_disposition_copies)
+    cases.append(('open-item-disposition-copies: a park with no dated, named body '
                   'line is reported, even on a closed item',
                   'no "**Disposition:** parked (YYYY-MM-DD, who)"' in out, out))
     out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
                     'open', 'ask', '**Disposition:** parked (2026-01-02, Morgan)')}),
-                pc._open_item_disposition)
-    cases.append(('open-item-disposition: a body that says parked over a '
+                pc._open_item_disposition_copies)
+    cases.append(('open-item-disposition-copies: a body that says parked over a '
                   'frontmatter that still says ask is reported as still raised',
                   'still raised after it was dropped' in out, out))
     out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
                     'open', 'parked',
                     '**Disposition:** parked (2026-01-02, who not recorded)')}),
+                pc._open_item_disposition_copies)
+    out = judge(tree({'todo/todo-2026-01-01-x.md': item('open', 'parked')}),
                 pc._open_item_disposition)
-    cases.append(('open-item-disposition: a park recorded in both places, '
+    cases.append(('open-item-disposition: an old park with no body line is '
+                  'never refused by the hard check -- only the copies check '
+                  'warns about it (practice: format-rules-grandfather)',
+                  out == '', out))
+    cases.append(('open-item-disposition-copies: a park recorded in both places, '
                   '"who not recorded" included, passes', out == '', out))
 
     # --- advisory-checks-declare-their-term (2026-10-05) -----------------
@@ -18796,7 +18802,9 @@ def check_checks_read_what_their_rules_name():
                   tdisp.verify(parked) == []
                   and '**Disposition:** parked (2026-01-02, Morgan)' in parked
                   and judge(tree({'todo/todo-2026-01-01-x.md': parked}),
-                            pc._open_item_disposition) == '',
+                            pc._open_item_disposition) == ''
+                  and judge(tree({'todo/todo-2026-01-01-x.md': parked}),
+                            pc._open_item_disposition_copies) == '',
                   parked))
     cases.append(('todo_disposition: a second park changes nothing, and a '
                   'conflict already raised is never raised again',
@@ -44676,6 +44684,39 @@ def check_frontmatter_field_order_fixer():
     cases.append(('CONTROL: the same in-order file reads as out of order once '
                   'FIELD_ORDER says otherwise, so the verdict comes from the '
                   'constant', bool(control), repr(control)))
+    # Update Vendors' tidy (practice: format-rules-grandfather): it fixes a
+    # project repo's own source files in local/practices/, never the copy
+    # the view sync renders into practices/, and leaves a file whose order
+    # the fixer cannot settle for the warning to name.
+    import tempfile, shutil
+    import precedent_update as pu
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='tidy-order-'))
+    try:
+        (tmp / 'local' / 'practices').mkdir(parents=True)
+        (tmp / 'practices').mkdir()
+        out_of_order = ('---\nslug: a\ntitle: A\nindex_required: false\n'
+                        'index_clause: "x"\nstatus: active\n---\n## Rule\nr\n')
+        repeated = ('---\nslug: b\ntitle: B\ntitle: B2\nindex_required: '
+                    'false\nindex_clause: "x"\n---\n## Rule\nr\n')
+        (tmp / 'local/practices/a.md').write_text(out_of_order, encoding='utf-8')
+        (tmp / 'local/practices/b.md').write_text(repeated, encoding='utf-8')
+        (tmp / 'practices/a.md').write_text(out_of_order, encoding='utf-8')
+        done = pu.tidy_field_order(tmp, 'consumer')
+        cases.append(('Update Vendors tidies a project repo\'s own practice in '
+                      'local/practices/ and leaves the rendered copy and an '
+                      'unfixable file alone',
+                      done == ['local/practices/a.md']
+                      and not fy.field_order_problem(
+                          (tmp / 'local/practices/a.md').read_text(encoding='utf-8'))
+                      and (tmp / 'practices/a.md').read_text(encoding='utf-8') == out_of_order
+                      and (tmp / 'local/practices/b.md').read_text(encoding='utf-8') == repeated,
+                      repr(done)))
+        cases.append(('in a practice set, whose practices/ IS the source, it '
+                      'tidies practices/ too',
+                      pu.tidy_field_order(tmp, 'source') == ['practices/a.md'], ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'frontmatter_yaml reorders practice frontmatter into FIELD_ORDER and '
           f'changes nothing else ({len(cases)} stated cases)',

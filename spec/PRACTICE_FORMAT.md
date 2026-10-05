@@ -129,8 +129,14 @@ Why it is checked: on 2026-09-26 a handoff message told a practice set to
 put the new `ships:` field "under applies_to", and the set followed the
 message rather than this example. That day 49 of 151 practices here were
 out of order, and every set had some. Morgan ruled that this order stands.
-The check is a hard check since 2026-10-05, when every set had been
-tidied. **The order is kept at commit time, not only checked:** the engine's
+The check is a warning and never refuses anything: it was a hard check
+for a few hours on 2026-10-05, until a project repo had to stop and reorder
+its own practices before it could push, and Morgan ruled that old practices
+are tidied, never stopped
+([format-rules-grandfather](../practices/format-rules-grandfather.md)). A
+field the spec does not list is a warning too; the engine ignores it.
+**The order is kept, not only checked:** Update Vendors tidies a
+repository's own practice files, and the engine's
 commit hook runs `python3 tools/frontmatter_yaml.py --fix-staged` in any
 repository that declares itself a practice source, reordering a fully
 staged practice file before the person's own fixer runs. A partly staged
