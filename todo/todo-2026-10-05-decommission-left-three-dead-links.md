@@ -16,9 +16,9 @@ closed:            null
 ---
 ## What
 
-- <a id="decommission-left-dead-links"></a>**Find out why retiring
-  `templates/github-actions/precedent-check.yml.template` left three
-  relative links to it.**
+- <a id="decommission-left-dead-links"></a>**Find out why the practice-set
+  workflow template, retired on 2026-10-01, left three relative links to
+  it.**
 
   Commit `94277c00` (2026-10-01) deleted the template and recorded it in
   `process/decommissioned_paths.json`. Two links in
