@@ -7,7 +7,7 @@ applies_to:  ["process/upstream/**"]
 applies_to_why: "Set at phase 1 from the Install text, which named a path unambiguously. Decided: phase 1."
 occasion:    "committing anything that touches the vendored/public tree"
 gates:       ["merge", "push"]
-gates_why:   "The public tree must be clean at merge and at push, which are the two moments it can be checked. index_required: false: those gates and its path still reach it, and the process/upstream/** tree it was built on is in no repository here any more; its merge with private-repo-scrub is still to do. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+gates_why:   "The public tree must be clean at merge and at push, which are the two moments it can be checked. index_required: false: those gates and its path still reach it, and the process/upstream/** tree it was built on is in no repository here any more; its merge with private-repo-scrub is still to do. Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 index_clause: "the public tree stays public-safe always, not just at check-in"
 index_required: false
 checked_by:  "tools/precedent_check.py"
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "BestPractice (pre-fork); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 source_practice_number: 15
 ---
 ## Rule

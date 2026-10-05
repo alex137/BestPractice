@@ -518,6 +518,10 @@ ENGINE_FILES = [
     # other and accumulates its own open items the same way a consumer does.
     'build_todo_index.py',
     'todo_migrate.py',
+    # The "Drop it" writer (added 2026-10-05): park-it tells every session
+    # to run it, and every kind of repo keeps todo items -- the same reason
+    # build_todo_index.py is here.
+    'todo_disposition.py',
     # title_case.py was CONSUMER-only until 2026-09-19, since headline
     # capitalization was thought of as a consumer-catalogue concern. Moved
     # here the same day build_todo_index.py was: it imports title_case at

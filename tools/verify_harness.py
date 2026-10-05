@@ -12710,6 +12710,45 @@ def check_update_vendors_repoints_renamed_shared_sets():
           not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_light_check_skips_declared_records():
+    """The light check's broken-link scan skips a file precedent.json
+    declares in `record_paths`, and still flags the same link anywhere else.
+
+    2026-10-05: a consumer's Update Vendors run failed on links inside its
+    as-filed patent packages -- documents it had declared as records,
+    because they name files at the paths they had when filed and may never
+    be edited. Every other path-reading check honored the declaration; this
+    one did not."""
+    import tempfile, types
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='light-records-'))
+    saved = pc.ROOT
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        (tmp / 'precedent.json').write_text(json.dumps({'record_paths': [
+            {'path': 'as-filed.md', 'reason': 'held as filed'},
+            {'path': 'old-records/', 'reason': 'a directory of records'}]}), encoding='utf-8')
+        (tmp / 'old-records').mkdir()
+        for rel in ('as-filed.md', 'old-records/audit.md', 'live.md'):
+            (tmp / rel).write_text('See [the spec](moved-away.md).\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=str(tmp), capture_output=True, check=True)
+        pc.ROOT = tmp
+        got = [f.file() for f in pc._light_check(types.SimpleNamespace(root=tmp))]
+        cases.append(('a declared record file is skipped', 'as-filed.md' not in got))
+        cases.append(('a file in a declared record directory is skipped',
+                      'old-records/audit.md' not in got))
+        cases.append(('the same link in a live file is still flagged', 'live.md' in got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('the light check skips the record files a repo declares',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_default_branch_reads_each_repos_trunk():
     """The host's default branch is checked against the repository's own
     trunk, whatever it is called -- never against the name `main`.
@@ -15354,15 +15393,16 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
 
-        # frontmatter-field-order -- ADVISORY by design (see its registration):
-        # a planted misorder reports, and does not fail the run.
+        # frontmatter-field-order -- a hard check since 2026-10-05 (advisory
+        # from 2026-09-26 until every practice set had been tidied): a
+        # planted misorder fails the run.
         def _plant_field_order(repo):
             f = repo / 'practices' / 'name-both-sides-of-ledger.md'
             body = f.read_text(encoding='utf-8')
             line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
             body = body.replace(line, '', 1)
             f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
-        case('frontmatter-field-order', _plant_field_order, advisory=True)
+        case('frontmatter-field-order', _plant_field_order)
 
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
@@ -15897,6 +15937,19 @@ def check_precedent_check_fires():
             f.write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')
         case('upstream-fix', _plant_new_exemption, setup=_setup_base)
 
+        # advisory-checks-declare-their-term -- a warning-only check whose
+        # term is neither permanent nor temporary. Planted in the fixture's
+        # own copy of precedent_check.py, the file the check reads its
+        # registry from.
+        def _plant_bad_advisory_term(repo):
+            f = repo / 'tools' / 'precedent_check.py'
+            text = f.read_text(encoding='utf-8')
+            needle = "advisory_term={'term': 'permanent',\n                      'why': 'closing a gap"
+            assert needle in text, 'planted anchor moved'
+            f.write_text(text.replace(needle, needle.replace('permanent', 'someday'), 1),
+                         encoding='utf-8')
+        case('advisory-checks-declare-their-term', _plant_bad_advisory_term)
+
         # expires-is-honoured -- a DATE expiry that has passed while the
         # practice is still `active`. The date is far in the past on purpose:
         # a fixture dated near today passes for a while and then starts
@@ -16128,10 +16181,22 @@ def check_precedent_check_fires():
         # precedent.json whose practices never reach the generated views),
         # reproduced with only the universal source, which is the one a
         # fixture can resolve.
+        # A second shape in the same fixture (2026-10-05): a practice whose
+        # only file route names its own tool files is NOT reachable -- the
+        # routing audit's own route until that day. Reported by name below.
         def _plant_unreachable(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
                 r'\n  quote-discipline [^\n]*', '', t))
+            rewrite(repo, 'practices/routing-audit.md', lambda t: t.replace(
+                '["practices/*.md", "tools/routing_audit.py"',
+                '["tools/routing_audit.py"', 1))
         case('layered-practice-packs', _plant_unreachable, advisory=True)
+        if 'layered-practice-packs' in planted:
+            _lpp = planted['layered-practice-packs'][1]
+            cases.append(('layered-practice-packs: a practice routed only by '
+                          'its own tool files, with an existence-only check, '
+                          'is reported unreachable',
+                          'routing-audit' in _lpp and 'quote-discipline' in _lpp))
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
@@ -18512,6 +18577,131 @@ def check_checks_read_what_their_rules_name():
                 pc._open_item_disposition)
     cases.append(('open-item-disposition: ask, null, and a CLOSED item\'s '
                   'leftover value all pass', out == '', out))
+
+    # --- open-item-disposition: the two copies of a park (2026-10-05) ----
+    # The frontmatter is what every reader acts on; the body line records
+    # who said "Drop it" and when. Each state is planted, the quiet one too
+    # (practice: checks-plant-their-state).
+    def with_body(status, disposition, line):
+        return item(status, disposition).replace(
+            'A planted item.\n', f'A planted item.\n\n{line}\n')
+    out = judge(tree({'todo/todo-2026-01-01-x.md': item('done', 'parked')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: a park with no dated, named body '
+                  'line is reported, even on a closed item',
+                  'no "**Disposition:** parked (YYYY-MM-DD, who)"' in out, out))
+    out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
+                    'open', 'ask', '**Disposition:** parked (2026-01-02, Morgan)')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: a body that says parked over a '
+                  'frontmatter that still says ask is reported as still raised',
+                  'still raised after it was dropped' in out, out))
+    out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
+                    'open', 'parked',
+                    '**Disposition:** parked (2026-01-02, who not recorded)')}),
+                pc._open_item_disposition)
+    cases.append(('open-item-disposition: a park recorded in both places, '
+                  '"who not recorded" included, passes', out == '', out))
+
+    # --- advisory-checks-declare-their-term (2026-10-05) -----------------
+    # A planted registry and a fixed date: the verdict depends on nothing
+    # this machine holds (practice: fixture-owns-its-state).
+    reg = {
+        'no-term': dict(advisory=True),
+        'permanent': dict(advisory=True, advisory_term={
+            'term': 'permanent', 'why': 'a person must judge'}),
+        'temp-future': dict(advisory=True, advisory_term={
+            'term': 'temporary', 'waiting_for': 'the sets', 'owner': 'Morgan',
+            'revisit': '2026-12-01'}),
+        'temp-past': dict(advisory=True, advisory_term={
+            'term': 'temporary', 'waiting_for': 'the sets', 'owner': 'Morgan',
+            'revisit': '2026-10-01'}),
+        'hard-with-term': dict(advisory=False, advisory_term={
+            'term': 'permanent', 'why': 'x'}),
+        'hard': dict(advisory=False),
+    }
+    found = {f.where.split(':')[-1]: f.detail
+             for f in pc._advisory_term_findings(reg, '2026-10-05')}
+    cases.append(('advisory-checks-declare-their-term: a warning-only check '
+                  'with no term, a temporary one past its date, and a hard '
+                  'check carrying a leftover term are each reported',
+                  'permanent or temporary' in found.get('no-term', '')
+                  and 'Waiting on: the sets. Owner: Morgan' in found.get('temp-past', '')
+                  and 'not advisory' in found.get('hard-with-term', ''),
+                  repr(found)))
+    cases.append(('advisory-checks-declare-their-term: a permanent term, a '
+                  'temporary one before its date, and a plain hard check '
+                  'are quiet',
+                  not ({'permanent', 'temp-future', 'hard'} & set(found)),
+                  repr(found)))
+
+    # --- frontmatter_yaml --fix-staged: the commit hook's tidy (2026-10-05)
+    # One throwaway repository per case, its own git identity, every state
+    # planted: fixed, partly staged, unknown field, not a source.
+    import frontmatter_yaml as fyaml
+    swapped = ('---\nslug: s\ntier: on-demand\ntitle: T\n---\n## Rule\nx\n')
+    def staged_repo(files, source=True):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-fix-staged-'))
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        for k, v in (('user.name', 'Fixture'), ('user.email', 'f@example.com')):
+            subprocess.run(['git', '-C', str(d), 'config', k, v],
+                           capture_output=True)
+        if source:
+            (d / 'precedent-source.json').write_text('{}\n', encoding='utf-8')
+        for rel, text in files.items():
+            f = d / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+            subprocess.run(['git', '-C', str(d), 'add', rel], capture_output=True)
+        return d
+    d = staged_repo({'practices/a.md': swapped,
+                     'practices/b.md': swapped,
+                     'practices/c.md': swapped.replace('title: T\n',
+                                                       'title: T\nnot_a_field: 1\n')})
+    (d / 'practices/b.md').write_text(swapped + 'unstaged edit\n', encoding='utf-8')
+    fixed = fyaml.fix_staged(d)
+    a_now = (d / 'practices/a.md').read_text(encoding='utf-8')
+    a_staged = subprocess.run(['git', '-C', str(d), 'show', ':practices/a.md'],
+                              capture_output=True, text=True).stdout
+    b_staged = subprocess.run(['git', '-C', str(d), 'show', ':practices/b.md'],
+                              capture_output=True, text=True).stdout
+    c_now = (d / 'practices/c.md').read_text(encoding='utf-8')
+    shutil.rmtree(d, ignore_errors=True)
+    cases.append(('frontmatter_yaml --fix-staged: a fully staged practice is '
+                  'reordered and re-staged; a partly staged one and one with '
+                  'an unknown field are left exactly as they were',
+                  fixed == ['practices/a.md']
+                  and a_now.index('title:') < a_now.index('tier:')
+                  and a_staged == a_now
+                  and b_staged == swapped and c_now.startswith(
+                      '---\nslug: s\ntier: on-demand\ntitle: T\nnot_a_field'),
+                  repr(fixed)))
+    d = staged_repo({'practices/a.md': swapped}, source=False)
+    fixed = fyaml.fix_staged(d)
+    untouched = (d / 'practices/a.md').read_text(encoding='utf-8') == swapped
+    shutil.rmtree(d, ignore_errors=True)
+    cases.append(('frontmatter_yaml --fix-staged: a repository that does not '
+                  'declare itself a practice source is never touched',
+                  fixed == [] and untouched, repr(fixed)))
+
+    # --- todo_disposition.py: the writer the check backs up ---------------
+    import todo_disposition as tdisp
+    parked, _notes = tdisp.park(item('open', 'ask'), '2026-01-02', 'Morgan',
+                                conflict='some-practice')
+    again, notes2 = tdisp.park(parked, '2026-01-03', 'Alex',
+                               conflict='some-practice')
+    cases.append(('todo_disposition: park writes the frontmatter and a dated, '
+                  'named body line, and the result passes the check',
+                  tdisp.verify(parked) == []
+                  and '**Disposition:** parked (2026-01-02, Morgan)' in parked
+                  and judge(tree({'todo/todo-2026-01-01-x.md': parked}),
+                            pc._open_item_disposition) == '',
+                  parked))
+    cases.append(('todo_disposition: a second park changes nothing, and a '
+                  'conflict already raised is never raised again',
+                  again == parked
+                  and any('do not ask again' in n for n in notes2),
+                  '; '.join(notes2)))
 
     # --- two-check-levels: the pair comes from GLOSSARY.md ----------------
     gloss = ('| Term | Defined in |\n|---|---|\n'
@@ -59362,6 +59552,7 @@ def main():
     check_update_vendors_repoints_renamed_shared_sets()
     check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
     check_default_branch_reads_each_repos_trunk()
+    check_light_check_skips_declared_records()
     check_consumer_basic_tier_runs_the_practice_audit()
     check_individual_hook_run_by_hand_links_the_attached_set()
     check_update_vendors_defaults_headroom_floor()
