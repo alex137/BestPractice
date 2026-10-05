@@ -935,8 +935,7 @@ def dropped_template_lines(repo, rev):
     import hashlib
     found = []
     for rel, tmpl in INSTALL_ONCE_TEMPLATES:
-        target = repo / rel
-        if not rev or not target.is_file():
+        if not rev or not (repo / rel).is_file():
             continue
         current = _source_text(rev, tmpl)
         if current is None:
@@ -945,18 +944,51 @@ def dropped_template_lines(repo, rev):
         gone = {l for l in _template_lines_ever(rev, tmpl) - now if _substantive(l)}
         if not gone:
             continue
-        try:
-            text = target.read_text(encoding='utf-8')
-        except (OSError, UnicodeDecodeError):
-            continue
         filled = _filled_forms(current)
-        hits = [(n, l.strip()) for n, l in enumerate(text.splitlines(), 1)
-                if l.strip() in gone
-                and not any(f.fullmatch(l.strip()) for f in filled)]
-        if hits:
-            found.append((rel, tmpl, hashlib.sha256(current.encode('utf-8')).hexdigest(),
-                          hits))
+        for target in _hand_kept_files(repo, rel):
+            try:
+                text = target.read_text(encoding='utf-8')
+            except (OSError, UnicodeDecodeError):
+                continue
+            hits = [(n, l.strip()) for n, l in enumerate(text.splitlines(), 1)
+                    if l.strip() in gone
+                    and not any(f.fullmatch(l.strip()) for f in filled)]
+            if hits:
+                found.append((str(target.relative_to(repo)), tmpl,
+                              hashlib.sha256(current.encode('utf-8')).hexdigest(),
+                              hits))
     return found
+
+
+def _hand_kept_files(repo, rel):
+    """-> [path] the files a person edits to change install-once file `rel`.
+
+    Itself, except for a generated MAP.md or GLOSSARY.md: those are rebuilt
+    from MAP.source.md / GLOSSARY.source.md (or the directory form, one file
+    per entry) since 2026-10-03, so a line found in the view had to be fixed
+    in the source. Reading the view sent a consumer to delete lines the next
+    sync wrote straight back, and the update never finished (very deep
+    check's install rehearsal, 2026-10-05). A generated view with no source
+    has nothing a person can edit, and is skipped."""
+    target = pathlib.Path(repo) / rel
+    if rel not in FULL_VIEWS:
+        return [target]
+    try:
+        import build_views as _bv
+    except Exception:                                             # noqa: BLE001
+        return [target]
+    src = {'MAP.md': getattr(_bv, 'MAP_SOURCE', None),
+           'GLOSSARY.md': getattr(_bv, 'GLOSSARY_SOURCE', None)}.get(rel)
+    if src:
+        own = pathlib.Path(repo) / src
+        if own.is_file():
+            return [own]
+        folder = pathlib.Path(repo) / _bv.source_dir_name(src)
+        if folder.is_dir():
+            return sorted(p for p in folder.rglob('*.md') if p.is_file())
+    if _bv.is_generated_view(target):
+        return []
+    return [target]
 
 
 def dropped_template_lines_step(repo, rep, rev):

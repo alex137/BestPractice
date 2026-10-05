@@ -51285,6 +51285,105 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_dropped_wording_reads_a_views_source():
+    """Dropped template wording in a GENERATED MAP.md or GLOSSARY.md is
+    reported in its source file, never in the view.
+
+    Since 2026-10-03 those two views are rebuilt from MAP.source.md /
+    GLOSSARY.source.md. The update still read the view, so a consumer was
+    told to delete lines from MAP.md that the next sync wrote straight back,
+    and the update never reached DONE (very deep check's install rehearsal,
+    2026-10-05). Planted: an old template line in a generated MAP.md and in
+    its MAP.source.md; the same in the directory form; a generated view with
+    no source; and a hand-written MAP.md, which is still the repo's own and
+    still read."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-source-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    old = 'This map was written by the older template wording here.'
+    view = ('---\ngenerated_by: tools/build_views.py\n---\n# Map\n\n'
+            + old + '\n')
+    cases = []
+    saved_source = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'MAP.md.template'
+        tmpl.write_text('# Map\n\n' + old + '\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        tmpl.write_text('# Map\n\nThe current template says something else.\n',
+                        encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        pu.SOURCE = src
+
+        def left_for(build):
+            repo = tmp / f'consumer-{len(cases)}'
+            repo.mkdir()
+            build(repo)
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return {k for k, _ in rep.left}
+
+        def with_source(repo):
+            (repo / 'MAP.md').write_text(view, encoding='utf-8')
+            (repo / 'MAP.source.md').write_text('# Map\n\n' + old + '\n',
+                                                encoding='utf-8')
+        left = left_for(with_source)
+        cases.append(('a generated view with a source file: the line is '
+                      'reported in MAP.source.md, never in MAP.md',
+                      any(k.startswith('MAP.source.md:') for k in left)
+                      and not any(k.startswith('MAP.md:') for k in left),
+                      str(left)))
+
+        def with_folder(repo):
+            (repo / 'MAP.md').write_text(view, encoding='utf-8')
+            (repo / 'MAP.source').mkdir()
+            (repo / 'MAP.source' / 'intro.md').write_text(old + '\n',
+                                                         encoding='utf-8')
+        left = left_for(with_folder)
+        cases.append(('the directory form: reported in the entry file that '
+                      'carries it', any(k.startswith('MAP.source/intro.md:')
+                                        for k in left)
+                      and not any(k.startswith('MAP.md:') for k in left),
+                      str(left)))
+
+        def no_source(repo):
+            (repo / 'MAP.md').write_text(view, encoding='utf-8')
+        left = left_for(no_source)
+        cases.append(('a generated view with no source has nothing a person '
+                      'can edit, so nothing is listed', not left, str(left)))
+
+        def hand_written(repo):
+            (repo / 'MAP.md').write_text('# Map\n\n' + old + '\n',
+                                         encoding='utf-8')
+        left = left_for(hand_written)
+        cases.append(('a hand-written MAP.md is the repo\'s own and still read',
+                      any(k.startswith('MAP.md:') for k in left), str(left)))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors reports a generated view\'s dropped wording in its '
+          f'source ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_start_hook_runs_bootstrap_locally():
     """The Claude Code adapter's SessionStart hook runs tools/bootstrap.sh in
     a local session too, marked PRECEDENT_LOCAL_SESSION=1, and bootstrap.sh
@@ -60304,6 +60403,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_dropped_wording_reads_a_views_source()
     check_update_done_names_the_check_it_ran()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
