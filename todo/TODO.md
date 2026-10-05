@@ -148,7 +148,7 @@ as_of: 2026-10-05
 | [`todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs`](todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs.md) | Land `claude/2026-10-03-merge-takes-vendor-update-xxf54` in precedent-shared-ladder once its engine has the script. | 2d | ask | BestPractice main carrying tools/precedent_merge_vendors.py (the next Produce),… |
 | [`todo-2026-10-04-two-small-engine-leftovers-from-the-produce`](todo-2026-10-04-two-small-engine-leftovers-from-the-produce.md) | Three small engine leftovers, found landing the 2026-10-04 Produce; none is wrong today. | 1d | wait |  |
 | [`todo-2026-10-05-finish-folding-the-working-style-set-away`](todo-2026-10-05-finish-folding-the-working-style-set-away.md) | Withdraw the last five rules from the working-style set, then stop declaring it. | 0d | ask | the five universal drafts landing on main, then Update Vendors in every reposito… |
-| [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Move the repo-maintenance set's rules into universal and retire the set. | 0d | ask | Morgan's go-ahead, which he gave on 2026-10-05 for the working-style half only,… |
+| [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 0d | ask | pass 2 is a separate session's work (porting five check scripts into universal's… |
 
 ## Decisions (the Person's Call)
 
