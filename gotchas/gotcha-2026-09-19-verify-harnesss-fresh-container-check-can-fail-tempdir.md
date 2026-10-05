@@ -82,3 +82,17 @@ contending for the same directory tree, not a git filesystem-monitor daemon.
 caused the one directory it has actually seen fail to be transiently
 non-empty. But the specific hypothesis in the Story above is superseded by
 this dated, measured finding, not merely unconfirmed.
+
+## Recurrence (2026-10-05): the retry is shared now
+
+It came back on a different check, as this file said would argue for
+sharing the retry: `check_session_check_adopts_a_detached_start` crashed
+the "everything else" job of a Produce's GitHub test with `Directory not
+empty: '/tmp/tmp…/.git'`, on a tree whose full check had passed locally.
+That check runs plain synchronous `git` commands and starts nothing in the
+background, so the writer was again something outside the check -- still
+unmeasured. `_install_retrying_tempdir_cleanup()` now routes every
+`tempfile.TemporaryDirectory()` cleanup in the harness through
+`_rmtree_retrying()`; a directory that never empties still raises, with
+its contents, so the next occurrence brings the evidence this one lacked.
+

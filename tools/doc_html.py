@@ -103,6 +103,7 @@ import html as html_mod  # heading_slug unescapes entities the render emits
 import os
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 import markdown
@@ -1526,7 +1527,12 @@ def heading_slug(text):
     guards both sides)."""
     t = re.sub(r"<[^>]+>", "", text)
     t = html_mod.unescape(t).strip().lower()
-    t = re.sub(r"[^\w\s-]", "", t)
+    # GitHub's own rule, combining marks kept (doc_lint.slug_keeps says why):
+    # Python's \w dropped a pointed Hebrew heading's vowel points, so its id
+    # here differed from GitHub's and from the link written against it.
+    t = "".join(c for c in t if c in "- "
+                or unicodedata.category(c)[0] in "LM"
+                or unicodedata.category(c) in ("Nd", "Pc"))
     return re.sub(r"\s", "-", t)
 
 
