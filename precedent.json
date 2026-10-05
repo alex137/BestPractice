@@ -32,6 +32,13 @@
     "",
     "Renamed from precedent-beta-v01 to staging on 2026-09-25 (spec/BRANCH_TIERS_PLAN.md; Morgan: \"we should always call the staging one staging including renaming that branch to staging in precedent\", strength: decided; Alex approving, relayed by Morgan). precedent-beta-v01 is kept, fast-forwarded to staging by every Promote, so an install still pinned to it updates onto the engine that names staging."
   ],
+  "trunk": "main",
+  "_trunk_comment": [
+    "The branch everything here ends up on, whatever a repository calls it",
+    "(practice: default-branch). Declared because this repository's work lands",
+    "on `staging` (base_branch) and is promoted to `main`, so the two differ and",
+    "the check cannot tell which is the trunk on its own (2026-10-05)."
+  ],
   "visibility": "public",
   "branch_stale_days": 30,
   "_branch_stale_days_comment": [

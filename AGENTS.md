@@ -247,7 +247,7 @@ When finishing substantial work, or merging a branch:
 When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When installing Precedent or a shared set into a repo:
-  install — precedent_install.py, declare the set, wire the individual set, main as default
+  install — precedent_install.py, declare the set, wire the individual set, trunk as default
 When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
