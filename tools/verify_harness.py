@@ -22923,6 +22923,64 @@ sys.exit(pb.promote('.', say=lambda *a: None))
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
 
+def check_promote_names_a_binary_conflict():
+    """A Promote whose merge conflicts on a binary file stops and names it.
+
+    2026-10-05: a Debut in a repository that keeps Word files conflicted on
+    one, and _generator_of read the file's index stage as UTF-8 text to look
+    for a `generated_by:` header. A .docx is binary, so the Promote died
+    with a UnicodeDecodeError traceback instead of saying which file
+    conflicted. A binary file carries no header, so it counts as
+    hand-written: the merge stops and the file is named.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-binary-conflict-'))
+    cases = []
+    try:
+        r = tmp / 'r'
+        r.mkdir()
+        def git(*a):
+            return subprocess.run(['git', '-C', str(r), *a], capture_output=True)
+        git('init', '-q')
+        git('config', 'user.email', 'fixture@example.com')
+        git('config', 'user.name', 'fixture')
+        doc = r / 'out.docx'
+        doc.write_bytes(b'PK\x03\x04\x85\x00base')
+        git('add', '.')
+        git('commit', '-qm', 'base')
+        git('checkout', '-qb', 'other')
+        doc.write_bytes(b'PK\x03\x04\x85\x00theirs')
+        git('commit', '-qam', 'theirs')
+        git('checkout', '-q', '-')
+        doc.write_bytes(b'PK\x03\x04\x85\x00ours')
+        git('commit', '-qam', 'ours')
+        merged = git('merge', '-q', 'other')
+        cases.append(('the fixture merge really conflicts on the binary file',
+                      merged.returncode != 0
+                      and b'out.docx' in git('diff', '--name-only',
+                                             '--diff-filter=U').stdout,
+                      merged.stdout.decode(errors='replace')[-300:]))
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+print(repr(pb._resolve_by_regenerating({str(r)!r}, say=lambda *a: None)))
+""", encoding='utf-8')
+        out = subprocess.run([sys.executable, str(script)], capture_output=True,
+                             text=True)
+        cases.append(('resolving it does not crash', out.returncode == 0
+                      and 'Traceback' not in out.stderr, out.stderr[-500:]))
+        cases.append(("...and reports the binary file as the hand-written "
+                      "conflict that stops the merge",
+                      out.stdout.strip() == "(False, ['out.docx'])",
+                      out.stdout.strip()[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a Promote names a binary merge conflict ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
     nothing happened that is visible, or non-trivial, to the person --
@@ -59330,6 +59388,7 @@ def main():
     check_compaction_offer_fires_on_context_growth()
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
+    check_promote_names_a_binary_conflict()
     check_gate_drops_a_practice_another_source_replaced()
     check_container_check_lists_commands_still_running()
     check('the archive line is refused when the container holds '
