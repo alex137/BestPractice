@@ -15,7 +15,7 @@ rules instead of living and dying inside one document.
 
 | File | What it's for |
 |---|---|
-| [`precedent.json`](precedent.json) | Declares the repo's visibility, the universal practice source (vendored) and two shared sources (`precedent-shared-writing`, `precedent-shared-working-style`, both resolved live). |
+| [`precedent.json`](precedent.json) | Declares the repo's visibility, the universal practice source (vendored) and one shared source (`precedent-shared-writing`, resolved live). |
 | [`AGENTS.md`](AGENTS.md) | The repo's own instructions file — access restrictions, persona, and the candidate-capture flow already filled in. |
 | [`.github/CODEOWNERS`](.github/CODEOWNERS) | The path boundary: which paths need the maintainer's review, and which are any contributor's to write and merge. **Generated** from `precedent.json`'s `maintainers` and `owned_paths` by `python3 tools/build_codeowners.py` — fill in the registry at instantiation step 7 and regenerate; never hand-edit the file. It does nothing without step 6's branch protection. |
 | [`.claude/settings.json`](.claude/settings.json) | The repo's session config: an allowlist of the read-only and check commands this work needs, plus one repo-wide denial (`rm *`). It is **not** where the contributor's restrictions live — this file is tracked, so it binds every session and cannot tell one person from another; step 6 below is the per-person layer. It also wires four SessionStart/PreToolUse hooks whose scripts this template does not ship; instantiation step 3 is where they come from. |

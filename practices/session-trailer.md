@@ -23,7 +23,7 @@ approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precede
 A `Session: <url>` trailer on every commit -- for Claude Code, `https://claude.ai/code/session_<ID>`. `Claude-Session: <url>` is also accepted -- the key Claude Code Remote's own harness actually emits as of 2026-09, functionally the same trailer under a different name. For unattended automation with no chat session behind it, the workflow run's own URL stands in. If a tool has no shareable link at all, the trailer says so explicitly (`Session: none available (<tool>)`) rather than being silently omitted.
 
 ## Detail
-A commit GitHub makes with its own buttons -- a merge, squash or revert button, an edit made on the website -- needs no trailer: no session wrote it, and there is nowhere to put one. A practice set may exempt more (reverts, for example); what it exempts applies only where that set is declared.
+A commit GitHub makes with its own buttons -- a merge, squash or revert button, an edit made on the website -- needs no trailer: no session wrote it, and there is nowhere to put one. A revert needs none either ([revert-needs-no-trailer](revert-needs-no-trailer.md)). A practice set may exempt more; what it exempts applies only where that set is declared.
 
 ## Why
 So a reviewer can tell "considered and skipped" from "forgotten" at a glance, and can trace a change back to the conversation that reasoned it through.

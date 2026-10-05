@@ -247,7 +247,13 @@ def _check_checked_by(fm, to_level, to_path):
         return
     if to_level == 'universal':
         import precedent_land as pl
-        pl._verify_checked_by_universal(checked_by, _field(fm, 'slug'))
+        # Re-raised as this tool's own refusal: escaping as LandRefused, it
+        # reached the caller as a traceback (2026-10-05, moving
+        # assorted-notes, whose check script universal does not register).
+        try:
+            pl._verify_checked_by_universal(checked_by, _field(fm, 'slug'))
+        except pl.LandRefused as e:
+            raise MoveRefused(str(e)) from e
         return
     name = pathlib.Path(checked_by).name
     script = pathlib.Path(to_path) / 'tools' / 'checks' / name
@@ -935,6 +941,8 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     plan = []
     rehomed = []
     install_added = False
+    why_missing = False
+    checked_by_rehomed = None
 
     if not dedupe_only:
         text = src.read_text(encoding='utf-8')
@@ -959,6 +967,14 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if to_level == 'universal':
             updates['approved_by'] = (f'"pending PR review -- drafted {today} by {approved_by}, '
                                       f'moved from the {from_level} set {from_name}"')
+            # A set's check is a script under its own tools/checks/; in
+            # universal the same slug is a registered check in
+            # precedent_check.py, which _check_checked_by has just confirmed.
+            # The script path would name a file universal does not have
+            # (2026-10-05: five drafts from repo-maintenance each carried it).
+            if _field(fm, 'checked_by').startswith('tools/checks/'):
+                checked_by_rehomed = _field(fm, 'checked_by')
+                updates['checked_by'] = '"tools/precedent_check.py"'
         if strength:
             updates['strength'] = strength
         new_text = _rewrite_frontmatter(text, updates)
@@ -973,6 +989,16 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             # below says.
             new_text = new_text.rstrip('\n') + '\n\n## Install\n'
             install_added = True
+        if to_level == 'universal':
+            # Two more things universal's deep check holds a draft to that a
+            # set does not (2026-10-05, five drafts from working-style): the
+            # spec's field order, which a set's file may have drifted from
+            # and the tool can restore without changing a value; and an
+            # applies_to_why on an on-demand practice, which only a person
+            # can write -- so it is named below, not invented.
+            new_text = frontmatter_yaml.reorder_fields(new_text)
+            why_missing = (_field(fm, 'tier') == 'on-demand'
+                           and not (_field(fm, 'applies_to_why') or '').strip('" '))
         plan.append(('write', dest, new_text))
 
     if source_withdrawn:
@@ -1145,6 +1171,16 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                 f'universal practice carries one. Fill it in the pull request -- what a '
                 f'repo adopting `{slug}` does to take it up -- or leave it empty if '
                 f'there is nothing.')
+        if checked_by_rehomed:
+            say(f'REPOINTED checked_by from {checked_by_rehomed} to '
+                f'tools/precedent_check.py, where `{slug}` is registered. Reword any '
+                f'prose in the draft that still names {checked_by_rehomed}: it does '
+                f'not exist in universal.')
+        if why_missing:
+            say(f'ADD an applies_to_why to the draft before pushing: `{slug}` is '
+                f'on-demand, and universal\'s deep check (routing-reason) refuses an '
+                f'on-demand practice that does not say why its applies_to is what it '
+                f'is, and which channel reaches it.')
     elif withdraw and forwarded_to:
         say(f'DISCLOSE TO THE HUMAN: the retired name `{slug}` (forwarding to '
             f'`{forwarded_to}`) is now WITHDRAWN from universal and its file there '

@@ -262,7 +262,7 @@ are simpler:
 - **Private for an individual set; a shared set may be public.** A
   person's own set is the thing a public tree must never receive, and the
   leak gate checks that direction. A shared set written for anyone to
-  declare can be public (the writing and working-style sets are); its
+  declare can be public (the writing set is); its
   `precedent-source.json` records which, and nothing checks the
   repository's own visibility except a person, at creation.
 - **CODEOWNERS** at the root, generated from `approvers.json`, owning `*`.
