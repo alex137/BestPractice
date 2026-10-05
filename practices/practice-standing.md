@@ -9,7 +9,6 @@ occasion:    "labelling a practice Protocol, Principle or Preference, or setting
 gates:       []
 index_clause: "no label means Protocol; only authority sets Protocol or Principle"
 checked_by:  "tools/precedent_check.py"
-ships:       ["tools/practice_standing.py"]
 defines:     ["Protocol", "Principle", "Preference"]
 status:      active
 in_force_at: null
@@ -68,9 +67,9 @@ and a rule the team cannot work without carried the same weight. That made
 two things impossible: letting a session use judgment where judgment is the
 point, and telling apart a rule the team set from a preference someone
 wrote down. The label says how binding a practice is **and on whose
-authority**, which is the part that matters in a team: the people who run
-it set the rules, and everyone, including them, can still have
-preferences.
+authority**, which is the part that matters wherever several people work
+to one set of rules: the people who run the work set them, and everyone,
+including them, can still have preferences.
 
 ## Story
 **2026-10-05, from Morgan's own argument.** The first draft labelled each
