@@ -20902,6 +20902,163 @@ def check_reply_check_refuses_a_repeated_boildown():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_reply_check_keeps_quiet_while_a_batch_runs():
+    """`require_quiet_while_background_runs` refuses any prose on a turn a
+    background job woke while another background command is still running,
+    or that a Monitor's progress event woke; the batch reports once.
+
+    Morgan, 2026-10-05 (strength: decided), after four Debuts run in sequence
+    reported themselves one at a time, each with its own Boildown: a reply to
+    a job finishing gets no Boildown unless the job is done, and a batch
+    reports once. The planted transcripts use that day's shapes: the
+    harness's own "Command running in background with ID" result, a
+    notification as the turn's prompt, and one that ended mid-turn as an
+    `attachment` row.
+
+    practice: control-asserts-which-failure -- the positive cases assert the
+    guard's own say-nothing repair; the controls prove the batch's final
+    report still needs (and passes with) its Boildown, a failure may speak,
+    a silent turn is not judged by the last turn's words, and printed text
+    that merely quotes the started line starts nothing.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-quiet-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        fx.mkdir()
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'fixture-quiet', 'require_heading_matching': 'boildown'},
+            {'practice': 'fixture-quiet',
+             'require_quiet_while_background_runs': {'why': 'reports once'}},
+        ]), encoding='utf-8')
+
+        def human(t):
+            return {'type': 'user', 'origin': {'kind': 'human'},
+                    'message': {'role': 'user', 'content': t}}
+
+        def started(task_id, extra=''):
+            return {'type': 'user', 'message': {'role': 'user', 'content': [
+                {'type': 'tool_result', 'tool_use_id': 't-' + task_id,
+                 'content': extra + 'Command running in background with ID: '
+                            f'{task_id}. Output is being written to: x'}]}}
+
+        def notice(task_id, status=None, summary='', event=''):
+            body = f'<task-id>{task_id}</task-id>'
+            body += f'<status>{status}</status>' if status else ''
+            body += f'<summary>{summary}</summary>' if summary else ''
+            body += f'<event>{event}</event>' if event else ''
+            return f'<task-notification>\n{body}\n</task-notification>'
+
+        def wake(text):
+            return {'type': 'user', 'origin': {'kind': 'task-notification'},
+                    'message': {'role': 'user', 'content': text}}
+
+        def said(t):
+            return {'type': 'assistant', 'message': {
+                'usage': {'input_tokens': 2},
+                'content': [{'type': 'text', 'text': t}] if t else
+                           [{'type': 'tool_use', 'id': 'u', 'name': 'Bash',
+                             'input': {}}]}}
+
+        def transcript(name, rows):
+            path = tmp / name
+            path.write_text('\n'.join(json.dumps(r) for r in rows) + '\n',
+                            encoding='utf-8')
+            return path
+
+        def run(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        report = ('Individual passed.\n\n## Boildown\n- The work of this '
+                  'session is now on: `staging` (individual).\n')
+        opening = [human('Debut all four'), said(''), started('aaa'),
+                   started('bbb'), said('Both running.\n\n## Boildown\n- x\n')]
+        done_ok = 'Background command "a" completed (exit code 0)'
+
+        r1 = run(transcript('one-of-two.jsonl', opening + [
+            wake(notice('aaa', 'completed', done_ok)), said(report)]))
+        cases.append(('one job of two done: any prose is refused, naming the '
+                      'one still running and asking for nothing further',
+                      r1.returncode == 2 and 'bbb' in r1.stderr
+                      and 'Output NOTHING further' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:300]}'))
+
+        r2 = run(transcript('progress.jsonl', [
+            human('watch it'), said('Watching.\n\n## Boildown\n- x\n'),
+            wake(notice('mon', event='individual done: exit 0')),
+            said('Individual passed.')]))
+        cases.append(('a Monitor progress event, nothing else running: prose '
+                      'is refused', r2.returncode == 2
+                      and 'progress event' in r2.stderr,
+                      f'exit {r2.returncode}: {r2.stderr[:300]}'))
+
+        r3 = run(transcript('silent.jsonl', opening[:-1] + [
+            said('Started, no closing section here.'),
+            wake(notice('aaa', 'completed', done_ok)), said('')]))
+        cases.append(('negative control: a silent wake passes, and is not '
+                      'judged by the last turn\'s words',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+
+        ended_mid_turn = {'type': 'attachment', 'attachment': {
+            'type': 'queued_command',
+            'prompt': notice('bbb', 'completed', done_ok)}}
+        last = opening + [ended_mid_turn, wake(notice('aaa', 'completed', done_ok))]
+        r4 = run(transcript('last-done.jsonl', last + [said(report)]))
+        cases.append(('negative control: the last job done, the one report with '
+                      'its Boildown passes (the other ended mid-turn)',
+                      r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:200]}'))
+
+        r5 = run(transcript('last-done-bare.jsonl', last + [
+            said('All four passed.')]))
+        cases.append(('the batch\'s one report still needs its Boildown',
+                      r5.returncode == 2 and 'HEADING' in r5.stderr,
+                      f'exit {r5.returncode}: {r5.stderr[:200]}'))
+
+        r6 = run(transcript('failed.jsonl', opening + [
+            wake(notice('aaa', 'completed',
+                        'Background command "a" completed (exit code 1)')),
+            said(report)]))
+        cases.append(('negative control: a wake reporting a failure may speak '
+                      'while the batch runs', r6.returncode == 0,
+                      f'exit {r6.returncode}: {r6.stderr[:200]}'))
+
+        quoted = [human('show me'), said(''),
+                  started('aaa'),
+                  {'type': 'user', 'message': {'role': 'user', 'content': [
+                      {'type': 'tool_result', 'tool_use_id': 'cat',
+                       'content': 'log says: Command running in background '
+                                  'with ID: zzz.'}]}},
+                  said('Running.\n\n## Boildown\n- x\n'),
+                  wake(notice('aaa', 'completed', done_ok)), said(report)]
+        r7 = run(transcript('quoted.jsonl', quoted))
+        cases.append(('negative control: printed text quoting the started line '
+                      'starts no job', r7.returncode == 0,
+                      f'exit {r7.returncode}: {r7.stderr[:200]}'))
+
+        r8 = run(transcript('human.jsonl', opening + [
+            human('how is it going?'), said('Still running.')]))
+        cases.append(('a person\'s question mid-batch is answered as ever: '
+                      'the Boildown is still required',
+                      r8.returncode == 2 and 'HEADING' in r8.stderr,
+                      f'exit {r8.returncode}: {r8.stderr[:200]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_reply_check_requires_the_boildown_first_line():
     """`require_first_item_under_heading` refuses a Boildown whose first
     bullet does not say where the work is.
@@ -58690,6 +58847,8 @@ def main():
           *check_reply_check_refuses_a_repeated_boildown())
     check('the reply check keeps practice ideas to the closing reply',
           *check_reply_check_keeps_practice_ideas_at_the_close())
+    check('the reply check keeps quiet while a batch of background jobs runs',
+          *check_reply_check_keeps_quiet_while_a_batch_runs())
     check_endgame_merge_finds_the_silent_drop()
     check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
           *check_moved_claims_says_when_it_could_not_read_the_tree())

@@ -87,6 +87,15 @@
   },
   {
     "practice": "the-boildown",
+    "id": "quiet-while-a-batch-runs",
+    "require_quiet_while_background_runs": {
+      "why": "a batch reports once, when it is done or something fails"
+    },
+    "why": "Morgan, 2026-10-05 (strength: decided): four Debuts run one after another reported themselves one at a time, each reply with its own Boildown -- 'Note that you have sent me 4 boildowns in this session.' Agreed the same day: a reply to a job finishing carries no Boildown unless the job is done, and a batch reports once ('#1 and #2 are GREAT'). Blocking, and the refusal asks for nothing further: the reply is already on screen, and what the refusal buys is the next wake handled right. tools/precedent_reply_check.py's turn_wake() reads what woke the turn and which background commands are still running from the transcript.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "id": "practice-ideas-only-at-the-close",
     "require_paired_with": [
       {
