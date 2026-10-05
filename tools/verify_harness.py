@@ -51470,6 +51470,331 @@ def check_sync_refuses_a_rule_waiting_on_a_brought_set_by_name():
             '; '.join(f'{n} -- {str(d)[:700]}' for n, d in bad))
 
 
+def check_heading_anchor_keeps_combining_marks():
+    """GitHub's heading anchor keeps combining marks -- its rule is Ruby's
+    \\p{Word}: letters, marks, decimal digits, connector punctuation -- and
+    Python's \\w does not. A pointed Hebrew heading lost its vowel points in
+    doc_lint's anchor and doc_html's id, so a working link read as broken and
+    the push was refused (2026-10-05, a consumer's manuscript table of
+    contents; the id was measured against GitHub's own render)."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint, doc_html
+    finally:
+        sys.path.pop(0)
+    heading = 'Be \u201cNavon\u201d: \u201c\u05e0\u05b8\u05d1\u05d5\u05b9\u05df\u201d\u2014Penetrate'
+    want = 'be-navon-\u05e0\u05b8\u05d1\u05d5\u05b9\u05dfpenetrate'
+    cases = [
+        ('doc_lint keeps the vowel points in the anchor', doc_lint.heading_slug(heading) == want),
+        ("doc_html's heading id is the same anchor", doc_html.heading_slug(heading) == want),
+        ('an ordinary heading is unchanged',
+         doc_lint.heading_slug('A `code` & thing_x (2026)') == 'a-code--thing_x-2026'
+         and doc_html.heading_slug('A <code>code</code> &amp; thing_x (2026)')
+         == 'a-code--thing_x-2026'),
+    ]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-anchor-marks-'))
+    try:
+        # The lint checks an anchor only inside the repository its own
+        # script sits in, so the document and a copy of the tools share one.
+        subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
+        shutil.copytree(ROOT / 'tools', tmp / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        doc = tmp / 'manuscript.md'
+        doc.write_text(f'# Contents\n\n- [Navon](#{want})\n\n## {heading}\n\nText.\n',
+                       encoding='utf-8')
+        r = subprocess.run([sys.executable, str(tmp / 'tools' / 'doc_lint.py'), str(doc)],
+                           capture_output=True, text=True, cwd=str(tmp))
+        cases.append(('a link to the pointed heading passes the lint',
+                       r.returncode == 0 and want not in (r.stdout + r.stderr)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_spoken_commands_lead_the_session_start():
+    """With five sets attached, a session opened above them got every repo's
+    start-up output joined and cut, and the ladder's stage words came after
+    the cut (2026-10-04, the review of the first fix).
+
+    1. precedent_session_practices.py prints the spoken-commands block
+       first, one line per practice defining a command.
+    2. precedent_run_session_hooks.py lifts every repo's block to the front,
+       merged, before the cut -- even a block from the LAST repo, under a cap
+       the first repo alone overflows.
+    3. The two files agree on how the block begins."""
+    import io, contextlib, tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_practices as psp
+        import precedent_run_session_hooks as rsh
+    finally:
+        sys.path.pop(0)
+    cases = []
+    head = getattr(psp, 'SPOKEN_HEAD', None)
+    prefix = getattr(rsh, 'SPOKEN_PREFIX', None)
+    cases.append(('3. the writer and the runner agree on the block\'s first line',
+                  bool(head and prefix and head.startswith(prefix))))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-spoken-first-'))
+    saved_cap = getattr(rsh, 'CONTEXT_CAP', None)
+    try:
+        for name, out in (('a-first', 'x' * 400),
+                          ('z-last', f'{head}\n- "Debut" -> debut: stage 4'
+                                     f'\nnoise after the block')):
+            repo = tmp / name
+            (repo / '.git').mkdir(parents=True)
+            (repo / '.claude').mkdir()
+            (repo / 'out.txt').write_text(out + '\n', encoding='utf-8')
+            (repo / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+                'SessionStart': [{'hooks': [{'type': 'command',
+                                             'command': 'cat out.txt'}]}]}}))
+        rsh.CONTEXT_CAP = 100
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            rsh.run(tmp, log=tmp / 'hooks.log')
+        ctx = json.loads(buf.getvalue())['hookSpecificOutput']['additionalContext']
+        cases.append(("2. the last repo's spoken commands lead, ahead of a first repo "
+                      "that overflows the cap",
+                      ctx.startswith(f'{head}\n- "Debut" -> debut: stage 4')))
+        cases.append(('2. ...and the block ends where its `- ` lines do',
+                      'noise after the block' not in ctx.split('\n\n')[0]))
+        practices = tmp / 'set' / 'practices'
+        practices.mkdir(parents=True)
+        (practices / 'debut.md').write_text(
+            '---\nslug: debut\ntitle: Debut\ntier: on-demand\nstatus: active\n'
+            'occasion: "a person says \\"Debut\\""\n'
+            'index_clause: "stage 4: pre-staging into staging, full checks"\n'
+            'command: {"Debut": "Stage 4."}\n---\n\n## Rule\n\nMove it.\n', encoding='utf-8')
+        import build_views as bv
+        block = psp.spoken_block(bv.load_practices(practices)) \
+            if hasattr(psp, 'spoken_block') else ''
+        cases.append(('1. a practice with a command is one line of the block',
+                      block == f'{head}\n- "Debut" -> debut: stage 4: pre-staging '
+                               f'into staging, full checks\n'))
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
+    finally:
+        if saved_cap is not None:
+            rsh.CONTEXT_CAP = saved_cap
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_onegplanning_findings():
+    """Six upstream defects a consumer's Update Vendors hit on 2026-10-04,
+    each planted here.
+
+    1. gotchas/ was linked and never created; the update now starts it with
+       the trap every install inherits, and names an inline copy left behind.
+    2. A refreshed generator's output was left stale (todo/TODO.md): the
+       update rebuilds what its staged inputs make due, and the check that
+       would have said so runs at the basic tier.
+    3. A placeholder filled without its backticks read as divergence.
+    4. Repointing settings.json duplicated allow rules.
+    5. Citations of live, merely reworded slugs in code, and any citation in
+       an engine-owned file, were sent to the consumer to read.
+    6. The start-up pip install threw its error away."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_vendor_engine as pve
+        import precedent_push_check as ppc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-oneg-findings-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True)
+    try:
+        r = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', str(r)], env=env, check=True)
+        (r / 'AGENTS.md').write_text(
+            '# A\n\n- **A session\'s checkout can be stale enough to look '
+            'complete while missing real, merged work.**\n', encoding='utf-8')
+        rep = pu.Report()
+        seed = getattr(pu, 'gotchas_seed_step', None)
+        if seed:
+            seed(r, rep, 'HEAD')
+        seeded = r / 'gotchas' / 'gotcha-2026-09-01-a-stale-checkout-looks-complete-with-no-error.md'
+        cases.append(('1. a consumer with no gotchas/ gets the seed trap',
+                      seeded.is_file() and '## Symptom' in seeded.read_text()))
+        cases.append(('1. ...and is told to remove the inline copy',
+                      any(w == 'AGENTS.md' and 'inline' in why for w, why in rep.left)))
+
+        (r / 'tools').mkdir()
+        (r / 'tools' / 'gen.py').write_text(
+            'import pathlib, sys\n'
+            'out = "generated v2\\n"\n'
+            'if "--check" in sys.argv:\n'
+            '    sys.exit(0 if pathlib.Path("OUT.md").read_text() == out else 1)\n'
+            'pathlib.Path("OUT.md").write_text(out)\n', encoding='utf-8')
+        (r / 'OUT.md').write_text('generated v1\n', encoding='utf-8')
+        (r / 'tools' / 'generated_files.json').write_text(json.dumps({'files': [
+            {'path': 'OUT.md', 'regenerate': 'python3 tools/gen.py',
+             'check': ['tools/gen.py', '--check'], 'edit_instead': 'tools/gen.py'}]}))
+        git(r, 'add', '-A')
+        git(r, 'commit', '-qm', 'base')
+        (r / 'tools' / 'gen.py').write_text(
+            (r / 'tools' / 'gen.py').read_text() + '# refreshed\n', encoding='utf-8')
+        git(r, 'add', 'tools/gen.py')
+        rep = pu.Report()
+        step = getattr(pu, 'regenerated_step', None)
+        got = step(r, rep) if step else None
+        cases.append(('2. a refreshed generator rebuilds and stages its output',
+                      got == ['OUT.md']
+                      and git(r, 'show', ':OUT.md').stdout == 'generated v2\n'))
+        kinds_ok = all(any(e[0] == 'generated_files' for e in ppc.PUSH_CHECKS[k])
+                       for k in ('upstream', 'source', 'consumer'))
+        cases.append(('2. ...and the generated-files check runs at the basic tier',
+                      'generated_files' in ppc.BASIC_CHECKS and kinds_ok))
+
+        tmpl = ('## X\n\n- **Deep check** -- the full suite, and `<your own audits>`. '
+                'Gates a push and a merge.\n')
+        local = ('## X\n\n- **Deep check** -- the full suite, and python3 '
+                 'tools/oneg_audit.py. Gates a push and a merge.\n')
+        cases.append(('3. a placeholder filled without its backticks is carried',
+                      pve.missing_markdown_blocks(local, tmpl) == []))
+        cases.append(('3. ...and a sentence really dropped is still reported',
+                      pve.missing_markdown_blocks('## X\n\nnothing here at all\n', tmpl) != []))
+
+        dedupe = getattr(pu, '_without_duplicate_permissions', None)
+        doubled = json.dumps({'permissions': {'allow': [
+            'Bash(python3 tools/doc_lint.py)', 'Bash(git status)',
+            'Bash(python3 tools/doc_lint.py)']}}, indent=2)
+        once = json.loads(dedupe(doubled)) if dedupe else {}
+        cases.append(('4. a repointed allow list keeps one copy of each rule, in order',
+                      once.get('permissions', {}).get('allow') ==
+                      ['Bash(python3 tools/doc_lint.py)', 'Bash(git status)']))
+
+        find = getattr(pu, 'citation_findings', None)
+        data = {'slugs': {'upstream-fix': 'Rule reworded', 'gone': 'withdrawn'},
+                'successors': {},
+                'hits': [
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'upstream-fix',
+                     'file': 'tools/bootstrap.sh', 'line': 389},
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'upstream-fix',
+                     'file': '.claude/hooks/freshness-guard.sh', 'line': 13},
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'upstream-fix',
+                     'file': 'docs/notes.md', 'line': 4},
+                    {'source': 'this repository', 'kind': 'live', 'slug': 'gone',
+                     'file': '.claude/hooks/freshness-guard.sh', 'line': 9,
+                     'must_fix': True}]}
+        fix, read = find(data, {'.claude/hooks/freshness-guard.sh'}) if find else (None, None)
+        cases.append(('5. a reworded live slug is a read only in a document, and '
+                      'nothing in an engine-owned file is reported',
+                      fix == [] and read == ['docs/notes.md:4']))
+
+        for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
+            boot = (ROOT / rel).read_text(encoding='utf-8')
+            cases.append((f'6. {rel} installs with python3 -m pip and keeps its error',
+                          'python3 -m pip install --quiet cmarkgfm markdown' in boot
+                          and 'pip install --quiet cmarkgfm markdown 2>/dev/null' not in boot))
+    except (OSError, subprocess.CalledProcessError, TypeError, ValueError,
+            AttributeError, KeyError) as e:
+        cases.append((f'fixture could not be built ({type(e).__name__}: {e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
+    """A consumer's session searched the clones for "Debut" (2026-10-04).
+
+    The ladder's stage words live in a set the person brings, which is
+    deferred to the untracked .precedent/SESSION_PRACTICES.md. A practice
+    set's own hook hands that file back as context; a consumer's session-start
+    hook only ran precedent_session_practices.py, which wrote the file and
+    printed nothing, and the consumer's generated Standing instruction never
+    pointed at it, because a brought set is left out of defers_sources.
+
+    1. The write prints the block on stdout -- a SessionStart hook's output
+       is what reaches the session -- with a spoken trigger's line in it.
+    2. --quiet writes the same file and prints nothing, and the set's own
+       hook, which emits the file itself, passes it. A consumer declines that
+       hook, so its start-up script (templates/bootstrap.sh) runs the write.
+    3. A loader block whose sources are all tracked still carries the
+       read-it-too sentence."""
+    import io, contextlib, tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_practices as psp
+        import build_views as bv
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-spoken-trigger-'))
+    saved_collect = psp.collect
+    try:
+        practices = tmp / 'set' / 'practices'
+        practices.mkdir(parents=True)
+        (practices / 'debut.md').write_text(
+            '---\n'
+            'slug: debut\n'
+            'title: Debut\n'
+            'tier: on-demand\n'
+            'status: active\n'
+            'occasion: "a person says \\"Debut\\""\n'
+            'index_clause: "stage 4: pre-staging into staging, full checks"\n'
+            'command: {"Debut": "Stage 4."}\n'
+            '---\n\n## Rule\n\nMove pre-staging into staging.\n\n'
+            '## Why\n\nSo staging is tested.\n', encoding='utf-8')
+        extra = bv.load_practices(practices)
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        psp.collect = lambda r, skip_brought=False: (
+            extra, {'debut': 'shared'},
+            [('deferred', 'a brought set, deferred to this file')])
+
+        def run(*flags):
+            out, saved_argv = io.StringIO(), sys.argv
+            sys.argv = ['precedent_session_practices.py', '--repo', str(repo), *flags]
+            try:
+                with contextlib.redirect_stdout(out), \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    psp.main()
+            finally:
+                sys.argv = saved_argv
+            written = repo / '.precedent' / 'SESSION_PRACTICES.md'
+            return out.getvalue(), (written.read_text(encoding='utf-8')
+                                    if written.is_file() else '')
+        said, written = run()
+        line = 'When a person says "Debut":'
+        cases.append(('1. the session-start write prints the block, spoken trigger and all',
+                      line in said and line in written))
+        (repo / '.precedent' / 'SESSION_PRACTICES.md').unlink()
+        said, written = run('--quiet')
+        cases.append(('2. --quiet writes the same file and prints only the spoken commands',
+                      said.startswith(getattr(psp, 'SPOKEN_HEAD', '\0'))
+                      and '"Debut" -> debut' in said
+                      and 'Occasion index' not in said and line in written))
+        hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
+        cases.append(("2. ...and the set's hook, which emits the file whole, passes --quiet",
+                      'precedent_session_practices.py" --repo "$P" --quiet' in hook))
+        boot = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+        cases.append(("2. ...and a consumer's start-up script runs the write at all",
+                      'python3 tools/precedent_session_practices.py' in boot))
+        block, _t, _n = bv.build_loader_block(extra, defers_sources=False)
+        cases.append(('3. a block that defers nothing still points at the file',
+                      '.precedent/SESSION_PRACTICES.md` exists, read it too' in block))
+    except (OSError, TypeError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        psp.collect = saved_collect
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views():
     """Two Update Vendors defects a consumer hit on 2026-10-04.
 
@@ -57910,6 +58235,16 @@ def main():
           *check_update_adopts_an_earlier_runs_catalogue_mirror())
     check('precedent_show follows a deduplicated slug to the rule in force, across sources',
           *check_show_follows_a_deduplicated_slug_across_sources())
+    check('a heading anchor keeps combining marks, as GitHub\'s does (doc_lint and doc_html)',
+          *check_heading_anchor_keeps_combining_marks())
+    check('spoken commands lead the session-start output, from every repo, before any cut',
+          *check_spoken_commands_lead_the_session_start())
+    check('Update Vendors: gotchas/ seeded, generated files rebuilt, filled placeholders '
+          'carried, allow rules once, live citations quiet, pip errors kept',
+          *check_update_vendors_onegplanning_findings())
+    check('a set the person brings reaches the session at start: printed, not just '
+          'written, and the block always points at the file',
+          *check_a_brought_sets_spoken_trigger_reaches_the_session_at_start())
     check('Update Vendors builds the views again after stamping their source, and a '
           'consumer\'s view check skips a view it never had',
           *check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views())

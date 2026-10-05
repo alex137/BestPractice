@@ -23,6 +23,15 @@ only when the person's own message "directly and specifically describes
 the exact action", and "Update Vendors" names an update, not a merge. After
 the person said "Promote", the same merge went through.
 
+**A second consumer, the same day, saw it spread.** After the merge was
+refused, auto mode went on refusing in that repository: plain reads
+(`git rev-parse`, `precedent_show.py the-boildown`) and then the first
+command of the next turn, until the person named the stage ("Book"). So a
+refusal can leave the session unable to look, not only unable to merge.
+That is the classifier's own state, not anything the repository set, and
+the in-session fix below is the same: say what stopped, and ask for the
+step in words that name it.
+
 It is the merge-shaped twin of
 [the refusal of a bare Promote into main](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md),
 and the same fix applies.

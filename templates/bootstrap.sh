@@ -39,8 +39,19 @@ local_session="${PRECEDENT_LOCAL_SESSION:-}"
 if [ "$local_session" = "1" ]; then
   echo "NOTE: local session -- skipped pip install (cmarkgfm markdown); this machine manages its own packages. doc_lint's strikethrough check needs cmarkgfm installed by hand." >&2
 else
-  pip install --quiet cmarkgfm markdown 2>/dev/null || \
-    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
+  # `python3 -m pip`, the interpreter every tool here imports with -- a bare
+  # `pip` can belong to another Python -- and pip's own last line in the
+  # warning: a consumer's first prompt warned the markdown package was
+  # missing, the push check later installed it without trouble, and with the
+  # error thrown away nothing said why (2026-10-04). The import is checked
+  # after, so a quiet install into the wrong place is said too.
+  _pip_rc=0
+  _pip_out=$(python3 -m pip install --quiet cmarkgfm markdown 2>&1) || _pip_rc=$?
+  if [ "$_pip_rc" -ne 0 ]; then
+    echo "WARN: pip install failed - doc_lint strikethrough check will be skipped: $(printf '%s\n' "$_pip_out" | tail -n 1)" >&2
+  elif ! python3 -c 'import cmarkgfm, markdown' 2>/dev/null; then
+    echo "WARN: pip install reported success but $(command -v python3) cannot import cmarkgfm and markdown: $(printf '%s\n' "$_pip_out" | tail -n 1)" >&2
+  fi
 fi
 
 # Set the commit author to whoever is actually running this session, not
@@ -80,6 +91,18 @@ fi
 # declares a shared set and wires nothing that clones it.
 if [ -f precedent.json ] && [ -f tools/precedent_source_bootstrap.py ]; then
   python3 tools/precedent_source_bootstrap.py --sources-from . --remote-only false || true
+fi
+
+# The practices in force here that AGENTS.md cannot carry -- a set the person
+# brings, above all -- written to .precedent/SESSION_PRACTICES.md and PRINTED,
+# since this script's output is what reaches the session. Until 2026-10-04 no
+# consumer step ran it: a set's own hook did, and a consumer declines that
+# hook, so the ladder's stage words reached a consumer session nowhere and a
+# session there searched the clones for "Debut". After the clone above, so a
+# set it brings is on disk to render.
+if [ -f precedent.json ] && [ -f tools/precedent_session_practices.py ]; then
+  python3 tools/precedent_session_practices.py || \
+    echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the practices in force here that AGENTS.md does not carry" >&2
 fi
 
 # Repair a single-branch clone's refspec before anything tries to fetch.
