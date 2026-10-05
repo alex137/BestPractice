@@ -4,7 +4,7 @@ title:       A quick index before searching
 tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "CLAUDE.md", "WHERE_THINGS_ARE.md"]
-applies_to_why: "The table lives in the instructions file (or the full index it links), so editing one of those is the moment it fires. The table itself is what a searching session reads, and the install template carries it; the quick-index check refuses an instructions file without one. Decided: on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+applies_to_why: "The table lives in the instructions file (or the full index it links), so editing one of those is the moment it fires. The table itself is what a searching session reads, and the install template carries it; the quick-index check refuses an instructions file without one. Decided: on-demand, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 occasion:    "looking for where something lives, before searching"
 gates:       []
 index_clause: "the instructions file carries a \"looking for X -> go to Y\" table"
@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 source_practice_number: 3
 ---
 ## Rule

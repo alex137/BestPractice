@@ -842,6 +842,20 @@ case "\$0" in
     ;;
 esac
 
+# The engine's field-order tidy (frontmatter_yaml.py --fix-staged), FIRST:
+# it reorders the staged practice files of a practice source, and the
+# person's fixer below may stamp a header that has to land on the final
+# content. Only where the repository declares itself a source; it never
+# refuses a commit (spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+case "\$0" in
+  *pre-commit)
+    _top0="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "\$_top0" ] && [ -f "\$_top0/precedent-source.json" ] && [ -f "\$_top0/tools/frontmatter_yaml.py" ]; then
+      python3 "\$_top0/tools/frontmatter_yaml.py" --fix-staged || true
+    fi
+    ;;
+esac
+
 # The person's own commit-time fixer, when their individual source ships one
 # (bootstrap/pre-commit-fix): it FIXES the commit before it is made -- a
 # version header that has to move with the content, say -- and never refuses
@@ -1077,6 +1091,20 @@ case "\$0" in
   *prepare-commit-msg)
     _cad="\$(dirname "\$0")/precedent-ci-cadence"
     [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
+# The engine's field-order tidy (frontmatter_yaml.py --fix-staged), FIRST:
+# it reorders the staged practice files of a practice source, and the
+# person's fixer below may stamp a header that has to land on the final
+# content. Only where the repository declares itself a source; it never
+# refuses a commit (spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+case "\$0" in
+  *pre-commit)
+    _top0="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "\$_top0" ] && [ -f "\$_top0/precedent-source.json" ] && [ -f "\$_top0/tools/frontmatter_yaml.py" ]; then
+      python3 "\$_top0/tools/frontmatter_yaml.py" --fix-staged || true
+    fi
     ;;
 esac
 

@@ -4,7 +4,7 @@ title:       "Recorded lore: environment gotchas with their stories"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "A trap can be met anywhere, in a file or in no file at all, so no glob names it; the occasion index reaches it, and the instructions file's own gotcha section (the install template carries one, and the environment-gotchas check refuses an instructions file without it) says where to grep. Decided: on-demand with an index line, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)."
+applies_to_why: "A trap can be met anywhere, in a file or in no file at all, so no glob names it; the occasion index reaches it, and the instructions file's own gotcha section (the install template carries one, and the environment-gotchas check refuses an instructions file without it) says where to grep. Decided: on-demand with an index line, Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)."
 occasion:    "an environment or tooling trap costs real time"
 gates:       []
 index_clause: "one file per trap under gotchas/, with the story, not just the fix"
@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: decided)"
+approved_by: "BestPractice (pre-fork); tier on-demand: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
 source_practice_number: 4
 ---
 ## Rule
