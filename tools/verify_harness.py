@@ -22666,8 +22666,9 @@ def check_reply_check_keeps_practice_ideas_at_the_close():
                "background.\n- Don't archive this session.\n")
         r1 = replycheck('mid.md', mid)
         cases.append(('practice ideas mid-conversation are refused, and the '
-                      'refusal says to add nothing rather than the archive line',
-                      r1.returncode == 2 and 'Output NOTHING further' in r1.stderr
+                      'refusal asks for one withdrawing line, never the archive line',
+                      r1.returncode == 2 and 'Output ONE line withdrawing them' in r1.stderr
+                      and 'Output NOTHING' not in r1.stderr
                       and 'Do NOT add the archive line' in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
@@ -22756,10 +22757,12 @@ def check_reply_check_refuses_a_repeated_boildown():
                  'feature branch.\n')
         r1 = run(transcript('repeat.jsonl', [first, again]))
         cases.append(('a reworded Boildown with nothing new is refused, '
-                      'naming the one-line form and asking for nothing more',
+                      'asking for the one-line form and nothing more -- never '
+                      'for nothing, which the harness does not accept',
                       r1.returncode == 2 and 'previous reply' in r1.stderr
                       and 'unchanged since the last update' in r1.stderr
-                      and 'Output NOTHING further' in r1.stderr,
+                      and 'Output ONLY the one-line form' in r1.stderr
+                      and 'Output NOTHING' not in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
         news = again.replace('- Next is your "Booked" to land it on `pre-staging`.',
@@ -22887,10 +22890,11 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
 
         r1 = run(transcript('one-of-two.jsonl', opening + [
             wake(notice('aaa', 'completed', done_ok)), said(report)]))
-        cases.append(('one job of two done: any prose is refused, naming the '
-                      'one still running and asking for nothing further',
+        cases.append(('one job of two done: a report is refused, naming the '
+                      'one still running and asking for one waiting line',
                       r1.returncode == 2 and 'bbb' in r1.stderr
-                      and 'Output NOTHING further' in r1.stderr,
+                      and 'Output ONE line naming the wait' in r1.stderr
+                      and 'Output NOTHING' not in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
         r2 = run(transcript('progress.jsonl', [
@@ -22908,6 +22912,21 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
         cases.append(('negative control: a silent wake passes, and is not '
                       'judged by the last turn\'s words',
                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+
+        # One waiting line is what a quiet wake owes (2026-10-06): an empty
+        # turn makes the harness ask for visible output.
+        r3b = run(transcript('wait-line.jsonl', opening[:-1] + [
+            said('Started, no closing section here.'),
+            wake(notice('aaa', 'completed', done_ok)),
+            said('(Waiting on bbb.)')]))
+        cases.append(('one waiting line in parentheses passes on a quiet wake',
+                      r3b.returncode == 0, f'exit {r3b.returncode}: {r3b.stderr[:200]}'))
+        r3c = run(transcript('two-lines.jsonl', opening[:-1] + [
+            said('Started, no closing section here.'),
+            wake(notice('aaa', 'completed', done_ok)),
+            said('(Waiting on bbb.)\nAlso, aaa passed.')]))
+        cases.append(('...but a second line makes it a report, refused',
+                      r3c.returncode == 2, f'exit {r3c.returncode}: {r3c.stderr[:200]}'))
 
         ended_mid_turn = {'type': 'attachment', 'attachment': {
             'type': 'queued_command',
@@ -23022,7 +23041,6 @@ def check_code_owners_only_practices_reach_only_code_owners():
         c.mkdir()
         cases.append(('no owners named anywhere: in doubt, hidden',
                       'names no code owners' in audience(c, 'maint'), audience(c, 'maint')))
-
         # precedent_show prints the marked practice to an owner only.
         (b / 'practices').mkdir()
         shutil.copy(ROOT / 'practices' / 'deep-check.md', b / 'practices')
