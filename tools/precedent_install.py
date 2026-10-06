@@ -724,6 +724,16 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
         say(f'  {line}')
     _write_precedent_json(dest, branch, visibility, output_paths, teams, force)
     say('  wrote precedent.json')
+    # Its code owners, from who can edit it now (Morgan, 2026-10-06): a
+    # starting default, never rewritten once set.
+    try:
+        import precedent_vendor_engine as _pve
+        _owners, _how = _pve.seed_maintainers(dest)
+    except Exception as e:                                    # noqa: BLE001
+        _owners, _how = [], f'could not work it out ({e})'
+    say(f'  code owners: ' + (f'named {", ".join("@" + o for o in _owners)} in '
+                              f'precedent.json\'s maintainers ({_how})'
+                              if _owners else f'none written: {_how}'))
     written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, ci_enabled, force)
     say(f'  instantiated: {", ".join(written)}' + (f' (kept existing: {", ".join(skipped)})' if skipped else ''))
     lp_written, lp_skipped = _instantiate_local_practices(dest, force)
