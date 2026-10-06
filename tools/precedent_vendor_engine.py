@@ -6900,6 +6900,7 @@ def refresh(clone, force=False, ref=None):
         set_orphaned = sorted(
             n for n in manifest.get('files', [])
             if n not in wanted_set and (dest_tools / n).is_file())
+        orphans_removed = False
         if set_orphaned and new_commit == manifest.get('source_commit'):
             print(f"NOTICE: the recorded commit already matches, but this "
                   f"repo's vendored engine still carries {len(set_orphaned)} "
@@ -6908,6 +6909,7 @@ def refresh(clone, force=False, ref=None):
             _remove_dropped_engine_files(
                 dest_tools, _previous_manifest(ROOT, manifest), kind)
             _rewrite_manifest_file_list(dest_tools, kind)
+            orphans_removed = True
 
         # Hook analog of set_incomplete, above -- but the "wanted" hook names
         # are read from THIS commit's own listing at HOOK_SOURCE_DIR,
@@ -6975,9 +6977,17 @@ def refresh(clone, force=False, ref=None):
                 and not engine_paths_incomplete and not template_pending \
                 and not wiring_pending and not agents_pending \
                 and not gitignore_pending and not individual_pending:
+            # "Nothing to do" only when nothing was done: the orphan removal
+            # just above runs in this same pass, and the line said "nothing
+            # to do" right under the one reporting the deletion (very deep
+            # check, 2026-10-05, pass 1).
+            done = ((['removed the engine file(s) it no longer includes (above)']
+                     if orphans_removed else [])
+                    + (['repointed the catalogue pin (above)']
+                       if catalogue_repointed else []))
             print(f"precedent_vendor_engine refresh: engine already current with "
                   f"{FOLLOWED_BRANCH} @ {new_commit[:12]} -- "
-                  + ("only the catalogue pin changed (above)." if catalogue_repointed
+                  + (('only ' + ' and '.join(done) + '.') if done
                      else "nothing to do."))
             # Reported here too, and this is the case that matters MOST: a
             # session re-running refresh and being told "nothing to do" is

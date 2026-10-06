@@ -8220,6 +8220,68 @@ def check_update_hands_the_engine_refresh_the_followed_tip():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_never_says_nothing_to_do_after_removing_a_file():
+    """A refresh whose recorded commit already matches still removes an
+    engine file the kind no longer includes, and then said "engine already
+    current ... nothing to do" right under the line reporting the deletion
+    (very deep check, 2026-10-05, pass 1). The line now says what this pass
+    did. The fixture is an installed consumer whose manifest records one
+    more engine file than the kind includes, refreshed at its own commit."""
+    import hashlib as _hl
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-msg-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def sh(*args):
+        r = subprocess.run(list(args), cwd=str(fx), env=env,
+                           capture_output=True, text=True)
+        return r.stdout + r.stderr
+
+    def commit(msg):
+        sh('git', 'add', '-A')
+        sh('git', 'commit', '-qm', f'{msg}\n\nSession: none available (fixture)')
+    cases = []
+    try:
+        sh('git', 'init', '-q', '-b', 'main')
+        sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'), str(fx),
+           '--project-name', 'Fixture')
+        commit('installed')
+        recorded = json.loads((fx / 'tools' / _pve.MANIFEST_NAME)
+                              .read_text(encoding='utf-8'))['source_commit']
+        refresh = (sys.executable, 'tools/precedent_vendor_engine.py', 'refresh',
+                   str(ROOT), '--from-ref', recorded)
+        sh(*refresh)                      # converge whatever the install left
+        commit('converged')
+        m = fx / 'tools' / _pve.MANIFEST_NAME
+        d = json.loads(m.read_text(encoding='utf-8'))
+        old = fx / 'tools' / 'retired_tool.py'
+        old.write_text('"""A tool upstream no longer ships."""\n', encoding='utf-8')
+        d['files'].append('retired_tool.py')
+        d.setdefault('sha256', {})['retired_tool.py'] = _hl.sha256(
+            old.read_bytes()).hexdigest()
+        m.write_text(json.dumps(d, indent=2) + '\n', encoding='utf-8')
+        commit('a file the kind no longer includes')
+        out = sh(*refresh)
+        cases.append(('the refresh removes the file', not old.exists()
+                      and 'removed 1 vendored engine file' in out, out[-800:]))
+        current = [l for l in out.splitlines() if 'already current with' in l]
+        cases.append(('...on the already-current path', bool(current), out[-800:]))
+        cases.append(('...and its closing line says so, never "nothing to do"',
+                      bool(current) and 'nothing to do' not in current[-1]
+                      and 'removed' in current[-1], str(current)))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [(n, x) for n, ok, x in cases if not ok]
+    check(f'a refresh that removed an engine file never says nothing was done '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {x}' for n, x in bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60538,6 +60600,7 @@ def main():
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
     check_update_hands_the_engine_refresh_the_followed_tip()
+    check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()

@@ -74,6 +74,11 @@ and the check read only the hook.
   templates, while the installer says the light check passed.
 - **The update says "engine already current" in the same run that deleted
   an engine file.** Cosmetic; the deletion and its report are right.
+  **Fixed 2026-10-06:** the refresh's already-current line says "only
+  removed the engine file(s) it no longer includes" when that pass removed
+  one, and Update Vendors' report shows a pass that refreshed files rather
+  than a later pass that found nothing left to do. Harness case
+  `check_refresh_never_says_nothing_to_do_after_removing_a_file`.
 
 ## How It Closes
 
