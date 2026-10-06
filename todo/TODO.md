@@ -145,7 +145,6 @@ as_of: 2026-10-06
 | [`todo-2026-10-05-finish-folding-the-working-style-set-away`](todo-2026-10-05-finish-folding-the-working-style-set-away.md) | Withdraw the last five rules from the working-style set, then stop declaring it. | 1d | ask | the five universal drafts landing on main, then Update Vendors in every reposito… |
 | [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 1d | ask | both passes reaching main, then Update Vendors in every repository that declares… |
 | [`todo-2026-10-06-deal-harness-checks-by-measured-time`](todo-2026-10-06-deal-harness-checks-by-measured-time.md) | `verify_harness.py --as-ci` (and now a bare `--all`) deals the rest shard's | 0d | wait |  |
-| [`todo-2026-10-06-remind-after-produce-the-stale-produce-fix`](todo-2026-10-06-remind-after-produce-the-stale-produce-fix.md) | Morgan, 2026-10-06, about point 1 of that day's reply (*"Is it solved | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
@@ -223,4 +222,3 @@ as_of: 2026-10-06
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 2026-09-30 |
-| [`todo-2026-10-06-remind-after-produce-the-stale-produce-fix`](todo-2026-10-06-remind-after-produce-the-stale-produce-fix.md) | Morgan, 2026-10-06, about point 1 of that day's reply (*"Is it solved | 2026-10-06 |
