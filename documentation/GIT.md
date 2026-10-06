@@ -23,7 +23,7 @@ GitHub is the worked example throughout these documents, and Precedent
 currently leans on GitHub features (pull requests, Actions checks)
 deliberately. The layer itself is plain git, markdown, and Python, so
 equivalents on other hosts such as Gitea can be added later — see
-[TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md).
+[todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md).
 
 ## The Eight Ideas
 
