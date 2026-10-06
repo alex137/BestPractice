@@ -395,7 +395,10 @@ branch without his quoted word.
 2026-10-02: a pasted prompt's landing authority is said here in plain
 words now, since the ladder became a set a person brings
 (spec/LADDER_OPT_IN_PLAN.md); the set that provides it keeps this rule's
-earlier wording under the same slug, for the people who bring it. Edit both.
+earlier wording under the same slug, for the people who bring it. Since
+2026-10-06 that set adds to this rule in a practice of its own and repeats
+none of it ([no-duplication](no-duplication.md)), so a change here is made
+here only.
 
 **2026-10-06: a suggestion, said in so many words.** The opening line already asked the receiving session to analyze the prompt rather than just carry it out, and sessions still sometimes did just carry one out. Morgan: *"when I give you a message from another session, you sometimes just do it ... Can you add to the command so that in the intro to the prompt you create, can you instruct the other session to take the below as a suggestion from the other session that you yourself ... should analyze and then and push back on as needed."* The line now opens by saying the text is a suggestion from another session, not the person's instruction, and ends "Act only on what holds up"; [relayed-message-is-a-suggestion](relayed-message-is-a-suggestion.md) says the same from the receiving side. strength: decided.
 

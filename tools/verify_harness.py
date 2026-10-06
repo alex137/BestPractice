@@ -46915,6 +46915,45 @@ def check_links_to_renamed_practice_forward():
           not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
 
 
+def check_dedup_onto_same_slug_withdraws_nothing():
+    """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
+
+    WHY. 2026-10-06: the ladder set's four full copies of universal rules
+    were cut to stubs with `in_force_at:` their own slug, universal's rule of
+    that name staying in force. Every link to `prompt-please` and the other
+    three, in every declared source, came back as a FOLLOW-UP to repoint --
+    72 of them, none real, since the slug still names a live rule."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    ppr = __import__('precedent_practice_refs')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='dedup-same-slug-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    fm = '---\nslug: {s}\nstatus: {st}\nin_force_at: {to}\n---\n## Rule\nR.\n'
+    try:
+        g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=env,
+                                      check=True, capture_output=True)
+        g('init', '-q', '-b', 'main')
+        (tmp / 'practices').mkdir()
+        for s in ('kept-rule', 'moved-rule'):
+            (tmp / 'practices' / f'{s}.md').write_text(
+                fm.format(s=s, st='active', to='null'), encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-qb', 'work')
+        (tmp / 'practices' / 'kept-rule.md').write_text(
+            fm.format(s='kept-rule', st='deduplicated', to='kept-rule'), encoding='utf-8')
+        (tmp / 'practices' / 'moved-rule.md').write_text(
+            fm.format(s='moved-rule', st='deduplicated', to='other-rule'), encoding='utf-8')
+        got = ppr.changed_slugs(tmp, 'main')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('a copy deduplicated onto its own slug is not reported as withdrawn',
+          'kept-rule' not in got, repr(got))
+    check('CONTROL: a copy deduplicated onto another slug still is',
+          got.get('moved-rule') == 'now deduplicated', repr(got))
+
+
 def check_practice_refs_sorts_live_from_history():
     """precedent_practice_refs.py finds every citation of a renamed practice
     in a SET, marks the live pointers as must-fix, and leaves history alone.
@@ -62225,6 +62264,7 @@ def main():
     check_in_force_at_chain_is_followed()
     check_links_to_renamed_practice_forward()
     check_practice_refs_sorts_live_from_history()
+    check_dedup_onto_same_slug_withdraws_nothing()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

@@ -26,7 +26,9 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   the old install's leftovers (step 10); amended 2026-09-27, Morgan
   (decided) -- the sequence is one command, tools/precedent_update.py;
   amended 2026-10-05, Alex (decided) -- a repo may follow staging instead
-  of main by declaring upstream_branch in its precedent.json"
+  of main by declaring upstream_branch in its precedent.json; amended
+  2026-10-06, Morgan (decided) -- a declared set that is retired is dropped
+  by the update itself, only when no active rule would be lost"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -948,7 +950,9 @@ universal; the word that triggers it belongs in an individual set.
 2026-10-02: Update Vendors lands its merge the way the repository lands
 work, in plain words, since the ladder became a set a person brings
 (spec/LADDER_OPT_IN_PLAN.md). That set keeps the runbook's earlier wording
-under this slug for the people who bring it; an edit here goes there too.
+under this slug for the people who bring it. Since 2026-10-06 that set adds
+to this runbook in a practice of its own and repeats none of it
+([no-duplication](no-duplication.md)), so a change here is made here only.
 
 ## Install
 Before starting, name the layers this repo vendors and where each records
