@@ -29551,18 +29551,18 @@ def check_promote_pre_staging():
         commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
         pre_before = tip('pre-staging')
         rc, out = branches('--promote')
-        fixes = [l.split()[-1][len('refs/heads/'):] for l in git(
-            work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*').stdout.splitlines()]
+        fixes = git(work, 'for-each-ref', '--format=%(refname:short)',
+                    'refs/heads/promote-fix-*').stdout.split()
         cases.append(('a batch failing a full-only check is not finished: neither '
                       'staging nor pre-staging moves, and it says what failed',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
                       and 'precedent_check' in out and tip('beta') == before
                       and tip('pre-staging') == pre_before))
-        cases.append(('...and the composition it checked is on a fix branch, with '
-                      'the command that finishes it', len(fixes) == 1
+        cases.append(('...and the composition it checked is on a local fix '
+                      'branch, with the command that finishes it', len(fixes) == 1
                       and f'--work {fixes[0]}' in out and git(
                           work, 'merge-base', '--is-ancestor', pre_before,
-                          tip(fixes[0])).returncode == 0))
+                          f'refs/heads/{fixes[0]}').returncode == 0))
 
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-fix', 'origin/pre-staging')
@@ -31974,9 +31974,19 @@ def check_promote_composes_main_and_moves_both_tiers():
                        f'origin/{branch}').returncode == 0
 
         def fixes():
+            # Local since 2026-10-06: a refused Promote leaves its fix branch
+            # in the clone, and only a pushed fix puts it on origin.
+            return sorted(git(work, 'for-each-ref', '--format=%(refname:short)',
+                              'refs/heads/promote-fix-*').stdout.split())
+
+        def fixes_on_origin():
             return sorted(l.split()[-1][len('refs/heads/'):] for l in git(
                 work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*'
             ).stdout.splitlines())
+
+        def on_local(sha, branch):
+            return git(work, 'merge-base', '--is-ancestor', sha,
+                       f'refs/heads/{branch}').returncode == 0
 
         def level():
             return tip('staging') == tip('pre-staging')
@@ -32025,10 +32035,11 @@ def check_promote_composes_main_and_moves_both_tiers():
         cases.append(('a composition failing the full check moves neither tier',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
                       and tip('staging') == s0 and tip('pre-staging') == p1))
-        cases.append(('...pushes it to a fix branch holding main\'s work and '
-                      'pre-staging\'s, and names the command that finishes it',
-                      len(f) == 1 and on(tip('main'), f[0]) and on(p1, f[0])
-                      and f'--work {f[0]}' in out))
+        cases.append(('...puts it on a LOCAL fix branch holding main\'s work and '
+                      'pre-staging\'s, not pushed, and names the command that '
+                      'finishes it', len(f) == 1 and on_local(tip('main'), f[0])
+                      and on_local(p1, f[0]) and f'--work {f[0]}' in out
+                      and fixes_on_origin() == [] and 'not pushed' in out))
         cases.append(('...and names main\'s commits as where to look first, from '
                       'staging\'s recorded pass, without a second full check or a '
                       'verdict', 'Look there first' in out
@@ -32036,8 +32047,7 @@ def check_promote_composes_main_and_moves_both_tiers():
                       and 'own tip passed the full check' in out
                       and full_runs() == 1 and 'came from main' not in out))
         # The session fixes it on that branch and runs the Promote again.
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'fixing', f'origin/{f[0]}')
+        git(work, 'checkout', '-q', '-B', 'fixing', f[0])
         (work / 'FAIL').write_text('', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'fix what main broke')
         git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{f[0]}')
@@ -32057,10 +32067,14 @@ def check_promote_composes_main_and_moves_both_tiers():
                       'and main is named only as a place to look, never as the cause',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
                       and 'Look there first' in out and 'came from main' not in out))
+        on_origin_before = fixes_on_origin()
         commit_to('pre-staging', {'FAIL': ''}, 'ladder fixes its own break')
         rc, out = branches('--promote', '--to', 'staging')
         cases.append(('...and a fix pushed to pre-staging finishes it too',
                       rc == 0 and level() and on(tip('main'), 'staging')))
+        cases.append(('...leaving no fix branch on origin for a person to delete '
+                      '(2026-10-06: one consumer had four in a day)',
+                      fixes_on_origin() == on_origin_before))
 
         # 5. Hand-written text changed on both sides: not finished, the
         # composition so far on a fix branch, resolved there, then finished.
@@ -32075,9 +32089,9 @@ def check_promote_composes_main_and_moves_both_tiers():
                       rc == 1 and 'does not merge cleanly' in out
                       and tip('staging') == s0 and tip('pre-staging') == p0
                       and len(f) == n + 1 and f'git merge {p0}' in out))
-        newest = [b for b in f if on(tip('main'), b) and not on(p0, b)] or ['no-fix-branch']
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'resolving', f'origin/{newest[0]}')
+        newest = [b for b in f if on_local(tip('main'), b)
+                  and not on_local(p0, b)] or ['no-fix-branch']
+        git(work, 'checkout', '-q', '-B', 'resolving', newest[0])
         git(work, 'merge', '-q', p0)
         (work / 'list.txt').write_text('BOTH\nb\nc\n', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'resolve line 1')
