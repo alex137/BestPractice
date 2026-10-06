@@ -7907,6 +7907,118 @@ def check_session_trailer_check_ships_with_the_engine():
           f'push carries ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_bot_authored_commits_are_refused_where_no_person_is_declared():
+    """The commit-author check's bot half judges a pull request's commits in
+    CI, where nobody is declared (2026-10-06).
+
+    Five commits authored `noreply@anthropic.com` at +0000 reached
+    BestPractice's main on 2026-10-02 through a pull request merged on
+    GitHub. The check that should have refused them reads only commits on no
+    remote, and stands down where no identity is declared -- both true of
+    every GitHub Actions runner -- so nothing ever judged them.
+
+    The fixture is a runner's state: git's global identity is the bot, no
+    PRECEDENT_COMMIT_*, no user config, and a pull-request branch already on
+    the remote, carrying one bot commit. THE CONTROLS: the same branch with
+    the bot commit re-authored passes the bot half and still SKIPS the whole
+    check with the identity half's own wording, so the stand-down is real and
+    the bot address is what fails; and the default scope over the pushed
+    branch sees nothing, which is why CI passes a range
+    (practice: control-asserts-which-failure)."""
+    import tempfile, json as _json, shutil as _shutil
+    name = ('Commit author: a bot-authored commit in a pull request\'s range '
+            'is refused where no person is declared')
+    script = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
+    need = [script, ROOT / 'tools' / 'precedent_session_check.py',
+            ROOT / 'tools' / 'precedent_identity.py']
+    absent = [str(p.relative_to(ROOT)) for p in need if not p.exists()]
+    if absent:
+        not_applicable(name, f'not in this tree: {absent}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, _person, person_git = _engine_commit_env(tmp)
+        bot_git = dict(person_git, GIT_AUTHOR_NAME='Claude',
+                       GIT_AUTHOR_EMAIL='noreply@anthropic.com')
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        (work / 'tools' / 'checks').mkdir(parents=True)
+        for p in need:
+            dest = work / p.relative_to(ROOT)
+            _shutil.copy2(p, dest)
+
+        def git(*args, env=person_git, cwd=work):
+            return subprocess.run(['git', '-C', str(cwd), *args],
+                                  capture_output=True, text=True, env=env)
+
+        def commit(msg, env=person_git):
+            return git('commit', '-q', '--allow-empty', '-m',
+                       f'{msg}\n\nSession: none available (fixture)', env=env)
+
+        def run(*args, rng=None):
+            env = dict(ambient)
+            if rng:
+                env['PRECEDENT_CHECK_RANGE'] = rng
+            p = subprocess.run([sys.executable, str(work / 'tools' / 'checks'
+                                                    / script.name), *args],
+                               cwd=str(work), capture_output=True, text=True,
+                               env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        git('init', '-q', '--bare', str(bare), cwd=tmp)
+        git('init', '-q', '-b', 'main')
+        git('remote', 'add', 'origin', str(bare))
+        git('add', '-A')
+        commit('the base')
+        git('push', '-q', 'origin', 'main')
+        git('checkout', '-q', '-b', 'pr')
+        commit('a person\'s change')
+        commit('a change the harness authored', env=bot_git)
+        bot_sha = git('rev-parse', 'HEAD').stdout.strip()
+        commit('another person\'s change')
+        # On the remote, as a pull request's branch is by the time CI runs.
+        git('push', '-q', 'origin', 'pr')
+        rng = 'origin/main..HEAD'
+
+        rc, out = run('--bot-authors-only', '--range', rng)
+        cases.append((f'--bot-authors-only over the pull request\'s range '
+                      f'refuses the bot commit (rc={rc}, {out[:200]!r})',
+                      rc == 1 and bot_sha[:12] in out
+                      and 'noreply@anthropic.com' in out))
+        rc, out = run(rng=rng)
+        cases.append((f'the whole check, with nobody declared and '
+                      f'PRECEDENT_CHECK_RANGE set, refuses it too rather than '
+                      f'standing down (rc={rc}, {out[:200]!r})',
+                      rc == 1 and bot_sha[:12] in out))
+        rc, out = run('--bot-authors-only')
+        cases.append((f'control: the default scope over the pushed branch '
+                      f'reads nothing -- why CI passes the range (rc={rc})',
+                      rc == 0))
+
+        cfg = work / 'precedent.json'
+        cfg.write_text(_json.dumps({'grandfathered_commit_shas': [
+            {'sha': bot_sha, 'note': 'fixture: published before the check'}]}),
+            encoding='utf-8')
+        rc, out = run('--bot-authors-only', '--range', rng)
+        cases.append((f'a grandfathered bot commit is exempt (rc={rc}, '
+                      f'{out[:200]!r})', rc == 0))
+        cfg.unlink()
+
+        # THE CONTROL: the same branch, the bot commit re-authored.
+        git('reset', '-q', '--hard', 'HEAD~2')
+        commit('a change the harness authored, re-authored')
+        commit('another person\'s change')
+        rc, out = run('--bot-authors-only', '--range', rng)
+        cases.append((f'control: re-authored, the bot half passes (rc={rc}, '
+                      f'{out[:200]!r})', rc == 0))
+        rc, out = run(rng=rng)
+        cases.append((f'control: re-authored, the whole check still stands '
+                      f'down in its own words (rc={rc}, {out[:200]!r})',
+                      rc == 2 and 'no identity is declared' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_retired_sets_are_dropped_only_when_nothing_is_lost():
     """Update Vendors and the very deep check drop a declared set that says it
     is retired, or that GitHub reports archived -- and only when every active
@@ -60335,6 +60447,7 @@ def main():
     check_fix_sweep_copy_keeps_its_neighbours()
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
+    check_bot_authored_commits_are_refused_where_no_person_is_declared()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()

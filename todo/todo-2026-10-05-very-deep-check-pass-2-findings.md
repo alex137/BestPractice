@@ -36,6 +36,31 @@ section judged a check script by filename alone.
   fix: a bot-author half that refuses the harness's bot addresses even when
   the check stands down, scoped in CI to the pull request's range, run in
   the deep-check workflow's pull-request job, with a planted case.
+
+  **Fixed 2026-10-06, except the workflow step:** the check now has a
+  bot-author half that refuses a commit authored as one of
+  [precedent_session_check.py](../tools/precedent_session_check.py)'s
+  `BOT_EMAILS` (imported, not copied) whether or not a person is declared,
+  takes a range (`--range A..B` or `PRECEDENT_CHECK_RANGE`), and runs alone
+  with `--bot-authors-only`. Planted case:
+  `check_bot_authored_commits_are_refused_where_no_person_is_declared`
+  (fails on the old script: every case came back SKIPPED). The bot commits
+  already on `main` stay as they are.
+
+  **Waiting for Morgan's approval: one step in
+  [deep-check.yml](../.github/workflows/deep-check.yml).** Without it,
+  nothing runs the new half on a pull request. The step goes in the
+  existing `precedent-check-and-sync` job, right after "Set up Python". It
+  adds no job, trigger or run, only a few seconds inside a job that already
+  runs, and the repository is public. Editing a workflow file is his call
+  under [ci-workflow-approved](../practices/ci-workflow-approved.md), so it
+  was not made:
+
+  ```yaml
+        - name: Refuse commits authored by the harness's bot
+          if: github.event_name == 'pull_request'
+          run: python3 tools/checks/check_commit_author.py --bot-authors-only --range "origin/$GITHUB_BASE_REF..HEAD"
+  ```
 - **The "harness check in a linked worktree turns the main clone bare"
   trap has no prevention.** Its gotcha says the leaking call was never
   traced, and it is still live: this run had to forbid worktrees. Trace it,
