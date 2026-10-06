@@ -8139,7 +8139,10 @@ def check_harness_drops_inherited_git_repository_variables():
         'g("init", "-q", t + "/proj")\n'
         'open(t + "/proj/f.txt", "w").write("fixture\\n")\n'
         'g("add", "-A", cwd=t + "/proj")\n'
-        'g("commit", "-qm", "installed, catalogue vendored", cwd=t + "/proj")\n')
+        # Its own author: importing this module drops GIT_AUTHOR_*, and a
+        # runner with an empty $HOME has no user.name to fall back on.
+        'g("-c", "user.name=F", "-c", "user.email=f@example.com", "commit",\n'
+        '  "-qm", "installed, catalogue vendored", cwd=t + "/proj")\n')
     cases = []
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
