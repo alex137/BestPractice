@@ -3769,8 +3769,15 @@ def retired_sources(dest_root, archived=()):
         mine = _active_practice_slugs(clone) or set()
         elsewhere = set()
         for o in sources:
-            if isinstance(o, dict) and o is not s and where(o) != clone:
-                elsewhere |= _active_practice_slugs(where(o)) or set()
+            if not (isinstance(o, dict) and o is not s and where(o) != clone):
+                continue
+            # A set that is itself retired or archived cannot vouch for a
+            # rule: two retiring sets would otherwise carry each other's
+            # rules out of force together (found 2026-10-06).
+            if (source_retirement(where(o)) is not None
+                    or str(o.get('name') or '') in set(archived)):
+                continue
+            elsewhere |= _active_practice_slugs(where(o)) or set()
         out.append((name, str(s.get('path') or ''), why,
                     sorted(mine - elsewhere)))
     return out

@@ -7974,6 +7974,21 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
         cases.append(('a set GitHub reports archived is dropped once its rules '
                       'are carried -- here the last entry in the list',
                       'live' not in names and pj.read_text(encoding='utf-8').count('{') == 3))
+        # Two retired sets cannot vouch for each other's rule.
+        practice('twin-a', 'shared-only')
+        practice('twin-b', 'shared-only')
+        manifest('twin-a', True)
+        manifest('twin-b', True)
+        pj2 = fx / 'repo2' / 'precedent.json'
+        pj2.parent.mkdir()
+        pj2.write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'uni', 'path': '../uni'},
+            {'level': 'shared', 'name': 'twin-a', 'path': '../twin-a'},
+            {'level': 'shared', 'name': 'twin-b', 'path': '../twin-b'}]}),
+            encoding='utf-8')
+        d2, k2 = _pve.drop_retired_sources(fx / 'repo2', apply=False)
+        cases.append(('two retired sets holding the same rule do not vouch for '
+                      'each other: both are kept', not d2 and len(k2) == 2))
         cases.append(('archived_declared_sources never turns an unanswered '
                       'question into "archived"',
                       'Not Found' in inspect.getsource(_pve.archived_declared_sources)
