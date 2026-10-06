@@ -29545,6 +29545,21 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+        # A retired set is not promoted unless the person asks (Morgan,
+        # 2026-10-06: "not edit nor promote nor touch"), so it gets no
+        # reminder inviting one; the reminder comes back once it is not.
+        marker = work / 'precedent-source.json'
+        marker.write_text(_json.dumps({'retired': {'date': '2026-10-06'}}),
+                          encoding='utf-8')
+        try:
+            pg, got = unlanded()
+        finally:
+            marker.unlink()
+        cases.append(("a set that says it is retired gets no Promote reminder",
+                      not any('a Promote can move them' in l for l in got)))
+        pg, got = unlanded()
+        cases.append(("...and the reminder is back once it does not",
+                      any('a Promote can move them' in l for l in got)))
         # Only the flow this session worked on (Morgan, 2026-09-29): with a
         # session id set and no commit in the batch carrying it, the batch
         # is another session's and gets no line.
