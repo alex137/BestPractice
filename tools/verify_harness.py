@@ -7991,6 +7991,33 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_upholds_is_a_listed_field():
+    """`upholds:` is a field the practice format lists, so a practice carrying
+    it raises no warning. A project repository linked its practices to its
+    risk page with it before the format listed it, and every check warned
+    (Morgan, 2026-10-06: "we want to eliminate warnings"). A field the
+    format still does not list goes on warning, so the case is not a
+    blanket pass."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import frontmatter_yaml as _fy
+    base = ('---\nslug: x\ntitle: X\ntier: on-demand\nseverity: default\n'
+            'defines: []\n{extra}status: active\n---\n## Rule\nx\n')
+    with_upholds = base.format(extra='upholds: ["spec/RISK.md"]\n')
+    with_unknown = base.format(extra='zz_not_a_field: 1\n')
+    cases = [
+        ('a practice carrying upholds: lists no unknown field',
+         not _fy.unlisted_fields(with_upholds)),
+        ('...and is in field order', not _fy.field_order_problem(with_upholds)),
+        ('a field the format does not list is still reported',
+         bool(_fy.unlisted_fields(with_unknown))),
+        ('the format spec lists it',
+         'upholds:' in (ROOT / 'spec' / 'PRACTICE_FORMAT.md').read_text(encoding='utf-8')),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'upholds: is a listed practice field ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60306,6 +60333,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
