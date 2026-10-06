@@ -42,6 +42,7 @@ index_clause: "the one line the occasion index shows"   # 80 characters at most;
 index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
 ships:       []               # OPTIONAL -- files the practice owns besides checked_by and its test; see below
+hooks:       []               # OPTIONAL -- Claude Code hooks the practice needs wired; see below
 defines:     []
 upholds:     []               # OPTIONAL -- documents this practice exists to uphold; see below
 command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
@@ -880,6 +881,46 @@ then runs every shipped test in a copy of the source without its own
 `tools/`, so a dependency the static read missed fails at the source's push.
 [tools/precedent_move.py](../tools/precedent_move.py) refuses a move whose
 destination does not already carry every `ships:` file.
+
+
+## `hooks` — The Claude Code Hooks A Practice Needs Wired
+
+Optional. A JSON list of the hooks the practice needs wired to work, each
+running a file the same practice lists in `ships:`:
+
+```
+hooks:       [{"event": "PreToolUse", "matcher": "SendUserFile", "run": "tools/dated_name.py", "args": ["--hook"]}]
+```
+
+Absent, `null` and `[]` all mean "nothing".
+
+**What it does.** [tools/precedent_sync_views.py](../tools/precedent_sync_views.py)
+adds each declared hook to the consuming repository's `.claude/settings.json`
+as `python3 $CLAUDE_PROJECT_DIR/<run> <args>`, added only, never changing an
+entry already there, and `--check` reports one that is missing. Any command
+at that event that already names the same script counts as wired. A
+repository with no `.claude/settings.json` gets nothing, and the sync never
+creates the file. Before this field, a practice that shipped a hook's
+script said "wire it by hand", and a session cannot hand-edit that file:
+on 2026-10-06 a consumer failed `dated-download-names`' check right after a
+clean sync.
+
+**What an entry may be** (`build_views.practice_hooks`, the one definition
+every tool asks): `event` one of `PreToolUse`, `PostToolUse`,
+`UserPromptSubmit`, `Stop` and `SessionStart`; a `matcher` naming the tool
+for the first two and none for the rest; `run` a `.py` file this practice
+lists in `ships:`; and `args` plain words. Nothing else, and never a command
+line of its own: a hook runs on the person's machine at every matching
+event, and a set reaches every repository that declares it.
+
+**Declining one.** Declining the script under `declined_ships` declines its
+hook too; a name under `declined_adapters` does the same.
+
+**Committing what it wrote.** Claude Code's auto mode holds a commit that
+changes `.claude/` until the person says yes. Update Vendors names such a
+change as a question for the person, printed before the commit; the merge
+step, which commits by itself, takes it back until the person's words
+arrive as `PRECEDENT_HARNESS_GO_AHEAD`.
 
 ## `index_clause`
 

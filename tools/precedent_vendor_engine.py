@@ -1385,6 +1385,76 @@ def _hook_wiring_plan(dest_root, kind, hooks_src_dir):
     return to_add, unresolved
 
 
+def _add_hook_entry(hooks, event, matcher, command, timeout=None):
+    """Append one command entry to a settings.json `hooks` mapping: into the
+    first group at `event` with the same matcher, or a new group at the end.
+    Add-only -- nothing already there is edited, moved or removed. The one
+    writer for both callers below, so the two cannot disagree about where an
+    entry goes."""
+    entry = collections.OrderedDict([('type', 'command'), ('command', command)])
+    if timeout is not None:
+        entry['timeout'] = timeout
+    groups = hooks.setdefault(event, [])
+    home = next((g for g in groups if isinstance(g, dict)
+                 and g.get('matcher') == matcher
+                 and isinstance(g.get('hooks'), list)), None)
+    if home is None:
+        home = collections.OrderedDict()
+        if matcher is not None:
+            home['matcher'] = matcher
+        home['hooks'] = []
+        groups.append(home)
+    home['hooks'].append(entry)
+
+
+def add_practice_hooks(dest_root, entries):
+    """ADD each (event, matcher, command) to .claude/settings.json that no
+    command at that event already runs. -> [added commands]. Writes nothing,
+    and returns [], when the file does not exist: a repository without one
+    does not run Claude Code hooks from its tree, and creating the file is
+    the install's job, not a sync's.
+
+    What a practice's `hooks:` field declares (build_views.practice_hooks).
+    Satisfied the way _hook_wiring_plan is: any command at that event that
+    names the same script, from any path, already runs it."""
+    todo = missing_practice_hooks(dest_root, entries)
+    if not todo:
+        return []
+    settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
+    data = json.loads(settings_path.read_text(encoding='utf-8'),
+                      object_pairs_hook=collections.OrderedDict)
+    hooks = data.setdefault('hooks', collections.OrderedDict())
+    for event, matcher, command in todo:
+        _add_hook_entry(hooks, event, matcher, command)
+    settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False)
+                             + '\n', encoding='utf-8')
+    return [c for _e, _m, c in todo]
+
+
+def missing_practice_hooks(dest_root, entries):
+    """-> the (event, matcher, command) entries add_practice_hooks would add,
+    writing nothing: what `--check` reports."""
+    settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
+    if not settings_path.is_file():
+        return []
+    try:
+        hooks = json.loads(settings_path.read_text(encoding='utf-8')).get('hooks') or {}
+    except (OSError, ValueError, AttributeError):
+        return []
+    out = []
+    for event, matcher, command in entries:
+        # The script's file name: `python3 $CLAUDE_PROJECT_DIR/tools/x.py --hook`
+        # is satisfied by any command at the event that names x.py.
+        words = command.split()
+        script = (words[1] if len(words) > 1 else command).rsplit('/', 1)[-1]
+        have = [str((h or {}).get('command') or '')
+                for g in (hooks.get(event) or []) if isinstance(g, dict)
+                for h in (g.get('hooks') or [])]
+        if not any(script in c for c in have):
+            out.append((event, matcher, command))
+    return out
+
+
 def _apply_hook_wiring(dest_root, kind, hooks_src_dir):
     """ADD the settings.json entries _hook_wiring_plan names. -> [added]
 
@@ -1423,20 +1493,7 @@ def _apply_hook_wiring(dest_root, kind, hooks_src_dir):
     for event, matcher, name, args in to_add:
         cmd = f'$CLAUDE_PROJECT_DIR/{HOOK_DEST_DIR}/{name}' + (
             f' {args}' if args else '')
-        entry = collections.OrderedDict([('type', 'command'), ('command', cmd)])
-        if name in HOOK_TIMEOUTS:
-            entry['timeout'] = HOOK_TIMEOUTS[name]
-        groups = hooks.setdefault(event, [])
-        home = next((g for g in groups if isinstance(g, dict)
-                     and g.get('matcher') == matcher
-                     and isinstance(g.get('hooks'), list)), None)
-        if home is None:
-            home = collections.OrderedDict()
-            if matcher is not None:
-                home['matcher'] = matcher
-            home['hooks'] = []
-            groups.append(home)
-        home['hooks'].append(entry)
+        _add_hook_entry(hooks, event, matcher, cmd, HOOK_TIMEOUTS.get(name))
         added.append(f'{event}: {name}' + (f' {args}' if args else ''))
     settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False)
                              + '\n', encoding='utf-8')

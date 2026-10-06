@@ -10,7 +10,8 @@ merged in and committed and before the result is pushed:
 
 It asks precedent_engine_freshness.py whether the vendored engine or a
 vendored catalogue is behind its upstream. Nothing behind: it says so and
-stops, in about the time a fetch takes. Something behind: it runs Update
+stops, in about the time a fetch takes, and the views check below adds
+seconds. Something behind: it runs Update
 Vendors (the source clone's tools/precedent_update.py, which carries its
 own check) and then does one of two things, never a third:
 
@@ -22,6 +23,16 @@ own check) and then does one of two things, never a third:
             -- only what it wrote; a run that would touch anything else is
             refused before it starts -- and the reason is printed. The
             merge goes ahead without it.
+
+A change under .claude/ (hooks, settings) is committed only with the
+person's words in PRECEDENT_HARNESS_GO_AHEAD, since Claude Code's auto mode
+holds such a commit; without them the update is NOT TAKEN, and says why.
+
+Then, whether or not anything was behind, it asks the repository's own
+precedent_sync_views.py whether a moved practice source left the views
+stale, and if so refreshes them as one more commit of their own (VIEWS:
+refreshed), or takes the refresh back and says why (VIEWS: ... NOT
+REFRESHED) -- refresh_views says when.
 
 It never blocks a merge: the exit status is 0 in every one of those
 outcomes, and 2 only for a call it could not make sense of. Whatever it
@@ -203,6 +214,88 @@ def commit_update(repo, source, out):
     return after, ''
 
 
+VIEWS_TOOL = 'tools/precedent_sync_views.py'
+# The person's words letting a commit change .claude/ (hooks, settings):
+# Claude Code's auto mode holds such a commit as self-modification, so
+# without them nothing here writes one -- it says so instead.
+HARNESS_GO_AHEAD = 'PRECEDENT_HARNESS_GO_AHEAD'
+
+
+def _untracked(repo):
+    out = _git(repo, 'ls-files', '--others', '--exclude-standard', '-z').stdout
+    return {n for n in out.split('\0') if n}
+
+
+def refresh_views(repo):
+    """Regenerate views a moved practice source left stale, as a commit of
+    their own -- the views' half of what a merge takes along. Prints one
+    VIEWS: line; never blocks the merge.
+
+    WHY (2026-10-06). A source this repository declares moved, its
+    generated views went stale, and every push was refused for it -- a
+    one-line content push to a feature branch included. The push check now
+    reports a staleness the push did not bring, and this is where the
+    refresh it points at happens: at the merge, the way the vendor update
+    rides along, so pre-staging and above stay fresh."""
+    tool = repo / VIEWS_TOOL
+    if not tool.is_file():
+        return
+    probe = subprocess.run([sys.executable, str(tool), '--repo', '.', '--check',
+                            '--skip-unresolved'], cwd=str(repo),
+                           capture_output=True, text=True)
+    if probe.returncode == 0:
+        return
+    why = preconditions(repo)
+    if why:
+        print(f'VIEWS: stale, NOT REFRESHED -- {why}.')
+        return
+    before = _untracked(repo)
+    r = subprocess.run([sys.executable, str(tool), '--repo', '.'], cwd=str(repo),
+                       capture_output=True, text=True)
+    new = sorted(_untracked(repo) - before)
+    if new:
+        _git(repo, 'add', '--', *new)
+    _git(repo, 'add', '-u')
+    staged = [n for n in _git(repo, 'diff', '--cached', '--name-only').stdout
+              .splitlines() if n]
+    if r.returncode != 0:
+        take_back(repo)
+        print('VIEWS: stale, NOT REFRESHED -- the sync failed, and what it '
+              'wrote was taken back:')
+        print('\n'.join('  ' + l for l in (r.stdout + r.stderr)
+                        .strip().splitlines()[-12:]))
+        return
+    if not staged:
+        return
+    harness = [n for n in staged if n.startswith('.claude/')]
+    words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
+    if harness and not words:
+        take_back(repo)
+        print(f'VIEWS: stale, NOT REFRESHED -- the refresh changes '
+              f'{", ".join(harness)}, and Claude Code\'s auto mode holds a '
+              f'commit that changes hooks or settings until the person says '
+              f'yes. Nothing was committed. Ask the person, naming those '
+              f'files; with their yes, run again with '
+              f'{HARNESS_GO_AHEAD}="<their words>".')
+        return
+    msg = ('Views refreshed at merge: a declared practice source moved\n\n'
+           'Taken by tools/precedent_merge_vendors.py, as a commit of its own '
+           'so it can be read or reverted apart from the merge.\n\n'
+           + '\n'.join(f'  {n}' for n in staged[:60]) + '\n'
+           + (f'\nHooks and settings changed with the person\'s go-ahead: '
+              f'"{words}"\n' if harness else ''))
+    c = subprocess.run(['git', '-C', str(repo), 'commit', '-q', '-F', '-'],
+                       input=msg, capture_output=True, text=True)
+    if c.returncode != 0:
+        take_back(repo)
+        print(f'VIEWS: stale, NOT REFRESHED -- the commit was refused, so the '
+              f'refresh was taken back:\n{(c.stdout + c.stderr).strip()[-600:]}')
+        return
+    sha = _git(repo, 'rev-parse', '--short=12', 'HEAD').stdout.strip()
+    print(f'VIEWS: refreshed, in commit {sha} of its own ({len(staged)} '
+          f'file(s)). Push it with the merge.')
+
+
 def run(repo, source=None, check_only=False, always=False, extra=()):
     """-> exit status, printing one VENDORS: line first and the detail
     after it."""
@@ -221,6 +314,8 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
                     print(f'  {line}')
             else:
                 print('VENDORS: current -- nothing to update.')
+            if not check_only:
+                refresh_views(repo)
             return 0
         print('VENDORS: behind upstream:')
         for line in behind:
@@ -245,6 +340,21 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
                         '--repo', str(repo), *extra],
                        cwd=str(repo), capture_output=True, text=True)
     out = r.stdout + r.stderr
+    harness = [n for n in _git(repo, 'diff', '--cached', '--name-only', '--',
+                               '.claude/').stdout.splitlines() if n]
+    if r.returncode == DONE and harness and not os.environ.get(
+            HARNESS_GO_AHEAD, '').strip():
+        # This step commits by itself, so a change auto mode would hold is
+        # taken back here and asked about, never met at the commit.
+        taken = take_back(repo)
+        print(f'VENDORS: NOT TAKEN -- the update changes {", ".join(harness)}, '
+              f'and Claude Code\'s auto mode holds a commit that changes hooks '
+              f'or settings until the person says yes. Its {len(taken)} '
+              f'written path(s) were taken back and the merge goes ahead '
+              f'without it. Ask the person, naming those files; with their '
+              f'yes, run this again with {HARNESS_GO_AHEAD}="<their words>".')
+        refresh_views(repo)
+        return 0
     if r.returncode == DONE:
         sha, err = commit_update(repo, clone, out)
         if sha:
@@ -263,6 +373,7 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
           f'were taken back and the merge goes ahead without it. To take it: '
           f'"Update Vendors" on its own, working what it lists below.')
     print(_summary(out))
+    refresh_views(repo)
     return 0
 
 

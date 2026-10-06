@@ -12248,10 +12248,13 @@ def check_merge_takes_the_vendor_update():
             f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
             'import precedent_merge_vendors as mv\n'
             'mv.vendors_behind = lambda _r: ([], [])\n'
+            'mv.refresh_views = lambda _r: print("VIEWS: asked")\n'
             'mv.subprocess.run = None  # running anything would raise\n'
             f'sys.exit(mv.run({str(repo)!r}))\n'), cwd=repo)
-        cases.append(('nothing behind: says current and runs nothing',
-                      rc == 0 and 'VENDORS: current' in out, out[-800:]))
+        cases.append(('nothing behind: says current and runs no update -- only '
+                      'the views check, which has a test of its own',
+                      rc == 0 and 'VENDORS: current' in out
+                      and 'VIEWS: asked' in out, out[-800:]))
     finally:
         fx.close()
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -46921,6 +46924,268 @@ def check_links_to_renamed_practice_forward():
           not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
 
 
+def _fixture_git_env():
+    return dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+                GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+
+def check_practice_declared_hooks_are_wired():
+    """A practice's `hooks:` declaration is parsed in one place, refused when
+    it reaches past what the practice ships, and wired add-only by the sync.
+
+    WHY. 2026-10-06: the writing set's dated-download-names shipped its
+    script and a check requiring a SendUserFile hook, and said the hook was
+    wired by hand. Nothing wired it, so a consumer failed that check right
+    after a clean sync."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+    import precedent_vendor_engine as pve
+    import precedent_sync_views as psv
+    good = {'ships': '["tools/dated_name.py"]',
+            'hooks': '[{"event": "PreToolUse", "matcher": "SendUserFile", '
+                     '"run": "tools/dated_name.py", "args": ["--hook"]}]'}
+    hooks = bv.practice_hooks(good)
+    check('a declared hook parses into the command the sync writes',
+          [bv.hook_command(h) for h in hooks]
+          == ['python3 $CLAUDE_PROJECT_DIR/tools/dated_name.py --hook'], repr(hooks))
+    for why, raw in (
+            ('a script the practice does not ship',
+             '[{"event": "Stop", "run": "tools/other.py"}]'),
+            ('a tool event with no matcher',
+             '[{"event": "PreToolUse", "run": "tools/dated_name.py"}]'),
+            ('an argument that is not a plain word',
+             '[{"event": "Stop", "run": "tools/dated_name.py", "args": ["; rm x"]}]'),
+            ('an event outside the list',
+             '[{"event": "Notification", "run": "tools/dated_name.py"}]'),
+            ('a command line of its own',
+             '[{"event": "Stop", "run": "tools/dated_name.py", "command": "sh"}]')):
+        try:
+            bv.practice_hooks({**good, 'hooks': raw})
+            refused = False
+        except ValueError:
+            refused = True
+        check(f'a hooks: entry naming {why} is refused', refused, raw)
+    check('CONTROL: no hooks: field declares nothing',
+          bv.practice_hooks({'ships': '[]'}) == [], '')
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'dated_name.py').write_text('', encoding='utf-8')
+        practices = {'dated-download-names': {'fm': good}}
+        entries, notes = psv._declared_practice_hooks(repo, practices)
+        check('no settings.json: nothing is written, and none is created',
+              pve.add_practice_hooks(repo, entries) == []
+              and not (repo / '.claude').exists(), '')
+        (repo / '.claude').mkdir()
+        mine = {'hooks': {'PreToolUse': [{'matcher': 'Bash', 'hooks': [
+            {'type': 'command', 'command': 'echo mine'}]}]}}
+        (repo / '.claude' / 'settings.json').write_text(json.dumps(mine),
+                                                        encoding='utf-8')
+        missing = pve.missing_practice_hooks(repo, entries)
+        check('--check reports the declared hook as missing',
+              [c for _e, _m, c in missing]
+              == ['python3 $CLAUDE_PROJECT_DIR/tools/dated_name.py --hook'],
+              repr(missing))
+        added = pve.add_practice_hooks(repo, entries)
+        got = json.loads((repo / '.claude' / 'settings.json').read_text())
+        groups = got['hooks']['PreToolUse']
+        check('the sync adds it under its own matcher, and the repo\'s own '
+              'entry is untouched',
+              len(added) == 1 and groups[0] == mine['hooks']['PreToolUse'][0]
+              and groups[1]['matcher'] == 'SendUserFile', json.dumps(got))
+        check('a second sync adds nothing',
+              pve.add_practice_hooks(repo, entries) == []
+              and pve.missing_practice_hooks(repo, entries) == [], '')
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'declined_ships': {'tools/dated_name.py': 'not here'}}), encoding='utf-8')
+        declined, _n = psv._declared_practice_hooks(repo, practices)
+        check('a repo that declined the script gets no hook for it',
+              declined == [], repr(declined))
+        (repo / 'precedent.json').unlink()
+        (repo / 'tools' / 'dated_name.py').unlink()
+        absent, _n = psv._declared_practice_hooks(repo, practices)
+        check('a script not on disk gets no hook', absent == [], repr(absent))
+        bad, notes = psv._declared_practice_hooks(
+            repo, {'x': {'fm': {**good, 'hooks': '[{"event": "Stop"}]'}}})
+        check('a declaration that does not parse is a note, never a guess',
+              bad == [] and notes and 'x:' in notes[0], repr(notes))
+
+
+def check_stale_views_judged_on_what_a_push_brings():
+    """views_sync is judged on what a push to a working branch brings: a
+    stale view the fork point shows too is reported, one the push makes is
+    still refused.
+
+    WHY. 2026-10-06: a practice source a consumer declares moved, its views
+    went stale, and a one-line content push to a feature branch was refused
+    for it."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    check('views_sync is one of the checks judged on what a push brings',
+          'views_sync' in ppc.RANGE_JUDGED, '')
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / 'tools').mkdir()
+        stub = repo / 'tools' / 'views_stub.py'
+        stub.write_text(
+            'import pathlib, sys\n'
+            'sys.path.insert(0, sys.argv[1])\n'
+            'import precedent_sync_views as psv\n'
+            'v = pathlib.Path("VIEW.md").read_text().strip()\n'
+            'if v != "fresh":\n'
+            '    print(psv.findings_block([f"VIEW.md is {v}"]), file=sys.stderr)\n'
+            '    sys.exit("precedent_sync_views --check FAIL")\n', encoding='utf-8')
+        (repo / 'VIEW.md').write_text('stale\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base, already stale')
+        g('checkout', '-qb', 'work')
+        (repo / 'content.md').write_text('one line\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'a content push')
+        import precedent_sync_views as psv
+        block = psv.findings_block(['AGENTS.md is stale', 'practices/x.md differs'])
+        check('the real sync\'s --check findings read as finding lines',
+              ppc.violation_lines((block + '\nprecedent_sync_views --check FAIL: '
+                                   'x').splitlines())
+              == ['AGENTS.md is stale', 'practices/x.md differs'], block)
+        argv = [sys.executable, str(stub), str(ROOT / 'tools')]
+        out = subprocess.run(argv, cwd=repo, capture_output=True, text=True)
+        lines = (out.stdout + out.stderr).splitlines()
+        check('a stale view the fork point shows too is not refused',
+              ppc.already_landed(repo, argv, lines, ['main']) is not None, '')
+        (repo / 'VIEW.md').write_text('hand-edited\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'a hand edit')
+        out = subprocess.run(argv, cwd=repo, capture_output=True, text=True)
+        lines = (out.stdout + out.stderr).splitlines()
+        check('CONTROL: a view this push edits by hand is still refused',
+              ppc.already_landed(repo, argv, lines, ['main']) is None, repr(lines))
+
+
+def check_merge_refreshes_stale_views_as_its_own_commit():
+    """At a merge, views a moved source left stale are regenerated as a
+    commit of their own -- and a refresh that would change hooks or
+    settings is taken back and asks for the person's go-ahead instead.
+
+    WHY. 2026-10-06: the push check stopped refusing a stale view a push
+    did not bring, so the refresh it points at has to happen somewhere:
+    here, where the vendor update already rides along. And auto mode holds
+    a commit that changes .claude/ until the person says yes."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_merge_vendors as pmv
+    env = _fixture_git_env()
+    for harness in (False, True):
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                          capture_output=True, text=True)
+            g('init', '-q', '-b', 'main')
+            (repo / 'tools').mkdir()
+            (repo / '.claude').mkdir()
+            (repo / '.claude' / 'settings.json').write_text('{}\n', encoding='utf-8')
+            (repo / 'tools' / 'precedent_sync_views.py').write_text(
+                'import pathlib, sys\n'
+                'p = pathlib.Path("AGENTS.md")\n'
+                'if "--check" in sys.argv:\n'
+                '    sys.exit(0 if p.read_text() == "fresh\\n" else 1)\n'
+                'p.write_text("fresh\\n")\n'
+                'pathlib.Path("practices").mkdir(exist_ok=True)\n'
+                'pathlib.Path("practices/new.md").write_text("x\\n")\n'
+                + ('pathlib.Path(".claude/settings.json").write_text("{\\"hooks\\": {}}\\n")\n'
+                   if harness else ''), encoding='utf-8')
+            (repo / 'AGENTS.md').write_text('stale\n', encoding='utf-8')
+            (repo / 'notes.txt').write_text('mine, untracked\n', encoding='utf-8')
+            g('add', 'tools', '.claude', 'AGENTS.md'); g('commit', '-qm', 'base')
+            head = g('rev-parse', 'HEAD').stdout.strip()
+            saved_env = os.environ.pop(pmv.HARNESS_GO_AHEAD, None)
+            saved_git = {k: os.environ.get(k) for k in env if k.startswith('GIT_')}
+            os.environ.update({k: v for k, v in env.items() if k.startswith('GIT_')})
+            try:
+                import io, contextlib
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    pmv.refresh_views(repo)
+                said = buf.getvalue()
+                moved = g('rev-parse', 'HEAD').stdout.strip() != head
+                files = g('show', '--name-only', '--format=', 'HEAD').stdout.split()
+                clean = g('status', '--porcelain', '--untracked-files=no').stdout == ''
+                if not harness:
+                    check('a stale view is refreshed in a commit of its own, '
+                          'taking the new file and leaving untracked files alone',
+                          moved and sorted(files) == ['AGENTS.md', 'practices/new.md']
+                          and 'VIEWS: refreshed' in said
+                          and (repo / 'notes.txt').is_file(), said + repr(files))
+                else:
+                    check('a refresh that changes .claude/ is taken back and asks '
+                          'for the person\'s go-ahead',
+                          not moved and clean and 'NOT REFRESHED' in said
+                          and pmv.HARNESS_GO_AHEAD in said
+                          and not (repo / 'practices' / 'new.md').exists(), said)
+                    os.environ[pmv.HARNESS_GO_AHEAD] = 'yes, wire it'
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        pmv.refresh_views(repo)
+                    msg = g('log', '-1', '--format=%B').stdout
+                    check('...and with the person\'s words it commits, quoting them',
+                          'yes, wire it' in msg and 'VIEWS: refreshed' in buf.getvalue(),
+                          buf.getvalue() + msg)
+            finally:
+                os.environ.pop(pmv.HARNESS_GO_AHEAD, None)
+                if saved_env is not None:
+                    os.environ[pmv.HARNESS_GO_AHEAD] = saved_env
+                for k, v in saved_git.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+
+def check_update_asks_before_changing_hooks():
+    """Update Vendors names a change to hooks or settings as a question for
+    the person, printed ahead of the commit, instead of meeting auto mode at
+    it -- and still finishes, since it is not the repo's call (2026-10-06)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        (repo / 'a.md').write_text('a\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        (repo / 'tools').mkdir()
+        (repo / 'tools' / 'x.py').write_text('', encoding='utf-8')
+        g('add', '-A')
+        check('CONTROL: an update touching no hook or setting asks nothing',
+              pu.harness_changes(repo) == [], '')
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        (repo / '.claude' / 'hooks' / 'h.sh').write_text('', encoding='utf-8')
+        g('add', '-A')
+        got = pu.harness_changes(repo)
+        ask = pu.harness_ask(got)
+        check('a staged hook is named, with the go-ahead to ask for',
+              got == ['.claude/hooks/h.sh'] and pu.HARNESS_GO_AHEAD in ask
+              and '.claude/hooks/h.sh' in ask, repr(got) + ask)
+        rep = pu.Report()
+        rep.ask('hooks and settings', ask)
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = rep.close()
+        check('...as a question for the person: the update still ends DONE, '
+              'and the question is printed ahead of the commit',
+              rc == pu.DONE and 'QUESTIONS FOR THE PERSON' in buf.getvalue()
+              and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -62271,6 +62536,10 @@ def main():
     check_links_to_renamed_practice_forward()
     check_practice_refs_sorts_live_from_history()
     check_dedup_onto_same_slug_withdraws_nothing()
+    check_practice_declared_hooks_are_wired()
+    check_stale_views_judged_on_what_a_push_brings()
+    check_merge_refreshes_stale_views_as_its_own_commit()
+    check_update_asks_before_changing_hooks()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

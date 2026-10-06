@@ -901,6 +901,79 @@ def ship_path_problem(path):
     return None
 
 
+# `hooks:` -- a Claude Code hook a practice needs wired to work, declared so
+# a sync can add it (spec/PRACTICE_FORMAT.md, "hooks"). Parsed and validated
+# HERE, once, as `ships:` is: precedent_sync_views.py wires what it returns
+# and precedent_check.py holds a source to it.
+#
+# WHY (2026-10-06). The writing set's dated-download-names ships
+# tools/dated_name.py and a check that fails unless a PreToolUse hook on
+# SendUserFile runs it, and said the hook "is wired by hand". Nothing wired
+# it, so a consumer failed that check right after a clean sync, on a file
+# the harness refuses a session to hand-edit. A practice that needs a hook
+# now says so, and the sync adds it -- added only, never changing an entry.
+#
+# Bounded on purpose: a hook runs on the person's machine at every matching
+# event, and a set reaches every repository that declares it. So a declared
+# hook may only run a file the same practice ships, with python3, at one of
+# a few events, with plain arguments -- never a command line of its own.
+HOOKS_FIELD = 'hooks'
+HOOK_EVENTS = ('PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'Stop',
+               'SessionStart')
+_TOOL_EVENTS = ('PreToolUse', 'PostToolUse')
+_HOOK_ARG_RE = re.compile(r'^[A-Za-z0-9_.,=/:-]+$')
+_HOOK_MATCHER_RE = re.compile(r'^[A-Za-z0-9_|*.:-]+$')
+
+
+def practice_hooks(fm):
+    """-> [{'event', 'matcher', 'run', 'args'}] for the `hooks:` field, []
+    when absent or null. Raises ValueError, naming the entry, for anything
+    the rules above refuse: a declaration nobody can wire is not the same as
+    no declaration."""
+    raw = fm.get(HOOKS_FIELD)
+    if raw is None or str(raw).strip() in ('', 'null', '[]'):
+        return []
+    try:
+        value = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        raise ValueError(f'`{HOOKS_FIELD}:` is not a JSON list: {raw!r}')
+    if not isinstance(value, list):
+        raise ValueError(f'`{HOOKS_FIELD}:` must be a JSON list, got {raw!r}')
+    shipped = set(ships_paths(fm))
+    out = []
+    for e in value:
+        if not isinstance(e, dict) or set(e) - {'event', 'matcher', 'run', 'args'}:
+            raise ValueError(f'`{HOOKS_FIELD}:` entry {e!r} must be an object '
+                             f'with event, run and optionally matcher and args')
+        event, matcher = e.get('event'), e.get('matcher')
+        run, args = e.get('run'), e.get('args', [])
+        if event not in HOOK_EVENTS:
+            raise ValueError(f'`{HOOKS_FIELD}:` event {event!r} is not one of '
+                             f'{", ".join(HOOK_EVENTS)}')
+        if event in _TOOL_EVENTS and not (isinstance(matcher, str)
+                                          and _HOOK_MATCHER_RE.match(matcher)):
+            raise ValueError(f'`{HOOKS_FIELD}:` a {event} entry needs a matcher '
+                             f'naming the tool, got {matcher!r}')
+        if event not in _TOOL_EVENTS and matcher is not None:
+            raise ValueError(f'`{HOOKS_FIELD}:` a {event} entry takes no matcher')
+        if not isinstance(run, str) or run not in shipped or not run.endswith('.py'):
+            raise ValueError(f'`{HOOKS_FIELD}:` run {run!r} must be a .py file '
+                             f'this practice lists in `{SHIPS_FIELD}:`')
+        if not isinstance(args, list) or not all(
+                isinstance(a, str) and _HOOK_ARG_RE.match(a) for a in args):
+            raise ValueError(f'`{HOOKS_FIELD}:` args {args!r} must be a list of '
+                             f'plain words (letters, digits and _.,=/:-)')
+        out.append({'event': event, 'matcher': matcher, 'run': run,
+                    'args': list(args)})
+    return out
+
+
+def hook_command(hook):
+    """The settings.json command a declared hook is wired as: the shipped
+    file, run with python3 from the project directory."""
+    return ' '.join([f'python3 $CLAUDE_PROJECT_DIR/{hook["run"]}', *hook['args']])
+
+
 # A handful of practices carry a non-canonical rule-opening label kept as
 # literal content by split_practices.py (e.g. "**The practice.**" -- see its
 # _label_to_section: only the exact canonical words rule/why/install get
