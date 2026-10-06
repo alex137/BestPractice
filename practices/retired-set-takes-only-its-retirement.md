@@ -10,7 +10,7 @@ gates:       ["push"]
 gates_why:   "tools/precedent_push_check.py refuses a push to a set whose precedent-source.json says it is retired when the push changes anything but its retirement (_retired_set_refusal), and the push gate prints this rule. index_required: false: the refusal names the rule at the one moment it matters."
 index_clause: "a retired set takes only the edits that retire it"
 index_required: false
-checked_by:  tools/precedent_push_check.py
+checked_by:  null
 defines:     []
 status:      active
 in_force_at: null
@@ -33,3 +33,14 @@ A retired set's rules are in force somewhere else. An edit to its copy reaches o
 
 ## Story
 **2026-10-06.** Morgan decided on 2026-10-05 to fold the repo-maintenance and working-style sets into universal and the writing set. On 2026-10-06 a session running the very deep check's fix pass rewrote a rule and its check inside the repo-maintenance set and promoted it toward main. Morgan: *"We are deprecating repo maintenance and working style. So I think you should not make edits to them unless the edits relate to their deprecation or graceful deprecation ... We keep on going back to editing these files. And we shouldn't."* The push check gained the refusal on 2026-10-06, and Morgan added that the rule is temporary: *"Once we fully upgraded and eliminated that, then we need to make sure we remove that rule. This is a good example of temporary rules."* So it carries an `expires:` condition, which the very deep check prints every run until a person judges it has come true ([spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md)).
+
+## Install
+Nothing to install. The refusal is part of the engine's push check
+(`_retired_set_refusal` in
+[tools/precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py)),
+so a set gets it with its next engine refresh, and a session pushing from
+here gets it now. `checked_by` stays null because the check judges what a
+push brings, not the tree as it stands, which is the only thing a
+`checked_by` script sees; its planted test is
+`check_retired_set_takes_only_its_retirement` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py).
