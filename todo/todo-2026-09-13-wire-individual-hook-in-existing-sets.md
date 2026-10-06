@@ -24,8 +24,8 @@ closed:            null
     [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
     vendors the `precedent_source_bootstrap.py` it execs — so a **new** set
     resolves the person's individual practices from its first session. The
-    four real sets (`precedent-individual`, `precedent-team-writing`,
-    `precedent-team-repo-maintenance`, `precedent-team-working-style`) predate
+    four real sets (`precedent-individual`, `precedent-shared-writing`,
+    `precedent-shared-repo-maintenance`, `precedent-shared-working-style`) predate
     both and get neither.
 
     **What they are missing is the hook FILE and one `SessionStart` command
@@ -86,3 +86,5 @@ Not open until: four repositories this session was not scoped to, under a differ
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).

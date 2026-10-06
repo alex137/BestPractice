@@ -3,7 +3,7 @@ slug:              todo-2026-09-07-two-declared-sources-are-missing-a-file-their
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "nothing but the work — both repos are reachable and pushable from a session that has them attached."
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -20,7 +20,7 @@ closed:            null
   Found 2026-09-07 by the [very deep check](../spec/VERY_DEEP_CHECK.md)'s
   source-shape pass, once that check stopped reporting two false positives
   alongside them. `themorgan/precedent-individual` has no
-  `config.json.sample`; `themorgan/precedent-team-repo-maintenance` has no
+  `config.json.sample`; `themorgan/precedent-shared-repo-maintenance` has no
   `leak-blocklist.txt`. Both were migrated into place rather than
   bootstrapped, so neither ever passed through
   [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py),
@@ -52,3 +52,7 @@ Not open until: nothing but the work — both repos are reachable and pushable f
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+2026-10-06: closed on its condition. Checked on disk: `precedent-individual` carries `config.json.sample` and `precedent-shared-repo-maintenance` carries `leak-blocklist.txt`.
