@@ -3,7 +3,7 @@ slug:              todo-2026-10-05-confirm-main-deep-check-after-the-actions-out
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        "GitHub Actions recovering from its 2026-10-05 degraded availability"
@@ -12,7 +12,7 @@ decision:          "merge #897 into main without its GitHub test, once, because 
 decision_strength: decided
 waiting_on:        null
 noted:             2026-10-05
-closed:            null
+closed:            2026-10-05
 ---
 ## What
 
@@ -35,3 +35,5 @@ Closes when a Deep check on main, at `315c080f` or later, has passed.
 
 The skip is recorded on the pull request itself, in a comment, so Alex
 sees why the gate was skipped.
+
+**Closed 2026-10-05.** Deep check run 37379169605 on main passed at `4116bb7a`, which descends from `315c080f` (checked 2026-10-05, very deep check pass 4). The run at `315c080f` itself, 37372997436, had failed.

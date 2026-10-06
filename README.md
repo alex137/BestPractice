@@ -108,7 +108,7 @@ Precedent can be seen as "Google Docs/Slides meets software" — work
 through the ideas and challenges together, iterating together, and
 patterns and rules emerge that you keep in your open system.
 
-- **Start a repo, not a doc — then vendor-in Precedent.** Spin the repo up
+- **Start a repo, not a doc — then copy Precedent into it.** Spin the repo up
   for the idea the same way you'd start a shared doc, then bring
   Precedent's practice engine into it — that's what turns everything below
   from a wish into something that actually happens.
@@ -181,7 +181,7 @@ conversation.
 
 ## Get Up and Running!
 
-To get going, vendor in Precedent to a repo, connect that repo to your
+To get going, copy Precedent into a repo, connect that repo to your
 favorite AI via their coding platform — and go!
 
 Learn more about it: [the guide for adopting

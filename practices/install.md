@@ -16,7 +16,7 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from the shared set precedent-shared-repo-maintenance"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05"
 strength: decided
 ---
 ## Rule
@@ -27,7 +27,7 @@ This applies the same way when the target repo already has some pieces present b
 
 Where the person working in the target repo has their own individual set, this install also wires that up -- a distinct step from declaring the shared sets, since an individual set is never committed into the target repo at all (that's the privacy boundary). Concretely, for a Claude Code Web session: copy that person's individual repo's own bootstrap script (a worked example of this pattern exists in the individual-set practice for it) into the target repo as a tracked `SessionStart` hook, so the individual source clones and configures itself before the session's first tool call -- no command run by hand, on any machine, by anyone whether or not they're a developer. Skip this step only if the person has no individual set, or explicitly doesn't want one wired into this particular project.
 
-The default-branch step stays here, and `default-branch` stays in force as its own practice, only because its check, `check_default_branch.py`, is keyed to that slug: folding it into this Rule would stop the check.
+The default-branch step stays here, and `default-branch` stays in force as its own practice, only because its check, the registered `default-branch` check, is keyed to that slug: folding it into this Rule would stop the check.
 
 ## Why
 Copying files by hand gets a repo the files, not what the installer writes beside them: `precedent.json`'s `sources`, which the session-start resolver reads to find each set beside the repo, and the engine's `tools/ENGINE_MANIFEST.json`, which records where every vendored file came from. Without the first, nothing finds the sets; without the second, the first Update Vendors cannot tell an upstream file from a local edit, so it cannot know what it may overwrite.

@@ -35,7 +35,7 @@ closed:            null
   deep-check and private-repo-scrub drafted into universal, each with its
   check rewritten as a registered check in
   [tools/precedent_check.py](../tools/precedent_check.py) and a planted case
-  in `tools/verify_harness.py`. private-repo-scrub's check no longer carries
+  in [tools/verify_harness.py](../tools/verify_harness.py). private-repo-scrub's check no longer carries
   a list of private names: it asks each source in force whether it is
   private. light-check was not drafted: its rule was folded into
   `two-check-levels` on 2026-09-28, so its audit became the engine's own
@@ -50,3 +50,15 @@ exception: its set copy is deduplicated by hand, with `in_force_at:
 two-check-levels`, since the tool only points a copy at the same slug.
 Then remove `precedent-shared-repo-maintenance` from each `precedent.json`
 that declares it. Archiving the repository on GitHub is Morgan's call.
+
+**Two of the set's checks have no home yet (found by the very deep check,
+2026-10-05).** The set's commit-trailer check and its fresh-before-write
+check ship only in the set. The push check finds the trailer check through
+the set's declaration ([tools/precedent_push_check.py](../tools/precedent_push_check.py)'s
+`IDENTITY_CHECKS`), and universal's
+[session-trailer](../practices/session-trailer.md) and
+[fresh-before-write](../practices/fresh-before-write.md) name no check of
+their own. A repository that stops declaring the set stops checking both,
+silently. So BestPractice keeps declaring it, and "remove it from each
+`precedent.json`" waits on porting both as registered checks with a planted
+case each, the way the second pass above ported four others.

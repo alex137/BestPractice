@@ -43,4 +43,10 @@ The places that told a new install to declare the set changed on
 README, the guided setup in [SETUP.md](../SETUP.md), and INSTALL.md's
 table of which shared sets a repo declares.
 
+**BestPractice stopped declaring it, 2026-10-05.** Universal and the
+writing set carry every rule the set still held active, so this repository
+loses nothing by dropping it from its own `precedent.json`; the very deep
+check run that day was reading the set as in force here. The set copies are
+not deduplicated yet, and other repositories that declare it still do.
+
 Archiving the repository on GitHub is Morgan's call.

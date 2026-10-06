@@ -905,6 +905,72 @@ def _rule_was_rewritten(old_sections, new_sections):
             and changed / len(before) >= _RULE_REWRITE_MIN_SHARE)
 
 
+@check('universal-change-reaches-overrides', 'change',
+       'a change to a universal practice names each shared set that carries its '
+       'own active copy of the same slug -- that copy overrides this one for '
+       'everyone who declares or brings the set, so the change does not reach '
+       'them until it is made there too',
+       'whether the change belongs in the copy at all: a copy differs from '
+       'universal on purpose, so the finding names it and a person judges. A set '
+       'not cloned on this machine is passed over. It fires only in the '
+       'universal source itself, and only on a change below the frontmatter.',
+       advisory=True, practice_backed=False,
+       advisory_term={'term': 'permanent',
+                      'why': 'whether a universal change applies to a set\'s '
+                             'deliberately different copy is a judgment, and the '
+                             'set may be one this session cannot push to'},
+       selects_on=('practices/*.md',))
+def _universal_change_reaches_overrides(ctx):
+    """2026-10-05: the ladder set's copies of the-boildown and
+    vendor-update-runbook override universal's for everyone who brings the
+    ladder, and fell behind within three days -- four of universal's changes
+    never reached them, one of them made by a session that had just edited
+    universal's copy itself. Universal's own Story said "edit both"; a
+    sentence in a Story is read by nobody at the moment of the edit. This
+    says it at the push that makes the change (BestPractice's very deep
+    check, 2026-10-05, pass 3)."""
+    try:
+        src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(src, dict) or src.get('level') != 'universal':
+        return []
+    changed = []
+    for f in ctx.changed_matching(r'^practices/[^/]+\.md$'):
+        old = ctx.read_base(f)
+        body = ctx.read(f).split('\n---\n', 1)[-1]
+        if old is not None and old.split('\n---\n', 1)[-1] == body:
+            continue                    # a frontmatter-only edit
+        changed.append(f)
+    if not changed:
+        return []
+    try:
+        import precedent_resolve as _pr
+        sources = _pr.load_config(str(ROOT))
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'the declared sets could not be read ({e})')
+    out = []
+    for f in changed:
+        slug = pathlib.PurePosixPath(f).stem
+        for s in sources:
+            if s.get('level') in ('universal', 'repo-local'):
+                continue
+            copy = pathlib.Path(s['path']) / 'practices' / f'{slug}.md'
+            try:
+                text = copy.read_text(encoding='utf-8')
+            except OSError:
+                continue
+            m = re.search(r'^status:\s*(\S+)', text, re.M)
+            if not m or m.group(1).strip('"\'') != 'active':
+                continue
+            out.append(Finding(
+                f, f"{s['name']} carries its own active {slug}, which overrides "
+                   f"this one for everyone who {'brings' if s.get('brought') else 'declares'} "
+                   f"that set: make the same change there "
+                   f"({s['name']}/practices/{slug}.md), or say why it does not apply"))
+    return out
+
+
 @check('cite-the-incident', 'change',
        'a practice file whose Rule is new or changed must carry a non-empty '
        '## Story',
@@ -3410,10 +3476,19 @@ def _practice_is_reachable(ctx):
     try:
         import build_views as _bv
         hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
+        # The hook may run the tool itself, or run tools/bootstrap.sh, which
+        # runs it -- the shipped consumer hook does the second and nothing
+        # else, so reading only the hook called every fresh install's
+        # session channel unwired (very deep check, 2026-10-05).
+        hook_text = (hook.read_text(encoding='utf-8', errors='ignore')
+                     if hook.is_file() else '')
+        boot = ROOT / 'tools' / 'bootstrap.sh'
+        runs_it = 'precedent_session_practices' in hook_text or (
+            'bootstrap.sh' in hook_text and boot.is_file()
+            and 'precedent_session_practices' in boot.read_text(
+                encoding='utf-8', errors='ignore'))
         wired = ((ROOT / 'tools' / 'precedent_session_practices.py').is_file()
-                 and hook.is_file()
-                 and 'precedent_session_practices' in hook.read_text(
-                     encoding='utf-8', errors='ignore'))
+                 and runs_it)
         if wired and _bv.repo_is_public(ROOT):
             session_channel_levels = _bv.PRIVATE_LEVELS
     except Exception:                                        # noqa: BLE001
@@ -5326,6 +5401,14 @@ _ENGINE_REF_RE = re.compile(
 # somewhere else is how a real gap gets waved through later. Keep this
 # short: the default answer to "this file isn't here" is to vendor it.
 _ENGINE_REF_ABSENT_OK = {
+    # A PRESENCE PROBE, like precedent_session_practices.py below. The
+    # layered-practice-packs check follows a session hook that runs
+    # tools/bootstrap.sh into it, to see whether it renders the session
+    # file (2026-10-05). A consuming repo has the script; a practice SET
+    # does not, and the reference is `.is_file()`-guarded, so its absence
+    # means only "this hook does not reach the tool that way". Found the
+    # same night, when a Debut's harness ran the check in a bare source set.
+    'bootstrap.sh',
     # A repo's OWN declared ceilings for what a session loads
     # (session-load-budget). Engine-read, never engine-owned: an adopter's
     # ceilings are theirs, so vendoring this repo's copy into their tools/

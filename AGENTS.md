@@ -20,7 +20,7 @@ asking for, not by a keyword; the phrase removes doubt, it does not create a
 requirement. Where a command authorizes something hard to reverse (a push,
 a merge, a mark of how convinced he was) and the reading is a genuine
 judgment call, say the read out loud and confirm first. A full practice
-audit, a very deep check and the fleet sweep (`Chief of Staff`) are kept to
+audit and a very deep check are kept to
 the literal ask, because what they trigger is expensive. **Each line below
 is an index entry: load the practice (`python3 tools/precedent_show.py
 SLUG`) before acting on one**, and the long form each used to carry here is

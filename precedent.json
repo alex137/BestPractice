@@ -740,11 +740,6 @@
       "path": "../precedent-shared-writing"
     },
     {
-      "level": "shared",
-      "name": "precedent-shared-working-style",
-      "path": "../precedent-shared-working-style"
-    },
-    {
       "level": "repo-local",
       "name": "local",
       "path": "local"
