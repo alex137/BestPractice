@@ -3,7 +3,7 @@ slug:              todo-2026-09-19-dedupe-small-calls-in-team-working-style
 kind:              manual
 domain:            mechanism
 severity:          minor
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "this PR merging into precedent-beta-v01, and every repository consuming precedent-team-working-style taking the new universal catalogue"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-19
-closed:            null
+closed:            2026-10-05
 ---
 ## What
 
@@ -49,3 +49,5 @@ matching item for `push-back` in `precedent-team-writing`
 per Morgan's own instruction ("Move both push-back and small-calls to
 universal") since `push-back`'s Story names `small-calls` as its paired
 opposite case.
+
+**Closed 2026-10-05.** The working-style set's small-calls copy is `status: deduplicated`, `in_force_at: small-calls` (checked 2026-10-05, very deep check).

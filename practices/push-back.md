@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-19"
-approved_by: "pending PR review -- drafted 2026-09-19 by Morgan F, moved from the shared set precedent-team-writing"
+approved_by: "Morgan F, drafted 2026-09-19, moved from the shared set precedent-team-writing; merged in PR #465 on 2026-09-19"
 strength: decided
 ---
 ## Rule

@@ -3,7 +3,7 @@ slug:              todo-2026-09-19-dedupe-push-back-in-team-writing
 kind:              manual
 domain:            mechanism
 severity:          minor
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "this PR merging into precedent-beta-v01, and every repository consuming precedent-team-writing taking the new universal catalogue"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-19
-closed:            null
+closed:            2026-10-05
 ---
 ## What
 
@@ -45,3 +45,5 @@ item `done`.
 
 Opened while drafting the universal landing (2026-09-19), so the follow-up
 isn't only remembered in this PR's own thread.
+
+**Closed 2026-10-05.** The writing set's push-back copy is `status: deduplicated`, `in_force_at: push-back` (checked 2026-10-05, very deep check).

@@ -3,7 +3,7 @@ slug:              todo-2026-09-26-frontmatter-field-order-goes-blocking
 kind:              manual
 domain:            vendoring
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "the four practice sets taking the engine update that carries frontmatter-field-order and running its fixer"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-26
-closed:            null
+closed:            2026-10-05
 ---
 ## What
 
@@ -39,3 +39,5 @@ its own findings with the fixer on its next push. This closes when
 all four sets and the check is made blocking. Turning it blocking before
 then makes each set's next Update Vendors red with nothing BestPractice can
 fix from its side.
+
+**Closed 2026-10-05.** `frontmatter_yaml.py --check-order` reports 0 out of order in all four sets (38, 44, 11 and 26 files checked), and the check is hard since 2026-10-05 (very deep check, 2026-10-05).
