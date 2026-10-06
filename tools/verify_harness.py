@@ -6190,6 +6190,64 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_no_duplication_refuses_a_sets_copy_of_a_universal_rule():
+    """A practice set may not carry an active copy of a practice its declared
+    universal source has active; it adds to it in a practice of its own
+    (Morgan, 2026-10-06: "rules should not be repeated, but supporting repos
+    can have additions for them"). Planted end to end in a fixture set
+    beside a fixture universal: the copy is refused, naming the way out; an
+    addition under its own slug, a deduplicated copy and a retired set all
+    pass."""
+    import shutil as _sh
+    import tempfile as _tf
+    def prac(slug, status):
+        return (f'---\nslug: {slug}\ntitle: T\ntier: on-demand\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "x"\ndefines: []\nstatus: {status}\n'
+                f'---\n## Rule\nx\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n')
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        uni = base / 'uni'
+        (uni / 'practices').mkdir(parents=True)
+        (uni / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'active'), encoding='utf-8')
+        (uni / 'precedent-source.json').write_text(json.dumps({'level': 'universal', 'name': 'precedent'}), encoding='utf-8')
+        st = base / 'set'
+        (st / 'practices').mkdir(parents=True)
+        _sh.copytree(ROOT / 'tools', st / 'tools', ignore=_sh.ignore_patterns('__pycache__'))
+        # What makes a repository a practice SOURCE to the engine: the kind
+        # its vendored engine's manifest declares (_publishes_practices).
+        (st / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'format_version': 1, 'kind': 'source', 'files': []}), encoding='utf-8')
+        (st / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../uni'}]}), encoding='utf-8')
+        meta = {'level': 'shared', 'name': 'set'}
+        (st / 'precedent-source.json').write_text(json.dumps(meta), encoding='utf-8')
+        (st / 'practices' / 'shared-rule-on-set.md').write_text(prac('shared-rule-on-set', 'active'), encoding='utf-8')
+
+        def run():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'no-duplication'], cwd=st, capture_output=True, text=True,
+                               env=dict(os.environ, PRECEDENT_USER_CONFIG=str(base / 'none.json')))
+            return r.stdout + r.stderr
+        out = run()
+        cases.append(('an addition under its own slug passes', ' 0 violated' in out and '1 passed' in out))
+        (st / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'active'), encoding='utf-8')
+        out = run()
+        cases.append(('an active copy of a universal rule is refused, naming the way out',
+                      ' 1 violated' in out and 'practices/shared-rule.md' in out
+                      and 'add' in out and 'deduplicated' in out))
+        (st / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'deduplicated'), encoding='utf-8')
+        out = run()
+        cases.append(('a deduplicated copy passes', ' 0 violated' in out))
+        (st / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'active'), encoding='utf-8')
+        (st / 'precedent-source.json').write_text(json.dumps(dict(meta, retired={'date': '2026-10-06'})), encoding='utf-8')
+        out = run()
+        cases.append(('a retired set is passed over', ' 0 violated' in out and 'retired' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'no-duplication refuses a set\'s copy of a universal rule ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_does_not_call_a_held_back_check_an_orphan():
     """A sync names as orphaned only a check no practice file claims. A check
     whose own source's practice file names it in `checked_by` -- a rule that
@@ -17098,6 +17156,37 @@ def check_precedent_check_fires():
                             encoding='utf-8')
         case('universal-change-reaches-overrides', _plant_override_drift,
              advisory=True)
+
+        # no-duplication -- in a practice SET, an active practice whose slug
+        # its declared universal source also has active is refused (Morgan,
+        # 2026-10-06: "rules should not be repeated, but supporting repos can
+        # have additions for them"). The fixture is universal's own tree, so
+        # the setup makes it a set beside a small universal that shares
+        # nothing with it; the plant gives that universal one of its slugs.
+        def _setup_set_beside_universal(repo):
+            uni = repo.parent / f'{repo.name}-dup-universal'
+            (uni / 'practices').mkdir(parents=True, exist_ok=True)
+            (uni / 'precedent-source.json').write_text(json.dumps(
+                {'name': 'precedent', 'level': 'universal'}), encoding='utf-8')
+            (uni / 'practices' / 'zz-only-in-universal.md').write_text(
+                '---\nslug: zz-only-in-universal\nstatus: active\n---\n', encoding='utf-8')
+            src = json.loads((repo / 'precedent-source.json').read_text(encoding='utf-8'))
+            src['level'] = 'shared'
+            (repo / 'precedent-source.json').write_text(json.dumps(src), encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+                {'format_version': 1, 'kind': 'source', 'files': []}), encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg['sources'] = [{'name': 'precedent', 'level': 'universal',
+                               'path': f'../{uni.name}'}]
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+
+        def _plant_set_copy(repo):
+            uni = repo.parent / f'{repo.name}-dup-universal'
+            (uni / 'practices' / 'orientation-map.md').write_text(
+                (repo / 'practices' / 'orientation-map.md').read_text(encoding='utf-8'),
+                encoding='utf-8')
+        case('no-duplication', _plant_set_copy, setup=_setup_set_beside_universal)
 
         # frontmatter-field-order -- a permanent warning (practice:
         # format-rules-grandfather): a planted misorder is reported, and
@@ -46826,6 +46915,45 @@ def check_links_to_renamed_practice_forward():
           not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
 
 
+def check_dedup_onto_same_slug_withdraws_nothing():
+    """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
+
+    WHY. 2026-10-06: the ladder set's four full copies of universal rules
+    were cut to stubs with `in_force_at:` their own slug, universal's rule of
+    that name staying in force. Every link to `prompt-please` and the other
+    three, in every declared source, came back as a FOLLOW-UP to repoint --
+    72 of them, none real, since the slug still names a live rule."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    ppr = __import__('precedent_practice_refs')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='dedup-same-slug-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    fm = '---\nslug: {s}\nstatus: {st}\nin_force_at: {to}\n---\n## Rule\nR.\n'
+    try:
+        g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=env,
+                                      check=True, capture_output=True)
+        g('init', '-q', '-b', 'main')
+        (tmp / 'practices').mkdir()
+        for s in ('kept-rule', 'moved-rule'):
+            (tmp / 'practices' / f'{s}.md').write_text(
+                fm.format(s=s, st='active', to='null'), encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-qb', 'work')
+        (tmp / 'practices' / 'kept-rule.md').write_text(
+            fm.format(s='kept-rule', st='deduplicated', to='kept-rule'), encoding='utf-8')
+        (tmp / 'practices' / 'moved-rule.md').write_text(
+            fm.format(s='moved-rule', st='deduplicated', to='other-rule'), encoding='utf-8')
+        got = ppr.changed_slugs(tmp, 'main')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('a copy deduplicated onto its own slug is not reported as withdrawn',
+          'kept-rule' not in got, repr(got))
+    check('CONTROL: a copy deduplicated onto another slug still is',
+          got.get('moved-rule') == 'now deduplicated', repr(got))
+
+
 def check_practice_refs_sorts_live_from_history():
     """precedent_practice_refs.py finds every citation of a renamed practice
     in a SET, marks the live pointers as must-fix, and leaves history alone.
@@ -61735,6 +61863,7 @@ def main():
     check_session_start_charges_brought_sets_to_the_person()
     check_update_drops_the_dead_blank_blocklist_link()
     check_sync_does_not_call_a_held_back_check_an_orphan()
+    check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
@@ -62135,6 +62264,7 @@ def main():
     check_in_force_at_chain_is_followed()
     check_links_to_renamed_practice_forward()
     check_practice_refs_sorts_live_from_history()
+    check_dedup_onto_same_slug_withdraws_nothing()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

@@ -16,7 +16,13 @@ in_force_at: null
 supersedes:  ["next-steps-after-commit", "merged-session-offers-a-practice", "handoff-is-pasteable", "closing-items-are-this-thread", "asks-stand-alone", "archive-a-finished-session"]
 overrides:   null
 added:       "2026-09-15"
-approved_by: "extended 2026-09-29, Morgan (strength: decided): the first
+approved_by: "extended 2026-10-06, Morgan (strength: decided): a quiet
+  turn's reply is one line, never nothing -- a stop hook that asked for
+  nothing made the harness inject a turn of its own;
+  extended 2026-10-05, Morgan (strength: decided): a Boildown with nothing
+  new in it is one line, a batch of background jobs reports once, and
+  practice ideas are at most two, only in the closing reply;
+  extended 2026-09-29, Morgan (strength: decided): the first
   bullet of every Boildown names the branch the work is on and the stage it
   finished -- \"the first bullet point should be the work of this session is
   now on colon and then the name of the branch ... I think there is no
@@ -216,7 +222,7 @@ Authorized in full: *"Let's go - go merge, do it, go update."*
 
 **2026-09-29, later: the first line says where the work is.** Morgan, to avoid confusion over where a session's work stood, asked for a fixed opening bullet naming the branch and the stage it finished, with no exception for a reply that only planned. It sits before item 1 rather than becoming a new item 1, so the numbers other files cite stay put. The step-before-word form ("step 2 of 5, Act") follows the step vocabulary `stage-word-carries-its-step` already uses, where he said "stage two of five". A blocking check backs it, `require_first_item_under_heading` in `reply_check.json`, because a line meant to be in every reply is exactly the kind a session drops when the rest feels finished. strength: decided.
 
-2026-10-02: rewritten without the ladder's words when the ladder became a set a person brings (spec/LADDER_OPT_IN_PLAN.md). The set that provides the ladder carries the earlier wording under the same slug, for the people who bring it. Edit both.
+2026-10-02: rewritten without the ladder's words when the ladder became a set a person brings (spec/LADDER_OPT_IN_PLAN.md). That set carried a full copy under the same slug until 2026-10-06; since then it adds to this rule in a practice of its own and repeats none of it ([no-duplication](no-duplication.md)), so a change here is made here only.
 
 **2026-10-06: one line, never nothing.** A consumer session reported that when the stop hook refused a repeated Boildown it said "Output NOTHING further ... end the turn", and the harness then injected "Your previous response had no visible output. Please continue", so the session had to break one instruction or the other. The same happened in this repository the same day on quiet wakes and on the practice-ideas refusal. Every "say nothing" repair now asks for one line instead -- the one-line form after a repeat, "(Waiting on <what>.)" on a quiet wake, a one-line withdrawal for misplaced practice ideas -- and the quiet-wake check accepts exactly that one line in parentheses, so a one-line report ("Individual passed.") is still refused. Fixed at the reporting session's recommendation, relayed by Morgan ("Please review and fix"), strength: decided.
 
