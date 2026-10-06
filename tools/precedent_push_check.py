@@ -303,8 +303,14 @@ BASIC, FULL = 'basic', 'full'
 # check prints at the commit this push forked from -- is printed and does
 # not refuse. A finding the push brings still refuses, and a push to a tier
 # branch is judged exactly as before.
+# views_sync joined 2026-10-06: a practice source this repository declares
+# moved, every generated view went stale, and a one-line content push to a
+# feature branch was refused for it. A stale view the fork point shows too
+# is the source's doing, refreshed as a commit of its own at Booked
+# (precedent_merge_vendors.py); a view this push edits by hand still refuses,
+# and a push to a tier branch is judged exactly as before.
 RANGE_JUDGED = {'commit_author', 'commit_dates', 'ci_workflows',
-                'scrub_gate', 'practice_export_loop'}
+                'scrub_gate', 'practice_export_loop', 'views_sync'}
 COMMIT_IN_FINDING = re.compile(r'\bcommit ([0-9a-f]{7,40})\b')
 PUSH_CHECKS = {
     'upstream': (

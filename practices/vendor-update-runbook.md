@@ -28,7 +28,10 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   amended 2026-10-05, Alex (decided) -- a repo may follow staging instead
   of main by declaring upstream_branch in its precedent.json; amended
   2026-10-06, Morgan (decided) -- a declared set that is retired is dropped
-  by the update itself, only when no active rule would be lost"
+  by the update itself, only when no active rule would be lost; amended
+  2026-10-06, Morgan (decided) -- \"Please fix all of these at their roots.
+  Act\": the merge refreshes stale views, a hook or settings change asks for
+  the person's yes before the commit"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -76,7 +79,18 @@ Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 `python3 tools/precedent_merge_vendors.py`, run before the push, commits a
 finished update as a commit of its own, or takes a run that left calls or
 failed back whole and names why. Say "Update Vendors" yourself to
-work through what a NOT TAKEN run listed.
+work through what a NOT TAKEN run listed. **The same step refreshes views a
+moved practice source left stale**, as a commit of its own: a push to a
+working branch is no longer refused for a stale view it did not bring, so
+this is where the refresh happens.
+
+**A change to hooks or settings needs the person's yes, asked before the
+commit.** Claude Code's auto mode holds a commit that changes `.claude/`
+until the person approves it. So when the update staged anything there, it
+still finishes, and prints the files under QUESTIONS FOR THE PERSON: ask,
+naming them, before committing. The merge step commits by itself, so there
+the update and the views refresh are taken back and said instead, until
+the person's words arrive as `PRECEDENT_HARNESS_GO_AHEAD="<their words>"`.
 
 **This does not lift the gate the chain already runs through**, and it does
 not add one. Step 12 publishes by the repository's usual conventions, and
@@ -953,6 +967,18 @@ work, in plain words, since the ladder became a set a person brings
 under this slug for the people who bring it. Since 2026-10-06 that set adds
 to this runbook in a practice of its own and repeats none of it
 ([no-duplication](no-duplication.md)), so a change here is made here only.
+
+**2026-10-06: a stale view, a hook nobody wired, and a commit auto mode
+held.** A consumer session reported a one-line content push refused because
+a practice source had moved and every generated view was stale. It also
+reported that the writing set's `dated-download-names` failed its own
+check right after a clean sync, because nothing wired the hook it needs.
+And it said an update touching hooks met auto mode only at the commit.
+Reviewed, all three held. The push check now judges a stale view on what
+the push brings, and the merge refreshes it. A practice declares its hooks
+(`hooks:`, spec/PRACTICE_FORMAT.md) and the sync adds them. A change under
+`.claude/` is a question for you, printed before anything is committed.
+Morgan: *"Please fix all of these at their roots. Act"*. strength: decided.
 
 ## Install
 Before starting, name the layers this repo vendors and where each records
