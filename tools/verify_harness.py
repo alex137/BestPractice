@@ -29610,6 +29610,8 @@ def check_promote_pre_staging():
     pre-staging commit's `[skip ci]` line becomes staging's head (hole 3);
     and pre-staging must pick up what was pushed to staging directly
     (hole 2) -- by a merge, and not at all when that merge conflicts."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
     import tempfile, json as _json, shutil as _shutil
     name = 'Promote: pre-staging into staging, fully checked, by a merge commit'
     tool = ROOT / 'tools' / 'precedent_branches.py'
@@ -29743,8 +29745,8 @@ def check_promote_pre_staging():
         commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
         pre_before = tip('pre-staging')
         rc, out = branches('--promote')
-        fixes = git(work, 'for-each-ref', '--format=%(refname:short)',
-                    'refs/heads/promote-fix-*').stdout.split()
+        fixes = [b for b in git(work, 'for-each-ref', '--format=%(refname:short)',
+                                'refs/heads/').stdout.split() if pb.is_fix_branch(b)]
         cases.append(('a batch failing a full-only check is not finished: neither '
                       'staging nor pre-staging moves, and it says what failed',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
@@ -30241,6 +30243,8 @@ def check_promote_picks_its_step():
     session names (--work) decides over the tiers' own order, except that
     both steps waiting is ambiguous and goes pre-staging first; and nothing
     waiting prints no "Now promoting" line at all."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
     import tempfile, json as _json, shutil as _shutil
     name = 'Promote picks pre-staging->staging or staging->main, and says which'
     tool = ROOT / 'tools' / 'precedent_branches.py'
@@ -30319,8 +30323,9 @@ def check_promote_picks_its_step():
 
         main_before = tip('main')
         rc, out = branches('--promote')
-        copies = [l.split('\t')[1] for l in git(
-            work, 'ls-remote', 'origin', 'refs/heads/to-main-*').stdout.splitlines()]
+        copies = [r for r in (l.split('\t')[1] for l in git(
+            work, 'ls-remote', 'origin', 'refs/heads/*').stdout.splitlines())
+            if pb.is_main_copy(r[len('refs/heads/'):])]
         cases.append(('with pre-staging empty, staging goes into main, said in '
                       'those words, exiting 3 since main has not moved yet',
                       rc == 3 and out.startswith(
@@ -30750,7 +30755,8 @@ def check_promote_keeps_the_old_name_in_step():
 
 def _gh_if(expr, event_name, private, head_ref=''):
     """Evaluate a GitHub Actions job `if:` the way GitHub does, for the few
-    operators the light check uses (&&, ||, !, ==, !=, startsWith, true),
+    operators the light check uses (&&, ||, !, ==, !=, startsWith, contains,
+    true),
     against one event. Strict on purpose: anything else in the expression
     raises, so a template edit this cannot read fails loudly, never reads as
     "skips"."""
@@ -30761,7 +30767,8 @@ def _gh_if(expr, event_name, private, head_ref=''):
     e = re.sub(r'\btrue\b', 'True', re.sub(r'\bfalse\b', 'False', e))
     left = re.sub(r"'[^']*'", '', e)
     names = set(re.findall(r'[A-Za-z_][\w.]*', left)) - {
-        'and', 'or', 'not', 'True', 'False', 'startsWith', 'github.event_name',
+        'and', 'or', 'not', 'True', 'False', 'startsWith', 'contains',
+        'github.event_name',
         'github.head_ref', 'github.event.repository.private'}
     if names:
         raise ValueError(f'the job if: uses {sorted(names)}, which this evaluator does not model')
@@ -30770,7 +30777,8 @@ def _gh_if(expr, event_name, private, head_ref=''):
                 event=ns(repository=ns(private=private)))
     return bool(eval(e, {'__builtins__': {}}, {
         'github': github,
-        'startsWith': lambda a, b: str(a or '').lower().startswith(str(b).lower())}))
+        'startsWith': lambda a, b: str(a or '').lower().startswith(str(b).lower()),
+        'contains': lambda a, b: str(b).lower() in str(a or '').lower()}))
 
 
 def check_main_test_minutes_rule():
@@ -30846,6 +30854,26 @@ def check_main_test_minutes_rule():
                   not starts('pull_request', 'main', True, 'staging')))
     cases.append(('...nor "x-to-main-...": the copy name is matched as a prefix',
                   not starts('pull_request', 'main', True, 'x-to-main-2026-10-01')))
+    # The session-branch names a Promote's copies carry since 2026-10-06.
+    cases.append(('private: a copy named like a session branch that IS due runs',
+                  starts('pull_request', 'main', True,
+                         'claude/2026-10-06-promote-to-main-y1ktn')))
+    cases.append(('private: one that is NOT DUE starts no runner',
+                  not starts('pull_request', 'main', True,
+                             'claude/2026-10-06-promote-to-main-not-due-y1ktn')))
+    cases.append(('...and what Promote names them is what the template reads',
+                  pb.is_main_copy('claude/2026-10-06-promote-to-main-y1ktn')
+                  and pb.is_not_due_copy('claude/2026-10-06-promote-to-main-not-due-y1ktn')
+                  and pb.COPY_NAME_MARKER in tpl.read_text(encoding='utf-8')))
+    # A DELIBERATE EXCEPTION, named so it stays a decision: GitHub's if: has
+    # no pattern matching, so a hand-named branch whose slug happens to say
+    # "promote-to-main" reads as a copy there. It would run one test on a
+    # private pull request into main; the engine's own reading is exact.
+    cases.append(('EXCEPTION: a branch whose slug says promote-to-main runs there, '
+                  'and only there -- the engine does not take it for a copy',
+                  starts('pull_request', 'main', True,
+                         'claude/2026-10-06-merge-promote-to-main-docs-y1ktn')
+                  and not pb.is_main_copy('claude/2026-10-06-merge-promote-to-main-docs-y1ktn')))
     cases.append(('public: a pull request into main from a working branch runs',
                   starts('pull_request', 'main', False, 'claude/feature-x')))
     cases.append(('a run started by hand runs in either kind of repository',
@@ -31029,17 +31057,17 @@ def check_main_test_minutes_rule():
                     os.environ[k] = v
         rc, refs, said = pushed['passed 10h ago']
         cases.append(('a real Promote, test passed 10h ago with 168h set: pushes a '
-                      'to-main-not-due-* copy and says NOT DUE',
+                      'not-due copy and says NOT DUE',
                       rc == pb2.PROMOTE_MAIN_NOT_MOVED and len(refs) == 1
-                      and refs[0].startswith(pb2.NOT_DUE_PREFIX)
+                      and pb2.is_not_due_copy(refs[0])
                       and any('NOT DUE' in x for x in said)
                       and not starts('pull_request', 'main', True, refs[0])))
         rc, refs, said = pushed['passed 200h ago']
-        cases.append(('...and with the test 200h old: pushes a plain to-main-* copy, '
+        cases.append(('...and with the test 200h old: pushes a plain copy, '
                       'says DUE, and GitHub would run it',
                       rc == pb2.PROMOTE_MAIN_NOT_MOVED and len(refs) == 1
-                      and refs[0].startswith('to-main-')
-                      and not refs[0].startswith(pb2.NOT_DUE_PREFIX)
+                      and pb2.is_main_copy(refs[0])
+                      and not pb2.is_not_due_copy(refs[0])
                       and any('GitHub test: DUE' in x for x in said)
                       and starts('pull_request', 'main', True, refs[0])))
         rc, _refs, said = pushed.get('none runs', (None, [], []))
@@ -31565,9 +31593,9 @@ def check_main_test_cadence():
         cases.append(('--wait-main-test on a not-due copy exits 0 at once and says '
                       'NOT DUE', rc == 0 and said and 'NOT DUE' in said[-1]))
         pb._remote_tip = lambda root, branch: None
-        cases.append(('a not-due copy is named with the prefix the template skips on',
-                      pb._to_main_copy(repo, due=False).startswith(pb.NOT_DUE_PREFIX)
-                      and not pb._to_main_copy(repo).startswith(pb.NOT_DUE_PREFIX)))
+        cases.append(('a not-due copy is named with the name the template skips on',
+                      pb.is_not_due_copy(pb._to_main_copy(repo, due=False))
+                      and not pb.is_not_due_copy(pb._to_main_copy(repo))))
         ok_run = {'path': WF, 'status': 'completed', 'conclusion': 'success',
                   'created_at': '2026-09-30T10:00:00Z', 'head_sha': 'SHA'}
         skipped = dict(ok_run, conclusion='skipped', created_at='2026-09-30T11:00:00Z')
@@ -32054,6 +32082,8 @@ def check_promote_composes_main_and_moves_both_tiers():
     pre-staging unchecked; a failure or conflict that ends with nowhere to
     fix it; the fix route not finishing; a generator run that is not safe to
     run, or a rebuild that churns every render's stamp."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb  # is_fix_branch / is_main_copy: new names and old
     import tempfile, json as _json, shutil as _shutil
     name = 'the Promote into staging composes main and pre-staging, checks once, moves both'
     if not (ROOT / 'tools' / 'precedent_branches.py').exists():
@@ -32168,13 +32198,14 @@ def check_promote_composes_main_and_moves_both_tiers():
         def fixes():
             # Local since 2026-10-06: a refused Promote leaves its fix branch
             # in the clone, and only a pushed fix puts it on origin.
-            return sorted(git(work, 'for-each-ref', '--format=%(refname:short)',
-                              'refs/heads/promote-fix-*').stdout.split())
+            return sorted(b for b in git(work, 'for-each-ref', '--format=%(refname:short)',
+                                         'refs/heads/').stdout.split()
+                          if pb.is_fix_branch(b))
 
         def fixes_on_origin():
-            return sorted(l.split()[-1][len('refs/heads/'):] for l in git(
-                work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*'
-            ).stdout.splitlines())
+            return sorted(b for b in (l.split()[-1][len('refs/heads/'):] for l in git(
+                work, 'ls-remote', 'origin', 'refs/heads/*'
+            ).stdout.splitlines()) if pb.is_fix_branch(b))
 
         def on_local(sha, branch):
             return git(work, 'merge-base', '--is-ancestor', sha,
@@ -35781,7 +35812,8 @@ def check_tier_branches_are_never_a_pull_requests_source():
         ('a pull request FROM staging, same repository, is refused',
          bool(pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers))),
         ('...and the refusal says how: a throwaway copy',
-         'refs/heads/to-main-' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')),
+         'promote-to-main' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')
+         or 'refs/heads/to-main-' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')),
         ('so is one from pre-staging or main',
          all(pmc.tier_source_refusal(b, 'o/r', 'o', 'r', tiers) for b in ('pre-staging', 'main'))),
         ("a fork's branch named staging is not refused",
@@ -46928,6 +46960,70 @@ def _fixture_git_env():
     return dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                 GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
                 GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+
+def check_promote_branches_are_named_like_session_branches():
+    """A Promote's fix branch and its copy of staging are named
+    claude/<date>-<slug>-<session ID's end>, like every temporary branch --
+    except a copy in a repository whose GitHub test knows only the old
+    names, which keeps them until Update Vendors brings the new workflow.
+
+    WHY. Morgan, 2026-10-06, reading `promote-fix-20261006T165108-0300` in a
+    reply: "isn't our URL format for temporary GitHub repo URLs to start with
+    the timestamps then the slug then a few random characters?" The
+    Promote's own branches had never been brought into the format."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    import precedent_branch_name as pbn
+    env = _fixture_git_env()
+    saved = {k: os.environ.get(k) for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
+    os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'session_01FixtureSessionIdAbcde'
+    os.environ['CLAUDECODE'] = '1'
+    tpl = (ROOT / 'templates' / 'github-actions' / 'light-check.yml.template').read_text(
+        encoding='utf-8')
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            origin, repo = td / 'origin.git', td / 'work'
+            run = lambda *a, cwd=td: subprocess.run(list(a), cwd=str(cwd), env=env,
+                                                    capture_output=True, text=True)
+            run('git', 'init', '-q', '--bare', str(origin))
+            run('git', 'init', '-q', '-b', 'staging', str(repo))
+            (repo / '.github' / 'workflows').mkdir(parents=True)
+            wf = repo / '.github' / 'workflows' / 'light-check.yml'
+            wf.write_text(tpl, encoding='utf-8')
+            run('git', 'add', '-A', cwd=repo); run('git', 'commit', '-qm', 'base', cwd=repo)
+            run('git', 'remote', 'add', 'origin', str(origin), cwd=repo)
+            run('git', 'push', '-q', 'origin', 'staging', cwd=repo)
+            run('git', 'fetch', '-q', 'origin', cwd=repo)
+            day, _m = pb._day_and_moment(repo)
+            fix = pb._fix_branch(repo)
+            check('a Promote\'s fix branch is named claude/<date>-promote-fix-<id>, '
+                  'which the naming rule accepts',
+                  fix == f'claude/{day}-promote-fix-abcde'
+                  and pbn.name_refusal(fix) is None and pb.is_fix_branch(fix), fix)
+            have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
+            copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
+            check('its copies of staging too, where the GitHub test knows the new names',
+                  copy == f'claude/{day}-promote-to-main-abcde'
+                  and not_due == f'claude/{day}-promote-to-main-not-due-abcde'
+                  and pb.is_main_copy(copy) and pb.is_not_due_copy(not_due),
+                  f'{copy} {not_due} tests={have_tests}')
+            wf.write_text(tpl.replace(pb.COPY_NAME_MARKER, '-x-'), encoding='utf-8')
+            run('git', 'commit', '-qam', 'an older workflow', cwd=repo)
+            run('git', 'push', '-q', 'origin', 'staging', cwd=repo)
+            run('git', 'fetch', '-q', 'origin', cwd=repo)
+            old = pb._to_main_copy(repo, due=False)
+            check('CONTROL: where the GitHub test knows only the old names, a copy '
+                  'keeps one, so a not-due copy is still skipped',
+                  have_tests and old.startswith(pb.NOT_DUE_PREFIX), f'{old} tests={have_tests}')
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 def check_practice_declared_hooks_are_wired():
@@ -62540,6 +62636,7 @@ def main():
     check_stale_views_judged_on_what_a_push_brings()
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
+    check_promote_branches_are_named_like_session_branches()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

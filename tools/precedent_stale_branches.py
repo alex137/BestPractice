@@ -8,7 +8,7 @@ deleting it loses nothing.
     python3 tools/precedent_stale_branches.py --html OUT.html # the page to publish
 
 A branch is STALE when its tip is already in `origin/main`, or when it carries
-no change `main` lacks (a promote-fix or to-main copy whose merge commits
+no change `main` lacks (a Promote's fix branch or copy of staging whose merge commits
 changed nothing). NEVER LISTED, whatever their state: `main`, `staging`,
 `pre-staging`, staging's old name `precedent-beta-v01`, and the engine's own
 branches (`precedent-check-receipts`, `precedent-promote-lock`) -- Morgan,
