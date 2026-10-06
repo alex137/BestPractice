@@ -66,6 +66,18 @@ section judged a check script by filename alone.
   traced, and it is still live: this run had to forbid worktrees. Trace it,
   and make [verify_harness.py](../tools/verify_harness.py) refuse to start from a linked worktree, with
   a planted case.
+
+  **Fixed 2026-10-06, at the cause rather than by refusing worktrees:** the
+  leak is `GIT_DIR`, which `git bisect run` exports. Every fixture inherited
+  it, so a fixture's `git init --bare` re-initialised the worktree's git
+  directory as bare, in the config the main clone shares. The harness now
+  drops git's repository variables at start. Planted case:
+  `check_harness_drops_inherited_git_repository_variables` (fails on the
+  old harness; its control reproduces the trap without the harness). It
+  does not refuse a linked worktree: Promote and the merge check run the
+  full push check, harness included, in one. The
+  [gotcha](../gotchas/gotcha-2026-10-01-a-harness-check-run-in-a-linked-worktree-turns-the-main-clone-bare.md)
+  carries the trace.
 - **GENERATED FILES reports six false candidates, and will every run.** It
   matches a basename written under any directory and the bare word
   "generated". Match writes rooted at the repo and a real claim ("generated

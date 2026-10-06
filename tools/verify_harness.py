@@ -146,6 +146,28 @@ for _var in CREDENTIAL_ENV_VARS:
 # this block.
 os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
 
+# GIT'S OWN REPOSITORY VARIABLES (2026-10-06, traced from
+# gotchas/gotcha-2026-10-01-a-harness-check-run-in-a-linked-worktree-turns-the-main-clone-bare.md).
+# `git bisect run` exports GIT_DIR to the command it runs, and a git hook
+# gets GIT_DIR and GIT_INDEX_FILE. Every fixture here builds its env from
+# os.environ, so under either one a fixture's `git init`, `git add` and
+# `git commit` all went to the repository the harness was started in, not
+# the temporary one in front of them. Run from a linked worktree, GIT_DIR is
+# `.git/worktrees/<name>`, and `git init --bare` re-initialised it as bare,
+# which writes `core.bare = true` into the config the main clone shares.
+# That is the 2026-10-01 bisect: fixture commits on the worktree's HEAD, and
+# a main clone git called bare. Reproduced the same way on 2026-10-06 in a
+# throwaway repository. Nothing in the harness locates a repository through
+# these: ROOT is this file's own location, and every git call names its
+# directory or runs in one. So they are dropped here, once, for every fixture
+# (check_harness_drops_inherited_git_repository_variables).
+GIT_REPOSITORY_ENV_VARS = (
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_NAMESPACE', 'GIT_PREFIX')
+for _var in GIT_REPOSITORY_ENV_VARS:
+    os.environ.pop(_var, None)
+
 # THE SAME, FOR THE GITHUB ACCOUNT (2026-09-30). The account a session's
 # token belongs to now fills in the private sets' location and the commit
 # identity when nothing declares them, and a cloud container's proxy answers
@@ -8015,6 +8037,89 @@ def check_bot_authored_commits_are_refused_where_no_person_is_declared():
         cases.append((f'control: re-authored, the whole check still stands '
                       f'down in its own words (rc={rc}, {out[:200]!r})',
                       rc == 2 and 'no identity is declared' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_harness_drops_inherited_git_repository_variables():
+    """A harness started under `git bisect run`, from a linked worktree,
+    leaves the repository it was started in alone (2026-10-06).
+
+    On 2026-10-01 a session bisected with a harness check as the test, from
+    a linked worktree. `git bisect run` exports GIT_DIR, every fixture
+    inherited it, and the fixture's `git init --bare` re-initialised the
+    worktree's git directory as bare: `core.bare = true` in the main clone's
+    shared config, and the fixture's commits on the worktree's HEAD
+    (gotchas/gotcha-2026-10-01-a-harness-check-run-in-a-linked-worktree-
+    turns-the-main-clone-bare.md).
+
+    The fixture is a throwaway repository with a linked worktree, and a
+    child process carrying GIT_DIR exactly as `git bisect run` sets it there,
+    which then does what fixtures do: `git init --bare`, `git init`, a
+    commit. THE CONTROL: the same child without importing this module does
+    turn the main clone bare and moves the worktree's HEAD, so the fixture
+    reproduces the trap and the import is what stops it
+    (practice: control-asserts-which-failure)."""
+    import tempfile
+    name = ('the harness drops an inherited GIT_DIR, so a run under `git '
+            'bisect run` in a linked worktree leaves the main clone alone')
+    child = (
+        'import os, subprocess, sys\n'
+        'if sys.argv[2] == "import":\n'
+        '    sys.path.insert(0, sys.argv[3]); import verify_harness\n'
+        't = sys.argv[1]\n'
+        'def g(*a, cwd=None):\n'
+        '    subprocess.run(["git", *a], cwd=cwd, capture_output=True)\n'
+        'g("init", "-q", "--bare", t + "/origin.git")\n'
+        'g("init", "-q", t + "/proj")\n'
+        'open(t + "/proj/f.txt", "w").write("fixture\\n")\n'
+        'g("add", "-A", cwd=t + "/proj")\n'
+        'g("commit", "-qm", "installed, catalogue vendored", cwd=t + "/proj")\n')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {k: v for k, v in os.environ.items()
+               if k not in GIT_REPOSITORY_ENV_VARS}
+        env.update(GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+                   GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com')
+
+        def git(*args, cwd):
+            return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                                  capture_output=True, text=True).stdout.strip()
+
+        def attempt(label, mode):
+            main, linked = tmp / label / 'main', tmp / label / 'linked'
+            main.mkdir(parents=True)
+            git('init', '-q', '-b', 'main', cwd=main)
+            git('commit', '-q', '--allow-empty', '-m',
+                'base\n\nSession: none available (fixture)', cwd=main)
+            git('worktree', 'add', '-q', '--detach', str(linked), 'HEAD',
+                cwd=main)
+            head = git('rev-parse', 'HEAD', cwd=linked)
+            gitdir = git('rev-parse', '--absolute-git-dir', cwd=linked)
+            work = tmp / label / 'fixture'
+            work.mkdir()
+            subprocess.run([sys.executable, '-c', child, str(work), mode,
+                            str(ROOT / 'tools')],
+                           cwd=str(linked), env=dict(env, GIT_DIR=gitdir),
+                           capture_output=True, text=True)
+            return (git('config', '--get', 'core.bare', cwd=main) == 'true',
+                    git('rev-parse', 'HEAD', cwd=linked) != head,
+                    (work / 'origin.git' / 'HEAD').is_file()
+                    and bool(git('rev-parse', '-q', '--verify', 'HEAD',
+                                 cwd=work / 'proj')))
+
+        bare, moved, own = attempt('control', 'plain')
+        cases.append((f'control: without the harness, the inherited GIT_DIR '
+                      f'turns the main clone bare (bare={bare}) and moves the '
+                      f'worktree\'s HEAD (moved={moved})', bare and moved))
+        bare, moved, own = attempt('harness', 'import')
+        cases.append((f'with the harness imported the main clone stays a work '
+                      f'tree (bare={bare})', not bare))
+        cases.append((f'...the worktree\'s HEAD does not move (moved={moved})',
+                      not moved))
+        cases.append((f'...and the fixture\'s repositories are its own '
+                      f'(own={own})', own))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -60448,6 +60553,7 @@ def main():
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_bot_authored_commits_are_refused_where_no_person_is_declared()
+    check_harness_drops_inherited_git_repository_variables()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()
