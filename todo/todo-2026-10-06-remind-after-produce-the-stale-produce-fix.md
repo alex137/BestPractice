@@ -3,7 +3,7 @@ slug:              todo-2026-10-06-remind-after-produce-the-stale-produce-fix
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         2026-10-06
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-06
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -33,3 +33,9 @@ point 1 with it live.
 
 Raised with Morgan after the Produce that carries #915 is on main, and he
 has said what he wants done with it.
+
+Raised 2026-10-06 once the Produce was on main. Morgan answered: *"On
+point #1 -- since now we're live on production, we can now fix #1. Act."*
+It was already fixed and live: #915 went through Booked, Debut and Produce
+(merged into main by #917) before the reminder came due, and both halves
+are on main. Nothing was left to build, so the item closes.
