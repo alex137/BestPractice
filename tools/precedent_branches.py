@@ -520,6 +520,13 @@ def merge_refusal(root, bases, heads, user_config=None):
         allowed |= _promotion_heads(root, b)
     if set(heads or ()) & allowed:
         return None
+    stale = sorted(h for h in heads or () if str(h).startswith('to-main-'))
+    if MAIN in bases and stale:
+        return (f'{stale[0]} is a copy of {staging_branch(root)} that is out of '
+                f'date: {staging_branch(root)} has moved since it was made. '
+                f'Close this pull request, promote {staging_branch(root)} into '
+                f'{MAIN} again for a fresh copy, and open the pull request '
+                f'from that. Never retarget it.')
     return (f'a pull request into {" or ".join(sorted(bases))} is merged only '
             f'from {" or ".join(sorted(allowed))} here -- {PROMOTE_ONLY_SETTING} '
             f'is on in {where}. Retarget it at {PRE_STAGING}, merge it there, '
@@ -1976,6 +1983,33 @@ def promotion_step(root, to=None, work=None):
     return None, f'{PRE_STAGING}, {staging} and {MAIN} carry the same work'
 
 
+def produce_waiting_hold(root, gh=None):
+    """-> why a move from pre-staging into staging waits, or None: a pull
+    request into main from a `to-main-` copy of staging is still open, and
+    moving staging now leaves that copy behind, so the merge check refuses
+    it and the Produce starts over. Seen 2026-10-06: a second Debut ran
+    while a Produce pull request waited on its GitHub test, and the pull
+    request had to be closed and made again. None when GitHub cannot be
+    asked -- the merge check still refuses a stale copy."""
+    gh = gh or _sibling('github_budget')
+    slug = _slug(root)
+    if gh is None or not slug:
+        return None
+    got, _err = gh.call(f'repos/{slug}/pulls?state=open&base={MAIN}', cache=False)
+    if not isinstance(got, list):
+        return None
+    waiting = [f'#{p.get("number")}' for p in got
+               if str((p.get('head') or {}).get('ref') or '').startswith('to-main-')]
+    if not waiting:
+        return None
+    return (f'NOT PROMOTED: {" and ".join(waiting)} into {MAIN} is still open, '
+            f'made from a copy of {staging_branch(root)}. Moving '
+            f'{staging_branch(root)} now would leave that copy out of date and '
+            f'the merge check would refuse it. Finish it first -- wait for its '
+            f'GitHub test (--wait-main-test) and merge it -- or close it, then '
+            f'promote again.')
+
+
 def retired_set_hold(root, env=None):
     """-> why a Promote in a practice set that says it is retired does
     nothing, or None. Morgan, 2026-10-06 (strength: decided), the same day
@@ -2047,6 +2081,11 @@ def promote(root, say=print, to=None, work=None):
         run = _promote_unlocked
     else:
         source, dest = (PRE_STAGING, staging) if step == STAGING else (staging, MAIN)
+        if step == STAGING:
+            waits = produce_waiting_hold(root)
+            if waits:
+                say(waits)
+                return 1
         # The one line a person reads first: which move this is, in these words.
         say(f'Now promoting from {source} to {dest} ({why}).')
         run = _promote_unlocked if step == STAGING else _promote_to_main
