@@ -22945,6 +22945,12 @@ def check_reply_check_keeps_practice_ideas_at_the_close():
                       and 'Do NOT add the archive line' in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
+        for label in ('Content idea', 'Process idea'):
+            r = replycheck(f'{label}.md', mid.replace('Practice ideas', label))
+            cases.append((f'a "{label}:" mid-conversation is refused the same way',
+                          r.returncode == 2 and 'Output ONE line withdrawing them'
+                          in r.stderr, f'exit {r.returncode}: {r.stderr[:200]}'))
+
         close = mid.replace("- Don't archive this session.",
                             '- You can archive this session.')
         r2 = replycheck('close.md', close)
