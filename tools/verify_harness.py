@@ -8538,9 +8538,29 @@ def check_upholds_is_a_listed_field():
         ('the format spec lists it',
          'upholds:' in (ROOT / 'spec' / 'PRACTICE_FORMAT.md').read_text(encoding='utf-8')),
     ]
+    # A repository's OWN fields (2026-10-06): declared in precedent.json, never
+    # reported, sorted after the spec's fields; a declared name the spec
+    # lists is ignored, so the spec's meaning wins.
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'own_frontmatter_fields': ['zz_not_a_field', 'status']}), encoding='utf-8')
+        own = _fy.own_fields(repo)
+        cases += [
+            ('a field precedent.json declares as its own is not reported',
+             own == ('zz_not_a_field',) and not _fy.unlisted_fields(with_unknown, own)),
+            ('...and sorts after every listed field without a complaint',
+             not _fy.field_order_problem(base.format(extra='').replace(
+                 'status: active\n', 'status: active\nzz_not_a_field: 1\n'))),
+            ('...while one it does not declare is still reported',
+             bool(_fy.unlisted_fields(with_unknown.replace('zz_not_a_field', 'zz_other'), own))),
+            ('a repository with no precedent.json declares nothing',
+             _fy.own_fields(repo / 'nowhere') == ()),
+        ]
     bad = [n for n, ok in cases if not ok]
-    check(f'upholds: is a listed practice field ({len(cases)} stated cases)',
-          not bad, '; '.join(bad))
+    check(f'upholds: is a listed practice field, and a repository may declare '
+          f'its own ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_consumer_engine_carries_what_its_checks_import():

@@ -145,6 +145,12 @@ its own practices before it could push, and Morgan ruled that old practices
 are tidied, never stopped
 ([format-rules-grandfather](../practices/format-rules-grandfather.md)). A
 field the spec does not list is a warning too; the engine ignores it.
+**A repository may declare fields of its own** (2026-10-06): one its own
+tooling reads goes in `precedent.json` as `"own_frontmatter_fields":
+["field", ...]`, is never warned about, and sorts after every field the
+spec lists. A name the spec already lists is ignored there, so the spec's
+meaning wins. A field every repository should have still belongs here and
+in `FIELD_ORDER`.
 **The order is kept, not only checked:** Update Vendors tidies a
 repository's own practice files, and the engine's
 commit hook runs `python3 tools/frontmatter_yaml.py --fix-staged` in any
