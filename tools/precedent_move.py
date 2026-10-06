@@ -1013,7 +1013,11 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                      f'one of that set\'s approvers')
         elif approved_by:
             line += f', approved there by {approved_by}'
-        line += f'. This copy is deduplicated; the rule is in force there as `{slug}`.'
+        # The slug alone, never "in force there": lookup is by slug, and a
+        # destination set can itself fold into another later, which left
+        # every stub naming it false while nothing broke (very deep check,
+        # 2026-10-05, pass 3). The dated "Moved to" clause above is history.
+        line += f'. This copy is deduplicated; the rule stays in force under its slug, `{slug}`.'
         if duplicate_from_universal:
             # precedent_resolve.withdrawn_from_universal() reads this line
             # back to say where the rule went; keep "Withdrawn from

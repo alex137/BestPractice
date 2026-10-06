@@ -7796,6 +7796,68 @@ def check_default_blocklist_runs_the_vocabulary_layer():
           not bad, '; '.join(bad))
 
 
+def check_move_dedupe_stub_names_the_slug_alone():
+    """A deduplicated stub written by tools/precedent_move.py says the rule
+    is in force under its slug, and names no set as where it is in force.
+
+    WHY (very deep check, 2026-10-05, pass 3). The stub used to end "the
+    rule is in force there as `<slug>`", "there" being the destination set.
+    When repo-maintenance and working-style folded into universal, every
+    stub that pointed at them kept saying so, and each sentence became
+    false while nothing broke: lookup is by slug. The dated "Moved to ...
+    on <date>" line before it is history and keeps the destination."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-stub-'))
+    env = _move_fixture_env(tmp)
+    cases = []
+
+    def run(args):
+        return subprocess.run([sys.executable, *args], cwd=str(ROOT),
+                              capture_output=True, text=True, env=env)
+
+    try:
+        tool = str(ROOT / 'tools' / 'precedent_move.py')
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        team = tmp / 'precedent-shared-zzfold'
+        r = run([boot, '--level', 'team', '--name', 'precedent-shared-zzfold',
+                 '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
+        cases.append(('the fixture set bootstraps', r.returncode == 0,
+                      (r.stdout + r.stderr)[-400:]))
+        (team / 'practices' / 'zz-stub.md').write_text(
+            _move_fixture_practice('zz-stub'), encoding='utf-8')
+        clone = tmp / 'precedent-clone'
+        (clone / 'practices').mkdir(parents=True)
+        r = run([tool, '--slug', 'zz-stub', '--from', 'team', '--from-path', str(team),
+                 '--to', 'universal', '--to-path', str(clone),
+                 '--approved-by', 'Fixture Approver'])
+        cases.append(('team -> universal drafts', r.returncode == 0,
+                      (r.stdout + r.stderr)[-400:]))
+        r = run([tool, '--slug', 'zz-stub', '--from', 'team', '--from-path', str(team),
+                 '--to', 'universal', '--to-path', str(clone),
+                 '--approved-by', 'Fixture Approver', '--dedupe-only'])
+        text = (team / 'practices' / 'zz-stub.md').read_text(encoding='utf-8')
+        tail = text.split('This copy is deduplicated', 1)[-1].split('\n', 1)[0]
+        cases.append(('--dedupe-only writes the deduplicated stub',
+                      r.returncode == 0 and 'status:      deduplicated' in text,
+                      (r.stdout + r.stderr)[-400:]))
+        cases.append(('the stub says the rule is in force under its slug',
+                      'the rule stays in force under its slug, `zz-stub`' in tail,
+                      tail))
+        cases.append(('the stub names no set as where the rule is in force',
+                      'in force there' not in text and 'precedent-clone' not in tail
+                      and 'universal' not in tail, tail))
+        cases.append(('the dated move line before it still names where it went',
+                      'Moved to the universal set' in text, text[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'a deduplicated stub names the slug alone, never a set that may '
+          f'later fold ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
 def check_orphan_scan_reads_who_claims_a_script():
     """The very deep check's ORPHANS section names a check script whose
     practice is gone. It went by filename alone, so a script named for an
@@ -60391,6 +60453,7 @@ def main():
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
+    check_move_dedupe_stub_names_the_slug_alone()
     check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
