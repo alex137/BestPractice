@@ -905,6 +905,72 @@ def _rule_was_rewritten(old_sections, new_sections):
             and changed / len(before) >= _RULE_REWRITE_MIN_SHARE)
 
 
+@check('universal-change-reaches-overrides', 'change',
+       'a change to a universal practice names each shared set that carries its '
+       'own active copy of the same slug -- that copy overrides this one for '
+       'everyone who declares or brings the set, so the change does not reach '
+       'them until it is made there too',
+       'whether the change belongs in the copy at all: a copy differs from '
+       'universal on purpose, so the finding names it and a person judges. A set '
+       'not cloned on this machine is passed over. It fires only in the '
+       'universal source itself, and only on a change below the frontmatter.',
+       advisory=True, practice_backed=False,
+       advisory_term={'term': 'permanent',
+                      'why': 'whether a universal change applies to a set\'s '
+                             'deliberately different copy is a judgment, and the '
+                             'set may be one this session cannot push to'},
+       selects_on=('practices/*.md',))
+def _universal_change_reaches_overrides(ctx):
+    """2026-10-05: the ladder set's copies of the-boildown and
+    vendor-update-runbook override universal's for everyone who brings the
+    ladder, and fell behind within three days -- four of universal's changes
+    never reached them, one of them made by a session that had just edited
+    universal's copy itself. Universal's own Story said "edit both"; a
+    sentence in a Story is read by nobody at the moment of the edit. This
+    says it at the push that makes the change (BestPractice's very deep
+    check, 2026-10-05, pass 3)."""
+    try:
+        src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(src, dict) or src.get('level') != 'universal':
+        return []
+    changed = []
+    for f in ctx.changed_matching(r'^practices/[^/]+\.md$'):
+        old = ctx.read_base(f)
+        body = ctx.read(f).split('\n---\n', 1)[-1]
+        if old is not None and old.split('\n---\n', 1)[-1] == body:
+            continue                    # a frontmatter-only edit
+        changed.append(f)
+    if not changed:
+        return []
+    try:
+        import precedent_resolve as _pr
+        sources = _pr.load_config(str(ROOT))
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'the declared sets could not be read ({e})')
+    out = []
+    for f in changed:
+        slug = pathlib.PurePosixPath(f).stem
+        for s in sources:
+            if s.get('level') in ('universal', 'repo-local'):
+                continue
+            copy = pathlib.Path(s['path']) / 'practices' / f'{slug}.md'
+            try:
+                text = copy.read_text(encoding='utf-8')
+            except OSError:
+                continue
+            m = re.search(r'^status:\s*(\S+)', text, re.M)
+            if not m or m.group(1).strip('"\'') != 'active':
+                continue
+            out.append(Finding(
+                f, f"{s['name']} carries its own active {slug}, which overrides "
+                   f"this one for everyone who {'brings' if s.get('brought') else 'declares'} "
+                   f"that set: make the same change there "
+                   f"({s['name']}/practices/{slug}.md), or say why it does not apply"))
+    return out
+
+
 @check('cite-the-incident', 'change',
        'a practice file whose Rule is new or changed must carry a non-empty '
        '## Story',

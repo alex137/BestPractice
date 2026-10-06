@@ -15576,6 +15576,29 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
 
+        # universal-change-reaches-overrides -- a permanent warning: universal's
+        # orientation-map changes below its frontmatter while a declared set
+        # carries its own active copy of that slug (2026-10-05, the ladder
+        # set's copies falling behind).
+        def _plant_override_drift(repo):
+            st = repo.parent / f'{repo.name}-override-set'
+            (st / 'practices').mkdir(parents=True, exist_ok=True)
+            (st / 'precedent-source.json').write_text(json.dumps(
+                {'name': st.name, 'level': 'shared'}), encoding='utf-8')
+            mine = repo / 'practices' / 'orientation-map.md'
+            (st / 'practices' / 'orientation-map.md').write_text(
+                mine.read_text(encoding='utf-8'), encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': st.name, 'level': 'shared', 'path': f'../{st.name}'})
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+            mine.write_text(mine.read_text(encoding='utf-8')
+                            + '\nA planted change to universal\'s copy.\n',
+                            encoding='utf-8')
+        case('universal-change-reaches-overrides', _plant_override_drift,
+             advisory=True)
+
         # frontmatter-field-order -- a permanent warning (practice:
         # format-rules-grandfather): a planted misorder is reported, and
         # never fails the run.
@@ -52992,6 +53015,67 @@ def check_session_check_names_commits_on_origin_off_main():
             '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_universal_change_names_the_set_copies_that_override_it():
+    """A change below the frontmatter of a universal practice names each
+    shared set carrying its own ACTIVE copy of the same slug (2026-10-05:
+    the ladder set's the-boildown and vendor-update-runbook fell four
+    changes behind universal's in three days). A deduplicated copy, a
+    frontmatter-only edit, and a repository that is not the universal
+    source are each passed over."""
+    import shutil, tempfile
+    import precedent_check as pc
+    import precedent_resolve as _pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-override-drift-'))
+    cases = []
+    fm = ('---\nslug: {s}\nstatus: {st}\n---\n## Rule\n{r}\n')
+    try:
+        uni, st = tmp / 'u', tmp / 'precedent-shared-x'
+        (uni / 'practices').mkdir(parents=True)
+        (st / 'practices').mkdir(parents=True)
+        (uni / 'precedent-source.json').write_text('{"level": "universal"}')
+        (uni / 'practices' / 'rule-a.md').write_text(fm.format(s='rule-a', st='active', r='New.'))
+        (uni / 'practices' / 'rule-b.md').write_text(fm.format(s='rule-b', st='active', r='New.'))
+        (st / 'practices' / 'rule-a.md').write_text(fm.format(s='rule-a', st='active', r='Copy.'))
+        (st / 'practices' / 'rule-b.md').write_text(fm.format(s='rule-b', st='deduplicated', r='Stub.'))
+        base = {'practices/rule-a.md': fm.format(s='rule-a', st='active', r='Old.'),
+                'practices/rule-b.md': fm.format(s='rule-b', st='active', r='Old.')}
+
+        class Ctx:
+            def changed_matching(self, _pat):
+                return list(base)
+            def read(self, rel):
+                return (pc.ROOT / rel).read_text()
+            def read_base(self, rel):
+                return base.get(rel)
+        orig_root, orig_load = pc.ROOT, _pr.load_config
+        try:
+            pc.ROOT = uni
+            _pr.load_config = lambda *_a, **_k: [
+                {'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                {'level': 'shared', 'name': 'precedent-shared-x', 'path': str(st),
+                 'brought': True}]
+            got = pc._universal_change_reaches_overrides(Ctx())
+            cases.append(('a Rule change names the set whose active copy overrides it',
+                          len(got) == 1 and 'rule-a' in str(got[0].__dict__)
+                          and 'precedent-shared-x' in str(got[0].__dict__),
+                          [g.__dict__ for g in got]))
+            base['practices/rule-a.md'] = fm.format(s='rule-a', st='retired', r='New.')
+            got = pc._universal_change_reaches_overrides(Ctx())
+            cases.append(('a frontmatter-only edit names nothing, and a deduplicated '
+                          'copy is never named', got == [], [g.__dict__ for g in got]))
+            base['practices/rule-a.md'] = fm.format(s='rule-a', st='active', r='Old.')
+            (uni / 'precedent-source.json').write_text('{"level": "shared"}')
+            got = pc._universal_change_reaches_overrides(Ctx())
+            cases.append(('outside the universal source it names nothing', got == []))
+        finally:
+            pc.ROOT, _pr.load_config = orig_root, orig_load
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
+
 def check_generated_index_of_nothing_yet_passes():
     """generated-files-registered passes a repository whose generated index
     has no sources YET -- gotchas/INDEX.md with no gotcha written -- when the
@@ -60134,6 +60218,8 @@ def main():
           *check_push_destination_reaches_the_views_check())
     check('the session check calls a commit unpushed only when no origin branch '
           'has it', *check_session_check_names_commits_on_origin_off_main())
+    check('a change to a universal practice names each set copy that overrides it',
+          *check_universal_change_names_the_set_copies_that_override_it())
     check('a generated index with no sources yet passes when its own check does',
           *check_generated_index_of_nothing_yet_passes())
     check('Update Vendors fetches the sets a person brings before it syncs the views',

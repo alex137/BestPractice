@@ -3,7 +3,7 @@ slug:              todo-2026-10-03-ladder-set-takes-the-merge-vendors-paragraphs
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        "BestPractice main carrying tools/precedent_merge_vendors.py (the next Produce), then an Update Vendors in precedent-shared-ladder, so the script its two paragraphs name is in that set's engine"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-03
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -35,3 +35,16 @@ closed:            null
 The branch has landed on the ladder set's pre-staging, after an Update
 Vendors there that brings in an engine containing
 [precedent_merge_vendors.py](../tools/precedent_merge_vendors.py), and that set's deep check passes.
+
+## Notes
+
+2026-10-06: closed on its condition. The ladder set's engine carries
+[precedent_merge_vendors.py](../tools/precedent_merge_vendors.py), the
+branch merged cleanly, and it landed on the set's pre-staging in
+[precedent-shared-ladder#13](https://github.com/themorgan/precedent-shared-ladder/pull/13)
+with the set's `precedent_check.py --full-sweep` at 0 violated. The same
+pull request brought the set's copies of `the-boildown` and
+`vendor-update-runbook` up to universal's (very deep check of 2026-10-05,
+pass 3); `universal-change-reaches-overrides` now names such a copy at the
+push that changes universal's.
+
