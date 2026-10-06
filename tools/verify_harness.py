@@ -8282,6 +8282,80 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
           '; '.join(f'{n}: {x}' for n, x in bad))
 
 
+def check_fresh_install_links_its_file_names():
+    """A fresh install failed its own link convention: INSTALL.md section 0
+    step 8's lint of the instantiated files listed 18 file names written
+    without a link -- in the loader AGENTS.md, MAP and local-practice
+    templates -- while the installer said the light check passed, because
+    the lint reports them as warnings and exits 0 (very deep check,
+    2026-10-05, pass 1). The templates now link them, and the installer
+    counts any such name outside a generated block as a failed light
+    check. The generated block is the generator's text, not a template's."""
+    import inspect
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import generated_blocks as _gb
+    import precedent_install as _pi
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-install-links-'))
+    cases = []
+    try:
+        proj = fx / 'proj'
+        proj.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], check=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(proj), '--project-name', 'Fixture'],
+                           capture_output=True, text=True)
+        step8 = ['AGENTS.md', 'MAP.md', 'TODO.md', 'GLOSSARY.md',
+                 'GETTING_STARTED.md', 'local/practices/project-voice.md',
+                 'local/practices/project-visual-identity.md', 'README.md',
+                 'MAP.source.md', 'practices/project-voice.md',
+                 'practices/project-visual-identity.md']
+        lint = subprocess.run([sys.executable, 'tools/doc_lint.py', *step8],
+                              cwd=str(proj), capture_output=True, text=True)
+        outside = []
+        for line in lint.stdout.splitlines():
+            m = re.match(r'^\s+(\S+?):(\d+): `[^`]+` is not a link$', line)
+            if not m:
+                continue
+            mask = _gb.mask((proj / m.group(1)).read_text(encoding='utf-8'))
+            n = int(m.group(2))
+            if not (n - 1 < len(mask) and mask[n - 1]):
+                outside.append(line.strip())
+        cases.append(('section 0 step 8\'s lint finds no unlinked file name the '
+                      'templates wrote', lint.returncode == 0 and not outside,
+                      '; '.join(outside) or lint.stdout[-600:]))
+        cases.append(('...and the installer\'s own light check passes',
+                      'the light check on the written files: OK' in r.stdout,
+                      r.stdout[-600:]))
+        # The installer's light check counts a template's unlinked name and
+        # leaves the generated block's alone.
+        probe = fx / 'probe'
+        probe.mkdir()
+        (probe / 'A.md').write_text(
+            'See `B.md` here.\n'
+            '<!-- BEGIN GENERATED: precedent-loader -->\n'
+            'Generated `C.md` text.\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        fake = ('UNLINKED FILE REFERENCES — 2 (warning; link the ones you touched):\n'
+                '  A.md:1: `B.md` is not a link\n'
+                '  A.md:3: `C.md` is not a link\n')
+        counter = getattr(_pi, '_unlinked_outside_generated', None)
+        got = counter(probe, fake) if counter else None
+        cases.append(('the installer counts an unlinked name a template wrote, '
+                      'and not one in the generated block',
+                      got == ['A.md:1: `B.md` is not a link'], str(got)))
+        cases.append(('...and a counted one fails its light check',
+                      counter is not None and 'not unlinked' in
+                      inspect.getsource(_pi.install), ''))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [(n, x) for n, ok, x in cases if not ok]
+    check(f'a fresh install links the file names its templates write '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {x}' for n, x in bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -38883,8 +38957,8 @@ def check_vendor_engine_refreshes_agents_md_sections():
         repo_old = stock_old.replace(
             '<!-- BEGIN GENERATED: precedent-loader -->\n<!-- END GENERATED -->',
             generated).replace(
-            '| Open items: analyses, verifications, decisions | `TODO.md` |\n',
-            '| Open items: analyses, verifications, decisions | `TODO.md` |\n'
+            '| Open items: analyses, verifications, decisions | [TODO.md](TODO.md) |\n',
+            '| Open items: analyses, verifications, decisions | [TODO.md](TODO.md) |\n'
             '| A row this repo added | `ours.md` |\n')
         assert generated in repo_old and 'A row this repo added' in repo_old, \
             'template shape moved; repoint this fixture'
@@ -60600,6 +60674,7 @@ def main():
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
     check_update_hands_the_engine_refresh_the_followed_tip()
+    check_fresh_install_links_its_file_names()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()

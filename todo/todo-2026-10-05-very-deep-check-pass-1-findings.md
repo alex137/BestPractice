@@ -72,6 +72,15 @@ and the check read only the hook.
 - **A fresh install fails its own link convention.** INSTALL.md §0 step 8's
   lint reports 18 unlinked file names in the loader, MAP and local-practice
   templates, while the installer says the light check passed.
+  **Fixed 2026-10-06:** the loader AGENTS.md, MAP and both local-practice
+  templates link every file name they write (or name a command instead
+  of a file), and the installer counts an unlinked name outside a
+  generated block as a failed light check, since the lint only warns.
+  One warning is left, and it is not a template's: the generated block's
+  standing instruction names the untracked session file under
+  `.precedent/`, which a link cannot point at, from
+  [build_views.py](../tools/build_views.py). Harness case
+  `check_fresh_install_links_its_file_names`.
 - **The update says "engine already current" in the same run that deleted
   an engine file.** Cosmetic; the deletion and its report are right.
   **Fixed 2026-10-06:** the refresh's already-current line says "only
