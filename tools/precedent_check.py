@@ -2091,7 +2091,8 @@ def _test_reads_tools(text):
 @check('practice-carries-its-files', 'tree',
        "every file a practice this repository PUBLISHES depends on is where "
        "a consumer will find it: each `ships:` entry is a legal path that "
-       "exists here; each concrete (non-glob) `applies_to` path under tools/ "
+       "exists here; each `hooks:` entry runs one of them, as the format "
+       "allows; each concrete (non-glob) `applies_to` path under tools/ "
        "and the `checked_by` script exist here; and every tools/ file outside "
        "tools/checks/ that the practice's shipped test reads through its "
        "root is either a vendored engine file or declared in `ships:` by a "
@@ -2163,6 +2164,11 @@ def _practice_carries_its_files(ctx):
                          f'every consumer is promised a file this source does '
                          f'not carry. If the practice moved here, the file '
                          f'moves with it, in the same commit'))
+        try:
+            _bv.practice_hooks(fm)
+        except ValueError as e:
+            out.append(Finding(rel, f'{e} -- a consumer\'s sync wires none of '
+                                    f'it (spec/PRACTICE_FORMAT.md, "hooks")'))
         try:
             applies = json.loads(fm.get('applies_to') or '[]')
         except (TypeError, ValueError):

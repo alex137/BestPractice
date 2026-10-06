@@ -108,6 +108,9 @@ FIELD_ORDER = (
     'index_required',
     'checked_by',
     'ships',
+    # A Claude Code hook the practice needs wired, running a file it ships
+    # (build_views.practice_hooks; precedent_sync_views.py adds it).
+    'hooks',
     'defines',
     # The documents a practice exists to uphold -- a risk register, a
     # policy page -- as paths or links. Informational: no engine reads it.

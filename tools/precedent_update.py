@@ -1794,6 +1794,28 @@ def status_paths(repo, *pathspec):
     return paths, ''
 
 
+HARNESS_GO_AHEAD = 'PRECEDENT_HARNESS_GO_AHEAD'
+
+
+def harness_changes(repo):
+    """-> the staged paths under .claude/ (hooks, settings): what Claude
+    Code's auto mode holds a commit over until the person approves it."""
+    r = subprocess.run(['git', '-C', str(repo), 'diff', '--cached',
+                        '--name-only', '--', '.claude/'],
+                       capture_output=True, text=True)
+    return sorted(n for n in r.stdout.splitlines() if n)
+
+
+def harness_ask(paths):
+    """The LEFT FOR YOU line for an update that changes hooks or settings."""
+    return (f'this update changes {", ".join(paths)}. Claude Code\'s auto mode '
+            f'holds a commit that changes hooks or settings until the person '
+            f'says yes, so ask now, naming these files -- not at the commit. '
+            f'With their yes, run this again with '
+            f'{HARNESS_GO_AHEAD}="<their words>"; it finishes, and the words '
+            f'go in the report')
+
+
 def stage_update(repo, before):
     """Stage what this run wrote or deleted, and nothing that was already
     uncommitted when it started. Returns how many paths it staged.
@@ -2769,6 +2791,20 @@ def update(repo, skip_check=False, ref=None):
     rep.step('staged', f'{n} path(s) this update wrote or deleted'
              + (f'; {len(before)} already uncommitted before it ran, left as they were'
                 if before else ''))
+
+    # Hooks and settings: said before the slow check, never found at the
+    # commit (2026-10-06). Claude Code's auto mode holds a commit that
+    # changes .claude/ as self-modification, so an update that changed a
+    # hook got all the way to the commit and stopped there. The person's
+    # yes is asked for up front instead; with it, the run says it and goes on.
+    harness = harness_changes(repo)
+    if harness:
+        words = os.environ.get(HARNESS_GO_AHEAD, '').strip()
+        if words:
+            rep.step('hooks and settings', f'{", ".join(harness)} changed, with '
+                     f'the person\'s go-ahead: "{words}"')
+        else:
+            rep.leave('hooks and settings', harness_ask(harness))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are
