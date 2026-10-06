@@ -12248,10 +12248,13 @@ def check_merge_takes_the_vendor_update():
             f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
             'import precedent_merge_vendors as mv\n'
             'mv.vendors_behind = lambda _r: ([], [])\n'
+            'mv.refresh_views = lambda _r: print("VIEWS: asked")\n'
             'mv.subprocess.run = None  # running anything would raise\n'
             f'sys.exit(mv.run({str(repo)!r}))\n'), cwd=repo)
-        cases.append(('nothing behind: says current and runs nothing',
-                      rc == 0 and 'VENDORS: current' in out, out[-800:]))
+        cases.append(('nothing behind: says current and runs no update -- only '
+                      'the views check, which has a test of its own',
+                      rc == 0 and 'VENDORS: current' in out
+                      and 'VIEWS: asked' in out, out[-800:]))
     finally:
         fx.close()
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -47144,9 +47147,9 @@ def check_merge_refreshes_stale_views_as_its_own_commit():
 
 
 def check_update_asks_before_changing_hooks():
-    """Update Vendors names a change to hooks or settings before its slow
-    check, as a call for the person, instead of meeting auto mode at the
-    commit (2026-10-06)."""
+    """Update Vendors names a change to hooks or settings as a question for
+    the person, printed ahead of the commit, instead of meeting auto mode at
+    it -- and still finishes, since it is not the repo's call (2026-10-06)."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_update as pu
@@ -47171,6 +47174,16 @@ def check_update_asks_before_changing_hooks():
         check('a staged hook is named, with the go-ahead to ask for',
               got == ['.claude/hooks/h.sh'] and pu.HARNESS_GO_AHEAD in ask
               and '.claude/hooks/h.sh' in ask, repr(got) + ask)
+        rep = pu.Report()
+        rep.ask('hooks and settings', ask)
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = rep.close()
+        check('...as a question for the person: the update still ends DONE, '
+              'and the question is printed ahead of the commit',
+              rc == pu.DONE and 'QUESTIONS FOR THE PERSON' in buf.getvalue()
+              and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
 def check_dedup_onto_same_slug_withdraws_nothing():

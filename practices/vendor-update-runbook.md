@@ -87,11 +87,10 @@ this is where the refresh happens.
 **A change to hooks or settings needs the person's yes, asked before the
 commit.** Claude Code's auto mode holds a commit that changes `.claude/`
 until the person approves it. So when the update staged anything there, it
-lists the files under LEFT FOR YOU before its slow check. Ask the person,
-naming them; with their yes, run it again with
-`PRECEDENT_HARNESS_GO_AHEAD="<their words>"`, and the words go in the
-report. The merge's views refresh does the same: without the words it takes
-such a change back and says so.
+still finishes, and prints the files under QUESTIONS FOR THE PERSON: ask,
+naming them, before committing. The merge step commits by itself, so there
+the update and the views refresh are taken back and said instead, until
+the person's words arrive as `PRECEDENT_HARNESS_GO_AHEAD="<their words>"`.
 
 **This does not lift the gate the chain already runs through**, and it does
 not add one. Step 12 publishes by the repository's usual conventions, and
@@ -978,7 +977,7 @@ And it said an update touching hooks met auto mode only at the commit.
 Reviewed, all three held. The push check now judges a stale view on what
 the push brings, and the merge refreshes it. A practice declares its hooks
 (`hooks:`, spec/PRACTICE_FORMAT.md) and the sync adds them. A change under
-`.claude/` is named, and your yes asked for, before anything is committed.
+`.claude/` is a question for you, printed before anything is committed.
 Morgan: *"Please fix all of these at their roots. Act"*. strength: decided.
 
 ## Install

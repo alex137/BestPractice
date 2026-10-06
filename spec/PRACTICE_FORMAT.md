@@ -917,9 +917,10 @@ event, and a set reaches every repository that declares it.
 hook too; a name under `declined_adapters` does the same.
 
 **Committing what it wrote.** Claude Code's auto mode holds a commit that
-changes `.claude/` until the person says yes. Update Vendors and the merge's
-views refresh name such a change before committing anything and ask for the
-person's words, passed as `PRECEDENT_HARNESS_GO_AHEAD`.
+changes `.claude/` until the person says yes. Update Vendors names such a
+change as a question for the person, printed before the commit; the merge
+step, which commits by itself, takes it back until the person's words
+arrive as `PRECEDENT_HARNESS_GO_AHEAD`.
 
 ## `index_clause`
 

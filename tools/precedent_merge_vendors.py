@@ -10,7 +10,8 @@ merged in and committed and before the result is pushed:
 
 It asks precedent_engine_freshness.py whether the vendored engine or a
 vendored catalogue is behind its upstream. Nothing behind: it says so and
-stops, in about the time a fetch takes. Something behind: it runs Update
+stops, in about the time a fetch takes, and the views check below adds
+seconds. Something behind: it runs Update
 Vendors (the source clone's tools/precedent_update.py, which carries its
 own check) and then does one of two things, never a third:
 
@@ -22,6 +23,10 @@ own check) and then does one of two things, never a third:
             -- only what it wrote; a run that would touch anything else is
             refused before it starts -- and the reason is printed. The
             merge goes ahead without it.
+
+A change under .claude/ (hooks, settings) is committed only with the
+person's words in PRECEDENT_HARNESS_GO_AHEAD, since Claude Code's auto mode
+holds such a commit; without them the update is NOT TAKEN, and says why.
 
 Then, whether or not anything was behind, it asks the repository's own
 precedent_sync_views.py whether a moved practice source left the views
@@ -335,6 +340,21 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
                         '--repo', str(repo), *extra],
                        cwd=str(repo), capture_output=True, text=True)
     out = r.stdout + r.stderr
+    harness = [n for n in _git(repo, 'diff', '--cached', '--name-only', '--',
+                               '.claude/').stdout.splitlines() if n]
+    if r.returncode == DONE and harness and not os.environ.get(
+            HARNESS_GO_AHEAD, '').strip():
+        # This step commits by itself, so a change auto mode would hold is
+        # taken back here and asked about, never met at the commit.
+        taken = take_back(repo)
+        print(f'VENDORS: NOT TAKEN -- the update changes {", ".join(harness)}, '
+              f'and Claude Code\'s auto mode holds a commit that changes hooks '
+              f'or settings until the person says yes. Its {len(taken)} '
+              f'written path(s) were taken back and the merge goes ahead '
+              f'without it. Ask the person, naming those files; with their '
+              f'yes, run this again with {HARNESS_GO_AHEAD}="<their words>".')
+        refresh_views(repo)
+        return 0
     if r.returncode == DONE:
         sha, err = commit_update(repo, clone, out)
         if sha:
