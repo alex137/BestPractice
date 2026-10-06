@@ -782,7 +782,8 @@ def _retired_set_refusal(root, env=None):
         return None
     finally:
         sys.path.pop(0)
-    judge = getattr(ve, 'source_retirement', None)
+    judge = (getattr(ve, 'retirement_on_any_tier', None)
+             or getattr(ve, 'source_retirement', None))
     retirement = judge(root) if judge else None
     if retirement is None:
         return None
