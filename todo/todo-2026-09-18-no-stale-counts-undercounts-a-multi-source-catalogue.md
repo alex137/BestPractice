@@ -6,7 +6,7 @@ severity:          notable
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "write access to precedent-team-writing -- refused from a session rooted here (cross-tier add)"
+blocked_on:        "write access to precedent-shared-writing -- refused from a session rooted here (cross-tier add)"
 batch:             null
 decision:          null
 decision_strength: null
@@ -16,7 +16,7 @@ closed:            null
 ---
 ## What
 
-**`check_no_stale_counts.py` (vendored from `precedent-team-writing`, practice
+**`check_no_stale_counts.py` (vendored from `precedent-shared-writing`, practice
 `no-stale-counts`) reports a false positive against this repo's own
 [AGENTS.md](../AGENTS.md), because it counts only `practices/` and this
 repo's real total is spread across two declared sources.**
@@ -49,8 +49,8 @@ count -- will read as permanently stale to this check, regardless of
 whether `build_views.py`'s own number is right.
 
 **Not this repo's file to fix.** `check_no_stale_counts.py` lives in
-`precedent-team-writing`, a private team source; `add_repo` refuses the
-cross-tier add in this direction (the same shape `precedent-team-writing`'s
+`precedent-shared-writing`, a private team source; `add_repo` refuses the
+cross-tier add in this direction (the same shape `precedent-shared-writing`'s
 own `TODO.md` items 4 and 6 already describe for the reverse direction), so
 neither the fix nor a comment on that repo's own tracker is possible from a
 session rooted here.
@@ -61,7 +61,7 @@ session rooted here.
 the way `build_views.py` does (sum every declared source's active count,
 not just `ROOT/practices/`) or the check is scoped to skip a repo it
 cannot fully resolve rather than report a false violation. Either fix
-belongs in `precedent-team-writing`, from a session rooted there or with
+belongs in `precedent-shared-writing`, from a session rooted there or with
 push access to it. Until then, this item's own `## Notes` is where a
 session that hits the same false positive again should look before
 re-investigating from scratch.
@@ -76,3 +76,5 @@ either its current state or its tracked history. [AGENTS.md](../AGENTS.md)'s
 `11 of 129 practices` is the live instance of the shape, and it is correct,
 not stale -- the false positive is in the checking script, not the document
 it flags. No edit made to AGENTS.md or TODO.md.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4). The blocker is write access to that set, not read access, so it stays as filed.

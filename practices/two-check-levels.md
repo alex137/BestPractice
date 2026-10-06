@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork); real paths, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
+approved_by: "BestPractice (pre-fork); real paths, index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05); the two uses of \"deep check\" separated: Morgan, 2026-10-06 (strength: assented -- he delegated the wording)"
 source_practice_number: 44
 ---
 ## Rule
@@ -28,6 +28,9 @@ check* and *deep check* reads well, but any repo-chosen pair is fine — so a
 person or a session can ask for one or the other unambiguously ("run the
 light check before you commit that" vs. "this needs a deep check before we
 merge") instead of re-describing what "check" means every time.
+Where the full level is called the deep check, it is the check before a
+push; a person asking for a "deep check" by name additionally gets the
+whole-repo read [deep-check](deep-check.md) describes.
 
 ## Detail
 **The fast level holds one cheap, mechanical audit, and it runs on every
@@ -157,6 +160,14 @@ for now because it also carries that set's own implementation of the audit,
 a check script that did not move.
 
 **Real paths from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) gave this rule the files its check reads -- the instructions file and the glossary -- in place of `**`, so it leaves the occasion index and fires where the levels are named. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
+
+**2026-10-06: the asked-for deep check separated from the push suite.** The
+2026-10-05 very deep check found "deep check" meaning two things in
+universal once [deep-check](deep-check.md) was folded in: this rule's push
+suite, and a whole-repo read started by asking for one by name. The Rule now
+says the check before a push is the deep check, and asking for one by name
+adds the read. Morgan, 2026-10-06 (strength: assented -- he delegated the
+wording).
 
 ## Install
 This repo's own [tools/doc_lint.py](../tools/doc_lint.py) is
