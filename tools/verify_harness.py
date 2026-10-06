@@ -8394,6 +8394,344 @@ def check_upholds_is_a_listed_field():
           not bad, '; '.join(bad))
 
 
+def check_consumer_engine_carries_what_its_checks_import():
+    """A consumer's precedent_check.py imports doc_lifecycle for
+    document-status-header and speculation-is-marked, and the module was on
+    neither engine list, so both checks reported SKIPPED in every installed
+    repo while the practices were in force (very deep check, 2026-10-05,
+    pass 1). Every engine module precedent_check.py imports is now on the
+    consumer list, and an installed consumer runs the check for real."""
+    import re as _re
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    mods = (set(_re.findall(r'^\s*import (\w+)', src, _re.M))
+            | set(_re.findall(r'^\s*from (\w+) import', src, _re.M)))
+    local = sorted(m for m in mods if (ROOT / 'tools' / f'{m}.py').is_file())
+    missing = [m for m in local if f'{m}.py' not in _pve.CONSUMER_ENGINE_FILES]
+    cases = [(f'every engine module precedent_check.py imports is vendored '
+              f'to a consumer (missing: {", ".join(missing) or "none"})',
+              not missing)]
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-doclife-'))
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                        str(fx), '--project-name', 'Fixture'],
+                       capture_output=True, text=True)
+        (fx / 'spec').mkdir()
+        (fx / 'spec' / 'PLAN.md').write_text(
+            '---\ntitle: "Plan"\nkind: reference\nstatus: current\n'
+            'opened: 2026-10-06\nsupersedes: []\naudience: session\n'
+            'summary: "a plan"\n---\n# Plan\n\nText.\n', encoding='utf-8')
+        (fx / 'spec' / 'OTHER.md').write_text('# Other\n\nNo header.\n',
+                                              encoding='utf-8')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--only', 'document-status-header'], cwd=str(fx),
+                           capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        cases.append(('an installed consumer runs document-status-header instead '
+                      'of skipping it', 'did not import' not in out
+                      and 'SKIPPED' not in out))
+        cases.append(('...and it finds the unstamped document',
+                      'spec/OTHER.md' in out))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'a consumer\'s engine carries every module its checks import '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_install_names_the_other_assistants_adapters():
+    """The installer wires the Claude Code adapter only, and a Codex or
+    Gemini CLI adopter was never told to add theirs: SETUP.md asked which
+    assistant would work in the repository and no later step used the
+    answer, and INSTALL.md's adapter step spelled out Claude Code alone
+    (very deep check, 2026-10-05, pass 1). The installer's report now names
+    the adapters page, and both guides say what to add for each."""
+    import shutil as _sh
+    import tempfile as _tf
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-adapters-'))
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(fx), '--project-name', 'Fixture'],
+                           capture_output=True, text=True)
+        tail = r.stdout.split('DONE.', 1)[-1]
+        cases.append(("the install report's what-is-left names the adapters "
+                      "page for another assistant",
+                      'templates/harness/README.md' in tail
+                      and 'Codex' in tail and 'Gemini CLI' in tail))
+        setup = (ROOT / 'SETUP.md').read_text(encoding='utf-8')
+        conv = setup.split('## The Conversation', 1)[-1]
+        after = conv.split('python3 tools/precedent_install.py', 1)[-1]
+        cases.append(('SETUP.md uses the which-assistant answer after the '
+                      'install command', 'templates/harness/README.md' in after
+                      and 'Codex' in after))
+        inst = (ROOT / 'INSTALL.md').read_text(encoding='utf-8')
+        cases.append(("INSTALL.md's adapter step covers Codex and Gemini CLI",
+                      'templates/harness/codex/hooks.json' in inst
+                      and '.codex/hooks.json' in inst
+                      and 'templates/harness/gemini-cli/GEMINI.md' in inst
+                      and '.gemini/settings.json' in inst))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'an adopter on another assistant is told to add its adapter '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_update_hands_the_engine_refresh_the_followed_tip():
+    """Update Vendors runs the engine refresh with the CONSUMER's own engine
+    copy, and an older copy resolves the branch it was written to follow: a
+    beta-era consumer's first update vendored from precedent-beta-v01 and
+    reported `refreshed from precedent-beta-v01 @ ...` under `source: main`
+    (very deep check, 2026-10-05, pass 1). The update now always hands the
+    refresh the tip it read, and reports the leg that landed there. An
+    engine recorded ahead of the tip is still left to the refresh's own
+    no-rollback guard."""
+    import contextlib
+    import io
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-tip-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+    tip = git(ROOT, 'rev-parse', 'HEAD').stdout.strip()
+    older = git(ROOT, 'rev-parse', 'HEAD~1').stdout.strip()
+    saved_run = pu.run
+    cases = []
+
+    def planted(name, recorded, beta):
+        # An engine copy that behaves like a beta-era one: given no
+        # --from-ref it vendors `beta`, the integration branch's commit.
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps({
+            'source_commit': recorded, 'kind': 'consumer', 'files': []}),
+            encoding='utf-8')
+        argv_file = tmp / f'{name}-argv.json'
+        (repo / 'tools' / 'precedent_vendor_engine.py').write_text(
+            'import json, pathlib, sys\n'
+            f'open({str(argv_file)!r}, "w").write(json.dumps(sys.argv[1:]))\n'
+            'a = sys.argv[1:]\n'
+            'ref = a[a.index("--from-ref") + 1] if "--from-ref" in a else None\n'
+            f'got = ref or {beta!r}\n'
+            'm = pathlib.Path(__file__).with_name("ENGINE_MANIFEST.json")\n'
+            'd = json.loads(m.read_text()); d["source_commit"] = got\n'
+            'm.write_text(json.dumps(d))\n'
+            'print("precedent_vendor_engine refresh OK (consumer): 3 file(s) "\n'
+            '      "refreshed from " + (ref or "precedent-beta-v01") + " @ " + got[:12]\n'
+            f'      + " (was {recorded[:12]})")\n',
+            encoding='utf-8')
+        git(tmp, 'init', '-q', '-b', 'main', str(repo))
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'installed\n\nSession: none available (fixture)')
+        return repo, argv_file
+
+    def run_update(repo, followed_tip):
+        def fetchless(argv, cwd):
+            if argv[:1] == ['git'] and 'fetch' in argv:
+                return 0, ''
+            if argv[:1] == ['git'] and 'rev-parse' in argv \
+                    and argv[-1] == f'origin/{pve.SOURCE_BRANCH}':
+                return 0, followed_tip + '\n'
+            return saved_run(argv, cwd)
+        pu.run = fetchless
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                pu.update(repo, skip_check=True)
+        finally:
+            pu.run = saved_run
+        return out.getvalue()
+
+    try:
+        repo, argv_file = planted('beta-era', older, '0' * 40)
+        text = run_update(repo, tip)
+        argv = json.loads(argv_file.read_text()) if argv_file.is_file() else []
+        cases.append(('a repo following main hands its own engine refresh the '
+                      'tip of main', argv[-2:] == ['--from-ref', tip], str(argv)))
+        landed = json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                            .read_text(encoding='utf-8')).get('source_commit')
+        cases.append(('...so the engine lands on main, not the integration branch',
+                      landed == tip, str(landed)))
+        cases.append(('...and the report names main, never the branch the old '
+                      'copy would have read',
+                      f'refreshed from {pve.SOURCE_BRANCH} @ {tip[:12]}' in text
+                      and 'precedent-beta-v01' not in text, text[-1500:]))
+        two_legs = ('precedent_vendor_engine refresh OK (consumer): 3 file(s) '
+                    f'refreshed from precedent-beta-v01 @ {"b" * 12} (was 1)\n'
+                    'precedent_vendor_engine refresh OK (consumer): 3 file(s) '
+                    f'refreshed from {tip} @ {tip[:12]} (was 1)\n')
+        try:
+            shown = pu.engine_summary('\n'.join(reversed(two_legs.splitlines())),
+                                      None, follow='main', tip=tip)
+        except TypeError as e:
+            shown = f'engine_summary takes no tip: {e}'
+        cases.append(('the report shows the leg that landed on the tip, whatever '
+                      'order the passes print in',
+                      shown.startswith(f'3 file(s) refreshed from main @ {tip[:12]}'),
+                      shown))
+        ahead, argv_file = planted('ahead', tip, '0' * 40)
+        run_update(ahead, older)
+        argv = json.loads(argv_file.read_text()) if argv_file.is_file() else []
+        cases.append(('an engine recorded ahead of the tip is not told to roll '
+                      'back: no --from-ref', bool(argv) and '--from-ref' not in argv,
+                      str(argv)))
+    finally:
+        pu.run = saved_run
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors refreshes the engine from the tip it read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_refresh_never_says_nothing_to_do_after_removing_a_file():
+    """A refresh whose recorded commit already matches still removes an
+    engine file the kind no longer includes, and then said "engine already
+    current ... nothing to do" right under the line reporting the deletion
+    (very deep check, 2026-10-05, pass 1). The line now says what this pass
+    did. The fixture is an installed consumer whose manifest records one
+    more engine file than the kind includes, refreshed at its own commit."""
+    import hashlib as _hl
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-msg-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def sh(*args):
+        r = subprocess.run(list(args), cwd=str(fx), env=env,
+                           capture_output=True, text=True)
+        return r.stdout + r.stderr
+
+    def commit(msg):
+        sh('git', 'add', '-A')
+        sh('git', 'commit', '-qm', f'{msg}\n\nSession: none available (fixture)')
+    cases = []
+    try:
+        sh('git', 'init', '-q', '-b', 'main')
+        sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'), str(fx),
+           '--project-name', 'Fixture')
+        commit('installed')
+        recorded = json.loads((fx / 'tools' / _pve.MANIFEST_NAME)
+                              .read_text(encoding='utf-8'))['source_commit']
+        refresh = (sys.executable, 'tools/precedent_vendor_engine.py', 'refresh',
+                   str(ROOT), '--from-ref', recorded)
+        sh(*refresh)                      # converge whatever the install left
+        commit('converged')
+        m = fx / 'tools' / _pve.MANIFEST_NAME
+        d = json.loads(m.read_text(encoding='utf-8'))
+        old = fx / 'tools' / 'retired_tool.py'
+        old.write_text('"""A tool upstream no longer ships."""\n', encoding='utf-8')
+        d['files'].append('retired_tool.py')
+        d.setdefault('sha256', {})['retired_tool.py'] = _hl.sha256(
+            old.read_bytes()).hexdigest()
+        m.write_text(json.dumps(d, indent=2) + '\n', encoding='utf-8')
+        commit('a file the kind no longer includes')
+        out = sh(*refresh)
+        cases.append(('the refresh removes the file', not old.exists()
+                      and 'removed 1 vendored engine file' in out, out[-800:]))
+        current = [l for l in out.splitlines() if 'already current with' in l]
+        cases.append(('...on the already-current path', bool(current), out[-800:]))
+        cases.append(('...and its closing line says so, never "nothing to do"',
+                      bool(current) and 'nothing to do' not in current[-1]
+                      and 'removed' in current[-1], str(current)))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [(n, x) for n, ok, x in cases if not ok]
+    check(f'a refresh that removed an engine file never says nothing was done '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {x}' for n, x in bad))
+
+
+def check_fresh_install_links_its_file_names():
+    """A fresh install failed its own link convention: INSTALL.md section 0
+    step 8's lint of the instantiated files listed 18 file names written
+    without a link -- in the loader AGENTS.md, MAP and local-practice
+    templates -- while the installer said the light check passed, because
+    the lint reports them as warnings and exits 0 (very deep check,
+    2026-10-05, pass 1). The templates now link them, and the installer
+    counts any such name outside a generated block as a failed light
+    check. The generated block is the generator's text, not a template's."""
+    import inspect
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import generated_blocks as _gb
+    import precedent_install as _pi
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-install-links-'))
+    cases = []
+    try:
+        proj = fx / 'proj'
+        proj.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], check=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(proj), '--project-name', 'Fixture'],
+                           capture_output=True, text=True)
+        step8 = ['AGENTS.md', 'MAP.md', 'TODO.md', 'GLOSSARY.md',
+                 'GETTING_STARTED.md', 'local/practices/project-voice.md',
+                 'local/practices/project-visual-identity.md', 'README.md',
+                 'MAP.source.md', 'practices/project-voice.md',
+                 'practices/project-visual-identity.md']
+        lint = subprocess.run([sys.executable, 'tools/doc_lint.py', *step8],
+                              cwd=str(proj), capture_output=True, text=True)
+        outside = []
+        for line in lint.stdout.splitlines():
+            m = re.match(r'^\s+(\S+?):(\d+): `[^`]+` is not a link$', line)
+            if not m:
+                continue
+            mask = _gb.mask((proj / m.group(1)).read_text(encoding='utf-8'))
+            n = int(m.group(2))
+            if not (n - 1 < len(mask) and mask[n - 1]):
+                outside.append(line.strip())
+        cases.append(('section 0 step 8\'s lint finds no unlinked file name the '
+                      'templates wrote', lint.returncode == 0 and not outside,
+                      '; '.join(outside) or lint.stdout[-600:]))
+        cases.append(('...and the installer\'s own light check passes',
+                      'the light check on the written files: OK' in r.stdout,
+                      r.stdout[-600:]))
+        # The installer's light check counts a template's unlinked name and
+        # leaves the generated block's alone.
+        probe = fx / 'probe'
+        probe.mkdir()
+        (probe / 'A.md').write_text(
+            'See `B.md` here.\n'
+            '<!-- BEGIN GENERATED: precedent-loader -->\n'
+            'Generated `C.md` text.\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        fake = ('UNLINKED FILE REFERENCES — 2 (warning; link the ones you touched):\n'
+                '  A.md:1: `B.md` is not a link\n'
+                '  A.md:3: `C.md` is not a link\n')
+        counter = getattr(_pi, '_unlinked_outside_generated', None)
+        got = counter(probe, fake) if counter else None
+        cases.append(('the installer counts an unlinked name a template wrote, '
+                      'and not one in the generated block',
+                      got == ['A.md:1: `B.md` is not a link'], str(got)))
+        cases.append(('...and a counted one fails its light check',
+                      counter is not None and 'not unlinked' in
+                      inspect.getsource(_pi.install), ''))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [(n, x) for n, ok, x in cases if not ok]
+    check(f'a fresh install links the file names its templates write '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {x}' for n, x in bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -39026,8 +39364,8 @@ def check_vendor_engine_refreshes_agents_md_sections():
         repo_old = stock_old.replace(
             '<!-- BEGIN GENERATED: precedent-loader -->\n<!-- END GENERATED -->',
             generated).replace(
-            '| Open items: analyses, verifications, decisions | `TODO.md` |\n',
-            '| Open items: analyses, verifications, decisions | `TODO.md` |\n'
+            '| Open items: analyses, verifications, decisions | [TODO.md](TODO.md) |\n',
+            '| Open items: analyses, verifications, decisions | [TODO.md](TODO.md) |\n'
             '| A row this repo added | `ours.md` |\n')
         assert generated in repo_old and 'A row this repo added' in repo_old, \
             'template shape moved; repoint this fixture'
@@ -60775,6 +61113,11 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_consumer_engine_carries_what_its_checks_import()
+    check_install_names_the_other_assistants_adapters()
+    check_update_hands_the_engine_refresh_the_followed_tip()
+    check_fresh_install_links_its_file_names()
+    check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()

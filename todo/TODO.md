@@ -80,7 +80,6 @@ as_of: 2026-10-06
 | [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 8d | wait |  |
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 8d | wait |  |
 | [`todo-2026-09-29-received-practice-edits-are-overwritten`](todo-2026-09-29-received-practice-edits-are-overwritten.md) | A local edit to a practice or check a consumer received through `MANIFEST.json` is overwritten, silently, on every sync. | 7d | wait | no per-file record of what a sync wrote: MANIFEST.json names each received pract… |
-| [`todo-2026-10-05-very-deep-check-pass-1-findings`](todo-2026-10-05-very-deep-check-pass-1-findings.md) | What the 2026-10-05 very deep check's pass 1 (adopter installs) found and | 1d | wait |  |
 | [`todo-2026-10-05-very-deep-check-pass-2-findings`](todo-2026-10-05-very-deep-check-pass-2-findings.md) | What the 2026-10-05 very deep check's pass 2 (mechanisms) found and did not | 1d | wait |  |
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 1d | ask |  |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 1d | ask |  |
@@ -199,7 +198,6 @@ as_of: 2026-10-06
 | [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 8d |
 | [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 8d |
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 8d |
-| [`todo-2026-10-05-very-deep-check-pass-1-findings`](todo-2026-10-05-very-deep-check-pass-1-findings.md) | What the 2026-10-05 very deep check's pass 1 (adopter installs) found and | 1d |
 | [`todo-2026-10-05-very-deep-check-pass-2-findings`](todo-2026-10-05-very-deep-check-pass-2-findings.md) | What the 2026-10-05 very deep check's pass 2 (mechanisms) found and did not | 1d |
 | [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 1d |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 1d |
