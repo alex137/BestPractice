@@ -10085,8 +10085,53 @@ def _as_ci_runs(jobs, names=None):
     return out
 
 
-def run_as_ci():
+def _bare_all_runs_in_parallel(argv, environ):
+    """-> True when this invocation is a bare `--all`, which run_as_ci runs
+    across the cores: no filter of its own, and not asked to stay serial."""
+    return ('--all' in argv
+            and not environ.get('PRECEDENT_CHECK_ONLY')
+            and not environ.get('PRECEDENT_CHECK_SKIP')
+            and environ.get('PRECEDENT_HARNESS_SERIAL') != '1')
+
+
+def check_bare_all_runs_across_the_cores():
+    """A bare `--all` is dispatched to run_as_ci with every planted case
+    (2026-10-06: one process took about 31 minutes where the same set side
+    by side takes about 11), and a shard, a filtered run, or an explicit
+    serial run is not -- so nothing recurses and profiling stays possible."""
+    import inspect
+    cases = [
+        ('a bare --all runs in parallel',
+         _bare_all_runs_in_parallel(['--all'], {})),
+        ('a shard process (no --all) does not',
+         not _bare_all_runs_in_parallel([], {'PRECEDENT_HARNESS_ALL': '1'})),
+        ('--all with PRECEDENT_CHECK_ONLY keeps its filter, in one process',
+         not _bare_all_runs_in_parallel(['--all'],
+                                        {'PRECEDENT_CHECK_ONLY': 'check_x'})),
+        ('--all with PRECEDENT_CHECK_SKIP keeps its filter, in one process',
+         not _bare_all_runs_in_parallel(['--all'],
+                                        {'PRECEDENT_CHECK_SKIP': 'check_x'})),
+        ('PRECEDENT_HARNESS_SERIAL=1 keeps the one-process run',
+         not _bare_all_runs_in_parallel(['--all'],
+                                        {'PRECEDENT_HARNESS_SERIAL': '1'})),
+    ]
+    src = inspect.getsource(run_as_ci)
+    cases.append(('every_case gives each process PRECEDENT_HARNESS_ALL=1',
+                  "env['PRECEDENT_HARNESS_ALL'] = '1'" in src
+                  and 'if every_case:' in src))
+    main_src = pathlib.Path(__file__).read_text(encoding='utf-8')
+    cases.append(('the entry point dispatches it',
+                  'sys.exit(run_as_ci(every_case=True))' in main_src))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a bare --all runs across the cores ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
+def run_as_ci(every_case=False):
     """-> exit status. Run this suite the two ways CI runs it, side by side.
+
+    every_case: give every process PRECEDENT_HARNESS_ALL=1, which is what a
+    bare `--all` asks for (see the bottom of this file).
 
     NOT the same work twice: the shards PARTITION the suite. Until
     2026-09-30 they ran one after the other, and the rest shard ran its
@@ -10123,6 +10168,8 @@ def run_as_ci():
         env.pop('PRECEDENT_CHECK_SKIP', None)
         env.pop('PRECEDENT_HARNESS_ALL', None)
         env.update(env_extra)
+        if every_case:
+            env['PRECEDENT_HARNESS_ALL'] = '1'
         # Files, not pipes: a shard that fills a pipe nobody reads yet stalls.
         out, err = open(tmp / f'{i}.out', 'w+'), open(tmp / f'{i}.err', 'w+')
         proc = subprocess.Popen([sys.executable, str(pathlib.Path(__file__))],
@@ -10149,8 +10196,12 @@ def run_as_ci():
         out.close()
         err.close()
         print(f'\n=== shard: {label} ===', flush=True)
+        # 'planted cases ran' is the heavy shard's statement of what it
+        # selected; the very deep check quotes it as evidence that every
+        # case ran.
         tail = [l for l in done.stdout.splitlines()
-                if 'passed,' in l or l.startswith('  - ')]
+                if 'passed,' in l or l.startswith('  - ')
+                or 'planted cases ran' in l]
         for line in tail[-12:]:
             print(line)
         if done.returncode != 0:
@@ -61833,4 +61884,13 @@ if __name__ == '__main__':
         sys.exit(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
         sys.exit(run_as_ci())
+    # A BARE --all RUNS ACROSS THE CORES (2026-10-06). It is the same set as
+    # --as-ci with every planted case, and run in one process it took about
+    # 31 minutes on a 4-core container that --as-ci fills in about 11 (the
+    # very deep check's step 2 runs it). A shard process never sees --all
+    # (run_as_ci starts them with no arguments) and a filtered run keeps its
+    # filter, so neither recurses. PRECEDENT_HARNESS_SERIAL=1 is the old
+    # one-process run, for profiling.
+    if _bare_all_runs_in_parallel(sys.argv[1:], os.environ):
+        sys.exit(run_as_ci(every_case=True))
     sys.exit(main())

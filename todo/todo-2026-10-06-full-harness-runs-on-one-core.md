@@ -33,6 +33,25 @@ worker processes two at a time; they could run as wide as the machine
 allows). Measure before and after on the same tree. A target of about ten
 minutes looks reachable from these numbers, not promised.
 
+**Where the 31 minutes came from, measured 2026-10-06.** Only a bare
+`--all` ran in one process -- the very deep check's step 2 is the one place
+that runs it. The push check's full tier already ran `--as-ci`: four
+processes side by side. In a Debut that day it took 646 seconds, against
+about 1,900 seconds of checks. The heavy shard (`check_precedent_check_fires`
+alone) took 422 seconds. The other three took 634, 316 and about 640
+seconds, because checks are dealt to them alphabetically and the slow ones
+bunch up: one part held
+`check_update_vendors_survives_an_upstream_deletion` (298 seconds) and
+four more over 15 seconds.
+
+**Done 2026-10-06:** a bare `--all` now runs as `--as-ci` with every planted
+case in every process (`check_bare_all_runs_across_the_cores`);
+`PRECEDENT_HARNESS_SERIAL=1` keeps the one-process run for profiling.
+
+**Still open:** deal the rest shard's checks by measured duration rather
+than by name, which on these numbers would bring the three parts nearer
+530 seconds each.
+
 ## How It Closes
 
 A full run on a 4-core container takes well under half its 2026-10-06 time,
