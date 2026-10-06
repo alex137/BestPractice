@@ -285,8 +285,9 @@
   "_grandfathered_commit_shas_comment": [
     "Commits exempted from the shared check_session_trailer.py, which",
     "the very deep check runs against this repository from the",
-    "precedent-shared-repo-maintenance source (its CHECK COVERAGE",
-    "section, 'other sources' checks'). Each carries its own note.",
+    "precedent-shared-repo-maintenance source until 2026-10-06, when the",
+    "check moved into tools/checks/ and this repo stopped declaring the",
+    "set. Each carries its own note.",
     "They are published history, and rewriting it to quiet a check is",
     "what no-rewrite-for-warnings forbids; the check's own Install",
     "names this list as the remedy. Every commit made after them is",
@@ -728,11 +729,6 @@
       "level": "universal",
       "name": "precedent",
       "path": "."
-    },
-    {
-      "level": "shared",
-      "name": "precedent-shared-repo-maintenance",
-      "path": "../precedent-shared-repo-maintenance"
     },
     {
       "level": "shared",

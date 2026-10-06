@@ -17,11 +17,11 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05; the two uses of the name separated: Morgan, 2026-10-06 (strength: assented -- he delegated the wording)"
 strength: decided
 ---
 ## Rule
-Where a repo's [`two-check-levels`](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md) names its push suite "deep check", that suite is this practice's mechanical half; the review half runs only when a person asks for a deep check by name, never as part of a push. A deep check has two halves. The mechanical half is every audit script the repo maintains, run together -- the same set the merge runbook already runs on every merge, and all of it must pass before the merge commits. The review half is a read of the repo's own rules and documents against each other -- the audits catch broken links and bad syntax; they can't catch a rule that now contradicts another rule, or a section that stopped making sense a few edits ago.
+**The name has two uses, kept apart:** the check a session runs before a push is the deep check [`two-check-levels`](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md) names, and it is this practice's mechanical half; a person asking for a "deep check" by name additionally means the whole-repo read below, which never runs as part of a push. A deep check has two halves. The mechanical half is every audit script the repo maintains, run together -- the same set the merge runbook already runs on every merge, and all of it must pass before the merge commits. The review half is a read of the repo's own rules and documents against each other -- the audits catch broken links and bad syntax; they can't catch a rule that now contradicts another rule, or a section that stopped making sense a few edits ago.
 
 **Mechanical before human, every time.** Run the mechanical half first and fix what it reports *before* the review reads a line: judgment spent on what a script already catches is wasted, and a tree already failing its own gates makes every later finding ambiguous -- you cannot tell drift this pass introduced from drift that was already there.
 
@@ -92,6 +92,14 @@ decided). It used to add "or after drift-inviting work", which contradicts
 the Rule's own line that the review half runs only when a person asks for a
 deep check by name. The mechanical half needs no index line for that: it
 runs at every merge through this practice's merge gate and the push check.
+
+**2026-10-06: the two uses of the name separated in one sentence.** The
+2026-10-05 very deep check found universal giving "deep check" two meanings
+at once: `two-check-levels` defines it as the push suite, and this practice,
+folded in on 2026-10-05, says asking for one by name also starts a
+whole-repo read. The Rule's first sentence now says which is which: the
+check before a push is the deep check, and asking for one by name adds the
+read. Morgan, 2026-10-06 (strength: assented -- he delegated the wording).
 
 ## Install
 Checked mechanically, but only half of it: [tools/precedent_check.py](../tools/precedent_check.py)'s `deep-check` check, scope `tree` (ported on 2026-10-05 from the shared set this practice moved from), verifies the mechanical half's own claim is actually true -- that `tools/checks/tests/run_all.sh` really does run every audit script the repo maintains. It catches a check script added with no matching test (so `run_all.sh`'s `test_*.sh` glob would silently never exercise it) and a stale test left behind after its check script was removed. The review half -- reading the repo's own rules against each other for contradiction, drift, or disproportion -- is explicitly the part no audit can catch (per this file's own Rule: "the audits catch broken links and bad syntax; they can't catch a rule that now contradicts another rule"); that's a judgment call by design, not a gap to close. It skips in the engine's own origin, which has no materialized check family. Its planted case in `tools/verify_harness.py` adds a `run_all.sh` and a check script with no test.

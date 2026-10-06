@@ -71,3 +71,12 @@ every built-in exception. For example:
 The wording is prose the classifier reads, not a pattern. Afterwards,
 `claude auto-mode config` shows whether it took. A session never adds
 this itself.
+
+**Prevention: nothing mechanical, deliberately**, because the refusal is
+Claude Code's own safety check, outside this repository. The only durable
+fix is an allow rule in the person's managed or home settings: no file
+Precedent vendors can carry one, and a session must never write one for
+itself. A check here would have nothing to read. What the repository can
+do it already does: `promote` and `produce` tell the session what to say
+and which word gets through. (Written 2026-10-06, after the 2026-10-05
+very deep check found no answer recorded.)

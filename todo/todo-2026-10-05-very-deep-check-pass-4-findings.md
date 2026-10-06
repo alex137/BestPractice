@@ -50,10 +50,26 @@ Fixed the same day: six open items closed on their own conditions, and
   `blocked_on`. Several are blocked only on read access to a private set,
   which a session now normally has; repoint the names and re-triage those
   as doable.
+  **Fixed 2026-10-06:** the open items' current-state text (blockers,
+  closing conditions, present-tense sentences) now names the
+  `precedent-shared-*` sets; dated history and closed items keep the names
+  they had. Re-triaged: the two blocked only on read access are unblocked
+  with real closing conditions, `universal-code-cites-team-slug` is
+  unblocked (its call was made by the 2026-10-05 fold), and three closed on
+  their own conditions (`roll-out-four-pass-restructure`,
+  `bold-rule-for-heading-dense-pages`,
+  `two-declared-sources-are-missing-a-file`). Items blocked on WRITE access
+  to a set keep their blockers.
 - **`todo-2026-09-21-pass-4-branch-verdicts-and-catalogue` has no closing
   condition**, and every branch it names but one is gone. Close it as
   superseded or give it one. `todo-2026-09-14-branch-merge-or-close-verdicts`
   can narrow to the issue #394 question.
+  **Fixed 2026-10-06:** it now has a closing condition (each branch merged,
+  closed or gone, or carried by the branch-verdicts item; each other
+  finding fixed, filed or declined); no branch was touched. And
+  `todo-2026-10-04-two-small-engine-leftovers-from-the-produce`, whose
+  `disposition` was `null`, now says `wait`, which an empty field already
+  meant.
 - **No ruleset protects `main`, `staging` or `pre-staging`**, so the "a pull
   request from staging deletes staging" gotcha is still live.
 

@@ -403,6 +403,32 @@ def removed_links_step(rep, out):
                            f'({line[3]}). Repoint it or remove it')
 
 
+def retired_sources_step(repo, rep):
+    """Drop every declared set that says it is retired, or that GitHub
+    reports archived, when every active rule it holds is in force in another
+    declared source; keep the rest and name the rule each would lose.
+    Morgan, 2026-10-06 (strength: decided): "have update vendors and very
+    deep check see if any repos are declared to be included that no longer
+    exist and remove them", option C. GitHub's "Not Found" is a note and
+    never a drop: it is also what lost access looks like."""
+    archived, notes = pve.archived_declared_sources(repo)
+    dropped, kept = pve.drop_retired_sources(repo, archived)
+    for name, path, why in dropped:
+        rep.step('retired set', f'{name} ({path}) is no longer declared in '
+                 f'precedent.json: {why}, and every active rule it held is in '
+                 f'force in another declared source')
+    for name, path, why, lost in kept:
+        rep.leave(f'precedent.json source {name!r}',
+                  f'{why}, but {", ".join(lost)} is in force nowhere else, '
+                  f'so it stays declared -- move those rules, or decide to let '
+                  f'them go, then run Update Vendors again')
+    if notes:
+        rep.step('retired set', f'{len(notes)} declared set(s) could not be '
+                 f'asked on GitHub whether they are archived, so they stay '
+                 f'declared; a set that marks itself retired is still found '
+                 f'(first: {notes[0]})')
+
+
 def renamed_sources_step(repo, rep, engine_out):
     """Repoint every precedent-team-* source to its precedent-shared-* name,
     path and level, from THIS copy of the engine -- a consumer whose own
@@ -1509,18 +1535,70 @@ def left_block(out):
     return items
 
 
-def engine_summary(out, last_synced):
-    """-> the one-line engine outcome for the report. The last summary line
-    is the second pass's, whose "(was ...)" an engine older than
-    2026-09-28 reads from the manifest the first pass already rewrote --
-    "(was e8a2bc67cc8d)" on a repo that had been at 37fc3b55. This command
-    read the real commit before the refresh began, so that one is shown."""
-    summary = [l for l in out.splitlines()
-               if l.startswith('precedent_vendor_engine refresh OK')
-               or 'already current with' in l]
+def engine_refresh_ref(source, tip, follow, last_synced):
+    """-> the commit the consumer's own engine refresh is told to vendor
+    (`--from-ref`), or None to let it resolve one itself.
+
+    Always the tip of the branch this repo follows, which this command has
+    just read. The refresh is run by the consumer's OWN engine copy, and an
+    older copy resolves whatever branch it was written to follow: a
+    beta-era consumer's first update vendored from precedent-beta-v01 and
+    reported `refreshed from precedent-beta-v01 @ b45fcf1f` under
+    `source: main` (very deep check, 2026-10-05, pass 1). The end state
+    matched main only because the replaced copy's second pass corrected it.
+    Until 2026-10-06 the commit was passed only to a repo following a branch
+    other than SOURCE_BRANCH.
+
+    The one exception: an engine recorded at a commit the tip does not
+    contain (pve.engine_is_ahead) on a repo following SOURCE_BRANCH. Told
+    to vendor the tip, the refresh would roll that newer work back without
+    a word; left to itself it keeps it, and this command then stops and
+    says how to take the tip on purpose, as before."""
+    if not tip:
+        return None
+    if (follow == pve.SOURCE_BRANCH and last_synced
+            and pve.engine_is_ahead(source, last_synced, tip)):
+        return None
+    return tip
+
+
+_REFRESHED_FROM = re.compile(r'(refreshed from )(\S+)( @ )([0-9a-f]+)')
+_LEG_COMMIT = re.compile(r' @ ([0-9a-f]{7,40})\b')
+
+
+def engine_summary(out, last_synced, follow=None, tip=None):
+    """-> the one-line engine outcome for the report.
+
+    The FINAL leg: a refresh that replaces itself runs twice, and each pass
+    prints a summary line. With `tip` (the commit this command handed the
+    refresh), the last line that landed there is the one shown, so a first
+    pass by an older copy never stands for where the engine ended up; with
+    `follow`, a `from <commit>` this command supplied reads as the branch it
+    is the tip of. A pass that only found the engine current is shown only
+    when no pass refreshed anything, so the report never says "nothing to
+    do" over a run that wrote or removed files.
+
+    "(was ...)": an engine older than 2026-09-28 reads it from the manifest
+    the first pass already rewrote -- "(was e8a2bc67cc8d)" on a repo that
+    had been at 37fc3b55. This command read the real commit before the
+    refresh began, so that one is shown."""
+    lines = out.splitlines()
+    refreshed = [l for l in lines if l.startswith('precedent_vendor_engine refresh OK')]
+    current = [l for l in lines if 'already current with' in l]
+
+    def landed(l):
+        m = _LEG_COMMIT.search(l)
+        return bool(tip and m and tip.startswith(m.group(1)))
+    summary = refreshed or current
+    if tip and any(landed(l) for l in summary):
+        summary = [l for l in summary if landed(l)]
     line = summary[-1].split(': ', 1)[-1] if summary else 'refreshed'
     if last_synced:
         line = re.sub(r'\(was [0-9a-f?]+\)', f'(was {last_synced[:12]})', line)
+    if follow and tip:
+        m = _REFRESHED_FROM.search(line)
+        if m and m.group(2) == tip:
+            line = line[:m.start(2)] + follow + line[m.end(2):]
     return line
 
 
@@ -2246,11 +2324,8 @@ def update(repo, skip_check=False, ref=None):
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
     argv = [sys.executable, str(engine_tool), 'refresh', str(SOURCE)]
-    # A repo following a branch other than SOURCE_BRANCH is refreshed from
-    # that branch's tip by name: its own engine copy may predate
-    # upstream_branch and would otherwise resolve SOURCE_BRANCH for itself.
-    engine_ref = ref or (head.strip() if head_ok and follow != pve.SOURCE_BRANCH
-                         else None)
+    engine_ref = ref or engine_refresh_ref(SOURCE, head.strip() if head_ok else '',
+                                           follow, last_synced)
     if engine_ref:
         argv += ['--from-ref', engine_ref]
     # A committed edit to an engine file in tools/ is resolved here, not by
@@ -2296,7 +2371,9 @@ def update(repo, skip_check=False, ref=None):
             why = why.replace('(listed above)', '(listed below)')
             rep.details[what] = details[what]
         rep.leave(what, why)
-    rep.step('engine', engine_summary(out, last_synced))
+    rep.step('engine', engine_summary(out, last_synced,
+                                      follow=None if ref else follow,
+                                      tip=engine_ref))
     # Where the engine actually landed. With no --from-ref the whole update
     # is main's, and a consumer's own older engine copy can resolve some
     # other ref for itself -- then the catalogue would be taken from main
@@ -2357,6 +2434,7 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue pin', f'repointed to {follow} '
                  f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
+    retired_sources_step(repo, rep)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():

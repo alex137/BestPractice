@@ -1645,6 +1645,76 @@ def _last_run_date(repo_dir):
         return None
 
 
+_NO_ANSWER = {'cases': [], 'scripts': [], 'missing': [], 'exercised': [],
+              'written': None}
+# A code span in a Fix that names a mechanism: a function (`engine_is_ahead`,
+# `precedent_resolve._self_heal_individual_source`), a hook or tool file
+# (`wait-loop-gate.sh`) or a practice slug. A command (it has a space), a
+# path (a slash) or a plain word (`promote`) is not one.
+_MECHANISM_SPAN_RE = re.compile(r'`([A-Za-z_][\w.-]*?)(?:\(\))?`')
+_FILE_SUFFIXES = ('.sh', '.py', '.json')
+
+
+def _harness_cases(harness_text):
+    """-> [(check_ name, body)] for each planted case, in file order."""
+    parts = re.split(r'^def (check_\w+)\(', harness_text, flags=re.M)
+    return [(parts[i], parts[i + 1].split('\ndef ', 1)[0])
+            for i in range(1, len(parts) - 1, 2)]
+
+
+def _mechanism_keys(fix_text):
+    """-> the names a Fix gives its mechanism, as a planted case would
+    spell them (the last dotted part of a function, a file name whole)."""
+    keys = []
+    for tok in _MECHANISM_SPAN_RE.findall(fix_text):
+        key = tok if tok.endswith(_FILE_SUFFIXES) else tok.rsplit('.', 1)[-1]
+        if len(key) >= 6 and ('_' in key.strip('_') or '-' in key
+                              or key.endswith(_FILE_SUFFIXES)) \
+                and not key.startswith('check_') and key not in keys:
+            keys.append(key)
+    return keys
+_NAMED_CASE_RE = re.compile(r'\bcheck_[a-z0-9_]*[a-z0-9]\b')
+_PREVENTION_RE = re.compile(r'^[*_ ]*Prevention:[*_ ]*(.*)$', re.M)
+
+
+def _incident_answer(path, harness_text, repo_dir, harness_cases=None):
+    """-> {'cases', 'scripts', 'missing', 'exercised', 'written'}: what an
+    incident file says prevents a recurrence. See _incident_coverage."""
+    out = {k: (list(v) if isinstance(v, list) else v)
+           for k, v in _NO_ANSWER.items()}
+    try:
+        text = pathlib.Path(path).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return out
+    # Names are read from the Fix section only: a Story quotes code
+    # (`*check_foo()`, a YAML anchor `&check_paths`) that names no case.
+    fix = re.search(r'^## Fix[^\n]*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
+    for name in sorted(set(_NAMED_CASE_RE.findall(fix.group(1) if fix else ''))):
+        if re.search(r'^def ' + re.escape(name) + r'\(', harness_text, re.M):
+            out['cases'].append(name)
+        elif (pathlib.Path(repo_dir) / 'tools' / 'checks' / f'{name}.py').is_file():
+            out['scripts'].append(name)
+        else:
+            out['missing'].append(name)
+    if harness_cases is None:
+        harness_cases = _harness_cases(harness_text)
+    # The case naming the MOST of the Fix's mechanisms is the one that
+    # plants it; the first case to mention one name in passing is not.
+    keys = _mechanism_keys(fix.group(1) if fix else '')
+    best, named = None, []
+    for n, body in harness_cases:
+        hit = [k for k in keys if k in body]
+        if len(hit) > len(named):
+            best, named = n, hit
+    if best and best not in out['cases']:
+        out['exercised'].append((best, ', '.join(named)))
+    m = _PREVENTION_RE.search(text)
+    if m:
+        para = text[m.start(1):].split('\n\n', 1)[0]
+        out['written'] = ' '.join(para.split()).replace('**', '')
+    return out
+
+
 def _incident_coverage(repo_dir, since=None):
     """-> (since, rows, note). Every incident FILED here since the last
     recorded run, with whatever in the tree cites it.
@@ -1669,7 +1739,23 @@ def _incident_coverage(repo_dir, since=None):
     proof that the incident cannot recur -- a docstring naming it reads
     identically to a check testing for it. The reading is the session's;
     what this removes is the part nobody does, which is assembling the
-    list."""
+    list.
+
+    WHAT THE FILE ITSELF SAYS (2026-10-06). A slug search misses the usual
+    case: a gotcha's Fix names its own planted case, `check_...`, and no
+    tool names the gotcha back. So each gotcha row also carries `answer`
+    (a closed open item's is empty: its text is history, and a case it
+    names may since have been retired on purpose):
+    `cases`, the check_ names the file gives that tools/verify_harness.py
+    defines (a planted case); `scripts`, those that are a check script under
+    tools/checks/; `missing`, a name that is neither -- a finding, since the
+    file promises a case nobody can run; `exercised`, (case, name) for a
+    mechanism the Fix names in a code span (`engine_is_ahead`,
+    `wait-loop-gate.sh`) that a planted case's body names too -- evidence
+    of a case, as a citation is, not proof; and `written`, the file's own
+    "Prevention: ..." paragraph, which is how the third honest answer
+    ("nothing mechanical, deliberately, because ...") is written down and
+    counted as answered rather than uncited."""
     repo_dir = pathlib.Path(repo_dir)
     since = since or _last_run_date(repo_dir)
     if not since:
@@ -1687,6 +1773,12 @@ def _incident_coverage(repo_dir, since=None):
                         encoding='utf-8')
                 except (OSError, UnicodeDecodeError):
                     continue
+    try:
+        harness = (repo_dir / 'tools' / 'verify_harness.py').read_text(
+            encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        harness = ''
+    cases = _harness_cases(harness)
     rows = []
     for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),
                                  ('open item closed', 'todo', 'closed')):
@@ -1701,7 +1793,9 @@ def _incident_coverage(repo_dir, since=None):
                 continue
             cites = sorted(path for path, text in corpus.items()
                            if slug in text)
-            rows.append((kind, slug, when, cites))
+            rows.append((kind, slug, when, cites,
+                         _incident_answer(f, harness, repo_dir, cases)
+                         if sub == 'gotchas' else dict(_NO_ANSWER)))
     rows.sort(key=lambda r: (r[2], r[1]))
     return since, rows, ''
 
@@ -4598,6 +4692,29 @@ def _convergent_drift(collect, sources=None):
     return out
 
 
+# Files a set writes once and then owns -- its name, subject and allowances,
+# its declared sources, its own generated-file registry -- so a difference
+# from a freshly generated set is the set's content, never drift.
+_SET_OWN_DECLARATIONS = {'precedent-source.json', 'precedent.json',
+                         os.path.join('tools', 'generated_files.json')}
+_SET_VIEWS = {'AGENTS.md', 'MAP.md', 'GLOSSARY.md'}
+
+
+def _set_views_current(root):
+    """True when the set's own `build_views.py --check` passes, i.e. its
+    generated views match its own practices. False when it fails or cannot
+    run -- a view nobody could confirm is reported, never assumed current."""
+    build = pathlib.Path(root) / 'tools' / 'build_views.py'
+    if not build.is_file():
+        return False
+    try:
+        r = subprocess.run([sys.executable, str(build), '--check'], cwd=str(root),
+                           capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
 def _bootstrap_drift_one(level, name, path, collect=None):
     """-> [str] what today's generator would write for a set that already
     exists, where that differs from the set itself.
@@ -4712,6 +4829,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         recorded = manifest.get('sha256', {})
 
         findings, notes, absent, behind = [], [], [], []
+        view_state = None
         for gen_path in sorted(gen_root.rglob('*')):
             if not gen_path.is_file():
                 continue
@@ -4795,8 +4913,23 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # seconds earlier as drifted here, after the sibling sources the
             # render reads had been refreshed mid-run.
             if (rel in owned or rel.endswith('settings.json')
-                    or rel == os.path.join('tools', 'session_load_budgets.json')):
+                    or rel == os.path.join('tools', 'session_load_budgets.json')
+                    or rel in _SET_OWN_DECLARATIONS):
                 notes.append(rel)
+                continue
+            # A generated view is rebuilt from the SET's own practices, so it
+            # always differs from an empty set's: the question is whether it
+            # is current with those practices, which the set's own views
+            # check answers. Comparing it with a fresh empty set reported
+            # AGENTS.md, MAP.md and GLOSSARY.md as drift in every set that
+            # has practices (found 2026-10-06).
+            if rel in _SET_VIEWS:
+                if view_state is None:
+                    view_state = _set_views_current(real_root)
+                if view_state:
+                    continue
+                findings.append(f'{rel} is not current with this set\'s own '
+                                f'practices: run its tools/build_views.py')
                 continue
             eng_name = pathlib.Path(rel).name
             if rel.startswith('tools' + os.sep) and eng_name in recorded:
@@ -6122,6 +6255,10 @@ def _referenced_repos(repo_dir):
 # commit. Before, a rename was reported and left to whoever read the line,
 # and only names in always-loaded instructions files were ever asked about.
 RENAMED = {}
+# Declared sets GitHub reports archived this run, by source name, for the
+# RETIRED SETS section (Morgan, 2026-10-06: drop a set that is retired or
+# archived, never one GitHub merely cannot find).
+ARCHIVED_SOURCES = set()
 PRIVATE_RENAMED = set()
 
 
@@ -6136,61 +6273,125 @@ def _dir_is_public(repo_dir):
         return True
 
 
+# Names a tool here gives the root of the repository it works on. A path
+# joined onto anything else (a fixture, `dest`, another set's directory) is
+# a same-named file somewhere else, not this repo's.
+_REPO_ROOT_NAMES = frozenset({'ROOT', 'REPO_ROOT', 'REPO', 'repo', 'root',
+                              'repo_root', 'repo_dir', 'REPO_DIR'})
+# A pathlib chain: `base / 'a' / 'b.json'`, read as base plus 'a/b.json'.
+_PATH_CHAIN_RE = re.compile(
+    r"""([A-Za-z_]\w*(?:\(\))?)((?:\s*/\s*['"][\w.-]+['"])+)""")
+_PATH_LIT_RE = re.compile(r"""['"]([\w./-]+\.(?:md|json))['"]""")
+_WRITE_CALL_RE = re.compile(r"write_text\(|open\([^)]*['\"][wa]b?['\"]|json\.dump\(")
+# A file's own claim to be generated -- never the bare word, which a slide
+# about generated outputs or a plan about generated files also uses.
+_GENERATED_CLAIM_RE = re.compile(
+    r"\bgenerated by\b|\bdo not (?:hand-)?edit\b|\bnever hand-edit\b"
+    r"|^generated_by:", re.I | re.M)
+
+
+def _repo_rooted_literals(window):
+    """-> {repo-relative path} a code window names as a path IN THIS REPO:
+    a chain joined onto a repo-root name at its full path, or a bare
+    literal that stands alone. A chain onto any other base is dropped."""
+    out, spans = set(), []
+    for m in _PATH_CHAIN_RE.finditer(window):
+        spans.append(m.span(2))
+        base = m.group(1).rstrip('()')
+        parts = re.findall(r"""['"]([\w.-]+)['"]""", m.group(2))
+        if base in _REPO_ROOT_NAMES:
+            out.add('/'.join(parts))
+    for m in _PATH_LIT_RE.finditer(window):
+        if not any(a <= m.start() < b for a, b in spans):
+            out.add(m.group(1))
+    return out
+
+
+def _tool_written_paths(repo_root, tracked):
+    """-> {tracked path: 'written near tool.py:N'} for each tracked .md or
+    .json file a tools/*.py write call names, within three lines, at its
+    full path inside this repo (the harness excluded: it writes fixtures)."""
+    found = {}
+    for py in sorted((pathlib.Path(repo_root) / 'tools').glob('*.py')):
+        if py.name == 'verify_harness.py':
+            continue
+        lines = py.read_text(encoding='utf-8', errors='ignore').split('\n')
+        for i, line in enumerate(lines):
+            if not _WRITE_CALL_RE.search(line):
+                continue
+            window = '\n'.join(lines[max(0, i - 3):i + 1])
+            for lit in _repo_rooted_literals(window):
+                if lit in tracked:
+                    found.setdefault(lit, f'written near {py.name}:{i + 1}')
+    return found
+
+
 def unlisted_generated_candidates(repo_root):
     """-> [(path, why)] tracked files a tool may write wholesale that
     tools/generated_files.json does not list -- for the session to JUDGE,
-    never findings. Two signals: a tracked .md or .json path written within
-    three lines of a write call in tools/*.py (the harness excluded: it
-    writes fixtures), and a tracked Markdown file whose opening lines say it
-    is generated but carry no label. The precedent_check half
+    never findings. Two signals: a tracked .md or .json file a write call in
+    tools/*.py names at its full path in this repo (the harness excluded: it
+    writes fixtures), and a tracked Markdown file whose opening lines CLAIM
+    it is generated ("generated by", "do not hand-edit", a generated_by:
+    header) while nothing lists it. The precedent_check half
     (generated-files-registered) catches a LABELLED file that is not listed;
     this is the reverse search for one that says nothing (Morgan,
-    2026-09-29)."""
+    2026-09-29).
+
+    A verdict that a candidate is hand-kept is recorded once, in the
+    registry's `not_generated` list (path and reason), and honoured here.
+    Until 2026-10-06 the section matched a basename written under ANY
+    directory and the bare word "generated", so the same six hand-kept
+    files came back every run (todo-2026-10-05-very-deep-check-pass-2-
+    findings). A `not_generated` entry for a file that is gone, or that the
+    `files` list now also lists, is itself returned to be judged."""
     repo_root = pathlib.Path(repo_root)
     reg = repo_root / 'tools' / 'generated_files.json'
     if not reg.is_file():
         return []
     try:
-        listed = {e.get('path') for e in
-                  json.loads(reg.read_text(encoding='utf-8')).get('files') or []}
+        data = json.loads(reg.read_text(encoding='utf-8'))
+        listed = {e.get('path') for e in data.get('files') or []}
+        judged = {e.get('path'): e.get('reason') or ''
+                  for e in data.get('not_generated') or []}
     except (ValueError, AttributeError):
         return []
     rc, out, _e = _run_git(repo_root, 'ls-files')
     tracked = set(out.split()) if rc == 0 else set()
+    found = {}
+    for path, reason in judged.items():
+        if path not in tracked:
+            found[path] = ('not_generated in tools/generated_files.json names '
+                           'it, and it is not tracked -- drop the entry')
+        elif path in listed:
+            found[path] = ('both files and not_generated in '
+                           'tools/generated_files.json list it -- keep one')
+        elif not reason.strip():
+            found[path] = 'not_generated lists it with no reason -- give one'
     try:
         import doc_sync
         listed |= {d for d, _n, _s in doc_sync.PAIRS}
     except Exception:                                   # noqa: BLE001
         pass
     skip = re.compile(r'(practices/|todo/todo-|gotchas/gotcha-|evals/|templates/)')
-    write = re.compile(r"write_text\(|open\([^)]*['\"][wa]b?['\"]|json\.dump\(")
-    lit_re = re.compile(r"['\"]([\w./-]+\.(?:md|json))['\"]")
-    found = {}
-    for py in sorted((repo_root / 'tools').glob('*.py')):
-        if py.name == 'verify_harness.py':
-            continue
-        lines = py.read_text(encoding='utf-8', errors='ignore').split('\n')
-        for i, line in enumerate(lines):
-            if not write.search(line):
-                continue
-            window = '\n'.join(lines[max(0, i - 3):i + 1])
-            for lit in set(lit_re.findall(window)):
-                for path in tracked:
-                    if (path == lit or path.endswith('/' + lit)) and \
-                            path not in listed and not skip.match(path):
-                        found.setdefault(path, f'written near {py.name}:{i + 1}')
-    say = re.compile(r'\b(generated|regenerat\w*|rebuilt from)\b', re.I)
+    for path, why in _tool_written_paths(repo_root, tracked).items():
+        if path not in listed and path not in judged and not skip.match(path):
+            found.setdefault(path, why)
     for path in sorted(tracked):
-        if not path.endswith('.md') or path in listed or skip.match(path):
+        if not path.endswith('.md') or path in listed or path in judged \
+                or skip.match(path):
             continue
         try:
             head = '\n'.join((repo_root / path).read_text(
                 encoding='utf-8', errors='ignore').split('\n')[:6])
         except OSError:
             continue
-        if say.search(head) and 'generated_by:' not in head:
-            found.setdefault(path, 'its opening lines say it is generated, '
-                                   'and it carries no label')
+        m = _GENERATED_CLAIM_RE.search(head)
+        if m:
+            found.setdefault(path, f'its opening lines claim it is generated '
+                                   f'({m.group(0).strip()!r}) and '
+                                   f'tools/generated_files.json lists it '
+                                   f'nowhere')
     return sorted(found.items())
 
 
@@ -6989,6 +7190,9 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
         checked += 1
         before = len(findings)
         if data.get('archived'):
+            _named = re.search(r"'([^']+)'", label)
+            if _named:
+                ARCHIVED_SOURCES.add(_named.group(1))
             findings.append(
                 f'{label} ({owner}/{name}) is ARCHIVED. It clones, fetches '
                 f'and reads exactly like a live repository and refuses every '
@@ -8346,6 +8550,58 @@ def _main(box):
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
 
+    # RETIRED SETS: a declared set that says it is retired, or that GitHub
+    # reported archived above, in this checkout and in every source's own
+    # precedent.json. Morgan, 2026-10-06 (strength: decided), option C: the
+    # declaration is dropped when every active rule the set holds is in
+    # force elsewhere, and kept, with the rule named, when one is not. This
+    # reports; the drop is the one command it prints, run on the working
+    # branch like any other fix (and Update Vendors makes it on its own).
+    if not as_json:
+        if led:
+            led.start('RETIRED SETS -- declared, but retired or archived')
+        print("RETIRED SETS -- declared, but retired or archived\n")
+        _rs_found = 0
+        try:
+            import precedent_vendor_engine as _rs_pve
+        except Exception:                                    # noqa: BLE001
+            _rs_pve = None
+            print('  note: precedent_vendor_engine did not import, so nothing '
+                  'was checked')
+        _rs_seen = set()
+        for _lbl, _pth in ([('this checkout', repo_root)] + [
+                (f"{s['level']} source {s['name']}", s['path'])
+                for s in data['sources']] if _rs_pve else []):
+            try:
+                _key = pathlib.Path(_pth).resolve()
+            except (OSError, RuntimeError):
+                continue
+            if _key in _rs_seen:
+                continue
+            _rs_seen.add(_key)
+            _drop, _keep = _rs_pve.drop_retired_sources(
+                _key, ARCHIVED_SOURCES, apply=False)
+            for _n, _p, _why in _drop:
+                _rs_found += 1
+                print(f'  FINDING: {_lbl} declares {_n} ({_p}): {_why}. Every '
+                      f'active rule it holds is in force in another declared '
+                      f'source, so drop it -- in that repo, on its working '
+                      f'branch: python3 tools/precedent_vendor_engine.py '
+                      f'drop-retired .')
+            for _n, _p, _why, _lost in _keep:
+                _rs_found += 1
+                print(f'  FINDING: {_lbl} declares {_n} ({_p}): {_why}, but '
+                      f'{", ".join(_lost)} is in force nowhere else, so it '
+                      f'must stay declared until those rules move or are let go.')
+        if _rs_pve and not _rs_found:
+            print('  none -- no declared set says it is retired'
+                  + (', and GitHub reported none archived' if not skip_liveness
+                     else "; GitHub's archived flag was not asked "
+                          "(--skip-liveness)"))
+        print()
+        if led:
+            led.end(findings=_rs_found)
+
     # LIVE VERSUS LANDING: what this run reads, against what is live, and
     # what the landing branch already carries -- see _live_vs_landing.
     if not as_json:
@@ -8593,8 +8849,10 @@ def _main(box):
                 _cands = unlisted_generated_candidates(repo_root)
                 print(f"GENERATED FILES -- {len(_cands)} tracked file(s) a "
                       f"tool may write that tools/generated_files.json does "
-                      f"not list. Judge each: list it (with its label and "
-                      f"check), or say why it is not generated.")
+                      f"not list. Judge each: list it under `files` (with "
+                      f"its label and check), or record it under "
+                      f"`not_generated` with the reason, so it is judged "
+                      f"once.")
                 for _path, _why in _cands:
                     print(f"  {_path}: {_why}")
                 print()
@@ -9190,29 +9448,55 @@ def _main(box):
     print("INCIDENT COVERAGE -- what was filed since the last run, and what "
           "cites it\n")
     _ic_since, _ic_rows, _ic_note = _incident_coverage(repo_root)
+    _ic_findings = 0
     if _ic_note:
         print(f"  not measured -- {_ic_note}")
     else:
         print(f"  Since the last recorded run ({_ic_since}): "
               f"{len(_ic_rows)} incident(s).\n")
-        for _kind, _slug, _when, _cites in _ic_rows:
+        for _kind, _slug, _when, _cites, _ans in _ic_rows:
             print(f"      {_when}  {_kind}: {_slug}")
             if _cites:
                 print(f"                  cited by {len(_cites)}: "
                       f"{', '.join(_cites[:4])}")
-            else:
+            for _c in _ans['cases']:
+                print(f"                  covered by planted case {_c}")
+            for _c, _k in _ans['exercised']:
+                print(f"                  exercised by planted case {_c} "
+                      f"(it names {_k})")
+            for _c in _ans['scripts']:
+                print(f"                  names check script "
+                      f"tools/checks/{_c}.py")
+            for _c in _ans['missing']:
+                _ic_findings += 1
+                print(f"                  FINDING: names {_c}, which does "
+                      f"not exist (no planted case in tools/verify_harness.py"
+                      f", no tools/checks/{_c}.py)")
+            if _ans['written']:
+                _w = _ans['written']
+                print(f"                  answered in the file: Prevention: "
+                      f"{_w[:110]}{'...' if len(_w) > 110 else ''}")
+            if not (_cites or _ans['cases'] or _ans['scripts']
+                    or _ans['exercised'] or _ans['written']):
                 print("                  cited by NOTHING in tools/ or "
-                      "practices/")
+                      "practices/" + (
+                          ", and its Fix names no planted case and it gives "
+                          "no Prevention: answer"
+                          if _kind.startswith('gotcha') else ''))
         if _ic_rows:
             print("\n  Ask of each: what prevents a recurrence, and is "
                   "there a planted case proving\n  it fires? A citation is "
                   "evidence something names the incident, never proof the\n"
                   "  class is closed -- a docstring reads the same as a "
                   "check. 'Nothing, and\n  deliberately so' is an answer "
-                  "worth writing down; unexamined is not.")
+                  "worth writing down; unexamined is not. Write it in\n  the "
+                  "file as a paragraph opening \"Prevention: nothing "
+                  "mechanical, deliberately,\n  because ...\", and this "
+                  "section counts it as answered.")
     print()
     if led:
-        led.end(items=len(_ic_rows) if not _ic_note else None)
+        led.end(items=len(_ic_rows) if not _ic_note else None,
+                findings=_ic_findings if not _ic_note else None)
         led.start('FIX SWEEP -- new detectors, run everywhere')
 
     print("FIX SWEEP -- every detector added since the last run, against "

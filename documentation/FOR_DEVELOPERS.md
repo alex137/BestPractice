@@ -34,7 +34,10 @@ exist, not because anyone should take it — it was retired 2026-09-23:
   ```
 
   It prints the placeholders it left for you to adapt and stops before
-  committing. What it does step by step is §0's numbered list.
+  committing. What it does step by step is §0's numbered list. It sets up
+  Claude Code only: for Codex or Gemini CLI, add that adapter from
+  [templates/harness/](../templates/harness/) as well (§1 step 2 says
+  which files go where).
 - **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
   older vendored model: the whole upstream tree at `process/upstream/`, a
   **manifest** recording the mapping both ways, and a check-in loop in

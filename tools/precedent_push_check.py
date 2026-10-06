@@ -677,6 +677,38 @@ def publish_pass(root, rec):
           f'other checkouts ({why}); they will run the suite themselves.')
 
 
+def _branch_name_refusal(root, argv):
+    """-> why a push that CREATES a session branch with a hand-made name is
+    refused, or None. Only a branch origin does not have yet is judged, so
+    a branch already pushed, a tier branch and every other name pass; an
+    engine copy without the naming tool refuses nothing (Morgan,
+    2026-10-06: always use the new format for temporary branches)."""
+    if '--push-command' not in argv:
+        return None
+    i = argv.index('--push-command')
+    cmd = argv[i + 1] if i + 1 < len(argv) else ''
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branches
+        import precedent_branch_name
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+    judge = getattr(precedent_branch_name, 'name_refusal', None)
+    if judge is None:
+        return None
+    for name in precedent_branches.push_targets(root, cmd) or []:
+        if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
+                           f'refs/remotes/origin/{name}'],
+                          capture_output=True).returncode == 0:
+            continue
+        why = judge(name)
+        if why:
+            return why
+    return None
+
+
 def _promote_only_refusal(root, argv):
     """-> why the named push is refused before any check runs, or None.
     Only a person who turned promote_only on is ever refused here
@@ -1441,6 +1473,18 @@ def run(root, checks, landed=None, reported=None):
             if marker and marker in p.stdout + p.stderr:
                 print(f'      {note} ({took:.0f}s)', flush=True)
                 continue
+            # An identity check passes with a WARNING for a bot-authored
+            # commit -- an emergency fallback, never refused (Morgan,
+            # 2026-10-06) -- and the warning is shown, not swallowed.
+            warned = [ln for ln in p.stdout.splitlines()
+                      if ln.startswith('WARNING:')] \
+                if name in {c[0] for c in IDENTITY_CHECKS} else []
+            if warned:
+                print(f'      passed in {took:.0f}s, WITH A WARNING -- tell '
+                      f'the person, and record an open item:', flush=True)
+                for line in warned:
+                    print(f'      | {line}')
+                continue
             print(f'      passed in {took:.0f}s', flush=True)
             continue
         if (p.returncode == 2 and name in SKIP_IS_FINE_WITHOUT_IDENTITY
@@ -1563,6 +1607,10 @@ def main(argv):
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
+    refused = _branch_name_refusal(root, argv)
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
     if '--tier' in argv:
         i = argv.index('--tier')
         value = argv[i + 1] if i + 1 < len(argv) else ''
@@ -1668,9 +1716,16 @@ def main(argv):
         subprocess.run(['git', '-C', str(root), 'fetch', '-q', '--unshallow'],
                        capture_output=True, text=True)
         if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
-            print('precedent_push_check: FAILED -- the clone is still shallow '
-                  '(the fetch did not complete), so the history checks '
-                  'cannot run. Run `git fetch --unshallow` and try again.')
+            # A second --unshallow cannot help when the clone stays shallow
+            # only because .git/shallow still names commits of branches
+            # deleted upstream; the gotcha carries the safe recovery.
+            print('precedent_push_check: FAILED -- the clone is still shallow, '
+                  'so the history checks cannot run. If `git fetch '
+                  '--unshallow` has not finished, run it again; if it '
+                  'completes and the clone still says shallow, .git/shallow '
+                  'names commits of deleted branches -- follow gotchas/'
+                  'gotcha-2026-09-28-stale-shallow-entries-for-deleted-'
+                  'branches-survive-unshallow.md.')
             return 1
 
     ok_pkgs, note = ensure_gate_packages()

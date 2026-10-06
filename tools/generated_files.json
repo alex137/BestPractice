@@ -14,7 +14,13 @@
     "",
     "Blocks inside hand-written documents (<!--gen:NAME--> ... <!--/gen:NAME-->)",
     "are NOT repeated here: tools/doc_sync.py's PAIRS is their one list, and",
-    "doc_sync.py checks them."
+    "doc_sync.py checks them.",
+    "",
+    "`not_generated` records, once, a judged verdict that a file the very",
+    "deep check's GENERATED FILES section would ask about is hand-kept, with",
+    "the reason; that section honours it and stops asking. An entry whose",
+    "file is gone, or which `files` also lists, comes back to be judged.",
+    "generated-files-registered reads only `files`."
   ],
   "files": [
     {"path": "MAP.md", "generated_by": "tools/build_views.py",
@@ -57,5 +63,19 @@
     {"path": "record/holistic-reads.json", "generated_by": "tools/very_deep_check.py",
      "edit_instead": null, "regenerate": "python3 tools/very_deep_check.py --record-read",
      "check": null, "why_no_check": "an append-only log of reads a session recorded; there is nothing to regenerate it from"}
+  ],
+  "not_generated": [
+    {"path": ".claude/settings.json",
+     "reason": "hand-kept harness settings; precedent_update.py rewrites the mirrored-tool paths inside it in place and drops duplicate permissions, which edits a hand-kept file rather than writing it wholesale"},
+    {"path": "precedent.json",
+     "reason": "hand-kept declaration of the sources in force; precedent_branches.py sets its one staging-branch key in place, and practice_simulation.py writes a fixture's own copy, not this one"},
+    {"path": "tools/routing_scope.json",
+     "reason": "hand-kept here; precedent_vendor_engine.py writes a trimmed copy into a consuming repo's tools/, never this file"},
+    {"path": "tools/session_load_budgets.json",
+     "reason": "hand-kept here (ceilings are decided, then ratcheted by reduction passes); precedent_bootstrap_source.py seeds a new set's own copy, never this file"},
+    {"path": "deck/sample/slides/04_working_method.md",
+     "reason": "a hand-written slide; it says office formats are generated outputs, which is about the deck engine, not this file"},
+    {"path": "spec/GENERATED_FILES_PLAN.md",
+     "reason": "the hand-written plan for generated files; its title uses the word, it is not a claim about itself"}
   ]
 }
