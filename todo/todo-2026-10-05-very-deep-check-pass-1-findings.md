@@ -49,6 +49,15 @@ and the check read only the hook.
   only. One "What is left" line pointing at
   [templates/harness/README.md](../templates/harness/README.md), or a
   `--harness` option, closes it.
+  **Fixed 2026-10-06:** the installer's report ends with a line saying it
+  set up Claude Code only and naming the adapters page for Codex, Gemini
+  CLI or another assistant; [SETUP.md](../SETUP.md) step 3 now uses the
+  which-assistant answer; INSTALL.md §1 step 2 says which Codex and Gemini
+  CLI files go where, and §0 and
+  [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md) point at it. No
+  `--harness` option: neither adapter has been seen to fire in a live
+  session yet, so copying them stays a deliberate step. Harness case
+  `check_install_names_the_other_assistants_adapters`.
 - **A beta-era consumer's first update runs code main does not have.** Its
   own older refresh reads the integration branch, so the report says
   `refreshed from precedent-beta-v01 @ b45fcf1f` under `source: main`. The

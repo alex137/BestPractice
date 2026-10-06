@@ -8067,6 +8067,46 @@ def check_consumer_engine_carries_what_its_checks_import():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_install_names_the_other_assistants_adapters():
+    """The installer wires the Claude Code adapter only, and a Codex or
+    Gemini CLI adopter was never told to add theirs: SETUP.md asked which
+    assistant would work in the repository and no later step used the
+    answer, and INSTALL.md's adapter step spelled out Claude Code alone
+    (very deep check, 2026-10-05, pass 1). The installer's report now names
+    the adapters page, and both guides say what to add for each."""
+    import shutil as _sh
+    import tempfile as _tf
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-adapters-'))
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(fx), '--project-name', 'Fixture'],
+                           capture_output=True, text=True)
+        tail = r.stdout.split('DONE.', 1)[-1]
+        cases.append(("the install report's what-is-left names the adapters "
+                      "page for another assistant",
+                      'templates/harness/README.md' in tail
+                      and 'Codex' in tail and 'Gemini CLI' in tail))
+        setup = (ROOT / 'SETUP.md').read_text(encoding='utf-8')
+        conv = setup.split('## The Conversation', 1)[-1]
+        after = conv.split('python3 tools/precedent_install.py', 1)[-1]
+        cases.append(('SETUP.md uses the which-assistant answer after the '
+                      'install command', 'templates/harness/README.md' in after
+                      and 'Codex' in after))
+        inst = (ROOT / 'INSTALL.md').read_text(encoding='utf-8')
+        cases.append(("INSTALL.md's adapter step covers Codex and Gemini CLI",
+                      'templates/harness/codex/hooks.json' in inst
+                      and '.codex/hooks.json' in inst
+                      and 'templates/harness/gemini-cli/GEMINI.md' in inst
+                      and '.gemini/settings.json' in inst))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'an adopter on another assistant is told to add its adapter '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60383,6 +60423,7 @@ def main():
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
     check_consumer_engine_carries_what_its_checks_import()
+    check_install_names_the_other_assistants_adapters()
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()

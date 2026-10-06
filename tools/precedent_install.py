@@ -103,6 +103,18 @@ LOCAL_PRACTICE_FILES = {
     'local/practices/project-visual-identity.md': 'local-practices/project-visual-identity.md.template',
 }
 MIRROR_WORDS = 'process/upstream'    # the section-1 layout this install does not have
+# The installer wires the Claude Code adapter only. A project worked by
+# another assistant needs that assistant's adapter as well, and until
+# 2026-10-06 nothing said so: SETUP.md asked which assistant would work in
+# the repository and no later step used the answer (very deep check,
+# 2026-10-05, pass 1). Printed in every report, since the installer is not
+# told the answer.
+OTHER_ASSISTANTS_NOTE = (
+    'only the Claude Code adapter was installed. If Codex, Gemini CLI or '
+    'another assistant will work in this project, add its adapter too -- '
+    f'{UPSTREAM_DOCS}/templates/harness/README.md lists them, and each '
+    "adapter's own page says what to copy where (they reuse the "
+    '.claude/hooks/ scripts installed here, so keep those).')
 
 
 class InstallRefused(Exception):
@@ -724,6 +736,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
         'write while it cannot reach one).')
     say('  still a conversation, not a step: does the team or the person have a '
         'practices repo to wire in? (INSTALL.md §1 step 9)')
+    say(f'  {OTHER_ASSISTANTS_NOTE}')
     return lint_ok
 
 
