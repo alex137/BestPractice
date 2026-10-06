@@ -965,6 +965,10 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         updates = {'status': 'active', 'in_force_at': 'null',
                    'added': f'"{today}"', 'approved_by': approval}
         if to_level == 'universal':
+            # A placeholder for the pull request's review. Once the practice
+            # is on the base branch, precedent_check.py's
+            # pending-approval-outlives-its-merge refuses it until someone
+            # writes who approved it and in which pull request.
             updates['approved_by'] = (f'"pending PR review -- drafted {today} by {approved_by}, '
                                       f'moved from the {from_level} set {from_name}"')
             # A set's check is a script under its own tools/checks/; in

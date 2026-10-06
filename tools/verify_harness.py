@@ -15874,6 +15874,37 @@ def check_precedent_check_fires():
             git(repo, 'remote', 'add', 'origin', str(bare))
         case('default-branch', _plant_default_branch)
 
+        # pending-approval-outlives-its-merge: origin's `staging`, the base
+        # this repo declares, holds the baseline. A practice already there
+        # says approved_by "pending PR review" -- its pull request merged,
+        # the placeholder stayed -- and a practice the change ADDS says it
+        # too, which is right while its own pull request is open. The clean
+        # copy has no remote, which the check reports as skipped.
+        def _plant_pending_approval(repo):
+            bare = repo.parent / (repo.name + '-remote.git')
+            subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                           capture_output=True, check=True)
+            git(repo, 'push', '-q', str(bare), 'HEAD:refs/heads/staging')
+            git(repo, 'remote', 'add', 'origin', str(bare))
+            git(repo, 'fetch', '-q', 'origin')
+            pending = ('approved_by: "pending PR review -- drafted 2026-10-05 '
+                       'by Pat, moved from the shared set zz-set"')
+            rewrite(repo, 'practices/repo-is-memory.md',
+                    lambda t: re.sub(r'^approved_by: .*$', pending, t,
+                                     count=1, flags=re.M))
+            (repo / 'practices' / 'zzz-moved-in.md').write_text(
+                '---\nslug:        zzz-moved-in\napproved_by: "(pending PR '
+                'review)"\n---\n\n## Rule\nMoved in by this change.\n',
+                encoding='utf-8')
+        case('pending-approval-outlives-its-merge', _plant_pending_approval)
+        if 'pending-approval-outlives-its-merge' in planted:
+            _pa = planted['pending-approval-outlives-its-merge'][1]
+            cases.append(('pending-approval-outlives-its-merge: the finding '
+                          'names the practice already on the base branch, '
+                          'never the one the change adds',
+                          'practices/repo-is-memory.md' in _pa
+                          and 'zzz-moved-in' not in _pa))
+
         # session-trailer: the baseline commit carries an explicit "none
         # available" trailer; the plant adds one commit with no trailer at
         # all. The check ships with the engine since 2026-10-06.

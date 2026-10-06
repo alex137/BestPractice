@@ -95,6 +95,17 @@ section judged a check script by filename alone.
   nothing rewrites it; 18 practices carried it until this run fixed the
   text by hand. A merge-gate check that refuses it on the base branch, or a
   rewrite at landing, is the root fix.
+
+  **Fixed 2026-10-06:** a registered check,
+  `pending-approval-outlives-its-merge` in
+  [precedent_check.py](../tools/precedent_check.py), fails when a practice
+  the base branch already has still says "pending PR review" in this
+  checkout. A practice the change itself adds passes, so the pull request
+  that brings a moved practice is not blocked by its own placeholder. Both
+  writers' comments name it. Planted case:
+  `case('pending-approval-outlives-its-merge', ...)` in
+  `check_precedent_check_fires`, which also asserts the added practice is
+  not named. Without the check, both its runs fail.
 - **The writing and ladder sets differ from what the generator writes
   today in eight files each** (AGENTS.md, MAP.md, GLOSSARY.md, CODEOWNERS,
   precedent.json, precedent-source.json, `tools/generated_files.json`, the
