@@ -5401,6 +5401,14 @@ _ENGINE_REF_RE = re.compile(
 # somewhere else is how a real gap gets waved through later. Keep this
 # short: the default answer to "this file isn't here" is to vendor it.
 _ENGINE_REF_ABSENT_OK = {
+    # A PRESENCE PROBE, like precedent_session_practices.py below. The
+    # layered-practice-packs check follows a session hook that runs
+    # tools/bootstrap.sh into it, to see whether it renders the session
+    # file (2026-10-05). A consuming repo has the script; a practice SET
+    # does not, and the reference is `.is_file()`-guarded, so its absence
+    # means only "this hook does not reach the tool that way". Found the
+    # same night, when a Debut's harness ran the check in a bare source set.
+    'bootstrap.sh',
     # A repo's OWN declared ceilings for what a session loads
     # (session-load-budget). Engine-read, never engine-owned: an adopter's
     # ceilings are theirs, so vendoring this repo's copy into their tools/
