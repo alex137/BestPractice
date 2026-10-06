@@ -316,6 +316,33 @@ def ensure_headroom_floor(repo):
 
 
 
+def _repos_own_budgets(repo):
+    """-> {key: tokens} in force in `repo`, read by `repo`'s OWN engine copy
+    -- the build_views.py its budget-within-approval check imports -- else
+    None. Not this clone's build_views: its effective_budgets() reads the
+    registry and constants beside itself, so a consumer was seeded with
+    BestPractice's own numbers (resident 1,750 against its 2,000) and its
+    first check refused every budget as an unapproved raise (2026-10-06, the
+    Debut that carried seed_baseline_approvals)."""
+    tools = pathlib.Path(repo) / 'tools'
+    if not (tools / 'build_views.py').is_file():
+        return None
+    r = subprocess.run(
+        [sys.executable, '-c',
+         'import json, sys; sys.path.insert(0, sys.argv[1]); '
+         'import build_views; '
+         'print(json.dumps(build_views.effective_budgets(sys.argv[2])))',
+         str(tools), str(repo)],
+        cwd=str(repo), capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        return None
+    try:
+        got = json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    return got if isinstance(got, dict) else None
+
+
 def seed_baseline_approvals(repo, data, path):
     """Record every budget in force as a `"strength": "baseline"` approval in
     a registry Update Vendors has JUST seeded, so budget-within-approval
@@ -327,10 +354,8 @@ def seed_baseline_approvals(repo, data, path):
     run and nothing said so."""
     if not isinstance(data, dict) or isinstance(data.get('approved_budgets'), dict):
         return False
-    try:
-        import build_views as _bv
-        now = _bv.effective_budgets(repo)
-    except Exception:                                        # noqa: BLE001
+    now = _repos_own_budgets(repo)
+    if not now:
         return False
     import time as _time
     day = _time.strftime('%Y-%m-%d')

@@ -6378,6 +6378,10 @@ def check_update_seeds_the_session_load_registry():
     cases = []
     with tempfile.TemporaryDirectory() as td:
         repo = pathlib.Path(td)
+        # The repo's own engine copy, as Update Vendors leaves it, minus the
+        # registry this test is about: the approvals are read through it.
+        shutil.copytree(ROOT / 'tools', repo / 'tools', ignore=shutil.ignore_patterns(
+            '__pycache__', 'session_load_budgets.json'))
         (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
         (repo / 'AGENTS.md').write_text('word ' * 300, encoding='utf-8')
         seeded = pu.ensure_session_load_registry(repo)
@@ -6399,6 +6403,12 @@ def check_update_seeds_the_session_load_registry():
                           for e in ap.values())))
         cases.append(('...and the report then names no approval gap',
                       pu.approval_gap(repo) is None))
+        cases.append(('...each at the number in force in THIS repo, never the '
+                      'engine clone\'s own (2026-10-06: a consumer was seeded '
+                      'with BestPractice\'s numbers, and its first check refused '
+                      'all of them as unapproved raises)',
+                      (ap.get('surfaces/CLAUDE.md') or {}).get('max')
+                      == s['CLAUDE.md']['ceiling']))
         before = (repo / 'tools' / 'session_load_budgets.json').read_bytes()
         again = pu.ensure_session_load_registry(repo)
         cases.append(('a second run writes nothing', again is None and before ==
