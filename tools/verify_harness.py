@@ -47582,6 +47582,14 @@ def check_promote_marks_other_sessions_commits():
             cases.append(('the note names how many and asks for them by name',
                           '1 of these' in pb._other_work_note(others, 'work')
                           and pb._other_work_note([], 'work') == ''))
+            fix = 'promote-fix-20261006T193311-0300'
+            run('branch', fix, 'main')
+            shown, others = pb.mark_other_work(repo, batch, fix, sid='01Fixture')
+            cases.append(('a fix branch, which carries the whole batch, counts for '
+                          'nothing: another session\'s commit is still marked, '
+                          'and one with this session\'s line still is not',
+                          pb.is_fix_branch(fix) and "someone else's" in subj(others)
+                          and 'mine, Booked from another branch' not in subj(others)))
             shown, others = pb.mark_other_work(repo, batch, None, sid='')
             cases.append(('with no work branch and no session ID, nothing is marked',
                           not others and shown == batch))
