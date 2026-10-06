@@ -31,6 +31,15 @@ on:
   # Every PR to date (#83-#123, checked 2026-09-07) came from a branch inside
   # this repo.
   push:
+    # precedent-beta-v01 is the old name of staging, kept only so a pin to
+    # it still updates (spec/BRANCH_TIERS_PLAN.md step 10): every Promote
+    # fast-forwards it to staging's tip, so its tree is one this gate has
+    # already passed on staging. Scanning it again added nothing, and its
+    # runs sat queued until GitHub cancelled them after 15 minutes
+    # (2026-10-06). A session still pinned to the old name that pushes to it
+    # directly is gated by its local pre-push hook, and the next sync
+    # carries the push to staging, where this gate scans it.
+    branches-ignore: [precedent-beta-v01]
   workflow_dispatch:
 
 permissions:
