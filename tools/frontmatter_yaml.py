@@ -173,12 +173,42 @@ def _rank(key):
     return FIELD_ORDER.index(key) if key in FIELD_ORDER else len(FIELD_ORDER)
 
 
-def unlisted_fields(text):
-    """Frontmatter keys in TEXT that FIELD_ORDER does not list."""
+# A REPOSITORY MAY DECLARE FIELDS OF ITS OWN (2026-10-06). precedent.json's
+# `own_frontmatter_fields` lists frontmatter keys this repository's own
+# tooling reads, so its practices may carry them without a warning on every
+# run. Reported from a consumer: nine of its repo-local practices carry a
+# field its own check reads, and once unlisted fields warned again they
+# warned on every run, for ever, with no way to say the field was meant.
+# Declared fields sort after every field the spec lists (_rank already puts
+# any key FIELD_ORDER does not know last), and a declared name the spec
+# lists is ignored -- the spec's meaning wins.
+OWN_FIELDS_KEY = 'own_frontmatter_fields'
+
+
+def own_fields(root):
+    """-> the frontmatter keys `root`'s precedent.json declares as its own,
+    less any FIELD_ORDER already lists. () when it declares none."""
+    import json
+    try:
+        data = json.loads((pathlib.Path(root) / 'precedent.json')
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ()
+    got = data.get(OWN_FIELDS_KEY) if isinstance(data, dict) else None
+    if not isinstance(got, list):
+        return ()
+    return tuple(k for k in got if isinstance(k, str) and k
+                 and k not in FIELD_ORDER)
+
+
+def unlisted_fields(text, own=()):
+    """Frontmatter keys in TEXT that FIELD_ORDER does not list and the
+    repository has not declared as its own (`own`, from own_fields())."""
     parts = _split(text)
     if parts is None:
         return []
-    return [k for k, _ in _field_blocks(parts[0])[1] if k not in FIELD_ORDER]
+    return [k for k, _ in _field_blocks(parts[0])[1]
+            if k not in FIELD_ORDER and k not in own]
 
 
 def field_order_problem(text):
@@ -294,7 +324,7 @@ def fix_staged(root=None):
                   f'for the field-order check')
             continue
         text = p.read_text(encoding='utf-8')
-        unknown = unlisted_fields(text)
+        unknown = unlisted_fields(text, own_fields(root))
         if unknown:
             print(f'frontmatter_yaml: {rel} carries {", ".join(unknown)}, '
                   f'which this copy of the engine does not know -- left alone')

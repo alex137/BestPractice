@@ -478,6 +478,33 @@ def _run_all_script(test_owners):
                      f"level={shlex.quote(level)} ;;\n")
     return RUN_ALL_HEAD + ''.join(lines) + RUN_ALL_TAIL
 
+_CLAIMED_CACHE = {}
+
+
+def _claimed_in_source(source_path):
+    """-> {check and test file names} that any practice file in the source at
+    `source_path` names in `checked_by`, whatever its status."""
+    key = str(pathlib.Path(source_path).resolve())
+    if key in _CLAIMED_CACHE:
+        return _CLAIMED_CACHE[key]
+    names = set()
+    pdir = pathlib.Path(source_path) / 'practices'
+    for pf in (sorted(pdir.glob('*.md')) if pdir.is_dir() else []):
+        try:
+            head = pf.read_text(encoding='utf-8', errors='replace')[:4000]
+        except OSError:
+            continue
+        m = re.search(r'^checked_by:\s*(\S+)', head, re.M)
+        if not m:
+            continue
+        cb = m.group(1).strip('"\'')
+        if cb.endswith('.py') and '/checks/' in cb:
+            stem = pathlib.PurePath(cb).stem
+            names.update({f'{stem}.py', f'{stem.replace("check_", "test_", 1)}.sh'})
+    _CLAIMED_CACHE[key] = names
+    return names
+
+
 def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
@@ -588,6 +615,15 @@ def _plan_checks(sources, res=None):
         owner_of[key] = source_name
         plan.append((rel_label, src_file.name, source_name, src_file.read_bytes()))
 
+    def held_back(name, source_path):
+        """True when a practice file in the script's OWN source names it in
+        `checked_by` -- a rule that source keeps out of force here on
+        purpose (deduplicated, retired), whose check still runs in that
+        source's own repository. Not an orphan, and not worth a line on
+        every sync (reported from a consumer, 2026-10-06: every sync listed
+        the individual set's three such checks)."""
+        return name in _claimed_in_source(source_path)
+
     for s in sources:
         src_checks = pathlib.Path(s['path']) / 'tools' / 'checks'
         if not src_checks.is_dir():
@@ -597,7 +633,8 @@ def _plan_checks(sources, res=None):
                 skipped.append(f'tools/checks/{f.name} ({s["name"]})')
             elif claimed_names is not None and (f.name not in claimed_names
                                                 or unclaimed_here(f.name, s['name'])):
-                orphaned.append(f'tools/checks/{f.name} ({s["name"]})')
+                if not held_back(f.name, s['path']):
+                    orphaned.append(f'tools/checks/{f.name} ({s["name"]})')
             else:
                 claim(f, 'checks', s['name'])
         src_tests = src_checks / 'tests'
@@ -613,7 +650,8 @@ def _plan_checks(sources, res=None):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
                 elif claimed_names is not None and (f.name not in claimed_names
                                                     or unclaimed_here(f.name, s['name'])):
-                    orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
+                    if not held_back(f.name, s['path']):
+                        orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
                 else:
                     claim(f, 'checks/tests', s['name'])
     if skipped:

@@ -91,7 +91,7 @@
     "require_quiet_while_background_runs": {
       "why": "a batch reports once, when it is done or something fails"
     },
-    "why": "Morgan, 2026-10-05 (strength: decided): four Debuts run one after another reported themselves one at a time, each reply with its own Boildown -- 'Note that you have sent me 4 boildowns in this session.' Agreed the same day: a reply to a job finishing carries no Boildown unless the job is done, and a batch reports once ('#1 and #2 are GREAT'). Blocking, and the refusal asks for nothing further: the reply is already on screen, and what the refusal buys is the next wake handled right. tools/precedent_reply_check.py's turn_wake() reads what woke the turn and which background commands are still running from the transcript.",
+    "why": "Morgan, 2026-10-05 (strength: decided): four Debuts run one after another reported themselves one at a time, each reply with its own Boildown -- 'Note that you have sent me 4 boildowns in this session.' Agreed the same day: a reply to a job finishing carries no Boildown unless the job is done, and a batch reports once ('#1 and #2 are GREAT'). Blocking, and the refusal asks for one waiting line, never nothing (2026-10-06: an empty turn makes the harness ask for visible output): the reply is already on screen, and what the refusal buys is the next wake handled right. tools/precedent_reply_check.py's turn_wake() reads what woke the turn and which background commands are still running from the transcript.",
     "checks_practice_at": "practices/the-boildown.md"
   },
   {
@@ -102,7 +102,7 @@
         "if_matches": "^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?practice ideas?(?:\\*\\*)?\\s*:",
         "must_also_match": "You can archive this session",
         "why": "practice ideas are offered only at the natural end of the conversation, in the reply that says the session can be archived",
-        "repair": "It offered practice ideas, and this is not the reply that closes the session (it does not say \"You can archive this session\"). Output NOTHING further and end the turn. Do NOT add the archive line to satisfy this unless the session really is ready to archive; offer practice ideas only in the reply that is."
+        "repair": "It offered practice ideas, and this is not the reply that closes the session (it does not say \"You can archive this session\"). Output ONE line withdrawing them -- \"(Practice ideas withdrawn: they belong in the closing reply.)\" -- and end the turn; an empty reply is not accepted by the harness. Do NOT add the archive line to satisfy this unless the session really is ready to archive; offer practice ideas only in the reply that is."
       }
     ],
     "why": "Morgan, 2026-10-05 (strength: decided): practice ideas belong at the natural end of a conversation, not after every message. The closing list was already gated on the session being ready to archive, in prose only; this makes the gate mechanical for the one item he asked about.",
