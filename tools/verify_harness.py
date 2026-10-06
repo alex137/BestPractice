@@ -8800,6 +8800,61 @@ def check_fresh_install_links_its_file_names():
           '; '.join(f'{n}: {x}' for n, x in bad))
 
 
+def check_debut_waits_for_an_open_produce_pull_request():
+    """A move from pre-staging into staging waits while a pull request into
+    main from a to-main- copy of staging is open (2026-10-06: a second Debut
+    ran while a Produce pull request waited on its GitHub test, the copy
+    went out of date, and the Produce had to be made again). Planted with a
+    stand-in for the GitHub call: an open to-main- pull request holds, with
+    the remedy; one from another branch, none at all, or GitHub unreachable
+    does not; and promote() asks before a pre-staging move."""
+    import inspect
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as _pb
+    finally:
+        sys.path.pop(0)
+
+    class _GH:
+        def __init__(self, answer):
+            self.answer, self.asked = answer, []
+
+        def call(self, path, cache=True, **_kw):
+            self.asked.append(path)
+            return self.answer, None
+
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
+                        'https://github.com/example/repo.git'], check=True)
+        gh = _GH([{'number': 913, 'head': {'ref': 'to-main-20261006T093345-0300'}}])
+        why = _pb.produce_waiting_hold(repo, gh=gh) or ''
+        cases.append(('an open to-main- pull request into main holds the move, '
+                      'naming it and the remedy',
+                      '#913' in why and 'NOT PROMOTED' in why
+                      and '--wait-main-test' in why))
+        cases.append(('...asking GitHub for open pull requests into main only',
+                      any('state=open' in a and 'base=main' in a for a in gh.asked)))
+        cases.append(('an open pull request from another branch does not hold',
+                      _pb.produce_waiting_hold(repo, gh=_GH([
+                          {'number': 5, 'head': {'ref': 'claude/x'}}])) is None))
+        cases.append(('no open pull request does not hold',
+                      _pb.produce_waiting_hold(repo, gh=_GH([])) is None))
+        cases.append(('GitHub unreachable does not hold (the merge check still '
+                      'refuses a stale copy)',
+                      _pb.produce_waiting_hold(repo, gh=_GH(None)) is None))
+    src = inspect.getsource(_pb.promote)
+    cases.append(('promote() asks before moving pre-staging into staging',
+                  'produce_waiting_hold(root)' in src
+                  and src.index('if step == STAGING:') < src.index('produce_waiting_hold(root)')))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a Debut waits for an open Produce pull request ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_retired_set_takes_only_its_retirement():
     """A push to a set whose precedent-source.json says it is retired is
     refused when it changes anything that does not retire it (Morgan,
@@ -30211,6 +30266,14 @@ def check_promote_only_and_tier_branches():
                       'never refused', merge_refused(['staging'], ['pre-staging']) is None))
         cases.append(('on: staging into main is the promotion route, never refused',
                       merge_refused(['main'], ['staging']) is None))
+        # A to-main- copy left behind when staging moved (2026-10-06): the
+        # refusal says it is out of date and to make a fresh one, never to
+        # retarget it at pre-staging.
+        why = merge_refused(['main'], ['to-main-20261006T090733-0300']) or ''
+        cases.append(('on: a stale to-main copy into main is refused as out of '
+                      'date, with a fresh Produce as the remedy',
+                      'out of date' in why and 'Never retarget' in why
+                      and 'Retarget it at pre-staging' not in why, why))
         why = merge_refused(['staging'], ['claude/x']) or ''
         cases.append(('on: a working branch into staging is refused, saying to '
                       'retarget at pre-staging', 'Retarget it at pre-staging' in why, why))
@@ -61466,6 +61529,7 @@ def main():
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
     check_retired_set_takes_only_its_retirement()
+    check_debut_waits_for_an_open_produce_pull_request()
     check_bare_all_runs_across_the_cores()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
