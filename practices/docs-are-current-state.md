@@ -28,10 +28,27 @@ than a prose annotation ever will, and never goes stale. Narrow exemptions,
 where the date or prior state *is* the content: (a) records whose subject is a
 dated decision or event ("decided DATE: X"); (b) volatile-fact freshness
 stamps (practice for dated external claims); (c) legally or contractually
-load-bearing markers; (d) as-shipped/as-filed artifacts whose purpose is
+load-bearing markers, in files declared under `precedent.json`'s
+`load_bearing_annotations`; (d) as-shipped/as-filed artifacts whose purpose is
 historical.
 
 ## Detail
+A working draft whose dated markers carry legal or contractual weight (a
+contract draft, say) is still being edited, so it is not a record and
+`record_paths` is the wrong declaration for it. Declare where those
+markers live instead, each entry with its reason:
+
+```json
+"load_bearing_annotations": [
+  {"paths": ["drafts/**/*.md"],
+   "reason": "dated markers in these drafts carry contractual weight"}
+]
+```
+
+`paths` is one glob or a list of them, matched from the repository root
+(`**` crosses directories). The check skips the revision-annotation finding
+in a matching file and nowhere else. An entry with no reason exempts
+nothing and is itself reported.
 
 ## Why
 An in-document annotation is a **second copy** of something version control already holds losslessly — and unlike the history, the copy does not update itself. So it does not merely fail to help; it decays into being wrong, and a "Rev 3" pointer outliving Rev 5 is worse than no pointer at all.

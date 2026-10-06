@@ -213,7 +213,7 @@ grandfathered_commit_shas entry in identity.json with a reason. That
 asymmetry is the whole reason this gate sits before the push rather than
 after it.
 
-To push anyway you must say so explicitly and say why."
+Nothing lets a push past this: fix the commit as above, then push again."
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {

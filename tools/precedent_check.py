@@ -2386,6 +2386,14 @@ ENGINE_FIXED_FILENAMES = _engine_fixed_filenames()
 # read as mixed (a dated report or audit carries its date in its name).
 _ISO_DATE_RE = re.compile(r'\d{4}-\d{2}-\d{2}')
 
+# The date suffix dated-download-names asks a handed-over file to carry
+# (`Name-2026-12-31.docx`, or `Name - 2026-12-31.docx`). Its joining hyphen
+# belongs to the suffix, not to the name: removing only the date left
+# `Some_Name-`, and one consumer's file was counted on both
+# sides of its own directory (2026-10-06). Stripped whole, before the ISO
+# date anywhere else in the stem.
+_DATED_SUFFIX_RE = re.compile(r'(?:-| - )\d{4}-\d{2}-\d{2}$')
+
 
 @check('filename-separator', 'tree',
        'files of the same kind in one directory use one word separator, '
@@ -2432,7 +2440,8 @@ def _filename_separator(ctx):
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not
         # chosen here.
-        stem = _ISO_DATE_RE.sub('', path.name.split('.')[0])
+        stem = _ISO_DATE_RE.sub(
+            '', _DATED_SUFFIX_RE.sub('', path.name.split('.')[0]))
         key = (str(path.parent), path.suffix)
         if '-' in stem:
             groups[key]['-'].append(path.name)
@@ -8153,17 +8162,20 @@ REVISION_ANNOTATION_RE = re.compile(
        '"Rev N" heading ladder -- since version control already carries '
        'that losslessly',
        'the practice\'s real target: superseded text kept inline "for '
-       'history" with no date tag at all, and the four narrow textual '
-       'exemptions (dated decision records, volatile-fact freshness '
-       'stamps, legally load-bearing markers, as-shipped artifacts), which '
-       'this check does not try to distinguish -- it only catches the '
-       'literal annotation forms named in the Rule.',
+       'history" with no date tag at all, and three of the four narrow '
+       'textual exemptions (dated decision records, volatile-fact freshness '
+       'stamps, as-shipped artifacts), which this check does not try to '
+       'distinguish -- it only catches the literal annotation forms named '
+       'in the Rule. Legally load-bearing markers are skipped only where '
+       'precedent.json\'s load_bearing_annotations declares them, and '
+       'nothing checks that a declared file really needs them.',
        # An "(added <date>)" tag annotated into a practice file travels with it,
        # into repos whose history does not contain that date.
        # Audit: spec/PUBLISHER_GATE_AUDIT.md.
        binds_publishers=True)
 def _docs_are_current_state(ctx):
-    out = []
+    import precedent_paths as pp
+    globs, out = _load_bearing_annotation_globs(ctx.root)
     for f in _md_in_scope(ctx):
         # Exemption (d) of the practice, the same one index-remembers-past
         # honours: a document whose own stated purpose is a historical
@@ -8175,6 +8187,12 @@ def _docs_are_current_state(ctx):
         # declaration.
         if _is_historical_record(f):
             continue
+        # Exemption (c): a legally load-bearing dated marker, in a file the
+        # repo declared by path. Such a file is a working draft, still
+        # edited, so it is not a record, and `not_binding` would switch the
+        # practice off everywhere (a consumer, 2026-10-06).
+        if any(pp.path_matches(f, g, ctx.root) for g in globs):
+            continue
         text = ctx.read(f)
         for i, line in enumerate(text.splitlines(), 1):
             if REVISION_ANNOTATION_RE.search(line):
@@ -8183,6 +8201,37 @@ def _docs_are_current_state(ctx):
                                     'annotation -- state what is true now; '
                                     'version control holds the history'))
     return out
+
+
+def _load_bearing_annotation_globs(root):
+    """-> (globs, findings) from precedent.json's `load_bearing_annotations`:
+    a list of {"paths": glob or [globs], "reason": why}. Read the way
+    declined_adapters is: an entry with no reason buys nothing and is
+    reported, because the reason is what lets the next reader disagree."""
+    globs, out = [], []
+    try:
+        cfg = json.loads((pathlib.Path(root) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):                # practice: fail-gracefully
+        return globs, out
+    entries = cfg.get('load_bearing_annotations') if isinstance(cfg, dict) else None
+    for e in entries or []:
+        paths = e.get('paths') if isinstance(e, dict) else None
+        paths = [paths] if isinstance(paths, str) else paths
+        paths = [p.strip() for p in paths or [] if isinstance(p, str) and p.strip()]
+        if not paths:
+            out.append(Finding('precedent.json',
+                               f'a load_bearing_annotations entry names no '
+                               f'paths: {e!r}'))
+        elif not str(e.get('reason') or '').strip():
+            out.append(Finding('precedent.json',
+                               f'load_bearing_annotations declares '
+                               f'{", ".join(paths)} with no reason, so it '
+                               f'exempts nothing -- say why a dated marker '
+                               f'there carries legal or contractual weight'))
+        else:
+            globs.extend(paths)
+    return globs, out
 
 
 # Files whose stated purpose IS a historical record -- docs-are-current-state's
