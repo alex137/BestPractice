@@ -8852,7 +8852,10 @@ def check_retired_set_takes_only_its_retirement():
         return _ppc._retired_set_refusal(repo, env=e)
 
     def w(rel, text):
-        return lambda r: (r / rel).write_text(text, encoding='utf-8')
+        def write(r):
+            (r / rel).parent.mkdir(parents=True, exist_ok=True)
+            (r / rel).write_text(text, encoding='utf-8')
+        return write
 
     try:
         retired, live = build(True), build(False)
@@ -61408,6 +61411,8 @@ def main():
     check_install_names_the_other_assistants_adapters()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
+    check_retired_set_takes_only_its_retirement()
+    check_bare_all_runs_across_the_cores()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
