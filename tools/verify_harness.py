@@ -56641,6 +56641,41 @@ def check_very_deep_check_bootstrap_drift():
                       and 'OLDER upstream vendoring' in findings[0]
                       and 'precedent_time.py' in findings[0]
                       and 'hand-edited' not in findings[0], repr(out)))
+
+        # A set's generated views are rebuilt from ITS OWN practices, so they
+        # differ from an empty set's by construction: they are judged by the
+        # set's own views check, never against the generator (2026-10-06,
+        # AGENTS.md, MAP.md and GLOSSARY.md reported as drift in every set).
+        dest, src = fresh('views')
+        prac = next((dest / 'practices').glob('*.md'), None)
+        if prac is not None:
+            twin = dest / 'practices' / 'zz-own-rule.md'
+            twin.write_text(prac.read_text(encoding='utf-8').replace(
+                f'slug:        {prac.stem}', 'slug:        zz-own-rule', 1),
+                encoding='utf-8')
+        subprocess.run([sys.executable, str(dest / 'tools' / 'build_views.py')],
+                       cwd=str(dest), capture_output=True, text=True)
+        out = vdc._bootstrap_drift(src)
+        cases.append(('views rebuilt from the set\'s own practices are not drift',
+                      not any(m.startswith('FINDING') and
+                              any(v in m for v in ('AGENTS.md', 'MAP.md', 'GLOSSARY.md'))
+                              for m in out), repr(out)))
+        mp = dest / 'MAP.md'
+        mp.write_text(mp.read_text(encoding='utf-8') + '\nhand edit\n', encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('...but a view that is not current with them is a FINDING '
+                      'naming the file', any(m.startswith('FINDING') and 'MAP.md' in m
+                                             and 'not current' in m for m in out),
+                      repr(out)))
+        dest, src = fresh('declared')
+        ps = dest / 'precedent-source.json'
+        data = json.loads(ps.read_text(encoding='utf-8'))
+        data['subject'] = 'a subject this set chose for itself'
+        ps.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('the set\'s own precedent-source.json is a note, never drift',
+                      not any(m.startswith('FINDING') and 'precedent-source.json' in m
+                              for m in out), repr(out)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

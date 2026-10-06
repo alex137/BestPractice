@@ -4692,6 +4692,29 @@ def _convergent_drift(collect, sources=None):
     return out
 
 
+# Files a set writes once and then owns -- its name, subject and allowances,
+# its declared sources, its own generated-file registry -- so a difference
+# from a freshly generated set is the set's content, never drift.
+_SET_OWN_DECLARATIONS = {'precedent-source.json', 'precedent.json',
+                         os.path.join('tools', 'generated_files.json')}
+_SET_VIEWS = {'AGENTS.md', 'MAP.md', 'GLOSSARY.md'}
+
+
+def _set_views_current(root):
+    """True when the set's own `build_views.py --check` passes, i.e. its
+    generated views match its own practices. False when it fails or cannot
+    run -- a view nobody could confirm is reported, never assumed current."""
+    build = pathlib.Path(root) / 'tools' / 'build_views.py'
+    if not build.is_file():
+        return False
+    try:
+        r = subprocess.run([sys.executable, str(build), '--check'], cwd=str(root),
+                           capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
 def _bootstrap_drift_one(level, name, path, collect=None):
     """-> [str] what today's generator would write for a set that already
     exists, where that differs from the set itself.
@@ -4806,6 +4829,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
         recorded = manifest.get('sha256', {})
 
         findings, notes, absent, behind = [], [], [], []
+        view_state = None
         for gen_path in sorted(gen_root.rglob('*')):
             if not gen_path.is_file():
                 continue
@@ -4889,8 +4913,23 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # seconds earlier as drifted here, after the sibling sources the
             # render reads had been refreshed mid-run.
             if (rel in owned or rel.endswith('settings.json')
-                    or rel == os.path.join('tools', 'session_load_budgets.json')):
+                    or rel == os.path.join('tools', 'session_load_budgets.json')
+                    or rel in _SET_OWN_DECLARATIONS):
                 notes.append(rel)
+                continue
+            # A generated view is rebuilt from the SET's own practices, so it
+            # always differs from an empty set's: the question is whether it
+            # is current with those practices, which the set's own views
+            # check answers. Comparing it with a fresh empty set reported
+            # AGENTS.md, MAP.md and GLOSSARY.md as drift in every set that
+            # has practices (found 2026-10-06).
+            if rel in _SET_VIEWS:
+                if view_state is None:
+                    view_state = _set_views_current(real_root)
+                if view_state:
+                    continue
+                findings.append(f'{rel} is not current with this set\'s own '
+                                f'practices: run its tools/build_views.py')
                 continue
             eng_name = pathlib.Path(rel).name
             if rel.startswith('tools' + os.sep) and eng_name in recorded:
