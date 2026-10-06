@@ -8800,6 +8800,104 @@ def check_fresh_install_links_its_file_names():
           '; '.join(f'{n}: {x}' for n, x in bad))
 
 
+def check_retired_set_takes_only_its_retirement():
+    """A push to a set whose precedent-source.json says it is retired is
+    refused when it changes anything that does not retire it (Morgan,
+    2026-10-06: "you should not make edits to them unless the edits relate
+    to their deprecation or graceful deprecation"). Planted on a fixture
+    set: README, a rule moved to `status: deduplicated`, a deletion and the
+    todo index pass; a rule edited while still active and an edited check
+    script are refused; the person's own words in PRECEDENT_RETIRED_SET_EDIT
+    let one through; the same edit in a set that is not retired passes;
+    commits origin already has are not judged."""
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_push_check as _ppc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-retired-set-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    ident = ['-c', 'user.name=F', '-c', 'user.email=f@example.com']
+
+    def git(repo, *args):
+        return subprocess.run(['git', '-C', str(repo), *args], env=env,
+                              capture_output=True, text=True)
+
+    def build(retired):
+        repo = fx / ('retired' if retired else 'live')
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'tools' / 'checks').mkdir(parents=True)
+        src = {'name': 'precedent-shared-x'}
+        if retired:
+            src['retired'] = {'date': '2026-10-06', 'folded_into': ['universal']}
+        (repo / 'precedent-source.json').write_text(json.dumps(src), encoding='utf-8')
+        (repo / 'README.md').write_text('# x\n', encoding='utf-8')
+        (repo / 'practices' / 'a-rule.md').write_text(
+            '---\nslug: a-rule\nstatus: active\n---\n## Rule\nOld.\n', encoding='utf-8')
+        (repo / 'tools' / 'checks' / 'check_a.py').write_text('x = 1\n', encoding='utf-8')
+        git(repo, 'init', '-q')
+        git(repo, 'add', '-A')
+        git(repo, *ident, 'commit', '-qm', 'baseline')
+        git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        return repo
+
+    def attempt(repo, edit, override=''):
+        git(repo, 'reset', '-q', '--hard', 'refs/remotes/origin/main')
+        edit(repo)
+        git(repo, 'add', '-A')
+        git(repo, *ident, 'commit', '-qm', 'an edit')
+        e = {'PRECEDENT_RETIRED_SET_EDIT': override} if override else {}
+        return _ppc._retired_set_refusal(repo, env=e)
+
+    def w(rel, text):
+        def write(r):
+            (r / rel).parent.mkdir(parents=True, exist_ok=True)
+            (r / rel).write_text(text, encoding='utf-8')
+        return write
+
+    try:
+        retired, live = build(True), build(False)
+        cases.append(('nothing pushed yet: no refusal',
+                      _ppc._retired_set_refusal(retired, env={}) is None))
+        cases.append(('the README saying it is retired passes',
+                      attempt(retired, w('README.md', '# x\n\nRetired.\n')) is None))
+        cases.append(('a rule moved to status: deduplicated passes',
+                      attempt(retired, w('practices/a-rule.md',
+                              '---\nslug: a-rule\nstatus: deduplicated\n---\n')) is None))
+        cases.append(('deleting a check script passes',
+                      attempt(retired, lambda r: (r / 'tools' / 'checks'
+                                                  / 'check_a.py').unlink()) is None))
+        cases.append(('the todo index passes',
+                      attempt(retired, w('todo/TODO.md', '# todo\n')) is None))
+        why = attempt(retired, w('practices/a-rule.md',
+                      '---\nslug: a-rule\nstatus: active\n---\n## Rule\nNew.\n'))
+        cases.append(('a rule edited while still active is refused',
+                      bool(why) and 'practices/a-rule.md' in why))
+        cases.append(('...and the refusal says where the change belongs',
+                      'where the rule lives now' in (why or '')))
+        cases.append(('an edited check script is refused',
+                      bool(attempt(retired, w('tools/checks/check_a.py', 'x = 2\n')))))
+        cases.append(('the person\'s own words let one through',
+                      attempt(retired, w('tools/checks/check_a.py', 'x = 3\n'),
+                              override='Morgan: fix check_a') is None))
+        cases.append(('the same edit in a set that is not retired passes',
+                      attempt(live, w('tools/checks/check_a.py', 'x = 2\n')) is None))
+        git(retired, 'reset', '-q', '--hard', 'refs/remotes/origin/main')
+        w('tools/checks/check_a.py', 'x = 4\n')(retired)
+        git(retired, 'add', '-A')
+        git(retired, *ident, 'commit', '-qm', 'already on origin')
+        git(retired, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        cases.append(('an edit origin already has is not judged again',
+                      _ppc._retired_set_refusal(retired, env={}) is None))
+    finally:
+        shutil.rmtree(fx, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check(f'a retired set takes only its retirement ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_push_refuses_a_hand_made_session_branch_name():
     """A push that creates a session branch whose name
     tools/precedent_branch_name.py did not make is refused, naming the
@@ -10088,8 +10186,53 @@ def _as_ci_runs(jobs, names=None):
     return out
 
 
-def run_as_ci():
+def _bare_all_runs_in_parallel(argv, environ):
+    """-> True when this invocation is a bare `--all`, which run_as_ci runs
+    across the cores: no filter of its own, and not asked to stay serial."""
+    return ('--all' in argv
+            and not environ.get('PRECEDENT_CHECK_ONLY')
+            and not environ.get('PRECEDENT_CHECK_SKIP')
+            and environ.get('PRECEDENT_HARNESS_SERIAL') != '1')
+
+
+def check_bare_all_runs_across_the_cores():
+    """A bare `--all` is dispatched to run_as_ci with every planted case
+    (2026-10-06: one process took about 31 minutes where the same set side
+    by side takes about 11), and a shard, a filtered run, or an explicit
+    serial run is not -- so nothing recurses and profiling stays possible."""
+    import inspect
+    cases = [
+        ('a bare --all runs in parallel',
+         _bare_all_runs_in_parallel(['--all'], {})),
+        ('a shard process (no --all) does not',
+         not _bare_all_runs_in_parallel([], {'PRECEDENT_HARNESS_ALL': '1'})),
+        ('--all with PRECEDENT_CHECK_ONLY keeps its filter, in one process',
+         not _bare_all_runs_in_parallel(['--all'],
+                                        {'PRECEDENT_CHECK_ONLY': 'check_x'})),
+        ('--all with PRECEDENT_CHECK_SKIP keeps its filter, in one process',
+         not _bare_all_runs_in_parallel(['--all'],
+                                        {'PRECEDENT_CHECK_SKIP': 'check_x'})),
+        ('PRECEDENT_HARNESS_SERIAL=1 keeps the one-process run',
+         not _bare_all_runs_in_parallel(['--all'],
+                                        {'PRECEDENT_HARNESS_SERIAL': '1'})),
+    ]
+    src = inspect.getsource(run_as_ci)
+    cases.append(('every_case gives each process PRECEDENT_HARNESS_ALL=1',
+                  "env['PRECEDENT_HARNESS_ALL'] = '1'" in src
+                  and 'if every_case:' in src))
+    main_src = pathlib.Path(__file__).read_text(encoding='utf-8')
+    cases.append(('the entry point dispatches it',
+                  'sys.exit(run_as_ci(every_case=True))' in main_src))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a bare --all runs across the cores ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
+def run_as_ci(every_case=False):
     """-> exit status. Run this suite the two ways CI runs it, side by side.
+
+    every_case: give every process PRECEDENT_HARNESS_ALL=1, which is what a
+    bare `--all` asks for (see the bottom of this file).
 
     NOT the same work twice: the shards PARTITION the suite. Until
     2026-09-30 they ran one after the other, and the rest shard ran its
@@ -10126,6 +10269,8 @@ def run_as_ci():
         env.pop('PRECEDENT_CHECK_SKIP', None)
         env.pop('PRECEDENT_HARNESS_ALL', None)
         env.update(env_extra)
+        if every_case:
+            env['PRECEDENT_HARNESS_ALL'] = '1'
         # Files, not pipes: a shard that fills a pipe nobody reads yet stalls.
         out, err = open(tmp / f'{i}.out', 'w+'), open(tmp / f'{i}.err', 'w+')
         proc = subprocess.Popen([sys.executable, str(pathlib.Path(__file__))],
@@ -10152,8 +10297,12 @@ def run_as_ci():
         out.close()
         err.close()
         print(f'\n=== shard: {label} ===', flush=True)
+        # 'planted cases ran' is the heavy shard's statement of what it
+        # selected; the very deep check quotes it as evidence that every
+        # case ran.
         tail = [l for l in done.stdout.splitlines()
-                if 'passed,' in l or l.startswith('  - ')]
+                if 'passed,' in l or l.startswith('  - ')
+                or 'planted cases ran' in l]
         for line in tail[-12:]:
             print(line)
         if done.returncode != 0:
@@ -61262,6 +61411,8 @@ def main():
     check_install_names_the_other_assistants_adapters()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
+    check_retired_set_takes_only_its_retirement()
+    check_bare_all_runs_across_the_cores()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
@@ -61836,4 +61987,13 @@ if __name__ == '__main__':
         sys.exit(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
         sys.exit(run_as_ci())
+    # A BARE --all RUNS ACROSS THE CORES (2026-10-06). It is the same set as
+    # --as-ci with every planted case, and run in one process it took about
+    # 31 minutes on a 4-core container that --as-ci fills in about 11 (the
+    # very deep check's step 2 runs it). A shard process never sees --all
+    # (run_as_ci starts them with no arguments) and a filtered run keeps its
+    # filter, so neither recurses. PRECEDENT_HARNESS_SERIAL=1 is the old
+    # one-process run, for profiling.
+    if _bare_all_runs_in_parallel(sys.argv[1:], os.environ):
+        sys.exit(run_as_ci(every_case=True))
     sys.exit(main())
