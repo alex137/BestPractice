@@ -6190,6 +6190,46 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_session_start_charges_brought_sets_to_the_person():
+    """The session-start check holds the sets a person brings to that
+    person's `brought_sets_tokens` budget, never to the repository's ceiling,
+    as the full check's session-load-budget already did (2026-10-03).
+    Reported from a consumer, 2026-10-06: its ceiling, set before the ladder
+    started arriving by `brings`, failed a guarantee at every session start.
+    Planted with stand-ins for the share and the budget."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_check as psc
+        import precedent_session_practices as psp
+    finally:
+        sys.path.pop(0)
+    saved = (psp.brought_share, psp.brought_budget)
+    cases = []
+    try:
+        psp.brought_share = lambda repo=None: (600, ['precedent-shared-ladder'])
+        psp.brought_budget = lambda repo=None: (700, '/ind')
+        n, note, over = psc._charge_brought_share(1500)
+        cases.append(('the brought share leaves the repository\'s count',
+                      n == 900 and 'which you bring' in note and over is None))
+        psp.brought_budget = lambda repo=None: (500, '/ind')
+        n, note, over = psc._charge_brought_share(1500)
+        cases.append(('over the person\'s own budget, that is what is reported',
+                      n == 900 and over and 'brought_sets_tokens' in over))
+        psp.brought_budget = lambda repo=None: (None, '/ind')
+        n, note, over = psc._charge_brought_share(1500)
+        cases.append(('no budget declared: charged to the repository, as before',
+                      n == 1500 and note == '' and over is None))
+        psp.brought_share = lambda repo=None: (0, [])
+        psp.brought_budget = lambda repo=None: (700, '/ind')
+        cases.append(('nothing brought: unchanged',
+                      psc._charge_brought_share(1500) == (1500, '', None)))
+    finally:
+        psp.brought_share, psp.brought_budget = saved
+    failed = [nm for nm, ok in cases if not ok]
+    check(f'the session-start check charges brought sets to the person '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_seeds_the_session_load_registry():
     """Update Vendors gives a repository with no
     tools/session_load_budgets.json one seeded at today's sizes, so the
@@ -6197,7 +6237,9 @@ def check_update_seeds_the_session_load_registry():
     (Alex, 2026-10-04: "If it is already a best practice, why didn't we
     adopt?" -- a consumer's instructions file had grown to about 38,000
     tokens behind a skip). Both directions: an existing registry, however
-    small, is never touched, and a second run writes nothing."""
+    small, is never touched, and a second run writes nothing. A registry it
+    seeds carries baseline approvals; one that existed without them is named
+    in the report, never filled in (2026-10-06)."""
     import tempfile
     import precedent_update as pu
     name = 'Update Vendors seeds a missing session-load registry'
@@ -6216,6 +6258,15 @@ def check_update_seeds_the_session_load_registry():
         cases.append(('the early-warning floor is on', reg.get('headroom_floor_pct') == 5))
         cases.append(('it says it was seeded at Update Vendors',
                       'Update Vendors' in s['CLAUDE.md'].get('_note', '')))
+        ap = reg.get('approved_budgets') or {}
+        cases.append(('a registry it seeds carries a baseline approval for every '
+                      'budget, so budget-within-approval binds from the start '
+                      '(2026-10-06)', bool(ap) and all(
+                          e.get('strength') == 'baseline' and isinstance(e.get('max'), int)
+                          and 'Update Vendors' in e.get('approved_by', '')
+                          for e in ap.values())))
+        cases.append(('...and the report then names no approval gap',
+                      pu.approval_gap(repo) is None))
         before = (repo / 'tools' / 'session_load_budgets.json').read_bytes()
         again = pu.ensure_session_load_registry(repo)
         cases.append(('a second run writes nothing', again is None and before ==
@@ -6230,6 +6281,12 @@ def check_update_seeds_the_session_load_registry():
                       pu.ensure_session_load_registry(repo) is None and
                       (repo / 'tools' / 'session_load_budgets.json').read_text(
                           encoding='utf-8') == mine))
+        gap = pu.approval_gap(repo) or ''
+        cases.append(('an existing registry with no approved_budgets is named in '
+                      'the report, never filled in (a hand-made raise would be '
+                      'recorded as approved)', 'no approved_budgets' in gap
+                      and 'baseline' in gap and (repo / 'tools' /
+                      'session_load_budgets.json').read_text(encoding='utf-8') == mine))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -61567,6 +61624,7 @@ def main():
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
     check_update_seeds_the_session_load_registry()
+    check_session_start_charges_brought_sets_to_the_person()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()

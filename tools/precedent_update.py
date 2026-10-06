@@ -283,6 +283,50 @@ def ensure_headroom_floor(repo):
 
 
 
+def seed_baseline_approvals(repo, data, path):
+    """Record every budget in force as a `"strength": "baseline"` approval in
+    a registry Update Vendors has JUST seeded, so budget-within-approval
+    binds from the first run instead of reporting SKIPPED for ever. Only
+    there: in a registry that already existed, a number may have been raised
+    by hand, and writing it down as approved would launder the raise --
+    approval_gap() names that case for a person instead. Reported from a
+    consumer, 2026-10-06: no approved_budgets, so the check skipped on every
+    run and nothing said so."""
+    if not isinstance(data, dict) or isinstance(data.get('approved_budgets'), dict):
+        return False
+    try:
+        import build_views as _bv
+        now = _bv.effective_budgets(repo)
+    except Exception:                                        # noqa: BLE001
+        return False
+    import time as _time
+    day = _time.strftime('%Y-%m-%d')
+    data['approved_budgets'] = {
+        k: {'max': v, 'strength': 'baseline',
+            'approved_by': f'baseline {day}: seeded by Update Vendors with the '
+                           f'registry, at the values in force'}
+        for k, v in sorted(now.items()) if isinstance(v, int)}
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return True
+
+
+def approval_gap(repo):
+    """-> a sentence for the report when the registry exists and has no
+    approved_budgets (so budget-within-approval skips every run), else None."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or isinstance(data.get('approved_budgets'), dict):
+        return None
+    return ('tools/session_load_budgets.json has no approved_budgets, so the '
+            'check that no budget was raised without approval skips on every '
+            'run. Ask the person to confirm the numbers in force are ones '
+            'they chose, then record each as "strength": "baseline" '
+            '(practice: session-load-budget)')
+
+
 def ensure_session_load_registry(repo):
     """Seed tools/session_load_budgets.json in a repository that has none.
     -> {surface: measured tokens} when it wrote one, else None.
@@ -306,6 +350,7 @@ def ensure_session_load_registry(repo):
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
+    seed_baseline_approvals(repo, data, path)
     out = {}
     for rel, e in (data.get('surfaces') or {}).items():
         m = re.match(r'(\d+) tokens', e.get('_note', ''))
@@ -2628,6 +2673,9 @@ def update(repo, skip_check=False, ref=None):
                      f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
                  f'), so the load check now binds here; {big[0]} is the '
                  f'largest, and a reduction pass is how it comes down')
+    gap = approval_gap(repo)
+    if gap:
+        rep.step('session-load budget', gap)
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '
