@@ -27742,6 +27742,217 @@ def check_decommission_skips_generated_files_and_prose():
           not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
 
 
+
+def check_todo_migrate_reads_a_consumers_list():
+    """todo_migrate.py carries a consumer's own TODO.md across, not only the
+    one this repository migrated.
+
+    2026-10-06, a consumer migrating its list hit three things at once: every
+    item older than 2026-09-06 was told it "predates anchor tracking (every
+    anchor was retrofitted 2026-09-06)" -- this repository's history, in a
+    file that never had an anchor; every root-relative link in an item broke
+    when the item moved into todo/; and two closed bullet shapes,
+    `- [x] ~~**Title**~~` and a plain `- [x] text`, parsed as nothing.
+    Unit-level, on a git fixture whose commit dates the cases choose."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import todo_migrate as tm
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='todo-migrate-consumer-'))
+    saved_today = tm.TODAY
+    try:
+        repo = tmp / 'proj'
+        repo.mkdir()
+
+        def git(*a, date=None):
+            env = dict(os.environ)
+            if date:
+                env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = f'{date}T12:00:00+00:00'
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+                            '-c', 'user.name=harness',
+                            '-c', 'user.email=harness@example.com', *a],
+                           cwd=str(repo), capture_output=True, check=True, env=env)
+
+        def commit(text, date):
+            (repo / 'TODO.md').write_text(text, encoding='utf-8')
+            git('add', '-A')
+            git('commit', '-qm', 'todo', date=date)
+
+        git('init', '-q')
+        commit('# TODO\n\n- [ ] **Plain old item** -- no anchor ever.\n\n'
+               '- **Retrofitted item** -- anchored later.\n', '2026-01-01')
+        commit('# TODO\n\n- [ ] **Plain old item** -- no anchor ever.\n\n'
+               '- <a id="retrofitted-item"></a>**Retrofitted item** -- '
+               'anchored later.\n\n'
+               '- <a id="born-anchored"></a>**Born anchored** -- one commit.\n',
+               '2026-02-01')
+        text = ('# TODO\n\n- [ ] **Plain old item** -- no anchor ever. See '
+                '[the plan](spec/PLAN.md), [here](#top), '
+                '[web](https://example.com), [up](../x.md), [root](/y.md).\n\n'
+                '- <a id="retrofitted-item"></a>**Retrofitted item** -- '
+                'anchored later.\n\n'
+                '- <a id="born-anchored"></a>**Born anchored** -- one commit.\n\n'
+                '- [ ] **Never committed item** -- not in any history.\n\n'
+                '- [x] ~~**Struck closed item**~~ -- finished.\n\n'
+                '- [x] A plain closed line\n')
+        (repo / 'TODO.md').write_text(text, encoding='utf-8')
+        tm.TODAY = '2026-10-06'
+        items = tm.parse_todo_items(text)
+        plan = {it.title: (body, floor) for it, _p, _fm, body, _n, floor
+                in tm.build_plan(items, repo, 'TODO.md', 'todo')}
+        by_title = {it.title: it for it in items}
+
+        def notes(body):
+            return body.split('## Notes', 1)[-1]
+
+        body, floor = plan.get('Plain old item', ('', None))
+        cases.append(('an item with no anchor, found in history, is not '
+                      'called a floor and names no anchor retrofit',
+                      floor is False and 'anchor' not in notes(body)
+                      and '2026-09-06' not in body, body[-300:]))
+        cases.append(('a root-relative link gains ../ as the item moves '
+                      'into todo/', '(../spec/PLAN.md)' in body, body[:300]))
+        cases.append(('#anchors, URLs, ../ and /root links are left alone',
+                      all(t in body for t in ('(#top)', '(https://example.com)',
+                                              '(../x.md)', '(/y.md)'))
+                      and '../../' not in body and '(..//' not in body,
+                      body[:300]))
+        body, floor = plan.get('Retrofitted item', ('', None))
+        cases.append(('an anchor added to an older item writes the '
+                      'retrofit note, with no fixed date',
+                      floor is True and 'predates its anchor' in body
+                      and '2026-09-06' not in body, body[-300:]))
+        body, floor = plan.get('Born anchored', ('', None))
+        cases.append(('CONTROL: an item anchored from its first commit is '
+                      'not a floor', floor is False, body[-300:]))
+        body, floor = plan.get('Never committed item', ('', None))
+        cases.append(('an item found nowhere in history gets the neutral '
+                      'floor note, naming no anchor',
+                      floor is True and 'not found' in notes(body)
+                      and 'anchor' not in notes(body), body[-300:]))
+        struck = by_title.get('Struck closed item')
+        cases.append(('`- [x] ~~**Title**~~` is a closed item of its own',
+                      struck is not None and struck.checked is True,
+                      sorted(by_title)))
+        plain = by_title.get('A plain closed line')
+        cases.append(('`- [x] text` is a closed item of its own',
+                      plain is not None and plain.checked is True,
+                      sorted(by_title)))
+        cases.append(('CONTROL: the open checkbox item stays open',
+                      by_title.get('Plain old item') is not None
+                      and by_title['Plain old item'].checked is False, ''))
+        cases.append(('every item parsed, none swallowed', len(items) == 6,
+                      sorted(by_title)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        tm.TODAY = saved_today
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'todo_migrate.py carries a consumer\'s list ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_docs_current_state_honours_load_bearing_paths():
+    """docs-are-current-state skips a dated marker in a file precedent.json
+    declares under `load_bearing_annotations`, and nowhere else.
+
+    2026-10-06: a consumer's working legal drafts carry dated markers that
+    matter legally. Those drafts are still edited, so they are
+    not records, and `not_binding` would have switched the whole practice
+    off. A declaration with no reason exempts nothing and is reported."""
+    import tempfile
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='load-bearing-'))
+    saved = pc.ROOT
+    marker = '# Draft\n\nA new paragraph (added 2026-01-15).\n'
+
+    class _Ctx:
+        root = tmp
+        changed = ['drafts/terms.md', 'notes.md']
+
+        def read(self, rel):
+            return (tmp / rel).read_text(encoding='utf-8')
+
+    def verdict(entries):
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'load_bearing_annotations': entries}), encoding='utf-8')
+        return [f.file() for f in pc._docs_are_current_state(_Ctx())]
+
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        (tmp / 'drafts').mkdir()
+        for rel in _Ctx.changed:
+            (tmp / rel).write_text(marker, encoding='utf-8')
+        pc.ROOT = tmp
+        got = verdict([{'paths': 'drafts/**/*.md', 'reason': 'legal weight'}])
+        cases.append(('a marker in a declared path passes',
+                      not any(g.startswith('drafts/') for g in got), got))
+        cases.append(('the same marker outside it still fires',
+                      any(g.startswith('notes.md') for g in got), got))
+        got = verdict([{'paths': ['drafts/*.md'], 'reason': 'legal weight'}])
+        cases.append(('a list of globs is read too',
+                      not any(g.startswith('drafts/') for g in got), got))
+        got = verdict([{'paths': 'drafts/**/*.md'}])
+        cases.append(('an entry with no reason exempts nothing and is '
+                      'reported', any(g.startswith('drafts/') for g in got)
+                      and 'precedent.json' in got, got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'docs-are-current-state honours declared load-bearing paths '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_filename_separator_ignores_a_date_suffix():
+    """A dated-download suffix (`Name-2026-06-23.docx`) is not the name's
+    separator.
+
+    2026-10-06: a consumer's file named like `Some_Name-2026-06-23.docx` was
+    counted as using both "-" and "_" -- the same file on both sides of the
+    finding -- because only the date was removed and its joining hyphen
+    stayed. The control is a genuinely mixed pair, which must still fire."""
+    import tempfile, types
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='sep-date-'))
+    saved = pc.ROOT
+
+    def verdict(names):
+        d = tmp / 'docs'
+        shutil.rmtree(d, ignore_errors=True)
+        d.mkdir()
+        for n in names:
+            (d / n).write_text('x', encoding='utf-8')
+        return [f.detail for f in
+                pc._filename_separator(types.SimpleNamespace(root=tmp))]
+
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        pc.ROOT = tmp
+        got = verdict(['Service_Agreement-2026-06-23.docx',
+                       'Order_Form.docx'])
+        cases.append(('an underscore name with a date suffix beside another '
+                      'underscore name does not fire', got == [], got))
+        got = verdict(['Service_Agreement-2026-06-23.docx',
+                       'order-form.docx'])
+        cases.append(('CONTROL: a genuinely mixed pair still fires',
+                      len(got) == 1, got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'filename-separator ignores a dated-download suffix '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_todo_migrate_needs_a_migrated_item():
     """THE INCIDENT (2026-09-28, the same migration rehearsal as the case
     above). todo_migrate.py failed, build_todo_index.py then wrote its index
@@ -47282,6 +47493,259 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_merge_instructions_give_the_full_head():
+    """Every "merge it" line a Promote into main prints names the head commit
+    in full.
+
+    WHY. 2026-10-06, a session in a consumer: the Promote and the wait
+    printed twelve characters of the copy's tip, and GitHub's merge API
+    takes the expected head in full, so the session had to look the rest up
+    before it could merge."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    sha = 'a' * 40
+    cases = [('_at_head carries all 40 characters', sha in pb._at_head(sha)),
+             ('...and says nothing without a head', pb._at_head('') == '')]
+    saved = (pb.github_tests, pb.github_test_state)
+    try:
+        pb.github_tests = lambda root, s: [('.github/workflows/x.yml', 'x')]
+        pb.github_test_state = lambda root, s, tests, gh=None: ('passed', 'x passed')
+        with tempfile.TemporaryDirectory() as td:
+            said = []
+            rc = pb.wait_for_main_test(td, sha, said.append)
+            cases.append(('a PASSED wait names the full head to merge at',
+                          rc == 0 and sha in said[-1]))
+            said = []
+            rc = pb.wait_for_main_test(
+                td, sha, said.append,
+                copy='claude/2026-10-06-promote-to-main-not-due-abcde')
+            cases.append(('...and so does a NOT DUE one', rc == 0 and sha in said[-1]))
+    finally:
+        pb.github_tests, pb.github_test_state = saved
+        sys.path.pop(0)
+    src = (ROOT / 'tools' / 'precedent_branches.py').read_text(encoding='utf-8')
+    cases.append(('the READY instructions pass the head too',
+                  src.count('_at_head(stip)') >= 2))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a Promote\'s merge instructions name the full head commit '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_promote_marks_other_sessions_commits():
+    """A Promote's batch list marks each commit that is not this session's
+    work: not on the --work branch, and not carrying this session's
+    Claude-Session line.
+
+    WHY. 2026-10-06, a Produce in a shared set carried one session's change
+    and another session's Update Vendors, listed alike; auto mode held the
+    move until the person approved a commit nobody had named to them."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    env = _fixture_git_env()
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            run = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                            capture_output=True, text=True)
+            run('init', '-q', '-b', 'main')
+            def commit(name, msg):
+                (repo / name).write_text(name, encoding='utf-8')
+                run('add', name)
+                run('commit', '-qm', msg)
+                return run('rev-parse', 'HEAD').stdout.strip()
+            base = commit('base', 'base')
+            run('switch', '-qc', 'work')
+            commit('a', 'mine, on the work branch')
+            run('switch', '-q', 'main')
+            run('merge', '-q', '--no-ff', '-m', 'book work', 'work')
+            commit('b', 'mine, Booked from another branch\n\n'
+                        'Claude-Session: https://claude.ai/code/session_01Fixture')
+            commit('c', 'someone else\'s\n\n'
+                        'Claude-Session: https://claude.ai/code/session_01Other')
+            batch = pb._new_commits(repo, base, 'main')
+            shown, others = pb.mark_other_work(repo, batch, 'work', sid='01Fixture')
+            subj = lambda ls: [l.split(' ', 1)[1] for l in ls]
+            cases.append(('three commits in the batch', len(batch) == 3))
+            cases.append(('only the commit that is neither on the work branch '
+                          'nor this session\'s is marked',
+                          subj(others) == ["someone else's"]
+                          and sum(pb.OTHER_WORK_MARK in l for l in shown) == 1))
+            cases.append(('the note names how many and asks for them by name',
+                          '1 of these' in pb._other_work_note(others, 'work')
+                          and pb._other_work_note([], 'work') == ''))
+            shown, others = pb.mark_other_work(repo, batch, None, sid='')
+            cases.append(('with no work branch and no session ID, nothing is marked',
+                          not others and shown == batch))
+    finally:
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'a Promote marks the commits that are not this session\'s work '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_sync_names_files_still_naming_removed_checks():
+    """A sync that removes a check script or test names, in the same run,
+    every file of the repository's own that still names it -- by path, or by
+    the script's name with or without its suffix.
+
+    WHY. 2026-10-06, a consumer: a sync removed four check scripts and their
+    tests, and three later rounds of checks each found more files still
+    naming them, one commit and one re-run per round."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_sync_views as psv
+    env = _fixture_git_env()
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            run = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                            capture_output=True, text=True)
+            run('init', '-q', '-b', 'main')
+            files = {
+                'tools/light_check.py': '# runs check_old_rule.py first\n',
+                'todo/todo-x.md': 'See [it](../tools/checks/check_old_rule.py).\n',
+                'gotchas/g.md': 'Unrelated: check_old_rule_two.py stays.\n',
+                'tools/checks/check_other.py': '# check_old_rule\n',
+                'notes.md': 'the stem alone: check_old_rule ran\n',
+            }
+            for rel, text in files.items():
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_text(text, encoding='utf-8')
+            run('add', '-A')
+            run('commit', '-qm', 'x')
+            got = psv._mentions_of_removed_files(
+                repo, ['tools/checks/check_old_rule.py', 'practices/old-rule.md'])
+            named = sorted({g.split(':', 1)[0] for g in got})
+            cases.append(('the light check, the open item and the bare name are '
+                          'each named, with their line',
+                          named == ['notes.md', 'todo/todo-x.md', 'tools/light_check.py']
+                          and all(':1 still names' in g for g in got)))
+            cases.append(('a longer name that only starts the same is not',
+                          'gotchas/g.md' not in named))
+            cases.append(('materialized checks are not this repository\'s to fix',
+                          'tools/checks/check_other.py' not in named))
+            cases.append(('a removed practice is left to the link scan',
+                          not any('old-rule.md' in g for g in got)))
+    finally:
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'a sync names every file still naming a check it removed '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_over_target_line_says_whose_load_and_how_to_break_it_down():
+    """The over-target line names the file it measured, whose sessions load
+    it, and the command that breaks it down entry by entry; the breakdown
+    lists each resident entry and occasion group with its source.
+
+    WHY. 2026-10-06, a consumer: every reply gate printed another set's
+    session file as over target, which read as this session's own load,
+    and with one number to go on the session proposed trimming a practice
+    whose line was not in that file."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as pg
+    import session_load_trend as slt
+    cases = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            work = pathlib.Path(td) / 'work'
+            (work / 'tools').mkdir(parents=True)
+            (work / 'tools' / 'session_load_budgets.json').write_text(json.dumps(
+                {'surfaces': {'AGENTS.md': {'target': 50}}}), encoding='utf-8')
+            (work / 'AGENTS.md').write_text(
+                '# A\n\n## Resident block (~1 of 9 token budget)\n\n'
+                '**big-rule.** ' + 'word ' * 120 + '\n\n**small-rule.** short.\n\n'
+                '## Occasion index\n\n```\nWhen a thing happens:\n'
+                '  one-rule — does one thing\n  two-rule — does two\n'
+                'When another happens:\n  three-rule — three\n```\n',
+                encoding='utf-8')
+            got = pg._over_target(work, siblings=False)
+            cases.append(('the line names the full path it measured',
+                          len(got) == 1 and str(work / 'AGENTS.md') in got[0]))
+            cases.append(('...whose sessions load it',
+                          len(got) == 1 and 'loaded by this session' in got[0]))
+            cases.append(('...and the breakdown command',
+                          len(got) == 1 and '--breakdown AGENTS.md' in got[0]))
+            rows = slt.breakdown(work, 'AGENTS.md')
+            labels = [(k, l) for _n, k, l, _s in rows]
+            cases.append(('the breakdown lists each resident entry, largest first',
+                          labels[0] == ('resident', 'big-rule')
+                          and ('resident', 'small-rule') in labels))
+            cases.append(('...and each occasion group with its practices',
+                          ('index', 'one-rule, two-rule') in labels
+                          and ('index', 'three-rule') in labels))
+            cases.append(('...and the parts add up to the file as the cap measures it',
+                          sum(r[0] for r in rows) == slt.approx_tokens(
+                              (work / 'AGENTS.md').read_text(encoding='utf-8'))))
+    finally:
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the over-target line says whose load it is and how to break it '
+          f'down ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_session_check_names_a_declared_retired_set():
+    """The session check fails one row when precedent.json still declares a
+    set that says it is retired, and names the update that drops it.
+
+    WHY. 2026-10-06, a consumer still declared two sets retired that day;
+    one rewrote a check on its way out, a check reading its clone refused
+    every push while the view sync said all was current, and nothing said
+    "retired" anywhere."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    cases = []
+    saved = psc.ROOT
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            repo, old = td / 'repo', td / 'old-set'
+            (old / 'practices').mkdir(parents=True)
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'shared', 'name': 'old-set', 'path': '../old-set'}]}),
+                encoding='utf-8')
+            psc.ROOT = repo
+            cases.append(('an active set: no row', psc._retired_sources_rows() == []))
+            (old / 'precedent-source.json').write_text(json.dumps(
+                {'retired': {'date': '2026-10-06', 'folded_into': ['universal']}}),
+                encoding='utf-8')
+            rows = psc._retired_sources_rows()
+            cases.append(('a retired one: one failing row naming it and the update',
+                          len(rows) == 1 and rows[0][1] is False
+                          and 'old-set' in rows[0][2]
+                          and 'precedent_update.py' in rows[0][2]))
+    finally:
+        psc.ROOT = saved
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the session check names a declared set that retired itself '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_gates_promise_no_override():
+    """No gate that refuses a commit, push or merge tells the session it may
+    go ahead by saying so: none of them has a way through.
+
+    WHY. 2026-10-06, a consumer: push-check-gate.sh ended "To push anyway
+    you must say so explicitly and say why", and there was no such
+    override -- the push check itself says "do not push past it"."""
+    bad = []
+    for d in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks',
+              ROOT / '.claude' / 'hooks'):
+        for f in sorted(d.glob('*.sh')):
+            if re.search(r'anyway you must\s+say so', f.read_text(encoding='utf-8')):
+                bad.append(str(f.relative_to(ROOT)))
+    check('no gate promises an override it does not have', not bad,
+          'still promising one: ' + ', '.join(bad))
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -62585,6 +63049,9 @@ def main():
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
     check_todo_migrate_refuses_a_subdirectory()
+    check_todo_migrate_reads_a_consumers_list()
+    check_docs_current_state_honours_load_bearing_paths()
+    check_filename_separator_ignores_a_date_suffix()
     check_update_written_files_name_no_mirrored_engine()
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
@@ -62637,6 +63104,12 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_promote_branches_are_named_like_session_branches()
+    check_merge_instructions_give_the_full_head()
+    check_promote_marks_other_sessions_commits()
+    check_sync_names_files_still_naming_removed_checks()
+    check_over_target_line_says_whose_load_and_how_to_break_it_down()
+    check_session_check_names_a_declared_retired_set()
+    check_gates_promise_no_override()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

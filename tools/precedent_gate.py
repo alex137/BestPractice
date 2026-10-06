@@ -380,8 +380,12 @@ def _over_target(root, siblings=True):
         except OSError:
             continue
         for d in entries:
+            # One clone per set: a second clone of the same set (under the
+            # home directory as well as beside this checkout) measured the
+            # same file twice, and which one was meant was anyone's guess.
             if d.name.startswith('precedent-') and (d / '.git').exists() \
-                    and d.resolve() not in {r.resolve() for r in roots}:
+                    and d.resolve() not in {r.resolve() for r in roots} \
+                    and d.name not in {r.name for r in roots[1:]}:
                 roots.append(d)
     out = []
     for repo in roots:
@@ -393,8 +397,14 @@ def _over_target(root, siblings=True):
         for rel, n, target, ceiling in rows:
             hard = (f', hard ceiling {ceiling:,}' if isinstance(ceiling, int)
                     else '')
-            line = (f'{name}: {rel} is {n:,} tokens, over its {target:,}-'
-                    f'token target{hard}')
+            # Whose load it is, and where to start. Read in a consumer as the
+            # session's own load, it sent a session to trim a practice whose
+            # line was not in the file at all (2026-10-06).
+            who = ('loaded by this session' if repo == roots[0] else
+                   f'loaded by sessions rooted in {repo.name}, not this one')
+            line = (f'{name}: {repo / rel} is {n:,} tokens, over its {target:,}-'
+                    f'token target{hard} -- {who}; entry by entry: python3 '
+                    f'tools/session_load_trend.py --root {repo} --breakdown {rel}')
             # The session-start file is built from every source on disk, so
             # a reduction in any of them counts; a tracked file, only its own.
             looked = roots if rel == '.precedent/SESSION_PRACTICES.md' else [repo]

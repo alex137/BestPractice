@@ -196,7 +196,8 @@ $why
 
 $(printf '%s\n' "$out" | tail -n 120)
 
-To push anyway you must say so explicitly and say why."
+Nothing lets a push past this, and nothing should: fix what it found and
+push again. If the check itself is wrong, fix the check where it lives."
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {

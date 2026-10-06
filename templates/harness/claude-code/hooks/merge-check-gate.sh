@@ -198,7 +198,9 @@ $why
 
 $(printf '%s\n' "$out" | tail -n 120)
 
-To merge anyway you must say so explicitly and say why."
+Nothing lets a merge past this, and nothing should: fix what it found on
+the branch, push, and merge again. If the check itself is wrong, fix the
+check where it lives."
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {
