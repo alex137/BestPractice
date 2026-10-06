@@ -200,6 +200,39 @@ def _is_generated_view(repo, rel):
                           re.M))
 
 
+# A DEAD LINK THE OLD INSTALL PACK WROTE (2026-10-06). It opened a repo's
+# scrub blocklist with "# Left blank at install ([`blank-blocklist`](personal/
+# README.md#blank-blocklist)): ...". The practice is retired and
+# personal/README.md exists nowhere, so every repository installed that way
+# carries the same dead link; one consumer fixed it by hand by dropping the
+# link and keeping the sentence. No live template writes it any more, so
+# Update Vendors makes the same edit wherever it is still there.
+_DEAD_BLANK_BLOCKLIST_LINK = re.compile(
+    r' ?\(\[`blank-blocklist`\]\(personal/README\.md#blank-blocklist\)\)')
+
+
+def drop_dead_blank_blocklist_link(repo):
+    """-> the repo-relative files under process/ it rewrote, dropping the
+    retired install pack's dead `blank-blocklist` link and keeping the
+    sentence around it. Nothing else in a file changes."""
+    fixed = []
+    base = repo / 'process'
+    if not base.is_dir():
+        return fixed
+    for f in sorted(base.rglob('*')):
+        if not f.is_file() or f.suffix not in ('.txt', '.md'):
+            continue
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        new = _DEAD_BLANK_BLOCKLIST_LINK.sub('', text)
+        if new != text:
+            f.write_text(new, encoding='utf-8')
+            fixed.append(str(f.relative_to(repo)))
+    return fixed
+
+
 def ensure_scrub_blocklist_decision(repo):
     """-> 'null' when it recorded `scrub_blocklist: null` for a public repo,
     'ask' when the repo has to decide, None when nothing is owed. 'ask' is
@@ -283,6 +316,52 @@ def ensure_headroom_floor(repo):
 
 
 
+def seed_baseline_approvals(repo, data, path):
+    """Record every budget in force as a `"strength": "baseline"` approval in
+    a registry Update Vendors has JUST seeded, so budget-within-approval
+    binds from the first run instead of reporting SKIPPED for ever. Only
+    there: in a registry that already existed, a number may have been raised
+    by hand, and writing it down as approved would launder the raise --
+    approval_gap() names that case for a person instead. Reported from a
+    consumer, 2026-10-06: no approved_budgets, so the check skipped on every
+    run and nothing said so."""
+    if not isinstance(data, dict) or isinstance(data.get('approved_budgets'), dict):
+        return False
+    try:
+        import build_views as _bv
+        # The repo's registry, not the one beside this clone's engine
+        # (effective_budgets says why).
+        now = _bv.effective_budgets(repo, registry=path)
+    except Exception:                                        # noqa: BLE001
+        return False
+    import time as _time
+    day = _time.strftime('%Y-%m-%d')
+    data['approved_budgets'] = {
+        k: {'max': v, 'strength': 'baseline',
+            'approved_by': f'baseline {day}: seeded by Update Vendors with the '
+                           f'registry, at the values in force'}
+        for k, v in sorted(now.items()) if isinstance(v, int)}
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return True
+
+
+def approval_gap(repo):
+    """-> a sentence for the report when the registry exists and has no
+    approved_budgets (so budget-within-approval skips every run), else None."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or isinstance(data.get('approved_budgets'), dict):
+        return None
+    return ('tools/session_load_budgets.json has no approved_budgets, so the '
+            'check that no budget was raised without approval skips on every '
+            'run. Ask the person to confirm the numbers in force are ones '
+            'they chose, then record each as "strength": "baseline" '
+            '(practice: session-load-budget)')
+
+
 def ensure_session_load_registry(repo):
     """Seed tools/session_load_budgets.json in a repository that has none.
     -> {surface: measured tokens} when it wrote one, else None.
@@ -306,6 +385,7 @@ def ensure_session_load_registry(repo):
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
+    seed_baseline_approvals(repo, data, path)
     out = {}
     for rel, e in (data.get('surfaces') or {}).items():
         m = re.match(r'(\d+) tokens', e.get('_note', ''))
@@ -2620,6 +2700,12 @@ def update(repo, skip_check=False, ref=None):
                  'list, and the practice audit fails a list that is neither '
                  'present nor declined')
 
+    dead = drop_dead_blank_blocklist_link(repo)
+    if dead:
+        rep.step('dead link', f"dropped the retired install pack's link to "
+                 f"personal/README.md#blank-blocklist from {', '.join(dead)}, "
+                 f"keeping the sentence (that file exists nowhere)")
+
     seeded = ensure_session_load_registry(repo)
     if seeded:
         big = max(seeded.items(), key=lambda kv: kv[1] or 0)
@@ -2628,6 +2714,9 @@ def update(repo, skip_check=False, ref=None):
                      f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
                  f'), so the load check now binds here; {big[0]} is the '
                  f'largest, and a reduction pass is how it comes down')
+    gap = approval_gap(repo)
+    if gap:
+        rep.step('session-load budget', gap)
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '

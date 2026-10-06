@@ -905,6 +905,68 @@ def _rule_was_rewritten(old_sections, new_sections):
             and changed / len(before) >= _RULE_REWRITE_MIN_SHARE)
 
 
+@check('no-duplication', 'tree',
+       'a practice set carries no active copy of a practice its declared '
+       'universal source also has active: it adds to that rule in a practice '
+       'of its own, holding only what it adds',
+       'a rule restated under a different slug, or a set copy of another '
+       'set\'s rule; a universal source not cloned on this machine is passed '
+       'over (could not be read is not a duplicate). A set that says it is '
+       'retired is passed over: its copies leave with it.',
+       binds_publishers=True, selects_on=('practices/*.md',))
+def _no_duplication(ctx):
+    """Morgan, 2026-10-06 (strength: decided): "rules should not be repeated,
+    but supporting repos can have additions for them". Four practices lived
+    as full copies in universal and in the ladder set, the set's copy
+    overriding universal's to change a few ladder sentences, and every edit
+    had to be made twice; the same day three of them were missed on the
+    first pass. universal-change-reaches-overrides only named the copies, in
+    universal, after the fact. This refuses the copy where it lives."""
+    try:
+        src = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('this repo is not a practice source (no precedent-source.json)')
+    if not isinstance(src, dict) or src.get('level') == 'universal':
+        raise NotApplicable('universal is where the one full copy lives')
+    if src.get('retired'):
+        raise NotApplicable('this set says it is retired; its copies leave with it')
+    try:
+        import precedent_resolve as _pr
+        sources = _pr.load_config(str(ROOT))
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'the declared sources could not be read ({e})')
+    uni = [pathlib.Path(s['path']) for s in sources if s.get('level') == 'universal']
+    uni = [u for u in uni if (u / 'practices').is_dir()]
+    if not uni:
+        raise NotApplicable('no universal source is cloned here to compare with')
+
+    def active(text):
+        m = re.search(r'^status:\s*(\S+)', text or '', re.M)
+        return bool(m) and m.group(1).strip('"\'') == 'active'
+    out = []
+    for f in sorted((ROOT / 'practices').glob('*.md')):
+        try:
+            mine = f.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        if not active(mine):
+            continue
+        for u in uni:
+            try:
+                theirs = (u / 'practices' / f.name).read_text(encoding='utf-8')
+            except OSError:
+                continue
+            if active(theirs):
+                out.append(Finding(
+                    f'practices/{f.name}',
+                    f'universal has its own active {f.stem}; this set repeats it '
+                    f'instead of adding to it. Keep only what this set adds, in a '
+                    f'practice of its own (e.g. {f.stem}-on-<this set>) that names '
+                    f'{f.stem}, and mark this copy deduplicated'))
+                break
+    return out
+
+
 @check('universal-change-reaches-overrides', 'change',
        'a change to a universal practice names each shared set that carries its '
        'own active copy of the same slug -- that copy overrides this one for '
@@ -1427,13 +1489,16 @@ def _frontmatter_field_order(ctx):
                         f'changes nothing else' if fixable else
                         'the fixer leaves a repeated key alone; keep the copy '
                         'that is meant and delete the other')))
-        for key in fy.unlisted_fields(text):
+        own = fy.own_fields(ROOT) if hasattr(fy, 'own_fields') else ()
+        for key in (fy.unlisted_fields(text, own) if own else fy.unlisted_fields(text)):
             out.append(Finding(
                 rel, f'carries `{key}:`, a field spec/PRACTICE_FORMAT.md does '
                      f'not list; this engine ignores it and the practice '
-                     f'works as before -- remove it, or add it to the spec '
-                     f'and to FIELD_ORDER in tools/frontmatter_yaml.py '
-                     f'upstream in BestPractice, where the order is defined'))
+                     f'works as before -- remove it, or, if this '
+                     f'repository\'s own tooling reads it, declare it in '
+                     f'precedent.json\'s `own_frontmatter_fields`; a field '
+                     f'every repository should have goes in the spec and in '
+                     f'FIELD_ORDER upstream in BestPractice'))
     return out
 
 # ---- practice-links-travel -------------------------------------------------

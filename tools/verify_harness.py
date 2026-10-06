@@ -3801,6 +3801,26 @@ def check_freshness_covers_every_declared_source():
         pef.report(consumer, quiet=True, out=quiet_after)
         after = quiet_after.getvalue()
 
+        # A clone that catches up WHILE the run is going is judged on what it
+        # holds when its row is printed (2026-10-06: a consumer's session
+        # start called three clones BEHIND that were current minutes later).
+        # The stand-in for upstream_tip fast-forwards the live clone as it is
+        # asked, after the rows were read -- the race, made deterministic.
+        real_tip = pef.upstream_tip
+
+        def tip_and_catch_up(url, branch, clone=None):
+            got = real_tip(url, branch, clone=clone)
+            if str(url) == str(set_up):
+                git(set_clone, 'pull', '-q', '--ff-only')
+            return got
+        pef.upstream_tip = tip_and_catch_up
+        try:
+            caught = io.StringIO()
+            pef.report(consumer, quiet=True, out=caught)
+        finally:
+            pef.upstream_tip = real_tip
+        caught_up = caught.getvalue()
+
         # An unreachable source: declared, vendored manifest points nowhere.
         (consumer / 'process' / 'manifest_set.json').write_text(json.dumps({
             'upstream': {'repo': str(tmp / 'gone'), 'branch': 'main',
@@ -3831,6 +3851,10 @@ def check_freshness_covers_every_declared_source():
              and 'pull --ff-only' not in after),
             ('the notice names Update Vendors once',
              after.count('"Update Vendors"') == 1),
+            ('a live clone that caught up while the run went is not called '
+             'BEHIND (the control is the BEHIND row above, read without it)',
+             'live clone at' not in caught_up
+             and 'BEHIND UPSTREAM: set (shared) vendored at process/set' in caught_up),
             ('an unreachable upstream is NOT VERIFIED, not current',
              'NOT VERIFIED -- set (shared) vendored at process/set' in unreachable
              and 'current -- set (shared) vendored' not in unreachable),
@@ -6166,6 +6190,178 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_no_duplication_refuses_a_sets_copy_of_a_universal_rule():
+    """A practice set may not carry an active copy of a practice its declared
+    universal source has active; it adds to it in a practice of its own
+    (Morgan, 2026-10-06: "rules should not be repeated, but supporting repos
+    can have additions for them"). Planted end to end in a fixture set
+    beside a fixture universal: the copy is refused, naming the way out; an
+    addition under its own slug, a deduplicated copy and a retired set all
+    pass."""
+    import shutil as _sh
+    import tempfile as _tf
+    def prac(slug, status):
+        return (f'---\nslug: {slug}\ntitle: T\ntier: on-demand\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "x"\ndefines: []\nstatus: {status}\n'
+                f'---\n## Rule\nx\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n')
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        uni = base / 'uni'
+        (uni / 'practices').mkdir(parents=True)
+        (uni / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'active'), encoding='utf-8')
+        (uni / 'precedent-source.json').write_text(json.dumps({'level': 'universal', 'name': 'precedent'}), encoding='utf-8')
+        st = base / 'set'
+        (st / 'practices').mkdir(parents=True)
+        _sh.copytree(ROOT / 'tools', st / 'tools', ignore=_sh.ignore_patterns('__pycache__'))
+        # What makes a repository a practice SOURCE to the engine: the kind
+        # its vendored engine's manifest declares (_publishes_practices).
+        (st / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'format_version': 1, 'kind': 'source', 'files': []}), encoding='utf-8')
+        (st / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../uni'}]}), encoding='utf-8')
+        meta = {'level': 'shared', 'name': 'set'}
+        (st / 'precedent-source.json').write_text(json.dumps(meta), encoding='utf-8')
+        (st / 'practices' / 'shared-rule-on-set.md').write_text(prac('shared-rule-on-set', 'active'), encoding='utf-8')
+
+        def run():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                                'no-duplication'], cwd=st, capture_output=True, text=True,
+                               env=dict(os.environ, PRECEDENT_USER_CONFIG=str(base / 'none.json')))
+            return r.stdout + r.stderr
+        out = run()
+        cases.append(('an addition under its own slug passes', ' 0 violated' in out and '1 passed' in out))
+        (st / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'active'), encoding='utf-8')
+        out = run()
+        cases.append(('an active copy of a universal rule is refused, naming the way out',
+                      ' 1 violated' in out and 'practices/shared-rule.md' in out
+                      and 'add' in out and 'deduplicated' in out))
+        (st / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'deduplicated'), encoding='utf-8')
+        out = run()
+        cases.append(('a deduplicated copy passes', ' 0 violated' in out))
+        (st / 'practices' / 'shared-rule.md').write_text(prac('shared-rule', 'active'), encoding='utf-8')
+        (st / 'precedent-source.json').write_text(json.dumps(dict(meta, retired={'date': '2026-10-06'})), encoding='utf-8')
+        out = run()
+        cases.append(('a retired set is passed over', ' 0 violated' in out and 'retired' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'no-duplication refuses a set\'s copy of a universal rule ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
+def check_sync_does_not_call_a_held_back_check_an_orphan():
+    """A sync names as orphaned only a check no practice file claims. A check
+    whose own source's practice file names it in `checked_by` -- a rule that
+    source keeps out of force on purpose, as a deduplicated copy whose check
+    still runs in its own repository -- is not vendored and not reported.
+    Reported from a consumer, 2026-10-06: every sync listed the individual
+    set's three such checks as orphans."""
+    import contextlib, io, tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'set'
+        (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (src / 'practices').mkdir()
+        for stem in ('kept', 'lost'):
+            (src / 'tools' / 'checks' / f'check_{stem}.py').write_text('x = 1\n', encoding='utf-8')
+            (src / 'tools' / 'checks' / 'tests' / f'test_{stem}.sh').write_text('true\n', encoding='utf-8')
+        (src / 'practices' / 'kept.md').write_text(
+            '---\nslug: kept\nchecked_by:  tools/checks/check_kept.py\n'
+            'status:      deduplicated\n---\n## Rule\nx\n', encoding='utf-8')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}],
+                                   {'practices': {}})
+        note = [l for l in err.getvalue().splitlines() if 'no practice in force' in l]
+        note = note[0] if note else ''
+        cases.append(('a check no practice file claims is still reported',
+                      'check_lost.py' in note and 'test_lost.sh' in note))
+        cases.append(('a check its own source\'s practice file claims is not',
+                      'check_kept.py' not in note and 'test_kept.sh' not in note))
+        cases.append(('...and neither is vendored here',
+                      not any(name in ('check_kept.py', 'check_lost.py')
+                              for _r, name, _s, _d in plan)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a sync does not call a held-back check an orphan ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
+def check_update_drops_the_dead_blank_blocklist_link():
+    """Update Vendors drops the retired install pack's dead link to
+    personal/README.md#blank-blocklist from a repository's process/ files,
+    keeping the sentence, exactly as a consumer fixed its own by hand
+    (2026-10-06). The same text with no link, and the link in a file
+    outside process/, are left alone."""
+    import tempfile as _tf
+    import precedent_update as pu
+    line = ("# Left blank at install ([`blank-blocklist`](personal/README.md"
+            "#blank-blocklist)): Morgan doesn't use the\n")
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'process').mkdir()
+        f = repo / 'process' / 'scrub_blocklist.txt'
+        f.write_text('# head\n' + line + 'word\n', encoding='utf-8')
+        other = repo / 'README.md'
+        other.write_text(line, encoding='utf-8')
+        fixed = pu.drop_dead_blank_blocklist_link(repo)
+        cases.append(('the link is dropped and the sentence kept',
+                      fixed == ['process/scrub_blocklist.txt'] and
+                      f.read_text(encoding='utf-8') ==
+                      "# head\n# Left blank at install: Morgan doesn't use the\nword\n"))
+        cases.append(('a second run changes nothing',
+                      pu.drop_dead_blank_blocklist_link(repo) == []))
+        cases.append(('a file outside process/ is not touched',
+                      other.read_text(encoding='utf-8') == line))
+    failed = [n for n, ok in cases if not ok]
+    check(f'Update Vendors drops the dead blank-blocklist link ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
+def check_session_start_charges_brought_sets_to_the_person():
+    """The session-start check holds the sets a person brings to that
+    person's `brought_sets_tokens` budget, never to the repository's ceiling,
+    as the full check's session-load-budget already did (2026-10-03).
+    Reported from a consumer, 2026-10-06: its ceiling, set before the ladder
+    started arriving by `brings`, failed a guarantee at every session start.
+    Planted with stand-ins for the share and the budget."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_session_check as psc
+        import precedent_session_practices as psp
+    finally:
+        sys.path.pop(0)
+    saved = (psp.brought_share, psp.brought_budget)
+    cases = []
+    try:
+        psp.brought_share = lambda repo=None: (600, ['precedent-shared-ladder'])
+        psp.brought_budget = lambda repo=None: (700, '/ind')
+        n, note, over = psc._charge_brought_share(1500)
+        cases.append(('the brought share leaves the repository\'s count',
+                      n == 900 and 'which you bring' in note and over is None))
+        psp.brought_budget = lambda repo=None: (500, '/ind')
+        n, note, over = psc._charge_brought_share(1500)
+        cases.append(('over the person\'s own budget, that is what is reported',
+                      n == 900 and over and 'brought_sets_tokens' in over))
+        psp.brought_budget = lambda repo=None: (None, '/ind')
+        n, note, over = psc._charge_brought_share(1500)
+        cases.append(('no budget declared: charged to the repository, as before',
+                      n == 1500 and note == '' and over is None))
+        psp.brought_share = lambda repo=None: (0, [])
+        psp.brought_budget = lambda repo=None: (700, '/ind')
+        cases.append(('nothing brought: unchanged',
+                      psc._charge_brought_share(1500) == (1500, '', None)))
+    finally:
+        psp.brought_share, psp.brought_budget = saved
+    failed = [nm for nm, ok in cases if not ok]
+    check(f'the session-start check charges brought sets to the person '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_seeds_the_session_load_registry():
     """Update Vendors gives a repository with no
     tools/session_load_budgets.json one seeded at today's sizes, so the
@@ -6173,7 +6369,9 @@ def check_update_seeds_the_session_load_registry():
     (Alex, 2026-10-04: "If it is already a best practice, why didn't we
     adopt?" -- a consumer's instructions file had grown to about 38,000
     tokens behind a skip). Both directions: an existing registry, however
-    small, is never touched, and a second run writes nothing."""
+    small, is never touched, and a second run writes nothing. A registry it
+    seeds carries baseline approvals; one that existed without them is named
+    in the report, never filled in (2026-10-06)."""
     import tempfile
     import precedent_update as pu
     name = 'Update Vendors seeds a missing session-load registry'
@@ -6192,6 +6390,21 @@ def check_update_seeds_the_session_load_registry():
         cases.append(('the early-warning floor is on', reg.get('headroom_floor_pct') == 5))
         cases.append(('it says it was seeded at Update Vendors',
                       'Update Vendors' in s['CLAUDE.md'].get('_note', '')))
+        ap = reg.get('approved_budgets') or {}
+        cases.append(('a registry it seeds carries a baseline approval for every '
+                      'budget, so budget-within-approval binds from the start '
+                      '(2026-10-06)', bool(ap) and all(
+                          e.get('strength') == 'baseline' and isinstance(e.get('max'), int)
+                          and 'Update Vendors' in e.get('approved_by', '')
+                          for e in ap.values())))
+        cases.append(('...and the report then names no approval gap',
+                      pu.approval_gap(repo) is None))
+        cases.append(('...each at the number in force in THIS repo, never the '
+                      'engine clone\'s own (2026-10-06: a consumer was seeded '
+                      'with BestPractice\'s numbers, and its first check refused '
+                      'all of them as unapproved raises)',
+                      (ap.get('surfaces/CLAUDE.md') or {}).get('max')
+                      == s['CLAUDE.md']['ceiling']))
         before = (repo / 'tools' / 'session_load_budgets.json').read_bytes()
         again = pu.ensure_session_load_registry(repo)
         cases.append(('a second run writes nothing', again is None and before ==
@@ -6206,6 +6419,12 @@ def check_update_seeds_the_session_load_registry():
                       pu.ensure_session_load_registry(repo) is None and
                       (repo / 'tools' / 'session_load_budgets.json').read_text(
                           encoding='utf-8') == mine))
+        gap = pu.approval_gap(repo) or ''
+        cases.append(('an existing registry with no approved_budgets is named in '
+                      'the report, never filled in (a hand-made raise would be '
+                      'recorded as approved)', 'no approved_budgets' in gap
+                      and 'baseline' in gap and (repo / 'tools' /
+                      'session_load_budgets.json').read_text(encoding='utf-8') == mine))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -8457,9 +8676,29 @@ def check_upholds_is_a_listed_field():
         ('the format spec lists it',
          'upholds:' in (ROOT / 'spec' / 'PRACTICE_FORMAT.md').read_text(encoding='utf-8')),
     ]
+    # A repository's OWN fields (2026-10-06): declared in precedent.json, never
+    # reported, sorted after the spec's fields; a declared name the spec
+    # lists is ignored, so the spec's meaning wins.
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'own_frontmatter_fields': ['zz_not_a_field', 'status']}), encoding='utf-8')
+        own = _fy.own_fields(repo)
+        cases += [
+            ('a field precedent.json declares as its own is not reported',
+             own == ('zz_not_a_field',) and not _fy.unlisted_fields(with_unknown, own)),
+            ('...and sorts after every listed field without a complaint',
+             not _fy.field_order_problem(base.format(extra='').replace(
+                 'status: active\n', 'status: active\nzz_not_a_field: 1\n'))),
+            ('...while one it does not declare is still reported',
+             bool(_fy.unlisted_fields(with_unknown.replace('zz_not_a_field', 'zz_other'), own))),
+            ('a repository with no precedent.json declares nothing',
+             _fy.own_fields(repo / 'nowhere') == ()),
+        ]
     bad = [n for n, ok in cases if not ok]
-    check(f'upholds: is a listed practice field ({len(cases)} stated cases)',
-          not bad, '; '.join(bad))
+    check(f'upholds: is a listed practice field, and a repository may declare '
+          f'its own ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_consumer_engine_carries_what_its_checks_import():
@@ -16924,6 +17163,37 @@ def check_precedent_check_fires():
         case('universal-change-reaches-overrides', _plant_override_drift,
              advisory=True)
 
+        # no-duplication -- in a practice SET, an active practice whose slug
+        # its declared universal source also has active is refused (Morgan,
+        # 2026-10-06: "rules should not be repeated, but supporting repos can
+        # have additions for them"). The fixture is universal's own tree, so
+        # the setup makes it a set beside a small universal that shares
+        # nothing with it; the plant gives that universal one of its slugs.
+        def _setup_set_beside_universal(repo):
+            uni = repo.parent / f'{repo.name}-dup-universal'
+            (uni / 'practices').mkdir(parents=True, exist_ok=True)
+            (uni / 'precedent-source.json').write_text(json.dumps(
+                {'name': 'precedent', 'level': 'universal'}), encoding='utf-8')
+            (uni / 'practices' / 'zz-only-in-universal.md').write_text(
+                '---\nslug: zz-only-in-universal\nstatus: active\n---\n', encoding='utf-8')
+            src = json.loads((repo / 'precedent-source.json').read_text(encoding='utf-8'))
+            src['level'] = 'shared'
+            (repo / 'precedent-source.json').write_text(json.dumps(src), encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+                {'format_version': 1, 'kind': 'source', 'files': []}), encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg['sources'] = [{'name': 'precedent', 'level': 'universal',
+                               'path': f'../{uni.name}'}]
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+
+        def _plant_set_copy(repo):
+            uni = repo.parent / f'{repo.name}-dup-universal'
+            (uni / 'practices' / 'orientation-map.md').write_text(
+                (repo / 'practices' / 'orientation-map.md').read_text(encoding='utf-8'),
+                encoding='utf-8')
+        case('no-duplication', _plant_set_copy, setup=_setup_set_beside_universal)
+
         # frontmatter-field-order -- a permanent warning (practice:
         # format-rules-grandfather): a planted misorder is reported, and
         # never fails the run.
@@ -22666,8 +22936,9 @@ def check_reply_check_keeps_practice_ideas_at_the_close():
                "background.\n- Don't archive this session.\n")
         r1 = replycheck('mid.md', mid)
         cases.append(('practice ideas mid-conversation are refused, and the '
-                      'refusal says to add nothing rather than the archive line',
-                      r1.returncode == 2 and 'Output NOTHING further' in r1.stderr
+                      'refusal asks for one withdrawing line, never the archive line',
+                      r1.returncode == 2 and 'Output ONE line withdrawing them' in r1.stderr
+                      and 'Output NOTHING' not in r1.stderr
                       and 'Do NOT add the archive line' in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
@@ -22756,10 +23027,12 @@ def check_reply_check_refuses_a_repeated_boildown():
                  'feature branch.\n')
         r1 = run(transcript('repeat.jsonl', [first, again]))
         cases.append(('a reworded Boildown with nothing new is refused, '
-                      'naming the one-line form and asking for nothing more',
+                      'asking for the one-line form and nothing more -- never '
+                      'for nothing, which the harness does not accept',
                       r1.returncode == 2 and 'previous reply' in r1.stderr
                       and 'unchanged since the last update' in r1.stderr
-                      and 'Output NOTHING further' in r1.stderr,
+                      and 'Output ONLY the one-line form' in r1.stderr
+                      and 'Output NOTHING' not in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
         news = again.replace('- Next is your "Booked" to land it on `pre-staging`.',
@@ -22887,10 +23160,11 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
 
         r1 = run(transcript('one-of-two.jsonl', opening + [
             wake(notice('aaa', 'completed', done_ok)), said(report)]))
-        cases.append(('one job of two done: any prose is refused, naming the '
-                      'one still running and asking for nothing further',
+        cases.append(('one job of two done: a report is refused, naming the '
+                      'one still running and asking for one waiting line',
                       r1.returncode == 2 and 'bbb' in r1.stderr
-                      and 'Output NOTHING further' in r1.stderr,
+                      and 'Output ONE line naming the wait' in r1.stderr
+                      and 'Output NOTHING' not in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
 
         r2 = run(transcript('progress.jsonl', [
@@ -22908,6 +23182,21 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
         cases.append(('negative control: a silent wake passes, and is not '
                       'judged by the last turn\'s words',
                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+
+        # One waiting line is what a quiet wake owes (2026-10-06): an empty
+        # turn makes the harness ask for visible output.
+        r3b = run(transcript('wait-line.jsonl', opening[:-1] + [
+            said('Started, no closing section here.'),
+            wake(notice('aaa', 'completed', done_ok)),
+            said('(Waiting on bbb.)')]))
+        cases.append(('one waiting line in parentheses passes on a quiet wake',
+                      r3b.returncode == 0, f'exit {r3b.returncode}: {r3b.stderr[:200]}'))
+        r3c = run(transcript('two-lines.jsonl', opening[:-1] + [
+            said('Started, no closing section here.'),
+            wake(notice('aaa', 'completed', done_ok)),
+            said('(Waiting on bbb.)\nAlso, aaa passed.')]))
+        cases.append(('...but a second line makes it a report, refused',
+                      r3c.returncode == 2, f'exit {r3c.returncode}: {r3c.stderr[:200]}'))
 
         ended_mid_turn = {'type': 'attachment', 'attachment': {
             'type': 'queued_command',
@@ -23022,6 +23311,21 @@ def check_code_owners_only_practices_reach_only_code_owners():
         c.mkdir()
         cases.append(('no owners named anywhere: in doubt, hidden',
                       'names no code owners' in audience(c, 'maint'), audience(c, 'maint')))
+        # Nothing declared, but a GitHub origin: the account that owns the
+        # repository is its owner (2026-10-06: a consumer's only member was
+        # refused the Produce rule because nothing named him).
+        o = tmp / 'owned'
+        o.mkdir()
+        subprocess.run(['git', 'init', '-q', str(o)], capture_output=True)
+        subprocess.run(['git', '-C', str(o), 'remote', 'add', 'origin',
+                        'https://github.com/Repo-Owner/some-repo.git'],
+                       capture_output=True)
+        cases.append(("nothing declared: the GitHub origin's owner is a code owner",
+                      audience(o, 'repo-owner').startswith('code owner:'),
+                      audience(o, 'repo-owner')))
+        cases.append(("...and someone else is still not one",
+                      audience(o, 'someone').startswith('not a code owner:'),
+                      audience(o, 'someone')))
 
         # precedent_show prints the marked practice to an owner only.
         (b / 'practices').mkdir()
@@ -29436,18 +29740,18 @@ def check_promote_pre_staging():
         commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
         pre_before = tip('pre-staging')
         rc, out = branches('--promote')
-        fixes = [l.split()[-1][len('refs/heads/'):] for l in git(
-            work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*').stdout.splitlines()]
+        fixes = git(work, 'for-each-ref', '--format=%(refname:short)',
+                    'refs/heads/promote-fix-*').stdout.split()
         cases.append(('a batch failing a full-only check is not finished: neither '
                       'staging nor pre-staging moves, and it says what failed',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
                       and 'precedent_check' in out and tip('beta') == before
                       and tip('pre-staging') == pre_before))
-        cases.append(('...and the composition it checked is on a fix branch, with '
-                      'the command that finishes it', len(fixes) == 1
+        cases.append(('...and the composition it checked is on a local fix '
+                      'branch, with the command that finishes it', len(fixes) == 1
                       and f'--work {fixes[0]}' in out and git(
                           work, 'merge-base', '--is-ancestor', pre_before,
-                          tip(fixes[0])).returncode == 0))
+                          f'refs/heads/{fixes[0]}').returncode == 0))
 
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-fix', 'origin/pre-staging')
@@ -31859,9 +32163,19 @@ def check_promote_composes_main_and_moves_both_tiers():
                        f'origin/{branch}').returncode == 0
 
         def fixes():
+            # Local since 2026-10-06: a refused Promote leaves its fix branch
+            # in the clone, and only a pushed fix puts it on origin.
+            return sorted(git(work, 'for-each-ref', '--format=%(refname:short)',
+                              'refs/heads/promote-fix-*').stdout.split())
+
+        def fixes_on_origin():
             return sorted(l.split()[-1][len('refs/heads/'):] for l in git(
                 work, 'ls-remote', 'origin', 'refs/heads/promote-fix-*'
             ).stdout.splitlines())
+
+        def on_local(sha, branch):
+            return git(work, 'merge-base', '--is-ancestor', sha,
+                       f'refs/heads/{branch}').returncode == 0
 
         def level():
             return tip('staging') == tip('pre-staging')
@@ -31910,10 +32224,11 @@ def check_promote_composes_main_and_moves_both_tiers():
         cases.append(('a composition failing the full check moves neither tier',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
                       and tip('staging') == s0 and tip('pre-staging') == p1))
-        cases.append(('...pushes it to a fix branch holding main\'s work and '
-                      'pre-staging\'s, and names the command that finishes it',
-                      len(f) == 1 and on(tip('main'), f[0]) and on(p1, f[0])
-                      and f'--work {f[0]}' in out))
+        cases.append(('...puts it on a LOCAL fix branch holding main\'s work and '
+                      'pre-staging\'s, not pushed, and names the command that '
+                      'finishes it', len(f) == 1 and on_local(tip('main'), f[0])
+                      and on_local(p1, f[0]) and f'--work {f[0]}' in out
+                      and fixes_on_origin() == [] and 'not pushed' in out))
         cases.append(('...and names main\'s commits as where to look first, from '
                       'staging\'s recorded pass, without a second full check or a '
                       'verdict', 'Look there first' in out
@@ -31921,8 +32236,7 @@ def check_promote_composes_main_and_moves_both_tiers():
                       and 'own tip passed the full check' in out
                       and full_runs() == 1 and 'came from main' not in out))
         # The session fixes it on that branch and runs the Promote again.
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'fixing', f'origin/{f[0]}')
+        git(work, 'checkout', '-q', '-B', 'fixing', f[0])
         (work / 'FAIL').write_text('', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'fix what main broke')
         git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{f[0]}')
@@ -31942,10 +32256,14 @@ def check_promote_composes_main_and_moves_both_tiers():
                       'and main is named only as a place to look, never as the cause',
                       rc == 1 and 'PROMOTE NOT FINISHED' in out
                       and 'Look there first' in out and 'came from main' not in out))
+        on_origin_before = fixes_on_origin()
         commit_to('pre-staging', {'FAIL': ''}, 'ladder fixes its own break')
         rc, out = branches('--promote', '--to', 'staging')
         cases.append(('...and a fix pushed to pre-staging finishes it too',
                       rc == 0 and level() and on(tip('main'), 'staging')))
+        cases.append(('...leaving no fix branch on origin for a person to delete '
+                      '(2026-10-06: one consumer had four in a day)',
+                      fixes_on_origin() == on_origin_before))
 
         # 5. Hand-written text changed on both sides: not finished, the
         # composition so far on a fix branch, resolved there, then finished.
@@ -31960,9 +32278,9 @@ def check_promote_composes_main_and_moves_both_tiers():
                       rc == 1 and 'does not merge cleanly' in out
                       and tip('staging') == s0 and tip('pre-staging') == p0
                       and len(f) == n + 1 and f'git merge {p0}' in out))
-        newest = [b for b in f if on(tip('main'), b) and not on(p0, b)] or ['no-fix-branch']
-        git(work, 'fetch', '-q', 'origin')
-        git(work, 'checkout', '-q', '-B', 'resolving', f'origin/{newest[0]}')
+        newest = [b for b in f if on_local(tip('main'), b)
+                  and not on_local(p0, b)] or ['no-fix-branch']
+        git(work, 'checkout', '-q', '-B', 'resolving', newest[0])
         git(work, 'merge', '-q', p0)
         (work / 'list.txt').write_text('BOTH\nb\nc\n', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'resolve line 1')
@@ -46601,6 +46919,45 @@ def check_links_to_renamed_practice_forward():
     check(f'a materialized link to a renamed practice forwards to the live '
           f'practice ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
+
+
+def check_dedup_onto_same_slug_withdraws_nothing():
+    """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
+
+    WHY. 2026-10-06: the ladder set's four full copies of universal rules
+    were cut to stubs with `in_force_at:` their own slug, universal's rule of
+    that name staying in force. Every link to `prompt-please` and the other
+    three, in every declared source, came back as a FOLLOW-UP to repoint --
+    72 of them, none real, since the slug still names a live rule."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    ppr = __import__('precedent_practice_refs')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='dedup-same-slug-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    fm = '---\nslug: {s}\nstatus: {st}\nin_force_at: {to}\n---\n## Rule\nR.\n'
+    try:
+        g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=env,
+                                      check=True, capture_output=True)
+        g('init', '-q', '-b', 'main')
+        (tmp / 'practices').mkdir()
+        for s in ('kept-rule', 'moved-rule'):
+            (tmp / 'practices' / f'{s}.md').write_text(
+                fm.format(s=s, st='active', to='null'), encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('checkout', '-qb', 'work')
+        (tmp / 'practices' / 'kept-rule.md').write_text(
+            fm.format(s='kept-rule', st='deduplicated', to='kept-rule'), encoding='utf-8')
+        (tmp / 'practices' / 'moved-rule.md').write_text(
+            fm.format(s='moved-rule', st='deduplicated', to='other-rule'), encoding='utf-8')
+        got = ppr.changed_slugs(tmp, 'main')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('a copy deduplicated onto its own slug is not reported as withdrawn',
+          'kept-rule' not in got, repr(got))
+    check('CONTROL: a copy deduplicated onto another slug still is',
+          got.get('moved-rule') == 'now deduplicated', repr(got))
 
 
 def check_practice_refs_sorts_live_from_history():
@@ -61509,6 +61866,10 @@ def main():
     check_commit_rebuild_runs_outside_the_hook_git_env()
     check_migrate_views_keeps_every_word()
     check_update_seeds_the_session_load_registry()
+    check_session_start_charges_brought_sets_to_the_person()
+    check_update_drops_the_dead_blank_blocklist_link()
+    check_sync_does_not_call_a_held_back_check_an_orphan()
+    check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
@@ -61909,6 +62270,7 @@ def main():
     check_in_force_at_chain_is_followed()
     check_links_to_renamed_practice_forward()
     check_practice_refs_sorts_live_from_history()
+    check_dedup_onto_same_slug_withdraws_nothing()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

@@ -480,6 +480,18 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
                       f"reach {row['url']} ({row['branch']}). Whether it is "
                       f"current is unknown this session.", file=out)
             continue
+        if tip != row['recorded'] and row['kind'] == 'live' and row.get('path'):
+            # RE-READ BEFORE SAYING BEHIND (2026-10-06). A consumer's session
+            # start reported three set clones BEHIND that were current minutes
+            # later, before the session itself had run anything that moves a
+            # clone. Its cause is not established (see
+            # todo-2026-10-06-freshness-notice-said-behind-for-current-clones);
+            # whatever moved them, a clone read once at the top of this run can
+            # be out of date by the time its row is printed, so the clone is
+            # read again here and judged on what it holds now.
+            again = _live_clone(row['path'], root)
+            if again and again.get('head'):
+                row['recorded'] = again['head']
         if tip == row['recorded']:
             current += 1
             if not quiet:
