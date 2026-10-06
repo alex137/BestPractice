@@ -36,6 +36,12 @@ and the check read only the hook.
   ([tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)),
   so the check reports SKIPPED while the practice is in force. Vendor the
   module, or scope the practice to the engine's own repository.
+  **Fixed 2026-10-06:** [doc_lifecycle.py](../tools/doc_lifecycle.py) is on `ENGINE_FILES`, which a
+  consumer inherits, so `document-status-header` and `speculation-is-marked`
+  run in an installed repo. The harness case
+  `check_consumer_engine_carries_what_its_checks_import` asserts every
+  engine module [precedent_check.py](../tools/precedent_check.py) imports
+  reaches a consumer.
 - **A Codex or Gemini adopter is never told to add their adapter.**
   [precedent_install.py](../tools/precedent_install.py) installs only the Claude Code adapter;
   [SETUP.md](../SETUP.md) asks which assistant will work in the repo and

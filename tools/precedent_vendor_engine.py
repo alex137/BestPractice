@@ -726,6 +726,14 @@ ENGINE_FILES = [
     # level, and a practice source's own checks are meant to import it from
     # the engine beside them, so every kind needs it.
     'generated_blocks.py',
+    # The document status header's reader (added 2026-10-06).
+    # precedent_check.py's document-status-header and speculation-is-marked
+    # checks import it, and both practices are universal, so every repo
+    # that runs the check resolves them. Missing from both lists until the
+    # 2026-10-05 very deep check installed a consumer and found both checks
+    # SKIPPED there ("did not import") while the practices were in force.
+    # Standard library only.
+    'doc_lifecycle.py',
     'full_practice_audit.py',
     'session_load_trend.py',
     # The "you are reading a different repo than the one you are standing

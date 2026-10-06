@@ -8018,6 +8018,55 @@ def check_upholds_is_a_listed_field():
           not bad, '; '.join(bad))
 
 
+def check_consumer_engine_carries_what_its_checks_import():
+    """A consumer's precedent_check.py imports doc_lifecycle for
+    document-status-header and speculation-is-marked, and the module was on
+    neither engine list, so both checks reported SKIPPED in every installed
+    repo while the practices were in force (very deep check, 2026-10-05,
+    pass 1). Every engine module precedent_check.py imports is now on the
+    consumer list, and an installed consumer runs the check for real."""
+    import re as _re
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    mods = (set(_re.findall(r'^\s*import (\w+)', src, _re.M))
+            | set(_re.findall(r'^\s*from (\w+) import', src, _re.M)))
+    local = sorted(m for m in mods if (ROOT / 'tools' / f'{m}.py').is_file())
+    missing = [m for m in local if f'{m}.py' not in _pve.CONSUMER_ENGINE_FILES]
+    cases = [(f'every engine module precedent_check.py imports is vendored '
+              f'to a consumer (missing: {", ".join(missing) or "none"})',
+              not missing)]
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-doclife-'))
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                        str(fx), '--project-name', 'Fixture'],
+                       capture_output=True, text=True)
+        (fx / 'spec').mkdir()
+        (fx / 'spec' / 'PLAN.md').write_text(
+            '---\ntitle: "Plan"\nkind: reference\nstatus: current\n'
+            'opened: 2026-10-06\nsupersedes: []\naudience: session\n'
+            'summary: "a plan"\n---\n# Plan\n\nText.\n', encoding='utf-8')
+        (fx / 'spec' / 'OTHER.md').write_text('# Other\n\nNo header.\n',
+                                              encoding='utf-8')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--only', 'document-status-header'], cwd=str(fx),
+                           capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        cases.append(('an installed consumer runs document-status-header instead '
+                      'of skipping it', 'did not import' not in out
+                      and 'SKIPPED' not in out))
+        cases.append(('...and it finds the unstamped document',
+                      'spec/OTHER.md' in out))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'a consumer\'s engine carries every module its checks import '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60333,6 +60382,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_consumer_engine_carries_what_its_checks_import()
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()
