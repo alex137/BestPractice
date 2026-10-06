@@ -15792,6 +15792,60 @@ def check_precedent_check_fires():
         case('universal-change-reaches-overrides', _plant_override_drift,
              advisory=True)
 
+        # set-copy-behind-universal -- a permanent warning: a declared set,
+        # with its own git history, carries an active copy of orientation-map
+        # committed after universal's; the planted copy then commits a change
+        # to universal's Rule, so the set's copy is behind (very deep check,
+        # 2026-10-05, pass 3: the ladder set's copies fell behind unnoticed).
+        # A frontmatter-only commit to universal must NOT count, so the clean
+        # copy makes one.
+        _fixture_trailer = '\n\nSession: none available (fixture)'
+
+        def _setup_set_copy(repo):
+            st = repo.parent / f'{repo.name}-copy-set'
+            (st / 'practices').mkdir(parents=True, exist_ok=True)
+            (st / 'precedent-source.json').write_text(json.dumps(
+                {'name': st.name, 'level': 'shared'}), encoding='utf-8')
+            mine = repo / 'practices' / 'orientation-map.md'
+            (st / 'practices' / 'orientation-map.md').write_text(
+                mine.read_text(encoding='utf-8'), encoding='utf-8')
+            git(st, 'init', '-q')
+            git(st, 'config', 'user.email', 'harness@example.com')
+            git(st, 'config', 'user.name', 'harness')
+            git(st, 'add', '-A')
+            git(st, 'commit', '-qm', 'the copy' + _fixture_trailer)
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': st.name, 'level': 'shared', 'path': f'../{st.name}'})
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+            # universal's frontmatter moves AFTER the copy: not a change a
+            # reader acts on, so it must not make the copy count as behind.
+            rewrite(repo, 'practices/orientation-map.md',
+                    lambda t: t.replace('\napproved_by: "', '\napproved_by: "zz ', 1))
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'frontmatter only' + _fixture_trailer,
+                env={**os.environ, 'GIT_COMMITTER_DATE': '2099-01-01T00:00:00Z',
+                     'GIT_AUTHOR_DATE': '2099-01-01T00:00:00Z'})
+
+        def _plant_set_copy_behind(repo):
+            rewrite(repo, 'practices/orientation-map.md',
+                    lambda t: t.replace('## Rule\n', '## Rule\nA planted '
+                                        'change to universal\'s Rule.\n', 1))
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'a Rule change' + _fixture_trailer,
+                env={**os.environ, 'GIT_COMMITTER_DATE': '2099-01-02T00:00:00Z',
+                     'GIT_AUTHOR_DATE': '2099-01-02T00:00:00Z'})
+        case('set-copy-behind-universal', _plant_set_copy_behind,
+             setup=_setup_set_copy, advisory=True)
+        cases.append(('set-copy-behind-universal: the finding names the set\'s '
+                      'copy and the universal commit after it',
+                      'copy-set/practices/orientation-map.md: overrides '
+                      'universal\'s orientation-map' in
+                      planted['set-copy-behind-universal'][1]
+                      and '2 universal commit(s) since, the newest 2099-01-02'
+                      in planted['set-copy-behind-universal'][1]))
+
         # frontmatter-field-order -- a permanent warning (practice:
         # format-rules-grandfather): a planted misorder is reported, and
         # never fails the run.
