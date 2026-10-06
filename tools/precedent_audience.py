@@ -20,7 +20,9 @@ reads it: .github/CODEOWNERS, CODEOWNERS, docs/CODEOWNERS. Any owner on any
 line counts. A team (`@org/team`) cannot be resolved offline and matches no
 one. With no file, the registry the file is generated from answers instead
 (tools/build_codeowners.py): approvers.json, then precedent.json's
-`maintainers`, then, in an individual set, its own identity.json.
+`maintainers`, then, in an individual set, its own identity.json. With none
+of those, the account that owns the repository on GitHub (its origin URL)
+is its owner (2026-10-06).
 
 IN DOUBT, HIDDEN. No owners named anywhere, no username declared, or an unreadable
 identity all answer "not a code owner", with the reason, so the session can
@@ -91,17 +93,45 @@ def _registry_owners(repo):
     return None, None
 
 
+def _repository_owner(repo):
+    """-> (['@owner'], where) for the account that owns `repo` on GitHub, read
+    from its origin URL, or (None, None). The last fallback in owners():
+    with nothing declared, the account the repository lives under owns it.
+    Reported 2026-10-06 from a consumer: its owner and only member asked for
+    the Produce rule and was told it is for code owners only, of whom the
+    repository names none -- a rule hidden from the one person it was for."""
+    import subprocess
+    try:
+        url = subprocess.run(['git', '-C', str(repo), 'remote', 'get-url',
+                              'origin'], capture_output=True, text=True,
+                             timeout=10).stdout.strip()
+    except Exception:                                        # noqa: BLE001
+        return None, None
+    m = re.search(r'github\.com[:/]+([^/\s]+)/[^/\s]+?(?:\.git)?/?$', url)
+    if not m:
+        return None, None
+    return {f'@{m.group(1).lower()}'}, f'the owner of its GitHub origin ({m.group(1)})'
+
+
+def _declared_or_owner(repo):
+    found, where = _registry_owners(repo)
+    if found:
+        return found, where
+    return _repository_owner(repo)
+
+
 def owners(repo):
     """-> (owners, where): the lowercased owners named in the CODEOWNERS file
     (`@user`, `@org/team`, or an email), or, with no file, in the registry it
-    is generated from. (None, None) when neither names anyone."""
+    is generated from, or, with neither, the account that owns the
+    repository on GitHub. (None, None) when none of them names anyone."""
     f = codeowners_file(repo)
     if f is None:
-        return _registry_owners(repo)
+        return _declared_or_owner(repo)
     try:
         text = f.read_text(encoding='utf-8', errors='ignore')
     except OSError:
-        return _registry_owners(repo)
+        return _declared_or_owner(repo)
     out = set()
     for line in text.splitlines():
         line = line.split('#', 1)[0].strip()
@@ -135,8 +165,9 @@ def is_code_owner(repo):
     names, where = owners(repo)
     if not names:
         return False, ('this repository names no code owners: no CODEOWNERS '
-                       'file, and no approvers.json or `maintainers` in '
-                       'precedent.json to read instead')
+                       'file, no approvers.json or `maintainers` in '
+                       'precedent.json, and no GitHub origin whose owner could '
+                       'stand in')
     gh, email = viewer(repo)
     if not gh and not email:
         return False, ('no GitHub username is declared for you: add '

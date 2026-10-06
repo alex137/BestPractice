@@ -23041,6 +23041,22 @@ def check_code_owners_only_practices_reach_only_code_owners():
         c.mkdir()
         cases.append(('no owners named anywhere: in doubt, hidden',
                       'names no code owners' in audience(c, 'maint'), audience(c, 'maint')))
+        # Nothing declared, but a GitHub origin: the account that owns the
+        # repository is its owner (2026-10-06: a consumer's only member was
+        # refused the Produce rule because nothing named him).
+        o = tmp / 'owned'
+        o.mkdir()
+        subprocess.run(['git', 'init', '-q', str(o)], capture_output=True)
+        subprocess.run(['git', '-C', str(o), 'remote', 'add', 'origin',
+                        'https://github.com/Repo-Owner/some-repo.git'],
+                       capture_output=True)
+        cases.append(("nothing declared: the GitHub origin's owner is a code owner",
+                      audience(o, 'repo-owner').startswith('code owner:'),
+                      audience(o, 'repo-owner')))
+        cases.append(("...and someone else is still not one",
+                      audience(o, 'someone').startswith('not a code owner:'),
+                      audience(o, 'someone')))
+
         # precedent_show prints the marked practice to an owner only.
         (b / 'practices').mkdir()
         shutil.copy(ROOT / 'practices' / 'deep-check.md', b / 'practices')
