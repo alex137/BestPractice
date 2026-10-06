@@ -593,6 +593,16 @@ def _unlanded_work(root, siblings=True):
                 if running:
                     out.append(f"{name}: {PROMOTE_RUNNING_MARK} ({running})")
                     pending = None
+            if pending and getattr(pb, 'retired_set_hold', None):
+                # A retired set is not promoted unless the person asks, so a
+                # line inviting a Promote there tells the session to do what
+                # it must not (Morgan, 2026-10-06: "not edit nor promote nor
+                # touch"; practice retired-set-takes-only-its-retirement).
+                try:
+                    if pb.retired_set_hold(repo, env={}):
+                        pending = None
+                except Exception:                             # noqa: BLE001
+                    pass
             if pending:
                 # Said gently, on purpose. A pre-staging batch waiting on a
                 # Promote is the normal state of the tiers, not a problem, and
