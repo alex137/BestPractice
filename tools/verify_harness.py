@@ -7796,6 +7796,87 @@ def check_default_blocklist_runs_the_vocabulary_layer():
           not bad, '; '.join(bad))
 
 
+def check_orphan_scan_reads_who_claims_a_script():
+    """The very deep check's ORPHANS section names a check script whose
+    practice is gone. It went by filename alone, so a script named for an
+    older slug read as an orphan while its practice's `checked_by` named it
+    and the same run executed it (very deep check, 2026-10-05). A script is
+    owned when a practice's `checked_by` or its own `# practice:` line names
+    a practice that exists; only a script nothing claims is reported."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as _vdc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-'))
+    cases = []
+    try:
+        (fx / 'practices').mkdir()
+        (fx / 'tools' / 'checks').mkdir(parents=True)
+        (fx / 'practices' / 'new-name.md').write_text(
+            '---\nslug: new-name\nchecked_by: tools/checks/check_by_field.py\n---\n',
+            encoding='utf-8')
+        checks = fx / 'tools' / 'checks'
+        (checks / 'check_by_field.py').write_text('print(1)\n', encoding='utf-8')
+        (checks / 'check_by_header.py').write_text(
+            '# practice: new-name\nprint(1)\n', encoding='utf-8')
+        (checks / 'check_header_names_a_ghost.py').write_text(
+            '# practice: gone-name\nprint(1)\n', encoding='utf-8')
+        (checks / 'check_nobody.py').write_text('print(1)\n', encoding='utf-8')
+        out = ' '.join(_vdc._orphan_scan(fx))
+        cases.append(('a script a practice\'s checked_by names is not an orphan',
+                      'check_by_field.py' not in out))
+        cases.append(('a script whose own header names an existing practice is '
+                      'not an orphan', 'check_by_header.py' not in out))
+        cases.append(('a header naming a practice that does not exist is still '
+                      'an orphan', 'check_header_names_a_ghost.py' in out))
+        cases.append(('a script nothing claims is an orphan',
+                      'check_nobody.py' in out))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the orphan scan reads who claims a check script '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_fix_sweep_copy_keeps_its_neighbours():
+    """The very deep check's fix sweep runs each new detector against a COPY
+    of every repo in force. A check that looks beside the repo for a source
+    cloned there (the ladder set an individual set brings) found nothing
+    beside a bare temporary copy, so the ladder-words check reported the
+    individual set in violation of a rule it is exempt from (very deep
+    check, 2026-10-05). The copy now sits beside links to the real repo's
+    siblings, and cleaning it up must never reach through those links."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as _vdc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-sweep-'))
+    cases = []
+    try:
+        (fx / 'me').mkdir()
+        (fx / 'neighbour').mkdir()
+        (fx / 'neighbour' / 'keep.txt').write_text('x', encoding='utf-8')
+        (fx / 'a-file').write_text('x', encoding='utf-8')
+        scratch = fx / 'scratch'
+        scratch.mkdir()
+        _vdc._link_siblings(fx / 'me', scratch)
+        link = scratch / 'neighbour'
+        cases.append(('a sibling directory is linked beside the copy',
+                      link.is_symlink() and (link / 'keep.txt').is_file()))
+        cases.append(('the repo itself is not linked -- the copy takes its place',
+                      not (scratch / 'me').exists()))
+        cases.append(('a plain file beside the repo is not linked',
+                      not (scratch / 'a-file').exists()))
+        _sh.rmtree(scratch, ignore_errors=True)
+        cases.append(('cleaning up the copy leaves the real sibling untouched',
+                      (fx / 'neighbour' / 'keep.txt').is_file()))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the fix sweep\'s copy of a repo sees that repo\'s neighbours '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_session_practices_load_without_publishing():
     """The team and individual practices reach a session here, and cannot
     reach a commit.
@@ -8191,6 +8272,17 @@ def check_session_practices_load_without_publishing():
         cases.append(('...and once the hook invokes it, the same practice counts '
                       'as reachable, so the gap stops reading as open',
                       findings() == 0))
+        hook.write_text('#!/bin/bash\nbash tools/bootstrap.sh\n', encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            '#!/bin/bash\n# no loader here either\n', encoding='utf-8')
+        cases.append(('a hook that runs tools/bootstrap.sh is not wired when '
+                      'bootstrap.sh does not run the tool', findings() == 1))
+        (repo / 'tools' / 'bootstrap.sh').write_text(
+            '#!/bin/bash\npython3 tools/precedent_session_practices.py\n',
+            encoding='utf-8')
+        cases.append(('...and is wired once bootstrap.sh runs it -- the shipped '
+                      'consumer hook does exactly this, and every fresh install '
+                      'read as unwired until 2026-10-05', findings() == 0))
         (repo / 'tools' / 'precedent_session_practices.py').unlink()
         cases.append(('...and removing the tool reopens it, even with the hook '
                       'still calling it -- both halves are required',
@@ -15483,6 +15575,29 @@ def check_precedent_check_fires():
                 {'name': prov.name, 'level': 'shared', 'path': f'../{prov.name}'})
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
+
+        # universal-change-reaches-overrides -- a permanent warning: universal's
+        # orientation-map changes below its frontmatter while a declared set
+        # carries its own active copy of that slug (2026-10-05, the ladder
+        # set's copies falling behind).
+        def _plant_override_drift(repo):
+            st = repo.parent / f'{repo.name}-override-set'
+            (st / 'practices').mkdir(parents=True, exist_ok=True)
+            (st / 'precedent-source.json').write_text(json.dumps(
+                {'name': st.name, 'level': 'shared'}), encoding='utf-8')
+            mine = repo / 'practices' / 'orientation-map.md'
+            (st / 'practices' / 'orientation-map.md').write_text(
+                mine.read_text(encoding='utf-8'), encoding='utf-8')
+            cfg_f = repo / 'precedent.json'
+            cfg = json.loads(cfg_f.read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': st.name, 'level': 'shared', 'path': f'../{st.name}'})
+            cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+            mine.write_text(mine.read_text(encoding='utf-8')
+                            + '\nA planted change to universal\'s copy.\n',
+                            encoding='utf-8')
+        case('universal-change-reaches-overrides', _plant_override_drift,
+             advisory=True)
 
         # frontmatter-field-order -- a permanent warning (practice:
         # format-rules-grandfather): a planted misorder is reported, and
@@ -51287,6 +51402,105 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_dropped_wording_reads_a_views_source():
+    """Dropped template wording in a GENERATED MAP.md or GLOSSARY.md is
+    reported in its source file, never in the view.
+
+    Since 2026-10-03 those two views are rebuilt from MAP.source.md /
+    GLOSSARY.source.md. The update still read the view, so a consumer was
+    told to delete lines from MAP.md that the next sync wrote straight back,
+    and the update never reached DONE (very deep check's install rehearsal,
+    2026-10-05). Planted: an old template line in a generated MAP.md and in
+    its MAP.source.md; the same in the directory form; a generated view with
+    no source; and a hand-written MAP.md, which is still the repo's own and
+    still read."""
+    import contextlib, io, tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-source-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    old = 'This map was written by the older template wording here.'
+    view = ('---\ngenerated_by: tools/build_views.py\n---\n# Map\n\n'
+            + old + '\n')
+    cases = []
+    saved_source = pu.SOURCE
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'MAP.md.template'
+        tmpl.write_text('# Map\n\n' + old + '\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        tmpl.write_text('# Map\n\nThe current template says something else.\n',
+                        encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        pu.SOURCE = src
+
+        def left_for(build):
+            repo = tmp / f'consumer-{len(cases)}'
+            repo.mkdir()
+            build(repo)
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.dropped_template_lines_step(repo, rep, rev)
+            return {k for k, _ in rep.left}
+
+        def with_source(repo):
+            (repo / 'MAP.md').write_text(view, encoding='utf-8')
+            (repo / 'MAP.source.md').write_text('# Map\n\n' + old + '\n',
+                                                encoding='utf-8')
+        left = left_for(with_source)
+        cases.append(('a generated view with a source file: the line is '
+                      'reported in MAP.source.md, never in MAP.md',
+                      any(k.startswith('MAP.source.md:') for k in left)
+                      and not any(k.startswith('MAP.md:') for k in left),
+                      str(left)))
+
+        def with_folder(repo):
+            (repo / 'MAP.md').write_text(view, encoding='utf-8')
+            (repo / 'MAP.source').mkdir()
+            (repo / 'MAP.source' / 'intro.md').write_text(old + '\n',
+                                                         encoding='utf-8')
+        left = left_for(with_folder)
+        cases.append(('the directory form: reported in the entry file that '
+                      'carries it', any(k.startswith('MAP.source/intro.md:')
+                                        for k in left)
+                      and not any(k.startswith('MAP.md:') for k in left),
+                      str(left)))
+
+        def no_source(repo):
+            (repo / 'MAP.md').write_text(view, encoding='utf-8')
+        left = left_for(no_source)
+        cases.append(('a generated view with no source has nothing a person '
+                      'can edit, so nothing is listed', not left, str(left)))
+
+        def hand_written(repo):
+            (repo / 'MAP.md').write_text('# Map\n\n' + old + '\n',
+                                         encoding='utf-8')
+        left = left_for(hand_written)
+        cases.append(('a hand-written MAP.md is the repo\'s own and still read',
+                      any(k.startswith('MAP.md:') for k in left), str(left)))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors reports a generated view\'s dropped wording in its '
+          f'source ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_start_hook_runs_bootstrap_locally():
     """The Claude Code adapter's SessionStart hook runs tools/bootstrap.sh in
     a local session too, marked PRECEDENT_LOCAL_SESSION=1, and bootstrap.sh
@@ -52799,6 +53013,67 @@ def check_session_check_names_commits_on_origin_off_main():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
+def check_universal_change_names_the_set_copies_that_override_it():
+    """A change below the frontmatter of a universal practice names each
+    shared set carrying its own ACTIVE copy of the same slug (2026-10-05:
+    the ladder set's the-boildown and vendor-update-runbook fell four
+    changes behind universal's in three days). A deduplicated copy, a
+    frontmatter-only edit, and a repository that is not the universal
+    source are each passed over."""
+    import shutil, tempfile
+    import precedent_check as pc
+    import precedent_resolve as _pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-override-drift-'))
+    cases = []
+    fm = ('---\nslug: {s}\nstatus: {st}\n---\n## Rule\n{r}\n')
+    try:
+        uni, st = tmp / 'u', tmp / 'precedent-shared-x'
+        (uni / 'practices').mkdir(parents=True)
+        (st / 'practices').mkdir(parents=True)
+        (uni / 'precedent-source.json').write_text('{"level": "universal"}')
+        (uni / 'practices' / 'rule-a.md').write_text(fm.format(s='rule-a', st='active', r='New.'))
+        (uni / 'practices' / 'rule-b.md').write_text(fm.format(s='rule-b', st='active', r='New.'))
+        (st / 'practices' / 'rule-a.md').write_text(fm.format(s='rule-a', st='active', r='Copy.'))
+        (st / 'practices' / 'rule-b.md').write_text(fm.format(s='rule-b', st='deduplicated', r='Stub.'))
+        base = {'practices/rule-a.md': fm.format(s='rule-a', st='active', r='Old.'),
+                'practices/rule-b.md': fm.format(s='rule-b', st='active', r='Old.')}
+
+        class Ctx:
+            def changed_matching(self, _pat):
+                return list(base)
+            def read(self, rel):
+                return (pc.ROOT / rel).read_text()
+            def read_base(self, rel):
+                return base.get(rel)
+        orig_root, orig_load = pc.ROOT, _pr.load_config
+        try:
+            pc.ROOT = uni
+            _pr.load_config = lambda *_a, **_k: [
+                {'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                {'level': 'shared', 'name': 'precedent-shared-x', 'path': str(st),
+                 'brought': True}]
+            got = pc._universal_change_reaches_overrides(Ctx())
+            cases.append(('a Rule change names the set whose active copy overrides it',
+                          len(got) == 1 and 'rule-a' in str(got[0].__dict__)
+                          and 'precedent-shared-x' in str(got[0].__dict__),
+                          [g.__dict__ for g in got]))
+            base['practices/rule-a.md'] = fm.format(s='rule-a', st='retired', r='New.')
+            got = pc._universal_change_reaches_overrides(Ctx())
+            cases.append(('a frontmatter-only edit names nothing, and a deduplicated '
+                          'copy is never named', got == [], [g.__dict__ for g in got]))
+            base['practices/rule-a.md'] = fm.format(s='rule-a', st='active', r='Old.')
+            (uni / 'precedent-source.json').write_text('{"level": "shared"}')
+            got = pc._universal_change_reaches_overrides(Ctx())
+            cases.append(('outside the universal source it names nothing', got == []))
+        finally:
+            pc.ROOT, _pr.load_config = orig_root, orig_load
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
 
 
 def check_generated_index_of_nothing_yet_passes():
@@ -55924,6 +56199,23 @@ def check_very_deep_check_bootstrap_drift():
         out = vdc._bootstrap_drift(src)
         cases.append(('a set the generator just wrote reports no drift at all',
                       out == [], repr(out)))
+
+        # The harness allows an off-main seed process-wide
+        # (PRECEDENT_SEED_OFF_MAIN), which hid this for as long as the
+        # section existed: on a branch main lacks, the generator refused and
+        # every set read "could not be run" (very deep check, 2026-10-05).
+        # The fixture set above was seeded with the allowance; the drift
+        # comparison itself must not need it.
+        saved_seed = os.environ.pop('PRECEDENT_SEED_OFF_MAIN', None)
+        try:
+            out_bare = vdc._bootstrap_drift(src)
+        finally:
+            if saved_seed is not None:
+                os.environ['PRECEDENT_SEED_OFF_MAIN'] = saved_seed
+        cases.append(('without the harness\'s off-main allowance the '
+                      'comparison still runs, whatever branch this is',
+                      not any('could not be run' in m for m in out_bare),
+                      repr(out_bare)))
 
         cases.append(('no resolved source reads as a SKIP, in those words, '
                       'never as clean',
@@ -59847,6 +60139,8 @@ def main():
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
+    check_fix_sweep_copy_keeps_its_neighbours()
+    check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
@@ -59924,6 +60218,8 @@ def main():
           *check_push_destination_reaches_the_views_check())
     check('the session check calls a commit unpushed only when no origin branch '
           'has it', *check_session_check_names_commits_on_origin_off_main())
+    check('a change to a universal practice names each set copy that overrides it',
+          *check_universal_change_names_the_set_copies_that_override_it())
     check('a generated index with no sources yet passes when its own check does',
           *check_generated_index_of_nothing_yet_passes())
     check('Update Vendors fetches the sets a person brings before it syncs the views',
@@ -60288,6 +60584,7 @@ def main():
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
     check_update_vendors_reports_dropped_template_wording()
+    check_update_vendors_dropped_wording_reads_a_views_source()
     check_update_done_names_the_check_it_ran()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()

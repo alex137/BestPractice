@@ -3,7 +3,7 @@ slug:              todo-2026-09-29-source-checks-adopt-generated-blocks
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "generated_blocks.py reaching main, then each practice set's engine refresh"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-29
-closed:            null
+closed:            2026-10-05
 ---
 ## What
 
@@ -65,3 +65,5 @@ or match no generated-block markers at all. A session rooted in each
 set does the work there, and each set's approvers decide its merge.
 
 ## Notes
+
+**Closed 2026-10-05.** `checks-use-generated-blocks` came back clean in every practice set in the very deep check's fix sweep, 2026-10-05.

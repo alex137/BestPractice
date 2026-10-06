@@ -17,7 +17,7 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "pending PR review -- drafted 2026-10-05 by Morgan F, moved from the shared set precedent-shared-repo-maintenance"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05"
 strength: decided
 ---
 ## Rule
@@ -26,7 +26,7 @@ Where a repo's [`two-check-levels`](https://github.com/alex137/BestPractice/blob
 **Mechanical before human, every time.** Run the mechanical half first and fix what it reports *before* the review reads a line: judgment spent on what a script already catches is wasted, and a tree already failing its own gates makes every later finding ambiguous -- you cannot tell drift this pass introduced from drift that was already there.
 
 ## Detail
-What to look for -- a starting point, not a specification: contradictions between rules; stale references (a slug, filename, or click-path pointing at something moved or gone; a positional number cited as if it were a name); fragments left by an earlier edit; the same rule restated in several places; disproportion, in a document's own weighting and in a rule's running cost -- especially one re-researched from scratch each time instead of following a written-down answer; formatting drift (heading levels and capitalization, ragged tables, a stale header); a rule this set asks of every project it installs into that it doesn't follow itself; and backlog entries already done. Anything else the read turns up is still a finding -- report it, and add a bullet here if it will recur.
+What to look for -- a starting point, not a specification: contradictions between rules; stale references (a slug, filename, or click-path pointing at something moved or gone; a positional number cited as if it were a name); fragments left by an earlier edit; the same rule restated in several places; disproportion, in a document's own weighting and in a rule's running cost -- especially one re-researched from scratch each time instead of following a written-down answer; formatting drift (heading levels and capitalization, ragged tables, a stale header); a rule this catalogue asks of every project it installs into that it doesn't follow itself; and backlog entries already done. Anything else the read turns up is still a finding -- report it, and add a bullet here if it will recur.
 
 Fix what the review turns up in the same pass, then re-run the mechanical half, since the fixes break links of their own. Anything deliberately left alone gets a line in the backlog document.
 

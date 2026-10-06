@@ -1294,9 +1294,31 @@ def _orphan_scan(repo_dir):
     checks_dir = tools_dir / 'checks'
     practices_dir = repo_dir / 'practices'
     if checks_dir.is_dir() and practices_dir.is_dir():
+        # A script's practice is the one whose `checked_by` names it, or the
+        # one its own `# practice: <slug>` line names; the filename is only
+        # the last resort. A writing-set script named for an older slug
+        # read as an orphan while its practice named it and the same run
+        # executed it (very deep check, 2026-10-05).
+        claimed = set()
+        for pf in practices_dir.glob('*.md'):
+            try:
+                head = pf.read_text(encoding='utf-8', errors='replace')[:4000]
+            except OSError:
+                continue
+            m = re.search(r'^checked_by:\s*(.+)$', head, re.M)
+            if m:
+                claimed.update(re.findall(r'check_[A-Za-z0-9_]+\.py', m.group(1)))
         for f in sorted(checks_dir.glob('check_*.py')):
             slug = f.stem[len('check_'):].replace('_', '-')
-            if (practices_dir / f'{slug}.md').is_file():
+            if (practices_dir / f'{slug}.md').is_file() or f.name in claimed:
+                continue
+            try:
+                own = re.search(r'^#\s*practice:\s*([a-z0-9-]+)\s*$',
+                                f.read_text(encoding='utf-8', errors='replace')[:4000],
+                                re.M)
+            except OSError:
+                own = None
+            if own and (practices_dir / f'{own.group(1)}.md').is_file():
                 continue
             # A script something here still RUNS has a job, whichever
             # source owns its practice: BestPractice's ported identity
@@ -1743,6 +1765,23 @@ def _detectors_added(repo_dir, since):
     return sorted(after - before), '', shallow
 
 
+def _link_siblings(src, scratch):
+    """Link every directory beside `src` into `scratch`, under its own name,
+    so a copy of `src` placed in `scratch` sees the same neighbours."""
+    real = pathlib.Path(src).resolve()
+    try:
+        neighbours = list(real.parent.iterdir())
+    except OSError:
+        return
+    for n in neighbours:
+        if n.name == real.name or not n.is_dir():
+            continue
+        try:
+            (pathlib.Path(scratch) / n.name).symlink_to(n, target_is_directory=True)
+        except OSError:
+            continue
+
+
 def _scratch_tree(src, dest, engine_src):
     """Copy `src`'s tracked tree to `dest`, give it a one-commit history, and
     drop THIS checkout's precedent_check.py in as its engine.
@@ -1825,7 +1864,15 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
             rows.append((label, None, 'the origin of the fix -- swept by its '
                                       'own gate, not here'))
             continue
-        tmp = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+        # The copy sits at <scratch>/<its own name>, beside links to the
+        # real repo's siblings: a check that finds a source cloned beside the
+        # repo (a set an individual set brings, say) otherwise finds nothing
+        # there, and the ladder-words check reported the individual set in
+        # violation of a rule it is exempt from (very deep check, 2026-10-05).
+        scratch = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+        tmp = scratch / pathlib.Path(path).resolve().name
+        tmp.mkdir()
+        _link_siblings(path, scratch)
         try:
             bad = _scratch_tree(path, tmp, engine)
             if bad:
@@ -1873,7 +1920,8 @@ def _fix_sweep(repo_root, targets, since=None, timeout=300):
                     verdicts.append((slug, 'did not run', ''))
             rows.append((label, verdicts, ''))
         finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+            # rmtree unlinks the sibling links; it never follows them.
+            shutil.rmtree(scratch, ignore_errors=True)
     return since, slugs, rows, '', caveat
 
 def _pending_deletions(repo_dir):
@@ -4607,6 +4655,27 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # the guard costing more than it protects.
             approvers = [{'name': 'drift-check placeholder', 'github': 'drift-check'}]
 
+    # The generator refuses to copy an engine main does not contain -- right
+    # for a real set, wrong here, where its output is a throwaway compared
+    # and deleted. A session's working branch is routinely ahead of main
+    # (the freshness guard merges the landing branch in on its first tool
+    # call), and the refusal turned this whole section into one FINDING per
+    # set that compared nothing (very deep check, 2026-10-05). So it runs,
+    # and says plainly what it generated from: a file this branch changed
+    # and main has not reads as drift, which is the truth about what the
+    # set's next refresh would bring once the branch lands.
+    off_main_note = None
+    try:
+        import precedent_vendor_engine as _pve
+        _head = _pve._head_commit(bootstrap_source.ROOT)
+        _where = _pve.off_source_branch(bootstrap_source.ROOT, _head)
+        if _where:
+            off_main_note = (f'note {level}: generated from {_where} at '
+                             f'{str(_head)[:12]}, which main does not contain '
+                             f'-- a file only this branch changed reads as '
+                             f'drift below')
+    except Exception:                                             # noqa: BLE001
+        pass
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-'))
     gen_root = tmp / 'generated'
     try:
@@ -4618,7 +4687,8 @@ def _bootstrap_drift_one(level, name, path, collect=None):
                 with contextlib.redirect_stdout(io.StringIO()), \
                         contextlib.redirect_stderr(_err):
                     bootstrap_source.bootstrap(level, name, gen_root,
-                                               approvers=approvers)
+                                               approvers=approvers,
+                                               off_main=True)
             finally:
                 _pass_generator_stderr_once(_err.getvalue())
         except Exception as exc:                                  # noqa: BLE001
@@ -4786,6 +4856,10 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             out.append(f'note {level} {name}: {len(notes)} skeleton-shipped '
                        f'file(s) differ, which is what a set being lived in '
                        f'looks like, not drift: {", ".join(sorted(notes))}')
+        # The note qualifies a FINDING; a clean set, or one with only
+        # skeleton notes, needs no caveat.
+        if off_main_note and any(o.startswith('FINDING') for o in out):
+            out.insert(0, off_main_note)
         return out
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -7796,7 +7870,7 @@ def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
         if name in held_back:
             lines.append('Held back from this file: this repo is public, '
                          'and this source is one its tracked files never '
-                         'describe (the rule `build_views.py` applies to '
+                         'describe (the rule [build_views.py](../tools/build_views.py) applies to '
                          'the loader block). The console output of the run '
                          'lists every branch here in full.')
             lines.append('')
@@ -8497,9 +8571,9 @@ def _main(box):
         # person never got the whole list. It now goes, whole, into the
         # session-only review page precedent_review_page.py writes under
         # .precedent/ (ignored by git), together with the branches the
-        # person can delete. The session publishes that page in the
-        # session only (an Artifact in Claude Code on the web) and never
-        # commits, pushes or links it.
+        # person can delete. The session publishes that page as an
+        # Artifact, every run and never as the HTML file (Morgan,
+        # 2026-10-06), and never commits, pushes or links it.
         if not as_json:
             try:
                 import precedent_review_page as _rp
@@ -8507,8 +8581,9 @@ def _main(box):
                 print(f"REVIEW PAGE: wrote {_page} -- branches the person can "
                       f"delete, with a link each, and every active practice "
                       f"by source (universal, this repo's own, individual, "
-                      f"shared). Show it in the session only; never commit, "
-                      f"push or link it. Add rows for unlanded branches you "
+                      f"shared). Publish it as an Artifact (the Artifact "
+                      f"tool), never as an HTML file attached or sent; never "
+                      f"commit, push or link it. Add rows for unlanded branches you "
                       f"recommend deleting with --recommend FILE.json "
                       f"(python3 tools/precedent_review_page.py --help).\n")
                 # Part 3 of the page (Morgan, 2026-09-29): pairs that read

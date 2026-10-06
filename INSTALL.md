@@ -351,9 +351,8 @@ scratch repository twice — 2026-09-06 (the
 [very deep check](practices/very-deep-check.md)'s pass 1) — vendoring,
 declaring sources, instantiating, syncing, and running the deep check on
 the result, which comes back clean. **No count is quoted here on purpose**
-(the maintainers' shared set names this `no-stale-counts`; that repo is
-private, so this names the practice rather than linking a page most
-readers cannot open): the first rehearsal
+([no-stale-counts](https://github.com/themorgan/precedent-shared-writing/blob/main/practices/no-stale-counts.md),
+in the writing set): the first rehearsal
 recorded "15 checks passed", the check suite has grown since, and the
 figure was simply wrong by the second rehearsal rather than usefully
 out of date. What matters is `0 violated`, which is what to expect and
@@ -829,7 +828,7 @@ cover, by design and not oversight:
      |---|---|
      | software or tooling, maintained by a team | that team's set + the writing set |
      | a document or content project | that team's set + the writing set |
-     | a practice set's own repository | the maintaining team's set + the writing set |
+     | a practice set's own repository | the writing set; the rules about running a repository are universal since 2026-10-05 |
 
      **Check it, don't assume it**, here and on every migration and
      vendored update — `vendor-update-runbook` carries it as step 9 for
@@ -856,10 +855,11 @@ cover, by design and not oversight:
      The pattern underneath it: **a set that is about a kind of work is
      declared by everyone who does that work**, whatever team they are on,
      and a set that is about running a particular kind of repository is
-     declared only by repositories of that kind. A document project that
-     declares a repo-mechanics set receives a stack of rules about syncs,
-     gates and branch setup it has no way to act on — and the cheap
-     remedy is not declaring the set, not a `not_binding` entry per slug.
+     declared only by repositories of that kind. The rules about running a
+     repository (syncs, gates, branch setup) are universal since 2026-10-05
+     and reach only a repository's code owners (`visible_to: code-owners`),
+     so a document project's writers are not handed rules they have no way
+     to act on, and nobody needs a `not_binding` entry per slug for them.
 
      **A set's name is chosen once and lives in its own
      `precedent-source.json`** — a slug, written by the author when the set
@@ -1091,8 +1091,8 @@ until 2026-09-11 this section covered the engine and never mentioned the
 catalogue, so a §0 repo following it exactly refreshed its tools, kept a
 frozen practice catalogue, and got `OK` from every check. Measured that day
 on a scratch consumer vendored at a 2026-09-07 commit: after the documented
-update it still materialized 72 practices while upstream carried 98, with
-nothing said. Step 0b is here for the same shape one layer out, found
+update it still materialized the older, smaller catalogue while upstream
+carried a third more, with nothing said. Step 0b is here for the same shape one layer out, found
 2026-09-14: the engine manifest does not cover `tools/bootstrap.sh`, the
 harness hooks or the instructions file, so a refreshed engine that changed
 what a command accepts left a consumer's own session-start script calling
