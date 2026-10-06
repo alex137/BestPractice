@@ -234,3 +234,18 @@ MEASURE` for `UNLANDED WORK`.
 | GITHUB API BUDGET | **CHEAPEN** | ~200 of 396 tokens are three static notes explaining why three limits are unmeasurable, reprinted verbatim every run. Keep the numbers; move the prose behind a flag. |
 | CONTRIBUTOR BOUNDARY | **CHEAPEN** | Four of nine rows are `none -- draws no boundary` for repos that never will, printing identically forever. Collapse to a count; print `current`/`stale` in full. |
 | VENDORING EXCLUSIONS | **RETIRE the line, keep the code** | Structurally incapable of finding anything *here*: BestPractice is the upstream, so `N/A: not a vendored consumer` is true on every run forever. Real when the tool runs inside a vendored consumer. Print nothing when the repo is not one. |
+
+## How It Closes
+
+Each branch section 1 names is merged, closed or gone, with what happened
+recorded here, or is carried by
+[`todo-2026-09-14-branch-merge-or-close-verdicts`](todo-2026-09-14-branch-merge-or-close-verdicts.md)
+(the `claude/file-sharing-service-spec-0m9c7p` question, issue #394, is
+Alex's to answer); and each finding in sections 2 to 4 is fixed, filed as
+its own item, or recorded here as declined.
+
+## Notes
+
+2026-10-06: given the closing condition above; it had none (very deep check
+of 2026-10-05, pass 4, which also found every branch named here but one
+gone). Writing it touched no branch.
