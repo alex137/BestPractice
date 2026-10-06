@@ -121,8 +121,8 @@ END_MARKER = '<!-- END GENERATED -->'
 # always-loaded ceiling, so the resident cap is not spelled twice. The literal
 # is the fallback for a vendored copy that arrived without the registry, and
 # is the value the registry was created with.
-def _budget(key, default):
-    f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
+def _budget(key, default, registry=None):
+    f = registry or pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
     try:
         v = json.loads(f.read_text(encoding='utf-8')).get(key)
     except (OSError, ValueError, AttributeError):
@@ -150,7 +150,7 @@ OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
 REPO_LOCAL_OCCASION_TOKENS = _budget('repo_local_occasion_tokens', 400)
 
 
-def surface_budget(name, default):
+def surface_budget(name, default, registry=None):
     """The declared ceiling for ONE named surface in session_load_budgets.json.
 
     RESIDENT_BUDGET_TOKENS above is the ceiling for the resident block of the
@@ -162,9 +162,10 @@ def surface_budget(name, default):
     file unbuildable in two real practice sets on 2026-09-13 -- 1,396 tokens
     of universal residents against a 425- and a 550-token cap that were never
     about them (practice: registry-source-of-truth -- one registry, read the
-    row you mean).
+    row you mean). `registry` reads that file from another repository
+    instead of beside this one (effective_budgets says why).
     """
-    f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
+    f = registry or pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
     try:
         row = (json.loads(f.read_text(encoding='utf-8'))
                .get('surfaces', {}).get(name, {}))
@@ -218,7 +219,7 @@ def own_occasion_allowance(root):
     return v if isinstance(v, int) else None
 
 
-def derived_occasion_cap(root, sources=None):
+def derived_occasion_cap(root, sources=None, registry=None):
     """-> (cap, why) for a repository with no occasion_index_tokens of its own:
     the sum of every declared source's allowance plus its repo-local
     allowance (repo_local_occasion_tokens, 400 unless its registry says
@@ -242,10 +243,12 @@ def derived_occasion_cap(root, sources=None):
     except (Exception, SystemExit) as e:                    # noqa: BLE001
         return None, f'the declared sources could not be read ({e})'
     total, parts = 0, []
+    local = (_budget('repo_local_occasion_tokens', 400, registry) if registry
+             else REPO_LOCAL_OCCASION_TOKENS)
     for src in sources:
         if _pr.normalize_level(src.get('level')) == 'repo-local':
-            total += REPO_LOCAL_OCCASION_TOKENS
-            parts.append(f'repo-local {REPO_LOCAL_OCCASION_TOKENS}')
+            total += local
+            parts.append(f'repo-local {local}')
             continue
         try:
             m = _pr.read_source_manifest(src['path']) or {}
@@ -264,7 +267,7 @@ def derived_occasion_cap(root, sources=None):
     return (total, ' + '.join(parts)) if parts else (None, 'no sources declared')
 
 
-def occasion_cap(root):
+def occasion_cap(root, registry=None):
     """-> (cap, why): this repository's own occasion_index_tokens when its
     registry declares one (a decision it took), else the sum of the
     allowances of the sources whose practices THIS block carries, else the
@@ -285,48 +288,50 @@ def occasion_cap(root):
     fallback (practice: vendor-rollout-disclosed, question 3): a set made
     before allowances existed, or by a bootstrap that does not write one,
     builds as it always did."""
-    f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
+    f = registry or pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
     try:
         explicit = json.loads(f.read_text(encoding='utf-8')).get('occasion_index_tokens')
     except (OSError, ValueError, AttributeError):
         explicit = None
     if isinstance(explicit, int):
         return explicit, 'occasion_index_tokens in tools/session_load_budgets.json'
-    return block_occasion_cap(root)
+    return block_occasion_cap(root, registry)
 
 
-def block_occasion_cap(root):
+def block_occasion_cap(root, registry=None):
     """-> (cap, why) from the sources this repo's block carries, as
     occasion_cap() describes; the part of it no registry overrides."""
     root = pathlib.Path(root)
+    fallback = (_budget('occasion_index_tokens', 4000, registry) if registry
+                else OCCASION_INDEX_BUDGET_TOKENS)
     try:
         sys.path.insert(0, str(_ENGINE_DIR))
         import precedent_resolve as _pr
         carried, _deferred, _notes = sources_for_tracked_block(
             root, _pr.load_config(str(root)))
     except (Exception, SystemExit) as e:                    # noqa: BLE001
-        return (OCCASION_INDEX_BUDGET_TOKENS,
+        return (fallback,
                 f'the fallback (the declared sources could not be read: {e})')
     total, parts = 0, []
     if (root / 'precedent-source.json').is_file() and not any(
             _same_repository(s['path'], root) for s in carried):
         own = own_occasion_allowance(root)
         if own is None:
-            return (OCCASION_INDEX_BUDGET_TOKENS,
+            return (fallback,
                     'the fallback (this source declares no '
                     'occasion_share_tokens in precedent-source.json yet)')
         total, parts = own, [f'this source {own}']
     if carried:
-        cap, why = derived_occasion_cap(root, carried)
+        cap, why = derived_occasion_cap(root, carried, registry)
         if cap is not None:
             total += cap
             parts.append(why)
     if not parts:
-        return OCCASION_INDEX_BUDGET_TOKENS, 'the fallback (no sources declared)'
+        return fallback, 'the fallback (no sources declared)'
     return total, f"the sum of its sources' allowances: {' + '.join(parts)}"
 
 
-def effective_budgets(root):
+def effective_budgets(root, registry=None):
     """-> {key: tokens or None} for every budget in force in `root`, each read
     through the SAME function that enforces it -- never from the JSON field
     alone. None means uncapped.
@@ -348,15 +353,25 @@ def effective_budgets(root):
     measured in CI is not the cap in force); occasion_share_tokens (this
     repo's allowance in its consumers, when it is a source); and per surface
     surfaces/<name> (its ceiling), surfaces/<name>/target and
-    surfaces/<name>/hard_ceiling."""
+    surfaces/<name>/hard_ceiling.
+
+    `registry` is another repository's tools/session_load_budgets.json, read
+    in place of the one beside this file. Update Vendors runs from the
+    BestPractice clone and seeds a consumer's approvals: without it, the
+    consumer was seeded with BestPractice's own numbers (resident 1,750
+    against its 2,000), and its first check refused every budget as an
+    unapproved raise (2026-10-06). The repo's own engine copy is not imported
+    to get them: importing a repo's script runs it."""
     root = pathlib.Path(root)
-    out = {'resident_block_tokens': RESIDENT_BUDGET_TOKENS}
-    cap, why = occasion_cap(root)
+    out = {'resident_block_tokens':
+           _budget('resident_block_tokens', 2000, registry) if registry
+           else RESIDENT_BUDGET_TOKENS}
+    cap, why = occasion_cap(root, registry)
     if 'could not be read' not in why:
         out['occasion_index'] = cap
     if (root / 'precedent-source.json').is_file():
         out['occasion_share_tokens'] = own_occasion_allowance(root)
-    f = _ENGINE_DIR / 'session_load_budgets.json'
+    f = registry or _ENGINE_DIR / 'session_load_budgets.json'
     try:
         surfaces = json.loads(f.read_text(encoding='utf-8')).get('surfaces') or {}
     except (OSError, ValueError, AttributeError):
@@ -364,7 +379,7 @@ def effective_budgets(root):
     for name, row in sorted(surfaces.items()):
         if name.startswith('_') or not isinstance(row, dict):
             continue
-        v = surface_budget(name, None)
+        v = surface_budget(name, None, registry)
         if isinstance(v, int):
             out[f'surfaces/{name}'] = v
         for k in ('target', 'hard_ceiling'):

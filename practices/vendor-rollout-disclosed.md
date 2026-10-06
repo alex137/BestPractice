@@ -55,7 +55,12 @@ loud, not one:
    installer brings the new piece forward on its own; and a test plants the
    not-yet-updated shape and shows it still builds. A change that cannot be
    made safe that way says so here, with what a repository has to do
-   first.
+   first. **A format rule that tightens names every file it binds, a
+   consumer's own repo-local practices included, not only the sets'**:
+   tidying the sets is not the rollout when consumers hold practice files
+   of their own. Reported 2026-10-06: the 2026-10-05 field-order check
+   was made hard after the sets were tidied, and 23 of one consumer's
+   repo-local practices failed on its next update.
 4. **Has a new or changed check run in a consuming repo that received
    other sources' files?** A consumer holds practices and checks its sets
    wrote, and the vendored engine, and a check can judge those copies

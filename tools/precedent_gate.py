@@ -830,9 +830,10 @@ def _print_hard_requirements(root):
         if r.get('require_quiet_while_background_runs'):
             print(f"- [{src}] when a background job wakes a turn and another "
                   f"background command is still running -- or the wake is a "
-                  f"Monitor's progress event -- the reply says NOTHING: no "
-                  f"status line, no Boildown. Report once, when the last job "
-                  f"ends or one fails. A wake that reports a failure may speak.")
+                  f"Monitor's progress event -- the reply is at most ONE short "
+                  f"line, such as \"(Waiting on <what>.)\": no status report, "
+                  f"no Boildown. Report once, when the last job ends or one "
+                  f"fails. A wake that reports a failure may speak.")
         for pair in (r.get('require_paired_with') or []):
             if pair.get('if_matches') and pair.get('must_also_match'):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "

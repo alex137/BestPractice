@@ -770,6 +770,23 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
 })
 
 
+WAIT_LINE_MAX = 160
+
+
+def _is_wait_line(text):
+    """-> True for what a quiet wake may say: nothing, or one short line
+    in parentheses naming the wait -- "(Waiting on the Debut.)"."""
+    lines = [l.strip() for l in (text or '').strip().splitlines() if l.strip()]
+    if not lines:
+        return True
+    # In parentheses, so a one-line REPORT ("Individual passed.") is still
+    # a report and still refused: the wait line says what is awaited, never
+    # what has happened.
+    one = lines[0].rstrip('.')
+    return (len(lines) == 1 and len(lines[0]) <= WAIT_LINE_MAX
+            and one.startswith('(') and one.endswith(')'))
+
+
 def _unknown_predicates(req):
     """-> sorted keys of `req` this engine has no branch for.
 
@@ -841,7 +858,14 @@ def violations(text, reqs, timeline=None, wake=None):
     if wake and wake.get('quiet_owed'):
         quiet = [r for r in reqs if r.get('require_quiet_while_background_runs')]
         if quiet:
-            if not text.strip():
+            # ONE SHORT LINE IS QUIET ENOUGH (2026-10-06). An empty turn is
+            # not something the harness accepts: it answers one with "Your
+            # previous response had no visible output. Please continue", so
+            # "say nothing" could not be obeyed as written and the session
+            # had to break one instruction or the other (reported from a
+            # consumer session the same day). A single line with no heading
+            # -- "(Waiting on the Debut.)" -- is what a wake owes now.
+            if _is_wait_line(text):
                 return []
             r = quiet[0]
             q = r['require_quiet_while_background_runs']
@@ -851,9 +875,9 @@ def violations(text, reqs, timeline=None, wake=None):
             return [{'kind': 'quiet', 'advisory': bool(r.get('advisory')),
                      'message': (
                 f"[{r.get('_source', '?')}] a background job woke this turn and "
-                f"{what}, so this reply should not have been written: no status "
-                f"line, no Boildown. Report once, when the last job ends or one "
-                f"fails."
+                f"{what}, so this reply owed at most one short line, such as "
+                f"\"(Waiting on <what>.)\": no status report, no Boildown. "
+                f"Report once, when the last job ends or one fails."
                 + (f" -- {q['why']}" if isinstance(q, dict) and q.get('why') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))}]
     out = []
@@ -1464,15 +1488,17 @@ def main():
     # archive line that is not true.
     _repairs = [b['repair'] for b in bad if b.get('repair')]
     if any(b['kind'] == 'quiet' for b in bad):
-        # Like the repeat below, the repair is to say NOTHING: the reply is
-        # already on screen, and what this buys is the next wake handled
-        # right -- silent until the batch is done or something fails.
+        # The repair is one short line, never nothing: the reply is already
+        # on screen, and an empty turn makes the harness ask for "visible
+        # output" (2026-10-06), so "say nothing" left the session two
+        # instructions to choose between.
         print('The reply gate blocked this turn: a background job woke it and '
-              'its batch is still running, named below, so nothing should have '
-              'been said yet. The person has ALREADY SEEN the reply above. '
-              'Output NOTHING further and end the turn. Say nothing on the '
-              'next wakes either, until the last job ends or one fails -- then '
-              'one report, with its Boildown.', file=sys.stderr)
+              'its batch is still running, named below, so only one short line '
+              'was owed. The person has ALREADY SEEN the reply above. Output '
+              'ONE line naming the wait -- "(Waiting on <what>.)" -- and end '
+              'the turn; an empty reply is not accepted by the harness. On the '
+              'next wakes, the same one line, until the last job ends or one '
+              'fails -- then one report, with its Boildown.', file=sys.stderr)
     elif _repairs:
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above -- do NOT repeat it. ' + ' '.join(_repairs),
@@ -1490,15 +1516,17 @@ def main():
               'bullet and nothing else: no new heading, no second copy of the '
               'section, no summary, no apology.', file=sys.stderr)
     elif any(b['kind'] == 'repeat' for b in bad):
-        # The one refusal whose repair is to say NOTHING. The repeat has
-        # already been shown, and any correction is more of what the person
-        # objected to; what this buys is the next reply, written knowing.
+        # The repair is the one-line form, never nothing (2026-10-06): an
+        # empty turn makes the harness ask for visible output, and any longer
+        # correction is more of what the person objected to.
         print('The reply gate blocked this turn: its closing section repeats '
               'the previous reply\'s, line for line, named below. The person '
-              'has ALREADY SEEN it. Output NOTHING further -- no correction, '
-              'no shorter copy, no apology -- and end the turn. The next '
-              'reply whose closing section has nothing new in it uses the '
-              'one-line form instead.', file=sys.stderr)
+              'has ALREADY SEEN it. Output ONLY the one-line form, under the '
+              'same heading -- "- The work of this session is now on: <where '
+              'it is>, unchanged since the last update." -- and end the turn: '
+              'no correction, no shorter copy, no apology. An empty reply is '
+              'not accepted by the harness, so this line is what is owed.',
+              file=sys.stderr)
     elif any(b['kind'] == 'contradiction' for b in bad):
         print('The reply gate blocked this turn: it asserts two things named '
               'below that cannot both be true. The person has ALREADY SEEN '

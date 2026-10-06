@@ -460,6 +460,14 @@ def changed_slugs(repo, base, staged=False):
         now = re.search(r'^status:\s*"?(\w+)', new, re.M)
         was = was.group(1) if was else 'active'
         now = now.group(1) if now else 'active'
+        # A set's copy deduplicated onto the SAME slug withdrew nothing a
+        # citation names: `slug` stays in force, in the source the copy
+        # used to override. 2026-10-06, splitting the ladder set's four
+        # copies of universal rules into add-ons: every link to
+        # `prompt-please` in every source was reported as stale.
+        dedup_to = re.search(r'^in_force_at:\s*"?([\w-]+)', new, re.M)
+        if now == 'deduplicated' and dedup_to and dedup_to.group(1) == slug:
+            continue
         if was == 'active' and now != 'active':
             out[slug] = f'now {now}'
         elif now == 'active' and _rule_text(old) != _rule_text(new):
