@@ -36,12 +36,17 @@ migration's output.
 spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's own Appendix measured it: the first
 commit in this repository's history whose diff introduces that item's own
 `id="<slug>"` anchor string in the source file, via
-`git log -S'id="<slug>"'`. Anchors were retrofitted onto every item on
-2026-09-06 (TODO.md's own header note), so for an item that existed before
-that sweep this is a FLOOR, not the true creation date -- the migration
-writes the caveat spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's "Every Item Has a
-Date" section asks for into ## Notes when the found commit is at or before
-that sweep.
+`git log -S'id="<slug>"'`, or, for an item with no anchor, a snippet of its
+title. An anchor retrofitted onto an item that already existed makes that
+date a FLOOR, not the true creation date: when the item's title is older
+in the file's history than its anchor, the migration writes the caveat
+spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's "Every Item Has a Date" section asks
+for into ## Notes. A string found nowhere in the history falls back to the
+repository's first commit, also a floor, with a caveat that names no
+anchor.
+
+`## What` moves one directory deeper (TODO.md at the root, the item under
+todo/), so every relative markdown link in it gains a `../`.
 
 Run:
   python3 tools/todo_migrate.py --source todo.md
@@ -108,6 +113,14 @@ TODO_BARE_RE = re.compile(r'^' + BULLET_MARKER_RE + r'\*\*')
 # the next such bullet. Found 2026-09-18 running this tool against a real
 # consumer's TODO.md for the first time since #445 vendored it out.
 TODO_CHECKBOX_RE = re.compile(r'^' + BULLET_MARKER_RE + r'\[([ xX])\]\s+\*\*')
+# Two more closed shapes, both from a consumer's TODO.md (2026-10-06): a
+# checked item whose bold title is also struck through,
+# `- [x] ~~**Title**~~ ...`, and a plain checked line with no bold title at
+# all, `- [x] text`. Both parsed as nothing, so their text was swallowed
+# into whichever item came before. Tried after every bold shape above, so
+# the plain one only claims a line nothing more specific did.
+TODO_STRUCK_RE = re.compile(r'^' + BULLET_MARKER_RE + r'\[[xX]\]\s+~~\*\*')
+TODO_CHECKED_PLAIN_RE = re.compile(r'^' + BULLET_MARKER_RE + r'\[[xX]\]\s+(\S.*)$')
 GOTCHA_HEADING_RE = re.compile(
     r'^##\s+\d+\.\s+(?:<a id="(g\d+)"></a>)?(.*)$')
 # A plain `##` heading in a TODO file -- not the gotcha format's numbered
@@ -196,20 +209,18 @@ def anchor_noted_date(repo, source_relpath, anchor_id, wrap_id=True):
     source with no `<a id=>` to search for, such as GOTCHAS_ARCHIVE.md, a
     distinctive snippet of the entry's own title is still real text that
     is literally in the file) in `source_relpath`. Returns (date,
-    is_floor) -- is_floor is True when the found commit is at or before
-    2026-09-06, the day every TODO.md item's anchor was retrofitted
-    (TODO.md's own header note), which means the date is a lower bound on
-    the item's true age, not the true age itself. Falls back to this
-    repository's own earliest commit (a floor either way) if the string
-    cannot be found at all -- e.g. text that has since been reworded."""
+    is_floor) -- is_floor is True only when the string cannot be found at
+    all (e.g. text that has since been reworded), and the date falls back to
+    this repository's own earliest commit, a lower bound on the item's true
+    age. Whether an anchor was retrofitted onto an older item is
+    build_plan's question, not this function's."""
     needle = f'id="{anchor_id}"' if wrap_id else anchor_id
     rc, out, _ = _run('git', 'log', f'-S{needle}', '--format=%ad',
                        '--date=short', '--follow', '--', source_relpath,
                        cwd=repo)
     dates = [d for d in out.splitlines() if d.strip()]
     if rc == 0 and dates:
-        oldest = dates[-1]
-        return oldest, oldest <= '2026-09-06'
+        return dates[-1], False
     rc, out, _ = _run('git', 'log', '--format=%ad', '--date=short', cwd=repo)
     dates = [d for d in out.splitlines() if d.strip()]
     floor = dates[-1] if dates else '1970-01-01'
@@ -275,11 +286,15 @@ def _numbered_heading_shaped(lines):
                     if TODO_NUMBERED_HEADING_RE.match(l)]
     if len(heading_idxs) < 2:
         return False
-    has_bullet_start = any(
-        TODO_ANCHOR_RE.match(l) or TODO_CHECKBOX_RE.match(l)
-        or TODO_BARE_RE.match(l)
-        for l in lines)
+    has_bullet_start = any(_item_start(l) for l in lines)
     return not has_bullet_start
+
+
+def _item_start(line):
+    """True if `line` starts a top-level item in any known bullet shape."""
+    return bool(TODO_ANCHOR_RE.match(line) or TODO_CHECKBOX_RE.match(line)
+                or TODO_BARE_RE.match(line) or TODO_STRUCK_RE.match(line)
+                or TODO_CHECKED_PLAIN_RE.match(line))
 
 
 def parse_todo_items(text):
@@ -288,11 +303,13 @@ def parse_todo_items(text):
     next column-0 bullet, is that item's body. The file's own intro prose
     (before the first bullet) is not an item and is skipped.
 
-    Three start shapes, tried in this order so the more specific ones win:
+    Five start shapes, tried in this order so the more specific ones win:
     an anchor-tagged bullet (`- [ ] <a id="x"></a>...` or bare), a checkbox
     bullet with no anchor (`- [ ] **Title.**` / `- [x] **Title.**` --
-    templates/TODO.md.template's own pre-migration shape), or a bare bold
-    bullet with neither (`- **Title.**`). TODO_CHECKBOX_RE has to be tried
+    templates/TODO.md.template's own pre-migration shape), a bare bold
+    bullet with neither (`- **Title.**`), a checked and struck bold title
+    (`- [x] ~~**Title**~~`), or a plain checked line (`- [x] text`). The
+    last two are always closed. TODO_CHECKBOX_RE has to be tried
     BEFORE TODO_BARE_RE: `- [ ] **` also starts with `- ` followed
     eventually by `**`, but TODO_BARE_RE's own `^-\\s+\\*\\*` does not match
     it (the checkbox sits in between), so the two never actually collide --
@@ -344,7 +361,7 @@ def parse_todo_items(text):
             current_section_kind = (
                 SECTION_KIND_MAP[km.group(1).lower()] if km else None)
             continue
-        if TODO_ANCHOR_RE.match(line) or TODO_CHECKBOX_RE.match(line) or TODO_BARE_RE.match(line):
+        if _item_start(line):
             starts.append(i)
             section_kind_at[i] = current_section_kind
     starts.append(len(lines))
@@ -359,9 +376,17 @@ def parse_todo_items(text):
         anchor = m.group(1) if m else None
         cm = None if anchor else TODO_CHECKBOX_RE.match(block[0])
         checked = (cm.group(1).lower() == 'x') if cm else None
-        tm = TITLE_RE.search(raw)
+        plain = None
+        if not anchor and not cm:
+            if TODO_STRUCK_RE.match(block[0]):
+                checked = True
+            elif not TODO_BARE_RE.match(block[0]):
+                plain = TODO_CHECKED_PLAIN_RE.match(block[0])
+                checked = True if plain else None
+        tm = None if plain else TITLE_RE.search(raw)
         title = (tm.group(1).strip() if tm
-                 else summary_text.one_line(raw.strip().splitlines()[0], 80))
+                 else summary_text.one_line(
+                     plain.group(1) if plain else raw.strip().splitlines()[0], 80))
         items.append(Item(anchor, title, raw, has_anchor=bool(anchor),
                            checked=checked,
                            section_kind=section_kind_at[starts[idx]]))
@@ -567,8 +592,31 @@ def render_gotcha_frontmatter(slug, status, noted, severity, retired,
     ])
 
 
+# An inline markdown link or image target: `[text](target)` / `![alt](target)`,
+# with an optional title after the target.
+_LINK_TARGET_RE = re.compile(r'(!?\[[^\]]*\]\()([^)\s]+)')
+
+
+def _rebase_links(text, prefix='../'):
+    """Every relative link target in `text` with `prefix` in front, for text
+    moving from the repository root one directory down (TODO.md to
+    todo/<item>.md). Left alone: an absolute URL or any other scheme
+    (`https:`, `mailto:`), a same-page `#anchor`, a root-absolute `/path`,
+    and a target that already climbs (`../`)."""
+    def fix(m):
+        target = m.group(2)
+        if (target.startswith(('#', '/', '../'))
+                or re.match(r'[A-Za-z][A-Za-z0-9+.-]*:', target)):
+            return m.group(0)
+        if target.startswith('./'):
+            target = target[2:]
+        return m.group(1) + prefix + target
+    return _LINK_TARGET_RE.sub(fix, text)
+
+
 def render_todo_body(item, blocked_on, is_floor):
-    lines = ['## What', '', item.body.strip(), '', '## How It Closes', '']
+    lines = ['## What', '', _rebase_links(item.body.strip()), '',
+             '## How It Closes', '']
     if blocked_on:
         lines.append(f'Not open until: {blocked_on}')
     else:
@@ -576,12 +624,18 @@ def render_todo_body(item, blocked_on, is_floor):
                       'this in should read ## What and say what has to be '
                       'true for `status` to become `done`.)')
     lines += ['', '## Notes', '']
-    if is_floor:
+    if is_floor and item.has_anchor:
         lines.append(
             f'{TODAY}: noted date is a floor, not exact -- this item '
-            'predates anchor tracking (every anchor was retrofitted '
-            '2026-09-06) and its true creation date is unknown. Migrated '
-            'from TODO.md by tools/todo_migrate.py.')
+            'predates its anchor (the anchor was retrofitted onto it) and '
+            'its true creation date is unknown. Migrated from TODO.md by '
+            'tools/todo_migrate.py.')
+    elif is_floor:
+        lines.append(
+            f'{TODAY}: noted date is a floor, not exact -- the item\'s '
+            'title was not found in TODO.md\'s history, so this is the '
+            'repository\'s first commit and its true creation date is '
+            'unknown. Migrated from TODO.md by tools/todo_migrate.py.')
     else:
         lines.append(f'{TODAY}: migrated from TODO.md by tools/todo_migrate.py.')
     lines.append('')
@@ -649,6 +703,14 @@ def build_plan(items, repo, source_relpath, kind_of_source):
         seen_slugs.add(slug)
         if item.anchor:
             noted, is_floor = anchor_noted_date(repo, source_relpath, item.anchor)
+            # An anchor added to an item that was already there: the item's
+            # own title text is older in the file than its anchor, so the
+            # anchor's date understates the item's age.
+            if not is_floor:
+                titled, lost = anchor_noted_date(
+                    repo, source_relpath,
+                    re.sub(r'\s+', ' ', item.title).strip()[:60], wrap_id=False)
+                is_floor = not lost and titled < noted
         else:
             # No `<a id=>` to search for (GOTCHAS_ARCHIVE.md, or a
             # bare-bulleted TODO.md item): search for a snippet of the

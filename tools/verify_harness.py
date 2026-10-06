@@ -27742,6 +27742,217 @@ def check_decommission_skips_generated_files_and_prose():
           not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
 
 
+
+def check_todo_migrate_reads_a_consumers_list():
+    """todo_migrate.py carries a consumer's own TODO.md across, not only the
+    one this repository migrated.
+
+    2026-10-06, a consumer migrating its list hit three things at once: every
+    item older than 2026-09-06 was told it "predates anchor tracking (every
+    anchor was retrofitted 2026-09-06)" -- this repository's history, in a
+    file that never had an anchor; every root-relative link in an item broke
+    when the item moved into todo/; and two closed bullet shapes,
+    `- [x] ~~**Title**~~` and a plain `- [x] text`, parsed as nothing.
+    Unit-level, on a git fixture whose commit dates the cases choose."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import todo_migrate as tm
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='todo-migrate-consumer-'))
+    saved_today = tm.TODAY
+    try:
+        repo = tmp / 'proj'
+        repo.mkdir()
+
+        def git(*a, date=None):
+            env = dict(os.environ)
+            if date:
+                env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = f'{date}T12:00:00+00:00'
+            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+                            '-c', 'user.name=harness',
+                            '-c', 'user.email=harness@example.com', *a],
+                           cwd=str(repo), capture_output=True, check=True, env=env)
+
+        def commit(text, date):
+            (repo / 'TODO.md').write_text(text, encoding='utf-8')
+            git('add', '-A')
+            git('commit', '-qm', 'todo', date=date)
+
+        git('init', '-q')
+        commit('# TODO\n\n- [ ] **Plain old item** -- no anchor ever.\n\n'
+               '- **Retrofitted item** -- anchored later.\n', '2026-01-01')
+        commit('# TODO\n\n- [ ] **Plain old item** -- no anchor ever.\n\n'
+               '- <a id="retrofitted-item"></a>**Retrofitted item** -- '
+               'anchored later.\n\n'
+               '- <a id="born-anchored"></a>**Born anchored** -- one commit.\n',
+               '2026-02-01')
+        text = ('# TODO\n\n- [ ] **Plain old item** -- no anchor ever. See '
+                '[the plan](spec/PLAN.md), [here](#top), '
+                '[web](https://example.com), [up](../x.md), [root](/y.md).\n\n'
+                '- <a id="retrofitted-item"></a>**Retrofitted item** -- '
+                'anchored later.\n\n'
+                '- <a id="born-anchored"></a>**Born anchored** -- one commit.\n\n'
+                '- [ ] **Never committed item** -- not in any history.\n\n'
+                '- [x] ~~**Struck closed item**~~ -- finished.\n\n'
+                '- [x] A plain closed line\n')
+        (repo / 'TODO.md').write_text(text, encoding='utf-8')
+        tm.TODAY = '2026-10-06'
+        items = tm.parse_todo_items(text)
+        plan = {it.title: (body, floor) for it, _p, _fm, body, _n, floor
+                in tm.build_plan(items, repo, 'TODO.md', 'todo')}
+        by_title = {it.title: it for it in items}
+
+        def notes(body):
+            return body.split('## Notes', 1)[-1]
+
+        body, floor = plan.get('Plain old item', ('', None))
+        cases.append(('an item with no anchor, found in history, is not '
+                      'called a floor and names no anchor retrofit',
+                      floor is False and 'anchor' not in notes(body)
+                      and '2026-09-06' not in body, body[-300:]))
+        cases.append(('a root-relative link gains ../ as the item moves '
+                      'into todo/', '(../spec/PLAN.md)' in body, body[:300]))
+        cases.append(('#anchors, URLs, ../ and /root links are left alone',
+                      all(t in body for t in ('(#top)', '(https://example.com)',
+                                              '(../x.md)', '(/y.md)'))
+                      and '../../' not in body and '(..//' not in body,
+                      body[:300]))
+        body, floor = plan.get('Retrofitted item', ('', None))
+        cases.append(('an anchor added to an older item writes the '
+                      'retrofit note, with no fixed date',
+                      floor is True and 'predates its anchor' in body
+                      and '2026-09-06' not in body, body[-300:]))
+        body, floor = plan.get('Born anchored', ('', None))
+        cases.append(('CONTROL: an item anchored from its first commit is '
+                      'not a floor', floor is False, body[-300:]))
+        body, floor = plan.get('Never committed item', ('', None))
+        cases.append(('an item found nowhere in history gets the neutral '
+                      'floor note, naming no anchor',
+                      floor is True and 'not found' in notes(body)
+                      and 'anchor' not in notes(body), body[-300:]))
+        struck = by_title.get('Struck closed item')
+        cases.append(('`- [x] ~~**Title**~~` is a closed item of its own',
+                      struck is not None and struck.checked is True,
+                      sorted(by_title)))
+        plain = by_title.get('A plain closed line')
+        cases.append(('`- [x] text` is a closed item of its own',
+                      plain is not None and plain.checked is True,
+                      sorted(by_title)))
+        cases.append(('CONTROL: the open checkbox item stays open',
+                      by_title.get('Plain old item') is not None
+                      and by_title['Plain old item'].checked is False, ''))
+        cases.append(('every item parsed, none swallowed', len(items) == 6,
+                      sorted(by_title)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        tm.TODAY = saved_today
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'todo_migrate.py carries a consumer\'s list ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_docs_current_state_honours_load_bearing_paths():
+    """docs-are-current-state skips a dated marker in a file precedent.json
+    declares under `load_bearing_annotations`, and nowhere else.
+
+    2026-10-06: a consumer's working legal drafts carry dated markers that
+    matter legally. Those drafts are still edited, so they are
+    not records, and `not_binding` would have switched the whole practice
+    off. A declaration with no reason exempts nothing and is reported."""
+    import tempfile
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='load-bearing-'))
+    saved = pc.ROOT
+    marker = '# Draft\n\nA new paragraph (added 2026-01-15).\n'
+
+    class _Ctx:
+        root = tmp
+        changed = ['drafts/terms.md', 'notes.md']
+
+        def read(self, rel):
+            return (tmp / rel).read_text(encoding='utf-8')
+
+    def verdict(entries):
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'load_bearing_annotations': entries}), encoding='utf-8')
+        return [f.file() for f in pc._docs_are_current_state(_Ctx())]
+
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        (tmp / 'drafts').mkdir()
+        for rel in _Ctx.changed:
+            (tmp / rel).write_text(marker, encoding='utf-8')
+        pc.ROOT = tmp
+        got = verdict([{'paths': 'drafts/**/*.md', 'reason': 'legal weight'}])
+        cases.append(('a marker in a declared path passes',
+                      not any(g.startswith('drafts/') for g in got), got))
+        cases.append(('the same marker outside it still fires',
+                      any(g.startswith('notes.md') for g in got), got))
+        got = verdict([{'paths': ['drafts/*.md'], 'reason': 'legal weight'}])
+        cases.append(('a list of globs is read too',
+                      not any(g.startswith('drafts/') for g in got), got))
+        got = verdict([{'paths': 'drafts/**/*.md'}])
+        cases.append(('an entry with no reason exempts nothing and is '
+                      'reported', any(g.startswith('drafts/') for g in got)
+                      and 'precedent.json' in got, got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'docs-are-current-state honours declared load-bearing paths '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_filename_separator_ignores_a_date_suffix():
+    """A dated-download suffix (`Name-2026-06-23.docx`) is not the name's
+    separator.
+
+    2026-10-06: a consumer's file named like `Some_Name-2026-06-23.docx` was
+    counted as using both "-" and "_" -- the same file on both sides of the
+    finding -- because only the date was removed and its joining hyphen
+    stayed. The control is a genuinely mixed pair, which must still fire."""
+    import tempfile, types
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='sep-date-'))
+    saved = pc.ROOT
+
+    def verdict(names):
+        d = tmp / 'docs'
+        shutil.rmtree(d, ignore_errors=True)
+        d.mkdir()
+        for n in names:
+            (d / n).write_text('x', encoding='utf-8')
+        return [f.detail for f in
+                pc._filename_separator(types.SimpleNamespace(root=tmp))]
+
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        pc.ROOT = tmp
+        got = verdict(['Service_Agreement-2026-06-23.docx',
+                       'Order_Form.docx'])
+        cases.append(('an underscore name with a date suffix beside another '
+                      'underscore name does not fire', got == [], got))
+        got = verdict(['Service_Agreement-2026-06-23.docx',
+                       'order-form.docx'])
+        cases.append(('CONTROL: a genuinely mixed pair still fires',
+                      len(got) == 1, got))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pc.ROOT = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'filename-separator ignores a dated-download suffix '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_todo_migrate_needs_a_migrated_item():
     """THE INCIDENT (2026-09-28, the same migration rehearsal as the case
     above). todo_migrate.py failed, build_todo_index.py then wrote its index
@@ -62585,6 +62796,9 @@ def main():
     check_bootstrap_local_steps_run_and_dead_lines_are_named()
     check_bootstrap_new_branch_compared_to_landing_branch()
     check_todo_migrate_refuses_a_subdirectory()
+    check_todo_migrate_reads_a_consumers_list()
+    check_docs_current_state_honours_load_bearing_paths()
+    check_filename_separator_ignores_a_date_suffix()
     check_update_written_files_name_no_mirrored_engine()
     check_docs_name_no_path_this_repo_removed()
     check_workflow_growth_needs_the_persons_words()
