@@ -3801,6 +3801,26 @@ def check_freshness_covers_every_declared_source():
         pef.report(consumer, quiet=True, out=quiet_after)
         after = quiet_after.getvalue()
 
+        # A clone that catches up WHILE the run is going is judged on what it
+        # holds when its row is printed (2026-10-06: a consumer's session
+        # start called three clones BEHIND that were current minutes later).
+        # The stand-in for upstream_tip fast-forwards the live clone as it is
+        # asked, after the rows were read -- the race, made deterministic.
+        real_tip = pef.upstream_tip
+
+        def tip_and_catch_up(url, branch, clone=None):
+            got = real_tip(url, branch, clone=clone)
+            if str(url) == str(set_up):
+                git(set_clone, 'pull', '-q', '--ff-only')
+            return got
+        pef.upstream_tip = tip_and_catch_up
+        try:
+            caught = io.StringIO()
+            pef.report(consumer, quiet=True, out=caught)
+        finally:
+            pef.upstream_tip = real_tip
+        caught_up = caught.getvalue()
+
         # An unreachable source: declared, vendored manifest points nowhere.
         (consumer / 'process' / 'manifest_set.json').write_text(json.dumps({
             'upstream': {'repo': str(tmp / 'gone'), 'branch': 'main',
@@ -3831,6 +3851,10 @@ def check_freshness_covers_every_declared_source():
              and 'pull --ff-only' not in after),
             ('the notice names Update Vendors once',
              after.count('"Update Vendors"') == 1),
+            ('a live clone that caught up while the run went is not called '
+             'BEHIND (the control is the BEHIND row above, read without it)',
+             'live clone at' not in caught_up
+             and 'BEHIND UPSTREAM: set (shared) vendored at process/set' in caught_up),
             ('an unreachable upstream is NOT VERIFIED, not current',
              'NOT VERIFIED -- set (shared) vendored at process/set' in unreachable
              and 'current -- set (shared) vendored' not in unreachable),
