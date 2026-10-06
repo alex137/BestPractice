@@ -1427,13 +1427,16 @@ def _frontmatter_field_order(ctx):
                         f'changes nothing else' if fixable else
                         'the fixer leaves a repeated key alone; keep the copy '
                         'that is meant and delete the other')))
-        for key in fy.unlisted_fields(text):
+        own = fy.own_fields(ROOT) if hasattr(fy, 'own_fields') else ()
+        for key in (fy.unlisted_fields(text, own) if own else fy.unlisted_fields(text)):
             out.append(Finding(
                 rel, f'carries `{key}:`, a field spec/PRACTICE_FORMAT.md does '
                      f'not list; this engine ignores it and the practice '
-                     f'works as before -- remove it, or add it to the spec '
-                     f'and to FIELD_ORDER in tools/frontmatter_yaml.py '
-                     f'upstream in BestPractice, where the order is defined'))
+                     f'works as before -- remove it, or, if this '
+                     f'repository\'s own tooling reads it, declare it in '
+                     f'precedent.json\'s `own_frontmatter_fields`; a field '
+                     f'every repository should have goes in the spec and in '
+                     f'FIELD_ORDER upstream in BestPractice'))
     return out
 
 # ---- practice-links-travel -------------------------------------------------

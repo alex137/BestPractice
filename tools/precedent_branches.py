@@ -67,7 +67,7 @@ test on the pull request into main (plan, hole 3). It rebuilds the
 generated files main's work left stale, runs the FULL push check on that
 tree once, and only if it passes moves staging AND pre-staging to that same
 commit in one atomic push. A failure or a conflict in hand-written text
-moves neither: the tree goes to a promote-fix-DATE branch, to be fixed
+moves neither: the tree goes to a local promote-fix-DATE branch, to be fixed
 there and promoted with --work (spec/LADDER_OPT_IN_PLAN.md D10; see the
 comment above _promote_unlocked). It pushes by itself, so it runs the check
 by itself: no push gate sees a push made from inside a script.
@@ -2390,7 +2390,8 @@ def _promote_to_main(root, say=print):
 # pre-staging's -- rebuilds what main left stale, runs the full check on it
 # once, and only then moves staging AND pre-staging to that same commit.
 #
-# A failure moves neither. The tree is pushed to a fix branch, and the
+# A failure moves neither. The tree is put on a LOCAL fix branch (pushed
+# only with a fix, 2026-10-06; see _not_finished), and the
 # session fixes it there in the same turn, whoever's commit broke it ("if
 # it fails because of a problem on main (caused by someone not using this
 # process) -- then you have to fix it as part of this process"), and runs
@@ -2409,7 +2410,9 @@ def _fix_branch(root):
     finally:
         sys.path.pop(0)
     base = f'{FIX_PREFIX}{day}'
-    return base if not _remote_tip(root, base) else f'{FIX_PREFIX}{moment}'
+    taken = _remote_tip(root, base) or _run(
+        root, 'rev-parse', '--verify', '-q', f'refs/heads/{base}').returncode == 0
+    return base if not taken else f'{FIX_PREFIX}{moment}'
 
 
 def _branches_page(root, name):
@@ -2603,18 +2606,28 @@ def _where_it_fails(root, stip, above, staging):
 
 
 def _not_finished(root, say, sha, staging, what, todo):
-    """Push the composition `sha` to a fresh fix branch, say what stopped it
-    and how the session finishes it, and -> 1. Neither tier has moved."""
+    """Put the composition `sha` on a fresh LOCAL fix branch, say what stopped
+    it and how the session finishes it, and -> 1. Neither tier has moved.
+
+    LOCAL, NOT PUSHED (2026-10-06). It used to be pushed at once, so every
+    refused Promote left a branch on origin -- one consumer had four by the
+    next day, all already contained in staging, each for a person to delete
+    by hand -- including the many refusals that are fixed on pre-staging and
+    never touch the fix branch at all. The composition can always be made
+    again, so nothing is lost if the container goes; it reaches origin only
+    when the session pushes a fix to it."""
     fix = _fix_branch(root)
-    p = _run(root, 'push', '-q', 'origin', f'{sha}:refs/heads/{fix}')
-    if p.returncode != 0:
+    b = _run(root, 'branch', fix, sha)
+    if b.returncode != 0:
         say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} '
-            f'moved: {what}\n\nThe composition could not be pushed to a fix '
-            f'branch either ({p.stderr.strip()[:200]}); run the Promote again.')
+            f'moved: {what}\n\nThe composition could not be put on a fix '
+            f'branch either ({b.stderr.strip()[:200]}); run the Promote again.')
         return 1
     say(f'PROMOTE NOT FINISHED, and neither {staging} nor {PRE_STAGING} moved: '
-        f'{what}\n\nThe composition is on {fix} ({sha[:12]}). Finish it in this '
-        f'same turn: on {fix}, {todo}; push it to {fix}; then\n'
+        f'{what}\n\nThe composition is on the local branch {fix} ({sha[:12]}), '
+        f'not pushed: a fix made on {PRE_STAGING} instead leaves nothing behind '
+        f'on origin. Finish it in this same turn: on {fix}, {todo}; push it '
+        f'with `git push -u origin {fix}`; then\n'
         f'  python3 tools/precedent_branches.py --promote --to staging --work {fix}\n'
         f'which takes the fix in first and moves both tiers together.')
     return 1
