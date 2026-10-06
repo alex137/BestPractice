@@ -3,7 +3,7 @@ slug:              todo-2026-10-06-merge-refusal-misreads-a-stale-to-main-copy
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-06
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -42,3 +42,11 @@ open the pull request from that.* Plant the case beside the existing
 
 A stale `to-main-...` head is refused with the remedy above, and a planted
 case shows it.
+
+Done 2026-10-06, both halves. The cause is prevented as well as reported:
+a move from pre-staging into staging now waits while a `to-main-` pull
+request into main is open (`produce_waiting_hold`,
+`check_debut_waits_for_an_open_produce_pull_request`). And the merge check
+names the real remedy for a stale copy: close it, run Produce again, never
+retarget it (a new case in `check_promote_only_and_tier_branches`). Morgan
+asked the same day whether this was solved going forward.
