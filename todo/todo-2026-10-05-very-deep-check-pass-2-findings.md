@@ -61,6 +61,19 @@ section judged a check script by filename alone.
   Two have no written answer yet: auto mode refusing a bare promote (a
   person's managed setting) and stale shallow entries (a manual recovery);
   each needs "nothing, and deliberately so" written down.
+
+  **Fixed 2026-10-06:** for each gotcha the section now also reads the
+  `check_` names its Fix gives, reporting "covered by planted case X", a
+  check script under `tools/checks/`, or "names X, which does not exist"
+  as a finding; credits the planted case that exercises a mechanism the
+  Fix names in a code span (`engine_is_ahead`); and counts a written
+  "Prevention:" paragraph as answered. Both gotchas now carry "Prevention:
+  nothing mechanical, deliberately, because ...". Of the twelve, ten now
+  show an answer; the linked-worktree one waits on its own bullet above,
+  and the file-carried-by-hand one has a case (part H of
+  `check_vendor_engine_keeps_a_declared_engine_path`) that its Fix does
+  not name. Planted case
+  `check_incident_coverage_reads_what_the_gotcha_names`.
 - **`approved_by: "pending PR review"` outlives the merge.**
   [tools/precedent_move.py](../tools/precedent_move.py) writes it and
   nothing rewrites it; 18 practices carried it until this run fixed the

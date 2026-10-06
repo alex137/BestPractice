@@ -8061,6 +8061,80 @@ def check_generated_files_candidates_are_repo_rooted_claims():
           not bad, '; '.join(bad))
 
 
+def check_incident_coverage_reads_what_the_gotcha_names():
+    """The very deep check's INCIDENT COVERAGE searched tools/ and
+    practices/ for each gotcha's slug, and nothing else. Most gotchas name
+    their own planted case in their Fix and no tool names the gotcha back,
+    so they read as cited by nothing (very deep check, 2026-10-05, pass 2:
+    nine of twelve). It now reads the check_ names a Fix gives and confirms
+    each is a planted case, reports one that does not exist, credits a case
+    that exercises a mechanism the Fix names, and counts a written
+    "Prevention: nothing mechanical, deliberately, because ..." as an
+    answer."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as _vdc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-incidents-'))
+    cases = []
+    try:
+        (fx / 'tools' / 'checks').mkdir(parents=True)
+        (fx / 'gotchas').mkdir()
+        (fx / 'tools' / 'verify_harness.py').write_text(
+            'def check_real_case():\n    pass\n\n'
+            'def check_other_case():\n    engine_is_newer(1)\n', encoding='utf-8')
+        (fx / 'tools' / 'checks' / 'check_some_script.py').write_text('', encoding='utf-8')
+
+        def gotcha(slug, fix, story=''):
+            (fx / 'gotchas' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: live\nnoted: 2026-10-01\n---\n'
+                f'## Symptom\n\nx\n\n## Story\n\n{story or "x"}\n\n## Fix\n\n{fix}\n',
+                encoding='utf-8')
+        gotcha('gotcha-a-named', 'Planted case `check_real_case`.')
+        gotcha('gotcha-b-missing', 'Planted case `check_gone_case`.')
+        gotcha('gotcha-c-script', 'Refused by `check_some_script`.')
+        gotcha('gotcha-d-written', 'By hand.\n\n**Prevention: nothing mechanical, '
+                                   'deliberately**, because the\nfix is a '
+                                   'person\'s setting.')
+        gotcha('gotcha-e-mechanism', 'The refresh asks `engine_is_newer` now.')
+        gotcha('gotcha-f-story-only', 'By hand.', story='Written `*check_foo()`.')
+        gotcha('gotcha-g-nothing', 'By hand.')
+        _s, rows, note = _vdc._incident_coverage(fx, since='2026-09-01')
+        got = {r[1]: (r[4] if len(r) > 4 else {}) for r in rows}
+        cases.append(('every gotcha filed since is a row', not note and len(got) == 7))
+        cases.append(('a check_ name the Fix gives is a planted case',
+                      got.get('gotcha-a-named', {}).get('cases') == ['check_real_case']))
+        cases.append(('a check_ name nothing defines is a finding',
+                      got.get('gotcha-b-missing', {}).get('missing') == ['check_gone_case']))
+        cases.append(('a check script under tools/checks/ is named as one',
+                      got.get('gotcha-c-script', {}).get('scripts') == ['check_some_script']))
+        cases.append(('a written Prevention: answer is read',
+                      (got.get('gotcha-d-written', {}).get('written') or '')
+                      .startswith('nothing mechanical, deliberately')))
+        cases.append(('a case exercising a mechanism the Fix names is credited',
+                      got.get('gotcha-e-mechanism', {}).get('exercised')
+                      == [('check_other_case', 'engine_is_newer')]))
+        cases.append(('code quoted in a Story names no case',
+                      not got.get('gotcha-f-story-only', {}).get('missing')))
+        g = got.get('gotcha-g-nothing', {})
+        cases.append(('a gotcha with none of these has nothing to show',
+                      bool(g) and not any(g.values())))
+        real = {r[1]: (r[4] if len(r) > 4 else {})
+                for r in _vdc._incident_coverage(ROOT, since='2026-09-28')[1]}
+        cases.append(('the two gotchas with no mechanical prevention say so, '
+                      'and why', all(
+                          (real.get(s) or {}).get('written', '') or ''
+                          for s in ('gotcha-2026-09-30-auto-mode-refuses-a-bare-'
+                                    'promote-into-main-as-a-production',
+                                    'gotcha-2026-09-28-stale-shallow-entries-for-'
+                                    'deleted-branches-survive-unshallow'))))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'INCIDENT COVERAGE reads the planted case and the Prevention answer '
+          f'a gotcha gives ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_upholds_is_a_listed_field():
     """`upholds:` is a field the practice format lists, so a practice carrying
     it raises no warning. A project repository linked its practices to its
@@ -60405,6 +60479,7 @@ def main():
     check_fix_sweep_copy_keeps_its_neighbours()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
+    check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()

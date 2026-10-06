@@ -1645,6 +1645,76 @@ def _last_run_date(repo_dir):
         return None
 
 
+_NO_ANSWER = {'cases': [], 'scripts': [], 'missing': [], 'exercised': [],
+              'written': None}
+# A code span in a Fix that names a mechanism: a function (`engine_is_ahead`,
+# `precedent_resolve._self_heal_individual_source`), a hook or tool file
+# (`wait-loop-gate.sh`) or a practice slug. A command (it has a space), a
+# path (a slash) or a plain word (`promote`) is not one.
+_MECHANISM_SPAN_RE = re.compile(r'`([A-Za-z_][\w.-]*?)(?:\(\))?`')
+_FILE_SUFFIXES = ('.sh', '.py', '.json')
+
+
+def _harness_cases(harness_text):
+    """-> [(check_ name, body)] for each planted case, in file order."""
+    parts = re.split(r'^def (check_\w+)\(', harness_text, flags=re.M)
+    return [(parts[i], parts[i + 1].split('\ndef ', 1)[0])
+            for i in range(1, len(parts) - 1, 2)]
+
+
+def _mechanism_keys(fix_text):
+    """-> the names a Fix gives its mechanism, as a planted case would
+    spell them (the last dotted part of a function, a file name whole)."""
+    keys = []
+    for tok in _MECHANISM_SPAN_RE.findall(fix_text):
+        key = tok if tok.endswith(_FILE_SUFFIXES) else tok.rsplit('.', 1)[-1]
+        if len(key) >= 6 and ('_' in key.strip('_') or '-' in key
+                              or key.endswith(_FILE_SUFFIXES)) \
+                and not key.startswith('check_') and key not in keys:
+            keys.append(key)
+    return keys
+_NAMED_CASE_RE = re.compile(r'\bcheck_[a-z0-9_]*[a-z0-9]\b')
+_PREVENTION_RE = re.compile(r'^[*_ ]*Prevention:[*_ ]*(.*)$', re.M)
+
+
+def _incident_answer(path, harness_text, repo_dir, harness_cases=None):
+    """-> {'cases', 'scripts', 'missing', 'exercised', 'written'}: what an
+    incident file says prevents a recurrence. See _incident_coverage."""
+    out = {k: (list(v) if isinstance(v, list) else v)
+           for k, v in _NO_ANSWER.items()}
+    try:
+        text = pathlib.Path(path).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return out
+    # Names are read from the Fix section only: a Story quotes code
+    # (`*check_foo()`, a YAML anchor `&check_paths`) that names no case.
+    fix = re.search(r'^## Fix[^\n]*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
+    for name in sorted(set(_NAMED_CASE_RE.findall(fix.group(1) if fix else ''))):
+        if re.search(r'^def ' + re.escape(name) + r'\(', harness_text, re.M):
+            out['cases'].append(name)
+        elif (pathlib.Path(repo_dir) / 'tools' / 'checks' / f'{name}.py').is_file():
+            out['scripts'].append(name)
+        else:
+            out['missing'].append(name)
+    if harness_cases is None:
+        harness_cases = _harness_cases(harness_text)
+    # The case naming the MOST of the Fix's mechanisms is the one that
+    # plants it; the first case to mention one name in passing is not.
+    keys = _mechanism_keys(fix.group(1) if fix else '')
+    best, named = None, []
+    for n, body in harness_cases:
+        hit = [k for k in keys if k in body]
+        if len(hit) > len(named):
+            best, named = n, hit
+    if best and best not in out['cases']:
+        out['exercised'].append((best, ', '.join(named)))
+    m = _PREVENTION_RE.search(text)
+    if m:
+        para = text[m.start(1):].split('\n\n', 1)[0]
+        out['written'] = ' '.join(para.split()).replace('**', '')
+    return out
+
+
 def _incident_coverage(repo_dir, since=None):
     """-> (since, rows, note). Every incident FILED here since the last
     recorded run, with whatever in the tree cites it.
@@ -1669,7 +1739,23 @@ def _incident_coverage(repo_dir, since=None):
     proof that the incident cannot recur -- a docstring naming it reads
     identically to a check testing for it. The reading is the session's;
     what this removes is the part nobody does, which is assembling the
-    list."""
+    list.
+
+    WHAT THE FILE ITSELF SAYS (2026-10-06). A slug search misses the usual
+    case: a gotcha's Fix names its own planted case, `check_...`, and no
+    tool names the gotcha back. So each gotcha row also carries `answer`
+    (a closed open item's is empty: its text is history, and a case it
+    names may since have been retired on purpose):
+    `cases`, the check_ names the file gives that tools/verify_harness.py
+    defines (a planted case); `scripts`, those that are a check script under
+    tools/checks/; `missing`, a name that is neither -- a finding, since the
+    file promises a case nobody can run; `exercised`, (case, name) for a
+    mechanism the Fix names in a code span (`engine_is_ahead`,
+    `wait-loop-gate.sh`) that a planted case's body names too -- evidence
+    of a case, as a citation is, not proof; and `written`, the file's own
+    "Prevention: ..." paragraph, which is how the third honest answer
+    ("nothing mechanical, deliberately, because ...") is written down and
+    counted as answered rather than uncited."""
     repo_dir = pathlib.Path(repo_dir)
     since = since or _last_run_date(repo_dir)
     if not since:
@@ -1687,6 +1773,12 @@ def _incident_coverage(repo_dir, since=None):
                         encoding='utf-8')
                 except (OSError, UnicodeDecodeError):
                     continue
+    try:
+        harness = (repo_dir / 'tools' / 'verify_harness.py').read_text(
+            encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        harness = ''
+    cases = _harness_cases(harness)
     rows = []
     for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),
                                  ('open item closed', 'todo', 'closed')):
@@ -1701,7 +1793,9 @@ def _incident_coverage(repo_dir, since=None):
                 continue
             cites = sorted(path for path, text in corpus.items()
                            if slug in text)
-            rows.append((kind, slug, when, cites))
+            rows.append((kind, slug, when, cites,
+                         _incident_answer(f, harness, repo_dir, cases)
+                         if sub == 'gotchas' else dict(_NO_ANSWER)))
     rows.sort(key=lambda r: (r[2], r[1]))
     return since, rows, ''
 
@@ -9315,29 +9409,55 @@ def _main(box):
     print("INCIDENT COVERAGE -- what was filed since the last run, and what "
           "cites it\n")
     _ic_since, _ic_rows, _ic_note = _incident_coverage(repo_root)
+    _ic_findings = 0
     if _ic_note:
         print(f"  not measured -- {_ic_note}")
     else:
         print(f"  Since the last recorded run ({_ic_since}): "
               f"{len(_ic_rows)} incident(s).\n")
-        for _kind, _slug, _when, _cites in _ic_rows:
+        for _kind, _slug, _when, _cites, _ans in _ic_rows:
             print(f"      {_when}  {_kind}: {_slug}")
             if _cites:
                 print(f"                  cited by {len(_cites)}: "
                       f"{', '.join(_cites[:4])}")
-            else:
+            for _c in _ans['cases']:
+                print(f"                  covered by planted case {_c}")
+            for _c, _k in _ans['exercised']:
+                print(f"                  exercised by planted case {_c} "
+                      f"(it names {_k})")
+            for _c in _ans['scripts']:
+                print(f"                  names check script "
+                      f"tools/checks/{_c}.py")
+            for _c in _ans['missing']:
+                _ic_findings += 1
+                print(f"                  FINDING: names {_c}, which does "
+                      f"not exist (no planted case in tools/verify_harness.py"
+                      f", no tools/checks/{_c}.py)")
+            if _ans['written']:
+                _w = _ans['written']
+                print(f"                  answered in the file: Prevention: "
+                      f"{_w[:110]}{'...' if len(_w) > 110 else ''}")
+            if not (_cites or _ans['cases'] or _ans['scripts']
+                    or _ans['exercised'] or _ans['written']):
                 print("                  cited by NOTHING in tools/ or "
-                      "practices/")
+                      "practices/" + (
+                          ", and its Fix names no planted case and it gives "
+                          "no Prevention: answer"
+                          if _kind.startswith('gotcha') else ''))
         if _ic_rows:
             print("\n  Ask of each: what prevents a recurrence, and is "
                   "there a planted case proving\n  it fires? A citation is "
                   "evidence something names the incident, never proof the\n"
                   "  class is closed -- a docstring reads the same as a "
                   "check. 'Nothing, and\n  deliberately so' is an answer "
-                  "worth writing down; unexamined is not.")
+                  "worth writing down; unexamined is not. Write it in\n  the "
+                  "file as a paragraph opening \"Prevention: nothing "
+                  "mechanical, deliberately,\n  because ...\", and this "
+                  "section counts it as answered.")
     print()
     if led:
-        led.end(items=len(_ic_rows) if not _ic_note else None)
+        led.end(items=len(_ic_rows) if not _ic_note else None,
+                findings=_ic_findings if not _ic_note else None)
         led.start('FIX SWEEP -- new detectors, run everywhere')
 
     print("FIX SWEEP -- every detector added since the last run, against "
