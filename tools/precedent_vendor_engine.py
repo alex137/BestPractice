@@ -3721,6 +3721,36 @@ def source_retirement(clone):
     return r if isinstance(r, dict) else None
 
 
+def retirement_on_any_tier(clone):
+    """-> the retirement a set declares in its working tree or on any of its
+    tier branches on origin (pre-staging, staging, main), else None.
+
+    A retirement is Booked on pre-staging long before it is on main, and a
+    clone is usually checked out on main: reading the tree alone, a set
+    being retired is not retired yet to every guard that asks, which is the
+    window in which the guards matter most (found 2026-10-06, the day both
+    guards were written)."""
+    found = source_retirement(clone)
+    if found is not None:
+        return found
+    for ref in ('pre-staging', 'staging', 'main'):
+        shown = subprocess.run(['git', '-C', str(clone), 'show',
+                                f'refs/remotes/origin/{ref}:precedent-source.json'],
+                               capture_output=True, text=True)
+        if shown.returncode != 0:
+            continue
+        try:
+            data = json.loads(shown.stdout)
+        except ValueError:
+            continue
+        r = data.get(RETIRED_KEY) if isinstance(data, dict) else None
+        if r is True:
+            return {}
+        if isinstance(r, dict):
+            return r
+    return None
+
+
 def _active_practice_slugs(clone):
     """-> {slug} of practices/*.md with `status: active` in a source tree,
     or None when it has no practices/ to read."""
