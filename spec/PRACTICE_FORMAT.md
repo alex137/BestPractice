@@ -408,7 +408,9 @@ Detail saying when a gotchas section should split into an index plus a record,
 and what the index line has to carry to stay findable. The count of the
 original practices carrying a Detail fell by one on 2026-10-02, when
 `merge-authorization-keyword` left the universal set for the set that
-provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)).
+provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)),
+and rose by one on 2026-10-06, when `docs-are-current-state` gained a Detail
+showing how to declare `load_bearing_annotations`.
 (The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures
