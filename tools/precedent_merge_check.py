@@ -269,8 +269,9 @@ def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
         return None
     sys.path.insert(0, str(HERE))
     try:
-        import precedent_time
-        copy = f'to-main-{precedent_time.today()}'
+        import precedent_branches
+        copy = precedent_branches.promote_branch_name(
+            HERE.parent, precedent_branches.COPY_SLUG, None) or 'to-main-copy'
     except Exception:                                          # noqa: BLE001
         copy = 'to-main-copy'
     finally:
