@@ -25,13 +25,30 @@ finished: the test's fixture commits landed in the worktree it ran in, and
 the worktree's HEAD moved onto them. Afterwards `.git/config` in the main
 clone said `bare = true`. A linked worktree shares its `config` with the
 main clone, so whatever the check ran there reached the main clone too. The
-same check run from the main clone itself left it clean. Which call leaks is
-not yet traced.
+same check run from the main clone itself left it clean.
+
+**Traced 2026-10-06.** `git bisect run` exports `GIT_DIR` to the command it
+runs, and in a linked worktree that is `.git/worktrees/<name>`. Every
+fixture built its environment from the harness's own, so the fixture's
+`git init --bare` re-initialised that directory as bare, writing
+`core.bare = true` into the config the main clone shares, and its
+`git commit` landed on the worktree's HEAD. A git hook running the harness
+would pass `GIT_DIR` and `GIT_INDEX_FILE` the same way.
 
 ## Fix
 
-Run harness checks from the main clone, or from a separate full `git clone`
-into a scratch directory, never from a `git worktree` of the repository you
-care about. If it has already happened: `git config core.bare false` in the
+Since 2026-10-06 the harness drops git's repository variables (`GIT_DIR`,
+`GIT_WORK_TREE`, `GIT_INDEX_FILE` and the rest) when it starts, so its
+fixtures reach only their own temporary repositories. Planted case:
+`check_harness_drops_inherited_git_repository_variables`, which fails on the
+old harness with the main clone bare and the worktree's HEAD moved. The
+harness does not refuse to start in a linked worktree: Promote and the merge
+check run the full push check, harness included, in a throwaway linked
+worktree, and that run carries no `GIT_DIR`.
+
+Another tool run under `git bisect run` that builds repositories from its
+own environment can still do this, so drop those variables for the test
+command (`env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE ...`). If it has
+already happened: `git config core.bare false` in the
 main clone restores it (the files and HEAD are untouched), and
 `git worktree remove --force` the scratch worktree.

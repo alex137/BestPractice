@@ -146,6 +146,28 @@ for _var in CREDENTIAL_ENV_VARS:
 # this block.
 os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
 
+# GIT'S OWN REPOSITORY VARIABLES (2026-10-06, traced from
+# gotchas/gotcha-2026-10-01-a-harness-check-run-in-a-linked-worktree-turns-the-main-clone-bare.md).
+# `git bisect run` exports GIT_DIR to the command it runs, and a git hook
+# gets GIT_DIR and GIT_INDEX_FILE. Every fixture here builds its env from
+# os.environ, so under either one a fixture's `git init`, `git add` and
+# `git commit` all went to the repository the harness was started in, not
+# the temporary one in front of them. Run from a linked worktree, GIT_DIR is
+# `.git/worktrees/<name>`, and `git init --bare` re-initialised it as bare,
+# which writes `core.bare = true` into the config the main clone shares.
+# That is the 2026-10-01 bisect: fixture commits on the worktree's HEAD, and
+# a main clone git called bare. Reproduced the same way on 2026-10-06 in a
+# throwaway repository. Nothing in the harness locates a repository through
+# these: ROOT is this file's own location, and every git call names its
+# directory or runs in one. So they are dropped here, once, for every fixture
+# (check_harness_drops_inherited_git_repository_variables).
+GIT_REPOSITORY_ENV_VARS = (
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_NAMESPACE', 'GIT_PREFIX')
+for _var in GIT_REPOSITORY_ENV_VARS:
+    os.environ.pop(_var, None)
+
 # THE SAME, FOR THE GITHUB ACCOUNT (2026-09-30). The account a session's
 # token belongs to now fills in the private sets' location and the commit
 # identity when nothing declares them, and a cloud container's proxy answers
@@ -7905,6 +7927,201 @@ def check_session_trailer_check_ships_with_the_engine():
     bad = [n for n, ok in cases if not ok]
     check(f'the commit-trailer check ships with the engine and judges what a '
           f'push carries ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_bot_authored_commits_are_refused_where_no_person_is_declared():
+    """The commit-author check's bot half judges a pull request's commits in
+    CI, where nobody is declared (2026-10-06).
+
+    Five commits authored `noreply@anthropic.com` at +0000 reached
+    BestPractice's main on 2026-10-02 through a pull request merged on
+    GitHub. The check that should have refused them reads only commits on no
+    remote, and stands down where no identity is declared -- both true of
+    every GitHub Actions runner -- so nothing ever judged them.
+
+    The fixture is a runner's state: git's global identity is the bot, no
+    PRECEDENT_COMMIT_*, no user config, and a pull-request branch already on
+    the remote, carrying one bot commit. THE CONTROLS: the same branch with
+    the bot commit re-authored passes the bot half and still SKIPS the whole
+    check with the identity half's own wording, so the stand-down is real and
+    the bot address is what fails; and the default scope over the pushed
+    branch sees nothing, which is why CI passes a range
+    (practice: control-asserts-which-failure)."""
+    import tempfile, json as _json, shutil as _shutil
+    name = ('Commit author: a bot-authored commit in a pull request\'s range '
+            'is refused where no person is declared')
+    script = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
+    need = [script, ROOT / 'tools' / 'precedent_session_check.py',
+            ROOT / 'tools' / 'precedent_identity.py']
+    absent = [str(p.relative_to(ROOT)) for p in need if not p.exists()]
+    if absent:
+        not_applicable(name, f'not in this tree: {absent}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, _person, person_git = _engine_commit_env(tmp)
+        bot_git = dict(person_git, GIT_AUTHOR_NAME='Claude',
+                       GIT_AUTHOR_EMAIL='noreply@anthropic.com')
+        bare, work = tmp / 'origin.git', tmp / 'work'
+        (work / 'tools' / 'checks').mkdir(parents=True)
+        for p in need:
+            dest = work / p.relative_to(ROOT)
+            _shutil.copy2(p, dest)
+
+        def git(*args, env=person_git, cwd=work):
+            return subprocess.run(['git', '-C', str(cwd), *args],
+                                  capture_output=True, text=True, env=env)
+
+        def commit(msg, env=person_git):
+            return git('commit', '-q', '--allow-empty', '-m',
+                       f'{msg}\n\nSession: none available (fixture)', env=env)
+
+        def run(*args, rng=None):
+            env = dict(ambient)
+            if rng:
+                env['PRECEDENT_CHECK_RANGE'] = rng
+            p = subprocess.run([sys.executable, str(work / 'tools' / 'checks'
+                                                    / script.name), *args],
+                               cwd=str(work), capture_output=True, text=True,
+                               env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        git('init', '-q', '--bare', str(bare), cwd=tmp)
+        git('init', '-q', '-b', 'main')
+        git('remote', 'add', 'origin', str(bare))
+        git('add', '-A')
+        commit('the base')
+        git('push', '-q', 'origin', 'main')
+        git('checkout', '-q', '-b', 'pr')
+        commit('a person\'s change')
+        commit('a change the harness authored', env=bot_git)
+        bot_sha = git('rev-parse', 'HEAD').stdout.strip()
+        commit('another person\'s change')
+        # On the remote, as a pull request's branch is by the time CI runs.
+        git('push', '-q', 'origin', 'pr')
+        rng = 'origin/main..HEAD'
+
+        rc, out = run('--bot-authors-only', '--range', rng)
+        cases.append((f'--bot-authors-only over the pull request\'s range '
+                      f'refuses the bot commit (rc={rc}, {out[:200]!r})',
+                      rc == 1 and bot_sha[:12] in out
+                      and 'noreply@anthropic.com' in out))
+        rc, out = run(rng=rng)
+        cases.append((f'the whole check, with nobody declared and '
+                      f'PRECEDENT_CHECK_RANGE set, refuses it too rather than '
+                      f'standing down (rc={rc}, {out[:200]!r})',
+                      rc == 1 and bot_sha[:12] in out))
+        rc, out = run('--bot-authors-only')
+        cases.append((f'control: the default scope over the pushed branch '
+                      f'reads nothing -- why CI passes the range (rc={rc})',
+                      rc == 0))
+
+        cfg = work / 'precedent.json'
+        cfg.write_text(_json.dumps({'grandfathered_commit_shas': [
+            {'sha': bot_sha, 'note': 'fixture: published before the check'}]}),
+            encoding='utf-8')
+        rc, out = run('--bot-authors-only', '--range', rng)
+        cases.append((f'a grandfathered bot commit is exempt (rc={rc}, '
+                      f'{out[:200]!r})', rc == 0))
+        cfg.unlink()
+
+        # THE CONTROL: the same branch, the bot commit re-authored.
+        git('reset', '-q', '--hard', 'HEAD~2')
+        commit('a change the harness authored, re-authored')
+        commit('another person\'s change')
+        rc, out = run('--bot-authors-only', '--range', rng)
+        cases.append((f'control: re-authored, the bot half passes (rc={rc}, '
+                      f'{out[:200]!r})', rc == 0))
+        rc, out = run(rng=rng)
+        cases.append((f'control: re-authored, the whole check still stands '
+                      f'down in its own words (rc={rc}, {out[:200]!r})',
+                      rc == 2 and 'no identity is declared' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_harness_drops_inherited_git_repository_variables():
+    """A harness started under `git bisect run`, from a linked worktree,
+    leaves the repository it was started in alone (2026-10-06).
+
+    On 2026-10-01 a session bisected with a harness check as the test, from
+    a linked worktree. `git bisect run` exports GIT_DIR, every fixture
+    inherited it, and the fixture's `git init --bare` re-initialised the
+    worktree's git directory as bare: `core.bare = true` in the main clone's
+    shared config, and the fixture's commits on the worktree's HEAD
+    (gotchas/gotcha-2026-10-01-a-harness-check-run-in-a-linked-worktree-
+    turns-the-main-clone-bare.md).
+
+    The fixture is a throwaway repository with a linked worktree, and a
+    child process carrying GIT_DIR exactly as `git bisect run` sets it there,
+    which then does what fixtures do: `git init --bare`, `git init`, a
+    commit. THE CONTROL: the same child without importing this module does
+    turn the main clone bare and moves the worktree's HEAD, so the fixture
+    reproduces the trap and the import is what stops it
+    (practice: control-asserts-which-failure)."""
+    import tempfile
+    name = ('the harness drops an inherited GIT_DIR, so a run under `git '
+            'bisect run` in a linked worktree leaves the main clone alone')
+    child = (
+        'import os, subprocess, sys\n'
+        'if sys.argv[2] == "import":\n'
+        '    sys.path.insert(0, sys.argv[3]); import verify_harness\n'
+        't = sys.argv[1]\n'
+        'def g(*a, cwd=None):\n'
+        '    subprocess.run(["git", *a], cwd=cwd, capture_output=True)\n'
+        'g("init", "-q", "--bare", t + "/origin.git")\n'
+        'g("init", "-q", t + "/proj")\n'
+        'open(t + "/proj/f.txt", "w").write("fixture\\n")\n'
+        'g("add", "-A", cwd=t + "/proj")\n'
+        'g("commit", "-qm", "installed, catalogue vendored", cwd=t + "/proj")\n')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = {k: v for k, v in os.environ.items()
+               if k not in GIT_REPOSITORY_ENV_VARS}
+        env.update(GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+                   GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com')
+
+        def git(*args, cwd):
+            return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                                  capture_output=True, text=True).stdout.strip()
+
+        def attempt(label, mode):
+            main, linked = tmp / label / 'main', tmp / label / 'linked'
+            main.mkdir(parents=True)
+            git('init', '-q', '-b', 'main', cwd=main)
+            git('commit', '-q', '--allow-empty', '-m',
+                'base\n\nSession: none available (fixture)', cwd=main)
+            git('worktree', 'add', '-q', '--detach', str(linked), 'HEAD',
+                cwd=main)
+            head = git('rev-parse', 'HEAD', cwd=linked)
+            gitdir = git('rev-parse', '--absolute-git-dir', cwd=linked)
+            work = tmp / label / 'fixture'
+            work.mkdir()
+            subprocess.run([sys.executable, '-c', child, str(work), mode,
+                            str(ROOT / 'tools')],
+                           cwd=str(linked), env=dict(env, GIT_DIR=gitdir),
+                           capture_output=True, text=True)
+            return (git('config', '--get', 'core.bare', cwd=main) == 'true',
+                    git('rev-parse', 'HEAD', cwd=linked) != head,
+                    (work / 'origin.git' / 'HEAD').is_file()
+                    and bool(git('rev-parse', '-q', '--verify', 'HEAD',
+                                 cwd=work / 'proj')))
+
+        bare, moved, own = attempt('control', 'plain')
+        cases.append((f'control: without the harness, the inherited GIT_DIR '
+                      f'turns the main clone bare (bare={bare}) and moves the '
+                      f'worktree\'s HEAD (moved={moved})', bare and moved))
+        bare, moved, own = attempt('harness', 'import')
+        cases.append((f'with the harness imported the main clone stays a work '
+                      f'tree (bare={bare})', not bare))
+        cases.append((f'...the worktree\'s HEAD does not move (moved={moved})',
+                      not moved))
+        cases.append((f'...and the fixture\'s repositories are its own '
+                      f'(own={own})', own))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_retired_sets_are_dropped_only_when_nothing_is_lost():
@@ -15815,6 +16032,37 @@ def check_precedent_check_fires():
             git(repo, 'push', '-q', str(bare), 'HEAD:refs/heads/trunk')
             git(repo, 'remote', 'add', 'origin', str(bare))
         case('default-branch', _plant_default_branch)
+
+        # pending-approval-outlives-its-merge: origin's `staging`, the base
+        # this repo declares, holds the baseline. A practice already there
+        # says approved_by "pending PR review" -- its pull request merged,
+        # the placeholder stayed -- and a practice the change ADDS says it
+        # too, which is right while its own pull request is open. The clean
+        # copy has no remote, which the check reports as skipped.
+        def _plant_pending_approval(repo):
+            bare = repo.parent / (repo.name + '-remote.git')
+            subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                           capture_output=True, check=True)
+            git(repo, 'push', '-q', str(bare), 'HEAD:refs/heads/staging')
+            git(repo, 'remote', 'add', 'origin', str(bare))
+            git(repo, 'fetch', '-q', 'origin')
+            pending = ('approved_by: "pending PR review -- drafted 2026-10-05 '
+                       'by Pat, moved from the shared set zz-set"')
+            rewrite(repo, 'practices/repo-is-memory.md',
+                    lambda t: re.sub(r'^approved_by: .*$', pending, t,
+                                     count=1, flags=re.M))
+            (repo / 'practices' / 'zzz-moved-in.md').write_text(
+                '---\nslug:        zzz-moved-in\napproved_by: "(pending PR '
+                'review)"\n---\n\n## Rule\nMoved in by this change.\n',
+                encoding='utf-8')
+        case('pending-approval-outlives-its-merge', _plant_pending_approval)
+        if 'pending-approval-outlives-its-merge' in planted:
+            _pa = planted['pending-approval-outlives-its-merge'][1]
+            cases.append(('pending-approval-outlives-its-merge: the finding '
+                          'names the practice already on the base branch, '
+                          'never the one the change adds',
+                          'practices/repo-is-memory.md' in _pa
+                          and 'zzz-moved-in' not in _pa))
 
         # session-trailer: the baseline commit carries an explicit "none
         # available" trailer; the plant adds one commit with no trailer at
@@ -60531,6 +60779,8 @@ def main():
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
+    check_bot_authored_commits_are_refused_where_no_person_is_declared()
+    check_harness_drops_inherited_git_repository_variables()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()

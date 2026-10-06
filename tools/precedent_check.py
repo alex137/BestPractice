@@ -8991,6 +8991,75 @@ _GITHUB_REPO_RE = re.compile(
 _UPSTREAM_OWNER_REPO = 'alex137/BestPractice'
 
 
+# The placeholder precedent_move.py and precedent_land.py write into a
+# practice moved or landed in universal, before anyone has approved it.
+PENDING_APPROVAL_RE = re.compile(r'pending PR review', re.I)
+
+
+@check('pending-approval-outlives-its-merge', 'tree',
+       "no practice already on the base branch still says approved_by "
+       "'pending PR review' -- the placeholder precedent_move.py and "
+       "precedent_land.py write into a practice moved or landed in universal, "
+       "meant to last only until its pull request merges",
+       "a practice the change itself adds: its pull request is the review "
+       "still pending, so it passes until it is on the base branch. Whether "
+       "the approval written in its place is true -- only that the "
+       "placeholder is gone. A repository with no base branch to compare "
+       "against (no origin, or a base not fetched) skips.",
+       practice_backed=False,
+       selects_on=('practices/*.md',))
+def _pending_approval_outlives_its_merge(ctx):
+    """2026-10-05: 18 universal practices said approved_by "pending PR
+    review" long after their pull requests had merged. precedent_move.py
+    writes that text for a move into universal and precedent_land.py a
+    shorter one for a landing there; nothing rewrote either after the merge,
+    and a person reading the rule saw it as never approved. The very deep
+    check fixed the text by hand (todo-2026-10-05-very-deep-check-pass-2-
+    findings).
+
+    WHEN IT JUDGES. The placeholder is right while the pull request that
+    brings the practice is open, so a practice the base branch does not
+    have yet is never a finding: the pull request that introduces a moved
+    practice passes. Once the practice is on the base branch its review is
+    over, and every later run that sees the placeholder in this checkout
+    refuses it -- so the fix is one edit, on any branch."""
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ directory')
+    if ctx.range:
+        base = ctx.range.split('...')[0].split('..')[0]
+    else:
+        base = _published_default_branch()
+    if not base:
+        raise NotApplicable('no base branch to compare against: no origin, '
+                            'or none of its branches is the declared base')
+    listed = _git('ls-tree', '-r', '--name-only', base, '--', 'practices/',
+                  cwd=ctx.root)
+    if listed.returncode != 0:
+        raise NotApplicable(f'the base branch {base} could not be read: '
+                            f'{listed.stderr.strip()[:200]}')
+    on_base = set(listed.stdout.split())
+    out = []
+    for f in sorted(practices_dir.glob('*.md')):
+        rel = f'practices/{f.name}'
+        if rel not in on_base:
+            continue
+        head = f.read_text(encoding='utf-8', errors='replace').split('\n---\n', 1)[0]
+        m = re.search(r'^approved_by:\s*(.*)$', head, re.M)
+        if not (m and PENDING_APPROVAL_RE.search(m.group(1))):
+            continue
+        out.append(Finding(
+            rel, f'approved_by still says {m.group(1).strip()[:160]}, but the '
+                 f'practice is already on {base}, so its pull request merged. '
+                 f'Write who approved it and where, in the shape the merged '
+                 f'ones use: "<Name>, drafted <date>, moved from the <level> '
+                 f'set <name>; merged in PR #<n> on <date>". `git log '
+                 f'--diff-filter=A {base} -- {rel}` names the commit that '
+                 f'added it; its pull request is the one that carried that '
+                 f'commit'))
+    return out
+
+
 @check('practice-file-shape', 'tree',
        'each practice file in the engine\'s own catalogue is well-formed on '
        'its own: its slug is its filename and no other file has it; a '

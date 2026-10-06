@@ -36,11 +36,48 @@ section judged a check script by filename alone.
   fix: a bot-author half that refuses the harness's bot addresses even when
   the check stands down, scoped in CI to the pull request's range, run in
   the deep-check workflow's pull-request job, with a planted case.
+
+  **Fixed 2026-10-06, except the workflow step:** the check now has a
+  bot-author half that refuses a commit authored as one of
+  [precedent_session_check.py](../tools/precedent_session_check.py)'s
+  `BOT_EMAILS` (imported, not copied) whether or not a person is declared,
+  takes a range (`--range A..B` or `PRECEDENT_CHECK_RANGE`), and runs alone
+  with `--bot-authors-only`. Planted case:
+  `check_bot_authored_commits_are_refused_where_no_person_is_declared`
+  (fails on the old script: every case came back SKIPPED). The bot commits
+  already on `main` stay as they are.
+
+  **Waiting for Morgan's approval: one step in
+  [deep-check.yml](../.github/workflows/deep-check.yml).** Without it,
+  nothing runs the new half on a pull request. The step goes in the
+  existing `precedent-check-and-sync` job, right after "Set up Python". It
+  adds no job, trigger or run, only a few seconds inside a job that already
+  runs, and the repository is public. Editing a workflow file is his call
+  under [ci-workflow-approved](../practices/ci-workflow-approved.md), so it
+  was not made:
+
+  ```yaml
+        - name: Refuse commits authored by the harness's bot
+          if: github.event_name == 'pull_request'
+          run: python3 tools/checks/check_commit_author.py --bot-authors-only --range "origin/$GITHUB_BASE_REF..HEAD"
+  ```
 - **The "harness check in a linked worktree turns the main clone bare"
   trap has no prevention.** Its gotcha says the leaking call was never
   traced, and it is still live: this run had to forbid worktrees. Trace it,
   and make [verify_harness.py](../tools/verify_harness.py) refuse to start from a linked worktree, with
   a planted case.
+
+  **Fixed 2026-10-06, at the cause rather than by refusing worktrees:** the
+  leak is `GIT_DIR`, which `git bisect run` exports. Every fixture inherited
+  it, so a fixture's `git init --bare` re-initialised the worktree's git
+  directory as bare, in the config the main clone shares. The harness now
+  drops git's repository variables at start. Planted case:
+  `check_harness_drops_inherited_git_repository_variables` (fails on the
+  old harness; its control reproduces the trap without the harness). It
+  does not refuse a linked worktree: Promote and the merge check run the
+  full push check, harness included, in one. The
+  [gotcha](../gotchas/gotcha-2026-10-01-a-harness-check-run-in-a-linked-worktree-turns-the-main-clone-bare.md)
+  carries the trace.
 - **GENERATED FILES reports six false candidates, and will every run.** It
   matches a basename written under any directory and the bare word
   "generated". Match writes rooted at the repo and a real claim ("generated
@@ -79,6 +116,17 @@ section judged a check script by filename alone.
   nothing rewrites it; 18 practices carried it until this run fixed the
   text by hand. A merge-gate check that refuses it on the base branch, or a
   rewrite at landing, is the root fix.
+
+  **Fixed 2026-10-06:** a registered check,
+  `pending-approval-outlives-its-merge` in
+  [precedent_check.py](../tools/precedent_check.py), fails when a practice
+  the base branch already has still says "pending PR review" in this
+  checkout. A practice the change itself adds passes, so the pull request
+  that brings a moved practice is not blocked by its own placeholder. Both
+  writers' comments name it. Planted case:
+  `case('pending-approval-outlives-its-merge', ...)` in
+  `check_precedent_check_fires`, which also asserts the added practice is
+  not named. Without the check, both its runs fail.
 - **The writing and ladder sets differ from what the generator writes
   today in eight files each** (AGENTS.md, MAP.md, GLOSSARY.md, CODEOWNERS,
   precedent.json, precedent-source.json, `tools/generated_files.json`, the

@@ -56,6 +56,12 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+# The harness's own bot addresses: a commit authored as one of these is
+# nobody's. ONE list, read here (rows 3 and 3b) and imported by
+# tools/checks/check_commit_author.py's bot-author half, which refuses such
+# a commit even where no person is declared -- the CI state, where five of
+# them reached main through a merged pull request on 2026-10-02. Both files
+# are in every kind of repo's engine (precedent_vendor_engine.ENGINE_FILES).
 BOT_EMAILS = {'noreply@anthropic.com'}
 
 
