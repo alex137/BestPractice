@@ -215,6 +215,52 @@ def _lost_practices(repo, res, sources, withheld):
     return out
 
 
+def findings_block(problems):
+    """--check's differences under a VIOLATION header, ended by a blank line:
+    the shape precedent_push_check.violation_lines reads, so a push to a
+    working branch is refused only for a difference it brings -- not for a
+    source that moved under it (2026-10-06: a one-line content push in a
+    consumer was refused for exactly that)."""
+    return '\n'.join(['VIOLATION  views differ from a fresh sync',
+                      *(f'  {line}' for line in problems), ''])
+
+
+def _pve():
+    import precedent_vendor_engine
+    return precedent_vendor_engine
+
+
+def _declared_practice_hooks(repo, practices):
+    """-> ([(event, matcher, command)], [notes]) for every `hooks:` entry a
+    practice in force declares, less those this repository declined (the
+    file it runs under declined_ships, or its name under declined_adapters)
+    and those whose script is not on disk to run. A declaration that does
+    not parse is a note naming it, never a guess."""
+    try:
+        cfg = json.loads((pathlib.Path(repo) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    declined = set((cfg.get(pm.DECLINED_SHIPS_KEY) or {}))
+    declined |= {pathlib.PurePosixPath(str(e.get('path'))).name
+                 for e in (cfg.get('declined_adapters') or [])
+                 if isinstance(e, dict) and e.get('path')}
+    entries, notes = [], []
+    for slug, p in sorted(practices.items()):
+        try:
+            hooks = bv.practice_hooks(p['fm'])
+        except ValueError as e:
+            notes.append(f"{slug}: its hooks: declaration was not wired -- {e}")
+            continue
+        for h in hooks:
+            if h['run'] in declined or pathlib.PurePosixPath(h['run']).name in declined:
+                continue
+            if not (pathlib.Path(repo) / h['run']).is_file():
+                continue
+            entries.append((h['event'], h['matcher'], bv.hook_command(h)))
+    return entries, notes
+
+
 def sync(repo, user_config=None, check=False, allow_missing=False,
          allow_removals=False, skip_unresolved=False, for_branch=None,
          allow_rollback=False):
@@ -748,6 +794,27 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     # asked of the plan, never of the disk, because materialize() empties
     # practices/ and tools/checks/ before refilling them and a --check run
     # writes nothing at all.
+    # A hook a practice in force declares (`hooks:`), added to
+    # .claude/settings.json -- or, under --check, reported as a difference
+    # from a fresh sync. Before 2026-10-06 a practice could ship the script
+    # and a check requiring the hook, and nothing wired it: a consumer
+    # failed that check right after a clean sync.
+    hook_entries, hook_notes = _declared_practice_hooks(repo, _live)
+    for note in hook_notes:
+        print(f"precedent_sync_views: {note}", file=sys.stderr)
+    if check:
+        tree_drift += [f".claude/settings.json does not run `{c}` at {e}"
+                       f"{' (' + m + ')' if m else ''}, a hook a practice in "
+                       f"force declares -- a fresh sync adds it"
+                       for e, m, c in _pve().missing_practice_hooks(repo, hook_entries)]
+    else:
+        for c in _pve().add_practice_hooks(repo, hook_entries):
+            print(f"precedent_sync_views: wired `{c}` into "
+                  f".claude/settings.json, a hook a practice in force declares "
+                  f"-- added only, nothing already there was changed. To opt "
+                  f"out, decline the file it runs under declined_ships in "
+                  f"precedent.json.", file=sys.stderr)
+
     planned = {f"practices/{w['slug']}.md" for w in written}
     planned.update(c['path'] for c in checks_written)
     triples = [(p['fm'], p['sections'],
@@ -1109,8 +1176,7 @@ def main():
             problems.insert(0, f"{agents_md} is stale or hand-edited, "
                                 f"drifted from a fresh sync")
         if problems:
-            for line in problems:
-                print(f"  {line}", file=sys.stderr)
+            print(findings_block(problems), file=sys.stderr)
             sys.exit(f"precedent_sync_views --check FAIL: "
                      f"{len(problems)} difference(s) from a fresh sync: a "
                      f"practice source this repository declares changed since "
