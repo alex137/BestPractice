@@ -199,6 +199,15 @@ Found* never counts as retired. Morgan, 2026-10-06 (strength: decided):
 be included that no longer exist and remove them"*, choosing to drop on a
 set's own retirement or GitHub's archived flag, and never on *Not Found*.
 
+**A retired set's own findings are not fixed there.** Its rules live
+elsewhere now, so a finding in one is fixed where the rule lives, or
+recorded and left; the set takes only the edits that retire it. Morgan,
+2026-10-06 (strength: decided): *"you should not make edits to them unless
+the edits relate to their deprecation or graceful deprecation ... We keep on
+going back to editing these files."* The push check refuses the rest
+(`_retired_set_refusal` in
+[tools/precedent_push_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_push_check.py)).
+
 **Current is not the same as CARRIED either, and that is the half nothing
 else here could see.** The freshness gate proves a clone matches **its own
 origin**. A repo can be perfectly current with itself and be running an

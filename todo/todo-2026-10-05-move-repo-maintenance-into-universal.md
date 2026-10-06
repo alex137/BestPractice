@@ -42,6 +42,22 @@ closed:            null
   `light-check` check, with no second copy of the rule. Universal's
   occasion allowance went from 2,250 to 2,500.
 
+**Only the edits that retire it, from 2026-10-06.** Morgan (strength:
+decided): *"We are deprecating repo maintenance and working style ... you
+should not make edits to them unless the edits relate to their deprecation
+or graceful deprecation. Please don't forget this."* A finding in the set is
+fixed where the rule lives now, or recorded here and left. The push check
+refuses any other edit to a set whose `precedent-source.json` says it is
+retired.
+
+The set's pre-staging already carries one larger edit from earlier the
+same day, made by the very deep check's fix pass before this rule was
+said: its default-branch rule and check rewritten to match universal's
+trunk rule. It stays, as graceful retirement: a shared copy wins over
+universal's by slug, so until each repository that still declares the set
+runs Update Vendors, the old copy would hold it to the name `main` against
+universal's rule. Nothing further goes into that copy.
+
 ## Proposed
 
 Once the blocker clears, run `precedent_move.py --dedupe-only` for each of
