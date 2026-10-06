@@ -12996,6 +12996,75 @@ def check_lint_runs_the_hosts_shim():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
+    """An open item about a fix in another repository has to link the pull
+    request that makes it (practice: todo-is-a-handoff, 2026-10-06: in one
+    consumer four such items sat for one to two weeks, each an hour's fix).
+    doc_lint refuses one at the commit; it leaves alone the same item with a
+    PR link, an item blocked on an outside quote, and a closed item."""
+    import tempfile, shutil
+    name = 'doc_lint refuses an open item waiting on an upstream fix'
+    env = _fixture_git_env()
+    head = ('---\nslug: {slug}\nkind: manual\nstatus: {status}\n'
+            'blocked_on: {blocked}\nnoted: 2026-10-06\n---\n## What\n\n{body}\n')
+    items = {
+        'vendored-path': ('open', 'null', 'The check in tools/doc_lint.py '
+                          'misreads a fence; needs a change upstream.', True),
+        'with-pr-link': ('open', 'null', 'The check in tools/doc_lint.py '
+                         'misreads a fence; fixed in '
+                         'https://github.com/example/Engine/pull/12, waiting '
+                         'on its review.', False),
+        'outside-quote': ('open', 'vendor quotes from two cell makers',
+                          'Needs source access to example.com for the '
+                          'price sheet.', False),
+        'closed': ('done', 'null', 'The check in tools/doc_lint.py misread '
+                   'a fence.', False),
+        'source-in-reason': ('open', 'push access to some-set', 'A rule '
+                             'there is worded wrong.', True),
+    }
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'precedent_engine_freshness.py', 'precedent_resolve.py'):
+            shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'source_repo': 'https://github.com/example/Engine',
+             'source_branch': 'main', 'source_commit': 'x',
+             'files': ['doc_lint.py']}))
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'some-set', 'path': '../some-set'}]}))
+        (repo / 'todo').mkdir()
+        for slug, (status, blocked, body, _fires) in items.items():
+            (repo / 'todo' / f'todo-2026-10-06-{slug}.md').write_text(
+                head.format(slug=slug, status=status, blocked=blocked, body=body))
+        for slug, (_s, _b, _body, fires) in items.items():
+            rel = f'todo/todo-2026-10-06-{slug}.md'
+            r = subprocess.run([sys.executable, 'tools/doc_lint.py', rel],
+                               cwd=repo, capture_output=True, text=True, env=env)
+            fired = (r.returncode == 1 and 'WAITING ON AN UPSTREAM FIX' in r.stdout
+                     and 'tools/upstream_fix.py' in r.stdout)
+            quiet = r.returncode == 0 and 'UPSTREAM FIX' not in r.stdout
+            cases.append((f'{slug}: {"fires" if fires else "passes"}',
+                          fired if fires else quiet))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_upstream_fix_sets_up_the_fix_in_the_source():
+    """tools/upstream_fix.py PATH, the one command the doc_lint finding above
+    names: on a planted source repo, its clone and a consumer vendoring one
+    file, it opens a branch in the clone off the landing branch, never edits
+    the copy, refuses a file of the consumer's own and a dirty clone."""
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'upstream_fix.py'),
+                        '--self-check'], capture_output=True, text=True,
+                       env=_fixture_git_env())
+    check('upstream_fix.py sets up the fix in the source (its --self-check)',
+          r.returncode == 0, (r.stdout + r.stderr)[-600:])
+
+
 def check_lint_flags_a_table_with_no_render():
     """doc_lint check 7 (practice `tabular-shared-renderer`): a document
     whose widest table has RENDER_MIN_COLUMNS+ columns and is not in the
@@ -63175,6 +63244,8 @@ def main():
     check_acronym_scan_skips_wrapped_code_spans()
     check_lint_flags_a_table_with_no_render()
     check_lint_runs_the_hosts_shim()
+    check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
+    check_upstream_fix_sets_up_the_fix_in_the_source()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()

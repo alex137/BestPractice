@@ -163,10 +163,12 @@ def _normalize_level(level):
                                       str(level or '').strip().lower())
 
 
-def declared_sources(root):
+def declared_sources(root, user=True):
     """-> (sources, notes): every source precedent.json declares plus the
     person's own individual set from their user config, each as
-    {level, name, path (resolved), repo (optional)}.
+    {level, name, path (resolved), repo (optional)}. user=False leaves the
+    user config out: what the repo itself declares, the same on every
+    machine.
 
     Deliberately NOT precedent_resolve.load_config(): that call self-heals
     (it may clone a missing source), and a freshness notice that clones
@@ -193,7 +195,7 @@ def declared_sources(root):
                 sources.append(src)
     user_cfg = pathlib.Path(os.environ.get(USER_CONFIG_ENV,
                                            DEFAULT_USER_CONFIG)).expanduser()
-    if user_cfg.is_file():
+    if user and user_cfg.is_file():
         cfg, why = _read_json(user_cfg)
         if cfg is None:
             notes.append(why)
@@ -345,6 +347,157 @@ def collect_targets(root='.'):
                                     'nor a git clone is there -- its practices '
                                     'are absent this session, not merely stale'})
     return rows
+
+
+# --------------------------------------------------------------------------
+# Which source a path in this repo was copied from (2026-10-06).
+#
+# A session that hits a bug in a vendored file has to fix it where the file
+# comes from, not here (practice: upstream-fix). The two tools that act on
+# that -- doc_lint.py's check on an open item that is really an upstream
+# fix, and upstream_fix.py, which sets the fix up in the source's clone --
+# both need to know which paths here are copies and of what. The answer is
+# the same manifests and declarations collect_targets() reads above, so it
+# is worked out here, once.
+
+# Fallbacks for a tree whose vendoring tool is not importable; the live
+# values are precedent_vendor_engine.HOOK_SOURCE_DIR / HOOK_DEST_DIR.
+_HOOK_DIRS_FALLBACK = ('templates/harness/claude-code/hooks', '.claude/hooks')
+
+
+def _hook_dirs():
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_vendor_engine as _pve
+        return _pve.HOOK_SOURCE_DIR, _pve.HOOK_DEST_DIR
+    except Exception:                                        # noqa: BLE001
+        return _HOOK_DIRS_FALLBACK
+
+
+def _repo_basename(repo):
+    """'https://github.com/o/Name.git' or 'Name' -> 'Name'."""
+    return str(repo or '').rstrip('/').rsplit('/', 1)[-1].removesuffix('.git')
+
+
+def _source_clone(root, src_path, repo):
+    """-> the local clone a fix to `repo` is made in, or None: the source's
+    declared path when that is a git work tree outside this repo (a live
+    sibling clone), else a clone named after the repository beside this
+    repo, the layout INSTALL.md and add_repo both produce."""
+    root = pathlib.Path(root).resolve()
+    cands = []
+    if src_path is not None and not pathlib.Path(src_path).resolve().is_relative_to(root):
+        cands.append(pathlib.Path(src_path))
+    if _repo_basename(repo):
+        cands.append(root.parent / _repo_basename(repo))
+    for c in cands:
+        if _live_clone(c, root) is not None:
+            return c.resolve()
+    return None
+
+
+def vendored_entries(root='.'):
+    """-> list of {local, upstream, source, repo, branch, clone}: one per
+    vendored engine file (`local` a file path) and one per vendored tree
+    (`local` a prefix ending in '/'). `upstream` is the matching path in the
+    source repository (a prefix for a tree). `repo`, `branch` and `clone`
+    are None when nothing here records them. Never raises."""
+    root = pathlib.Path(root).resolve()
+    out = []
+    manifest, _ = read_manifest(root)
+    eng_url = eng_branch = None
+    if isinstance(manifest, dict):
+        eng_url = manifest.get('source_repo')
+        eng_branch = manifest.get('source_branch')
+        clone = _source_clone(root, None, eng_url)
+        hook_src, hook_dest = _hook_dirs()
+        for names, here, there in ((manifest.get('files'), 'tools', 'tools'),
+                                   (manifest.get('hook_files'), hook_dest, hook_src)):
+            for n in names or []:
+                out.append({'local': f'{here}/{n}', 'upstream': f'{there}/{n}',
+                            'source': 'engine', 'repo': eng_url,
+                            'branch': eng_branch, 'clone': clone})
+    sources, _ = declared_sources(root, user=False)
+    seen = set()
+    for src in sources:
+        p = src['path']
+        if src['level'] == 'repo-local' or p == root or not p.is_relative_to(root):
+            continue
+        local = p.relative_to(root).as_posix().rstrip('/') + '/'
+        url, branch = src.get('repo'), None
+        mp = _vendored_manifest_path(root, src)
+        m, _ = _read_json(mp) if mp.is_file() else (None, None)
+        up = (m or {}).get('upstream') if isinstance(m, dict) else None
+        if isinstance(up, dict) and up.get('repo'):
+            url, branch = up['repo'], up.get('branch')
+        elif (p / CATALOGUE_SYNC).is_file():
+            url, branch = eng_url, eng_branch
+        seen.add(local)
+        out.append({'local': local, 'upstream': '', 'source': src['name'],
+                    'repo': url, 'branch': branch,
+                    'clone': _source_clone(root, None, url)})
+    # Anything else the one authority on mirrors names (a section 1 tree
+    # with no source declared for it) is a copy too, of the universal tree.
+    try:
+        import precedent_resolve as _pr
+        prefixes = _pr.mirrored_prefixes(root)
+    except Exception:                                        # noqa: BLE001
+        prefixes = ()
+    m, _ = _read_json(root / 'process' / 'manifest.json')
+    up = (m or {}).get('upstream') if isinstance(m, dict) else None
+    up = up if isinstance(up, dict) else {}
+    for local in prefixes:
+        if local not in seen:
+            url = up.get('repo') or eng_url
+            out.append({'local': local, 'upstream': '', 'source': 'precedent',
+                        'repo': url, 'branch': up.get('branch') or eng_branch,
+                        'clone': _source_clone(root, None, url)})
+    return out
+
+
+def origin_of(root, rel):
+    """-> the vendored_entries() row `rel` (a repo-relative path) was copied
+    from, with `upstream` resolved to that file's path in the source, or
+    None when `rel` is this repo's own."""
+    rel = str(rel).replace('\\', '/')
+    while rel.startswith('./'):
+        rel = rel[2:]
+    best, depth = None, -1
+    for e in vendored_entries(root):
+        if e['local'].endswith('/'):
+            if rel.startswith(e['local']) and len(e['local']) > depth:
+                best = dict(e, local=rel,
+                            upstream=e['upstream'] + rel[len(e['local']):])
+                depth = len(e['local'])
+        elif rel == e['local']:
+            return dict(e)
+    return best
+
+
+def source_mentions(root='.'):
+    """-> the strings that name, in prose, a repository this repo takes
+    something from: each declared shared or individual set's name, and the
+    name and github.com/<owner>/<repo> form of every repository a vendored
+    path comes from. The universal source's own `name` is left out: it is a
+    common word, and its repository is named through the engine manifest."""
+    root = pathlib.Path(root).resolve()
+    terms = set()
+    sources, _ = declared_sources(root, user=False)
+    repos = [e['repo'] for e in vendored_entries(root)]
+    for src in sources:
+        if src['level'] == 'repo-local' or src['path'] == root:
+            continue
+        if src['level'] != 'universal':
+            terms.add(src['name'])
+        repos.append(src.get('repo'))
+    for r in repos:
+        if not r:
+            continue
+        terms.add(_repo_basename(r))
+        if 'github.com/' in r:
+            terms.add('github.com/' + r.split('github.com/', 1)[1]
+                      .rstrip('/').removesuffix('.git'))
+    return sorted(t for t in terms if t)
 
 
 # --------------------------------------------------------------------------
