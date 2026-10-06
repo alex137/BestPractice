@@ -40,7 +40,6 @@ not vendored here, 3 the source is known but no branch could be made (no
 clone, a dirty clone, a fetch that failed) -- the output says which.
 """
 import argparse
-import datetime
 import pathlib
 import subprocess
 import sys
@@ -75,11 +74,8 @@ def landing_branch(clone, recorded):
 def _today():
     """The person's date, never the container's (practice:
     timestamps-carry-offset)."""
-    try:
-        import precedent_time
-        return precedent_time.today()
-    except Exception:                                        # noqa: BLE001
-        return datetime.datetime.now().astimezone().date().isoformat()
+    import precedent_time
+    return precedent_time.today()
 
 
 def branch_name(clone, upstream_path):
