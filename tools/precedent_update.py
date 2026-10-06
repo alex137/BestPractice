@@ -403,6 +403,32 @@ def removed_links_step(rep, out):
                            f'({line[3]}). Repoint it or remove it')
 
 
+def retired_sources_step(repo, rep):
+    """Drop every declared set that says it is retired, or that GitHub
+    reports archived, when every active rule it holds is in force in another
+    declared source; keep the rest and name the rule each would lose.
+    Morgan, 2026-10-06 (strength: decided): "have update vendors and very
+    deep check see if any repos are declared to be included that no longer
+    exist and remove them", option C. GitHub's "Not Found" is a note and
+    never a drop: it is also what lost access looks like."""
+    archived, notes = pve.archived_declared_sources(repo)
+    dropped, kept = pve.drop_retired_sources(repo, archived)
+    for name, path, why in dropped:
+        rep.step('retired set', f'{name} ({path}) is no longer declared in '
+                 f'precedent.json: {why}, and every active rule it held is in '
+                 f'force in another declared source')
+    for name, path, why, lost in kept:
+        rep.leave(f'precedent.json source {name!r}',
+                  f'{why}, but {", ".join(lost)} is in force nowhere else, '
+                  f'so it stays declared -- move those rules, or decide to let '
+                  f'them go, then run Update Vendors again')
+    if notes:
+        rep.step('retired set', f'{len(notes)} declared set(s) could not be '
+                 f'asked on GitHub whether they are archived, so they stay '
+                 f'declared; a set that marks itself retired is still found '
+                 f'(first: {notes[0]})')
+
+
 def renamed_sources_step(repo, rep, engine_out):
     """Repoint every precedent-team-* source to its precedent-shared-* name,
     path and level, from THIS copy of the engine -- a consumer whose own
@@ -2357,6 +2383,7 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue pin', f'repointed to {follow} '
                  f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
+    retired_sources_step(repo, rep)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():

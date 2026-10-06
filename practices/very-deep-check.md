@@ -187,6 +187,18 @@ ever land in. Ask with a credential or not at all: unauthenticated, a
 private repository and a deleted one both answer *Not Found*, so the run
 must say it learned nothing rather than report a repo as gone.
 
+**A declared set that is RETIRED is reported in its own section, RETIRED
+SETS**, for this checkout and every source in force: one that says so in
+its `precedent-source.json`, or that the liveness call above found
+archived. A set whose active rules are all in force elsewhere is a finding
+with its one remedy, `python3 tools/precedent_vendor_engine.py drop-retired
+.`, run in that repo on its working branch; one still holding a rule found
+nowhere else is a finding that names the rule, and stays declared. *Not
+Found* never counts as retired. Morgan, 2026-10-06 (strength: decided):
+*"have update vendors and very deep check see if any repos are declared to
+be included that no longer exist and remove them"*, choosing to drop on a
+set's own retirement or GitHub's archived flag, and never on *Not Found*.
+
 **Current is not the same as CARRIED either, and that is the half nothing
 else here could see.** The freshness gate proves a clone matches **its own
 origin**. A repo can be perfectly current with itself and be running an
@@ -2610,6 +2622,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-01, Morgan (strength: decided)**, so Pass 3 measures every always-loaded surface against its target as well as its ceiling, and over target runs a reduction pass with its practice-by-practice review of the occasion index and resident block -- "this reduction pass is great; if it's not part of Very Deep Check, it absolutely should be." -- after the first such review found about 1,040 tokens of room that the menu's lossless moves could not. The SESSION LOAD section prints an OVER TARGET finding for it.
 - **Rewritten 2026-10-02, Morgan (strength: decided)**, so the branch sweep and its tiers are described without the ladder's words, which now belong to a set a person brings (spec/LADDER_OPT_IN_PLAN.md). That set's copy of this practice, same slug, keeps the earlier wording for those people, so a change here is made there as well.
 
+- **Extended 2026-10-06, Morgan (strength: decided)**, with the RETIRED SETS section: a declared set that says it is retired, or that GitHub reports archived, is reported with the command that drops it, and Update Vendors drops it on its own -- only when no active rule would be lost, and never on "Not Found". He chose that option ("C") from three put to him.
 - **Extended 2026-10-06, Morgan (strength: decided)**, so the review page is always published as an Artifact and never handed over as an HTML file, after a run sent it as an attached file: "That HTML doc - give me that info as an artifact - and update very deep check so that in the future, that is always an artifact, not a HTML file." Both tools that write or announce the page now say so in what they print.
 
 ## Install

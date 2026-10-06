@@ -211,11 +211,24 @@ Five subcommands:
                                   RETIRED_CI_WORKFLOW_FILES entry the
                                   manifest still carries.
 
+  drop-retired [REPO] [--dry-run] [--offline]
+                                 Clone-free. Drop from REPO's precedent.json
+                                  every shared or individual set that says
+                                  it is retired (`"retired"` in its own
+                                  precedent-source.json) or that GitHub
+                                  reports archived -- but only when every
+                                  active rule it holds is in force in
+                                  another declared source; otherwise it is
+                                  kept and the rule is named. "Not Found"
+                                  is reported, never acted on. Update
+                                  Vendors runs this on its own.
+
 Run (from an already-vendored repo's own checkout, either kind):
   python3 tools/precedent_vendor_engine.py fresh
   python3 tools/precedent_vendor_engine.py status  ../BestPractice
   python3 tools/precedent_vendor_engine.py refresh ../BestPractice
   python3 tools/precedent_vendor_engine.py record-ci
+  python3 tools/precedent_vendor_engine.py drop-retired .
 
 Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
@@ -3672,6 +3685,228 @@ def repoint_renamed_sources(dest_root):
     return done
 
 
+# A practice set that has been folded away says so in its own
+# precedent-source.json: {"retired": {"date": "YYYY-MM-DD", "folded_into":
+# [...], "reason": "..."}}. Morgan, 2026-10-06 (strength: decided), choosing
+# option C: Update Vendors and the very deep check drop a declared set that
+# says it is retired, or that GitHub reports archived; a set GitHub only
+# answers "Not Found" for is reported and never dropped, since that is also
+# what lost access looks like. Nothing is dropped while one of the set's
+# active practices is in force nowhere else: that set is kept, and the rule
+# it would lose is named (practice: repair-cannot-discard-work).
+RETIRED_KEY = 'retired'
+_STATUS_ACTIVE_RE = re.compile(r'^status:\s*["\']?active["\']?\s*$', re.M)
+
+
+def source_retirement(clone):
+    """-> the retirement a set declares in its own precedent-source.json, as
+    a dict (possibly empty), or None when it declares none or cannot be
+    read. `"retired": true` counts, with nothing said about where it went."""
+    try:
+        data = json.loads((pathlib.Path(clone) / 'precedent-source.json')
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    r = data.get(RETIRED_KEY) if isinstance(data, dict) else None
+    if r is True:
+        return {}
+    return r if isinstance(r, dict) else None
+
+
+def _active_practice_slugs(clone):
+    """-> {slug} of practices/*.md with `status: active` in a source tree,
+    or None when it has no practices/ to read."""
+    d = pathlib.Path(clone) / 'practices'
+    if not d.is_dir():
+        return None
+    out = set()
+    for f in d.glob('*.md'):
+        try:
+            head = f.read_text(encoding='utf-8', errors='replace')[:4000]
+        except OSError:
+            continue
+        if head.startswith('---') and _STATUS_ACTIVE_RE.search(head.split('\n---', 1)[0]):
+            out.add(f.stem)
+    return out
+
+
+def retired_sources(dest_root, archived=()):
+    """-> [(name, path, why, uncarried)] for every shared or individual
+    source `dest_root`'s precedent.json declares that is retired: it says so
+    itself (source_retirement), or its name is in `archived` (what GitHub
+    reported, which only the caller can ask). `uncarried` is the sorted list
+    of its active practices that no OTHER declared source carries as active;
+    empty means dropping the declaration loses no rule. A source whose clone
+    cannot be read declares nothing, so it is never listed here."""
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    if not isinstance(sources, list):
+        return []
+
+    def where(s):
+        return (root / pathlib.Path(str(s.get('path') or '')).expanduser()).resolve()
+
+    out = []
+    for s in sources:
+        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+            continue
+        name, clone = str(s.get('name') or ''), where(s)
+        ret = source_retirement(clone)
+        if ret is not None:
+            why = 'it says it is retired'
+            if ret.get('date'):
+                why += f' (since {ret["date"]}'
+                why += (f', folded into {", ".join(map(str, ret["folded_into"]))})'
+                        if ret.get('folded_into') else ')')
+        elif name in set(archived):
+            why = 'GitHub reports it archived'
+        else:
+            continue
+        mine = _active_practice_slugs(clone) or set()
+        elsewhere = set()
+        for o in sources:
+            if isinstance(o, dict) and o is not s and where(o) != clone:
+                elsewhere |= _active_practice_slugs(where(o)) or set()
+        out.append((name, str(s.get('path') or ''), why,
+                    sorted(mine - elsewhere)))
+    return out
+
+
+def drop_retired_sources(dest_root, archived=(), apply=True):
+    """Remove from precedent.json each retired source (retired_sources)
+    whose active practices are all carried by another declared source.
+    -> (dropped, kept): dropped [(name, path, why)], kept [(name, path, why,
+    uncarried)] -- a retired set still holding a rule nothing else carries
+    stays declared, and the caller names that rule. With apply=False,
+    nothing is written: what would happen is returned."""
+    found = retired_sources(dest_root, archived)
+    dropped = [(n, p, w) for n, p, w, u in found if not u]
+    kept = [f for f in found if f[3]]
+    if not dropped or not apply:
+        return dropped, kept
+    path = pathlib.Path(dest_root) / 'precedent.json'
+    text = path.read_text(encoding='utf-8')
+    cfg = json.loads(text)
+    names = {n for n, _, _ in dropped}
+    cfg['sources'] = [s for s in cfg['sources']
+                      if not (isinstance(s, dict) and s.get('name') in names)]
+    # Each object cut out where it stands, so a hand-kept file keeps its
+    # layout and comments; rewritten whole only when that does not give back
+    # exactly the intended object.
+    new_text = text
+    for n in names:
+        m = re.search(r'"name"\s*:\s*' + re.escape(json.dumps(n)), new_text)
+        if not m:
+            continue
+        lo = new_text.rfind('{', 0, m.start())
+        hi = new_text.find('}', m.end())
+        if lo < 0 or hi < 0:
+            continue
+        end = hi + 1
+        tail = re.match(r'[ \t]*,[ \t]*\n?', new_text[end:])
+        if tail:
+            # Not the last entry: the whole line(s) and its comma go.
+            start = new_text.rfind('\n', 0, lo) + 1
+            end += tail.end()
+        else:
+            # The last entry: the comma before it goes instead.
+            before = re.search(r',\s*$', new_text[:lo])
+            start = before.start() if before else lo
+        new_text = new_text[:start] + new_text[end:]
+    try:
+        ok = json.loads(new_text) == cfg
+    except ValueError:
+        ok = False
+    if not ok:
+        new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
+    path.write_text(new_text, encoding='utf-8')
+    return dropped, kept
+
+
+_GH_SLUG_RE = re.compile(r'github\.com[:/]([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git)?/?$')
+
+
+def archived_declared_sources(dest_root):
+    """-> (archived {name}, notes [str]). Asks GitHub, one call per declared
+    shared or individual source with a github.com origin, whether it is
+    archived. Never raises. A source GitHub cannot answer for -- no
+    credential, Not Found, no network -- is a note, never "archived": Not
+    Found is also what lost access to a private repository looks like, so it
+    is reported and never acted on (Morgan, 2026-10-06)."""
+    archived, notes = set(), []
+    try:
+        import github_budget as _gb
+    except Exception:                                           # noqa: BLE001
+        return archived, ['could not ask GitHub: tools/github_budget.py did '
+                          'not import']
+    root = pathlib.Path(dest_root)
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return archived, notes
+    for s in cfg.get('sources') or []:
+        if not isinstance(s, dict) or s.get('level') not in ('shared', 'individual'):
+            continue
+        name = str(s.get('name') or '')
+        clone = root / pathlib.Path(str(s.get('path') or '')).expanduser()
+        url = _rev_text(clone, 'remote', 'get-url', 'origin')
+        m = _GH_SLUG_RE.search(url or '')
+        if not m:
+            continue
+        data, err = _gb.call(f'repos/{m.group(1)}/{m.group(2)}')
+        if err or not isinstance(data, dict) or 'full_name' not in data:
+            msg = err or str((data or {}).get('message') or 'no answer')
+            notes.append(f'{name}: GitHub could not say whether it is archived '
+                         f'({msg}) -- left declared; "Not Found" can mean the '
+                         f'access is gone, not the repository')
+            continue
+        if data.get('archived'):
+            archived.add(name)
+    return archived, notes
+
+
+def _rev_text(repo_dir, *args):
+    """-> stdout of `git -C repo_dir <args>`, stripped, or '' on failure."""
+    try:
+        r = subprocess.run(['git', '-C', str(repo_dir), *args],
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    return r.stdout.strip() if r.returncode == 0 else ''
+
+
+def _cli_drop_retired(args):
+    """`drop-retired [REPO] [--dry-run] [--offline]`: drop every declared set
+    that says it is retired, or that GitHub reports archived, when no rule it
+    holds would be lost. --offline skips GitHub; --dry-run writes nothing."""
+    dry = '--dry-run' in args
+    offline = '--offline' in args
+    rest = [a for a in args if a not in ('--dry-run', '--offline')]
+    repo = pathlib.Path(rest[0] if rest else '.').resolve()
+    archived, notes = (set(), []) if offline else archived_declared_sources(repo)
+    dropped, kept = drop_retired_sources(repo, archived, apply=not dry)
+    verb = 'would drop' if dry else 'dropped'
+    for n, p, why in dropped:
+        print(f'{verb} {n} ({p}): {why}; every active rule it held is in force '
+              f'in another declared source')
+    for n, p, why, lost in kept:
+        print(f'KEPT {n} ({p}): {why}, but these active practices are in force '
+              f'nowhere else, so dropping it would lose them: {", ".join(lost)}')
+    for note in notes:
+        print(f'note: {note}')
+    if not (dropped or kept):
+        print('no declared set says it is retired'
+              + ('' if offline else
+                 ', and GitHub reports none archived' if not notes else
+                 f', and GitHub reports none archived of those it could '
+                 f'answer for ({len(notes)} it could not, above)'))
+    return 0
+
+
 _IDENTITY_RE = re.compile(
     r'git\s+config\s+(?:--(?:global|local)\s+)?user\.(?:name|email)\s+'
     r'["\']?[^"\'$\s-]')
@@ -7082,6 +7317,8 @@ def main():
         return fresh()
     if args and args[0] == 'record-ci':
         return _cli_record_ci(args[1:])
+    if args and args[0] == 'drop-retired':
+        return _cli_drop_retired(args[1:])
     if len(args) < 2 or args[0] not in ('seed', 'status', 'refresh'):
         sys.exit(__doc__)
     if args[0] == 'seed':

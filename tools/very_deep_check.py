@@ -6122,6 +6122,10 @@ def _referenced_repos(repo_dir):
 # commit. Before, a rename was reported and left to whoever read the line,
 # and only names in always-loaded instructions files were ever asked about.
 RENAMED = {}
+# Declared sets GitHub reports archived this run, by source name, for the
+# RETIRED SETS section (Morgan, 2026-10-06: drop a set that is retired or
+# archived, never one GitHub merely cannot find).
+ARCHIVED_SOURCES = set()
 PRIVATE_RENAMED = set()
 
 
@@ -6989,6 +6993,9 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
         checked += 1
         before = len(findings)
         if data.get('archived'):
+            _named = re.search(r"'([^']+)'", label)
+            if _named:
+                ARCHIVED_SOURCES.add(_named.group(1))
             findings.append(
                 f'{label} ({owner}/{name}) is ARCHIVED. It clones, fetches '
                 f'and reads exactly like a live repository and refuses every '
@@ -8345,6 +8352,58 @@ def _main(box):
     elif led and skip_liveness:
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
+
+    # RETIRED SETS: a declared set that says it is retired, or that GitHub
+    # reported archived above, in this checkout and in every source's own
+    # precedent.json. Morgan, 2026-10-06 (strength: decided), option C: the
+    # declaration is dropped when every active rule the set holds is in
+    # force elsewhere, and kept, with the rule named, when one is not. This
+    # reports; the drop is the one command it prints, run on the working
+    # branch like any other fix (and Update Vendors makes it on its own).
+    if not as_json:
+        if led:
+            led.start('RETIRED SETS -- declared, but retired or archived')
+        print("RETIRED SETS -- declared, but retired or archived\n")
+        _rs_found = 0
+        try:
+            import precedent_vendor_engine as _rs_pve
+        except Exception:                                    # noqa: BLE001
+            _rs_pve = None
+            print('  note: precedent_vendor_engine did not import, so nothing '
+                  'was checked')
+        _rs_seen = set()
+        for _lbl, _pth in ([('this checkout', repo_root)] + [
+                (f"{s['level']} source {s['name']}", s['path'])
+                for s in data['sources']] if _rs_pve else []):
+            try:
+                _key = pathlib.Path(_pth).resolve()
+            except (OSError, RuntimeError):
+                continue
+            if _key in _rs_seen:
+                continue
+            _rs_seen.add(_key)
+            _drop, _keep = _rs_pve.drop_retired_sources(
+                _key, ARCHIVED_SOURCES, apply=False)
+            for _n, _p, _why in _drop:
+                _rs_found += 1
+                print(f'  FINDING: {_lbl} declares {_n} ({_p}): {_why}. Every '
+                      f'active rule it holds is in force in another declared '
+                      f'source, so drop it -- in that repo, on its working '
+                      f'branch: python3 tools/precedent_vendor_engine.py '
+                      f'drop-retired .')
+            for _n, _p, _why, _lost in _keep:
+                _rs_found += 1
+                print(f'  FINDING: {_lbl} declares {_n} ({_p}): {_why}, but '
+                      f'{", ".join(_lost)} is in force nowhere else, so it '
+                      f'must stay declared until those rules move or are let go.')
+        if _rs_pve and not _rs_found:
+            print('  none -- no declared set says it is retired'
+                  + (', and GitHub reported none archived' if not skip_liveness
+                     else "; GitHub's archived flag was not asked "
+                          "(--skip-liveness)"))
+        print()
+        if led:
+            led.end(findings=_rs_found)
 
     # LIVE VERSUS LANDING: what this run reads, against what is live, and
     # what the landing branch already carries -- see _live_vs_landing.

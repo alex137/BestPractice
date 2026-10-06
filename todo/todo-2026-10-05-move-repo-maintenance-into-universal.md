@@ -67,3 +67,10 @@ set's older `default-branch` overriding universal's here.
 Still open: deduplicate the set's copies, take the set out of the other
 repositories that declare it (the individual and writing sets among them),
 and archive the repository, which is Morgan's call.
+
+**How the declarations come out, from 2026-10-06.** Once the set's copies
+are deduplicated, add `"retired": {"date": ..., "folded_into": [...]}` to
+the set's own `precedent-source.json`. Update Vendors then drops the set
+from every repository that declares it, on that repository's next update,
+and the very deep check reports any still declaring it -- in both cases
+only once every active rule it held is in force elsewhere.

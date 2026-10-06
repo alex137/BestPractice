@@ -7907,6 +7907,90 @@ def check_session_trailer_check_ships_with_the_engine():
           f'push carries ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_retired_sets_are_dropped_only_when_nothing_is_lost():
+    """Update Vendors and the very deep check drop a declared set that says it
+    is retired, or that GitHub reports archived -- and only when every active
+    rule it holds is in force in another declared source (Morgan,
+    2026-10-06, option C). A set GitHub merely cannot find is never dropped:
+    that is also what lost access looks like. Planted on a fixture
+    repository with a universal source and three sets."""
+    import inspect
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    import precedent_update as _pu
+    import very_deep_check as _vdc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-retired-'))
+    cases = []
+
+    def practice(where, slug):
+        d = fx / where / 'practices'
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f'{slug}.md').write_text(f'---\nslug: {slug}\nstatus: active\n---\n',
+                                      encoding='utf-8')
+
+    def manifest(where, retired=None):
+        data = {'name': where}
+        if retired is not None:
+            data['retired'] = retired
+        (fx / where / 'precedent-source.json').write_text(json.dumps(data),
+                                                          encoding='utf-8')
+    try:
+        (fx / 'repo').mkdir()
+        practice('uni', 'kept-rule')
+        practice('folded', 'kept-rule')
+        practice('orphaning', 'only-here')
+        practice('live', 'live-rule')
+        manifest('folded', {'date': '2026-10-06', 'folded_into': ['universal']})
+        manifest('orphaning', True)
+        manifest('live')
+        cfg = ('{\n  "format_version": 1,\n  "_note": "kept as written",\n'
+               '  "sources": [\n'
+               '    {"level": "universal", "name": "uni", "path": "../uni"},\n'
+               '    {"level": "shared", "name": "folded", "path": "../folded"},\n'
+               '    {"level": "shared", "name": "orphaning", "path": "../orphaning"},\n'
+               '    {"level": "shared", "name": "live", "path": "../live"}\n'
+               '  ]\n}\n')
+        pj = fx / 'repo' / 'precedent.json'
+        pj.write_text(cfg, encoding='utf-8')
+        dropped, kept = _pve.drop_retired_sources(fx / 'repo', apply=False)
+        cases.append(('a dry run writes nothing', pj.read_text(encoding='utf-8') == cfg))
+        dropped, kept = _pve.drop_retired_sources(fx / 'repo')
+        names = [s['name'] for s in json.loads(pj.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a set that says it is retired, whose rules universal '
+                      'carries, is dropped', 'folded' not in names
+                      and [d[0] for d in dropped] == ['folded']))
+        cases.append(('a retired set holding a rule nothing else carries is '
+                      'kept, and the rule is named',
+                      'orphaning' in names and kept
+                      and kept[0][0] == 'orphaning' and kept[0][3] == ['only-here']))
+        cases.append(('a set that says nothing is left alone', 'live' in names))
+        cases.append(('the file keeps its own comments and layout',
+                      '"_note": "kept as written"' in pj.read_text(encoding='utf-8')))
+        practice('uni', 'live-rule')
+        dropped, _k = _pve.drop_retired_sources(fx / 'repo', archived={'live'})
+        names = [s['name'] for s in json.loads(pj.read_text(encoding='utf-8'))['sources']]
+        cases.append(('a set GitHub reports archived is dropped once its rules '
+                      'are carried -- here the last entry in the list',
+                      'live' not in names and pj.read_text(encoding='utf-8').count('{') == 3))
+        cases.append(('archived_declared_sources never turns an unanswered '
+                      'question into "archived"',
+                      'Not Found' in inspect.getsource(_pve.archived_declared_sources)
+                      and "archived.add(name)" in inspect.getsource(
+                          _pve.archived_declared_sources)))
+        cases.append(('Update Vendors runs the drop', 'retired_sources_step(repo, rep)'
+                      in inspect.getsource(_pu.update)))
+        cases.append(('the very deep check reports it and writes nothing',
+                      'RETIRED SETS' in inspect.getsource(_vdc)
+                      and 'ARCHIVED_SOURCES, apply=False' in inspect.getsource(_vdc)))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'a retired or archived set is dropped only when no rule is lost '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60222,6 +60306,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()
