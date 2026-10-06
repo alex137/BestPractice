@@ -7838,6 +7838,75 @@ def check_orphan_scan_reads_who_claims_a_script():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_session_trailer_check_ships_with_the_engine():
+    """The commit-trailer check is the engine's own, not a shared set's.
+
+    Until 2026-10-06 check_session_trailer.py lived only in the
+    repository-maintenance set, so folding that set away would have stopped
+    every repository checking trailers, silently (very deep check,
+    2026-10-05). Morgan, 2026-10-06: the link back to the session goes on
+    every commit, except where there is none to give -- a person committing
+    without an AI assistant, or a link hidden from the session -- and then
+    the trailer says so. Planted, against the engine's own copy run on a
+    fixture repository: a commit with no trailer fires; `Session:`,
+    `Claude-Session:` and an explicit `Session: none available (...)` pass;
+    a commit origin already has is not judged again."""
+    import shutil as _sh
+    import tempfile as _tf
+    script = ROOT / 'tools' / 'checks' / 'check_session_trailer.py'
+    cases = []
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-trailer-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    env.pop('PRECEDENT_CHECK_RANGE', None)
+
+    def git(*args):
+        return subprocess.run(['git', '-C', str(repo), *args], env=env,
+                              capture_output=True, text=True)
+
+    def check_says():
+        r = subprocess.run([sys.executable, str(script)], cwd=str(repo),
+                           env=dict(env, PRECEDENT_CHECK_ROOT=str(repo)),
+                           capture_output=True, text=True)
+        return r.returncode
+
+    def commit(name, message):
+        (repo / name).write_text(name, encoding='utf-8')
+        git('add', name)
+        git('commit', '-qm', message)
+
+    try:
+        cases.append(('the check ships in the engine\'s own tools/checks/',
+                      script.is_file()))
+        origin = fx / 'origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', str(origin)], env=env)
+        repo = fx / 'repo'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        git('remote', 'add', 'origin', str(origin))
+        commit('a', 'first\n\nSession: https://claude.ai/code/session_x')
+        git('push', '-q', 'origin', 'main')
+        commit('b', 'no trailer at all')
+        cases.append(('a commit with no trailer fires', check_says() == 1))
+        git('commit', '-q', '--amend', '-m',
+            'by hand\n\nSession: none available (committed without an AI assistant)')
+        cases.append(('an explicit "none available" trailer passes -- the '
+                      'exception Morgan named', check_says() == 0))
+        git('commit', '-q', '--amend', '-m',
+            'from Claude Code\n\nClaude-Session: https://claude.ai/code/session_y')
+        cases.append(('Claude-Session: passes', check_says() == 0))
+        git('commit', '-q', '--amend', '-m', 'no trailer again')
+        git('push', '-q', 'origin', 'main')
+        cases.append(('a commit origin already has is not judged again',
+                      check_says() == 0))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'the commit-trailer check ships with the engine and judges what a '
+          f'push carries ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60140,6 +60209,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
     check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
