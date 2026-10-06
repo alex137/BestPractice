@@ -54693,7 +54693,7 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
                       'python3 tools/precedent_session_practices.py' in boot))
         block, _t, _n = bv.build_loader_block(extra, defers_sources=False)
         cases.append(('3. a block that defers nothing still points at the file',
-                      '.precedent/SESSION_PRACTICES.md` exists, read it too' in block))
+                      '.precedent/SESSION_PRACTICES.md exists, read it too' in block))
     except (OSError, TypeError, ValueError) as e:
         cases.append((f'fixture could not be built ({e})', False))
     finally:
