@@ -564,6 +564,12 @@ check later; the field does not pretend to be that check.
 and look at. *"when the migration settles down"* is not, and will still be
 sitting there in a year.
 
+**A worked example:** [retired-set-takes-only-its-retirement](../practices/retired-set-takes-only-its-retirement.md)
+holds while two practice sets are being retired, and expires *"when no
+repository declares [them], and both are archived on GitHub"* -- two things
+anyone can look up. Its Detail names what to delete when that comes true.
+Morgan, 2026-10-06: *"This is a good example of temporary rules."*
+
 `in_force_at:` is the field that did not exist before version 4, and its
 absence is the defect the other two rows exist to fix. `supersedes:` points
 *backwards*, from a replacement to what it replaced. Nothing pointed
