@@ -28,6 +28,16 @@ closed:            null
   organize-scattered-content. Their working-style copies stay active, as
   the tool requires, until universal carries them everywhere.
 
+**Only the edits that retire it, from 2026-10-06.** Morgan (strength:
+decided): *"We are deprecating repo maintenance and working style ... you
+should not make edits to them unless the edits relate to their deprecation
+or graceful deprecation. Please don't forget this."* A finding in the set is
+fixed where the rule lives now, or recorded here and left. The push check
+refuses any other edit to a set whose `precedent-source.json` says it is
+retired ([retired-set-takes-only-its-retirement](../practices/retired-set-takes-only-its-retirement.md)).
+The rule is temporary: it goes once both sets are gone, and its `expires:`
+says when.
+
 ## Proposed
 
 Once the blocker clears, run `precedent_move.py --dedupe-only` for each of

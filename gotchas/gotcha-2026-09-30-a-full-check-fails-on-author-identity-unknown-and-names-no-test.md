@@ -31,6 +31,18 @@ stray file went into the snapshot unnoticed. In the isolated copy there is
 none, so the run failed. Run on its own, the same shard passed and left
 nothing behind, which is what pointed at the shards sharing the copy.
 
+**2026-10-06, the same trap in a new fixture.** A Debut's isolated run
+failed `check_harness_drops_inherited_git_repository_variables` with
+`own=False`. Its child process imports `verify_harness`, which drops
+`GIT_AUTHOR_*` on import, so the commit the fixture made had no author
+where `$HOME` is empty. On a machine with a global git identity the commit
+fell back to it, and the check passed everywhere but the isolated copy and
+GitHub's runner. To reproduce one locally, run the check with an empty
+home: `env -i PATH=$PATH HOME=$(mktemp -d) GIT_CONFIG_NOSYSTEM=1
+PRECEDENT_CHECK_ONLY=<check> python3 tools/verify_harness.py`. The fixture
+now names its author on the commit (`git -c user.name=... -c
+user.email=... commit`). Any new fixture that commits should do the same.
+
 ## Fix
 
 The scratch commit carries its own identity (it is never pushed or

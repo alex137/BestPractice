@@ -709,6 +709,103 @@ def _branch_name_refusal(root, argv):
     return None
 
 
+# A RETIRED SET TAKES ONLY ITS RETIREMENT (Morgan, 2026-10-06, strength:
+# decided: "We are deprecating repo maintenance and working style ... you
+# should not make edits to them unless the edits relate to their
+# deprecation or graceful deprecation ... We keep on going back to editing
+# these files."). The same day a session rewrote a rule and its check in
+# the retiring repo-maintenance set while fixing very deep check findings.
+# What a retirement edits: it deletes, it says so in the README and the
+# set's own precedent-source.json, it moves a rule off `status: active`,
+# and it regenerates the views and the todo index. Anything else is refused.
+# Practice: retired-set-takes-only-its-retirement, a TEMPORARY rule -- its
+# `expires:` says when, and its Detail what to delete then.
+RETIREMENT_PATHS = {'README.md', 'precedent-source.json', 'AGENTS.md',
+                    'CLAUDE.md', 'MAP.md', 'GLOSSARY.md',
+                    'WHERE_THINGS_ARE.md'}
+RETIREMENT_DIRS = ('todo/',)
+RETIRED_SET_OVERRIDE = 'PRECEDENT_RETIRED_SET_EDIT'
+
+
+def _status_of(text):
+    m = re.search(r'^status:\s*(\S+)', text or '', re.M)
+    return m.group(1) if m else None
+
+
+def _retired_set_findings(root, retirement):
+    """-> [str], one per file a push to a retired set changes that is not
+    part of retiring it. Judged over the commits no origin branch has yet;
+    a merge commit is skipped, since what it brings is already on origin."""
+    revs = subprocess.run(['git', '-C', str(root), 'rev-list', '--no-merges',
+                           'HEAD', '--not', '--remotes=origin'],
+                          capture_output=True, text=True)
+    if revs.returncode != 0:
+        return []
+    bad = {}
+    for rev in revs.stdout.split():
+        diff = subprocess.run(['git', '-C', str(root), 'diff-tree', '-r',
+                               '--no-commit-id', '--name-status', '--root', rev],
+                              capture_output=True, text=True)
+        for line in diff.stdout.splitlines():
+            parts = line.split('\t')
+            if len(parts) < 2:
+                continue
+            kind, path = parts[0], parts[-1]
+            if kind.startswith('D'):
+                continue
+            if path in RETIREMENT_PATHS or path.startswith(RETIREMENT_DIRS):
+                continue
+            if path.startswith('practices/') and path.endswith('.md'):
+                shown = subprocess.run(['git', '-C', str(root), 'show',
+                                        f'{rev}:{path}'], capture_output=True,
+                                       text=True)
+                if _status_of(shown.stdout) not in (None, 'active'):
+                    continue
+                bad.setdefault(path, f'{path} (still `status: active`, '
+                                     f'changed in {rev[:8]})')
+                continue
+            bad.setdefault(path, f'{path} (changed in {rev[:8]})')
+    return list(bad.values())
+
+
+def _retired_set_refusal(root, env=None):
+    """-> why a push to a set that declares itself retired is refused, or
+    None. Only the set's own `retired` key in precedent-source.json makes it
+    retired; every other repository passes. PRECEDENT_RETIRED_SET_EDIT, set
+    to the person's own words asking for the edit, lets one through and is
+    printed."""
+    env = os.environ if env is None else env
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_vendor_engine as ve
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+    judge = (getattr(ve, 'retirement_on_any_tier', None)
+             or getattr(ve, 'source_retirement', None))
+    retirement = judge(root) if judge else None
+    if retirement is None:
+        return None
+    bad = _retired_set_findings(root, retirement)
+    if not bad:
+        return None
+    asked = (env.get(RETIRED_SET_OVERRIDE) or '').strip()
+    if asked:
+        print(f'precedent_push_check: a retired set takes an edit beyond its '
+              f'retirement, because the person asked: {asked!r} -- '
+              f'{"; ".join(bad)}', flush=True)
+        return None
+    went = ', '.join(retirement.get('folded_into') or []) or 'elsewhere'
+    return (f'this set is retired (folded into {went}), and a retired set '
+            f'takes only the edits that retire it: deletions, its README '
+            f'and precedent-source.json, a rule moved off `status: active`, '
+            f'regenerated views and todo/. This push changes: '
+            f'{"; ".join(bad)}. Make the change where the rule lives now. If '
+            f'the person asked for this exact edit, run again with '
+            f'{RETIRED_SET_OVERRIDE}="<their words>" (Morgan, 2026-10-06).')
+
+
 def _promote_only_refusal(root, argv):
     """-> why the named push is refused before any check runs, or None.
     Only a person who turned promote_only on is ever refused here
@@ -1608,6 +1705,10 @@ def main(argv):
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
     refused = _branch_name_refusal(root, argv)
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
+    refused = _retired_set_refusal(root)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1
