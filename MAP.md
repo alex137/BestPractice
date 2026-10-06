@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 163 practice files (6 resident, 157 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 164 practice files (6 resident, 158 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -66,6 +66,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [filename-separator](practices/filename-separator.md) | on-demand | naming or adding a file |
 | [findings-return-through-repo](practices/findings-return-through-repo.md) | on-demand | discovering something a session in another window will need, or the person adopts a recommendation you gave in chat |
 | [fixture-owns-its-state](practices/fixture-owns-its-state.md) | on-demand | writing a test, fixture or control that reads or edits state it did not create |
+| [format-rules-grandfather](practices/format-rules-grandfather.md) | on-demand | adding or tightening a rule about how practices, open items or other records are laid out |
 | [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | writing a deliverable an outside reader will see |
 | [fresh-before-write](practices/fresh-before-write.md) | on-demand | setting up a project a session works in, or a session reporting that its checkout is behind |
 | [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a "very deep check" or a "full practice audit" |
