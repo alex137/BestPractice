@@ -69,7 +69,7 @@ files -- files that loaded and worked exactly as before. Two other checks
 added that morning, on how a "Drop it" park is recorded in a todo item, were
 hard too and would have stopped any repository with older parks. Morgan:
 *"Some repos are having problems because of the new stricter format. This
-will cause problems with others using BP [BestPractice]. I think we should be flexible and
+will cause problems with others using [BestPractice]. I think we should be flexible and
 graceful in grandfathering in old practices, updating them as needed but not
 stopping them from being used."* All three became permanent warnings, and
 Update Vendors began tidying a repository's own practice files itself. The
