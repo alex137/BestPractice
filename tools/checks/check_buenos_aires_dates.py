@@ -409,6 +409,25 @@ def _git_log_lines(*fmt: str) -> list[str]:
                       (result.stderr or "").strip() or "no error output"))
 
 
+def _bot_emails() -> set[str]:
+    """The harness's bot addresses (precedent_session_check.BOT_EMAILS), or
+    an empty set when they cannot be read -- then every commit is judged, as
+    before. A bot-authored commit is check_commit_author.py's WARNING, an
+    emergency fallback allowed by Morgan on 2026-10-06; it carries the
+    container's offset, so judging it here would refuse the very commit that
+    rule allows."""
+    for d in (ROOT / "tools", ROOT / "process" / "upstream" / "tools",
+              pathlib.Path(__file__).resolve().parent.parent):
+        if (d / "precedent_session_check.py").is_file():
+            sys.path.insert(0, str(d))
+            break
+    try:
+        import precedent_session_check
+        return {e.lower() for e in precedent_session_check.BOT_EMAILS}
+    except Exception:                                        # noqa: BLE001
+        return set()
+
+
 def find_violations() -> list[str]:
     if _STAND_DOWN is not None:
         raise _STAND_DOWN
@@ -419,11 +438,12 @@ def find_violations() -> list[str]:
                 f"the zone is what every commit's offset is checked against, "
                 f"so no offset can be checked without it"]
     findings = list(_REPO_GRANDFATHERED_FINDINGS)
-    for line in _git_log_lines("--format=%H|%ad", "--date=format:%z"):
+    bots = _bot_emails()
+    for line in _git_log_lines("--format=%H|%ae|%ad", "--date=format:%z"):
         if not line.strip():
             continue
-        sha, offset = line.split("|", 1)
-        if sha in EFFECTIVE_GRANDFATHERED_SHAS:
+        sha, email, offset = line.split("|", 2)
+        if sha in EFFECTIVE_GRANDFATHERED_SHAS or email.lower() in bots:
             continue
         if offset != EXPECTED_OFFSET:
             findings.append(

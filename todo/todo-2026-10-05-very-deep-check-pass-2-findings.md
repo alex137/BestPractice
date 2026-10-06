@@ -37,30 +37,26 @@ section judged a check script by filename alone.
   the check stands down, scoped in CI to the pull request's range, run in
   the deep-check workflow's pull-request job, with a planted case.
 
-  **Fixed 2026-10-06, except the workflow step:** the check now has a
-  bot-author half that refuses a commit authored as one of
+  **Fixed 2026-10-06, as a warning, by Morgan's decision.** The check has a
+  bot-author half that finds a commit authored as one of
   [precedent_session_check.py](../tools/precedent_session_check.py)'s
   `BOT_EMAILS` (imported, not copied) whether or not a person is declared,
   takes a range (`--range A..B` or `PRECEDENT_CHECK_RANGE`), and runs alone
-  with `--bot-authors-only`. Planted case:
-  `check_bot_authored_commits_are_refused_where_no_person_is_declared`
-  (fails on the old script: every case came back SKIPPED). The bot commits
-  already on `main` stay as they are.
+  with `--bot-authors-only`. Morgan, 2026-10-06 (strength: decided): a bot
+  commit is allowed as an emergency fallback -- a session with no identity
+  must still be able to save its work, without waiting on him -- but never
+  as the routine. So it is a WARNING, never a refusal: the push check shows
+  it ("tell the person, and record an open item"), the date check no
+  longer refuses such a commit for its offset, and the very deep check's
+  identity section reports any that reach `main`. Planted case:
+  `check_bot_authored_commits_are_warned_where_no_person_is_declared`. The
+  bot commits already on `main` stay as they are.
 
-  **Waiting for Morgan's approval: one step in
-  [deep-check.yml](../.github/workflows/deep-check.yml).** Without it,
-  nothing runs the new half on a pull request. The step goes in the
-  existing `precedent-check-and-sync` job, right after "Set up Python". It
-  adds no job, trigger or run, only a few seconds inside a job that already
-  runs, and the repository is public. Editing a workflow file is his call
-  under [ci-workflow-approved](../practices/ci-workflow-approved.md), so it
-  was not made:
+  **The deep-check workflow step is not added.** It was proposed to run
+  this half on every pull request; with a warning rather than a refusal it
+  would only print where nobody reads it, and the very deep check already
+  reports bot commits on `main`.
 
-  ```yaml
-        - name: Refuse commits authored by the harness's bot
-          if: github.event_name == 'pull_request'
-          run: python3 tools/checks/check_commit_author.py --bot-authors-only --range "origin/$GITHUB_BASE_REF..HEAD"
-  ```
 - **The "harness check in a linked worktree turns the main clone bare"
   trap has no prevention.** Its gotcha says the leaking call was never
   traced, and it is still live: this run had to forbid worktrees. Trace it,

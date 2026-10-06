@@ -1473,6 +1473,18 @@ def run(root, checks, landed=None, reported=None):
             if marker and marker in p.stdout + p.stderr:
                 print(f'      {note} ({took:.0f}s)', flush=True)
                 continue
+            # An identity check passes with a WARNING for a bot-authored
+            # commit -- an emergency fallback, never refused (Morgan,
+            # 2026-10-06) -- and the warning is shown, not swallowed.
+            warned = [ln for ln in p.stdout.splitlines()
+                      if ln.startswith('WARNING:')] \
+                if name in {c[0] for c in IDENTITY_CHECKS} else []
+            if warned:
+                print(f'      passed in {took:.0f}s, WITH A WARNING -- tell '
+                      f'the person, and record an open item:', flush=True)
+                for line in warned:
+                    print(f'      | {line}')
+                continue
             print(f'      passed in {took:.0f}s', flush=True)
             continue
         if (p.returncode == 2 and name in SKIP_IS_FINE_WITHOUT_IDENTITY

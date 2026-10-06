@@ -764,27 +764,38 @@ def bot_author_findings() -> tuple[list[str], set[str]]:
             f"own bot address -- a commit nobody authored")
     if findings:
         findings.append(
-            "re-author an unpublished one as the person (fix `git config "
-            "user.email`, then `git rebase --exec 'git commit --amend "
-            "--no-edit --reset-author'` over it); one already on a shared "
-            "branch is never rewritten -- record it in precedent.json's "
-            "grandfathered_commit_shas with a note saying how it got there")
+            "allowed as an emergency fallback, never as the routine (Morgan, "
+            "2026-10-06, strength: decided): tell the person, and record an "
+            "open item under todo/ naming the commit(s) and why no identity "
+            "was set, so the cause is fixed. An unpublished one can still be "
+            "re-authored (fix `git config user.email`, then `git rebase "
+            "--exec 'git commit --amend --no-edit --reset-author'`); one "
+            "already on a shared branch is never rewritten")
     return findings, flagged
+
+
+# A bot-authored commit is a WARNING, never a refusal (Morgan, 2026-10-06,
+# strength: decided): "as a fallback in an emergency I don't mind it using a
+# bot ... it shouldn't [wait on me] ... just issue a warning and an alert
+# ... with the to-do for the future". A session with no identity to give
+# must still be able to save its work. BOT_WARNINGS is printed as WARNING
+# lines on an exit of 0, which the push check shows rather than hides.
+BOT_WARNINGS: list[str] = []
 
 
 def find_violations() -> list[str]:
     # The bot half first: it needs no declared person, so it still judges
-    # where the identity half below stands down. Where it cannot run either,
-    # the identity half's own answer stands, with its own wording.
+    # where the identity half below stands down. Its findings are warnings.
     try:
         bot_findings, bot_flagged = bot_author_findings()
     except NotApplicable:
         if _STAND_DOWN is not None:
             raise _STAND_DOWN
         bot_findings, bot_flagged = [], set()
+    BOT_WARNINGS[:] = bot_findings
     if _STAND_DOWN is not None:
         if bot_findings:
-            return bot_findings
+            return []
         raise _STAND_DOWN
     if _IDENT_VIOLATION:
         return [_IDENT_VIOLATION]
@@ -792,7 +803,7 @@ def find_violations() -> list[str]:
         return [f"the declared identity ({IDENTITY_SOURCE}) supplies no name "
                 f"or no email -- both are required; every commit here is "
                 f"checked against them"]
-    findings = list(_REPO_GRANDFATHERED_FINDINGS) + bot_findings
+    findings = list(_REPO_GRANDFATHERED_FINDINGS)
     for line in _git_log_lines("--format=%H|%an|%ae"):
         if not line.strip():
             continue
@@ -821,13 +832,20 @@ if __name__ == "__main__":
         # --bot-authors-only: the half that needs no declared person, alone.
         # The deep-check workflow's pull-request job runs it, where the
         # identity half would only ever report SKIPPED.
-        findings = (bot_author_findings()[0] if "--bot-authors-only" in _argv
-                    else find_violations())
+        if "--bot-authors-only" in _argv:
+            BOT_WARNINGS[:] = bot_author_findings()[0]
+            findings = []
+        else:
+            findings = find_violations()
     except NotApplicable as e:
         # SKIPPED, exit 2 -- never a violation and never a silent pass. See
         # the NotApplicable docstring for the runner contract.
         print(f"SKIPPED: {e}")
         sys.exit(2)
+    if BOT_WARNINGS:
+        print("WARNING: commits authored by the harness's bot")
+        for w in BOT_WARNINGS:
+            print(f"WARNING:   {w}")
     if findings:
         print(f"VIOLATION: {PRACTICE_FILE.stem}")
         for f in findings:

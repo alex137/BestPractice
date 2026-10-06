@@ -7991,7 +7991,7 @@ def check_session_trailer_check_ships_with_the_engine():
           f'push carries ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def check_bot_authored_commits_are_refused_where_no_person_is_declared():
+def check_bot_authored_commits_are_warned_where_no_person_is_declared():
     """The commit-author check's bot half judges a pull request's commits in
     CI, where nobody is declared (2026-10-06).
 
@@ -8011,7 +8011,7 @@ def check_bot_authored_commits_are_refused_where_no_person_is_declared():
     (practice: control-asserts-which-failure)."""
     import tempfile, json as _json, shutil as _shutil
     name = ('Commit author: a bot-authored commit in a pull request\'s range '
-            'is refused where no person is declared')
+            'is WARNED about, never refused, where no person is declared')
     script = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
     need = [script, ROOT / 'tools' / 'precedent_session_check.py',
             ROOT / 'tools' / 'precedent_identity.py']
@@ -8066,14 +8066,16 @@ def check_bot_authored_commits_are_refused_where_no_person_is_declared():
 
         rc, out = run('--bot-authors-only', '--range', rng)
         cases.append((f'--bot-authors-only over the pull request\'s range '
-                      f'refuses the bot commit (rc={rc}, {out[:200]!r})',
-                      rc == 1 and bot_sha[:12] in out
+                      f'warns about the bot commit and does not refuse it -- '
+                      f'an emergency fallback (Morgan, 2026-10-06) '
+                      f'(rc={rc}, {out[:200]!r})',
+                      rc == 0 and 'WARNING' in out and bot_sha[:12] in out
                       and 'noreply@anthropic.com' in out))
         rc, out = run(rng=rng)
         cases.append((f'the whole check, with nobody declared and '
-                      f'PRECEDENT_CHECK_RANGE set, refuses it too rather than '
-                      f'standing down (rc={rc}, {out[:200]!r})',
-                      rc == 1 and bot_sha[:12] in out))
+                      f'PRECEDENT_CHECK_RANGE set, warns too rather than '
+                      f'standing down silently (rc={rc}, {out[:200]!r})',
+                      rc == 0 and 'WARNING' in out and bot_sha[:12] in out))
         rc, out = run('--bot-authors-only')
         cases.append((f'control: the default scope over the pushed branch '
                       f'reads nothing -- why CI passes the range (rc={rc})',
@@ -8084,8 +8086,9 @@ def check_bot_authored_commits_are_refused_where_no_person_is_declared():
             {'sha': bot_sha, 'note': 'fixture: published before the check'}]}),
             encoding='utf-8')
         rc, out = run('--bot-authors-only', '--range', rng)
-        cases.append((f'a grandfathered bot commit is exempt (rc={rc}, '
-                      f'{out[:200]!r})', rc == 0))
+        cases.append((f'a grandfathered bot commit is exempt, without a '
+                      f'warning (rc={rc}, {out[:200]!r})',
+                      rc == 0 and 'WARNING' not in out))
         cfg.unlink()
 
         # THE CONTROL: the same branch, the bot commit re-authored.
@@ -61261,7 +61264,7 @@ def main():
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
-    check_bot_authored_commits_are_refused_where_no_person_is_declared()
+    check_bot_authored_commits_are_warned_where_no_person_is_declared()
     check_harness_drops_inherited_git_repository_variables()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()
