@@ -47499,6 +47499,98 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_landed_branch_gets_its_delete_link():
+    """A branch that was not on its landing branch when the turn began and is
+    by the turn's end is used up: the stop hook refuses a reply that gives no
+    one-click delete link for it (the-boildown item 6, branch-delete-links).
+
+    WHY. 2026-10-06, a consumer session Booked its branch onto pre-staging and
+    its reply named no delete link. Only the other half -- work NOT yet
+    landed -- had anything enforcing it."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as pg
+    cases = []
+    saved = {k: os.environ.pop(k, None) for k in
+             ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR')}
+    env = _fixture_git_env()
+    for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR'):
+        env.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-delete-link-'))
+    try:
+        up, repo = tmp / 'up.git', tmp / 'repo'
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        subprocess.run(['git', 'init', '--bare', '-q', '-b', 'trunk', str(up)], env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], env=env)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'trunk',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        decl = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') == 'landed-branch-gets-its-delete-link']
+        (repo / 'reply_check.json').write_text(json.dumps(decl), encoding='utf-8')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'first')
+        g('remote', 'add', 'origin', str(up)); g('push', '-q', '-u', 'origin', 'trunk')
+        branch = 'claude/2026-10-06-thing-abcde'
+        g('switch', '-q', '-c', branch)
+        (repo / 'b.txt').write_text('two\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'second'); g('push', '-q', 'origin', branch)
+
+        def turn_start():
+            recs = []
+            pg._unlanded_work(repo, siblings=False, records=recs)
+            pg.record_turn_start_unlanded(repo, recs)
+            return recs
+
+        def replycheck(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**env, 'CLAUDE_PROJECT_DIR': str(repo),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        bare = 'Booked.\n\n## Boildown\n- The work of this session is now on: `trunk`.\n'
+        linked = bare + ('- Delete [the branch](https://github.com/o/r/branches/all?'
+                         'query=claude%2F2026-10-06-thing-abcde) when you like; it '
+                         'merged into `trunk`.\n')
+        recs = turn_start()
+        cases.append(('the turn start records the unlanded branch',
+                      [r['branch'] for r in recs] == [branch], str(recs)))
+        r0 = replycheck('before.md', bare)
+        cases.append(('not landed yet: no link is asked for',
+                      r0.returncode == 0, f'exit {r0.returncode}: {r0.stderr[:200]}'))
+        g('push', '-q', 'origin', f'{branch}:trunk')
+        r1 = replycheck('bare.md', bare)
+        cases.append(('landed during the turn, no link: refused, naming the '
+                      'branch and the link form',
+                      r1.returncode == 2 and branch in r1.stderr
+                      and 'branches/all?query=claude%2F2026-10-06-thing-abcde' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:300]}'))
+        r2 = replycheck('linked.md', linked)
+        cases.append(('...and the same reply with the link passes',
+                      r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:200]}'))
+        turn_start()
+        r3 = replycheck('next.md', bare)
+        cases.append(('the next turn, which began with it landed, asks nothing',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+        src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
+        cases.append(('the reply gate writes the turn start',
+                      'record_turn_start_unlanded(root, _records)' in src, ''))
+    finally:
+        os.environ.update({k: v for k, v in saved.items() if v is not None})
+        shutil.rmtree(tmp, ignore_errors=True)
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a branch landed during the turn gets its delete link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_merge_instructions_give_the_full_head():
     """Every "merge it" line a Promote into main prints names the head commit
     in full.
@@ -63118,6 +63210,7 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_promote_branches_are_named_like_session_branches()
+    check_landed_branch_gets_its_delete_link()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

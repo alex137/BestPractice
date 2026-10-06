@@ -128,6 +128,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import urllib.parse
 
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
@@ -757,6 +758,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_in_fence_paired_with',
     'require_container_safe_if_says',
     'require_landed_if_says',
+    'require_delete_link_when_landed',
     'require_section_not_repeated',
     'require_quiet_while_background_runs',
     'unless_reply_declares_loss',
@@ -1213,7 +1215,77 @@ def violations(text, reqs, timeline=None, wake=None):
                     f"by name: **Branch disposition:** BRANCH -- drop "
                     f"(why it is safe to drop)."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_delete_link_when_landed: a branch that was not on its
+        # landing branch when this turn began and is now has done its job,
+        # and the reply that lands it hands over its one-click delete link
+        # (the-boildown item 6, branch-delete-links). The reply gate printed
+        # NOT YET LANDED for the other half since 2026-09-21; nothing asked
+        # for this half, and a session Booked its branch on 2026-10-06 and
+        # gave no link.
+        if r.get('require_delete_link_when_landed'):
+            for repo, branch, base in _landed_this_turn():
+                enc = urllib.parse.quote(branch, safe='')
+                if re.search(r'branches/all\?query=(?:' + re.escape(enc) + '|'
+                             + re.escape(branch) + r')(?![\w%./-])', text, re.I):
+                    continue
+                out.append({'kind': 'delete-link', 'advisory': False, 'message': (
+                    f"[{r.get('_source', '?')}] '{branch}' "
+                    f"({pathlib.Path(repo).name}) landed on '{base}' during "
+                    f"this turn, and the reply gives no delete link for it. "
+                    f"Add one line to The Boildown with its filtered "
+                    f"branches-page link -- https://github.com/<owner>/<repo>"
+                    f"/branches/all?query={enc} -- and the branch it merged "
+                    f"into. Never delete it yourself."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
+
+
+def _landed_this_turn(root=None):
+    """-> [(repo, branch, base)] for each branch the reply gate recorded as
+    not landed at this turn's start (precedent_gate.record_turn_start_unlanded)
+    whose work is on its landing branch now: every commit on it, or, after a
+    squash or rebase merge, every file it changed identical there. [] when
+    nothing was recorded or the gate cannot be imported: an engine too old to
+    record blocks nothing."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        f = _pg._turn_start_file(root)
+        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
+    except Exception:                                         # noqa: BLE001
+        return []
+
+    def git(repo, *args):
+        p = subprocess.run(['git', '-C', str(repo), *args],
+                           capture_output=True, text=True, timeout=20)
+        return p.stdout.strip() if p.returncode == 0 else None
+
+    found = []
+    for rec in recs if isinstance(recs, list) else []:
+        repo, branch, base = (rec.get('repo'), rec.get('branch'), rec.get('base')) \
+            if isinstance(rec, dict) else (None, None, None)
+        if not (repo and branch and base):
+            continue
+        try:
+            tip = git(repo, 'rev-parse', '--verify', '--quiet',
+                      f'refs/heads/{branch}^{{commit}}')
+            if not tip:
+                continue
+            _pg._refresh_remote_branch(repo, base)
+            if git(repo, 'rev-list', '--count', f'origin/{base}..{tip}') == '0':
+                found.append((repo, branch, base))
+                continue
+            mb = git(repo, 'merge-base', f'origin/{base}', tip)
+            files = (git(repo, 'diff', '--name-only', mb, tip) or '').split() if mb else []
+            if files and subprocess.run(
+                    ['git', '-C', str(repo), 'diff', '--quiet', f'origin/{base}',
+                     tip, '--', *files], capture_output=True).returncode == 0:
+                found.append((repo, branch, base))
+        except Exception:                                     # noqa: BLE001
+            continue
+    return found
 
 
 def _stranded_branches(root=None, siblings=True):
@@ -1399,6 +1471,9 @@ def main():
                 bits.append('no reply at all to a background job waking the '
                             'turn while its batch still runs (or to a progress '
                             'event), unless it reports a failure')
+            if r.get('require_delete_link_when_landed'):
+                bits.append('a branch that landed during this turn gets its '
+                            'one-click delete link (branches/all?query=)')
             if r.get('require_landed_if_says'):
                 for ph in r['require_landed_if_says']:
                     bits.append(f'"{ph}" requires no work left on a feature '
