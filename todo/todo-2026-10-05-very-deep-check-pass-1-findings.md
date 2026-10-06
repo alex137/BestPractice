@@ -3,7 +3,7 @@ slug:              todo-2026-10-05-very-deep-check-pass-1-findings
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-05
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
