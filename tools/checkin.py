@@ -913,12 +913,15 @@ def _default_branch(clone):
 
 
 def _followed_branch():
-    """The branch every install follows (precedent_vendor_engine.SOURCE_BRANCH),
-    or 'main' where that module is not beside this one -- an old vendored
-    tree, or a fixture that copies this file alone."""
+    """The branch the consuming repo (ROOT) follows: the `upstream_branch`
+    its precedent.json names, else precedent_vendor_engine.SOURCE_BRANCH
+    (followed_branch, 2026-10-05) -- or 'main' where that module is not
+    beside this one, an old vendored tree or a fixture that copies this file
+    alone."""
     try:
         import precedent_vendor_engine
-        return precedent_vendor_engine.SOURCE_BRANCH
+        follow = getattr(precedent_vendor_engine, 'followed_branch', None)
+        return follow(ROOT) if follow else precedent_vendor_engine.SOURCE_BRANCH
     except Exception:                                          # noqa: BLE001
         return 'main'
 

@@ -319,6 +319,44 @@ SOURCE_NAME_MISMATCH = re.compile(
 _REPOINTED = re.compile(r"repointed precedent\.json source '([^']+)' to '([^']+)'")
 
 
+def tidy_field_order(repo, kind):
+    """Put this repository's OWN practice files in the field order the spec
+    sets, and -> the repo-relative paths it rewrote. Never refuses anything.
+
+    WHY (Morgan, 2026-10-05): "be flexible and graceful in grandfathering in
+    old practices, updating them as needed but not stopping them from being
+    used." The field-order check only warns, so something has to do the
+    updating, and the update is where every repository already takes new
+    format rules. Only whole field blocks move (frontmatter_yaml.reorder_fields);
+    a file whose order the fixer cannot settle -- a repeated key -- is left
+    for the warning to name. The source files are tidied, never a
+    materialized copy: a project repo's own practices live in
+    local/practices/ and the view sync copies them into practices/, so
+    tidying the copy would be undone by the next sync (practice:
+    format-rules-grandfather)."""
+    try:
+        import frontmatter_yaml as fy
+    except ImportError:
+        return []
+    root = pathlib.Path(repo)
+    files = sorted((root / 'local' / 'practices').glob('*.md'))
+    if kind == 'source':
+        files += sorted((root / 'practices').glob('*.md'))
+    done = []
+    for f in files:
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not fy.field_order_problem(text):
+            continue
+        fixed = fy.reorder_fields(text)
+        if fixed != text and not fy.field_order_problem(fixed):
+            f.write_text(fixed, encoding='utf-8')
+            done.append(f.relative_to(root).as_posix())
+    return done
+
+
 def brought_sets_step(rep, fetch=None):
     """Clone or pull the sets the person's individual set brings, before
     the views are synced against them. Session start does this
@@ -2146,17 +2184,23 @@ def update(repo, skip_check=False, ref=None):
     # working tree, so a fetch is what makes them current.
     # With an explicit refspec, so a single-branch clone of the source gets
     # an origin/<branch> to read, not only a FETCH_HEAD.
+    # The branch this repo follows: SOURCE_BRANCH, or the `upstream_branch`
+    # its precedent.json names (pve.followed_branch, 2026-10-05).
+    follow = pve.followed_branch(repo)
+    problem = pve.upstream_branch_problem(repo)
+    if problem:
+        rep.leave('precedent.json', problem)
     if ref is None:
         rc, out = run(['git', '-C', str(SOURCE), 'fetch', 'origin',
-                       pve.tracking_refspec(pve.SOURCE_BRANCH)], SOURCE)
+                       pve.tracking_refspec(follow)], SOURCE)
         if rc != 0:
-            return rep.close(f"could not fetch origin/{pve.SOURCE_BRANCH} in "
+            return rep.close(f"could not fetch origin/{follow} in "
                              f"{SOURCE}:\n{tail(out, repo=repo)}")
     rc, head = run(['git', '-C', str(SOURCE), 'rev-parse',
-                    ref or f'origin/{pve.SOURCE_BRANCH}'], SOURCE)
+                    ref or f'origin/{follow}'], SOURCE)
     head_ok = rc == 0
-    rep.step('source', f"{pve.SOURCE_BRANCH} @ {head.strip()[:12]}" if head_ok
-             else f"could not read {ref or 'origin/' + pve.SOURCE_BRANCH}")
+    rep.step('source', f"{follow} @ {head.strip()[:12]}" if head_ok
+             else f"could not read {ref or 'origin/' + follow}")
 
     # The commit the vendored engine -- and so a section 0 catalogue, which
     # moves with it -- was last synced from. Read now: step 2 rewrites it.
@@ -2170,8 +2214,13 @@ def update(repo, skip_check=False, ref=None):
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
     argv = [sys.executable, str(engine_tool), 'refresh', str(SOURCE)]
-    if ref:
-        argv += ['--from-ref', ref]
+    # A repo following a branch other than SOURCE_BRANCH is refreshed from
+    # that branch's tip by name: its own engine copy may predate
+    # upstream_branch and would otherwise resolve SOURCE_BRANCH for itself.
+    engine_ref = ref or (head.strip() if head_ok and follow != pve.SOURCE_BRANCH
+                         else None)
+    if engine_ref:
+        argv += ['--from-ref', engine_ref]
     # A committed edit to an engine file in tools/ is resolved here, not by
     # the refresh: the repo's own old engine copy runs the refresh and
     # refuses on a hand edit before it replaces itself. So upstream's text
@@ -2230,10 +2279,10 @@ def update(repo, skip_check=False, ref=None):
     if ref is None and head_ok and tip and not (
             landed and (tip.startswith(landed) or landed.startswith(tip))):
         return rep.close(f"the engine landed at {landed[:12] or 'an unrecorded commit'}"
-                         f", not {pve.SOURCE_BRANCH} @ {tip[:12]}: this repo's "
+                         f", not {follow} @ {tip[:12]}: this repo's "
                          f"own engine copy vendored from another ref. Run this "
                          f"again with --from-ref {tip[:12]} to take "
-                         f"{pve.SOURCE_BRANCH}'s engine, then review the diff")
+                         f"{follow}'s engine, then review the diff")
     for tool, calls in unbudgeted_engine_tools(repo, tip):
         rep.leave(f'tools/github_api_budgets.json: {tool}',
                   f'upstream budgets the vendored tools/{tool} at {calls} API '
@@ -2273,8 +2322,8 @@ def update(repo, skip_check=False, ref=None):
     # The repoint again, from THIS copy: a consumer whose engine was already
     # current never ran a newer refresh that knows it.
     if 'repointed the practice catalogue' in out or pve.repoint_catalogue_pin(repo):
-        rep.step('catalogue pin', f'repointed to {pve.SOURCE_BRANCH} '
-                 f'(decided 2026-09-25; nothing to ask)')
+        rep.step('catalogue pin', f'repointed to {follow} '
+                 f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
@@ -2398,6 +2447,12 @@ def update(repo, skip_check=False, ref=None):
                           .read_text(encoding='utf-8')).get('kind')
     except (OSError, ValueError):
         kind = None
+    # Before the views, so the copies the views render come out tidy too.
+    tidied = tidy_field_order(repo, kind)
+    if tidied:
+        rep.step('field order', f'{len(tidied)} of this repo\'s own practice '
+                 f'file(s) put in the spec\'s order, whole fields moved and '
+                 f'nothing else: ' + ', '.join(tidied))
     if kind == 'source' and build.is_file():
         rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
         if rc != 0:

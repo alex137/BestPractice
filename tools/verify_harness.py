@@ -9747,6 +9747,97 @@ def check_refresh_repoints_a_retired_catalogue_pin():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_upstream_branch_declaration_is_followed():
+    """A consuming repo may follow `staging` instead of main by declaring
+    `"upstream_branch": "staging"` in its precedent.json (2026-10-05); one
+    that declares nothing, or a value off the list, follows SOURCE_BRANCH.
+
+    Asserted end to end where it lands: followed_branch() itself, the
+    catalogue pin moving to the declared branch and back again when the
+    declaration goes, and the engine manifest recording the branch the
+    repo follows. The negative controls are pre-staging -- seconds of
+    checking, deliberately not followable -- and a pin to a feature branch,
+    which stays somebody's own choice under either declaration.
+    """
+    import tempfile
+    import precedent_vendor_engine as pve
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-upstream-branch-'))
+
+    def repo_with(name, declared=None, pin=None):
+        repo = tmp / name
+        (repo / 'process').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        decl = {} if declared is None else {'upstream_branch': declared}
+        (repo / 'precedent.json').write_text(json.dumps(decl) + '\n',
+                                             encoding='utf-8')
+        if pin is not None:
+            (repo / 'process' / 'manifest.json').write_text(json.dumps(
+                {'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                              'branch': pin, 'commit': 'abc123'},
+                 'entries': []}, indent=2) + '\n', encoding='utf-8')
+        return repo
+
+    def pin(repo):
+        return json.loads((repo / 'process' / 'manifest.json').read_text(
+            encoding='utf-8'))['upstream']['branch']
+
+    def declare(repo, value):
+        decl = {} if value is None else {'upstream_branch': value}
+        (repo / 'precedent.json').write_text(json.dumps(decl) + '\n',
+                                             encoding='utf-8')
+
+    try:
+        plain = repo_with('plain')
+        cases.append(('a repo that declares nothing follows main',
+                      pve.followed_branch(plain) == 'main'
+                      and pve.upstream_branch_problem(plain) is None,
+                      pve.followed_branch(plain)))
+        st = repo_with('staging', 'staging')
+        cases.append(('a repo declaring staging follows staging',
+                      pve.followed_branch(st) == 'staging'
+                      and pve.upstream_branch_problem(st) is None,
+                      pve.followed_branch(st)))
+        pre = repo_with('pre', 'pre-staging')
+        cases.append(('pre-staging is not followable: main, and the problem is said',
+                      pve.followed_branch(pre) == 'main'
+                      and 'pre-staging' in (pve.upstream_branch_problem(pre) or ''),
+                      str(pve.upstream_branch_problem(pre))))
+        cases.append(('a repo with no precedent.json follows main',
+                      pve.followed_branch(tmp / 'nothing-here') == 'main', ''))
+
+        moving = repo_with('moving', 'staging', pin='main')
+        wrote = pve.repoint_catalogue_pin(moving)
+        cases.append(('declaring staging moves a main catalogue pin to staging',
+                      wrote is not None and pin(moving) == 'staging', pin(moving)))
+        cases.append(('a second run writes nothing',
+                      pve.repoint_catalogue_pin(moving) is None, pin(moving)))
+        declare(moving, None)
+        wrote = pve.repoint_catalogue_pin(moving)
+        cases.append(('removing the declaration moves the pin back to main',
+                      wrote is not None and pin(moving) == 'main', pin(moving)))
+
+        feature = repo_with('feature', 'staging', pin='some-feature')
+        cases.append(('a feature-branch pin is left alone under a staging declaration',
+                      pve.repoint_catalogue_pin(feature) is None
+                      and pin(feature) == 'some-feature', pin(feature)))
+
+        engine = pathlib.Path(pve.__file__).resolve().parent
+        out = repo_with('engine', 'staging')
+        pve._write_engine_files(out / 'tools', engine, 'abc123',
+                                kind=pve.DEFAULT_KIND)
+        recorded = json.loads((out / 'tools' / pve.MANIFEST_NAME).read_text(
+            encoding='utf-8')).get('source_branch')
+        cases.append(('the engine manifest records the branch the repo follows',
+                      recorded == 'staging', str(recorded)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_update_vendors_is_one_command():
     """tools/precedent_update.py runs Update Vendors end to end on a real
     consumer and ends in one of three outcomes, each asserted by its own
@@ -15393,16 +15484,16 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('ladder-set-is-brought-not-declared', _plant_declared_ladder)
 
-        # frontmatter-field-order -- a hard check since 2026-10-05 (advisory
-        # from 2026-09-26 until every practice set had been tidied): a
-        # planted misorder fails the run.
+        # frontmatter-field-order -- a permanent warning (practice:
+        # format-rules-grandfather): a planted misorder is reported, and
+        # never fails the run.
         def _plant_field_order(repo):
             f = repo / 'practices' / 'name-both-sides-of-ledger.md'
             body = f.read_text(encoding='utf-8')
             line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
             body = body.replace(line, '', 1)
             f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
-        case('frontmatter-field-order', _plant_field_order)
+        case('frontmatter-field-order', _plant_field_order, advisory=True)
 
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
@@ -16017,6 +16108,17 @@ def check_precedent_check_fires():
         case('open-item-disposition',
              lambda repo: rewrite(repo, 'TODO.md',
                                   lambda x: x + '\n**Disposition:** parkd (2026-09-08, Morgan)\n'))
+
+        # open-item-disposition-copies -- a park in the frontmatter with no
+        # dated, named body line: warned about, never refused (practice:
+        # format-rules-grandfather).
+        case('open-item-disposition-copies',
+             lambda repo: (repo / 'todo' / 'todo-2099-01-01-planted-park.md')
+             .write_text('---\nslug: todo-2099-01-01-planted-park\n'
+                         'status:            open\n'
+                         'disposition:       parked\nnoted: 2099-01-01\n---\n'
+                         '## What\n\nA planted item.\n', encoding='utf-8'),
+             advisory=True)
 
         # The other half of that grammar, asserted directly rather than
         # through case(): a `parked` line nobody signed. case() proves only
@@ -18596,21 +18698,27 @@ def check_checks_read_what_their_rules_name():
         return item(status, disposition).replace(
             'A planted item.\n', f'A planted item.\n\n{line}\n')
     out = judge(tree({'todo/todo-2026-01-01-x.md': item('done', 'parked')}),
-                pc._open_item_disposition)
-    cases.append(('open-item-disposition: a park with no dated, named body '
+                pc._open_item_disposition_copies)
+    cases.append(('open-item-disposition-copies: a park with no dated, named body '
                   'line is reported, even on a closed item',
                   'no "**Disposition:** parked (YYYY-MM-DD, who)"' in out, out))
     out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
                     'open', 'ask', '**Disposition:** parked (2026-01-02, Morgan)')}),
-                pc._open_item_disposition)
-    cases.append(('open-item-disposition: a body that says parked over a '
+                pc._open_item_disposition_copies)
+    cases.append(('open-item-disposition-copies: a body that says parked over a '
                   'frontmatter that still says ask is reported as still raised',
                   'still raised after it was dropped' in out, out))
     out = judge(tree({'todo/todo-2026-01-01-x.md': with_body(
                     'open', 'parked',
                     '**Disposition:** parked (2026-01-02, who not recorded)')}),
+                pc._open_item_disposition_copies)
+    out = judge(tree({'todo/todo-2026-01-01-x.md': item('open', 'parked')}),
                 pc._open_item_disposition)
-    cases.append(('open-item-disposition: a park recorded in both places, '
+    cases.append(('open-item-disposition: an old park with no body line is '
+                  'never refused by the hard check -- only the copies check '
+                  'warns about it (practice: format-rules-grandfather)',
+                  out == '', out))
+    cases.append(('open-item-disposition-copies: a park recorded in both places, '
                   '"who not recorded" included, passes', out == '', out))
 
     # --- advisory-checks-declare-their-term (2026-10-05) -----------------
@@ -18705,7 +18813,9 @@ def check_checks_read_what_their_rules_name():
                   tdisp.verify(parked) == []
                   and '**Disposition:** parked (2026-01-02, Morgan)' in parked
                   and judge(tree({'todo/todo-2026-01-01-x.md': parked}),
-                            pc._open_item_disposition) == '',
+                            pc._open_item_disposition) == ''
+                  and judge(tree({'todo/todo-2026-01-01-x.md': parked}),
+                            pc._open_item_disposition_copies) == '',
                   parked))
     cases.append(('todo_disposition: a second park changes nothing, and a '
                   'conflict already raised is never raised again',
@@ -44585,6 +44695,39 @@ def check_frontmatter_field_order_fixer():
     cases.append(('CONTROL: the same in-order file reads as out of order once '
                   'FIELD_ORDER says otherwise, so the verdict comes from the '
                   'constant', bool(control), repr(control)))
+    # Update Vendors' tidy (practice: format-rules-grandfather): it fixes a
+    # project repo's own source files in local/practices/, never the copy
+    # the view sync renders into practices/, and leaves a file whose order
+    # the fixer cannot settle for the warning to name.
+    import tempfile, shutil
+    import precedent_update as pu
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='tidy-order-'))
+    try:
+        (tmp / 'local' / 'practices').mkdir(parents=True)
+        (tmp / 'practices').mkdir()
+        out_of_order = ('---\nslug: a\ntitle: A\nindex_required: false\n'
+                        'index_clause: "x"\nstatus: active\n---\n## Rule\nr\n')
+        repeated = ('---\nslug: b\ntitle: B\ntitle: B2\nindex_required: '
+                    'false\nindex_clause: "x"\n---\n## Rule\nr\n')
+        (tmp / 'local/practices/a.md').write_text(out_of_order, encoding='utf-8')
+        (tmp / 'local/practices/b.md').write_text(repeated, encoding='utf-8')
+        (tmp / 'practices/a.md').write_text(out_of_order, encoding='utf-8')
+        done = pu.tidy_field_order(tmp, 'consumer')
+        cases.append(('Update Vendors tidies a project repo\'s own practice in '
+                      'local/practices/ and leaves the rendered copy and an '
+                      'unfixable file alone',
+                      done == ['local/practices/a.md']
+                      and not fy.field_order_problem(
+                          (tmp / 'local/practices/a.md').read_text(encoding='utf-8'))
+                      and (tmp / 'practices/a.md').read_text(encoding='utf-8') == out_of_order
+                      and (tmp / 'local/practices/b.md').read_text(encoding='utf-8') == repeated,
+                      repr(done)))
+        cases.append(('in a practice set, whose practices/ IS the source, it '
+                      'tidies practices/ too',
+                      pu.tidy_field_order(tmp, 'source') == ['practices/a.md'], ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'frontmatter_yaml reorders practice frontmatter into FIELD_ORDER and '
           f'changes nothing else ({len(cases)} stated cases)',
@@ -59725,6 +59868,8 @@ def main():
           *check_legacy_leftovers_retired_by_content())
     check('refresh repoints a retired catalogue pin to main, and no other pin',
           *check_refresh_repoints_a_retired_catalogue_pin())
+    check('a repo\'s upstream_branch declaration is followed, and only main or staging',
+          *check_upstream_branch_declaration_is_followed())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
