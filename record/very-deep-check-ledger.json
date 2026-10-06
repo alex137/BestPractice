@@ -5737,6 +5737,422 @@
         }
       ],
       "completed": true
+    },
+    {
+      "run_id": "2026-10-05T19:51:33-03:00",
+      "date": "2026-10-05",
+      "repo": "/home/user/BestPractice",
+      "argv": [],
+      "seconds": 288.72,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 2.21,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.1,
+          "status": "clean"
+        },
+        {
+          "name": "PLANTED CASE COVERAGE",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 85,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "VENDORED SURPLUS",
+          "kind": "mechanical",
+          "findings": 40,
+          "items": null,
+          "output_tokens": 1097,
+          "seconds": 0.52,
+          "status": "findings"
+        },
+        {
+          "name": "SECOND LISTS OF PRACTICES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 52,
+          "seconds": 40.2,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 88,
+          "seconds": 2.73,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 742,
+          "seconds": 5.68,
+          "status": "clean"
+        },
+        {
+          "name": "LIVE VERSUS LANDING -- read main, write through the landing branch",
+          "kind": "mechanical",
+          "findings": 2,
+          "items": null,
+          "output_tokens": 278,
+          "seconds": 0.13,
+          "status": "findings"
+        },
+        {
+          "name": "CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 201,
+          "seconds": 0.02,
+          "status": "findings"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 498,
+          "output_tokens": 153,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "PRACTICE CATALOGUE",
+          "kind": "read",
+          "findings": null,
+          "items": 243,
+          "output_tokens": 552,
+          "seconds": 1.64,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
+          "seconds": 0.09,
+          "status": "clean"
+        },
+        {
+          "name": "SOURCE SHAPE",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 94,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "TEMPLATE FRESHNESS",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 127,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "BOOTSTRAP DRIFT",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 601,
+          "seconds": 2.89,
+          "status": "findings"
+        },
+        {
+          "name": "CONVERGENT DRIFT",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 45,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "EXPIRING PRACTICES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 28,
+          "seconds": 0.03,
+          "status": "clean"
+        },
+        {
+          "name": "ORPHANS",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 29,
+          "seconds": 0.03,
+          "status": "findings"
+        },
+        {
+          "name": "CONFIG KEYS",
+          "kind": "read",
+          "findings": 0,
+          "items": 75,
+          "output_tokens": 191,
+          "seconds": 0.44,
+          "status": "clean"
+        },
+        {
+          "name": "CHECK COVERAGE",
+          "kind": "mechanical",
+          "findings": 6,
+          "items": null,
+          "output_tokens": 583,
+          "seconds": 91.89,
+          "status": "findings"
+        },
+        {
+          "name": "CI WORKFLOW FILES OUTSIDE VENDORING",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 79,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "WORKFLOW REALITY",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 66,
+          "seconds": 0.98,
+          "status": "clean"
+        },
+        {
+          "name": "CI FLEET AUDIT",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 559,
+          "seconds": 21.48,
+          "status": "clean"
+        },
+        {
+          "name": "DELETIONS PENDING",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 132,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "CARRY-THROUGH",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 107,
+          "seconds": 2.84,
+          "status": "clean"
+        },
+        {
+          "name": "IDENTITY REALITY",
+          "kind": "mechanical",
+          "findings": 7,
+          "items": null,
+          "output_tokens": 370,
+          "seconds": 0.06,
+          "status": "findings"
+        },
+        {
+          "name": "INCIDENT COVERAGE",
+          "kind": "read",
+          "findings": null,
+          "items": 43,
+          "output_tokens": 713,
+          "seconds": 0.14,
+          "status": "material"
+        },
+        {
+          "name": "FIX SWEEP -- new detectors, run everywhere",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 2428,
+          "seconds": 38.7,
+          "status": "findings"
+        },
+        {
+          "name": "ACCRETION -- files nobody has read whole",
+          "kind": "read",
+          "findings": null,
+          "items": 10,
+          "output_tokens": 140,
+          "seconds": 0.25,
+          "status": "material"
+        },
+        {
+          "name": "SESSION LOAD",
+          "kind": "mechanical",
+          "findings": 58,
+          "items": null,
+          "output_tokens": 2874,
+          "seconds": 0.86,
+          "status": "findings"
+        },
+        {
+          "name": "TIER PLACEMENT",
+          "kind": "read",
+          "findings": null,
+          "items": 6,
+          "output_tokens": 275,
+          "seconds": 0.01,
+          "status": "material"
+        },
+        {
+          "name": "RULES WE SHIP SOMEWHERE ELSE",
+          "kind": "read",
+          "findings": null,
+          "items": 42,
+          "output_tokens": 435,
+          "seconds": 0.04,
+          "status": "material"
+        },
+        {
+          "name": "MOVED CLAIMS",
+          "kind": "mechanical",
+          "findings": 4,
+          "items": null,
+          "output_tokens": 123,
+          "seconds": 2.22,
+          "status": "findings"
+        },
+        {
+          "name": "DOCUMENTATION CURRENCY",
+          "kind": "mechanical",
+          "findings": 15,
+          "items": null,
+          "output_tokens": 1422,
+          "seconds": 0.34,
+          "status": "findings"
+        },
+        {
+          "name": "MARKDOWN -- STRICT SWEEP",
+          "kind": "mechanical",
+          "findings": 2208,
+          "items": null,
+          "output_tokens": 263,
+          "seconds": 5.16,
+          "status": "findings"
+        },
+        {
+          "name": "CROSS-REPO LINKS",
+          "kind": "mechanical",
+          "findings": 3,
+          "items": null,
+          "output_tokens": 85,
+          "seconds": 24.37,
+          "status": "findings"
+        },
+        {
+          "name": "UNLANDED WORK",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 249,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "LIVE SESSIONS -- recent work against the repo",
+          "kind": "read",
+          "findings": null,
+          "items": 4266,
+          "output_tokens": 582,
+          "seconds": 0.0,
+          "status": "partial"
+        },
+        {
+          "name": "REPOSITORY VISIBILITY",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 237,
+          "seconds": 33.36,
+          "status": "clean"
+        },
+        {
+          "name": "CHECKLIST -- the four passes a session works",
+          "kind": "read",
+          "findings": null,
+          "items": null,
+          "output_tokens": 65,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "BRANCHES -- verdicts owed",
+          "kind": "mechanical",
+          "findings": 18,
+          "items": null,
+          "output_tokens": 1209,
+          "seconds": 6.79,
+          "status": "findings"
+        },
+        {
+          "name": "BASE BRANCH DRIFT",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 93,
+          "seconds": 0.05,
+          "status": "clean"
+        },
+        {
+          "name": "ENDGAME MERGE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 179,
+          "seconds": 1.01,
+          "status": "clean"
+        },
+        {
+          "name": "ACTIONS FLOOR",
+          "kind": "mechanical",
+          "findings": null,
+          "items": 3176,
+          "output_tokens": 171,
+          "seconds": 1.17,
+          "status": "unknown"
+        },
+        {
+          "name": "GITHUB API BUDGET",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 396,
+          "seconds": 0.0,
+          "status": "clean"
+        }
+      ],
+      "passes": [],
+      "completed": true
     }
   ]
 }

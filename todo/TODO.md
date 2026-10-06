@@ -80,6 +80,10 @@ as_of: 2026-10-06
 | [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 8d | wait |  |
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 8d | wait |  |
 | [`todo-2026-09-29-received-practice-edits-are-overwritten`](todo-2026-09-29-received-practice-edits-are-overwritten.md) | A local edit to a practice or check a consumer received through `MANIFEST.json` is overwritten, silently, on every sync. | 7d | wait | no per-file record of what a sync wrote: MANIFEST.json names each received pract… |
+| [`todo-2026-10-05-very-deep-check-pass-1-findings`](todo-2026-10-05-very-deep-check-pass-1-findings.md) | What the 2026-10-05 very deep check's pass 1 (adopter installs) found and | 1d | wait |  |
+| [`todo-2026-10-05-very-deep-check-pass-2-findings`](todo-2026-10-05-very-deep-check-pass-2-findings.md) | What the 2026-10-05 very deep check's pass 2 (mechanisms) found and did not | 1d | wait |  |
+| [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 1d | ask |  |
+| [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 1d | ask |  |
 
 ## Verify Before External Use
 
@@ -118,8 +122,6 @@ as_of: 2026-10-06
 | [`todo-2026-09-14-workflow-run-is-not-gated`](todo-2026-09-14-workflow-run-is-not-gated.md) | `CODEOWNERS` gates the merge of an edited workflow, not its first run. | 22d | wait | verifying the run behaviour itself against GitHub's own documentation, which a h… |
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 20d | ask |  |
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 20d | ask |  |
-| [`todo-2026-09-19-dedupe-push-back-in-team-writing`](todo-2026-09-19-dedupe-push-back-in-team-writing.md) | Run the second half of the `push-back` move. | 17d | wait | this PR merging into precedent-beta-v01, and every repository consuming preceden… |
-| [`todo-2026-09-19-dedupe-small-calls-in-team-working-style`](todo-2026-09-19-dedupe-small-calls-in-team-working-style.md) | Run the second half of the `small-calls` move. | 17d | wait | this PR merging into precedent-beta-v01, and every repository consuming preceden… |
 | [`todo-2026-09-21-alex137-is-not-declared-private-by-default`](todo-2026-09-21-alex137-is-not-declared-private-by-default.md) | This public tree links a private repository, and the check whose whole job is preventing that never asked. | 15d | ask |  |
 | [`todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers`](todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers.md) | The branch-delete-link work landed in BestPractice's originals only. Every consuming repo still carries the pre-change c | 15d | ask |  |
 | [`todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others`](todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others.md) | `commit-identity.sh` reaches some sessions and not others, and the commits that landed say which. | 15d | wait |  |
@@ -138,15 +140,11 @@ as_of: 2026-10-06
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 14d | ask |  |
 | [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 11d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 11d | ask |  |
-| [`todo-2026-09-26-frontmatter-field-order-goes-blocking`](todo-2026-09-26-frontmatter-field-order-goes-blocking.md) | Make `frontmatter-field-order` blocking. | 10d | wait | the four practice sets taking the engine update that carries frontmatter-field-o… |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 10d | ask |  |
-| [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 8d | ask | a Promote of BestPractice pre-staging to staging: precedent-individual's link ch… |
 | [`todo-2026-09-29-planted-case-lives-beside-its-check`](todo-2026-09-29-planted-case-lives-beside-its-check.md) | Put each check's planted case beside the check, so there is no second file to forget. | 7d | wait | out of scope for the 2026-09-29 engine-fixes batch: it moves every planted case… |
-| [`todo-2026-09-29-source-checks-adopt-generated-blocks`](todo-2026-09-29-source-checks-adopt-generated-blocks.md) | Move the practice sets' own checks onto `generated_blocks.py`, the engine's one answer to "is this line inside a generat | 7d | wait | generated_blocks.py reaching main, then each practice set's engine refresh |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 6d | ask | Morgan: leave it above target for now and brainstorm another approach to the cut… |
 | [`todo-2026-10-01-in-force-nowhere-names-its-set`](todo-2026-10-01-in-force-nowhere-names-its-set.md) | Make every IN FORCE NOWHERE line name the set the rule lives in. | 5d | ask | a practice-format change (a new frontmatter field) that every practice set's che… |
 | [`todo-2026-10-04-two-small-engine-leftovers-from-the-produce`](todo-2026-10-04-two-small-engine-leftovers-from-the-produce.md) | Three small engine leftovers, found landing the 2026-10-04 Produce; none is wrong today. | 2d | wait |  |
-| [`todo-2026-10-05-confirm-main-deep-check-after-the-actions-outage`](todo-2026-10-05-confirm-main-deep-check-after-the-actions-outage.md) | Confirm main's Deep check once Actions is back. | 1d | ask | GitHub Actions recovering from its 2026-10-05 degraded availability |
 | [`todo-2026-10-05-decommission-left-three-dead-links`](todo-2026-10-05-decommission-left-three-dead-links.md) | Find out why the practice-set workflow template, retired on 2026-10-01, left three relative links to it. | 1d | ask | out of scope for the repo-maintenance fold that found it; the links themselves a… |
 | [`todo-2026-10-05-finish-folding-the-working-style-set-away`](todo-2026-10-05-finish-folding-the-working-style-set-away.md) | Withdraw the last five rules from the working-style set, then stop declaring it. | 1d | ask | the five universal drafts landing on main, then Update Vendors in every reposito… |
 | [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 1d | ask | both passes reaching main, then Update Vendors in every repository that declares… |
@@ -201,6 +199,10 @@ as_of: 2026-10-06
 | [`todo-2026-09-28-very-deep-check-pass-2-findings`](todo-2026-09-28-very-deep-check-pass-2-findings.md) | What the 2026-09-28 very deep check's pass 2 found and did not fix. The | 8d |
 | [`todo-2026-09-28-very-deep-check-pass-3-findings`](todo-2026-09-28-very-deep-check-pass-3-findings.md) | What the 2026-09-28 very deep check's pass 3 found and did not fix. The | 8d |
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 8d |
+| [`todo-2026-10-05-very-deep-check-pass-1-findings`](todo-2026-10-05-very-deep-check-pass-1-findings.md) | What the 2026-10-05 very deep check's pass 1 (adopter installs) found and | 1d |
+| [`todo-2026-10-05-very-deep-check-pass-2-findings`](todo-2026-10-05-very-deep-check-pass-2-findings.md) | What the 2026-10-05 very deep check's pass 2 (mechanisms) found and did not | 1d |
+| [`todo-2026-10-05-very-deep-check-pass-3-findings`](todo-2026-10-05-very-deep-check-pass-3-findings.md) | What the 2026-10-05 very deep check's pass 3 (does the writing hold | 1d |
+| [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 1d |
 
 ## Open Decisions
 
@@ -220,5 +222,4 @@ as_of: 2026-10-06
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-09-19 |
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
-| [`todo-2026-09-28-fix-moved-practice-mentions-in-two-sets`](todo-2026-09-28-fix-moved-practice-mentions-in-two-sets.md) | Run `precedent_move.py --mentions-only` for four earlier moves, in two sets, and push the result to each set's `pre-stag | 2026-09-28 |
 | [`todo-2026-09-30-session-file-cut-to-4000`](todo-2026-09-30-session-file-cut-to-4000.md) | Bring precedent-individual's session-start file under 4,000 tokens, then switch on the 4,400 hard ceiling. | 2026-09-30 |

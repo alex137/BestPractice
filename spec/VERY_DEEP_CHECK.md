@@ -51,8 +51,8 @@ tools/very_deep_check.py's checkout branch scan, not doc_sync.py -->
 
 ## Practice catalogue
 
-**Not kept here since 2026-09-28.** Every run hands the person a review
-page in the session instead: the branches they can delete, with a link
+**Not kept here since 2026-09-28.** Every run publishes a review page for
+the person as an Artifact instead, never as an HTML file: the branches they can delete, with a link
 each, and every active practice by source, private sets included. It is
 never committed or linked from a repository, so this public file carries
 none of it. How it works: [very-deep-check](../practices/very-deep-check.md)
@@ -62,53 +62,25 @@ and `tools/precedent_review_page.py`.
 
 **The full account of this run, pass by pass: [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md).**
 
-**2026-09-28, on the phrase, committed to the full four passes before
-anything ran**, across all five repos in force (this checkout, the individual
-set, the three shared sets) plus one real consumer the person attached for
-pass 1. Ten sub-agents did the reading and rehearsing. No other session was
-running against these repos.
+**2026-10-05, on the phrase.** All four passes, across BestPractice, the
+individual set and the writing and ladder sets; the two sets folded into
+universal that day were read only for their retirement. This session could
+push to BestPractice alone. It skipped the full harness and the passes at
+first, and did both after Morgan asked.
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | done | 2026-09-28 | All five paths rehearsed from scratch (guided, loader, migration, update with a deletion, every move direction), **plus the first real consumer in this ledger's history**, updated in a copy and its own gates run. Adapters read against their harnesses' current docs. Unfixed: [todo-2026-09-28-very-deep-check-pass-1-findings](../todo/todo-2026-09-28-very-deep-check-pass-1-findings.md) |
-| 2 — mechanisms | done, gaps named | 2026-09-28 | All 22 questions attempted; question 11 read 17 enforced checks against their own Rule, none sampled before. Not done: 65 of 69 gotchas re-tested (question 12), a prevention verdict for each of 26 incidents (question 20). Unfixed: [todo-2026-09-28-very-deep-check-pass-2-findings](../todo/todo-2026-09-28-very-deep-check-pass-2-findings.md) |
-| 3 — coherence read | done, gaps named | 2026-09-28 | Every private-set practice read; the universal catalogue swept for stale names, triggers and claims and the likeliest thirty read closely, not all 154 line by line. `spec/ENFORCEMENT.md` read whole. Unfixed: [todo-2026-09-28-very-deep-check-pass-3-findings](../todo/todo-2026-09-28-very-deep-check-pass-3-findings.md) |
-| 4 — catalogue, backlog, branches | done | 2026-09-28 | Every unlanded branch re-derived in full clones, every overdue reminder and blocked item judged, eight `retires_when` conditions checked, scope read on all 154 universal practices. **The full sequential catalogue judgment was completed for the first time in this ledger's history**, the same day, after Morgan approved the pass-4 recommendations: all 216 active practices across six sources, 81 of them judgment-only, each judged against the repos it binds (19 session-behaviour rules could not be judged from the repos, and say so). Unfixed: [todo-2026-09-28-very-deep-check-pass-4-findings](../todo/todo-2026-09-28-very-deep-check-pass-4-findings.md) |
-
-**What changed how the check itself reads.** Its branch scan fetched with
-`--depth` against full clones, which turns a full clone shallow: every
-"unlanded" count in the two runs before this one was inflated (116 for a
-branch carrying 2), and the session-start watermark check did the same. Its
-CARRY-THROUGH section read the working tree, which the session-start hook
-refreshes without committing, so it said CURRENT where origin was behind.
-An aborted run counted as "the last run". All fixed in this run; the
-counts in earlier rows should be read with that in mind.
-
-**Then the findings themselves, the same day.** Morgan asked for as much
-fixed as possible rather than filed, while he was offline. Six fix agents,
-each in its own worktree on files no other touched, and this session
-worked the list; each mechanism change carries a planted harness case
-checked to fail without it. The four findings files now hold only what
-remains, most of it a decision for Morgan.
-
-**A second and third round, after Morgan's review.** He approved the
-findings files' fixes and the pass-4 recommendations, asked for two
-workflow items to be explained rather than changed, and asked for the
-setup-script step to become an optional, recommended part of setup. The
-catalogue judgment then found about twenty violations and nine stale or
-contradicting rules; the text ones were fixed in all five repos, and the
-code ones went to fix agents under the same rules as before.
-
-**What needs the person, not a session.** A public practice set still
-exposes, through two old branches and 68 pull-request refs, files naming
-private repositories; the branches are a click each, the refs need GitHub
-Support. Recorded in the individual set's own open item, not here.
+| 1 — adopter installs | done, gaps named | 2026-10-05 | Four routes rehearsed on `main`; no migration, no practice moves, no real consumer. Two fixed. Unfixed: [todo-2026-10-05-very-deep-check-pass-1-findings](../todo/todo-2026-10-05-very-deep-check-pass-1-findings.md) |
+| 2 — mechanisms | done, gaps named | 2026-10-05 | The tool's seven items reproduced; questions 1, 4-12, 16-19, 22, 23 not worked one by one. Three of the check's own sections fixed. Unfixed: [todo-2026-10-05-very-deep-check-pass-2-findings](../todo/todo-2026-10-05-very-deep-check-pass-2-findings.md) |
+| 3 — coherence read | done, gaps named | 2026-10-05 | Fold seam swept in every repo; universal swept, not read in full. BestPractice wording fixed. Unfixed: [todo-2026-10-05-very-deep-check-pass-3-findings](../todo/todo-2026-10-05-very-deep-check-pass-3-findings.md) |
+| 4 — catalogue, backlog, branches | done | 2026-10-05 | Every branch from full clones, 46 pairs judged, six items closed. Unfixed: [todo-2026-10-05-very-deep-check-pass-4-findings](../todo/todo-2026-10-05-very-deep-check-pass-4-findings.md) |
 
 ## Runs so far
 
 | Run | Passes completed | What it changed |
 |---|---|---|
-| 2026-09-28 | 1, 2, 3; 4 partial | Described under "Current run" above until the next run replaces it. |
+| 2026-10-05 | 1, 2, 3, 4 | Described under "Current run" above until the next run replaces it. |
+| 2026-09-28 | 1, 2, 3, 4 | All four passes across five repos plus the first real consumer; ten sub-agents; the first full sequential catalogue judgment (216 practices). Findings: `todo-2026-09-28-very-deep-check-pass-{1,2,3,4}-findings`. |
 | 2026-09-22 | mechanical only | A tool run with no passes recorded in the ledger and no row here until 2026-09-28; nothing in this file says what, if anything, it read. |
 | 2026-09-21 | 1 (partial), 2 (partial), 3, 4 | The full four passes, scope said up front, while two other sessions pushed to the integration branch. Pass 1: five fixtures, one silently destructive defect and a roadblock (no consumer attached). Pass 2: all 69 tools' read-only verbs; 8 of 20 questions not attempted. Pass 3: all five catalogues and 33 shipped templates. Pass 4: verdicts on 11 branches (their counts were inflated by the shallow-fetch defect found 2026-09-28). Fixed in place: a retired `Session Text` command AGENTS.md still advertised against the rule in force, stale `Go merge` triggers, a wrong gotcha count, a quick-index row to a redirect stub. Findings: `todo-2026-09-21-pass-{1,2,3,4}-*`. |
 | 2026-09-20 (afternoon) | 1, 2, 3 (targeted); 4 not repeated | On Morgan's direct request, a follow-up to the same-day morning run — flagged before starting, because the actual delta (103 commits, ~7 hours) was far larger than the morning run's own 5-commit precedent for "narrow": README rewrite work, but also real engine changes (`verify_harness.py`, `doc_lint.py`'s new frontmatter-YAML check, `precedent_vendor_engine.py`'s CI-workflow retirement) and a go-update.md rewrite retiring "Go merge" as a trigger. Morgan chose "Targeted": mechanical suite re-run, a real (not full five-path) Pass 1 rehearsal scoped to the changed engine/install files, and a Pass-3 diff read of the 103 commits rather than the full catalogue. Pass 1 (sub-agent): built a scratch consumer pinned at the morning run's commit, refreshed it forward via `precedent_vendor_engine.py refresh`, hand-verified the refresh-replaces-itself self-heal path, ran `verify_harness.py`/`doc_lint.py` directly — clean, no findings. Pass 3 (sub-agent): 5 findings, all fixed same session — go-update's retirement never reached 9 places still teaching "Go merge" as live (the brand-new `prompt-please.md`'s own paste-ready template, 5 `documentation/` surfaces, and `templates/document-project/AGENTS.md`, which vendors the stale phrase into every adopting project), and `spec/README_REWRITE_PROPOSAL.md` still said "Nothing here touches README.md" / `status: drafted` after the rewrite had already landed as README.md and kept moving under 20+ further edits — marked `status: executed`, reworded. Mechanical five-gate suite (`verify_harness`/`doc_lint`/`leak_gate`/`precedent_check`/`doc_sync`) re-run clean after the fixes. Pass 4 not repeated — this morning's per-branch verdicts stand, nothing suggested branches moved. A single further commit (PR #493, a name-boundary fix in `precedent_decommission.py`) landed from elsewhere while this run was in progress; out of scope for this run, left for the next one. Private sets: still `HANDOFF`, unchanged. |
