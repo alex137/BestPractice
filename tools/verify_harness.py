@@ -8107,6 +8107,119 @@ def check_install_names_the_other_assistants_adapters():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_hands_the_engine_refresh_the_followed_tip():
+    """Update Vendors runs the engine refresh with the CONSUMER's own engine
+    copy, and an older copy resolves the branch it was written to follow: a
+    beta-era consumer's first update vendored from precedent-beta-v01 and
+    reported `refreshed from precedent-beta-v01 @ ...` under `source: main`
+    (very deep check, 2026-10-05, pass 1). The update now always hands the
+    refresh the tip it read, and reports the leg that landed there. An
+    engine recorded ahead of the tip is still left to the refresh's own
+    no-rollback guard."""
+    import contextlib
+    import io
+    import tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-tip-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+    tip = git(ROOT, 'rev-parse', 'HEAD').stdout.strip()
+    older = git(ROOT, 'rev-parse', 'HEAD~1').stdout.strip()
+    saved_run = pu.run
+    cases = []
+
+    def planted(name, recorded, beta):
+        # An engine copy that behaves like a beta-era one: given no
+        # --from-ref it vendors `beta`, the integration branch's commit.
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps({
+            'source_commit': recorded, 'kind': 'consumer', 'files': []}),
+            encoding='utf-8')
+        argv_file = tmp / f'{name}-argv.json'
+        (repo / 'tools' / 'precedent_vendor_engine.py').write_text(
+            'import json, pathlib, sys\n'
+            f'open({str(argv_file)!r}, "w").write(json.dumps(sys.argv[1:]))\n'
+            'a = sys.argv[1:]\n'
+            'ref = a[a.index("--from-ref") + 1] if "--from-ref" in a else None\n'
+            f'got = ref or {beta!r}\n'
+            'm = pathlib.Path(__file__).with_name("ENGINE_MANIFEST.json")\n'
+            'd = json.loads(m.read_text()); d["source_commit"] = got\n'
+            'm.write_text(json.dumps(d))\n'
+            'print("precedent_vendor_engine refresh OK (consumer): 3 file(s) "\n'
+            '      "refreshed from " + (ref or "precedent-beta-v01") + " @ " + got[:12]\n'
+            f'      + " (was {recorded[:12]})")\n',
+            encoding='utf-8')
+        git(tmp, 'init', '-q', '-b', 'main', str(repo))
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'installed\n\nSession: none available (fixture)')
+        return repo, argv_file
+
+    def run_update(repo, followed_tip):
+        def fetchless(argv, cwd):
+            if argv[:1] == ['git'] and 'fetch' in argv:
+                return 0, ''
+            if argv[:1] == ['git'] and 'rev-parse' in argv \
+                    and argv[-1] == f'origin/{pve.SOURCE_BRANCH}':
+                return 0, followed_tip + '\n'
+            return saved_run(argv, cwd)
+        pu.run = fetchless
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                pu.update(repo, skip_check=True)
+        finally:
+            pu.run = saved_run
+        return out.getvalue()
+
+    try:
+        repo, argv_file = planted('beta-era', older, '0' * 40)
+        text = run_update(repo, tip)
+        argv = json.loads(argv_file.read_text()) if argv_file.is_file() else []
+        cases.append(('a repo following main hands its own engine refresh the '
+                      'tip of main', argv[-2:] == ['--from-ref', tip], str(argv)))
+        landed = json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                            .read_text(encoding='utf-8')).get('source_commit')
+        cases.append(('...so the engine lands on main, not the integration branch',
+                      landed == tip, str(landed)))
+        cases.append(('...and the report names main, never the branch the old '
+                      'copy would have read',
+                      f'refreshed from {pve.SOURCE_BRANCH} @ {tip[:12]}' in text
+                      and 'precedent-beta-v01' not in text, text[-1500:]))
+        two_legs = ('precedent_vendor_engine refresh OK (consumer): 3 file(s) '
+                    f'refreshed from precedent-beta-v01 @ {"b" * 12} (was 1)\n'
+                    'precedent_vendor_engine refresh OK (consumer): 3 file(s) '
+                    f'refreshed from {tip} @ {tip[:12]} (was 1)\n')
+        try:
+            shown = pu.engine_summary('\n'.join(reversed(two_legs.splitlines())),
+                                      None, follow='main', tip=tip)
+        except TypeError as e:
+            shown = f'engine_summary takes no tip: {e}'
+        cases.append(('the report shows the leg that landed on the tip, whatever '
+                      'order the passes print in',
+                      shown.startswith(f'3 file(s) refreshed from main @ {tip[:12]}'),
+                      shown))
+        ahead, argv_file = planted('ahead', tip, '0' * 40)
+        run_update(ahead, older)
+        argv = json.loads(argv_file.read_text()) if argv_file.is_file() else []
+        cases.append(('an engine recorded ahead of the tip is not told to roll '
+                      'back: no --from-ref', bool(argv) and '--from-ref' not in argv,
+                      str(argv)))
+    finally:
+        pu.run = saved_run
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors refreshes the engine from the tip it read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -60424,6 +60537,7 @@ def main():
     check_fix_sweep_copy_keeps_its_neighbours()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
+    check_update_hands_the_engine_refresh_the_followed_tip()
     check_upholds_is_a_listed_field()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_session_trailer_check_ships_with_the_engine()

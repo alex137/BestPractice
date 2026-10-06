@@ -63,6 +63,12 @@ and the check read only the hook.
   `refreshed from precedent-beta-v01 @ b45fcf1f` under `source: main`. The
   end state matches main; the path to it does not. Always pass the main
   commit with `--from-ref`, and report the final leg.
+  **Fixed 2026-10-06:** [precedent_update.py](../tools/precedent_update.py)
+  hands the consumer's engine refresh the tip it read, for main as for a
+  repo following `staging`, and its report shows the pass that landed on
+  that tip, named by branch. The one exception is an engine recorded ahead
+  of the tip, still left to the refresh's no-rollback guard. Harness case
+  `check_update_hands_the_engine_refresh_the_followed_tip`.
 - **A fresh install fails its own link convention.** INSTALL.md §0 step 8's
   lint reports 18 unlinked file names in the loader, MAP and local-practice
   templates, while the installer says the light check passed.
