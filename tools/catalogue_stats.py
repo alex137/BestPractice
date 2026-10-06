@@ -153,10 +153,12 @@ ANCHORS = [
     # and moved word for word into a Detail it did not have yet. Then 24->23
     # on 2026-10-02, when merge-authorization-keyword, one of the original 52
     # and carrying a Detail, was withdrawn from universal into the set that
-    # provides the five-stage ladder (spec/LADDER_OPT_IN_PLAN.md).
+    # provides the five-stage ladder (spec/LADDER_OPT_IN_PLAN.md). Then
+    # 23->24 on 2026-10-06, when docs-are-current-state gained a Detail
+    # showing how to declare load_bearing_annotations.
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     23, 23, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     24, 24, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
