@@ -6378,10 +6378,6 @@ def check_update_seeds_the_session_load_registry():
     cases = []
     with tempfile.TemporaryDirectory() as td:
         repo = pathlib.Path(td)
-        # The repo's own engine copy, as Update Vendors leaves it, minus the
-        # registry this test is about: the approvals are read through it.
-        shutil.copytree(ROOT / 'tools', repo / 'tools', ignore=shutil.ignore_patterns(
-            '__pycache__', 'session_load_budgets.json'))
         (repo / 'CLAUDE.md').write_text('word ' * 4000, encoding='utf-8')
         (repo / 'AGENTS.md').write_text('word ' * 300, encoding='utf-8')
         seeded = pu.ensure_session_load_registry(repo)
