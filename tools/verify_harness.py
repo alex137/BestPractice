@@ -15282,7 +15282,11 @@ def check_precedent_check_fires():
         git(pristine, 'config', 'user.email', 'harness@example.com')
         git(pristine, 'config', 'user.name', 'harness')
         git(pristine, 'add', '-A')
-        git(pristine, 'commit', '-qm', 'baseline')
+        # A fixture commit has no session behind it, and says so: the
+        # engine's own session-trailer check (2026-10-06) judges every commit
+        # no origin has, and a silent one is exactly what it exists to catch.
+        git(pristine, 'commit', '-qm',
+            'baseline\n\nSession: none available (verify_harness fixture)')
 
         def fresh(name):
             repo = tmp / name
@@ -15541,6 +15545,15 @@ def check_precedent_check_fires():
             git(repo, 'push', '-q', str(bare), 'HEAD:refs/heads/trunk')
             git(repo, 'remote', 'add', 'origin', str(bare))
         case('default-branch', _plant_default_branch)
+
+        # session-trailer: the baseline commit carries an explicit "none
+        # available" trailer; the plant adds one commit with no trailer at
+        # all. The check ships with the engine since 2026-10-06.
+        def _plant_session_trailer(repo):
+            (repo / 'zz-no-trailer.txt').write_text('x\n', encoding='utf-8')
+            git(repo, 'add', 'zz-no-trailer.txt')
+            git(repo, 'commit', '-qm', 'a commit with no session trailer')
+        case('session-trailer', _plant_session_trailer)
 
         # derived-file-marker: a tracked file claims `DERIVED from ... @ sha`
         # on its first line and carries none of the other three lines.
