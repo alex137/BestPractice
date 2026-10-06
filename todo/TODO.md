@@ -144,7 +144,8 @@ as_of: 2026-10-06
 | [`todo-2026-10-05-decommission-left-three-dead-links`](todo-2026-10-05-decommission-left-three-dead-links.md) | Find out why the practice-set workflow template, retired on 2026-10-01, left three relative links to it. | 1d | ask | out of scope for the repo-maintenance fold that found it; the links themselves a… |
 | [`todo-2026-10-05-finish-folding-the-working-style-set-away`](todo-2026-10-05-finish-folding-the-working-style-set-away.md) | Withdraw the last five rules from the working-style set, then stop declaring it. | 1d | ask | the five universal drafts landing on main, then Update Vendors in every reposito… |
 | [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 1d | ask | both passes reaching main, then Update Vendors in every repository that declares… |
-| [`todo-2026-10-06-full-harness-runs-on-one-core`](todo-2026-10-06-full-harness-runs-on-one-core.md) | A full harness run (`python3 tools/verify_harness.py --all`) takes about 31 | 0d | wait |  |
+| [`todo-2026-10-06-deal-harness-checks-by-measured-time`](todo-2026-10-06-deal-harness-checks-by-measured-time.md) | `verify_harness.py --as-ci` (and now a bare `--all`) deals the rest shard's | 0d | wait |  |
+| [`todo-2026-10-06-merge-refusal-misreads-a-stale-to-main-copy`](todo-2026-10-06-merge-refusal-misreads-a-stale-to-main-copy.md) | When staging moves while a pull request into main waits on its GitHub | 0d | wait |  |
 
 ## Decisions (the Person's Call)
 
