@@ -402,6 +402,77 @@ def headroom_notice(root=None, floor_pct=None):
     return "\n".join(out)
 
 
+_RESIDENT_ENTRY = re.compile(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', re.M)
+_INDEX_SLUG = re.compile(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', re.M)
+
+
+def _slug_sources(root):
+    """-> {slug: source name} from the sources `root`'s precedent.json
+    declares, highest precedence last so it wins; {} when they cannot be
+    read."""
+    try:
+        import precedent_resolve as pr
+        sources = pr.load_config(str(root))
+    except Exception:                                         # noqa: BLE001
+        return {}
+    out = {}
+    for s in sources:
+        d = pathlib.Path(root) / str(s.get('path') or '') / 'practices'
+        for f in (d.glob('*.md') if d.is_dir() else ()):
+            out[f.stem] = s.get('name') or s.get('level') or '?'
+    return out
+
+
+def breakdown(root, rel):
+    """-> [(tokens, kind, label, source)], largest first: each resident
+    entry, each occasion-index group, and the rest of the file, as the cap
+    measures it.
+
+    code-cites-practice: session-load-budget
+
+    The over-target line gave one number. A session in a consumer read
+    "precedent-individual: .precedent/SESSION_PRACTICES.md is 4,004 tokens,
+    over its 4,000-token target", proposed trimming a practice whose line was
+    not in that file at all, and found the real one only later (2026-10-06).
+    A Reduction pass starts from what is actually there, and from which
+    source each piece comes, since that is where it is cut."""
+    f = pathlib.Path(root) / rel
+    text = as_measured(rel, f.read_text(encoding='utf-8', errors='replace'))
+    owner = _slug_sources(root)
+    rows, used = [], 0
+    if '## Resident block' in text:
+        res = text.split('## Resident block', 1)[1].split('## Occasion index', 1)[0]
+        starts = [m.start() for m in _RESIDENT_ENTRY.finditer(res)] + [len(res)]
+        for a, b in zip(starts, starts[1:]):
+            chunk = res[a:b]
+            slug = _RESIDENT_ENTRY.match(chunk).group(1)
+            n = approx_tokens(chunk)
+            used += n
+            rows.append((n, 'resident', slug, owner.get(slug, '?')))
+    if '## Occasion index' in text:
+        parts = text.split('## Occasion index', 1)[1].split('```')
+        if len(parts) >= 3:
+            group = []
+            for line in parts[1].split('\n') + ['']:
+                if (not line or not line.startswith(' ')) and group:
+                    body = '\n'.join(group)
+                    slugs = _INDEX_SLUG.findall(body)
+                    if slugs:
+                        n = approx_tokens(body)
+                        used += n
+                        rows.append((n, 'index', ', '.join(slugs),
+                                     ', '.join(sorted({owner.get(s, '?')
+                                                       for s in slugs}))))
+                    group = []
+                if line.strip():
+                    group.append(line)
+    rest = approx_tokens(text) - used
+    if rest > 0:
+        rows.append((rest, 'other', 'headings, prose and notes outside the '
+                     'entries', '-'))
+    return sorted(rows, key=lambda r: -r[0])
+
+
 def main():
     ap = argparse.ArgumentParser(
         description='Headroom and growth rate for every always-loaded surface.')
@@ -414,6 +485,10 @@ def main():
                          'a "Reduction pass" report needs, measured rather '
                          'than typed (practice: reduction-pass)')
     ap.add_argument('--json', action='store_true', help='machine-readable')
+    ap.add_argument('--breakdown', metavar='FILE',
+                    help='one always-loaded file, entry by entry, largest '
+                         'first, with the source each entry comes from -- '
+                         'where a Reduction pass starts')
     ap.add_argument('--root', metavar='DIR',
                     help='the repository to measure (default: the one this '
                          'script lives in)')
@@ -431,6 +506,21 @@ def main():
     w = None if args.root else _which_repo()
     if w is not None:
         w.warn_if_elsewhere(ROOT, 'session_load_trend.py')
+
+    if args.breakdown:
+        if not (ROOT / args.breakdown).is_file():
+            print(f'session_load_trend: no {args.breakdown} in {ROOT}.')
+            return 1
+        rows = breakdown(ROOT, args.breakdown)
+        if args.json:
+            print(json.dumps([dict(zip(('tokens', 'kind', 'entry', 'source'), r))
+                              for r in rows], indent=2))
+            return 0
+        total = sum(r[0] for r in rows)
+        print(f'{ROOT / args.breakdown}: ~{total:,} tokens, as the cap measures it')
+        for n, kind, label, src in rows:
+            print(f'  {n:>5,}  {kind:<8}  {label}  [{src}]')
+        return 0
 
     reg = registry()
     if reg is None:

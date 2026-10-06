@@ -965,30 +965,11 @@ def _where_removed_went(repo, user_config, removed):
     return out
 
 
-def _links_to_removed(repo, user_config, removed, check=False, present=None):
-    """Every tracked file outside the generated tree that links to a practice
-    this sync removed, or to one an earlier update removed (`present`, the
-    practices this sync leaves): repointed where the rule's successor is in
-    practices/ now, reported where it is not. -> [report lines].
-
-    An EARLIER removal counts too (2026-10-04). A consumer rehearsal found a
-    hook still linking a practice a shared-set rename had removed weeks
-    before: this report knew only this sync's removals, said nothing, and
-    the push after the update was refused for exactly that link. The report
-    now names every link the full check refuses.
-
-    rename-updates-links asks a rename to repoint every link in the same
-    change; a sync that removes a practice is the same event for the repo
-    that receives it, and until 2026-10-03 it repointed and reported nothing
-    -- open items naming removed practices failed the next Promote."""
-    if not removed and present is None:
-        return []
+def _own_files(repo):
+    """-> the tracked files that are this repository's own to fix: not a
+    materialized practice or check, not a mirror of another repository's
+    catalogue, not a generated view, not a vendored engine file."""
     repo = pathlib.Path(repo)
-    gone = set(removed)
-    # Every tracked file, not only Markdown: a hook or a blocklist that names
-    # a removed practice is refused by rename-updates-links too (a
-    # consumer, 2026-10-03). Only Markdown is ever rewritten; anything else
-    # is reported and left as it is.
     r = subprocess.run(['git', '-C', str(repo), 'ls-files'],
                        capture_output=True, text=True)
     # A mirror of another repository's catalogue (precedent/universal/,
@@ -1014,9 +995,90 @@ def _links_to_removed(repo, user_config, removed, check=False, present=None):
             .get('files') or []}
     except (OSError, ValueError, AttributeError):
         engine = set()
-    files = [f for f in r.stdout.splitlines()
-             if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
-             and f not in engine]
+    return [f for f in r.stdout.splitlines()
+            if not f.startswith(skip) and f not in bv.FULLY_GENERATED_VIEWS
+            and f not in engine]
+
+
+def _tracked_materialized(repo):
+    """-> the tracked files under practices/ and tools/checks/: what a sync
+    may take away."""
+    r = subprocess.run(['git', '-C', str(repo), 'ls-files', '--', 'practices',
+                        'tools/checks'], capture_output=True, text=True)
+    return set(r.stdout.splitlines()) if r.returncode == 0 else set()
+
+
+def _mentions_of_removed_files(repo, gone):
+    """-> ["<file>:<line> still names <path>, which this sync removed"] for
+    every file of this repository's own (_own_files) that names a file this
+    sync took out of practices/ or tools/checks/ -- by its path, or a check
+    script or test by its name alone.
+
+    Found 2026-10-06 in a consumer: a sync removed four check scripts, their
+    tests and practices/light-check.md, and three rounds of checks each
+    found more files still naming them -- the consumer's own light check
+    and a gotcha at the merge into pre-staging, two open items only at the
+    Debut's full check. Each round cost a commit and a re-run. A practice
+    link -- `practices/<slug>.md` anywhere in a line, linked or not -- is
+    _links_to_removed's, so this names only what that cannot: a check
+    script or test, by path or by name, all at once, in the run that
+    removed it (rename-updates-links)."""
+    repo = pathlib.Path(repo)
+    gone = sorted(g for g in set(gone) if g.startswith('tools/checks/'))
+    if not gone:
+        return []
+    pats = []
+    for path in gone:
+        name = pathlib.PurePosixPath(path)
+        # A script or test is named by itself as often as by its path, with
+        # or without its suffix: "check_light_check.py", "check_light_check".
+        alts = [re.escape(path),
+                r'(?<![\w/.-])' + re.escape(name.stem)
+                + r'(?:' + re.escape(name.suffix) + r')?(?![\w-])']
+        pats.append((path, re.compile('|'.join(alts))))
+    out = []
+    for rel in _own_files(repo):
+        if rel in gone:
+            continue
+        try:
+            text = (repo / rel).read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not any(p.search(text) for _, p in pats):
+            continue
+        for n, line in enumerate(text.split('\n'), 1):
+            for path, pat in pats:
+                if pat.search(line):
+                    out.append(f'{rel}:{n} still names {path}, which this sync '
+                               f'removed -- repoint or remove it')
+    return out
+
+
+def _links_to_removed(repo, user_config, removed, check=False, present=None):
+    """Every tracked file outside the generated tree that links to a practice
+    this sync removed, or to one an earlier update removed (`present`, the
+    practices this sync leaves): repointed where the rule's successor is in
+    practices/ now, reported where it is not. -> [report lines].
+
+    An EARLIER removal counts too (2026-10-04). A consumer rehearsal found a
+    hook still linking a practice a shared-set rename had removed weeks
+    before: this report knew only this sync's removals, said nothing, and
+    the push after the update was refused for exactly that link. The report
+    now names every link the full check refuses.
+
+    rename-updates-links asks a rename to repoint every link in the same
+    change; a sync that removes a practice is the same event for the repo
+    that receives it, and until 2026-10-03 it repointed and reported nothing
+    -- open items naming removed practices failed the next Promote."""
+    if not removed and present is None:
+        return []
+    repo = pathlib.Path(repo)
+    gone = set(removed)
+    # Every tracked file, not only Markdown: a hook or a blocklist that names
+    # a removed practice is refused by rename-updates-links too (a
+    # consumer, 2026-10-03). Only Markdown is ever rewritten; anything else
+    # is reported and left as it is.
+    files = _own_files(repo)
     if present is not None:
         linked = set()
         for rel in files:
@@ -1133,6 +1195,7 @@ def main():
         return 0
 
     before = {f.stem for f in (pathlib.Path(repo) / 'practices').glob('*.md')}
+    tracked_before = set() if check else _tracked_materialized(repo)
     try:
         (written, checks_written, adapters_written, rstats, agents_md,
          changed, tree_drift) = sync(
@@ -1158,6 +1221,10 @@ def main():
     view_problems = _refresh_generated_views(repo, check=check)
     for line in _links_to_removed(repo, user_config, removed, check=check,
                                   present=after):
+        print(f"precedent_sync_views: {line}", file=sys.stderr)
+    for line in _mentions_of_removed_files(
+            repo, [f for f in tracked_before
+                   if not (pathlib.Path(repo) / f).exists()]):
         print(f"precedent_sync_views: {line}", file=sys.stderr)
 
     if check:
