@@ -96,6 +96,13 @@
   },
   {
     "practice": "the-boildown",
+    "id": "landed-branch-gets-its-delete-link",
+    "require_delete_link_when_landed": true,
+    "why": "the-boildown item 6 and branch-delete-links: a branch that lands during the turn is used up, and the reply hands over its one-click delete link. Found 2026-10-06: a session merged its branch and gave none, because only the not-landed half was enforced.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "id": "practice-ideas-only-at-the-close",
     "require_paired_with": [
       {
