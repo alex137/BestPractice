@@ -1963,12 +1963,19 @@ def mark_other_work(root, batch, work=None, sid=None):
     lines. A commit is this session's when it is on the `work` branch, or
     when its message carries a Claude-Session line naming this session --
     the second catches a session that Booked two branches and promotes with
-    one of them. With neither a work branch nor a session ID nothing can be
+    one of them. A fix branch counts for nothing here, since it carries the
+    whole batch; only the session line is read. With neither a work branch nor a session ID nothing can be
     told apart, so nothing is marked."""
     sid = _this_session_id() if sid is None else sid
     wtip = None
-    if work:
-        name = work[len('origin/'):] if work.startswith('origin/') else work
+    name = (work[len('origin/'):] if work and work.startswith('origin/')
+            else work)
+    # A fix branch is the last unfinished Promote's composition: every
+    # commit in the batch is on it, so being on it says nothing about whose
+    # work a commit is, and only the Claude-Session line can (found
+    # 2026-10-06, a Debut rerun from its fix branch marked no commit,
+    # another session's among them).
+    if work and not is_fix_branch(name):
         wtip = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{name}^{{commit}}')
                 or _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}'))
     if not wtip and not sid:
