@@ -200,6 +200,39 @@ def _is_generated_view(repo, rel):
                           re.M))
 
 
+# A DEAD LINK THE OLD INSTALL PACK WROTE (2026-10-06). It opened a repo's
+# scrub blocklist with "# Left blank at install ([`blank-blocklist`](personal/
+# README.md#blank-blocklist)): ...". The practice is retired and
+# personal/README.md exists nowhere, so every repository installed that way
+# carries the same dead link; one consumer fixed it by hand by dropping the
+# link and keeping the sentence. No live template writes it any more, so
+# Update Vendors makes the same edit wherever it is still there.
+_DEAD_BLANK_BLOCKLIST_LINK = re.compile(
+    r' ?\(\[`blank-blocklist`\]\(personal/README\.md#blank-blocklist\)\)')
+
+
+def drop_dead_blank_blocklist_link(repo):
+    """-> the repo-relative files under process/ it rewrote, dropping the
+    retired install pack's dead `blank-blocklist` link and keeping the
+    sentence around it. Nothing else in a file changes."""
+    fixed = []
+    base = repo / 'process'
+    if not base.is_dir():
+        return fixed
+    for f in sorted(base.rglob('*')):
+        if not f.is_file() or f.suffix not in ('.txt', '.md'):
+            continue
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        new = _DEAD_BLANK_BLOCKLIST_LINK.sub('', text)
+        if new != text:
+            f.write_text(new, encoding='utf-8')
+            fixed.append(str(f.relative_to(repo)))
+    return fixed
+
+
 def ensure_scrub_blocklist_decision(repo):
     """-> 'null' when it recorded `scrub_blocklist: null` for a public repo,
     'ask' when the repo has to decide, None when nothing is owed. 'ask' is
@@ -2664,6 +2697,12 @@ def update(repo, skip_check=False, ref=None):
                  'declares this repo public, so there is nothing private to '
                  'list, and the practice audit fails a list that is neither '
                  'present nor declined')
+
+    dead = drop_dead_blank_blocklist_link(repo)
+    if dead:
+        rep.step('dead link', f"dropped the retired install pack's link to "
+                 f"personal/README.md#blank-blocklist from {', '.join(dead)}, "
+                 f"keeping the sentence (that file exists nowhere)")
 
     seeded = ensure_session_load_registry(repo)
     if seeded:

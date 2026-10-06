@@ -6190,6 +6190,38 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_drops_the_dead_blank_blocklist_link():
+    """Update Vendors drops the retired install pack's dead link to
+    personal/README.md#blank-blocklist from a repository's process/ files,
+    keeping the sentence, exactly as a consumer fixed its own by hand
+    (2026-10-06). The same text with no link, and the link in a file
+    outside process/, are left alone."""
+    import tempfile as _tf
+    import precedent_update as pu
+    line = ("# Left blank at install ([`blank-blocklist`](personal/README.md"
+            "#blank-blocklist)): Morgan doesn't use the\n")
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'process').mkdir()
+        f = repo / 'process' / 'scrub_blocklist.txt'
+        f.write_text('# head\n' + line + 'word\n', encoding='utf-8')
+        other = repo / 'README.md'
+        other.write_text(line, encoding='utf-8')
+        fixed = pu.drop_dead_blank_blocklist_link(repo)
+        cases.append(('the link is dropped and the sentence kept',
+                      fixed == ['process/scrub_blocklist.txt'] and
+                      f.read_text(encoding='utf-8') ==
+                      "# head\n# Left blank at install: Morgan doesn't use the\nword\n"))
+        cases.append(('a second run changes nothing',
+                      pu.drop_dead_blank_blocklist_link(repo) == []))
+        cases.append(('a file outside process/ is not touched',
+                      other.read_text(encoding='utf-8') == line))
+    failed = [n for n, ok in cases if not ok]
+    check(f'Update Vendors drops the dead blank-blocklist link ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_session_start_charges_brought_sets_to_the_person():
     """The session-start check holds the sets a person brings to that
     person's `brought_sets_tokens` budget, never to the repository's ceiling,
@@ -61659,6 +61691,7 @@ def main():
     check_migrate_views_keeps_every_word()
     check_update_seeds_the_session_load_registry()
     check_session_start_charges_brought_sets_to_the_person()
+    check_update_drops_the_dead_blank_blocklist_link()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
