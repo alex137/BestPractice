@@ -35,9 +35,10 @@ approved_by: "<undecided>"
      catalogue, only for deletion or a home. This file is the home: it is
      still project DATA, not a portable rule, and stays that way. What
      changes is the shape it is stored in, not what it is for -- so a
-     session finds it through the same occasion index and
-     `precedent_paths.py` channel as every other in-force rule, instead of
-     a file that sits at the root until someone happens to open it.
+     session finds it through the same occasion index and path lookup
+     (`python3 tools/precedent_paths.py FILE`) as every other in-force
+     rule, instead of a file that sits at the root until someone happens
+     to open it.
 
      Copied nearly empty at install, and left that way -- an install does
      the essentials and stops. Every section below may legitimately stay

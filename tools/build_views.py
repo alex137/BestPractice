@@ -1608,7 +1608,7 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     # person: it is always carried.
     if instruction:
         instruction.append(
-            "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
+            "If .precedent/SESSION_PRACTICES.md exists, read it too: it carries the "
             "practices in force from the other sources this repo declares, which are "
             "NOT in this block and bind work here exactly as these do. It is "
             "regenerated at session start and is deliberately untracked — never commit "

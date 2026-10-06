@@ -118,7 +118,9 @@ what it could not decide: the `<…>` placeholders left in the instantiated
 files (the project's own subject matter), any line still naming a layout
 the project does not have, and the two things that stay a conversation —
 step 3's team-and-individual question, and giving the repository an
-`origin`. It never commits. **The numbered steps stay here because they
+`origin`. It installs the Claude Code adapter only, and its report says so:
+a project another assistant will work in adds that adapter too (§1 step 2's
+adapter bullet). It never commits. **The numbered steps stay here because they
 are what the tool does**, in the order it does it, and because a repo
 that wants to deviate from one of them needs to know what it is deviating
 from. Rehearsed against a real project on 2026-09-14 (the closing paragraph
@@ -594,6 +596,18 @@ cover, by design and not oversight:
      UserPromptSubmit and PreToolUse) with this repo's real base branch; it is passed explicitly because detecting it gets this repo
      itself wrong. Codex reads `AGENTS.md` natively.
      Multiple adapters can be installed side by side.
+     **For Codex or Gemini CLI, add that adapter as well as Claude
+     Code's** — [tools/precedent_install.py](tools/precedent_install.py)
+     installs the Claude Code one only, and says so in its report. Codex:
+     copy [templates/harness/codex/hooks.json](templates/harness/codex/hooks.json)
+     to `.codex/hooks.json`. Gemini CLI:
+     copy [templates/harness/gemini-cli/GEMINI.md](templates/harness/gemini-cli/GEMINI.md)
+     to the repo root and merge the `hooks` key of
+     [templates/harness/gemini-cli/settings.json](templates/harness/gemini-cli/settings.json)
+     into `.gemini/settings.json`. Both run the Claude Code adapter's
+     scripts from `.claude/hooks/`, so keep those even if nobody opens the
+     repo in Claude Code. Each adapter's own README says what it can and
+     cannot enforce.
 
      **Which of these are decisions and which are not.** A real install
      (2026-09-07) treated all four hooks as four judgment calls and declined

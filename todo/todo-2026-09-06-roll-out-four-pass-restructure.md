@@ -3,21 +3,21 @@ slug:              todo-2026-09-06-roll-out-four-pass-restructure
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "an explicit instruction, not availability — the source was attached in the session that made this change, whose ask was scoped to BestPractice's `precedent-beta-v01` alone. Any session with `precedent-team-repo-maintenance` attached and a mandate to touch it can close this. **Narrowed 2026-09-06:** "
+blocked_on:        "an explicit instruction, not availability — the source was attached in the session that made this change, whose ask was scoped to BestPractice's `precedent-beta-v01` alone. Any session with `precedent-shared-repo-maintenance` attached and a mandate to touch it can close this. **Narrowed 2026-09-06:** "
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-06
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
 - <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
-    `precedent-team-repo-maintenance`' own `deep-check`.**
+    `precedent-shared-repo-maintenance`' own `deep-check`.**
     [practices/very-deep-check.md](../practices/very-deep-check.md) was
     restructured 2026-09-06 from one drift checklist into four ordered
     passes — adopter installs, whether the mechanisms tell the truth, the
@@ -31,7 +31,7 @@ closed:            null
     open cost something. **Blocked on:** an explicit instruction, not
     availability — the source was attached in the session that made this
     change, whose ask was scoped to BestPractice's `precedent-beta-v01`
-    alone. Any session with `precedent-team-repo-maintenance` attached and a
+    alone. Any session with `precedent-shared-repo-maintenance` attached and a
     mandate to touch it can close this.
     **Narrowed 2026-09-06:** the `overrides:` half is already ruled out —
     [practices/very-deep-check.md](../practices/very-deep-check.md)'s Story
@@ -47,8 +47,12 @@ closed:            null
 
 ## How It Closes
 
-Not open until: an explicit instruction, not availability — the source was attached in the session that made this change, whose ask was scoped to BestPractice's `precedent-beta-v01` alone. Any session with `precedent-team-repo-maintenance` attached and a mandate to touch it can close this. **Narrowed 2026-09-06:** 
+Not open until: an explicit instruction, not availability — the source was attached in the session that made this change, whose ask was scoped to BestPractice's `precedent-beta-v01` alone. Any session with `precedent-shared-repo-maintenance` attached and a mandate to touch it can close this. **Narrowed 2026-09-06:** 
 
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+2026-10-06: closed on its condition. The open call this item narrowed to -- whether the set's `deep-check` adopts anything from the four passes -- was made and recorded in that practice's own Story ("Reviewed 2026-09-06 against `very-deep-check`'s four-pass restructure (BestPractice's TODO item `roll-out-four-pass-restructure`)"): mechanical-before-human was adopted, the passes were not. `deep-check` has been universal since 2026-10-05 ([practices/deep-check.md](../practices/deep-check.md)).

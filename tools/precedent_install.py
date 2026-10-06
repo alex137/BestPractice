@@ -103,6 +103,18 @@ LOCAL_PRACTICE_FILES = {
     'local/practices/project-visual-identity.md': 'local-practices/project-visual-identity.md.template',
 }
 MIRROR_WORDS = 'process/upstream'    # the section-1 layout this install does not have
+# The installer wires the Claude Code adapter only. A project worked by
+# another assistant needs that assistant's adapter as well, and until
+# 2026-10-06 nothing said so: SETUP.md asked which assistant would work in
+# the repository and no later step used the answer (very deep check,
+# 2026-10-05, pass 1). Printed in every report, since the installer is not
+# told the answer.
+OTHER_ASSISTANTS_NOTE = (
+    'only the Claude Code adapter was installed. If Codex, Gemini CLI or '
+    'another assistant will work in this project, add its adapter too -- '
+    f'{UPSTREAM_DOCS}/templates/harness/README.md lists them, and each '
+    "adapter's own page says what to copy where (they reuse the "
+    '.claude/hooks/ scripts installed here, so keep those).')
 
 
 class InstallRefused(Exception):
@@ -608,6 +620,45 @@ def _mirror_words_left(dest, names):
     return hits
 
 
+_UNLINKED_LINE = re.compile(r'^\s+(\S+?):(\d+): `[^`]+` is not a link$')
+
+
+def _unlinked_outside_generated(dest, lint_out):
+    """-> the lint's unlinked-file-name warnings ('FILE:LINE: ...') that
+    fall OUTSIDE a generated block, i.e. in text a template wrote.
+
+    The lint reports them as warnings and exits 0, so until 2026-10-06 this
+    installer said the light check passed over 18 of them, and INSTALL.md
+    section 0 step 8's lint of the same files listed every one (very deep
+    check, 2026-10-05, pass 1). A fresh install is the one tree whose text
+    is entirely the templates', so here a warning is a template defect and
+    is counted. Lines inside a generated block are left out: the generator
+    writes those, and the catalogue's own lint judges the practice text it
+    carries. A truncated list ("... and N more") cannot be placed line by
+    line, so its count is reported whole."""
+    import generated_blocks
+    masks, found = {}, []
+    for line in lint_out.splitlines():
+        m = _UNLINKED_LINE.match(line)
+        if not m:
+            more = re.match(r'^\s+\u2026 and (\d+) more$', line)
+            if more:
+                found.append(f'{more.group(1)} more, not listed by the lint')
+            continue
+        rel, n = m.group(1), int(m.group(2))
+        if rel not in masks:
+            try:
+                masks[rel] = generated_blocks.mask(
+                    (dest / rel).read_text(encoding='utf-8'))
+            except OSError:
+                masks[rel] = []
+        mask = masks[rel]
+        if n - 1 < len(mask) and mask[n - 1]:
+            continue
+        found.append(line.strip())
+    return found
+
+
 def _tiers(dest):
     """Give the new repository pre-staging and staging on origin when it can
     (Morgan, 2026-09-27: these branches are essential to the process, so a
@@ -700,7 +751,8 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     all_instantiated = list(ROOT_FILES) + list(LOCAL_PRACTICE_FILES)
     md = all_instantiated + ['README.md']
     lint = _run([sys.executable, 'tools/doc_lint.py', *md], dest)
-    lint_ok = lint.returncode == 0
+    unlinked = _unlinked_outside_generated(dest, lint.stdout)
+    lint_ok = lint.returncode == 0 and not unlinked
 
     say('')
     say('DONE. What is left is judgment, not steps:')
@@ -717,13 +769,20 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
         say(f'  {len(hits)} line(s) still name {MIRROR_WORDS!r}, a layout this project does '
             f'not have -- reword or drop each: {", ".join(hits)}')
     say('  the light check on the written files: ' + ('OK' if lint_ok else 'FAILED -- read below'))
-    if not lint_ok:
+    if lint.returncode != 0:
         say((lint.stdout + lint.stderr).strip())
+    elif unlinked:
+        say(f'  {len(unlinked)} file name(s) the templates wrote without a link, '
+            f'which the doc-references-are-links convention asks for -- a '
+            f'template defect, so fix it upstream in templates/:')
+        for u in unlinked:
+            say(f'    {u}')
     say('  then: review the tree, commit on a branch, and give the repository an `origin` '
         'before the first session works in it (the freshness guard refuses the first '
         'write while it cannot reach one).')
     say('  still a conversation, not a step: does the team or the person have a '
         'practices repo to wire in? (INSTALL.md §1 step 9)')
+    say(f'  {OTHER_ASSISTANTS_NOTE}')
     return lint_ok
 
 

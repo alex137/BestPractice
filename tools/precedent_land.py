@@ -193,6 +193,9 @@ def land(candidate_path, level, repo_path, approved_by, against,
         if checked_by:
             _verify_checked_by_universal(checked_by, fm['slug'])
         dest_dir = ROOT / 'practices'
+        # A placeholder for the pull request's review, refused by
+        # precedent_check.py's pending-approval-outlives-its-merge once the
+        # practice is on the base branch.
         approved_by = approved_by or '(pending PR review)'
     else:
         if not repo_path:

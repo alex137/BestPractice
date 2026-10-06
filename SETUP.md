@@ -126,6 +126,17 @@ nothing to choose here — this page installs §0, always.
    `local/practices/project-visual-identity.md` install as the
    templates' near-empty skeletons and **stay that way** — filling them in
    is not part of an install (see "What an install does not do" below).
+   **Now use their answer about which AI Assistant will work in the
+   repo.** The command sets the project up for Claude Code only. If they
+   named Codex, Gemini CLI or another assistant that runs in a terminal,
+   add that assistant's setup too, from
+   [templates/harness/README.md](templates/harness/README.md): it lists
+   one page per assistant, and each page says which files to copy where.
+   Keep the Claude Code files either way; the other assistants reuse its
+   checks. Tell them in one sentence which assistant you set up and that
+   more can be added later. For ChatGPT or another assistant with no
+   terminal, there is nothing to add here: the GitHub check is what
+   covers them, which is why the fifth question matters for them.
    Respect the root-hygiene rule (INSTALL.md §0 step 7): nothing from
    Precedent lands loose at the repo root except the instantiated files,
    `precedent.json`, and the sync's own `practices/` and `MANIFEST.json`.
