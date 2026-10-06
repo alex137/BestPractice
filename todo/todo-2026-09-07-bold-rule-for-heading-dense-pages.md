@@ -3,16 +3,16 @@ slug:              todo-2026-09-07-bold-rule-for-heading-dense-pages
 kind:              analysis
 domain:            content
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "a session rooted in precedent-team-repo-maintenance (the practice's own set) to actually land the clause; this repository's sessions cannot push there."
+blocked_on:        "a session rooted in precedent-shared-repo-maintenance (the practice's own set) to actually land the clause; this repository's sessions cannot push there."
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -150,7 +150,7 @@ closed:            null
 
 ## How It Closes
 
-Not open until: a session rooted in precedent-team-repo-maintenance (the practice's own set) to actually land the clause; this repository's sessions cannot push there.
+Not open until: a session rooted in precedent-shared-repo-maintenance (the practice's own set) to actually land the clause; this repository's sessions cannot push there.
 
 ## Notes
 
@@ -161,3 +161,7 @@ for the full catalogue and root cause. Recreated verbatim from
 `git show 9a08363b^:TODO.md`, with its relative links repointed one level
 up into `../` and its old-style `TODO.md`-anchor citations repointed to the
 real `todo/` files they now resolve to.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+2026-10-06: closed on its condition. The clause landed: [practices/bold-key-phrases.md](../practices/bold-key-phrases.md), now universal, carries it in its Detail ("judge that density against running prose, and let a page whose own structure already carries the emphasis ... leave its section lead-ins plain") with the 2026-09-07 incident in its Story.

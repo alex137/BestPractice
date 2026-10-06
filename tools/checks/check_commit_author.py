@@ -650,6 +650,16 @@ def _log_scope_args() -> list[str]:
     A repo with no remote at all has no "already published" to exclude, so
     `git remote` coming back empty means the same thing PRECEDENT_CHECK_FULL_
     HISTORY=1 does: scope is everything reachable from HEAD."""
+    # AN EXPLICIT RANGE WINS (2026-10-06), the way check_session_trailer.py
+    # already reads one: `--range A..B` on the command line (main() moves it
+    # here) or PRECEDENT_CHECK_RANGE. CI needs it -- a pull request's
+    # checkout is a merge ref every one of whose commits is on SOME remote
+    # (the fetched pull ref), so "not on any remote" names nothing there,
+    # and the pull request's own commits are `origin/$GITHUB_BASE_REF..HEAD`.
+    # A symmetric `A...B` would list A's side too; the change is B's.
+    rng = os.environ.get("PRECEDENT_CHECK_RANGE")
+    if rng:
+        return [rng.replace("...", "..")]
     if os.environ.get("PRECEDENT_CHECK_FULL_HISTORY") == "1":
         return []
     has_remotes = subprocess.run(
@@ -693,8 +703,99 @@ def _git_log_lines(*fmt: str) -> list[str]:
                       (result.stderr or "").strip() or "no error output"))
 
 
+# --------------------------------------------------------------------------
+# THE BOT-AUTHOR HALF, 2026-10-06 (todo-2026-10-05-very-deep-check-pass-2-
+# findings). Everything above judges a commit against a DECLARED person, and
+# stands down where nobody is declared -- which is exactly the state of a
+# GitHub Actions runner. So nothing judged a pull request's commits there,
+# and the local push gate never saw them either: they were pushed from a
+# session whose hook was not running, or merged on github.com. Five commits
+# authored `noreply@anthropic.com` at +0000 reached BestPractice's main on
+# 2026-10-02 through a pull request merged on GitHub.
+#
+# Whether a commit is the HARNESS'S OWN BOT needs no declared person: the
+# address names nobody, in any repository. So this half runs whether or not
+# the identity half can, over the same scope (_log_scope_args), and the
+# deep-check workflow's pull-request job runs it alone
+# (`--bot-authors-only`) over the pull request's range.
+#
+# The addresses are precedent_session_check.BOT_EMAILS, imported rather than
+# copied: that module is in every kind of repo's engine, and one list means
+# a second bot address is added once. Found the way _identity_module() finds
+# its module, for the same two install layouts.
+def _bot_emails() -> set[str]:
+    """precedent_session_check.BOT_EMAILS, or NotApplicable saying why not."""
+    for d in (ROOT / "tools",
+              ROOT / "process" / "upstream" / "tools",
+              pathlib.Path(__file__).resolve().parent.parent,
+              SOURCE_ROOT / "tools"):
+        if (d / "precedent_session_check.py").is_file():
+            sys.path.insert(0, str(d))
+            break
+    try:
+        import precedent_session_check
+        emails = set(precedent_session_check.BOT_EMAILS)
+    except Exception as e:
+        raise NotApplicable(
+            f"precedent_session_check.py could not supply the harness's bot "
+            f"addresses ({e}), so no commit here can be judged against them; "
+            f"it is in every kind of repo's engine, so an engine without it "
+            f"needs a refresh")
+    if not emails:
+        raise NotApplicable("precedent_session_check.BOT_EMAILS is empty")
+    return emails
+
+
+def bot_author_findings() -> tuple[list[str], set[str]]:
+    """-> (findings, flagged shas): every commit in scope authored as one of
+    the harness's bot addresses. Grandfathered commits are exempt here too.
+    NotApplicable when the history or the address list cannot be read."""
+    bots = _bot_emails()
+    findings, flagged = [], set()
+    for line in _git_log_lines("--format=%H|%an|%ae"):
+        if not line.strip():
+            continue
+        sha, name, email = line.split("|", 2)
+        if sha in EFFECTIVE_GRANDFATHERED_SHAS or email.lower() not in bots:
+            continue
+        flagged.add(sha)
+        findings.append(
+            f"commit {sha[:12]}: author is {name!r} <{email}>, the harness's "
+            f"own bot address -- a commit nobody authored")
+    if findings:
+        findings.append(
+            "allowed as an emergency fallback, never as the routine (Morgan, "
+            "2026-10-06, strength: decided): tell the person, and record an "
+            "open item under todo/ naming the commit(s) and why no identity "
+            "was set, so the cause is fixed. An unpublished one can still be "
+            "re-authored (fix `git config user.email`, then `git rebase "
+            "--exec 'git commit --amend --no-edit --reset-author'`); one "
+            "already on a shared branch is never rewritten")
+    return findings, flagged
+
+
+# A bot-authored commit is a WARNING, never a refusal (Morgan, 2026-10-06,
+# strength: decided): "as a fallback in an emergency I don't mind it using a
+# bot ... it shouldn't [wait on me] ... just issue a warning and an alert
+# ... with the to-do for the future". A session with no identity to give
+# must still be able to save its work. BOT_WARNINGS is printed as WARNING
+# lines on an exit of 0, which the push check shows rather than hides.
+BOT_WARNINGS: list[str] = []
+
+
 def find_violations() -> list[str]:
+    # The bot half first: it needs no declared person, so it still judges
+    # where the identity half below stands down. Its findings are warnings.
+    try:
+        bot_findings, bot_flagged = bot_author_findings()
+    except NotApplicable:
+        if _STAND_DOWN is not None:
+            raise _STAND_DOWN
+        bot_findings, bot_flagged = [], set()
+    BOT_WARNINGS[:] = bot_findings
     if _STAND_DOWN is not None:
+        if bot_findings:
+            return []
         raise _STAND_DOWN
     if _IDENT_VIOLATION:
         return [_IDENT_VIOLATION]
@@ -707,7 +808,7 @@ def find_violations() -> list[str]:
         if not line.strip():
             continue
         sha, name, email = line.split("|", 2)
-        if sha in EFFECTIVE_GRANDFATHERED_SHAS:
+        if sha in EFFECTIVE_GRANDFATHERED_SHAS or sha in bot_flagged:
             continue
         if name != EXPECTED_NAME or email != EXPECTED_EMAIL:
             findings.append(
@@ -720,13 +821,31 @@ def find_violations() -> list[str]:
 
 
 if __name__ == "__main__":
+    _argv = sys.argv[1:]
+    if "--range" in _argv:
+        _i = _argv.index("--range")
+        if _i + 1 >= len(_argv):
+            print("--range needs a revision range, e.g. origin/main..HEAD")
+            sys.exit(2)
+        os.environ["PRECEDENT_CHECK_RANGE"] = _argv[_i + 1]
     try:
-        findings = find_violations()
+        # --bot-authors-only: the half that needs no declared person, alone.
+        # The deep-check workflow's pull-request job runs it, where the
+        # identity half would only ever report SKIPPED.
+        if "--bot-authors-only" in _argv:
+            BOT_WARNINGS[:] = bot_author_findings()[0]
+            findings = []
+        else:
+            findings = find_violations()
     except NotApplicable as e:
         # SKIPPED, exit 2 -- never a violation and never a silent pass. See
         # the NotApplicable docstring for the runner contract.
         print(f"SKIPPED: {e}")
         sys.exit(2)
+    if BOT_WARNINGS:
+        print("WARNING: commits authored by the harness's bot")
+        for w in BOT_WARNINGS:
+            print(f"WARNING:   {w}")
     if findings:
         print(f"VIOLATION: {PRACTICE_FILE.stem}")
         for f in findings:

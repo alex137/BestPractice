@@ -36,6 +36,11 @@ pages linking the root TODO.md stub, and README's "vendor in".
   a whole-repo read. Both are in force together. One sentence can separate
   them; folding the read half into `very-deep-check` would be cleaner, and
   is a call about the vocabulary.
+  **Fixed 2026-10-06:** one sentence separates them, Morgan delegating the
+  wording (strength: assented): the check before a push is the deep check,
+  and asking for a "deep check" by name additionally means the whole-repo
+  read. It opens [deep-check](../practices/deep-check.md)'s Rule, with the
+  matching clause in [two-check-levels](../practices/two-check-levels.md).
 - **The ladder set's copies of `the-boildown` and `vendor-update-runbook`
   have fallen behind universal's**, and they override universal for anyone
   who brings the ladder. Missing: the one-line Boildown when nothing is
@@ -45,10 +50,17 @@ pages linking the root TODO.md stub, and README's "vendor in".
   both". Root fix in the engine: a check that fails when a universal rule
   changes after a same-slug override in a set. The copies themselves are
   the ladder set's to fix.
+  **Fixed 2026-10-06:** covered by `universal-change-reaches-overrides`
+  (f6d89803); the ladder copies themselves are being fixed in the ladder set.
 - **The individual and writing sets still name the folded sets** in a
   README and in several deduplicated stubs ("in force there"). Nothing
   breaks, since lookup is by slug; each sentence is now false.
   `precedent_move` should write the slug alone.
+  **Fixed 2026-10-06:** [tools/precedent_move.py](../tools/precedent_move.py)
+  now ends a deduplicated stub with "the rule stays in force under its
+  slug" and names no set there; `check_move_dedupe_stub_names_the_slug_alone`
+  fails on the old sentence. The stubs already written in the sets are the
+  sets' to reword.
 - **The writing set's `curly-quotes` cites `fix-typos-keep-ambiguity`**,
   which exists in no source in scope.
 

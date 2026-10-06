@@ -12,17 +12,17 @@ deliverables are <name them>, and this map indexes each one down to the
 documents, models, and sources that back it.
 
 Companions: [AGENTS.md](AGENTS.md) (build machinery + workflow — read before touching
-<build dir>), `TODO.md` (open items across sessions).
+<build dir>), [TODO.md](TODO.md) (open items across sessions).
 
 ## Top-level layout
 
 | Path | What it is |
 |---|---|
-| `GLOSSARY.md` | **Canonical names** — the one list. Use its names; don't invent new ones. |
+| [GLOSSARY.md](GLOSSARY.md) | **Canonical names** — the one list. Use its names; don't invent new ones. |
 | `<deliverable dir>/` | <what it is, its builder, which output is the shippable one> |
 | `<supporting dir>/` | <what it holds> |
 | `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see [AGENTS.md](AGENTS.md) "Practice export". |
-| `TODO.md` | Cross-session open items. |
+| [TODO.md](TODO.md) | Cross-session open items. |
 
 ## <Deliverable 1>
 

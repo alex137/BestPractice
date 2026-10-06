@@ -43,6 +43,7 @@ index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
 ships:       []               # OPTIONAL -- files the practice owns besides checked_by and its test; see below
 defines:     []
+upholds:     []               # OPTIONAL -- documents this practice exists to uphold; see below
 command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
 status:      active           # active | deduplicated | retired -- see below
 in_force_at: null             # where the rule lives now; required unless active
@@ -93,6 +94,15 @@ holds the five-stage working method provides; a person's own
 "for me, the ladder" rule carries `requires: ["ladder"]`, so it goes quiet
 in a session started with `PRECEDENT_NO_LADDERS=1` and for anyone who does
 not bring that set (spec/LADDER_OPT_IN_PLAN.md D11).
+
+### `upholds` — the documents a practice exists to protect
+
+**Optional; absent means none named.** A list of paths or links to the
+documents the practice is there to uphold: a risk register, a policy page,
+a style guide. It is for the reader -- nothing in the engine acts on it.
+A project repository linked its script practices to its risk page this way
+before the format listed the field, so every check on it warned; Morgan,
+2026-10-06 (strength: decided): *"we want to eliminate warnings"*.
 
 ### `visible_to` — a practice only the repository's code owners see
 

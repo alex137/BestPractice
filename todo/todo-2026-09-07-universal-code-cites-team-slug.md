@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "Morgan's call on the level, and nothing else. An earlier version of this item also named \"a session rooted at `themorgan/precedent-team-repo-maintenance`\" — that was wrong, and written without checking: all three private sets are attached to *this* session and were when it was written. The [AGENTS.m"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
@@ -78,8 +78,10 @@ closed:            null
 
 ## How It Closes
 
-Not open until: Morgan's call on the level, and nothing else. An earlier version of this item also named "a session rooted at `themorgan/precedent-team-repo-maintenance`" — that was wrong, and written without checking: all three private sets are attached to *this* session and were when it was written. The [AGENTS.m
+`fail-gracefully` resolves from universal, and every universal engine file that names it cites it in the anchored form `practice: fail-gracefully`.
 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: re-triaged; no longer blocked. The call was made: `fail-gracefully` moved into universal with the repository-maintenance set on 2026-10-05 ([practices/fail-gracefully.md](../practices/fail-gracefully.md)), so `precedent_show.py fail-gracefully` resolves here. What is left is the anchoring: [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py), [tools/precedent_show.py](../tools/precedent_show.py) and [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) already carry `practice: fail-gracefully`; [tools/routing_audit.py](../tools/routing_audit.py) does not yet. The "lives in" sentence above, and the set it names, are as filed on 2026-09-07.

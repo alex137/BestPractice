@@ -4,7 +4,7 @@ kind:              manual
 domain:            mechanism
 severity:          null
 status:            open
-disposition:       null
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -68,3 +68,8 @@ failing without it.
   (`precedent_branches.github_tests`, which reads `paths:` since that day).
   The case is in `check_main_test_minutes_rule` and fails on the old code.
   Leftovers 1 and 2 are still open, so the item stays open.
+- 2026-10-06: disposition set to `wait`, which is what the empty field
+  already meant ([open-item-disposition](../practices/open-item-disposition.md):
+  an item with no disposition is `wait`, and only the person it waits on
+  may set it to `ask`). The very deep check of 2026-10-05, pass 4, found
+  the field `null`.

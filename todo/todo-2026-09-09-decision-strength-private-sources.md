@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "read-only access to `precedent-individual` and `precedent-team-repo-maintenance`, neither of which this session could attach (`add_repo` refused with *\"cross-tier adds are not supported in v1\"*) (`cross-source-rollout`)."
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
@@ -32,14 +32,18 @@ closed:            null
    whether one already contradicts this, particularly anything that treats a
    recorded approval as final by default.
    **Blocked-on:** read-only access to `precedent-individual` and
-   `precedent-team-repo-maintenance`, neither of which this session could attach
+   `precedent-shared-repo-maintenance`, neither of which this session could attach
    (`add_repo` refused with *"cross-tier adds are not supported in v1"*)
    (`cross-source-rollout`).
 
 ## How It Closes
 
-Not open until: read-only access to `precedent-individual` and `precedent-team-repo-maintenance`, neither of which this session could attach (`add_repo` refused with *"cross-tier adds are not supported in v1"*) (`cross-source-rollout`).
+Each private set's vendored [tools/precedent_check.py](../tools/precedent_check.py) registers the `decision-strength` check, and the individual set has been read for a rule that treats a recorded approval as final by default -- each finding fixed in its set or recorded here.
 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).
+
+2026-10-06: re-triaged; no longer blocked. The only blocker was read access to the private sets, which a session now normally has (they arrive at session start, or by `add_repo`); the "could not attach" above is as it stood on 2026-09-09. The disposition stays `wait`: changing it is the owner's call.
