@@ -51,8 +51,8 @@ tools/very_deep_check.py's checkout branch scan, not doc_sync.py -->
 
 ## Practice catalogue
 
-**Not kept here since 2026-09-28.** Every run hands the person a review
-page in the session instead: the branches they can delete, with a link
+**Not kept here since 2026-09-28.** Every run publishes a review page for
+the person as an Artifact instead, never as an HTML file: the branches they can delete, with a link
 each, and every active practice by source, private sets included. It is
 never committed or linked from a repository, so this public file carries
 none of it. How it works: [very-deep-check](../practices/very-deep-check.md)

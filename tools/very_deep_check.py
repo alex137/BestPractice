@@ -8571,9 +8571,9 @@ def _main(box):
         # person never got the whole list. It now goes, whole, into the
         # session-only review page precedent_review_page.py writes under
         # .precedent/ (ignored by git), together with the branches the
-        # person can delete. The session publishes that page in the
-        # session only (an Artifact in Claude Code on the web) and never
-        # commits, pushes or links it.
+        # person can delete. The session publishes that page as an
+        # Artifact, every run and never as the HTML file (Morgan,
+        # 2026-10-06), and never commits, pushes or links it.
         if not as_json:
             try:
                 import precedent_review_page as _rp
@@ -8581,8 +8581,9 @@ def _main(box):
                 print(f"REVIEW PAGE: wrote {_page} -- branches the person can "
                       f"delete, with a link each, and every active practice "
                       f"by source (universal, this repo's own, individual, "
-                      f"shared). Show it in the session only; never commit, "
-                      f"push or link it. Add rows for unlanded branches you "
+                      f"shared). Publish it as an Artifact (the Artifact "
+                      f"tool), never as an HTML file attached or sent; never "
+                      f"commit, push or link it. Add rows for unlanded branches you "
                       f"recommend deleting with --recommend FILE.json "
                       f"(python3 tools/precedent_review_page.py --help).\n")
                 # Part 3 of the page (Morgan, 2026-09-29): pairs that read

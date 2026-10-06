@@ -78,8 +78,9 @@ Every branch, 46 overlapping pairs and all 152 open items' frontmatter.
 Six items closed; the `default-branch` conflict, the fold's order and
 three branch calls are in
 [the pass 4 item](../todo/todo-2026-10-05-very-deep-check-pass-4-findings.md).
-The overlap verdicts and recommended deletions went to the review page,
-which is shown in the session and never committed.
+The overlap verdicts and recommended deletions went to the review page. It
+was first sent as an HTML file; Morgan asked for it as an Artifact, and the
+practice now says so for every run (2026-10-06).
 
 ## What Is Left
 
