@@ -165,9 +165,9 @@ thing standing between a formatting error and the shared branch.
 
 $out
 
-Fix what it names, re-stage, and commit again. To commit anyway you must
-say so explicitly and say why; do not work around this by unstaging the
-Markdown."
+Fix what it names, re-stage, and commit again. Nothing lets a commit past
+this; do not work around it by unstaging the Markdown. If the lint itself
+is wrong, fix doc_lint.py."
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {

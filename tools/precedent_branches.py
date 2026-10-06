@@ -1451,6 +1451,16 @@ def _check_tier(root, branch, tip, say, gh=None):
     return False, f'{local}, but the GitHub test is {state}: {detail}'
 
 
+def _at_head(sha):
+    """', at head commit <all 40 characters>' -- the merge instruction's
+    expected head. A merge through GitHub's API takes the head it expects in
+    full (expectedHeadSha), and the twelve-character form printed everywhere
+    else here is refused there; a session in nomen-omen read the short one
+    back and had to look the rest up (2026-10-06). Pinning the head also
+    means a copy that moved after its check is not merged by mistake."""
+    return f', at head commit {sha}' if sha else ''
+
+
 def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
     """Wait for main's GitHub test on `sha` -- the to-main copy's tip, once
     its pull request into main is open -- and -> 0 passed, 1 anything else.
@@ -1474,7 +1484,7 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
             f'and no runner started. The full local check at the Promote stands; '
             f'in a repo set to github_ci_main_test "always", GitHub tests the push '
             f'to {MAIN} once this merges. Merge the pull request into {MAIN} with '
-            f'a merge commit.')
+            f'a merge commit{_at_head(sha)}.')
         return 0
     say(f'waiting for the GitHub test on {sha[:12]} (up to '
         f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes): ' + ', '.join(p for p, _ in tests))
@@ -1489,7 +1499,7 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
         state, detail = github_test_state(root, sha, tests, gh)
     if state == 'passed':
         say(f'GitHub test PASSED on {sha[:12]}: {detail}. Merge the pull request '
-            f'into {MAIN} with a merge commit.')
+            f'into {MAIN} with a merge commit{_at_head(sha)}.')
         return 0
     say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
     return 1
@@ -1924,6 +1934,71 @@ def _new_commits(root, since, tip):
                  '--', '.') or '').splitlines()
 
 
+# A batch shows which commits are not this session's own. Found 2026-10-06,
+# a Produce in a shared set: it carried one session's one-line change and
+# another session's Update Vendors, listed the same way, and auto mode held
+# the move until the person approved a commit nobody had named to them.
+OTHER_WORK_MARK = "<- not this session's work"
+
+
+def _this_session_id():
+    """-> this session's ID without its `cse_`/`session_` prefix, or ''."""
+    here = str(pathlib.Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    try:
+        from precedent_detect import this_session_id
+        sid = this_session_id() or ''
+    except Exception:                                       # noqa: BLE001
+        sid = ''
+    for prefix in ('cse_', 'session_'):
+        if sid.startswith(prefix):
+            sid = sid[len(prefix):]
+    return sid
+
+
+def mark_other_work(root, batch, work=None, sid=None):
+    """-> (lines, others): `batch` (_new_commits lines) with each commit that
+    is not this session's work marked OTHER_WORK_MARK, and those commits'
+    lines. A commit is this session's when it is on the `work` branch, or
+    when its message carries a Claude-Session line naming this session --
+    the second catches a session that Booked two branches and promotes with
+    one of them. With neither a work branch nor a session ID nothing can be
+    told apart, so nothing is marked."""
+    sid = _this_session_id() if sid is None else sid
+    wtip = None
+    if work:
+        name = work[len('origin/'):] if work.startswith('origin/') else work
+        wtip = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{name}^{{commit}}')
+                or _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}'))
+    if not wtip and not sid:
+        return list(batch), []
+    lines, others = [], []
+    for line in batch:
+        sha = line.split(' ', 1)[0]
+        mine = bool(wtip) and _run(root, 'merge-base', '--is-ancestor', sha,
+                                   wtip).returncode == 0
+        if not mine and sid:
+            body = _git(root, 'log', '-1', '--format=%B', sha) or ''
+            mine = any(l.startswith('Claude-Session:') and l.rstrip().endswith(sid)
+                       for l in body.splitlines())
+        if mine:
+            lines.append(line)
+        else:
+            lines.append(f'{line}   {OTHER_WORK_MARK}')
+            others.append(line)
+    return lines, others
+
+
+def _other_work_note(others, work):
+    if not others:
+        return ''
+    on = f'not on {work} and ' if work else ''
+    return (f'\n{len(others)} of these commit(s) are {on}not marked with this '
+            f'session\'s Claude-Session line: someone else Booked them. Name '
+            f'them to the person when asking to approve this move.')
+
+
 def promotion_step(root, to=None, work=None):
     """-> (step, why): which Promote to run. `step` is STAGING (pre-staging
     into staging), MAIN (staging into main) or None (nothing waiting).
@@ -2092,8 +2167,8 @@ def promote(root, say=print, to=None, work=None):
         # The one line a person reads first: which move this is, in these words.
         say(f'Now promoting from {source} to {dest} ({why}).')
         run = _promote_unlocked if step == STAGING else _promote_to_main
-    if run is _promote_unlocked and work:
-        run = lambda r, s: _promote_unlocked(r, s, work=work)
+    if work and run in (_promote_unlocked, _promote_to_main):
+        run = (lambda r, s, f=run: f(r, s, work=work))
     state, info = _lock_claim(root, say)
     if state == 'busy':
         say(f'another window is promoting right now ({info}), so this one did '
@@ -2375,7 +2450,7 @@ def main_test_holds_produce(root, say=print, gh=None):
     return None
 
 
-def _promote_to_main(root, say=print):
+def _promote_to_main(root, say=print, work=None):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
     GitHub test is the last gate (spec/BRANCH_TIERS_PLAN.md: main gets "all
@@ -2439,10 +2514,12 @@ def _promote_to_main(root, say=print):
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
         return 1
+    shown, others = mark_other_work(root, batch, work)
     say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
         f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
         f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
-        f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
+        f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(shown)
+        + _other_work_note(others, work) + '\n\n'
         + (f'GitHub test: NONE -- no GitHub test runs on this pull request '
            f'(none is installed here, or its path filter does not reach this '
            f'change), so the full local check above is the whole check.\n\n'
@@ -2456,11 +2533,12 @@ def _promote_to_main(root, say=print):
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
         f'commit(s))", '
-        + ('and merge it with a merge commit' if none_runs else
+        + (f'and merge it with a merge commit{_at_head(stip)}' if none_runs else
            f'wait for its GitHub test with\n'
            f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
            f'and merge it with a merge commit once that says PASSED'
-           + ('' if due else ' (or, for this not-due copy, NOT DUE)')) +
+           + ('' if due else ' (or, for this not-due copy, NOT DUE)')
+           + _at_head(stip)) +
         f'. Never open it from {staging} itself.')
     return PROMOTE_MAIN_NOT_MOVED
 
@@ -2645,8 +2723,10 @@ def _promote_unlocked(root, say=print, work=None):
     else:
         say(f'the full check ran on the batch and passed, in {took:.0f}s.')
     if batch:
+        shown, others = mark_other_work(root, batch, work)
         say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
-            f'({new[:12]}):\n  ' + '\n  '.join(batch))
+            f'({new[:12]}):\n  ' + '\n  '.join(shown)
+            + _other_work_note(others, work))
     for branch, _tip, commits in above:
         say(f'BROUGHT IN {len(commits)} commit(s) made directly on {branch}, '
             f'checked with the rest:\n  ' + '\n  '.join(commits))
