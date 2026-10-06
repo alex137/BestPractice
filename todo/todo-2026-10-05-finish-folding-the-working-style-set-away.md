@@ -34,7 +34,9 @@ should not make edits to them unless the edits relate to their deprecation
 or graceful deprecation. Please don't forget this."* A finding in the set is
 fixed where the rule lives now, or recorded here and left. The push check
 refuses any other edit to a set whose `precedent-source.json` says it is
-retired.
+retired ([retired-set-takes-only-its-retirement](../practices/retired-set-takes-only-its-retirement.md)).
+The rule is temporary: it goes once both sets are gone, and its `expires:`
+says when.
 
 ## Proposed
 

@@ -718,6 +718,8 @@ def _branch_name_refusal(root, argv):
 # What a retirement edits: it deletes, it says so in the README and the
 # set's own precedent-source.json, it moves a rule off `status: active`,
 # and it regenerates the views and the todo index. Anything else is refused.
+# Practice: retired-set-takes-only-its-retirement, a TEMPORARY rule -- its
+# `expires:` says when, and its Detail what to delete then.
 RETIREMENT_PATHS = {'README.md', 'precedent-source.json', 'AGENTS.md',
                     'CLAUDE.md', 'MAP.md', 'GLOSSARY.md',
                     'WHERE_THINGS_ARE.md'}
