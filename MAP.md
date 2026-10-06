@@ -96,7 +96,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
 | [never-delete-a-remote-branch](practices/never-delete-a-remote-branch.md) | on-demand | a branch has done its job, or a person says to delete branches |
 | [new-hook-joins-the-registry](practices/new-hook-joins-the-registry.md) | on-demand | adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs |
-| [no-duplication](practices/no-duplication.md) | on-demand | adding or reviewing a shared-set rule |
+| [no-duplication](practices/no-duplication.md) | on-demand | adding or reviewing a set's rule, or one that another source already has |
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming or adding a file |

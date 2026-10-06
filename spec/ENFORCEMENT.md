@@ -100,6 +100,7 @@ being checked by it.
 | `layered-practice-packs` | tree | every practice in force in this repo is reachable by at least one loading channel here -- resident, occasion index, a path trigger, a gate, or a running check |
 | `migration-scrubs-vocabulary` | tree | a migrated repo carries no leftover pre-migration practice pack (process/manifest_*.json and its tree) |
 | `new-hook-joins-the-registry` | tree | every hook script this repo ships (templates/harness/claude-code/hooks/*.sh) is on a repo kind's list in precedent_vendor_engine.py's HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; nothing is listed that is not shipped; and each kind's template -- the consumer settings.json and the set payload precedent_bootstrap_source.py writes -- wires exactly its list |
+| `no-duplication` | tree | a practice set carries no active copy of a practice its declared universal source also has active: it adds to that rule in a practice of its own, holding only what it adds |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not end its name in a version or date token (unless it sits beside the unsuffixed predecessor it must coexist with), nor in a state word -- final, draft, copy, new, old, latest, backup -- beside the unsuffixed original it forks |
 | `open-item-disposition` | tree | every `**Disposition:` line in a TODO file names one of the three dispositions, and a `parked` or `ask` line records the date it was set and who set it; and every OPEN todo/todo-*.md item's frontmatter `disposition:` is one of the three, or null |
@@ -130,7 +131,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-62 of 177 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+63 of 177 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
