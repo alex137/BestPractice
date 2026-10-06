@@ -14,7 +14,7 @@
      appear below. Every rule you add should cite the incident that
      motivated it (practice `cite-the-incident`). -->
 
-**Orientation: read `MAP.md` first** — the repository map. It covers the key
+**Orientation: read [MAP.md](MAP.md) first** — the repository map. It covers the key
 deliverables and indexes which documents back each part of each one.
 
 <!-- BEGIN GENERATED: precedent-loader -->
@@ -32,10 +32,10 @@ deliverables and indexes which documents back each part of each one.
 
 | Looking for… | Go to |
 |---|---|
-| Canonical names for <domain things> — use these names, don't invent new ones | `GLOSSARY.md` |
+| Canonical names for <domain things> — use these names, don't invent new ones | [GLOSSARY.md](GLOSSARY.md) |
 | <key deliverable> and its builder | `<path>` |
 | <recurring lookup> | `<path>` |
-| Open items: analyses, verifications, decisions | `TODO.md` |
+| Open items: analyses, verifications, decisions | [TODO.md](TODO.md) |
 | Which practice sources are in force, and where each is vendored or resolved from | `precedent.json` |
 
 ## <Deliverable build workflow>
@@ -52,7 +52,7 @@ deliverables and indexes which documents back each part of each one.
   setup); in other harnesses, run it yourself unless your adapter wires it — Precedent's
   [templates/harness/](https://github.com/alex137/BestPractice/tree/main/templates/harness)
   says which can.
-- **Keep `AGENTS.md`'s generated block current.** Before relying on it,
+- **Keep this file's generated block current.** Before relying on it,
   run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
   if any declared source (`precedent.json`) has moved since the block was
   last regenerated. Re-run without `--check` to refresh it, review the
@@ -153,7 +153,8 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
    against that source's own repo (`<precedent upstream URL>`). **There is
    no local check-in mirror for this yet** — the candidate/promotion
    pipeline the loader's own catalogue uses internally
-   (`tools/precedent_candidate.py` and friends, in the source repo's own
+   ([tools/precedent_candidate.py](https://github.com/alex137/BestPractice/blob/main/tools/precedent_candidate.py)
+   and friends, in the source repo's own
    `tools/`) is not wired into a fresh install as of this writing; a plain
    PR against the upstream repo is the real mechanism until it is. Then run
    `python3 tools/precedent_sync_views.py --repo .` locally to pick your own change
@@ -242,10 +243,10 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
      or silently trample each other's work. Keep them when instantiating;
      fill the sensitivities list with the team's real entries. -->
 
-- **Claim before you start.** When a member takes on a `TODO.md` item (or
+- **Claim before you start.** When a member takes on a [TODO.md](TODO.md) item (or
   any sizable change), mark the item claimed — *(claimed: NAME, date,
   branch)* — as the branch's first commit. Before starting any work,
-  check `TODO.md` claims and the repo's open branches and PRs for overlap
+  check [TODO.md](TODO.md) claims and the repo's open branches and PRs for overlap
   with what your member wants; if someone is already on it, say so before
   duplicating their work.
 - **Flag changes to the people they matter to — inferred, not
@@ -319,8 +320,8 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   3. Generate a short personal welcome message the administrator can
      paste into email or chat: greet the member by name, one sentence on
      what the project is, the link to this repository's
-     `GETTING_STARTED.md` naming the section for their tool, and one
-     suggested first task drawn from `TODO.md`.
+     [GETTING_STARTED.md](GETTING_STARTED.md) naming the section for their
+     tool, and one suggested first task drawn from [TODO.md](TODO.md).
   4. Confirm there is nothing else to install or configure — once access
      exists, the member's Getting Started section is everything they
      need.
@@ -341,9 +342,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 - **Public-safe invariant, if this repo is public and the universal
   source's upstream is too:** nothing proprietary may appear under the
   vendored universal path, ever — the same invariant the classic vendored
-  model enforced with `practice_audit.py`, ported here. No enforcement script for this exists yet in the loader model;
+  model enforced with [practice_audit.py](tools/practice_audit.py), ported here. No enforcement script for this exists yet in the loader model;
   review changes under the vendored path by hand until one does.
 - `python3 tools/precedent_sync_views.py --repo . --check` is this repo's own
-  drift gate — run it before trusting `AGENTS.md`'s generated block, and
+  drift gate — run it before trusting this file's generated block, and
   after any source's vendored copy or `precedent.json` itself changes.
 - Export gate = merge runbook step 0b, above.

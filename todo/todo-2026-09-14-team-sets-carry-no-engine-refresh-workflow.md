@@ -300,7 +300,7 @@ closed:            null
   one place 2026-09-06 decided it should not live.
 
   **What was left to decide was one word, and it is Morgan's:** whether a
-  `precedent-team-*` set counts as "a practice-set repo of mine" under the
+  `precedent-shared-*` set counts as "a practice-set repo of mine" under the
   individual practice that requires this workflow. If it does, that practice
   wants one word widened and three repositories are out of compliance with a
   rule approved 2026-09-06. If it does not, the team level needs a rule of its
@@ -435,3 +435,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).

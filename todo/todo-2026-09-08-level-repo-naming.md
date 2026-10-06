@@ -35,7 +35,7 @@ closed:            null
     and a check behind it — so this changes the rule, not just the names.
   - The names are referenced from **outside** the repositories: per-machine
     user-level config paths, `precedent.json` `path` entries, sibling-clone
-    assumptions like `../precedent-team-repo-maintenance`, the `add_repo` calls
+    assumptions like `../precedent-shared-repo-maintenance`, the `add_repo` calls
     three separate `AGENTS.md` banners instruct, and every gotcha entry that
     names one. A rename is a real sweep, and the per-container paths break
     **silently**.
@@ -57,3 +57,5 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-10-06: the retired set names in this item's current-state text (`precedent-team-*`) now read `precedent-shared-*`; dated history keeps the names it had (very deep check of 2026-10-05, pass 4).

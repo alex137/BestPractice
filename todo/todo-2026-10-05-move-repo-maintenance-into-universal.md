@@ -51,14 +51,26 @@ two-check-levels`, since the tool only points a copy at the same slug.
 Then remove `precedent-shared-repo-maintenance` from each `precedent.json`
 that declares it. Archiving the repository on GitHub is Morgan's call.
 
-**Two of the set's checks have no home yet (found by the very deep check,
-2026-10-05).** The set's commit-trailer check and its fresh-before-write
-check ship only in the set. The push check finds the trailer check through
-the set's declaration ([tools/precedent_push_check.py](../tools/precedent_push_check.py)'s
-`IDENTITY_CHECKS`), and universal's
-[session-trailer](../practices/session-trailer.md) and
-[fresh-before-write](../practices/fresh-before-write.md) name no check of
-their own. A repository that stops declaring the set stops checking both,
-silently. So BestPractice keeps declaring it, and "remove it from each
-`precedent.json`" waits on porting both as registered checks with a planted
-case each, the way the second pass above ported four others.
+**The set's last two checks, 2026-10-06.** The very deep check found
+that the commit-trailer check shipped only in the set. It now ships with
+the engine as
+[tools/checks/check_session_trailer.py](../tools/checks/check_session_trailer.py),
+claimed by universal's [session-trailer](../practices/session-trailer.md),
+with a planted case, so every repository that resolves universal
+materializes it. The fresh-before-write check needed no port: the guard it
+tested ships with the engine and is wired into every repository by the
+engine refresh, and the harness already plants the states it asserted.
+Morgan kept both practices (2026-10-06, strength: decided), and
+BestPractice stopped declaring the set the same day, which also ends the
+set's older `default-branch` overriding universal's here.
+
+Still open: deduplicate the set's copies, take the set out of the other
+repositories that declare it (the individual and writing sets among them),
+and archive the repository, which is Morgan's call.
+
+**How the declarations come out, from 2026-10-06.** Once the set's copies
+are deduplicated, add `"retired": {"date": ..., "folded_into": [...]}` to
+the set's own `precedent-source.json`. Update Vendors then drops the set
+from every repository that declares it, on that repository's next update,
+and the very deep check reports any still declaring it -- in both cases
+only once every active rule it held is in force elsewhere.

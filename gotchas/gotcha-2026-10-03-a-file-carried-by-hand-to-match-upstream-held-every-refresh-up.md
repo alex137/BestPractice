@@ -29,6 +29,8 @@ was harmless, so the set stayed on its old engine.
 refresh compares a drifted engine file or declared engine path with
 upstream's copy, as the BestPractice clone already has it, before refusing.
 An identical file is named and passed; a real edit is still refused. Hooks
-and CI workflows keep their own review.
+and CI workflows keep their own review. The planted case is part H of
+`check_vendor_engine_keeps_a_declared_engine_path` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py).
 
 Until that reaches the set: an Update Vendors in it clears the refusal.

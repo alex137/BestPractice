@@ -109,6 +109,11 @@ FIELD_ORDER = (
     'checked_by',
     'ships',
     'defines',
+    # The documents a practice exists to uphold -- a risk register, a
+    # policy page -- as paths or links. Informational: no engine reads it.
+    # A project repository used it before the spec listed it, and every
+    # check warned (2026-10-06).
+    'upholds',
     'command',
     'status',
     'in_force_at',

@@ -138,6 +138,48 @@ def build(words, date=None, prefix=None, tail=None, exists=None):
     return name, notes
 
 
+# A name the cloud harness gave the session before the task was known:
+# two words and a mixed id (`claude/peaceful-ritchie-3u31td`). Left alone,
+# per the rule above; the session's own branches are made by build().
+_HARNESS_NAME_RE = re.compile(r'(?:claude|session)/[a-z]+-[a-z]+-([a-z0-9]{5,8})')
+_TOOL_NAME_RE = re.compile(r'(?:claude|session)/\d{4}-\d{2}-\d{2}-([a-z0-9]+(?:-[a-z0-9]+)+)')
+
+
+def name_refusal(name, tail=None):
+    """-> why `name` is not a branch this tool made, or None when it is (or
+    is not a session branch at all). Morgan, 2026-10-06 (strength: decided):
+    "how can we make sure that you always use the new format for temporary
+    branches?" -- sessions, and the agents they start, typed date-and-topic
+    names by hand that lead back to no session, and nothing refused them.
+    The push gate asks this of every new branch a push creates.
+
+    Judged: names under `claude/` or `session/`. Passed: a harness-given
+    name (two words and an id with a digit in it); a `<date>-<slug>-<id>`
+    name whose id is this session's (or, after a clash on origin, whose
+    second-to-last part is, as build() writes it). With no session ID to
+    compare, any five-character last part passes: build() is random then."""
+    if not name.startswith(('claude/', 'session/')):
+        return None
+    m = _HARNESS_NAME_RE.fullmatch(name)
+    if m and any(c.isdigit() for c in m.group(1)):
+        return None
+    tail = session_id_tail() if tail is None else tail
+    m = _TOOL_NAME_RE.fullmatch(name)
+    if m:
+        parts = m.group(1).split('-')
+        if tail:
+            if parts[-1] == tail or (len(parts) >= 3 and parts[-2] == tail
+                                     and len(parts[-1]) == ID_LEN):
+                return None
+        elif len(parts[-1]) == ID_LEN:
+            return None
+    return (f'{name} was not made by tools/precedent_branch_name.py: a session '
+            f'branch is named claude/<date>-<what it is>-<the last five '
+            f'characters of this session\'s ID>, so it leads back to the '
+            f'session. Rename it before pushing: git branch -m {name} '
+            f'"$(python3 tools/precedent_branch_name.py <a few words>)"')
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('words', nargs='+', help='a few words saying what the work is')

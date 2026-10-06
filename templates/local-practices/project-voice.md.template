@@ -139,14 +139,14 @@ something about this subject that a general rule would get wrong.>
 
 ## Why
 A local copy of a generic writing rule does not just go stale, it starts
-arguing with the live one — the reason the old `VOICE.md` template's 205
+arguing with the live one — the reason the old root voice template's 205
 lines of general guidance were deleted upstream on 2026-09-08. What
 survives that deletion, project by project, is the one thing that
 genuinely does not generalize: this project's own identity. Making it a
 practice rather than a freestanding document means a session reaches it
 through the same channel as every other rule in force here — the occasion
-index and `precedent_paths.py` — instead of a file that sits at the root
-until someone happens to open it.
+index and the path lookup (`python3 tools/precedent_paths.py FILE`) —
+instead of a file that sits at the root until someone happens to open it.
 
 ## Story
 None recorded yet for this project — an unfilled voice is a normal,

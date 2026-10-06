@@ -572,6 +572,18 @@ says so, both from the vendored tree under `process/upstream/`.
    skip the look because nothing looks wrong — nothing looking wrong is
    the symptom, not the all-clear.
 
+   **A declared set that is retired is dropped by the update itself**
+   (Morgan, 2026-10-06, strength: decided). A set marks its own retirement
+   in its `precedent-source.json` (`"retired": {"date": ..., "folded_into":
+   [...]}`), or GitHub reports it archived; the update then removes it from
+   `precedent.json` and says so, but only when every active rule it holds
+   is in force in another declared source. One that still holds a rule
+   found nowhere else stays declared, and the rule is left for you by name.
+   A set GitHub only answers *Not Found* for is never dropped: that is also
+   what lost access to a private repository looks like.
+   `python3 tools/precedent_vendor_engine.py drop-retired .` does the same
+   on its own.
+
    Measured, 2026-09-09, across five repositories that each looked healthy:
    one had no session-start instruction at all, so nothing ever fetched the
    sources its config named; one had never declared `visibility`, and an
