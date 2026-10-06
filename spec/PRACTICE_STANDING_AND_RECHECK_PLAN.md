@@ -48,6 +48,7 @@ records what was decided, how strongly, and why the first draft changed.
 | GitHub-enforced approval (CODEOWNERS) waits until there is a team with its own accounts | assented |
 | The approver field is `standing_by:`, separate from `approved_by` | assented |
 | Constants: 3 restatements, 6 months unused, 12 months quiet after "keep" | assented |
+| A format rule never stops an old practice or record; it warns and the tooling tidies (reverses the hard field-order check) | decided |
 
 ## How the first draft changed
 
@@ -119,7 +120,11 @@ One branch, landed first.
      copy equals what is staged, and never on a file carrying a field the
      local tool does not know.
    - The private sets are tidied once, and the field-order check becomes a
-     hard check.
+     hard check. **Reversed the same evening:** a project repo had to stop
+     and reorder its own practices before it could push, and Morgan ruled
+     that old practices are tidied, never stopped. The check is a permanent
+     warning, Update Vendors tidies a repo's own practice files, and the
+     rule is [format-rules-grandfather](../practices/format-rules-grandfather.md).
 4. **The routing audit's blind spot is closed in the existing check.**
    `layered-practice-packs` counts a practice as reachable when an
    `applies_to` glob can fire. The routing audit's globs named only its own

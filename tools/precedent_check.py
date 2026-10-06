@@ -1274,8 +1274,15 @@ _SPEC_SHAPE_RE = re.compile(r'^## The Shape\n.*?^```\n---\n(.*?)\n---\n', re.S |
        'with no field the spec does not list; where the spec is present, its '
        'own example lists exactly that order',
        'whether a field\'s VALUE is right, and a practice another source owns '
-       '(a materialized copy is fixed where it is authored). A hard check '
-       'since 2026-10-05 -- see the function\'s own note.',
+       '(a materialized copy is fixed where it is authored). A warning, '
+       'never a refusal: an old practice is tidied, never stopped '
+       '(practice: format-rules-grandfather).',
+       advisory=True,
+       advisory_term={'term': 'permanent',
+                      'why': 'field order is a shape rule: a practice out '
+                             'of order loads and works exactly the same, so '
+                             'it is tidied by the commit hook and Update '
+                             'Vendors, never refused (Morgan, 2026-10-05)'},
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'spec/PRACTICE_FORMAT.md',
                    'tools/frontmatter_yaml.py'))
@@ -1300,9 +1307,15 @@ def _frontmatter_field_order(ctx):
     owned. On 2026-10-05 the sets were tidied (14, 7, 4 and 1 files, whole
     fields moved and nothing else) and the engine's commit hook now runs
     the fixer on staged practice files in every practice source, so the
-    order is kept rather than checked after the fact. This is a hard check
-    from then on (practice: upstream-fix;
-    spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+    order is kept rather than checked after the fact. It was made a hard
+    check that day, and within hours a consuming repository had to stop and
+    reorder its own practices before it could push -- an old practice that
+    loads and works exactly the same, refused over its shape. Morgan, the
+    same evening: be flexible and graceful in grandfathering in old
+    practices, updating them as needed but not stopping them from being
+    used. So it is a permanent warning: the commit hook and Update Vendors
+    keep the order, and nothing is ever refused over it (practice:
+    format-rules-grandfather).
     """
     try:
         import frontmatter_yaml as fy
@@ -1351,9 +1364,10 @@ def _frontmatter_field_order(ctx):
         for key in fy.unlisted_fields(text):
             out.append(Finding(
                 rel, f'carries `{key}:`, a field spec/PRACTICE_FORMAT.md does '
-                     f'not list -- remove it, or add it to the spec and to '
-                     f'FIELD_ORDER in tools/frontmatter_yaml.py upstream in '
-                     f'BestPractice, where the order is defined'))
+                     f'not list; this engine ignores it and the practice '
+                     f'works as before -- remove it, or add it to the spec '
+                     f'and to FIELD_ORDER in tools/frontmatter_yaml.py '
+                     f'upstream in BestPractice, where the order is defined'))
     return out
 
 # ---- practice-links-travel -------------------------------------------------
@@ -10106,8 +10120,16 @@ _DISPOSITION_FM_RE = re.compile(r'\A---\n(.*?)\n---', re.S)
 _DISPOSITION_FM_FIELD_RE = re.compile(r'^(status|disposition):[ \t]*(.*?)[ \t]*$', re.M)
 
 
-def _item_disposition_findings(rel, text):
+def _item_disposition_findings(rel, text, copies=False):
     """Findings for one todo/todo-*.md item's frontmatter `disposition:`.
+
+    `copies=False` (the open-item-disposition check, which refuses): a value
+    that is not a disposition at all. `copies=True` (the
+    open-item-disposition-copies check, which only warns): a park with no
+    dated, named body line, and a body line the frontmatter disagrees with.
+    Those two arrived on 2026-10-05 and every item written before then
+    predates them, so they are tidied, never refused (practice:
+    format-rules-grandfather).
 
     Only an OPEN item is judged: a done or dropped item's disposition no
     longer governs anything, and several closed items carry `done` there,
@@ -10123,6 +10145,17 @@ def _item_disposition_findings(rel, text):
     where = f'{rel}:{line_no}'
     body = list(DISPOSITION_RE.finditer(text, fm.end()))
     out = []
+    if not copies:
+        if fields.get('status', '').lower() in DISPOSITION_ITEM_CLOSED:
+            return out
+        if not (value is None or value in ('null', '~', '')
+                or value in DISPOSITION_VALUES):
+            out.append(Finding(where,
+                f'open item has disposition {value!r}, which is not one '
+                f'of {", ".join(DISPOSITION_VALUES)} (or null, meaning '
+                f'wait) -- a session reading it cannot tell whether it '
+                f'may raise the item'))
+        return out
     # A park is a record of who said "Drop it" and when, whatever the item's
     # status: the frontmatter says THAT it is parked, the body line says by
     # whom. One item reached 2026-10-05 with the first and neither of the
@@ -10139,11 +10172,7 @@ def _item_disposition_findings(rel, text):
     if fields.get('status', '').lower() in DISPOSITION_ITEM_CLOSED:
         return out
     if not (value is None or value in ('null', '~', '') or value in DISPOSITION_VALUES):
-        return out + [Finding(where,
-                    f'open item has disposition {value!r}, which is not one '
-                    f'of {", ".join(DISPOSITION_VALUES)} (or null, meaning '
-                    f'wait) -- a session reading it cannot tell whether it '
-                    f'may raise the item')]
+        return out
     # The two copies must agree, and the frontmatter is the one that counts:
     # it is what build_todo_index.py and every reader acts on. Only checked
     # where a body line exists -- most items carry the frontmatter alone,
@@ -10162,6 +10191,20 @@ def _item_disposition_findings(rel, text):
                        'on, so make the two agree')
             out.append(Finding(where, why))
     return out
+
+
+def _disposition_items():
+    """Every per-item todo/todo-*.md file this repository holds."""
+    items = []
+    for p in sorted(ROOT.rglob(DISPOSITION_ITEM_GLOB.split('/')[-1])):
+        if p.parent.name != 'todo' or not p.is_file():
+            continue
+        rel = p.relative_to(ROOT).as_posix()
+        if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)) \
+                or rel.startswith(AGENT_WORKTREES):
+            continue
+        items.append(rel)
+    return items
 
 
 @check('open-item-disposition', 'tree',
@@ -10197,15 +10240,7 @@ def _open_item_disposition(ctx):
                 continue
             if rel not in files:
                 files.append(rel)
-    items = []
-    for p in sorted(ROOT.rglob(DISPOSITION_ITEM_GLOB.split('/')[-1])):
-        if p.parent.name != 'todo' or not p.is_file():
-            continue
-        rel = p.relative_to(ROOT).as_posix()
-        if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)) \
-                or rel.startswith(AGENT_WORKTREES):
-            continue
-        items.append(rel)
+    items = _disposition_items()
     if not files and not items:
         raise NotApplicable('this repository has no TODO file to check')
 
@@ -10241,6 +10276,36 @@ def _open_item_disposition(ctx):
             if not DISPOSITION_STAMP_RE.match(stamp.strip()):
                 out.append(Finding(where, f'{value!r} stamp {stamp.strip()!r} is not '
                                           f'"YYYY-MM-DD, who"'))
+    return out
+
+
+@check('open-item-disposition-copies', 'tree',
+       'every todo/todo-*.md item parked in its frontmatter also carries a '
+       'dated, named `**Disposition:** parked` line, and an item whose body '
+       'carries a disposition line agrees with its frontmatter',
+       'whether the park was what the person meant. A warning, never a '
+       'refusal: items written before 2026-10-05 predate the two-copy rule '
+       'and are tidied with tools/todo_disposition.py, never stopped '
+       '(practice: format-rules-grandfather).',
+       advisory=True,
+       advisory_term={'term': 'permanent',
+                      'why': 'a shape rule over records written before it '
+                             'existed: the item still works, and the tool '
+                             'that writes parks fixes it in one command '
+                             '(Morgan, 2026-10-05)'},
+       practice_backed=False,
+       selects_on=('todo/todo-*.md', 'tools/todo_disposition.py'))
+def _open_item_disposition_copies(ctx):
+    items = _disposition_items()
+    if not items:
+        raise NotApplicable('this repository has no todo/todo-*.md items')
+    out = []
+    for rel in items:
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue                 # open-item-disposition reports it
+        out.extend(_item_disposition_findings(rel, text, copies=True))
     return out
 
 

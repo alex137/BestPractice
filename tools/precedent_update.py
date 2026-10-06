@@ -319,6 +319,44 @@ SOURCE_NAME_MISMATCH = re.compile(
 _REPOINTED = re.compile(r"repointed precedent\.json source '([^']+)' to '([^']+)'")
 
 
+def tidy_field_order(repo, kind):
+    """Put this repository's OWN practice files in the field order the spec
+    sets, and -> the repo-relative paths it rewrote. Never refuses anything.
+
+    WHY (Morgan, 2026-10-05): "be flexible and graceful in grandfathering in
+    old practices, updating them as needed but not stopping them from being
+    used." The field-order check only warns, so something has to do the
+    updating, and the update is where every repository already takes new
+    format rules. Only whole field blocks move (frontmatter_yaml.reorder_fields);
+    a file whose order the fixer cannot settle -- a repeated key -- is left
+    for the warning to name. The source files are tidied, never a
+    materialized copy: a project repo's own practices live in
+    local/practices/ and the view sync copies them into practices/, so
+    tidying the copy would be undone by the next sync (practice:
+    format-rules-grandfather)."""
+    try:
+        import frontmatter_yaml as fy
+    except ImportError:
+        return []
+    root = pathlib.Path(repo)
+    files = sorted((root / 'local' / 'practices').glob('*.md'))
+    if kind == 'source':
+        files += sorted((root / 'practices').glob('*.md'))
+    done = []
+    for f in files:
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not fy.field_order_problem(text):
+            continue
+        fixed = fy.reorder_fields(text)
+        if fixed != text and not fy.field_order_problem(fixed):
+            f.write_text(fixed, encoding='utf-8')
+            done.append(f.relative_to(root).as_posix())
+    return done
+
+
 def brought_sets_step(rep, fetch=None):
     """Clone or pull the sets the person's individual set brings, before
     the views are synced against them. Session start does this
@@ -2441,6 +2479,12 @@ def update(repo, skip_check=False, ref=None):
                           .read_text(encoding='utf-8')).get('kind')
     except (OSError, ValueError):
         kind = None
+    # Before the views, so the copies the views render come out tidy too.
+    tidied = tidy_field_order(repo, kind)
+    if tidied:
+        rep.step('field order', f'{len(tidied)} of this repo\'s own practice '
+                 f'file(s) put in the spec\'s order, whole fields moved and '
+                 f'nothing else: ' + ', '.join(tidied))
     if kind == 'source' and build.is_file():
         rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
         if rc != 0:

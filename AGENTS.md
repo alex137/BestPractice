@@ -94,7 +94,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~637 of 1750 token budget, 6 of 138 practices (6 universal))
+## Resident block (~637 of 1750 token budget, 6 of 139 practices (6 universal))
 
 **answer-first-ask-before-long-work.** Four parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
