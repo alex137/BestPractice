@@ -47499,6 +47499,98 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_install_and_update_name_the_code_owners():
+    """Install and Update Vendors name a repository's code owners when it
+    names none: everyone GitHub lists with edit access, in precedent.json's
+    `maintainers`, or the person running it when GitHub cannot say. A list
+    already set -- there, in approvers.json or a CODEOWNERS file -- is never
+    touched.
+
+    WHY. Morgan, 2026-10-06 (strength: decided): the code owners are "those
+    who have access to edit *at that moment*. That becomes the started
+    default." Fifteen of his repositories named nobody that day, which hid
+    every code-owner practice from him in each of them."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    import precedent_audience as pa
+    import github_budget as gb
+    cases = []
+    saved_call = gb.call
+    saved_user = os.environ.get('PRECEDENT_GITHUB_USER')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-maintainers-'))
+    try:
+        def fresh(name, text='{\n  "base_branch": "main",\n  "sources": []\n}\n'):
+            d = tmp / name
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', str(d)], env=_fixture_git_env(),
+                           capture_output=True)
+            (d / 'precedent.json').write_text(text, encoding='utf-8')
+            return d
+
+        a = fresh('a')
+        got, how = pve.seed_maintainers(a, logins=['alice', 'Bob'], today='2026-10-06')
+        cfg = json.loads((a / 'precedent.json').read_text(encoding='utf-8'))
+        cases.append(('a repository naming nobody gets the list written',
+                      got == ['alice', 'Bob']
+                      and cfg.get('maintainers') == [{'github': 'alice'}, {'github': 'Bob'}],
+                      f'{got} {cfg}'))
+        cases.append(('...which the code-owner check then reads',
+                      pa.owners(a)[0] == {'@alice', '@bob'}, str(pa.owners(a))))
+        cases.append(('...keeping the rest of the file as it was',
+                      (a / 'precedent.json').read_text(encoding='utf-8').endswith(
+                          '  "base_branch": "main",\n  "sources": []\n}\n'), ''))
+        got2, how2 = pve.seed_maintainers(a, logins=['mallory'])
+        cases.append(('a list already set is never rewritten',
+                      got2 == [] and 'already names' in how2, how2))
+
+        b = fresh('b')
+        (b / 'CODEOWNERS').write_text('* @carol\n', encoding='utf-8')
+        got3, how3 = pve.seed_maintainers(b, logins=['dave'])
+        cases.append(('a CODEOWNERS file counts as set',
+                      got3 == [] and 'maintainers' not in json.loads(
+                          (b / 'precedent.json').read_text(encoding='utf-8')), how3))
+
+        gb.call = lambda path, **k: ([
+            {'login': 'erin', 'type': 'User', 'permissions': {'push': True}},
+            {'login': 'frank', 'type': 'User', 'permissions': {'pull': True}},
+            {'login': 'helper[bot]', 'type': 'Bot', 'permissions': {'admin': True}},
+            {'login': 'gina', 'type': 'User', 'permissions': {'admin': True}}], None)
+        c = fresh('c')
+        subprocess.run(['git', '-C', str(c), 'remote', 'add', 'origin',
+                        'https://github.com/o/r.git'], capture_output=True)
+        got4, how4 = pve.seed_maintainers(c, today='2026-10-06')
+        cases.append(('from GitHub: everyone who can edit, readers and bots left out',
+                      got4 == ['erin', 'gina'] and 'edit access' in how4, f'{got4} {how4}'))
+
+        gb.call = lambda path, **k: (None, 'HTTP 403')
+        os.environ['PRECEDENT_GITHUB_USER'] = 'hank'
+        d = fresh('d')
+        subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin',
+                        'https://github.com/o/r.git'], capture_output=True)
+        got5, how5 = pve.seed_maintainers(d, today='2026-10-06')
+        cases.append(('GitHub unable to say: the person running it, and why',
+                      got5 == ['hank'] and 'person running' in how5 and '403' in how5,
+                      f'{got5} {how5}'))
+
+        for f, needle in (('precedent_update.py', 'maintainers_step(repo, rep)'),
+                          ('precedent_install.py', 'seed_maintainers(dest)')):
+            cases.append((f'{f} runs it',
+                          needle in (ROOT / 'tools' / f).read_text(encoding='utf-8'), ''))
+    finally:
+        gb.call = saved_call
+        if saved_user is None:
+            os.environ.pop('PRECEDENT_GITHUB_USER', None)
+        else:
+            os.environ['PRECEDENT_GITHUB_USER'] = saved_user
+        shutil.rmtree(tmp, ignore_errors=True)
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'install and update name the code owners when none are named '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_merge_instructions_give_the_full_head():
     """Every "merge it" line a Promote into main prints names the head commit
     in full.
@@ -63118,6 +63210,7 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_promote_branches_are_named_like_session_branches()
+    check_install_and_update_name_the_code_owners()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

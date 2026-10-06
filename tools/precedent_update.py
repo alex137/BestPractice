@@ -509,6 +509,19 @@ def retired_sources_step(repo, rep):
                  f'(first: {notes[0]})')
 
 
+def maintainers_step(repo, rep):
+    """Name the repository's code owners when it names none: everyone who
+    can edit it on GitHub now, in precedent.json's `maintainers`
+    (pve.seed_maintainers). Morgan, 2026-10-06 (strength: decided): defined
+    at "setup, vendored in, upgraded, migrated, etc" -- a starting default
+    the repository changes after."""
+    written, how = pve.seed_maintainers(repo)
+    if written:
+        rep.step('code owners', f'named {", ".join("@" + w for w in written)} '
+                 f'in precedent.json\'s maintainers ({how}); change the list '
+                 f'there any time -- it is never rewritten once set')
+
+
 def renamed_sources_step(repo, rep, engine_out):
     """Repoint every precedent-team-* source to its precedent-shared-* name,
     path and level, from THIS copy of the engine -- a consumer whose own
@@ -2537,6 +2550,7 @@ def update(repo, skip_check=False, ref=None):
                  f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
     retired_sources_step(repo, rep)
+    maintainers_step(repo, rep)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():
