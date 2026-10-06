@@ -82,6 +82,22 @@ The overlap verdicts and recommended deletions went to the review page. It
 was first sent as an HTML file; Morgan asked for it as an Artifact, and the
 practice now says so for every run (2026-10-06).
 
+## After the Run, 2026-10-06
+
+Decisions Morgan made reading the findings, each built the same day:
+
+- **Both of the folded set's last practices stay.** The commit-trailer
+  check now ships with the engine, so BestPractice stopped declaring the
+  repository-maintenance set; a commit with no session to link says so
+  (`Session: none available (...)`) rather than leaving it out.
+- **A retired set is dropped on its own.** A set that says it is retired,
+  or that GitHub reports archived, is dropped by Update Vendors and
+  reported by this check -- only when no rule would be lost, and never on
+  "Not Found".
+- **Warnings are to be eliminated.** `upholds:` joined the practice
+  format, ending the warning a project repository saw on every check.
+- **The review page is always an Artifact**, never an HTML file.
+
 ## What Is Left
 
 The four pass items above, and a prompt for a session that can push to
