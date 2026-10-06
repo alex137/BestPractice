@@ -677,6 +677,38 @@ def publish_pass(root, rec):
           f'other checkouts ({why}); they will run the suite themselves.')
 
 
+def _branch_name_refusal(root, argv):
+    """-> why a push that CREATES a session branch with a hand-made name is
+    refused, or None. Only a branch origin does not have yet is judged, so
+    a branch already pushed, a tier branch and every other name pass; an
+    engine copy without the naming tool refuses nothing (Morgan,
+    2026-10-06: always use the new format for temporary branches)."""
+    if '--push-command' not in argv:
+        return None
+    i = argv.index('--push-command')
+    cmd = argv[i + 1] if i + 1 < len(argv) else ''
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branches
+        import precedent_branch_name
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+    judge = getattr(precedent_branch_name, 'name_refusal', None)
+    if judge is None:
+        return None
+    for name in precedent_branches.push_targets(root, cmd) or []:
+        if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
+                           f'refs/remotes/origin/{name}'],
+                          capture_output=True).returncode == 0:
+            continue
+        why = judge(name)
+        if why:
+            return why
+    return None
+
+
 def _promote_only_refusal(root, argv):
     """-> why the named push is refused before any check runs, or None.
     Only a person who turned promote_only on is ever refused here
@@ -1560,6 +1592,10 @@ def main(argv):
               f'{argv[i + 1] if i + 1 < len(argv) else "(no reason given)"}',
               flush=True)
     refused = _promote_only_refusal(root, argv)
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
+    refused = _branch_name_refusal(root, argv)
     if refused:
         print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
         return 1

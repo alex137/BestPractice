@@ -8794,6 +8794,82 @@ def check_fresh_install_links_its_file_names():
           '; '.join(f'{n}: {x}' for n, x in bad))
 
 
+def check_push_refuses_a_hand_made_session_branch_name():
+    """A push that creates a session branch whose name
+    tools/precedent_branch_name.py did not make is refused, naming the
+    rename. Morgan, 2026-10-06: "how can we make sure that you always use the
+    new format for temporary branches?" -- a session and its agents had typed
+    date-and-topic names that lead back to no session. Planted: the tool's
+    own names (and its clash form) pass; the harness-given name passes; a
+    hand-typed name is refused, end to end through precedent_push_check; a
+    branch origin already has is not judged again; a tier branch is not a
+    session branch."""
+    import shutil as _sh
+    import tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branch_name as _bn
+    cases = []
+    tail = 'ab1cd'
+    cases.append(('a name the tool builds passes',
+                  _bn.name_refusal(_bn.build(['some', 'work'], tail=tail)[0],
+                                   tail=tail) is None))
+    cases.append(('the tool\'s clash form passes',
+                  _bn.name_refusal('claude/2026-10-06-some-work-ab1cd-x9y8z',
+                                   tail=tail) is None))
+    cases.append(('a harness-given name passes',
+                  _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail) is None))
+    cases.append(('a hand-typed date-and-topic name is refused',
+                  bool(_bn.name_refusal('claude/2026-10-06-vdc-fixes', tail=tail))))
+    cases.append(('a name ending in another session\'s id is refused',
+                  bool(_bn.name_refusal('claude/2026-10-06-some-work-zzzzz', tail=tail))))
+    cases.append(('a tier branch is not judged',
+                  _bn.name_refusal('pre-staging', tail=tail) is None))
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               CLAUDE_CODE_REMOTE_SESSION_ID='cse_' + 'x' * 20 + tail)
+    try:
+        repo = fx / 'repo'
+        shutil.copytree(ROOT / 'tools', repo / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        subprocess.run(['git', 'init', '-q', str(repo)], env=env, check=True)
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_push_check as _ppc
+
+        def refused(cmd):
+            saved = dict(os.environ)
+            os.environ.update(env)
+            try:
+                return _ppc._branch_name_refusal(repo, ['--gate', '--push-command', cmd])
+            finally:
+                os.environ.clear()
+                os.environ.update(saved)
+        cases.append(('end to end: a push creating a hand-named branch is refused',
+                      bool(refused('origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes'))))
+        cases.append(('...and the refusal names the rename command',
+                      'precedent_branch_name.py' in (refused(
+                          'origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes') or '')))
+        cases.append(('end to end: a tool-made name is let through',
+                      refused(f'origin HEAD:refs/heads/claude/2026-10-06-some-work-{tail}') is None))
+        subprocess.run(['git', '-C', str(repo), 'update-ref',
+                        'refs/remotes/origin/claude/2026-10-06-vdc-fixes',
+                        subprocess.run(['git', '-C', str(repo), 'hash-object', '-t',
+                                        'commit', '--stdin', '-w'], input=b'tree '
+                                       + subprocess.run(['git', '-C', str(repo),
+                                                         'hash-object', '-t', 'tree',
+                                                         '-w', '--stdin'], input=b'',
+                                                        capture_output=True).stdout.strip()
+                                       + b'\nauthor a <a@b> 0 +0000\ncommitter a <a@b> 0 +0000\n\nx\n',
+                                       capture_output=True).stdout.strip().decode()],
+                       env=env, capture_output=True)
+        cases.append(('a branch origin already has is not judged again',
+                      refused('origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes') is None))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'a push refuses a hand-made session branch name ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_fix_sweep_copy_keeps_its_neighbours():
     """The very deep check's fix sweep runs each new detector against a COPY
     of every repo in force. A check that looks beside the repo for a source
@@ -61175,6 +61251,7 @@ def main():
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
+    check_push_refuses_a_hand_made_session_branch_name()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
     check_update_hands_the_engine_refresh_the_followed_tip()
