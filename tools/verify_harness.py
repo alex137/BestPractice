@@ -8809,7 +8809,9 @@ def check_retired_set_takes_only_its_retirement():
     todo index pass; a rule edited while still active and an edited check
     script are refused; the person's own words in PRECEDENT_RETIRED_SET_EDIT
     let one through; the same edit in a set that is not retired passes;
-    commits origin already has are not judged."""
+    commits origin already has are not judged. A Promote in a retired set
+    is refused too (Morgan, 2026-10-06: "not edit nor promote nor touch"),
+    with the same way through."""
     import tempfile as _tf
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
@@ -8891,6 +8893,43 @@ def check_retired_set_takes_only_its_retirement():
         git(retired, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
         cases.append(('an edit origin already has is not judged again',
                       _ppc._retired_set_refusal(retired, env={}) is None))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_branches as _pb
+        finally:
+            sys.path.pop(0)
+        said = []
+        rc = _pb.promote(retired, say=said.append)
+        cases.append(('a Promote in a retired set is refused and moves nothing '
+                      f'(rc={rc})', rc == 1 and any('NOT PROMOTED' in l
+                                                     for l in said)))
+        cases.append(('...naming the practice',
+                      any('retired-set-takes-only-its-retirement' in l
+                          for l in said)))
+        cases.append(('the person\'s own words let a Promote through',
+                      _pb.retired_set_hold(retired, env={
+                          'PRECEDENT_RETIRED_SET_EDIT': 'Morgan: promote it'})
+                      is None))
+        cases.append(('a set that is not retired is not held',
+                      _pb.retired_set_hold(live, env={}) is None))
+        # The retirement Booked on pre-staging only, the clone on main: still
+        # retired to both guards (2026-10-06: both real sets were exactly so).
+        base = git(live, 'rev-parse', 'HEAD').stdout.strip()
+        w('precedent-source.json', json.dumps({
+            'name': 'precedent-shared-x',
+            'retired': {'date': '2026-10-06', 'folded_into': ['universal']}}))(live)
+        git(live, 'add', '-A')
+        git(live, *ident, 'commit', '-qm', 'retire it, on pre-staging')
+        git(live, 'update-ref', 'refs/remotes/origin/pre-staging', 'HEAD')
+        git(live, 'reset', '-q', '--hard', base)
+        cases.append(('a retirement only on origin/pre-staging still holds a '
+                      'Promote from a clone on main',
+                      bool(_pb.retired_set_hold(live, env={}))))
+        w('tools/checks/check_a.py', 'x = 9\n')(live)
+        git(live, 'add', '-A')
+        git(live, *ident, 'commit', '-qm', 'an edit on main')
+        cases.append(('...and refuses a push that edits it',
+                      bool(_ppc._retired_set_refusal(live, env={}))))
     finally:
         shutil.rmtree(fx, ignore_errors=True)
     failed = [n for n, ok in cases if not ok]

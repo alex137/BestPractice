@@ -1976,12 +1976,49 @@ def promotion_step(root, to=None, work=None):
     return None, f'{PRE_STAGING}, {staging} and {MAIN} carry the same work'
 
 
+def retired_set_hold(root, env=None):
+    """-> why a Promote in a practice set that says it is retired does
+    nothing, or None. Morgan, 2026-10-06 (strength: decided), the same day
+    a session promoted toward main in every set at once: "I just told you a
+    few minutes ago to not edit nor promote nor touch repo maintenance or
+    working style, unless it is essential to their graceful deprecation."
+    Practice: retired-set-takes-only-its-retirement (temporary). The
+    person's own words in PRECEDENT_RETIRED_SET_EDIT let one Promote run."""
+    env = os.environ if env is None else env
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_vendor_engine as ve
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+    judge = (getattr(ve, 'retirement_on_any_tier', None)
+             or getattr(ve, 'source_retirement', None))
+    retirement = judge(root) if judge else None
+    if retirement is None:
+        return None
+    asked = (env.get('PRECEDENT_RETIRED_SET_EDIT') or '').strip()
+    if asked:
+        print(f'promoting a retired set, because the person asked: {asked!r}',
+              flush=True)
+        return None
+    return ('NOT PROMOTED: this set says it is retired, and a retired set is '
+            'not promoted unless the person asks for that exact move as '
+            'essential to retiring it gracefully (practice: '
+            'retired-set-takes-only-its-retirement). If they have, run again '
+            'with PRECEDENT_RETIRED_SET_EDIT="<their words>".')
+
+
 def promote(root, say=print, to=None, work=None):
     """Pick the step (promotion_step), SAY it, then run it, one window at a
     time. -> 0 promoted, nothing to promote, or another window already
     promoting; 1 refused (a failing check, a conflict, a race);
     PROMOTE_MAIN_NOT_MOVED when staging into main is ready for its pull
     request and main has not moved yet."""
+    held = retired_set_hold(root)
+    if held:
+        say(held)
+        return 1
     if not repo_has_tiers(root) and not _git(
             root, 'rev-parse', '--verify', '--quiet',
             f'refs/remotes/origin/{staging_branch(root)}'):
