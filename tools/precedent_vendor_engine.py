@@ -681,6 +681,10 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # The fix to a vendored file goes upstream, set up in one command
+    # (2026-10-06): doc_lint.py's open-item check names it, so every kind
+    # that carries doc_lint.py needs it.
+    'upstream_fix.py',
     # ...and what takes the notice at a merge (2026-10-02, Alex: "Can we
     # set up a system so merge also does vendor updates?"): behind, it runs
     # Update Vendors from the source clone and commits the result on its
