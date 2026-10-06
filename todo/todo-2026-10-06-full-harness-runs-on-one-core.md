@@ -3,7 +3,7 @@ slug:              todo-2026-10-06-full-harness-runs-on-one-core
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-06
-closed:            null
+closed:            2026-10-06
 ---
 ## What
 
@@ -48,11 +48,21 @@ four more over 15 seconds.
 case in every process (`check_bare_all_runs_across_the_cores`);
 `PRECEDENT_HARNESS_SERIAL=1` keeps the one-process run for profiling.
 
-**Still open:** deal the rest shard's checks by measured duration rather
-than by name, which on these numbers would bring the three parts nearer
-530 seconds each.
+**Measured after, 2026-10-06:** the same `python3 tools/verify_harness.py
+--all` on the same 4-core container took 693 seconds, against about 31
+minutes before. That first run failed three shards on gaps in the change
+itself (two new checks never called from `main()`, and a new practice's
+`checked_by` and missing section), fixed the same day. The Debut's full
+check then passed on the fixed tree.
+
+Dealing the rest shard's checks by measured duration rather than by name
+moved to
+[todo-2026-10-06-deal-harness-checks-by-measured-time](todo-2026-10-06-deal-harness-checks-by-measured-time.md).
 
 ## How It Closes
 
 A full run on a 4-core container takes well under half its 2026-10-06 time,
 with the same checks and results.
+
+Closed 2026-10-06: a full run takes 693 seconds, well under half of its
+earlier 31 minutes, with the same checks.
