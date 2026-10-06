@@ -1668,9 +1668,16 @@ def main(argv):
         subprocess.run(['git', '-C', str(root), 'fetch', '-q', '--unshallow'],
                        capture_output=True, text=True)
         if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
-            print('precedent_push_check: FAILED -- the clone is still shallow '
-                  '(the fetch did not complete), so the history checks '
-                  'cannot run. Run `git fetch --unshallow` and try again.')
+            # A second --unshallow cannot help when the clone stays shallow
+            # only because .git/shallow still names commits of branches
+            # deleted upstream; the gotcha carries the safe recovery.
+            print('precedent_push_check: FAILED -- the clone is still shallow, '
+                  'so the history checks cannot run. If `git fetch '
+                  '--unshallow` has not finished, run it again; if it '
+                  'completes and the clone still says shallow, .git/shallow '
+                  'names commits of deleted branches -- follow gotchas/'
+                  'gotcha-2026-09-28-stale-shallow-entries-for-deleted-'
+                  'branches-survive-unshallow.md.')
             return 1
 
     ok_pkgs, note = ensure_gate_packages()
