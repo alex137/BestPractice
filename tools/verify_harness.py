@@ -6190,6 +6190,48 @@ def check_commit_rebuilds_generated_files():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_sync_does_not_call_a_held_back_check_an_orphan():
+    """A sync names as orphaned only a check no practice file claims. A check
+    whose own source's practice file names it in `checked_by` -- a rule that
+    source keeps out of force on purpose, as a deduplicated copy whose check
+    still runs in its own repository -- is not vendored and not reported.
+    Reported from a consumer, 2026-10-06: every sync listed the individual
+    set's three such checks as orphans."""
+    import contextlib, io, tempfile as _tf
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with _tf.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'set'
+        (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (src / 'practices').mkdir()
+        for stem in ('kept', 'lost'):
+            (src / 'tools' / 'checks' / f'check_{stem}.py').write_text('x = 1\n', encoding='utf-8')
+            (src / 'tools' / 'checks' / 'tests' / f'test_{stem}.sh').write_text('true\n', encoding='utf-8')
+        (src / 'practices' / 'kept.md').write_text(
+            '---\nslug: kept\nchecked_by:  tools/checks/check_kept.py\n'
+            'status:      deduplicated\n---\n## Rule\nx\n', encoding='utf-8')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}],
+                                   {'practices': {}})
+        note = [l for l in err.getvalue().splitlines() if 'no practice in force' in l]
+        note = note[0] if note else ''
+        cases.append(('a check no practice file claims is still reported',
+                      'check_lost.py' in note and 'test_lost.sh' in note))
+        cases.append(('a check its own source\'s practice file claims is not',
+                      'check_kept.py' not in note and 'test_kept.sh' not in note))
+        cases.append(('...and neither is vendored here',
+                      not any(name in ('check_kept.py', 'check_lost.py')
+                              for _r, name, _s, _d in plan)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a sync does not call a held-back check an orphan ({len(cases)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_drops_the_dead_blank_blocklist_link():
     """Update Vendors drops the retired install pack's dead link to
     personal/README.md#blank-blocklist from a repository's process/ files,
@@ -61692,6 +61734,7 @@ def main():
     check_update_seeds_the_session_load_registry()
     check_session_start_charges_brought_sets_to_the_person()
     check_update_drops_the_dead_blank_blocklist_link()
+    check_sync_does_not_call_a_held_back_check_an_orphan()
     check_source_directory_splits_and_assembles()
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
