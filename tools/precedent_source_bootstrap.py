@@ -1053,13 +1053,18 @@ def sources_from_attached_sets(repo_path, base_url=None,
     return out
 
 
-def sources_from_brings(retries=DEFAULT_RETRIES):
+def sources_from_brings(retries=DEFAULT_RETRIES, skip=()):
     """Clone or pull every set the person's individual set BRINGS
     (spec/LADDER_OPT_IN_PLAN.md D2): beside the individual set, from the full
     URL the entry names. A set already on disk elsewhere is linked rather
     than cloned twice (_clone_elsewhere_on_disk). Runs before
     sources_from_attached_sets, so what a brought set declares is refreshed
-    in the same session start. -> [(name, ok, output)]. Never raises."""
+    in the same session start. -> [(name, ok, output)]. Never raises.
+
+    `skip`: paths left alone -- the repository an update is running in,
+    when it is itself a brought set (2026-10-07: updating the ladder set
+    from its own clone fetched that clone, found it mid-update on a branch,
+    and refused the update over itself)."""
     try:
         import precedent_resolve as pr
         ucfg = pathlib.Path(os.environ.get(
@@ -1071,9 +1076,14 @@ def sources_from_brings(retries=DEFAULT_RETRIES):
     except Exception:                                       # noqa: BLE001
         return []
     out = []
+    skipped = {pathlib.Path(x).resolve() for x in skip}
     for b in brought:
         name, url = b['name'], b['repo']
         clone_path = pathlib.Path(b['path'])
+        if clone_path.resolve() in skipped:
+            out.append((name, True, 'this repository itself, the one being '
+                                    'updated: not fetched'))
+            continue
         try:
             if not (clone_path / '.git').exists() and not clone_path.exists():
                 existing = _clone_elsewhere_on_disk(name, clone_path.resolve(),
