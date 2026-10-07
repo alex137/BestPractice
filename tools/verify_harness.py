@@ -8689,6 +8689,84 @@ def check_new_rule_shows_its_debt_and_booked_names_it():
           f'set aside ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_removal_selects_its_checks():
+    """A change that deletes or renames a file selects every tree check
+    declaring selects_on_removal -- rename-updates-links, whose subject is
+    what a removal strands and whose `**` reached it only by the rotation:
+    a consumer commit moving about twenty files ran it as "not run this
+    invocation" (2026-10-07). A change removing nothing leaves it to the
+    rotation as before."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as _pc
+    cases = []
+    tree = sorted(s for s, c in _pc.CHECKS.items() if c['scope'] == 'tree')
+    real_removed, real_touched = _pc._removed_files, _pc._touched_files
+    try:
+        _pc._touched_files = lambda: ['site/new-name.css']
+        _pc._removed_files = lambda: ['site/old-name.css']
+        picked = _pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('a rename selects rename-updates-links, with the '
+                      'rotation emptied', 'rename-updates-links' in picked))
+        _pc._removed_files = lambda: []
+        picked = _pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('a change removing nothing leaves it to the rotation',
+                      'rename-updates-links' not in picked))
+    finally:
+        _pc._removed_files, _pc._touched_files = real_removed, real_touched
+    cases.append(('rename-updates-links declares it',
+                  _pc.CHECKS['rename-updates-links'].get('selects_on_removal') is True))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a change that removes a file selects the checks that judge what a '
+          f'removal strands ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_engine_capability_holds_a_practice_back():
+    """A practice that names an engine capability in `requires:` is in force
+    on an engine that has it, and held back -- check and all -- on one that
+    does not; the sync says which (2026-10-07: a set's hooks-declaring
+    practice reached a consumer whose engine could not wire hooks, and its
+    check refused an unrelated merge)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    import precedent_sync_views as _sv
+    cases = []
+    base = (ROOT / 'practices' / 'no-version-suffix.md').read_text(encoding='utf-8')
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp) / 'set'
+        (d / 'practices').mkdir(parents=True)
+        (d / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-set', 'level': 'shared', 'visibility': 'public'}),
+            encoding='utf-8')
+        for slug, need in (('needs-hooks', 'engine:practice-hooks'),
+                           ('needs-future', 'engine:not-built-yet')):
+            text = base.replace('slug:        no-version-suffix', f'slug:        {slug}', 1)
+            text = text.replace('\nstatus:', f'\nrequires:    ["{need}"]\nstatus:', 1)
+            (d / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        src = [{'level': 'shared', 'name': 'fx-set', 'path': str(d)}]
+        got = _pr.resolve([dict(s) for s in src])['practices']
+        cases.append(('a practice needing a capability this engine has is in force',
+                      'needs-hooks' in got))
+        cases.append(('one needing a capability no engine has yet is held back',
+                      'needs-future' not in got))
+        notes = _sv.held_for_a_newer_engine([dict(s) for s in src])
+        cases.append(('the sync names the held-back practice and says Update Vendors',
+                      len(notes) == 1 and 'needs-future' in notes[0]
+                      and 'Update Vendors' in notes[0]))
+        real = _pr.ENGINE_CAPABILITIES
+        try:
+            _pr.ENGINE_CAPABILITIES = frozenset()
+            got = _pr.resolve([dict(s) for s in src])['practices']
+            cases.append(('on an engine without hook wiring, the hooks practice '
+                          'is held back, so no check it cannot pass is installed',
+                          'needs-hooks' not in got))
+        finally:
+            _pr.ENGINE_CAPABILITIES = real
+    bad = [n for n, ok in cases if not ok]
+    check(f'an engine capability in requires: holds a practice back on an engine '
+          f'without it ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_generated_files_candidates_are_repo_rooted_claims():
     """The very deep check's GENERATED FILES section asks the session to
     judge tracked files a tool may write that tools/generated_files.json
@@ -13400,6 +13478,13 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
                    'a fence.', False),
         'source-in-reason': ('open', 'push access to some-set', 'A rule '
                              'there is worded wrong.', True),
+        # A link to a vendored file is reading (2026-10-07, a consumer's
+        # check-in item linking the install runbook); the link's own text
+        # naming the file still counts.
+        'reading-link': ('open', 'null', 'Follow [the runbook]'
+                         '(../tools/doc_lint.py) at each check-in.', False),
+        'named-in-link-text': ('open', 'null', '[tools/doc_lint.py]'
+                               '(../tools/doc_lint.py) misreads a fence.', True),
     }
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -64162,6 +64247,8 @@ def main():
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_dropped_set_and_proxy_and_template_refs()
+    check_removal_selects_its_checks()
+    check_engine_capability_holds_a_practice_back()
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
     check_harness_drops_inherited_git_repository_variables()

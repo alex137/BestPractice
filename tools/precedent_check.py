@@ -325,7 +325,8 @@ CHECKS = {}
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
           binds_publishers=False, binds_when=(), selects_on=(),
-          judges_received=False, advisory_term=None, existence_only=False):
+          judges_received=False, advisory_term=None, existence_only=False,
+          selects_on_removal=False):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -382,6 +383,14 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     `rule_of` still prints "(no practice file for ...)" there, so a check
     binding this way owes its whole remedy in its own finding text, the
     way this one's does.
+
+    `selects_on_removal=True` selects this check whenever the change deletes
+    or renames a file away, whatever it touched otherwise. A check whose
+    subject is what a removal strands -- rename-updates-links -- applies to
+    `**` and so was reachable only by the rotation: a consumer commit
+    moving about twenty files ran it as "not run this invocation", and a
+    stale path in a stylesheet comment reached the merge check
+    (2026-10-07).
 
     `selects_on` is a tuple of path globs naming the files this check's
     verdict actually depends on. A commit touching any of them SELECTS this
@@ -467,7 +476,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
                             selects_on=tuple(selects_on),
                             judges_received=judges_received,
                             advisory_term=advisory_term,
-                            existence_only=existence_only)
+                            existence_only=existence_only,
+                            selects_on_removal=selects_on_removal)
         return fn
     return deco
 
@@ -8580,7 +8590,8 @@ def _strip_other_repo_urls(line, own_slug):
        'repository\'s file rather than this one\'s. Nor '
        'about history, which names a path as it was: a generated view (its '
        'source is read), a closed todo item, a `## Story` section, or a '
-       'record file precedent.json declares in `record_paths`.')
+       'record file precedent.json declares in `record_paths`.',
+       selects_on_removal=True)
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -12104,6 +12115,34 @@ def _caused_by_this_push(results, in_change, gone_in_change, rng):
             for slug, keys in outside.items() if keys - before.get(slug, set())}
 
 
+def _removed_files():
+    """-> the paths this commit deleted or renamed away, measured the way
+    _touched_files measures what it touched (against the published default
+    branch, plus the working tree and index). Empty when git cannot say."""
+    head = _git('symbolic-ref', 'refs/remotes/origin/HEAD')
+    base = head.stdout.strip().replace('refs/remotes/', '', 1) \
+        if head.returncode == 0 else None
+    if base is None:
+        for cand in ('origin/main', 'origin/master'):
+            if _git('rev-parse', '--verify', '--quiet', cand).returncode == 0:
+                base = cand
+                break
+    out = set()
+    diffs = [['diff', '--name-status', '--find-renames'],
+             ['diff', '--name-status', '--find-renames', '--cached']]
+    if base:
+        diffs.insert(0, ['diff', '--name-status', '--find-renames', f'{base}...HEAD'])
+    for args in diffs:
+        r = _git(*args)
+        if r.returncode != 0:
+            continue
+        for line in r.stdout.splitlines():
+            parts = line.split('\t')
+            if len(parts) >= 2 and parts[0][:1] in ('D', 'R'):
+                out.add(parts[1])
+    return sorted(out)
+
+
 def _gone_in_change(ctx):
     """-> the paths the change in scope deleted or renamed away: its range
     when it has one, else what the working tree and index changed against
@@ -12188,6 +12227,12 @@ def _scoped_tree_slugs(tree_slugs, buckets=None):
             g for g in pp._globs(fm.get('applies_to', '[]')) if g != '**']
 
     directly = {s for s in active if f'practices/{s}.md' in touched_set}
+    # A change that deletes or renames a file selects every check that
+    # declares it judges what a removal leaves behind (check()'s
+    # `selects_on_removal`).
+    if _removed_files():
+        directly |= {s for s in active
+                     if CHECKS.get(s, {}).get('selects_on_removal')}
     indirectly = {s for s in active if s not in directly
                   and any(pp.path_matches(t, g)
                           for g in globs_by_slug.get(s, ())
