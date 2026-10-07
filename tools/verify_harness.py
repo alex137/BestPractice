@@ -49181,14 +49181,15 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
         (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
             json.dumps({key: [old, links]}), encoding='utf-8')
 
-        def run(section, pinned):
+        def run(section, pinned, local=None):
             (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
                 item: {'reason': 'ours', 'template_sha256': pinned}}}), encoding='utf-8')
             pve._LEFT_FOR_YOU.clear()
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 done = pve._report_stale_kept(dest, tpl, key, item, 'the template',
-                                              section, pve._sha_text(section), 'c' * 64, {})
+                                              section, pve._sha_text(section), 'c' * 64, {},
+                                              local=local)
             entry = json.loads((dest / 'precedent.json').read_text(
                 encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
             return done, buf.getvalue(), list(pve._LEFT_FOR_YOU), entry
@@ -49206,10 +49207,89 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
         done, out, left, entry = run(words, 'f' * 64)
         cases.append(('a pin no template version matches falls back',
                       done is False and not out))
+        # 2026-10-07: upstream's new wording already in the section -- the
+        # consumer had written it first -- re-pins with nothing to decide.
+        mine = key + '\n\nOur own lead line.\n\nEdit tools/x.py and run both checks.\n'
+        done, out, left, entry = run(words, pve._sha_text(old), local=mine)
+        cases.append(('a change of words this section already carries re-pins by itself',
+                      done and 'PIN UPDATED' in out and 'already in' in out and not left
+                      and entry['template_sha256'] == pve._sha_text(words)))
+        theirs_old = key + '\n\nOur own lead line.\n\nEdit tools/x.py and run the check.\n'
+        done, out, left, entry = run(words, pve._sha_text(old), local=theirs_old)
+        cases.append(('one whose new wording is not here still leaves the call, '
+                      'naming the re-pin command, never raw hashes',
+                      done and len(left) == 1 and 'repin-kept' in left[0][1]
+                      and '--confirmed' in left[0][1] and 'set its template_sha256' not in out
+                      and '(listed above)' in left[0][1]))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_update as _pu
+        got = _pu.diverged_details(out)
+        cases.append(('Update Vendors carries that diff under the item',
+                      any(k.endswith(f'"{key}"') and any('run both checks' in l for l in v)
+                          for k, v in got.items())))
     pve._LEFT_FOR_YOU.clear()
     bad = [n for n, ok in cases if not ok]
     check(f'a stale kept section shows upstream\'s change, not its lacks '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_repin_kept_records_the_persons_words():
+    """`precedent_vendor_engine.py repin-kept` re-pins one kept AGENTS.md
+    section against today's template and records who confirmed it and
+    when -- the command the stale-kept call names, in place of two
+    SHA-256 values pasted into precedent.json by hand, which a session's
+    own safety checks refused as editing an audit record (2026-10-07). It
+    refuses without the person's words and for a section not recorded as
+    kept."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '## Session start'
+    tpl_text = f'# T\n\n{key}\n\nKeep this file\'s generated block current.\n'
+    names = ('_read_agents_md_sources', '_rev', '_load_manifest')
+    saved = {n: getattr(pve, n) for n in names}
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        dest = td / 'repo'
+        (dest / 'tools').mkdir(parents=True)
+        (dest / 'AGENTS.md').write_text(
+            f'# Repo\n\n{key}\n\nOur own line.\n\nKeep this file\'s generated '
+            f'block current.\n', encoding='utf-8')
+        item = f'AGENTS.md {key}'
+        (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
+            item: {'reason': 'ours', 'template_sha256': 'f' * 64}}}), encoding='utf-8')
+        src = pve.AGENTS_MD_TEMPLATES.get('consumer', ('AGENTS.md.template',))[0]
+        try:
+            def fake_read(clone, commit, kind, out):
+                (out / src).parent.mkdir(parents=True, exist_ok=True)
+                (out / src).write_text(tpl_text, encoding='utf-8')
+                (out / pve._AGENTS_MD_HISTORY_NAME).write_text('{}', encoding='utf-8')
+            pve._read_agents_md_sources = fake_read
+            pve._rev = lambda repo, ref: 'a' * 40
+            pve._load_manifest = lambda d: {'kind': 'consumer', 'source_commit': 'a' * 40}
+            ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Session start', '', dest_root=dest)
+            cases.append(('refuses without the person\'s words', not ok, msg))
+            ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Nowhere', 'yes', dest_root=dest)
+            cases.append(('refuses a section not recorded as kept', not ok, msg))
+            ok, msg = pve.repin_kept_section(td, item, 'Morgan: still kept', dest_root=dest)
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            want = pve._sha_text(pve._instantiate(
+                pve._template_sections(tpl_text)[key][1],
+                pve._agents_md_subs(dest)))
+            cases.append(('re-pins to today\'s template text',
+                          ok and entry['template_sha256'] == want, f'{msg} {entry}'))
+            cases.append(('...and records the person\'s words and the reason stays',
+                          entry.get('confirmed') == 'Morgan: still kept'
+                          and entry.get('reason') == 'ours', str(entry)))
+        finally:
+            for n, f in saved.items():
+                setattr(pve, n, f)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'repin-kept re-pins a kept section with the person\'s words '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:200]}' for n, d in bad))
 
 
 # The (event, hook) pairs HOOK_WIRING carried on 2026-10-07, when the
@@ -64767,6 +64847,7 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check_repin_kept_records_the_persons_words()
     check_hook_changes_never_touch_dot_claude()
     check_sync_names_a_field_its_engine_does_not_know()
     check_practice_change_propagates_refuses()
