@@ -14,7 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07; the clock-time sentence added by S. Alexander Jacobson, 2026-10-07"
 strength:    decided
 ---
 ## Rule
@@ -28,9 +28,20 @@ whole suite, and a run already asked for by name. **(3) When idle on a wait, say
 what it will change, and how to stop it** — never a bare "still running".
 A background task nobody asked for is stopped, not waited on.
 **(4) An open question is not a stopping point:** ask it early and keep
-working on everything its answer does not touch.
+working on everything its answer does not touch. **Every "how long"
+carries the clock time it lands, in the person's zone, named:** "about 15
+minutes, done around 15:35 New York time".
 
 ## Detail
+**Why a clock time, and whose.** A duration says nothing once the reader
+has lost track of when it was said, and chat surfaces show no timestamps,
+so "15 minutes" leaves the person no way to know when to look back. The
+zone is the person's declared timezone, else the one their own commits
+carry; never the container's unless it is theirs, and always written out,
+since the person, a colleague and the machine are often in three. S.
+Alexander Jacobson, 2026-10-07 (strength: decided): "let's also make a
+practice of reporting a future time not just a duration estimate".
+
 **What part 1 means by an easy question:** one answered from what is already
 known, without waiting on a run. **What part 2 means by a long task:** a
 cold solve, a search family, a re-solve cascade, a whole-tree gate. Both
