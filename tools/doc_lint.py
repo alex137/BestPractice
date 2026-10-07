@@ -1001,6 +1001,9 @@ _MIGRATION_STAMP_RE = re.compile(
     r'migrated from TODO\.md by tools/todo_migrate\.py\.?', re.I)
 
 
+_LINK_TARGET_RE = re.compile(r'\]\([^)\s]*(?:\s+"[^"]*")?\)')
+
+
 def check_upstream_item(path, root=None):
     """-> why an open item about an upstream fix is refused, or None.
 
@@ -1011,6 +1014,9 @@ def check_upstream_item(path, root=None):
     field -- names a repository it takes a source from. What is vendored,
     and from where, is precedent_engine_freshness's vendored_entries() and
     source_mentions(), never a list of its own.
+
+    A path counts in the body only where the text names it, never as a
+    link's address alone: a link to a vendored file is reading.
 
     Deliberately no keywords: "vendor" and "access" matched real outside
     blockers in a consumer (a vendor's quote, access to a website). And
@@ -1034,7 +1040,13 @@ def check_upstream_item(path, root=None):
         names = _pef.source_mentions(root)
     except Exception:                                        # noqa: BLE001
         return None
-    body = _MIGRATION_STAMP_RE.sub('', text)
+    # A link's address is reading, not the thing being fixed: an item that
+    # links the vendored install runbook to say "follow this" is not
+    # waiting on a change to it (a consumer's check-in item, 2026-10-07,
+    # refused for a one-line note until it linked an unrelated pull
+    # request). Only the address goes; the link's own text still counts,
+    # so "[tools/doc_lint.py](...) misreads a fence" is still caught.
+    body = _LINK_TARGET_RE.sub('](', _MIGRATION_STAMP_RE.sub('', text))
     lead = r'(?:(?<=\.\./)|(?<![\w./-]))'
     named = None
     for e in entries:
