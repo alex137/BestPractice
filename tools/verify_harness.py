@@ -14888,6 +14888,91 @@ def check_run_all_warns_when_checks_are_uncommitted():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_run_all_trusts_only_unchanged_shipped_tests():
+    """The generated run_all.sh runs only the CHECK, on the repo, for a
+    shipped test whose test and check both still match what was shipped --
+    and the full self-test for everything else.
+
+    Its source already ran an unchanged self-test before shipping, so in a
+    consumer it re-tested code nobody there touched: about 7 minutes of
+    every Update Vendors and every merge in one consumer (2026-10-06).
+    Plants the shapes that must NOT be trusted -- an edited test, an edited
+    check, a repo-local test, the override -- with a self-test that marks a
+    file when it runs, and a failing check that must still fail the run."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-run-all-trust-'))
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    env.pop('PRECEDENT_RUN_ALL_SELF_TESTS', None)
+    cases = []
+    try:
+        src = tmp / 'team'
+        (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (src / 'tools' / 'checks' / 'check_ok.py').write_text(
+            'print("ok ran")\n', encoding='utf-8')
+        (src / 'tools' / 'checks' / 'tests' / 'test_ok.sh').write_text(
+            '#!/bin/bash\ntouch "$(dirname "$0")/selftest_ran"\n', encoding='utf-8')
+        loc = tmp / 'local-src'
+        (loc / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (loc / 'tools' / 'checks' / 'check_mine.py').write_text('pass\n', encoding='utf-8')
+        (loc / 'tools' / 'checks' / 'tests' / 'test_mine.sh').write_text(
+            '#!/bin/bash\ntouch "$(dirname "$0")/local_ran"\n', encoding='utf-8')
+        sources = [{'name': 'precedent-team-fixture', 'level': 'shared', 'path': str(src)},
+                   {'name': 'local', 'level': 'repo-local', 'path': str(loc)}]
+        plan = pm._plan_checks(sources, None)
+        repo = tmp / 'consumer'
+        for rel, fn, _s, data in plan:
+            d = repo / 'tools' / rel
+            d.mkdir(parents=True, exist_ok=True)
+            (d / fn).write_bytes(data)
+        tests = repo / 'tools' / 'checks' / 'tests'
+
+        def run(extra=None):
+            for m in ('selftest_ran', 'local_ran'):
+                (tests / m).unlink(missing_ok=True)
+            r = subprocess.run(['bash', 'run_all.sh'], cwd=tests, capture_output=True,
+                               text=True, env=dict(env, **(extra or {})))
+            return r, (tests / 'selftest_ran').exists(), (tests / 'local_ran').exists()
+
+        r, self_ran, local_ran = run()
+        cases.append(('an unchanged shipped test runs its check, not its self-test',
+                      r.returncode == 0 and not self_ran and 'ok ran' in r.stdout))
+        cases.append(('a repo-local test always runs its self-test', local_ran))
+        r, self_ran, _ = run({'PRECEDENT_RUN_ALL_SELF_TESTS': '1'})
+        cases.append(('PRECEDENT_RUN_ALL_SELF_TESTS=1 runs the shipped self-test', self_ran))
+        (tests / 'test_ok.sh').write_text(
+            (tests / 'test_ok.sh').read_text(encoding='utf-8') + '# edited\n', encoding='utf-8')
+        r, self_ran, _ = run()
+        cases.append(('an edited shipped test runs its self-test', self_ran))
+        (tests / 'test_ok.sh').write_bytes(
+            next(d for rel, fn, _s, d in plan if fn == 'test_ok.sh'))
+        chk = repo / 'tools' / 'checks' / 'check_ok.py'
+        chk.write_text('print("edited")\n', encoding='utf-8')
+        r, self_ran, _ = run()
+        cases.append(('an edited shipped check runs the self-test', self_ran))
+        chk.write_bytes(next(d for rel, fn, _s, d in plan if fn == 'check_ok.py'))
+        # A finding in the repo: rebuild the plan around a failing check, so
+        # its fingerprint matches and only the check runs.
+        (src / 'tools' / 'checks' / 'check_ok.py').write_text(
+            'import sys\nprint("FINDING here")\nsys.exit(1)\n', encoding='utf-8')
+        for rel, fn, _s, data in pm._plan_checks(sources, None):
+            (repo / 'tools' / rel / fn).write_bytes(data)
+        r, self_ran, _ = run()
+        cases.append(("a trusted check's finding fails the run and is named as "
+                      "this repo's to fix", r.returncode == 1 and not self_ran
+                      and "this repo's to fix" in r.stdout))
+    except (OSError, subprocess.CalledProcessError, StopIteration) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_source_names_explains_a_proxy_refusal():
     """A hosted session's proxy answers 403 for any repository the session has
     not attached, public ones included. precedent_source_names reports that as
@@ -47803,6 +47888,41 @@ def check_update_judges_retired_sets_after_the_catalogue():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_promote_commits_carry_a_session_trailer():
+    """A commit the Promote tool writes itself -- the rebuild of generated
+    files during a composition -- carries a session trailer the trailer
+    check accepts: the session's link, or the explicit no-session form.
+
+    WHY. 2026-10-07, a Debut: main carried a commit staging lacked, the
+    composition rebuilt the generated files and committed them with no
+    trailer, and the full check refused the Promote's own commit."""
+    import re as _re
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    trailer = _re.compile(r'^(?:Session|Claude-Session):\s+(\S.*)$', _re.M)
+    saved = pb._this_session_id
+    try:
+        pb._this_session_id = lambda: '01Fixture'
+        t1 = pb._session_trailer()
+        cases.append(('with a session: its link, which the check accepts',
+                      t1.endswith('session_01Fixture') and bool(trailer.search(t1))))
+        pb._this_session_id = lambda: ''
+        t2 = pb._session_trailer()
+        cases.append(('without one: the explicit no-session form',
+                      t2 == 'Session: none available (precedent_branches.py)'
+                      and bool(trailer.search(t2))))
+    finally:
+        pb._this_session_id = saved
+        sys.path.pop(0)
+    import inspect as _inspect
+    cases.append(('the rebuild commit uses it',
+                  '_session_trailer()' in _inspect.getsource(pb._commit_rebuilt)))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a commit the Promote tool writes carries a session trailer '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_merge_instructions_give_the_full_head():
     """Every "merge it" line a Promote into main prints names the head commit
     in full.
@@ -47866,37 +47986,39 @@ def check_promote_marks_other_sessions_commits():
                 run('add', name)
                 run('commit', '-qm', msg)
                 return run('rev-parse', 'HEAD').stdout.strip()
+            mine = '\n\nClaude-Session: https://claude.ai/code/session_01Fixture'
+            other = '\n\nClaude-Session: https://claude.ai/code/session_01Other'
             base = commit('base', 'base')
+            # Another session Books first; this session's branch is cut after,
+            # so it carries that commit -- the case the branch test got wrong.
+            commit('o', "another session's, Booked before the branch was cut" + other)
             run('switch', '-qc', 'work')
-            commit('a', 'mine, on the work branch')
+            commit('a', 'mine, on the work branch' + mine)
             run('switch', '-q', 'main')
             run('merge', '-q', '--no-ff', '-m', 'book work', 'work')
-            commit('b', 'mine, Booked from another branch\n\n'
-                        'Claude-Session: https://claude.ai/code/session_01Fixture')
-            commit('c', 'someone else\'s\n\n'
-                        'Claude-Session: https://claude.ai/code/session_01Other')
+            commit('b', 'mine, Booked from another branch' + mine)
+            commit('c', "someone else's, no session line")
             batch = pb._new_commits(repo, base, 'main')
             shown, others = pb.mark_other_work(repo, batch, 'work', sid='01Fixture')
             subj = lambda ls: [l.split(' ', 1)[1] for l in ls]
-            cases.append(('three commits in the batch', len(batch) == 3))
-            cases.append(('only the commit that is neither on the work branch '
-                          'nor this session\'s is marked',
-                          subj(others) == ["someone else's"]
-                          and sum(pb.OTHER_WORK_MARK in l for l in shown) == 1))
+            cases.append(('four commits in the batch', len(batch) == 4))
+            cases.append(("another session's commit is marked even though it is "
+                          "on this session's branch",
+                          "another session's, Booked before the branch was cut"
+                          in subj(others)))
+            cases.append(('a commit with no session line is marked',
+                          "someone else's, no session line" in subj(others)))
+            cases.append(("this session's commits are not, on its branch or off it",
+                          len(others) == 2
+                          and sum(pb.OTHER_WORK_MARK in l for l in shown) == 2))
             cases.append(('the note names how many and asks for them by name',
-                          '1 of these' in pb._other_work_note(others, 'work')
+                          '2 of these' in pb._other_work_note(others, 'work')
                           and pb._other_work_note([], 'work') == ''))
-            fix = 'promote-fix-20261006T193311-0300'
-            run('branch', fix, 'main')
-            shown, others = pb.mark_other_work(repo, batch, fix, sid='01Fixture')
-            cases.append(('a fix branch, which carries the whole batch, counts for '
-                          'nothing: another session\'s commit is still marked, '
-                          'and one with this session\'s line still is not',
-                          pb.is_fix_branch(fix) and "someone else's" in subj(others)
-                          and 'mine, Booked from another branch' not in subj(others)))
-            shown, others = pb.mark_other_work(repo, batch, None, sid='')
-            cases.append(('with no work branch and no session ID, nothing is marked',
-                          not others and shown == batch))
+            shown, others = pb.mark_other_work(repo, batch, 'work', sid='')
+            cases.append(('with no session ID nothing is marked, and the note says '
+                          'the list was not judged',
+                          others is None and shown == batch
+                          and 'unknown' in pb._other_work_note(others, 'work')))
     finally:
         sys.path.pop(0)
     bad = [n for n, ok in cases if not ok]
@@ -63161,6 +63283,8 @@ def main():
           *check_update_vendors_second_consumer_findings())
     check('run_all.sh says when a failure may be uncommitted checks, and only then',
           *check_run_all_warns_when_checks_are_uncommitted())
+    check('run_all.sh runs only the check for an unchanged shipped test, the self-test otherwise',
+          *check_run_all_trusts_only_unchanged_shipped_tests())
     check('precedent_source_names explains a hosted proxy\'s 403 and names the remedy',
           *check_source_names_explains_a_proxy_refusal())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
@@ -63427,6 +63551,7 @@ def main():
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
+    check_promote_commits_carry_a_session_trailer()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

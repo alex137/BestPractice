@@ -378,20 +378,58 @@ cd "$(dirname "$0")"
 owner_of() {
   owner=''
   level=''
+  check=''
+  tsha=''
+  csha=''
   case "$1" in
 """
 RUN_ALL_TAIL = """  esac
 }
 
+# The first 16 hex digits of a file's sha256, as MANIFEST.json records it.
+_sha16() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -c1-16
+  else
+    shasum -a 256 "$1" | cut -c1-16
+  fi
+}
+
 status=0
 failed=()
+found=()
 ran=0
+trusted=0
 for t in test_*.sh; do
   # A repo that materialized no tests leaves the glob unexpanded; without
   # this the driver would try to run a file literally named test_*.sh and
   # report a failure that is really an empty set.
   [ -e "$t" ] || continue
   ran=$((ran + 1))
+  owner_of "$t"
+  # A test a source shipped, still byte-for-byte what it shipped, beside the
+  # check it tests, likewise unchanged: its source already ran it before
+  # shipping, at home and consumer-shaped (precedent_consumer_shape.py). Its
+  # fixtures test the CHECK's code, which nobody here changed; the part that
+  # judges this repo is the check itself, so that is what runs, in seconds
+  # where the self-test took minutes (2026-10-06, a consumer whose every
+  # Update Vendors spent about 7 of its minutes here, nearly all of it
+  # re-testing unchanged shipped checks). A repo-local test, an edited test
+  # or check, and PRECEDENT_RUN_ALL_SELF_TESTS=1 all run the self-test.
+  if [ -n "$owner" ] && [ "$level" != repo-local ] && [ -n "$check" ] \
+     && [ -z "${PRECEDENT_RUN_ALL_SELF_TESTS:-}" ] && [ -f "../$check" ] \
+     && [ "$(_sha16 "$t")" = "$tsha" ] && [ "$(_sha16 "../$check")" = "$csha" ]; then
+    echo "--- $t: unchanged from '$owner', which ran it before shipping; running $check on this repo instead ---"
+    trusted=$((trusted + 1))
+    ( cd ../../.. && python3 "tools/checks/$check" )
+    rc=$?
+    # 2 is a check's "does not apply here" -- a skip, never a failure.
+    if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then
+      status=1
+      found+=("$check")
+    fi
+    continue
+  fi
   echo "--- $t ---"
   if ! bash "$t"; then
     status=1
@@ -406,8 +444,20 @@ if [ "$ran" -eq 0 ]; then
 elif [ "$status" -eq 0 ]; then
   echo "run_all: $ran test(s) run, 0 failed"
 fi
+if [ "$trusted" -gt 0 ]; then
+  echo "run_all: $trusted of them unchanged from their source, so only their check ran on this repo;"
+  echo "    PRECEDENT_RUN_ALL_SELF_TESTS=1 runs their self-tests too"
+fi
 
-if [ "$status" -ne 0 ]; then
+if [ "${#found[@]}" -gt 0 ]; then
+  echo
+  echo "=== ${#found[@]} check(s) found problems in this repo's own files ==="
+  for c in "${found[@]}"; do
+    echo "FAILED: $c -- its findings are above; they are this repo's to fix, not the source's"
+  done
+fi
+
+if [ "${#failed[@]}" -gt 0 ]; then
   echo
   # A test that clones this repo runs the COMMITTED checks, not the ones on
   # disk. With tools/checks/ changed and not committed -- the state an
@@ -449,7 +499,7 @@ exit $status
 """
 
 
-def _run_all_script(test_owners):
+def _run_all_script(test_owners, fingerprints=None):
     """The generated driver, with `test_owners` ({test filename: (source
     name, level)}) written into its owner_of table.
 
@@ -471,11 +521,17 @@ def _run_all_script(test_owners):
     that one, and in none of the source's own runs. Naming the owner, and
     saying that a failure is that owner's bug, is what turns the red line
     into a report someone can act on."""
+    fingerprints = fingerprints or {}
     lines = []
     for name in sorted(test_owners):
         src, level = test_owners[name]
+        extra = ''
+        if name in fingerprints:
+            check, tsha, csha = fingerprints[name]
+            extra = (f" check={shlex.quote(check)}; tsha={tsha}; "
+                     f"csha={csha};")
         lines.append(f"    {shlex.quote(name)}) owner={shlex.quote(src)}; "
-                     f"level={shlex.quote(level)} ;;\n")
+                     f"level={shlex.quote(level)};{extra} ;;\n")
     return RUN_ALL_HEAD + ''.join(lines) + RUN_ALL_TAIL
 
 _CLAIMED_CACHE = {}
@@ -670,8 +726,20 @@ def _plan_checks(sources, res=None):
     test_owners = {filename: (source_name, level_of.get(source_name, 'unknown'))
                    for rel_label, filename, source_name, _data in plan
                    if rel_label == 'checks/tests'}
+    # Each shipped test's fingerprint, and its check's, as shipped: the
+    # driver runs only the check where both still match (RUN_ALL_TAIL says
+    # why). Hashed exactly as MANIFEST.json's checks[] records them.
+    shipped = {(rel, fn): data for rel, fn, _src, data in plan}
+    fingerprints = {}
+    for filename in test_owners:
+        check = 'check_' + filename[len('test_'):-len('.sh')] + '.py'
+        if ('checks', check) in shipped:
+            fingerprints[filename] = (
+                check,
+                hashlib.sha256(shipped[('checks/tests', filename)]).hexdigest()[:16],
+                hashlib.sha256(shipped[('checks', check)]).hexdigest()[:16])
     plan.append(('checks/tests', RUN_ALL_NAME, GENERATED_SOURCE,
-                 _run_all_script(test_owners).encode('utf-8')))
+                 _run_all_script(test_owners, fingerprints).encode('utf-8')))
     return plan
 
 
