@@ -1147,6 +1147,16 @@ offset="\${ident##* }"
 case "\$email" in
   *$BOT_EMAIL*)
     echo "commit refused: it would be authored by the container's own agent account (\$email), not by a person." >&2
+    # A repository attached after the session started -- or one that
+    # arrived carrying the agent identity in its own config -- never got the
+    # session-start identity pass. Write the person's identity into it here,
+    # so the same commit, run again, goes through. Found 2026-10-07: two
+    # repositories attached mid-session each needed the git config line
+    # copied out of this message by hand.
+    if git config user.name "$name" 2>/dev/null && git config user.email "$email" 2>/dev/null; then
+      echo "  This repository now commits as '$name' <$email>: the GLOBAL backstop wrote it into the repository's own git config. Run the same commit again." >&2
+      exit 1
+    fi
     echo "  This is the GLOBAL backstop -- it fires in every repository, including one attached mid-session." >&2
     echo "  git config user.name '$name' && git config user.email '$email'" >&2
     echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2

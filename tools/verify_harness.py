@@ -4194,6 +4194,7 @@ def check_practice_audit_fires():
         (repo / 'local').mkdir()
         (repo / 'local' / 'diverged.md').write_text('customized on purpose\n', encoding='utf-8')
         (repo / 'local' / 'synced.md').write_text('vendored as-is\n', encoding='utf-8')
+        (repo / 'local' / 'local.md').write_text('host configuration\n', encoding='utf-8')
         manifest = repo / 'process' / 'manifest.json'
 
         def write_manifest():
@@ -4206,6 +4207,10 @@ def check_practice_audit_fires():
                     {'practice': 'synced_one', 'local_path': 'local/synced.md',
                      'status': 'synced', 'granularity': 'file',
                      'local_sha256': 'stale-hash-not-a-real-sha', 'notes': ''},
+                    {'practice': 'local_one', 'local_path': 'local/local.md',
+                     'status': 'local-only', 'granularity': 'file',
+                     'local_sha256': 'stale-hash-not-a-real-sha',
+                     'notes': 'host configuration over an engine'},
                 ],
             }, indent=2), encoding='utf-8')
 
@@ -4243,6 +4248,9 @@ def check_practice_audit_fires():
              and named['diverged_one']['status'] == 'diverged'),
             ("--entry leaves every entry it does not name alone",
              named['synced_one']['local_sha256'] == before_hash['synced_one']),
+            ("a changed 'local-only' entry is never listed as pending export "
+             "(2026-10-07): nothing upstream receives it",
+             'local/local.md' not in named_result.stdout),
             ("--entry with a name that matches nothing fails and changes nothing",
              typo_result.returncode != 0
              and all(typo[k]['local_sha256'] == before_hash[k] for k in before_hash)),
@@ -36772,6 +36780,19 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
                       "container's own agent account" in out))
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
+        # 2026-10-07: the refusal also fixes the repository, so the same
+        # commit run again goes through as the person -- no git config line
+        # to copy out of the message by hand.
+        cases.append(('the refusal writes the person into that repository\'s '
+                      'own config, and says so',
+                      g('config', '--local', 'user.email', cwd=later).stdout.strip()
+                      == 'm@example.com' and 'Run the same commit again' in out))
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'bot-again'], cwd=str(later),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ=ZONE), timeout=120)
+        cases.append(('and the same commit, run again, lands as the person',
+                      r.returncode == 0 and g('log', '-1', '--format=%ae', cwd=later)
+                      .stdout.strip() == 'm@example.com'))
 
         # THE PERSON'S ZONE, IN EVERY REPO THEY COMMIT TO (Morgan,
         # 2026-09-25, evening: "I meant the repo timezone to be a fallback,
