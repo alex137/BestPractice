@@ -1,9 +1,27 @@
 ---
-checked_through: 2026-10-04
+checked_through: 2026-10-06
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Tuesday 2026-10-06: relayed-messages-get-weighed
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **A message passed along from another session is now weighed, not obeyed**: its claims get checked, weak ones get pushed back on, and only what holds up gets done (practices/relayed-message-is-a-suggestion.md).
+- **A project that names nobody to own it now gets owners at install and at every update**: the people who could edit the repository on GitHub at that moment (tools/precedent_vendor_engine.py writes them into precedent.json's maintainers; the owners can change the list afterwards).
+- **The two team sets folded into the shared set the day before stopped loading**, and Update Vendors now drops a retired set from any project that still declares one (working-style and repo-maintenance; a retired set takes only the edits that retire it).
+- **Every session's closing summary offers one process idea and one content idea, told apart**: the content idea has to make sense to someone working on the business who has never seen GitHub (practices/the-boildown.md).
+
+## Monday 2026-10-05: team-rules-move-into-the-shared-set
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **About a dozen rules moved from two team sets into the set every project gets**, each with its check moved into the engine (seven drafted from repo-maintenance and five from working-style; default-branch, derived-file-marker, deep-check and private-repo-scrub moved with their checks).
+- **A page published for people to read has to be a fresh render of a tracked document**, so figures typed into a page by hand cannot drift from the model behind them (tools/artifact_publish_gate.py, a hook on the Artifact tool).
+- **A GitHub test run that never got a machine no longer reads as a failure** (a gotcha records the runner stall that hit every branch, main included; Produce goes ahead when staging already carries a red main's tip).
+- **Older practices that predate a format rule get a warning and a tidy, not a refusal** (format-rules-grandfather).
 
 ## Sunday 2026-10-04: ladder-becomes-opt-in
 
