@@ -28,13 +28,19 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      local_sha256 baseline. Changed while status is "synced" → FAIL — the
      local improvement must be exported to the vendored tree and re-baselined
      (--update-baseline), or the entry deliberately flipped to "diverged"
-     (then it is listed as pending export, not failed). This exists because
+     (then it is listed as pending export, not failed). A bare
+     --update-baseline never re-baselines a diverged entry, since its hash
+     mismatch is what lists it as pending; --entry NAME (repeatable, a
+     practice name or local_path) limits the update to the entries named,
+     whatever their status, and fails on a name that matches nothing. This exists because
      "copy changes back" as a prose rule is exactly the kind of convention
      that gets skipped under pressure.
 
   3. INTEGRITY. Manifest and upstream paths exist; "section"-granularity
      entries' section_marker still occurs in local_path (warn-only — section
-     tracking is approximate by design); "local-only" entries carry notes.
+     tracking is approximate by design); "local-only" entries carry notes,
+     and a change to one is never listed as pending export -- nothing
+     upstream receives it.
 
   4. LAYOUT (root hygiene). Upstream-internal docs (INSTALL.md,
      PRACTICES.md, SETUP.md, ...) must not sit at the dependent repo's
@@ -93,7 +99,8 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      migration is finished (spec/MIGRATING_EXISTING_INSTALLS.md step 7).
 
 Run:  python3 tools/practice_audit.py                    # gate (all manifests)
-      python3 tools/practice_audit.py --update-baseline  # re-record hashes
+      python3 tools/practice_audit.py --update-baseline  # re-record hashes (diverged entries left alone)
+      python3 tools/practice_audit.py --update-baseline --entry NAME  # only the entries named
       python3 tools/practice_audit.py --manifest process/manifest.json  # one manifest
       python3 tools/practice_audit.py --loader-notice    # check 5 only, never fails
                                                     # (what tools/bootstrap.sh prints at session start)
@@ -344,7 +351,7 @@ def _upstream_file(tree, rel):
     return up
 
 
-def audit_manifest(manifest_path, update, fails, warns, pending):
+def audit_manifest(manifest_path, update, fails, warns, pending, entries=None, matched=None):
     label = manifest_path.stem.replace('manifest_', '').replace('manifest', 'upstream') or 'upstream'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     up = manifest.get('upstream', {})
@@ -389,7 +396,24 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
         gran = e.get('granularity', 'file')
         if gran == 'file':
             cur = sha256(local)
-            if update:
+            # What --update-baseline accepts: with --entry, only the named
+            # entries (any status); without, every entry except a diverged
+            # one. A diverged entry is listed as pending export only while
+            # its file differs from its baseline, so re-baselining it erases
+            # the one signal that it still waits on an export. Found
+            # 2026-10-07: a consuming repo accepted one shim with a bare run,
+            # and five pending exports went silently to zero.
+            named = entries is not None and (e.get('practice') in entries
+                                              or e.get('local_path') in entries)
+            if named and matched is not None:
+                matched.update({e.get('practice'), e.get('local_path')} & set(entries))
+            accept = update and (named or (entries is None and (status != 'diverged'
+                                                            or not e.get('local_sha256'))))
+            if update and entries is None and status == 'diverged' \
+                    and e.get('local_sha256') and e.get('local_sha256') != cur:
+                print(f"  left [{name}] {e['local_path']}: 'diverged', still pending "
+                      f"export -- name it with --entry to re-baseline it")
+            if accept:
                 if e.get('local_sha256') != cur:
                     # Name every re-baselined entry: a 'synced' entry re-baselining
                     # here means its drift was never exported — silent absorption
@@ -415,7 +439,13 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
                     fails.append(f"DRIFT: [{name}] {e['local_path']} changed since baseline while "
                                  f"status='synced' — export the change to {up.get('vendored_at', 'the vendored tree')} "
                                  f"and --update-baseline, or flip the entry to 'diverged'")
-                else:
+                elif status != 'local-only':
+                    # A local-only file has nothing upstream to receive it,
+                    # so its changes are never "pending export" -- reporting
+                    # them so listed host configuration (a shim's registry,
+                    # a settings file's additions) as owed upstream on every
+                    # run, which is how a consuming repo came to carry five
+                    # permanent false entries (found 2026-10-07).
                     pending.append(f"[{name}] {e['local_path']} (status={status}) — pending export")
         elif gran == 'section':
             marker = e.get('section_marker', '')
@@ -529,8 +559,9 @@ def loader(fails):
         "loader, whole, in one change: " + MIGRATION_DOC)
 
 
-def audit(update=False, only=None):
+def audit(update=False, only=None, entries=None):
     fails, warns, pending = [], [], []
+    matched = set()
     if only:
         manifests = [ROOT / only]
     else:
@@ -557,9 +588,15 @@ def audit(update=False, only=None):
         if not m.exists():
             print(f"practice_audit FAIL: no manifest at {m}")
             return 1
-        n += audit_manifest(m, update, fails, warns, pending)
+        n += audit_manifest(m, update, fails, warns, pending, entries, matched)
         claimed |= {e.get('local_path')
                     for e in json.loads(m.read_text(encoding='utf-8')).get('entries', [])}
+    if entries is not None:
+        unknown = sorted(set(entries) - matched)
+        if unknown:
+            # A mistyped name must not read as accepted: nothing was, for it.
+            fails.append("UPDATE: --entry matched no manifest entry (by practice name or "
+                         "local_path), so nothing was re-baselined for: " + ", ".join(unknown))
     layout(fails, claimed)  # check 4 — root hygiene, once per audit
     loader(fails)           # check 5 — the catalogue is actually in force
     gap = engine_gap(ROOT)  # check 8 — a refresh can reach the engine
@@ -620,4 +657,9 @@ if __name__ == '__main__':
             sys.exit('practice_audit: --redecide needs the entry\'s practice name')
         paths = [ROOT / only] if only else sorted((ROOT / 'process').glob('manifest*.json'))
         sys.exit(redecide(paths, args[i + 1]))
-    sys.exit(audit(update='--update-baseline' in args, only=only))
+    entries = None
+    if '--entry' in args:
+        entries = [args[i + 1] for i, a in enumerate(args) if a == '--entry' and i + 1 < len(args)]
+        if '--update-baseline' not in args or len(entries) != args.count('--entry'):
+            sys.exit('practice_audit: --entry NAME goes with --update-baseline, once per entry')
+    sys.exit(audit(update='--update-baseline' in args, only=only, entries=entries))

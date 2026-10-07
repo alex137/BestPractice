@@ -116,7 +116,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [practice-standing](practices/practice-standing.md) | on-demand | labelling a practice Protocol, Principle or Preference, or setting a Preference aside |
 | [private-repo-scrub](practices/private-repo-scrub.md) | on-demand | writing content that ships into another repo |
-| [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach |
+| [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", or work belongs in a new session -- a repo this one lacks is asked to be attached here first |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [quick-index](practices/quick-index.md) | on-demand | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | computing, quoting or tabulating figures |
@@ -251,6 +251,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
 | [tools/precedent_engine_freshness.py](tools/precedent_engine_freshness.py) | Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes |
 | [tools/precedent_gate.py](tools/precedent_gate.py) | The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply) |
+| [tools/precedent_hooks.py](tools/precedent_hooks.py) | Runs the hooks listed in tools/hook_wiring.json and process/practice_hooks.json for one Claude Code hook event, and hands Claude Code one combined answer |
 | [tools/precedent_identity.py](tools/precedent_identity.py) | Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing |
 | [tools/precedent_install.py](tools/precedent_install.py) | Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt |
 | [tools/precedent_ladder.py](tools/precedent_ladder.py) | Says whether the five-stage ladder is in force for the person working here -- a set they bring provides it, and PRECEDENT_NO_LADDERS is not set -- so every engine line chooses the ladder wording or the plain one from one answer (spec/LADDER_OPT_IN_PLAN.md) |
