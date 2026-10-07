@@ -32,6 +32,23 @@ That is the classifier's own state, not anything the repository set, and
 the in-session fix below is the same: say what stopped, and ask for the
 step in words that name it.
 
+**2026-10-07, a consumer, measured in order.** The person said
+"Update Vendors"; the update ran to DONE and opened its pull request into
+pre-staging.
+
+1. The merge of that pull request: refused, `[Merge Without Review]`.
+2. `git rev-parse HEAD`, a read: refused.
+3. The person said "promote". The session's first command,
+   `python3 tools/precedent_show.py promote` -- reading the practice's text,
+   nothing more -- was refused.
+4. The person said "promote" again. The same merge call went through.
+
+The runbook's advice, to ask for the merge by name ("Merge PR #N into
+<branch>"), was not needed that time: a second plain "promote" cleared it.
+That is one observation of a classifier whose state nobody here can read,
+not a rule to rely on. What it does confirm is the second consumer's: a
+refused merge can leave the next turn unable even to read.
+
 It is the merge-shaped twin of
 [the refusal of a bare Promote into main](gotcha-2026-09-30-auto-mode-refuses-a-bare-promote-into-main-as-a-production.md),
 and the same fix applies.
