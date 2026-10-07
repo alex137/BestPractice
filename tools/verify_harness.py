@@ -2524,8 +2524,9 @@ def check_freshness_guard_checks_declared_sets():
     own origin. Both guard copies. CONTROL: the same stale set, not
     declared, goes unnoticed, so the finding comes from the declaration."""
     import tempfile
-    guards = [ROOT / 'tools' / 'freshness-guard.sh',
-              ROOT / 'tools' / 'freshness-guard.sh']
+    # The installed stub and the template stub, each running tools/'s script.
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
                 GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
                 GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
@@ -34650,8 +34651,9 @@ def check_freshness_guard_checks_attached_repositories():
     for the reason parallel-artifact-ledger names."""
     import tempfile
 
-    guards = [ROOT / 'tools' / 'freshness-guard.sh',
-              (ROOT / 'tools' / 'freshness-guard.sh')]
+    # The installed stub and the template stub, each running tools/'s script.
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
     if missing:
         not_applicable('the freshness guard checks attached repositories',
@@ -34862,8 +34864,9 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
     the reconcile behavior having been deleted outright."""
     import tempfile
 
-    guards = [ROOT / 'tools' / 'freshness-guard.sh',
-              (ROOT / 'tools' / 'freshness-guard.sh')]
+    # The installed stub and the template stub, each running tools/'s script.
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
     if missing:
         not_applicable('freshness guard user-prompt never resets mid-session',
@@ -35057,8 +35060,9 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
     the drift parallel-artifact-ledger names."""
     import tempfile
 
-    guards = [ROOT / 'tools' / 'freshness-guard.sh',
-              (ROOT / 'tools' / 'freshness-guard.sh')]
+    # The installed stub and the template stub, each running tools/'s script.
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
     if missing:
         not_applicable('freshness-guard waves through a branch origin has '
