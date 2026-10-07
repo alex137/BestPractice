@@ -13,13 +13,15 @@
 # the person's "Update Vendors", after BestPractice's own full check.
 #
 # Where the script is: beside this stub's repository (.claude/hooks/ ->
-# tools/), else the project Claude Code names, else -- for the template copy
-# inside BestPractice -- four levels up. No script anywhere (an engine older
+# tools/, or bootstrap/ -> tools/ where a set ships the stub from there), else
+# the project Claude Code names, else -- for the template copy inside
+# BestPractice -- four levels up. No script anywhere (an engine older
 # than its stub): say so and let the call through, as every gate fails open
 # on its own plumbing (practice: fail-gracefully).
 name="$(basename "$0")"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
-for real in "$here/../../tools/$name" "${CLAUDE_PROJECT_DIR:-/nonexistent}/tools/$name" \
+for real in "$here/../../tools/$name" "$here/../tools/$name" \
+            "${CLAUDE_PROJECT_DIR:-/nonexistent}/tools/$name" \
             "$here/../../../../tools/$name"; do
   if [[ -f "$real" ]]; then
     exec bash "$real" "$@"

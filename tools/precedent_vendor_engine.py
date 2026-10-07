@@ -333,6 +333,9 @@ HOOK_SCRIPT_FILES = [
     'commit-identity.sh',
     'doc-lint-gate.sh',
     'freshness-guard.sh',
+    # The logic behind the individual set's own startup hook, whose
+    # instantiated .template is a stub holding only the person's values.
+    'individual-source-bootstrap.sh',
     'merge-check-gate.sh',
     'precedent-hooks.sh',
     'precedent-paths.sh',
