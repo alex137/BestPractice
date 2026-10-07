@@ -4029,6 +4029,11 @@ def drop_retired_sources(dest_root, archived=(), apply=True):
 _GH_SLUG_RE = re.compile(r'github\.com[:/]([A-Za-z0-9][\w-]*)/([\w.-]+?)(?:\.git)?/?$')
 
 
+# What archived_declared_sources notes for a set this environment's proxy
+# would not let it ask about; retired_sources_step folds these into one line.
+PROXY_NOTE = 'not asked -- this environment\'s network proxy refuses GitHub\'s API'
+
+
 def archived_declared_sources(dest_root):
     """-> (archived {name}, notes [str]). Asks GitHub, one call per declared
     shared or individual source with a github.com origin, whether it is
@@ -4059,6 +4064,9 @@ def archived_declared_sources(dest_root):
         data, err = _gb.call(f'repos/{m.group(1)}/{m.group(2)}')
         if err or not isinstance(data, dict) or 'full_name' not in data:
             msg = err or str((data or {}).get('message') or 'no answer')
+            if getattr(_gb, 'is_proxy_refusal', lambda _t: False)(msg):
+                notes.append(f'{name}: {PROXY_NOTE}')
+                continue
             notes.append(f'{name}: GitHub could not say whether it is archived '
                          f'({msg}) -- left declared; "Not Found" can mean the '
                          f'access is gone, not the repository')
@@ -4085,6 +4093,9 @@ def _edit_access_logins(dest_root):
     if err or not isinstance(data, list):
         msg = err or str((data or {}).get('message') if isinstance(data, dict)
                          else 'no answer')
+        if getattr(_gb, 'is_proxy_refusal', lambda _t: False)(msg):
+            return None, ('this environment\'s network proxy refuses GitHub\'s '
+                          'API, so GitHub could not list who can edit it')
         return None, f'GitHub could not list who can edit it ({msg})'
     logins = []
     for c in data:

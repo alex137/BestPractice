@@ -11,8 +11,8 @@
      name: the repo's two named check levels (practice `two-check-levels` — a fast,
      every-commit pass and a full, pre-merge audit; "light check" /
      "deep check" is one reasonable pair of names, not the only one) and
-     its standing merge-authorization keyword, if it has one (practice `go-update`
-     says which words invoke it and how they are read). Neither is required;
+     its standing merge-authorization keyword, if it has one (the words a
+     person says to land work, and what they authorize). Neither is required;
      add them only if this repo
      actually uses the pattern. -->
 
