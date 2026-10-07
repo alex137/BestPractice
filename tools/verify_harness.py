@@ -9251,14 +9251,19 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   _bn.name_refusal(_bn.build(['some', 'work'], tail=tail)[0],
                                    tail=tail) is None))
     cases.append(('the tool\'s clash form passes',
-                  _bn.name_refusal('claude/2026-10-06-some-work-ab1cd-x9y8z',
+                  _bn.name_refusal('2026-10-06-some-work-ab1cd-x9y8z',
                                    tail=tail) is None))
     cases.append(('a harness-given name passes',
                   _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail) is None))
     cases.append(('a hand-typed date-and-topic name is refused',
-                  bool(_bn.name_refusal('claude/2026-10-06-vdc-fixes', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail))))
     cases.append(('a name ending in another session\'s id is refused',
-                  bool(_bn.name_refusal('claude/2026-10-06-some-work-zzzzz', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz', tail=tail))))
+    cases.append(('the retired claude/ prefix is refused (Morgan, 2026-10-07)',
+                  bool(_bn.name_refusal(f'claude/2026-10-06-some-work-{tail}', tail=tail))))
+    cases.append(('a name the tool builds has no prefix',
+                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail)[0]
+                  == f'2026-10-07-some-work-{tail}'))
     cases.append(('a tier branch is not judged',
                   _bn.name_refusal('pre-staging', tail=tail) is None))
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
@@ -9281,14 +9286,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
                 os.environ.clear()
                 os.environ.update(saved)
         cases.append(('end to end: a push creating a hand-named branch is refused',
-                      bool(refused('origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes'))))
+                      bool(refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes'))))
         cases.append(('...and the refusal names the rename command',
                       'precedent_branch_name.py' in (refused(
-                          'origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes') or '')))
+                          'origin HEAD:refs/heads/2026-10-06-vdc-fixes') or '')))
         cases.append(('end to end: a tool-made name is let through',
-                      refused(f'origin HEAD:refs/heads/claude/2026-10-06-some-work-{tail}') is None))
+                      refused(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}') is None))
         subprocess.run(['git', '-C', str(repo), 'update-ref',
-                        'refs/remotes/origin/claude/2026-10-06-vdc-fixes',
+                        'refs/remotes/origin/2026-10-06-vdc-fixes',
                         subprocess.run(['git', '-C', str(repo), 'hash-object', '-t',
                                         'commit', '--stdin', '-w'], input=b'tree '
                                        + subprocess.run(['git', '-C', str(repo),
@@ -9299,7 +9304,7 @@ def check_push_refuses_a_hand_made_session_branch_name():
                                        capture_output=True).stdout.strip().decode()],
                        env=env, capture_output=True)
         cases.append(('a branch origin already has is not judged again',
-                      refused('origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes') is None))
+                      refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes') is None))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -47335,7 +47340,7 @@ def _fixture_git_env():
 
 def check_promote_branches_are_named_like_session_branches():
     """A Promote's fix branch and its copy of staging are named
-    claude/<date>-<slug>-<session ID's end>, like every temporary branch --
+    <date>-<slug>-<session ID's end>, like every temporary branch --
     except a copy in a repository whose GitHub test knows only the old
     names, which keeps them until Update Vendors brings the new workflow.
 
@@ -47370,15 +47375,15 @@ def check_promote_branches_are_named_like_session_branches():
             run('git', 'fetch', '-q', 'origin', cwd=repo)
             day, _m = pb._day_and_moment(repo)
             fix = pb._fix_branch(repo)
-            check('a Promote\'s fix branch is named claude/<date>-promote-fix-<id>, '
+            check('a Promote\'s fix branch is named <date>-promote-fix-<id>, '
                   'which the naming rule accepts',
-                  fix == f'claude/{day}-promote-fix-abcde'
+                  fix == f'{day}-promote-fix-abcde'
                   and pbn.name_refusal(fix) is None and pb.is_fix_branch(fix), fix)
             have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
             copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
             check('its copies of staging too, where the GitHub test knows the new names',
-                  copy == f'claude/{day}-promote-to-main-abcde'
-                  and not_due == f'claude/{day}-promote-to-main-not-due-abcde'
+                  copy == f'{day}-promote-to-main-abcde'
+                  and not_due == f'{day}-promote-to-main-not-due-abcde'
                   and pb.is_main_copy(copy) and pb.is_not_due_copy(not_due),
                   f'{copy} {not_due} tests={have_tests}')
             wf.write_text(tpl.replace(pb.COPY_NAME_MARKER, '-x-'), encoding='utf-8')
@@ -48184,6 +48189,259 @@ def check_gates_promise_no_override():
                 bad.append(str(f.relative_to(ROOT)))
     check('no gate promises an override it does not have', not bad,
           'still promising one: ' + ', '.join(bad))
+
+
+def check_gate_refusals_are_worded_by_their_tools():
+    """The commit, push and merge gates refuse in their tool's words, passed
+    on by the hook, and carry no refusal prose of their own.
+
+    WHY. 2026-10-07, a consuming repository's Update Vendors: the only change
+    to three hooks was one closing sentence, and Claude Code's auto mode holds
+    a commit touching a hook for a person's yes, so the person was asked to
+    approve a rewording he could not judge -- in every repository, at every
+    rewording. Planted: each hook asks its tool with --hook-reason and holds
+    none of the tool's sentences; a fake tool's answer is what the hook
+    denies with, word for word; a tool too old to answer still gets a refusal
+    carrying its findings; each tool's own text carries the run's output."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import doc_lint as _dl
+    import precedent_push_check as _ppc
+    import precedent_merge_check as _pmc
+    cases = []
+    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    owned = {'doc-lint-gate.sh': 'FAILED on the Markdown staged',
+             'push-check-gate.sh': 'Nothing lets a push past this',
+             'merge-check-gate.sh': 'Nothing lets a merge past this'}
+    for name, phrase in owned.items():
+        text = (hooks / name).read_text(encoding='utf-8')
+        cases.append((f'{name} asks its tool for the words', '--hook-reason' in text))
+        cases.append((f'{name} holds none of them', phrase not in text))
+        cases.append((f'{name} is the copy .claude/hooks runs',
+                      text == (ROOT / '.claude' / 'hooks' / name).read_text(encoding='utf-8')))
+    cases.append(('doc_lint words its refusal around the findings',
+                  'x.md:1: bad' in (_dl.hook_reason('refused', 'x.md:1: bad') or '')))
+    cases.append(('the push check words a failure and a timeout',
+                  'F1' in (_ppc.hook_reason('1', 'F1', top='/r') or '')
+                  and 'cd /r' in (_ppc.hook_reason('124', '', top='/r') or '')
+                  and _ppc.hook_reason('0', '') is None))
+    cases.append(('the merge check words before and after the merge',
+                  'F2' in (_pmc.hook_reason('1', 'F2') or '')
+                  and (_pmc.hook_reason('landed-1', 'F3') or '').endswith('F3')
+                  and _pmc.hook_reason('2', '') is None))
+    fake = ('import sys\n'
+            'if "--hook-reason" in sys.argv:\n'
+            '    {answer}\n'
+            'print("FINDING-7"); sys.exit(1)\n')
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        for label, answer, want in (
+                ('the hook denies with the tool\'s words, word for word',
+                 'sys.stdout.write("TOOL SAYS " + sys.stdin.read().strip()); sys.exit(0)',
+                 lambda r: r == 'TOOL SAYS FINDING-7'),
+                ('a tool too old to answer still gets a refusal with its findings',
+                 'sys.exit(2)', lambda r: 'FINDING-7' in r and 'refused' in r)):
+            repo = td / label[:12].replace(' ', '-')
+            (repo / 'tools').mkdir(parents=True)
+            subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+            (repo / 'tools' / 'precedent_push_check.py').write_text(
+                fake.format(answer=answer), encoding='utf-8')
+            payload = json.dumps({'tool_input': {'command': 'git push origin x'},
+                                  'cwd': str(repo)})
+            r = subprocess.run(['bash', str(hooks / 'push-check-gate.sh')], input=payload,
+                               capture_output=True, text=True,
+                               env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+            try:
+                reason = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+            except (ValueError, KeyError):
+                reason = ''
+            cases.append((label, want(reason)))
+    bad = [n for n, ok in cases if not ok]
+    check(f'the gates refuse in their tools\' words ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_publish_gate_passes_the_branch_cleanup_page():
+    """The page tools/precedent_stale_branches.py --html writes is published
+    past the Artifact publish gate; a hand-made page still is not.
+
+    WHY. 2026-10-07, a consuming repository: the stop hook asked for the
+    branch-cleanup page (the ladder set's stale-branch-cleanup), and
+    tools/artifact_publish_gate.py refused it as "not a render of any
+    registered document" -- two rules in force contradicting each other.
+    Planted: the gate's own two-direction --self-check; the generator's
+    --html run notes its page, which the gate then passes; the same page
+    with one byte changed is refused."""
+    import tempfile
+    cases = []
+    r = subprocess.run([sys.executable, 'tools/artifact_publish_gate.py', '--self-check'],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(('the gate\'s own self-check passes',
+                  r.returncode == 0 and 'self-check OK' in r.stdout))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    import artifact_publish_gate as _apg
+    saved = os.environ.get('PRECEDENT_GENERATED_PAGES')
+    real_collect = _sb.collect
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
+        try:
+            _sb.collect = lambda fetch=False: ([('o', 'r', [('old-branch', '2026-10-01')])], [])
+            page = td / 'branch-cleanup.html'
+            with open(os.devnull, 'w') as quiet:
+                saved_out, sys.stdout = sys.stdout, quiet
+                try:
+                    _sb.main(['--html', str(page)])
+                finally:
+                    sys.stdout = saved_out
+            cases.append(('the generator\'s page passes the gate',
+                          page.is_file() and not _apg.check([str(page)], [], td)))
+            page.write_text(page.read_text(encoding='utf-8') + ' ', encoding='utf-8')
+            cases.append(('the same page edited by hand is refused',
+                          bool(_apg.check([str(page)], [], td))))
+        finally:
+            _sb.collect = real_collect
+            if saved is None:
+                os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
+            else:
+                os.environ['PRECEDENT_GENERATED_PAGES'] = saved
+    bad = [n for n, ok in cases if not ok]
+    check(f'the publish gate passes the branch-cleanup page ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_update_seeds_an_upstream_budget_for_a_vendored_tool():
+    """Update Vendors writes upstream's run budget, and its note, for a
+    vendored engine tool this repo does not budget, and asks only when the
+    repo's own figure differs from one upstream just changed.
+
+    WHY. 2026-10-07, a consuming repository: the update stopped with
+    "upstream budgets the vendored tools/precedent_vendor_engine.py at 12 API
+    call(s) a run and this repo's registry has no budget for it", and the
+    session copied the 12 and its note in by hand -- nothing to decide,
+    repeated in every consumer. Planted: a missing budget is seeded with its
+    note; a tool not vendored here is not; the repo's own different figure
+    is a question only once upstream's figure moved; a repo with no registry
+    gets nothing written."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    cases = []
+    env = _fixture_git_env()
+    saved_source = pu.SOURCE
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        src, repo = td / 'src', td / 'repo'
+        (src / 'tools').mkdir(parents=True)
+        (repo / 'tools').mkdir(parents=True)
+        g = lambda *a: subprocess.run(['git', '-C', str(src), *a], env=env,
+                                      capture_output=True, text=True, check=True).stdout.strip()
+        g('init', '-q', '-b', 'main')
+        budgets = lambda rb: json.dumps({'run_budgets': rb}, indent=2) + '\n'
+        (src / 'tools' / 'github_api_budgets.json').write_text(
+            budgets({'kept.py': 3}), encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'before')
+        before = g('rev-parse', 'HEAD')
+        (src / 'tools' / 'github_api_budgets.json').write_text(budgets({
+            'new_tool.py': 12, '_new_tool_note': 'one GET per set',
+            'kept.py': 5, 'not_here.py': 4}), encoding='utf-8')
+        g('commit', '-qam', 'after')
+        after = g('rev-parse', 'HEAD')
+        (repo / 'tools' / pve_manifest_name()).write_text(json.dumps(
+            {'files': ['new_tool.py', 'kept.py']}), encoding='utf-8')
+        reg = repo / 'tools' / 'github_api_budgets.json'
+        reg.write_text(budgets({'kept.py': 2}), encoding='utf-8')
+        try:
+            pu.SOURCE = src
+            seeded, asks = pu.seed_engine_budgets(repo, after, before)
+            got = json.loads(reg.read_text(encoding='utf-8'))['run_budgets']
+            cases.append(('a missing budget is seeded with upstream\'s figure',
+                          seeded == [('new_tool.py', 12)] and got.get('new_tool.py') == 12))
+            cases.append(('...and its note', got.get('_new_tool_note') == 'one GET per set'))
+            cases.append(('a tool not vendored here is not seeded', 'not_here.py' not in got))
+            cases.append(('the repo\'s own figure stays', got.get('kept.py') == 2))
+            cases.append(('a different figure is asked once upstream\'s moved',
+                          asks == [('kept.py', 2, 5)]))
+            _s, asks2 = pu.seed_engine_budgets(repo, after, after)
+            cases.append(('...and not again when upstream\'s did not move', asks2 == []))
+            reg.unlink()
+            cases.append(('a repo with no registry gets nothing written',
+                          pu.seed_engine_budgets(repo, after, before) == ([], [])
+                          and not reg.exists()))
+        finally:
+            pu.SOURCE = saved_source
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors seeds upstream\'s budget for a vendored tool '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def pve_manifest_name():
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    return _pve.MANIFEST_NAME
+
+
+def check_kept_section_reports_upstreams_change_not_its_lacks():
+    """A section kept on purpose whose template text changed is reported as
+    upstream's own change since the pinned text, and re-pinned by itself
+    when that change is formatting alone.
+
+    WHY. 2026-10-07, a consuming repository's Update Vendors: two kept
+    AGENTS.md sections came back as long "lacks" lists -- every block they
+    have always left out on purpose -- when the template's only change to
+    them was file names in code spans becoming links, found by a manual git
+    diff. Planted: a links-only change re-pins and prints PIN UPDATED, with
+    nothing left for the person; a change of words prints the template's
+    diff and leaves one item; a pin no version of the template matches
+    falls back to the full report."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '## Admin requests'
+    old = key + '\n\nEdit `tools/x.py` and run the check.\n'
+    links = key + '\n\nEdit [tools/x.py](tools/x.py) and run the check.\n'
+    words = key + '\n\nEdit [tools/x.py](tools/x.py) and run both checks.\n'
+    item = f'AGENTS.md {key}'
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
+            json.dumps({key: [old, links]}), encoding='utf-8')
+
+        def run(section, pinned):
+            (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
+                item: {'reason': 'ours', 'template_sha256': pinned}}}), encoding='utf-8')
+            pve._LEFT_FOR_YOU.clear()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                done = pve._report_stale_kept(dest, tpl, key, item, 'the template',
+                                              section, pve._sha_text(section), 'c' * 64, {})
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            return done, buf.getvalue(), list(pve._LEFT_FOR_YOU), entry
+        done, out, left, entry = run(links, pve._sha_text(old))
+        cases.append(('a links-only change re-pins by itself',
+                      done and 'PIN UPDATED' in out and not left
+                      and entry['template_sha256'] == pve._sha_text(links)))
+        done, out, left, entry = run(words, pve._sha_text(old))
+        cases.append(('a change of words shows the template\'s own diff',
+                      done and '-Edit `tools/x.py` and run the check.' in out
+                      and '+Edit [tools/x.py](tools/x.py) and run both checks.' in out
+                      and 'lacks' not in out))
+        cases.append(('...leaves one item, and keeps the old pin',
+                      len(left) == 1 and entry['template_sha256'] == pve._sha_text(old)))
+        done, out, left, entry = run(words, 'f' * 64)
+        cases.append(('a pin no template version matches falls back',
+                      done is False and not out))
+    pve._LEFT_FOR_YOU.clear()
+    bad = [n for n, ok in cases if not ok]
+    check(f'a stale kept section shows upstream\'s change, not its lacks '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_dedup_onto_same_slug_withdraws_nothing():
@@ -53539,7 +53797,8 @@ def check_update_vendors_rehearsal_findings():
       to the branch every install follows.
     - One small edit to a template block read as the whole block missing.
     - The retired-name sweep missed precedent-team-* and MAP.md/GLOSSARY.md.
-    - A run budget upstream gives a vendored tool went unmentioned."""
+    - A run budget upstream gives a vendored tool went unmentioned (since
+      2026-10-07 it is written in, upstream's figure and note)."""
     import contextlib, io, tempfile
     pu, pve, _pr = _update_tools()
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rehearsal-'))
@@ -53696,11 +53955,14 @@ def check_update_vendors_rehearsal_findings():
                       and gi.splitlines().count('__pycache__/') == 1
                       and 'build/' in gi.splitlines()
                       and '.gitignore:' in text, gi))
+        # Since 2026-10-07 the update writes upstream's figure in, rather than
+        # leaving a copy-it-yourself item (seed_engine_budgets says why).
         cases.append(('a run budget upstream gives a vendored tool, missing here, '
-                      'is left for you -- and the registry is not written',
-                      'tools/github_api_budgets.json: precedent_branches.py' in left
-                      and 'precedent_branches' not in (repo / 'tools' /
-                                                       'github_api_budgets.json').read_text(),
+                      'is written in with upstream\'s figure, not left for you',
+                      'tools/github_api_budgets.json: precedent_branches.py' not in left
+                      and '"precedent_branches.py"' in (repo / 'tools' /
+                                                        'github_api_budgets.json').read_text()
+                      and 'API budgets' in text,
                       left[-800:]))
         cases.append(('...and nothing for a tool this repo already budgets',
                       'github_api_budgets.json: github_budget.py' not in left, ''))
@@ -58854,17 +59116,19 @@ def check_branch_name_follows_the_convention():
              for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
     try:
         os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
-        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
-                                prefix='claude/')
-        results.append(('the session ID ends the name, lowercased',
-                        name == 'claude/2026-10-01-feature-branch-naming-awpkv'
+        os.environ['CLAUDECODE'] = '1'
+        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01')
+        os.environ.pop('CLAUDECODE')
+        results.append(('the session ID ends the name, lowercased, with no prefix '
+                        'even under Claude Code',
+                        name == '2026-10-01-feature-branch-naming-awpkv'
                         and not notes))
 
         os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
         a, notes_a = pbn.build(['x'], date='2026-10-01')
         b, _ = pbn.build(['x'], date='2026-10-01')
         results.append(('no session ID: five random lowercase characters, said',
-                        re.fullmatch(r'session/2026-10-01-x-[a-z0-9]{5}', a)
+                        re.fullmatch(r'2026-10-01-x-[a-z0-9]{5}', a)
                         is not None and a != b
                         and any('no session ID found' in n for n in notes_a)))
 
@@ -63558,6 +63822,10 @@ def main():
     check_over_target_line_says_whose_load_and_how_to_break_it_down()
     check_session_check_names_a_declared_retired_set()
     check_gates_promise_no_override()
+    check_gate_refusals_are_worded_by_their_tools()
+    check_publish_gate_passes_the_branch_cleanup_page()
+    check_update_seeds_an_upstream_budget_for_a_vendored_tool()
+    check_kept_section_reports_upstreams_change_not_its_lacks()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

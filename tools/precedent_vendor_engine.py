@@ -5595,6 +5595,106 @@ def _repin_kept(dest_root, item, template_sha, carried_sha):
           f"a change to a block it leaves out asks again.")
 
 
+# A link written round the same words, or a code span taken off them, is
+# formatting: the words a reader is given did not change.
+_MD_LINK_RE = re.compile(r'\[([^\]\n]*)\]\([^)\s]*\)')
+
+
+def _plain_words(text):
+    """`text` as the words it shows a reader: links become their text, code
+    spans and bold lose their marks, whitespace collapses."""
+    text = _MD_LINK_RE.sub(r'\1', text)
+    text = text.replace('`', '').replace('**', '')
+    return ' '.join(text.split())
+
+
+def _pinned_section_text(templates_dir, key, pinned_sha, subs):
+    """-> the template's text of section `key` that a kept entry's
+    template_sha256 was recorded against, from every version the template
+    has carried (_read_agents_md_sources' history); None when no version
+    hashes to it."""
+    try:
+        history = json.loads((templates_dir / _AGENTS_MD_HISTORY_NAME)
+                             .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    for raw in history.get(key) or []:
+        text = _instantiate(raw, subs)
+        if _sha_text(text) == pinned_sha:
+            return text
+    return None
+
+
+def _template_change(old, new):
+    """-> the lines upstream changed in a section, unified-diff style
+    without the file headers."""
+    import difflib
+    return [l for l in difflib.unified_diff(old.split('\n'), new.split('\n'),
+                                            lineterm='', n=0)
+            if not l.startswith(('---', '+++'))]
+
+
+def _repin_after_formatting(dest_root, item, template_sha, carried_sha):
+    """Re-record a kept entry against today's template text. Only called
+    when upstream's change to the section was formatting alone."""
+    path = dest_root / 'precedent.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        entry = data[KEPT_DIVERGENCES_KEY][item]
+    except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
+        return False
+    if not isinstance(entry, dict):
+        return False
+    entry['template_sha256'] = template_sha
+    entry['carried_sha256'] = carried_sha
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True
+
+
+def _report_stale_kept(dest_root, templates_dir, key, item, what, section,
+                       template_sha, carried_sha, subs):
+    """A section kept on purpose whose template text changed since it was
+    recorded: -> True when handled here, False to fall back to the full
+    report.
+
+    2026-10-07, a consuming repository's Update Vendors: two kept sections
+    came back as long "lacks" lists -- every block each section has always
+    left out on purpose -- when upstream's only change to them was file
+    names in code spans becoming links. Finding that out took a git diff of
+    the template by hand. The question a stale pin asks is "what did
+    upstream change?", so that is what is shown: the template's own change
+    since the pinned text. When the change is formatting alone, the words
+    the decision was made on are the same, so the pin moves by itself."""
+    entry = kept_template_divergences(dest_root).get(item) or {}
+    old = _pinned_section_text(templates_dir, key, entry.get('template_sha256', ''), subs)
+    if old is None:
+        return False
+    reason = entry.get('reason', '')
+    if _plain_words(old) == _plain_words(section):
+        if _repin_after_formatting(dest_root, item, template_sha, carried_sha):
+            print(f"PIN UPDATED: {item} is kept on purpose (\"{reason}\"), and "
+                  f"upstream's only change to {what} since it was recorded is "
+                  f"formatting -- links and code spans round the same words -- "
+                  f"so the kept entry now records today's text.")
+            return True
+        return False
+    change = _template_change(old, section)
+    print(f"DIVERGED: {AGENTS_MD} \"{key}\" is kept on purpose (\"{reason}\"), "
+          f"and upstream has changed {what} since that was recorded. "
+          f"Upstream's change, from the recorded text to today's:")
+    for line in change[:60]:
+        print(f"    {line if len(line) <= 200 else line[:197] + '...'}")
+    if len(change) > 60:
+        print(f"    ... and {len(change) - 60} more line(s)")
+    print(f"    still kept? set its template_sha256 to {template_sha} and its "
+          f"carried_sha256 to {carried_sha} in precedent.json")
+    _left(f'{AGENTS_MD} "{key}"', f'kept on purpose, and upstream changed '
+          f'{what} since (its change is listed above) -- copy in what applies '
+          f'here, then re-pin the kept entry to today\'s text')
+    return True
+
+
 def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
     """Print what refresh (or status) found in AGENTS.md's template
     sections, and put what needs a person on the Left-for-you list. Every
@@ -5657,8 +5757,13 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False):
         template_sha = _sha_text(section)
         carried_sha = _carried_sha(section, lacks)
         _repin_kept(dest_root, item, template_sha, carried_sha)
-        if _kept_divergence(dest_root, item, template_sha, carried_sha)[0] == 'kept':
+        verdict = _kept_divergence(dest_root, item, template_sha, carried_sha)[0]
+        if verdict == 'kept':
             _report_kept(dest_root, item, what, template_sha, carried_sha)
+            continue
+        if verdict == 'stale' and _report_stale_kept(
+                dest_root, templates_dir, key, item, what, section,
+                template_sha, carried_sha, subs):
             continue
         print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "

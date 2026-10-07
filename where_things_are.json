@@ -254,7 +254,7 @@
       "go_to": "[spec/LADDER_OPT_IN_PLAN.md](spec/LADDER_OPT_IN_PLAN.md) (accepted 2026-10-02, step 1 built); it narrows [spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md](spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md); the trap behind step 1: [gotchas/gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled.md](gotchas/gotcha-2026-10-02-a-practice-sets-own-universal-clone-was-never-pulled.md)"
     },
     {
-      "looking_for": "**Naming a session's feature branch** — `claude/<date>-<slug>-<id>`, the id being the end of the session's ID so the branch leads back to it",
+      "looking_for": "**Naming a session's feature branch** — `<date>-<slug>-<id>`, the id being the end of the session's ID so the branch leads back to it",
       "go_to": "[tools/precedent_branch_name.py](tools/precedent_branch_name.py)"
     },
     {

@@ -580,8 +580,49 @@ def main(argv):
     return 1 if rc == 1 else 2
 
 
+# THE MERGE GATE'S WORDS ARE WRITTEN HERE, NOT IN THE HOOK (2026-10-07), for
+# the reason doc_lint.py's hook_reason gives: a reworded hook is a question
+# for a person in every repository at its next Update Vendors, and a
+# reworded tool is not. .claude/hooks/merge-check-gate.sh pipes the run's
+# output back in with --hook-reason and passes on what comes out.
+def hook_reason(outcome, out):
+    """-> the whole text the merge gate refuses or blocks with: '1' a check
+    failed before the merge, '124' the hook's deadline killed the run,
+    'landed-1' what the merge landed failed afterwards. None otherwise."""
+    if outcome == 'landed-1':
+        return f'What this merge landed failed its full check.\n\n{out.rstrip()}'
+    if outcome == '1':
+        why = ('A check failed on what this merge would land. Fix it on the\n'
+               'branch and push, then merge.')
+    elif outcome == '124':
+        why = ('The checks did not finish within 14 minutes, so nothing was\n'
+               'verified. Run the push check on the branch first -- a recorded pass for the\n'
+               'same tree is reused -- then merge.')
+    else:
+        return None
+    tail = '\n'.join(out.rstrip().splitlines()[-120:])
+    return ('The merge check REFUSED this merge.\n\n'
+            f'{why}\n\n{tail}\n\n'
+            'Nothing lets a merge past this, and nothing should: fix what it found on\n'
+            'the branch, push, and merge again. If the check itself is wrong, fix the\n'
+            'check where it lives.')
+
+
+def _hook_reason_main(argv):
+    """`--hook-reason OUTCOME`, the run's output on stdin: print the text,
+    exit 0; exit 2 for an outcome this tool does not word."""
+    i = argv.index('--hook-reason') + 1
+    text = hook_reason(argv[i] if i < len(argv) else '', sys.stdin.read())
+    if text is None:
+        return 2
+    print(text)
+    return 0
+
+
 if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    if '--hook-reason' in sys.argv[1:]:
+        sys.exit(_hook_reason_main(sys.argv[1:]))
     sys.exit(main(sys.argv[1:]))
