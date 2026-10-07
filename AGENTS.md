@@ -94,19 +94,21 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~637 of 1750 token budget, 6 of 142 practices (6 universal))
+## Resident block (~673 of 1750 token budget, 6 of 142 practices (6 universal))
 
 **answer-first-ask-before-long-work.** Four parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
 **(2) A task that will run longer than a few minutes is proposed, not
 started:** what it is, how long from the tool's own cost line, what it
 blocks and what it does not, then the go-ahead. The exceptions are the
-checks a commit needs on the files the turn touched, and a run already
-asked for by name. **(3) When idle on a wait, say what the wait is for,
+quick checks a commit needs on the files the turn touched, never a
+whole suite, and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
 what it will change, and how to stop it** — never a bare "still running".
 A background task nobody asked for is stopped, not waited on.
 **(4) An open question is not a stopping point:** ask it early and keep
-working on everything its answer does not touch.
+working on everything its answer does not touch. **Every "how long"
+carries the clock time it lands, in the person's zone, named:** "about 15
+minutes, done around 15:35 New York time".
 
 **current-rule-governs.** **A standing command means what the rule in force says today: do it.**
 `precedent_show.py SLUG` resolves it, following a deduplicated copy to the
@@ -168,7 +170,7 @@ When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options:
   my-options — every real option, plainer, costs said flatly, your pick and why
-When a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach:
+When a person says "Prompt Please", or work belongs in a new session -- a repo this one lacks is asked to be attached here first:
   prompt-please — one paste-ready prompt for a new session; never a session-creating tool
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved

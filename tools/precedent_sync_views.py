@@ -230,6 +230,47 @@ def _pve():
     return precedent_vendor_engine
 
 
+def fields_this_engine_does_not_know(practices):
+    """-> one plain note per practice that uses a frontmatter field this
+    engine's frontmatter_yaml.FIELD_ORDER does not list and its own source
+    does not declare as its own (own_frontmatter_fields).
+
+    WHY (Morgan, 2026-10-07, strength: decided: "even if it wouldn't have
+    solved this, it would have helped in general"). A practice set moves on
+    its own schedule, and can start using an engine feature -- `hooks:` on
+    2026-10-06 -- before a consuming repository's vendored engine has it.
+    The old engine ignored the field it did not know, the sync went quiet,
+    and what the field asked for surfaced later as a check's finding nobody
+    in that repository could act on. Said here, at the sync, it names the
+    one step that does: Update Vendors first."""
+    try:
+        import frontmatter_yaml as fy
+    except Exception:                              # practice: fail-gracefully
+        return []
+    notes, own_by_root = [], {}
+    for slug, p in sorted(practices.items()):
+        f = pathlib.Path(str(p.get('file') or ''))
+        if not f.is_file():
+            continue
+        root = f.parent.parent
+        if root not in own_by_root:
+            own_by_root[root] = fy.own_fields(root)
+        try:
+            unknown = fy.unlisted_fields(f.read_text(encoding='utf-8'),
+                                         own_by_root[root])
+        except (OSError, UnicodeDecodeError):
+            continue
+        if unknown:
+            fields = ', '.join(f'`{k}:`' for k in unknown)
+            notes.append(f"{slug} ({p.get('source') or 'a declared source'}) "
+                         f"uses {fields}, which this repository's engine does "
+                         f"not know, so whatever it asks for is not done here "
+                         f"yet and its check may report something nothing "
+                         f"here can fix. The set needs a newer engine: run "
+                         f"Update Vendors first.")
+    return notes
+
+
 def _declared_practice_hooks(repo, practices):
     """-> ([(event, matcher, command)], [notes]) for every `hooks:` entry a
     practice in force declares, less those this repository declined (the
@@ -794,26 +835,30 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     # asked of the plan, never of the disk, because materialize() empties
     # practices/ and tools/checks/ before refilling them and a --check run
     # writes nothing at all.
-    # A hook a practice in force declares (`hooks:`), added to
-    # .claude/settings.json -- or, under --check, reported as a difference
+    # A hook a practice in force declares (`hooks:`), listed in
+    # process/practice_hooks.json since 2026-10-07 (precedent_hooks.py says
+    # why) -- or, under --check, reported as a difference
     # from a fresh sync. Before 2026-10-06 a practice could ship the script
     # and a check requiring the hook, and nothing wired it: a consumer
     # failed that check right after a clean sync.
     hook_entries, hook_notes = _declared_practice_hooks(repo, _live)
     for note in hook_notes:
         print(f"precedent_sync_views: {note}", file=sys.stderr)
+    for note in fields_this_engine_does_not_know(_live):
+        print(f"precedent_sync_views: {note}", file=sys.stderr)
     if check:
-        tree_drift += [f".claude/settings.json does not run `{c}` at {e}"
+        tree_drift += [f"{_pve().PRACTICE_HOOKS_FILE} does not run `{c}` at {e}"
                        f"{' (' + m + ')' if m else ''}, a hook a practice in "
                        f"force declares -- a fresh sync adds it"
                        for e, m, c in _pve().missing_practice_hooks(repo, hook_entries)]
     else:
         for c in _pve().add_practice_hooks(repo, hook_entries):
             print(f"precedent_sync_views: wired `{c}` into "
-                  f".claude/settings.json, a hook a practice in force declares "
-                  f"-- added only, nothing already there was changed. To opt "
-                  f"out, decline the file it runs under declined_ships in "
-                  f"precedent.json.", file=sys.stderr)
+                  f"{_pve().PRACTICE_HOOKS_FILE}, a hook a practice in force "
+                  f"declares, run by .claude/hooks/precedent-hooks.sh -- "
+                  f"nothing under .claude/ changed. To opt out, decline the "
+                  f"file it runs under declined_ships in precedent.json.",
+                  file=sys.stderr)
 
     planned = {f"practices/{w['slug']}.md" for w in written}
     planned.update(c['path'] for c in checks_written)
@@ -851,6 +896,81 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     agents_md.write_text(new_text, encoding='utf-8')
     return (written, checks_written, adapters_written, rstats, agents_md,
             (new_text != original), tree_drift)
+
+
+# A RULE ARRIVES WITH ITS DEBT SHOWN (2026-10-07). Every set moves on its
+# own schedule, and a check that came in with a sync used to be met first by
+# whichever push came next: in a private consuming repository, a one-file
+# note was refused four times over files the note never touched. Booked no
+# longer judges what a push does not change (--changed-files-only), so the
+# first full check that meets the debt is the Debut. This says it at the
+# moment the rule arrives instead: each practice the sync brought in or
+# whose Rule changed, and that a check enforces, is checked once across the
+# repository, and what does not hold yet is listed. It never refuses.
+ARRIVAL_CHECK_LIMIT = 8      # checks run per sync; the rest are named, not run
+
+
+def _checked_rules(repo):
+    """-> {slug: (checked_by, Rule text)} for each practice in the repo's
+    practices/ that a check enforces."""
+    out = {}
+    for f in (pathlib.Path(repo) / 'practices').glob('*.md'):
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        m = re.search(r'^checked_by:\s*["\']?([^"\'\s#]+)', text, re.M)
+        if not m or m.group(1) in ('null', '~'):
+            continue
+        rule = re.search(r'^## Rule\n(.*?)(?=^## |\Z)', text, re.S | re.M)
+        out[f.stem] = (m.group(1), rule.group(1).strip() if rule else '')
+    return out
+
+
+def standing_findings_of_arrivals(repo, before, run=None):
+    """-> [line] naming, for each enforced practice this sync added or whose
+    Rule or check changed, the files in the repository that do not meet it
+    yet. `run(slug)` -> the check's output (tests pass their own)."""
+    repo = pathlib.Path(repo)
+    after = _checked_rules(repo)
+    arrived = sorted(s for s, v in after.items() if before.get(s) != v)
+    checker = repo / 'tools' / 'precedent_check.py'
+    if not arrived or (run is None and not checker.is_file()):
+        return []
+    if run is None:
+        def run(slug):
+            r = subprocess.run([sys.executable, str(checker), '--only', slug,
+                                '--full-sweep'], cwd=str(repo),
+                               capture_output=True, text=True, timeout=300)
+            return r.stdout
+    lines = []
+    for slug in arrived[:ARRIVAL_CHECK_LIMIT]:
+        try:
+            out = run(slug)
+        except Exception:                                    # noqa: BLE001
+            continue
+        block = out.split(f'VIOLATION  {slug}', 1)
+        if len(block) < 2:
+            continue
+        findings = [l.strip() for l in block[1].split('  the rule:', 1)[0].splitlines()
+                    if l.startswith('    ') and l.strip()]
+        if not findings:
+            continue
+        shown = '; '.join(f[:120] for f in findings[:3])
+        more = f' (+{len(findings) - 3} more)' if len(findings) > 3 else ''
+        lines.append(f'{slug}, which this sync brought in or changed, does not '
+                     f'hold yet on {len(findings)} place(s): {shown}{more}. '
+                     f'Nothing is refused for it now: a working-branch or '
+                     f'pre-staging push is judged only on what it changes, and '
+                     f'the full check (into staging, or main) will refuse '
+                     f'these -- fix them before then '
+                     f'(python3 tools/precedent_check.py --only {slug})')
+    if len(arrived) > ARRIVAL_CHECK_LIMIT:
+        lines.append(f'{len(arrived) - ARRIVAL_CHECK_LIMIT} more enforced '
+                     f'practice(s) arrived or changed and were not checked here: '
+                     f'{", ".join(arrived[ARRIVAL_CHECK_LIMIT:])}. '
+                     f'python3 tools/precedent_check.py --full-sweep judges them')
+    return lines
 
 
 def _generated_views(repo):
@@ -1195,6 +1315,7 @@ def main():
         return 0
 
     before = {f.stem for f in (pathlib.Path(repo) / 'practices').glob('*.md')}
+    rules_before = {} if check else _checked_rules(repo)
     tracked_before = set() if check else _tracked_materialized(repo)
     try:
         (written, checks_written, adapters_written, rstats, agents_md,
@@ -1263,6 +1384,8 @@ def main():
         return 0
 
     for line in view_problems:
+        print(f"precedent_sync_views: {line}", file=sys.stderr)
+    for line in standing_findings_of_arrivals(repo, rules_before):
         print(f"precedent_sync_views: {line}", file=sys.stderr)
     print(f"precedent_sync_views OK: materialized {len(written)} practice(s), "
           f"{len(checks_written)} check script(s)/test(s) and "

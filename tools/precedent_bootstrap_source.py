@@ -190,7 +190,11 @@ SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
                  'workflow-write-gate.sh',
                  # No wait loop on pgrep -f, which always finds itself
                  # (2026-10-01).
-                 'wait-loop-gate.sh')
+                 'wait-loop-gate.sh',
+                 # The one entry per event every hook added from 2026-10-07
+                 # on runs through (precedent_hooks.py), so a new hook never
+                 # needs a new settings.json entry, or a person's yes.
+                 'precedent-hooks.sh')
 # The third hook a set gets, kept out of SESSION_HOOKS because it is the one
 # that is NOT a verbatim copy: it is instantiated from a .template with two
 # placeholders substituted, which is write_session_hook()'s job below.
@@ -670,6 +674,14 @@ def _install_session_hooks(dest, base_branch='main'):
                 }],
             },
         }
+        # The fixed entry per event (precedent_vendor_engine.DISPATCH_WIRING):
+        # the last ones a set's settings.json ever needs.
+        for ev in ('SessionStart', 'UserPromptSubmit', 'PreToolUse',
+                   'PostToolUse', 'Stop'):
+            payload['hooks'].setdefault(ev, []).append({'hooks': [
+                {'type': 'command',
+                 'command': f'$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh {ev}',
+                 'timeout': 900}]})
         settings.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
         written.append(settings)
     return written

@@ -1,0 +1,5 @@
+{
+  "_comment": "Engine hooks added on or after 2026-10-07, per kind of repository. Run by tools/precedent_hooks.py through the one fixed .claude/settings.json entry per event, so adding one here changes nothing under .claude/ and Update Vendors asks nobody (Morgan, 2026-10-07: \"It should no longer ask\"). Each entry: event, matcher (a tool-name regex, Pre/PostToolUse only; omit for every tool), script (a file in tools/ named in precedent_vendor_engine.HOOK_SCRIPT_FILES), args ({base} is precedent.json's base_branch), timeout in seconds (default 60). The hooks wired straight into settings.json before that date are in precedent_vendor_engine.HOOK_WIRING, which takes no new hook.",
+  "consumer": [],
+  "source": []
+}
