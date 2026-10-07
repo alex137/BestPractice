@@ -42026,7 +42026,7 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
         saved['apply_to'] = prs.apply_to
         prs.classify_dirt = lambda repo: (
             (['tools/ENGINE_MANIFEST.json'] if g(repo, 'status', '--porcelain') else []), [])
-        prs.apply_to = lambda e, commit=False: (applied.append(e['repo']), [])[1]
+        prs.apply_to = lambda e, commit=False, branch=None: (applied.append(e['repo']), [])[1]
         rc, out = run()
         cases.append(('a clone carrying only engine output is still brought current',
                       g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
@@ -42041,6 +42041,72 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
     check(f'the session-start refresh pulls a set clone behind its own origin '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_refresh_sources_leaves_the_base_branch_clean():
+    """The session-start refresh commits on a dated local branch of its own
+    and returns the set to its base branch with nothing uncommitted
+    (2026-10-07: it left 21 engine files as edits on a set's main
+    checkout, and the stop hook then asked a session to commit and push
+    them -- on main). Real git: a second run for the same engine tip names
+    the branch it already made rather than make another, and a refresh that
+    changes nothing leaves no branch behind."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-branch-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(*a):
+        return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                              text=True, env=env).stdout.strip()
+    saved = prs.apply_to
+    try:
+        repo = tmp / 'set'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        (repo / 'engine.txt').write_text('old\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+
+        def fake_apply(e, commit=False, branch=None, body='new\n'):
+            (repo / 'engine.txt').write_text(body, encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            r = subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'refresh'],
+                               capture_output=True, text=True, env=env)
+            return [('refresh', True, ''), ('branch', True, ''),
+                    ('commit', r.returncode == 0, r.stdout + r.stderr)]
+        prs.apply_to = fake_apply
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': 'abcdef1234567'}, 'main')
+        branches = g('branch', '--format=%(refname:short)').split()
+        made = [b for b in branches if '-engine-refresh-abcdef12-' in b]
+        cases.append(('the refresh is committed on a dated branch of its own',
+                      len(made) == 1, f'{branches} {steps}'))
+        cases.append(('...and the set is back on main', g('branch', '--show-current') == 'main',
+                      g('branch', '--show-current')))
+        cases.append(('...with nothing uncommitted', g('status', '--porcelain') == '',
+                      g('status', '--porcelain')))
+        cases.append(('...and main itself unchanged',
+                      (repo / 'engine.txt').read_text(encoding='utf-8') == 'old\n', ''))
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': 'abcdef1234567'}, 'main')
+        cases.append(('a second run for the same tip names that branch and makes no other',
+                      'already committed on local branch' in steps[0][2]
+                      and len([b for b in g('branch', '--format=%(refname:short)').split()
+                               if 'engine-refresh' in b]) == 1, str(steps)))
+        prs.apply_to = lambda e, commit=False, branch=None: fake_apply(e, commit, branch, 'old\n')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '9999999912345'}, 'main')
+        cases.append(('a refresh that changes nothing leaves no branch behind',
+                      not [b for b in g('branch', '--format=%(refname:short)').split()
+                           if '-engine-refresh-99999999-' in b]
+                      and g('branch', '--show-current') == 'main', str(steps)))
+    finally:
+        prs.apply_to = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session-start refresh leaves the set\'s base branch clean '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def check_refresh_sources_path_names_the_whole_target():
@@ -42083,7 +42149,7 @@ def check_refresh_sources_path_names_the_whole_target():
         prs._declared_base_branch = lambda repo: 'main'
         prs.repair_hooks = lambda repo: (wrote.append(pathlib.Path(repo).resolve()),
                                          (True, 'fixture'))[1]
-        prs.apply_to = lambda e, commit=False: (
+        prs.apply_to = lambda e, commit=False, branch=None: (
             wrote.append(pathlib.Path(e['repo']).resolve()), [])[1]
 
         def run(argv):
@@ -64571,6 +64637,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()

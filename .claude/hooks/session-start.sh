@@ -203,8 +203,10 @@ fi
 # path" paragraph -- that decision killed a scheduled workflow running on
 # its own cadence, unattended, with nobody watching. This is the opposite
 # shape: it runs once, inside a session someone is sitting in, against
-# that session's own working tree, and it still never commits or pushes --
-# publishing stays "Update Vendors" or a person reading the diff by hand.
+# that session's own working tree, and it never pushes -- publishing stays
+# "Update Vendors" or a person reading the diff by hand. Since 2026-10-07
+# it commits the refresh on a dated local branch and returns the set to
+# its base branch clean, never leaving the edits on main.
 # See that file's docstring for the fuller record.
 #
 # A source with its own uncommitted changes is left alone rather than
