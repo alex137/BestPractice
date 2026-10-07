@@ -177,27 +177,23 @@ fi
 
 case "$rc" in
     0) printf '%s\n' "$out" | tail -n 3 >&2; exit 0 ;;
-    1) why="A check failed. Fix it before pushing -- this list is what GitHub
-CI used to run on this push, and CI is not going to run it now." ;;
-    124) why="The checks did not finish within 14 minutes, so nothing was
-verified. Run them directly with a long Bash timeout, then push again --
-a pass is recorded against the tree, so the push will not re-run them:
-
-    cd $top && python3 ${tool#"$top"/}" ;;
+    1|124) ;;
     2) echo "NOTE: push-check-gate: $out" >&2; exit 0 ;;
     *) echo "WARN: push-check-gate: precedent_push_check.py exited $rc, which is not a result it defines; failing open:" >&2
        printf '%s\n' "$out" | tail -n 30 >&2
        exit 0 ;;
 esac
 
-reason="The push check REFUSED this push of $top.
+# THE WORDS ARE THE TOOL'S (2026-10-07). This hook decides WHETHER to
+# refuse; precedent_push_check.py decides what the refusal says, through
+# --hook-reason, and this file passes it on. A hook is a file Claude Code's
+# auto mode holds for a person's yes, so wording kept here made every
+# rewording a question in every repository at its next Update Vendors. The
+# short line below is only for an engine too old to answer --hook-reason.
+reason="$(printf '%s' "$out" | (cd "$top" && python3 "$tool" --hook-reason "$rc" --top "$top") 2>/dev/null)" || reason=""
+[[ -n "$reason" ]] || reason="precedent_push_check.py refused this push of $top (exit $rc):
 
-$why
-
-$(printf '%s\n' "$out" | tail -n 120)
-
-Nothing lets a push past this, and nothing should: fix what it found and
-push again. If the check itself is wrong, fix the check where it lives."
+$(printf '%s\n' "$out" | tail -n 120)"
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {

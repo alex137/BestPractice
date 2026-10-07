@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The name for a session's feature branch, built the same way every time -- `claude/<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none
+"""The name for a session's feature branch, built the same way every time -- `<date>-<slug>-<id>`, the id being the end of the session's ID, or random characters when there is none
 
 precedent_branch_name.py -- the name for a session's feature branch, built
 the same way every time.
 
-    claude/2026-10-01-branch-naming-convention-awpkv
-    <prefix><date>-<slug>-<id>
+    2026-10-01-branch-naming-convention-awpkv
+    <date>-<slug>-<id>
 
   date    the day the branch is made, in the person's zone (precedent_time)
   slug    what the work is, from the words given, lowercased, at most six
@@ -28,9 +28,14 @@ and the tool says so on stderr. The same happens when the name is already
 on origin: one session making two branches on the same day with the same
 slug is the only realistic way that occurs.
 
-THE PREFIX is `claude/` under Claude Code (CLAUDECODE=1 in its shell) and
-`session/` anywhere else; --prefix overrides it. A harness that only lets a
-session push to its own prefix needs the name to start with it.
+NO PREFIX (Morgan, 2026-10-07, strength: decided: "many of your temp github
+[branches] you create start with 'claude/' - I think update the rule to
+eliminate that prefix"). Until then a name began `claude/` under Claude Code
+and `session/` elsewhere, on the theory that a harness might only let a
+session push to its own prefix. Claude Code's cloud harness does not: a
+Promote has pushed `to-main-DATE`, `pre-staging` and `staging` from it all
+along. The date leads, so a branch list sorts by day. --prefix still adds
+one, for a harness that does restrict pushes.
 
 Run:
   python3 tools/precedent_branch_name.py branch naming convention
@@ -91,7 +96,7 @@ def _today():
 
 
 def default_prefix():
-    return 'claude/' if os.environ.get('CLAUDECODE') == '1' else 'session/'
+    return ''
 
 
 def on_origin(name, repo='.', remote='origin'):
@@ -142,7 +147,10 @@ def build(words, date=None, prefix=None, tail=None, exists=None):
 # two words and a mixed id (`claude/peaceful-ritchie-3u31td`). Left alone,
 # per the rule above; the session's own branches are made by build().
 _HARNESS_NAME_RE = re.compile(r'(?:claude|session)/[a-z]+-[a-z]+-([a-z0-9]{5,8})')
-_TOOL_NAME_RE = re.compile(r'(?:claude|session)/\d{4}-\d{2}-\d{2}-([a-z0-9]+(?:-[a-z0-9]+)+)')
+_TOOL_NAME_RE = re.compile(r'\d{4}-\d{2}-\d{2}-([a-z0-9]+(?:-[a-z0-9]+)+)')
+# What is judged at all: the old prefixes, and any name that opens with a
+# date, the shape build() writes.
+_JUDGED_RE = re.compile(r'(?:claude/|session/|\d{4}-\d{2}-\d{2}-)')
 
 
 def name_refusal(name, tail=None):
@@ -153,12 +161,15 @@ def name_refusal(name, tail=None):
     names by hand that lead back to no session, and nothing refused them.
     The push gate asks this of every new branch a push creates.
 
-    Judged: names under `claude/` or `session/`. Passed: a harness-given
-    name (two words and an id with a digit in it); a `<date>-<slug>-<id>`
-    name whose id is this session's (or, after a clash on origin, whose
-    second-to-last part is, as build() writes it). With no session ID to
-    compare, any five-character last part passes: build() is random then."""
-    if not name.startswith(('claude/', 'session/')):
+    Judged: names that open with a date, or sit under `claude/` or
+    `session/`. Passed: a harness-given name (two words and an id with a
+    digit in it); a `<date>-<slug>-<id>` name whose id is this session's (or,
+    after a clash on origin, whose second-to-last part is, as build() writes
+    it). With no session ID to compare, any five-character last part passes:
+    build() is random then. A `claude/<date>-...` name is refused since
+    2026-10-07: build() no longer writes the prefix, so a name carrying it
+    was typed."""
+    if not _JUDGED_RE.match(name):
         return None
     m = _HARNESS_NAME_RE.fullmatch(name)
     if m and any(c.isdigit() for c in m.group(1)):
@@ -174,7 +185,7 @@ def name_refusal(name, tail=None):
         elif len(parts[-1]) == ID_LEN:
             return None
     return (f'{name} was not made by tools/precedent_branch_name.py: a session '
-            f'branch is named claude/<date>-<what it is>-<the last five '
+            f'branch is named <date>-<what it is>-<the last five '
             f'characters of this session\'s ID>, so it leads back to the '
             f'session. Rename it before pushing: git branch -m {name} '
             f'"$(python3 tools/precedent_branch_name.py <a few words>)"')
@@ -183,7 +194,7 @@ def name_refusal(name, tail=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('words', nargs='+', help='a few words saying what the work is')
-    ap.add_argument('--prefix', help="default: 'claude/' under Claude Code, else 'session/'")
+    ap.add_argument('--prefix', default='', help="default: none; the name opens with the date")
     ap.add_argument('--repo', default='.', help='checkout whose origin is asked')
     ap.add_argument('--no-check', action='store_true', help='do not ask origin')
     args = ap.parse_args(argv)

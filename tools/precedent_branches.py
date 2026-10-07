@@ -60,14 +60,14 @@ existed, never somewhere new.
 PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
 command, strength: assented). Since 2026-10-03 it COMPOSES one tree in a
 throwaway worktree -- staging, then any fix branch it is handed (--work
-claude/DATE-promote-fix-ID), then work made directly on main, then pre-staging -- each
+DATE-promote-fix-ID), then work made directly on main, then pre-staging -- each
 by a merge commit, never a fast-forward, so a `[skip ci]` line on a
 pre-staging commit can never become staging's head and silence the GitHub
 test on the pull request into main (plan, hole 3). It rebuilds the
 generated files main's work left stale, runs the FULL push check on that
 tree once, and only if it passes moves staging AND pre-staging to that same
 commit in one atomic push. A failure or a conflict in hand-written text
-moves neither: the tree goes to a local claude/DATE-promote-fix-ID branch
+moves neither: the tree goes to a local DATE-promote-fix-ID branch
 (named like every temporary branch since 2026-10-06; promote-fix-DATE
 before, still recognized), to be fixed
 there and promoted with --work (spec/LADDER_OPT_IN_PLAN.md D10; see the
@@ -88,7 +88,7 @@ is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 IN A PRIVATE REPOSITORY THAT GITHUB TEST RUNS AT MOST ONCE EVERY
 github_ci_every_hours (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
 decides"; see main_test_due). When it is not due, the copy is named
-claude/DATE-promote-to-main-not-due-ID (to-main-not-due-DATE before
+DATE-promote-to-main-not-due-ID (to-main-not-due-DATE before
 2026-10-06, and still where a GitHub test knows only that), the light check's job skips that pull request before
 a runner starts, and --wait-main-test says NOT DUE and exits 0.
 
@@ -2263,7 +2263,7 @@ def _drifted_from_above(root):
 # start with the timestamps then the slug then a few random characters? ...
 # let's do that"). The fix branch and the copy a pull request into main
 # comes from were named promote-fix-DATE and to-main-DATE, outside the
-# claude/<date>-<slug>-<id> format every other temporary branch takes from
+# <date>-<slug>-<id> format every other temporary branch takes from
 # tools/precedent_branch_name.py, so they led back to no session. They are
 # named by that tool now. The old names are still RECOGNIZED -- a branch
 # already on origin, an engine copy elsewhere -- by the is_* functions below,
@@ -2313,7 +2313,7 @@ def _day_and_moment(root):
 
 
 def promote_branch_name(root, slug, taken):
-    """-> claude/<date>-<slug>-<session ID's end> from precedent_branch_name.py
+    """-> <date>-<slug>-<session ID's end> from precedent_branch_name.py
     (random characters where there is no session ID, more where the name is
     taken), or None when that tool cannot be loaded."""
     try:
@@ -2561,7 +2561,7 @@ FIX_PREFIX = 'promote-fix-'
 
 def _fix_branch(root):
     """A fresh fix-branch name, in the session-branch format: e.g.
-    claude/2026-10-06-promote-fix-y1ktn (promote_branch_name says why).
+    2026-10-06-promote-fix-y1ktn (promote_branch_name says why).
     The old promote-fix-DATE only where the naming tool cannot be loaded."""
     def taken(name):
         return bool(_remote_tip(root, name)) or _run(
