@@ -27815,6 +27815,74 @@ def check_refresh_removes_dropped_engine_files():
 
 
 
+def check_decommission_exempt_record_still_blocks_a_link():
+    """THE INCIDENT (2026-10-07, a consumer decommissioning a filing shim).
+    Closed open items declared exempt as historical records passed the
+    decommission audit, then failed the next landing: each held a markdown
+    LINK to the deleted file, and the link check refuses a broken link
+    whatever the registry says. Exempt lets a record keep naming a path;
+    it cannot keep a link to it alive. Cases: an exempt record that names
+    the path as text does not block; one that links to it blocks, with the
+    fix in the message; with the link turned into text, the audit is
+    CLEAR."""
+    import tempfile, shutil as _shutil, json as _json
+    tool = ROOT / 'tools' / 'precedent_decommission.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decom-link-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        genv = dict(os.environ, GIT_AUTHOR_NAME='t',
+                    GIT_AUTHOR_EMAIL='harness@example.com',
+                    GIT_COMMITTER_NAME='t',
+                    GIT_COMMITTER_EMAIL='harness@example.com')
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=genv)
+
+        def w(rel, text):
+            f = repo / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+
+        repo.mkdir()
+        git('init', '-q')
+        w('tools/old_shim.py', '# retired\n')
+        w('todo/named.md', 'Closed. The work was in tools/old_shim.py.\n')
+        w('todo/linked.md', 'Closed. See [old_shim.py](../tools/old_shim.py).\n')
+        w('process/decommissioned_paths.json', _json.dumps(
+            {'decommissioned': [],
+             'exempt_files': ['todo/named.md', 'todo/linked.md']}))
+        git('add', '-A')
+        git('commit', '-qm', 'fixture')
+
+        def run():
+            r = subprocess.run([sys.executable, str(tool), 'tools/old_shim.py'],
+                               capture_output=True, text=True, cwd=str(repo),
+                               timeout=120)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('an exempt record naming the path as text does not block',
+                      'todo/named.md:' not in out, out[-1500:]))
+        cases.append(('an exempt record LINKING to the path blocks, and says '
+                      'to drop the link', rc == 1 and 'todo/linked.md:1' in out
+                      and 'drop the link' in out, out[-1500:]))
+        w('todo/linked.md', 'Closed. See `tools/old_shim.py`.\n')
+        git('add', '-A')
+        git('commit', '-qm', 'unlink')
+        rc2, out2 = run()
+        cases.append(('with the link turned into text, the audit is CLEAR',
+                      rc2 == 0 and 'CLEAR' in out2, out2[-1500:]))
+    finally:
+        _shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'decommission audit refuses a link in an exempt record '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
+
+
 def check_decommission_skips_generated_files_and_prose():
     """THE INCIDENT (2026-09-28, a classic-layout migration rehearsal in a
     real consumer). Decommissioning `process/personal` could never reach
@@ -63685,6 +63753,7 @@ def main():
     check_superseded_source_says_so()
     check_refresh_removes_dropped_engine_files()
     check_decommission_skips_generated_files_and_prose()
+    check_decommission_exempt_record_still_blocks_a_link()
     check_todo_migrate_needs_a_migrated_item()
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
