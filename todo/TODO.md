@@ -147,7 +147,6 @@ as_of: 2026-10-07
 | [`todo-2026-10-06-deal-harness-checks-by-measured-time`](todo-2026-10-06-deal-harness-checks-by-measured-time.md) | `verify_harness.py --as-ci` (and now a bare `--all`) deals the rest shard's | 1d | wait |  |
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 1d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
 | [`todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here`](todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here.md) | Two practices in force now read differently on the same moment. | 1d | ask | a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved t… |
-| [`todo-2026-10-07-pre-staging-runs-the-fast-tree-checks`](todo-2026-10-07-pre-staging-runs-the-fast-tree-checks.md) | Proposal: a push to `pre-staging` also runs the tree checks that take seconds and need no network. | 0d | wait | a decision by Morgan, who set the branch tiers (2026-09-25, strength: decided) |
 
 ## Decisions (the Person's Call)
 

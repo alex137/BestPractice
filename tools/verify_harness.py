@@ -13618,6 +13618,31 @@ def check_changed_files_only_judges_the_change():
                       'and says it left it to the full check',
                       rc == 0 and 'not judged here' in out, out[-800:]))
 
+        # A tree check's finding THIS push caused is kept wherever it lands
+        # (Morgan, 2026-10-07): a new hook with no PARALLELS row is refused
+        # at Booked, though the row belongs in a file the push never
+        # touched; the next, unrelated push is not refused for it.
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        hook = wt / '.claude' / 'hooks' / 'zz-fixture-hook.sh'
+        hook.write_text('#!/bin/bash\nexit 0\n', encoding='utf-8')
+        hook.chmod(0o755)
+        git('add', str(hook))
+        git('commit', '-qm', 'a new Claude-only hook, no PARALLELS row')
+        rc, out = run_check(start)
+        cases.append(('a new hook with no PARALLELS row is refused at Booked, '
+                      'as a finding this push caused',
+                      rc == 1 and 'claude-only-surface-has-a-parallel' in out
+                      and 'this push caused them' in out, out[-800:]))
+        caused_at = git('rev-parse', 'HEAD').stdout.strip()
+        with open(wt / 'README.md', 'a', encoding='utf-8') as f:
+            f.write('\nAnother unrelated line.\n')
+        git('commit', '-qam', 'touch another file again')
+        rc, out = run_check(caused_at)
+        cases.append(('the next, unrelated push passes, and names the missing '
+                      'row as left for the full check',
+                      rc == 0 and 'claude-only-surface-has-a-parallel: '
+                      'templates/harness/PARALLELS.md' in out, out[-800:]))
+
         # A consumer's practice file is sync output: an unglossed acronym in
         # one is refused where the practice is authored, and not judged in a
         # repo MANIFEST.json says it was materialized into (2026-09-28,
