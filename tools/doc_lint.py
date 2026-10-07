@@ -985,6 +985,78 @@ def check_index_clause(path):
             f"views build refuses it, and in a practice set that is the Debut")
 
 
+# An open item that is really a fix in another repository (practice:
+# todo-is-a-handoff, 2026-10-06). In one consumer four items sat for one to
+# two weeks reading "blocked on push access to X" or "needs a change in the
+# engine", each an hour's fix the session that filed it could have opened as
+# a pull request upstream. Such an item may stay open only to wait on that
+# pull request, so it has to link one.
+UPSTREAM_LINK_RE = re.compile(r'github\.com/[\w.-]+/[\w.-]+/(?:pull|issues)/\d+')
+UPSTREAM_FIX_TOOL = 'python3 tools/upstream_fix.py'
+# The provenance sentence tools/todo_migrate.py writes into every item it
+# migrated. It names a vendored tool and says nothing about a fix: measured
+# 2026-10-06 in a consumer, it alone made 180 of its open items read as
+# upstream fixes.
+_MIGRATION_STAMP_RE = re.compile(
+    r'migrated from TODO\.md by tools/todo_migrate\.py\.?', re.I)
+
+
+def check_upstream_item(path, root=None):
+    """-> why an open item about an upstream fix is refused, or None.
+
+    Fires on a `todo/todo-*.md` whose frontmatter `status` is open (missing
+    counts as open, as build_todo_index.py reads it), with no github.com
+    pull-request or issue link, when (a) its text names a path this repo
+    vendors, or (b) its stated reason -- the `blocked_on` or `waiting_on`
+    field -- names a repository it takes a source from. What is vendored,
+    and from where, is precedent_engine_freshness's vendored_entries() and
+    source_mentions(), never a list of its own.
+
+    Deliberately no keywords: "vendor" and "access" matched real outside
+    blockers in a consumer (a vendor's quote, access to a website). And
+    repository names count only in the stated reason, because in the body
+    they are mostly links to upstream reading (two of the three body hits in
+    the same consumer were a pointer to an upstream file)."""
+    root = pathlib.Path(root or ROOT)
+    p = pathlib.PurePosixPath(str(path))
+    if p.parent.name != 'todo' or not (p.name.startswith('todo-') and p.suffix == '.md'):
+        return None
+    text = (root / path).read_text(encoding='utf-8', errors='ignore')
+    fm = re.match(r'---\n(.*?)\n---', text, re.S)
+    head = fm.group(1) if fm else ''
+    status = re.search(r'^status:[ \t]*["\']?([\w-]+)', head, re.M)
+    if (status.group(1) if status else 'open') != 'open' or UPSTREAM_LINK_RE.search(text):
+        return None
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_engine_freshness as _pef
+        entries = _pef.vendored_entries(root)
+        names = _pef.source_mentions(root)
+    except Exception:                                        # noqa: BLE001
+        return None
+    body = _MIGRATION_STAMP_RE.sub('', text)
+    lead = r'(?:(?<=\.\./)|(?<![\w./-]))'
+    named = None
+    for e in entries:
+        local = e['local']
+        tail = r'/[^\s)`\'"\]>]*' if local.endswith('/') else r'(?![\w-])'
+        m = re.search(lead + re.escape(local.rstrip('/')) + tail, body)
+        if m:
+            named = m.group(0).rstrip('.,;:')
+            break
+    if named is None:
+        reason = ' '.join(re.findall(r'^(?:blocked_on|waiting_on):(.*)$', head, re.M))
+        named = next((n for n in names if re.search(
+            r'(?<![\w.-])' + re.escape(n) + r'(?![\w-])', reason, re.I)), None)
+        if named is None:
+            return None
+    target = named if _pef.origin_of(root, named) else 'PATH'
+    return (f"open, about a fix in another repository ({named}), and links no "
+            f"pull request or issue -- fix it upstream now: request access if "
+            f"needed, open the PR, link it here (`{UPSTREAM_FIX_TOOL} {target}` "
+            f"sets it up)")
+
+
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
@@ -1458,6 +1530,7 @@ def main():
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     unsourced_lines, residue_lines, broken_link_lines = [], [], []
     skip_lines, frontmatter_lines, index_lines = [], [], []
+    upstream_lines = []
     for f in files:
         if not (ROOT / f).exists():
             continue
@@ -1467,6 +1540,9 @@ def main():
         ix_err = check_index_clause(f)
         if ix_err:
             index_lines.append(f"  {f}: {ix_err}")
+        up_err = check_upstream_item(f)
+        if up_err:
+            upstream_lines.append(f"  {f}: {up_err}")
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
         for i, target, why in check_broken_links(f):
@@ -1544,9 +1620,17 @@ def main():
               f"(FAIL; the views build refuses a newly written one):")
         print('\n'.join(index_lines[:40]))
 
+    if upstream_lines:
+        print(f"\nOPEN ITEM WAITING ON AN UPSTREAM FIX — {len(upstream_lines)} "
+              f"file(s) ({'FAIL' if gate else 'backlog report'}; another "
+              "repository is not a blocked_on reason, and neither is access "
+              "you can request):")
+        print('\n'.join(upstream_lines[:40]))
+
     if (not strike_lines and not unlinked_lines and not unglossed_lines
             and not target_lines and not unsourced_lines and not broken_link_lines
-            and not skip_lines and not frontmatter_lines and not index_lines):
+            and not skip_lines and not frontmatter_lines and not index_lines
+            and not upstream_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no broken relative links, no unlinked references, no unglossed "
               f"acronyms, no target= anchors, no skipped heading levels, no "
@@ -1717,6 +1801,7 @@ def main():
                    ('broken relative link', broken_link_lines),
                    ('invalid frontmatter', frontmatter_lines),
                    ('index line over the limit', index_lines),
+                   ('open item waiting on an upstream fix', upstream_lines),
                    ('skipped heading level', skip_lines),
                    ('process residue', residue_lines),
                    ('unsourced quantity', unsourced_lines),
@@ -1760,12 +1845,14 @@ def main():
 
     fatal.extend(f"  {d}: widest table {c} columns, no sortable render (new document)"
                  for d, c in unrendered_new)
-    if gate and (fatal or findability or frontmatter_lines or index_lines):
+    if gate and (fatal or findability or frontmatter_lines or index_lines
+                 or upstream_lines):
         _where = ("on lines this change touched" if scope is not None
                   else "in the file(s) named")
         print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) {_where}" + (f", {len(findability)} unfindable analysis(es)" if findability else "")
               + (f", {len(frontmatter_lines)} file(s) with invalid frontmatter" if frontmatter_lines else "")
               + (f", {len(index_lines)} index line(s) over the limit" if index_lines else "")
+              + (f", {len(upstream_lines)} open item(s) waiting on an upstream fix" if upstream_lines else "")
               + ":")
         print('\n'.join(fatal[:40]))
         return 1

@@ -480,7 +480,42 @@ def _landed_reduction(repo, plain=False):
     return None
 
 
-def _unlanded_work(root, siblings=True):
+# THE BRANCHES NOT LANDED WHEN THE TURN BEGAN, kept for the stop hook.
+# A branch that lands during the turn is used up, and the reply that says so
+# hands the person its one-click delete link (practices the-boildown, item 6,
+# and branch-delete-links). The stop hook can tell a branch HAS landed; only
+# the turn's start can say it had NOT, so the reply gate writes it down here.
+# Found 2026-10-06: a session Booked its branch and the reply gave no link.
+TURN_START_UNLANDED = 'precedent-turn-start-unlanded.json'
+
+
+def _turn_start_file(root):
+    """-> the per-checkout file in .git where this turn's start is kept, or
+    None outside a git checkout."""
+    import subprocess as _sp
+    try:
+        r = _sp.run(['git', '-C', str(root), 'rev-parse', '--absolute-git-dir'],
+                    capture_output=True, text=True, timeout=10)
+    except Exception:                                         # noqa: BLE001
+        return None
+    return (pathlib.Path(r.stdout.strip()) / TURN_START_UNLANDED
+            if r.returncode == 0 and r.stdout.strip() else None)
+
+
+def record_turn_start_unlanded(root, records):
+    """Write `records` [{repo, branch, base}] as this turn's start; [] clears
+    it, so a branch counts only for the turn it was unlanded at. Never
+    raises."""
+    f = _turn_start_file(root)
+    if f is None:
+        return
+    try:
+        f.write_text(json.dumps(records), encoding='utf-8')
+    except Exception:                                         # noqa: BLE001
+        pass
+
+
+def _unlanded_work(root, siblings=True, records=None):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into -- and only where those
     commits are this session's own. Never raises.
@@ -678,6 +713,9 @@ def _unlanded_work(root, siblings=True):
                     f'origin/{base}..HEAD', '--', '.')
         if real and real != '0':
             ahead = real
+        if records is not None:
+            records.append({'repo': str(repo.resolve()), 'branch': head,
+                            'base': base})
         out.append(f"{name}: {ahead} commit(s) on '{head}' that are NOT on "
                    f"'{base}' -- the branch this repo lands work on")
     return out
@@ -1233,10 +1271,12 @@ def main():
         # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
         # requirements because for this person it is one: a reply that does
         # not say so is how a branch gets forgotten.
+        _records = []
         try:
-            _unlanded = _unlanded_work(root)
+            _unlanded = _unlanded_work(root, records=_records)
         except Exception:                                     # noqa: BLE001
             _unlanded = []
+        record_turn_start_unlanded(root, _records)
         for _line in _unlanded:
             if PROMOTE_RUNNING_MARK in _line:
                 print(f"- {_line}. Do NOT recommend, suggest or mention a "

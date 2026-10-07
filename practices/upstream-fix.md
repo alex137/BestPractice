@@ -107,8 +107,12 @@ the one it already made, or the one it is about to make.
 
 8. **Who else has a copy?** Every other place the same file, or the same
    mistake, went. **Fix the origin first, then the copies, and name all of
-   them in the reply.** An origin this session cannot reach is a
-   `blocked-on` item naming the repository, never a silent omission.
+   them in the reply.** An origin in another repository is fixed there in
+   the same turn: request access if it is needed and open the pull request
+   (`python3 tools/upstream_fix.py PATH` sets it up). Another repository,
+   or access the session can request, is never a `blocked-on` reason
+   ([todo-is-a-handoff](todo-is-a-handoff.md)); an open item about it only
+   waits on that pull request, and links it.
 9. **What should have caught it earlier, and why didn't it?** When one gate
    passed what a later one failed (local green but GitHub red, one
    checkout's gate green and another's red), **that difference is its own
@@ -132,7 +136,7 @@ their next `Update Vendors` will actually carry it.
 survive a fresh container?* and *does a person who was not here get it
 without being told?* A fix that fails either is on rung 3 or below. A
 durable fix can be genuinely out of reach (it needs someone else's
-approval, a repository this session cannot push to, a decision nobody has
+approval, access that was requested and refused, a decision nobody has
 made); that is a legitimate reason for a band-aid, and exactly the case
 where saying which one you applied matters most.
 
@@ -230,6 +234,16 @@ set's whole root from the file-name separator check, when the check simply
 did not know two names were fixed by engine tools. *"Maybe whenever we need
 to add an 'exemption' of any sort anywhere, we always use that as an
 example of a root fix opportunity."* Both root fixes shipped with the rule.
+
+**Point 8's unreachable origin, 2026-10-06.** It used to end "an origin
+this session cannot reach is a `blocked-on` item naming the repository",
+and sessions read "cannot reach" as "has no push access yet": in one
+consumer four such items sat for one to two weeks, each an hour's fix. S.
+Alexander Jacobson: *"Then let's figure out how to make sure fixes are made
+at commit time."* Point 8 now says to request the access and open the pull
+request in the same turn, and doc_lint.py refuses an open item about an
+upstream fix that links none ([todo-is-a-handoff](todo-is-a-handoff.md)).
+Strength: decided.
 
 **Retired as a command, 2026-10-01.** Morgan had stopped saying "Upstream
 fix": he wanted the root fixed every time, and asking for it one fix at a

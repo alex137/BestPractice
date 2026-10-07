@@ -12996,6 +12996,75 @@ def check_lint_runs_the_hosts_shim():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
+    """An open item about a fix in another repository has to link the pull
+    request that makes it (practice: todo-is-a-handoff, 2026-10-06: in one
+    consumer four such items sat for one to two weeks, each an hour's fix).
+    doc_lint refuses one at the commit; it leaves alone the same item with a
+    PR link, an item blocked on an outside quote, and a closed item."""
+    import tempfile, shutil
+    name = 'doc_lint refuses an open item waiting on an upstream fix'
+    env = _fixture_git_env()
+    head = ('---\nslug: {slug}\nkind: manual\nstatus: {status}\n'
+            'blocked_on: {blocked}\nnoted: 2026-10-06\n---\n## What\n\n{body}\n')
+    items = {
+        'vendored-path': ('open', 'null', 'The check in tools/doc_lint.py '
+                          'misreads a fence; needs a change upstream.', True),
+        'with-pr-link': ('open', 'null', 'The check in tools/doc_lint.py '
+                         'misreads a fence; fixed in '
+                         'https://github.com/example/Engine/pull/12, waiting '
+                         'on its review.', False),
+        'outside-quote': ('open', 'vendor quotes from two cell makers',
+                          'Needs source access to example.com for the '
+                          'price sheet.', False),
+        'closed': ('done', 'null', 'The check in tools/doc_lint.py misread '
+                   'a fence.', False),
+        'source-in-reason': ('open', 'push access to some-set', 'A rule '
+                             'there is worded wrong.', True),
+    }
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        for f in ('doc_lint.py', 'frontmatter_yaml.py', 'generated_blocks.py',
+                  'precedent_engine_freshness.py', 'precedent_resolve.py'):
+            shutil.copy(ROOT / 'tools' / f, repo / 'tools' / f)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+            {'source_repo': 'https://github.com/example/Engine',
+             'source_branch': 'main', 'source_commit': 'x',
+             'files': ['doc_lint.py']}))
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'some-set', 'path': '../some-set'}]}))
+        (repo / 'todo').mkdir()
+        for slug, (status, blocked, body, _fires) in items.items():
+            (repo / 'todo' / f'todo-2026-10-06-{slug}.md').write_text(
+                head.format(slug=slug, status=status, blocked=blocked, body=body))
+        for slug, (_s, _b, _body, fires) in items.items():
+            rel = f'todo/todo-2026-10-06-{slug}.md'
+            r = subprocess.run([sys.executable, 'tools/doc_lint.py', rel],
+                               cwd=repo, capture_output=True, text=True, env=env)
+            fired = (r.returncode == 1 and 'WAITING ON AN UPSTREAM FIX' in r.stdout
+                     and 'tools/upstream_fix.py' in r.stdout)
+            quiet = r.returncode == 0 and 'UPSTREAM FIX' not in r.stdout
+            cases.append((f'{slug}: {"fires" if fires else "passes"}',
+                          fired if fires else quiet))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_upstream_fix_sets_up_the_fix_in_the_source():
+    """tools/upstream_fix.py PATH, the one command the doc_lint finding above
+    names: on a planted source repo, its clone and a consumer vendoring one
+    file, it opens a branch in the clone off the landing branch, never edits
+    the copy, refuses a file of the consumer's own and a dirty clone."""
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'upstream_fix.py'),
+                        '--self-check'], capture_output=True, text=True,
+                       env=_fixture_git_env())
+    check('upstream_fix.py sets up the fix in the source (its --self-check)',
+          r.returncode == 0, (r.stdout + r.stderr)[-600:])
+
+
 def check_lint_flags_a_table_with_no_render():
     """doc_lint check 7 (practice `tabular-shared-renderer`): a document
     whose widest table has RENDER_MIN_COLUMNS+ columns and is not in the
@@ -22944,6 +23013,12 @@ def check_reply_check_keeps_practice_ideas_at_the_close():
                       and 'Output NOTHING' not in r1.stderr
                       and 'Do NOT add the archive line' in r1.stderr,
                       f'exit {r1.returncode}: {r1.stderr[:300]}'))
+
+        for label in ('Content idea', 'Process idea'):
+            r = replycheck(f'{label}.md', mid.replace('Practice ideas', label))
+            cases.append((f'a "{label}:" mid-conversation is refused the same way',
+                          r.returncode == 2 and 'Output ONE line withdrawing them'
+                          in r.stderr, f'exit {r.returncode}: {r.stderr[:200]}'))
 
         close = mid.replace("- Don't archive this session.",
                             '- You can archive this session.')
@@ -47493,6 +47568,190 @@ def check_update_asks_before_changing_hooks():
               and '.claude/hooks/h.sh' in buf.getvalue(), buf.getvalue()[-600:])
 
 
+def check_landed_branch_gets_its_delete_link():
+    """A branch that was not on its landing branch when the turn began and is
+    by the turn's end is used up: the stop hook refuses a reply that gives no
+    one-click delete link for it (the-boildown item 6, branch-delete-links).
+
+    WHY. 2026-10-06, a consumer session Booked its branch onto pre-staging and
+    its reply named no delete link. Only the other half -- work NOT yet
+    landed -- had anything enforcing it."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as pg
+    cases = []
+    saved = {k: os.environ.pop(k, None) for k in
+             ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR')}
+    env = _fixture_git_env()
+    for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR'):
+        env.pop(k, None)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-delete-link-'))
+    try:
+        up, repo = tmp / 'up.git', tmp / 'repo'
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        subprocess.run(['git', 'init', '--bare', '-q', '-b', 'trunk', str(up)], env=env)
+        subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], env=env)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'trunk',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        decl = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+            encoding='utf-8')) if r.get('id') == 'landed-branch-gets-its-delete-link']
+        (repo / 'reply_check.json').write_text(json.dumps(decl), encoding='utf-8')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'first')
+        g('remote', 'add', 'origin', str(up)); g('push', '-q', '-u', 'origin', 'trunk')
+        branch = 'claude/2026-10-06-thing-abcde'
+        g('switch', '-q', '-c', branch)
+        (repo / 'b.txt').write_text('two\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'second'); g('push', '-q', 'origin', branch)
+
+        def turn_start():
+            recs = []
+            pg._unlanded_work(repo, siblings=False, records=recs)
+            pg.record_turn_start_unlanded(repo, recs)
+            return recs
+
+        def replycheck(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**env, 'CLAUDE_PROJECT_DIR': str(repo),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        bare = 'Booked.\n\n## Boildown\n- The work of this session is now on: `trunk`.\n'
+        linked = bare + ('- Delete [the branch](https://github.com/o/r/branches/all?'
+                         'query=claude%2F2026-10-06-thing-abcde) when you like; it '
+                         'merged into `trunk`.\n')
+        recs = turn_start()
+        cases.append(('the turn start records the unlanded branch',
+                      [r['branch'] for r in recs] == [branch], str(recs)))
+        r0 = replycheck('before.md', bare)
+        cases.append(('not landed yet: no link is asked for',
+                      r0.returncode == 0, f'exit {r0.returncode}: {r0.stderr[:200]}'))
+        g('push', '-q', 'origin', f'{branch}:trunk')
+        r1 = replycheck('bare.md', bare)
+        cases.append(('landed during the turn, no link: refused, naming the '
+                      'branch and the link form',
+                      r1.returncode == 2 and branch in r1.stderr
+                      and 'branches/all?query=claude%2F2026-10-06-thing-abcde' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:300]}'))
+        r2 = replycheck('linked.md', linked)
+        cases.append(('...and the same reply with the link passes',
+                      r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:200]}'))
+        turn_start()
+        r3 = replycheck('next.md', bare)
+        cases.append(('the next turn, which began with it landed, asks nothing',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:200]}'))
+        src = (ROOT / 'tools' / 'precedent_gate.py').read_text(encoding='utf-8')
+        cases.append(('the reply gate writes the turn start',
+                      'record_turn_start_unlanded(root, _records)' in src, ''))
+    finally:
+        os.environ.update({k: v for k, v in saved.items() if v is not None})
+        shutil.rmtree(tmp, ignore_errors=True)
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a branch landed during the turn gets its delete link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_install_and_update_name_the_code_owners():
+    """Install and Update Vendors name a repository's code owners when it
+    names none: everyone GitHub lists with edit access, in precedent.json's
+    `maintainers`, or the person running it when GitHub cannot say. A list
+    already set -- there, in approvers.json or a CODEOWNERS file -- is never
+    touched.
+
+    WHY. Morgan, 2026-10-06 (strength: decided): the code owners are "those
+    who have access to edit *at that moment*. That becomes the started
+    default." Fifteen of his repositories named nobody that day, which hid
+    every code-owner practice from him in each of them."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    import precedent_audience as pa
+    import github_budget as gb
+    cases = []
+    saved_call = gb.call
+    saved_user = os.environ.get('PRECEDENT_GITHUB_USER')
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-maintainers-'))
+    try:
+        def fresh(name, text='{\n  "base_branch": "main",\n  "sources": []\n}\n'):
+            d = tmp / name
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', str(d)], env=_fixture_git_env(),
+                           capture_output=True)
+            (d / 'precedent.json').write_text(text, encoding='utf-8')
+            return d
+
+        a = fresh('a')
+        got, how = pve.seed_maintainers(a, logins=['alice', 'Bob'], today='2026-10-06')
+        cfg = json.loads((a / 'precedent.json').read_text(encoding='utf-8'))
+        cases.append(('a repository naming nobody gets the list written',
+                      got == ['alice', 'Bob']
+                      and cfg.get('maintainers') == [{'github': 'alice'}, {'github': 'Bob'}],
+                      f'{got} {cfg}'))
+        cases.append(('...which the code-owner check then reads',
+                      pa.owners(a)[0] == {'@alice', '@bob'}, str(pa.owners(a))))
+        cases.append(('...keeping the rest of the file as it was',
+                      (a / 'precedent.json').read_text(encoding='utf-8').endswith(
+                          '  "base_branch": "main",\n  "sources": []\n}\n'), ''))
+        got2, how2 = pve.seed_maintainers(a, logins=['mallory'])
+        cases.append(('a list already set is never rewritten',
+                      got2 == [] and 'already names' in how2, how2))
+
+        b = fresh('b')
+        (b / 'CODEOWNERS').write_text('* @carol\n', encoding='utf-8')
+        got3, how3 = pve.seed_maintainers(b, logins=['dave'])
+        cases.append(('a CODEOWNERS file counts as set',
+                      got3 == [] and 'maintainers' not in json.loads(
+                          (b / 'precedent.json').read_text(encoding='utf-8')), how3))
+
+        gb.call = lambda path, **k: ([
+            {'login': 'erin', 'type': 'User', 'permissions': {'push': True}},
+            {'login': 'frank', 'type': 'User', 'permissions': {'pull': True}},
+            {'login': 'helper[bot]', 'type': 'Bot', 'permissions': {'admin': True}},
+            {'login': 'gina', 'type': 'User', 'permissions': {'admin': True}}], None)
+        c = fresh('c')
+        subprocess.run(['git', '-C', str(c), 'remote', 'add', 'origin',
+                        'https://github.com/o/r.git'], capture_output=True)
+        got4, how4 = pve.seed_maintainers(c, today='2026-10-06')
+        cases.append(('from GitHub: everyone who can edit, readers and bots left out',
+                      got4 == ['erin', 'gina'] and 'edit access' in how4, f'{got4} {how4}'))
+
+        gb.call = lambda path, **k: (None, 'HTTP 403')
+        os.environ['PRECEDENT_GITHUB_USER'] = 'hank'
+        d = fresh('d')
+        subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin',
+                        'https://github.com/o/r.git'], capture_output=True)
+        got5, how5 = pve.seed_maintainers(d, today='2026-10-06')
+        cases.append(('GitHub unable to say: the person running it, and why',
+                      got5 == ['hank'] and 'person running' in how5 and '403' in how5,
+                      f'{got5} {how5}'))
+
+        for f, needle in (('precedent_update.py', 'maintainers_step(repo, rep)'),
+                          ('precedent_install.py', 'seed_maintainers(dest)')):
+            cases.append((f'{f} runs it',
+                          needle in (ROOT / 'tools' / f).read_text(encoding='utf-8'), ''))
+    finally:
+        gb.call = saved_call
+        if saved_user is None:
+            os.environ.pop('PRECEDENT_GITHUB_USER', None)
+        else:
+            os.environ['PRECEDENT_GITHUB_USER'] = saved_user
+        shutil.rmtree(tmp, ignore_errors=True)
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'install and update name the code owners when none are named '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_merge_instructions_give_the_full_head():
     """Every "merge it" line a Promote into main prints names the head commit
     in full.
@@ -47576,6 +47835,14 @@ def check_promote_marks_other_sessions_commits():
             cases.append(('the note names how many and asks for them by name',
                           '1 of these' in pb._other_work_note(others, 'work')
                           and pb._other_work_note([], 'work') == ''))
+            fix = 'promote-fix-20261006T193311-0300'
+            run('branch', fix, 'main')
+            shown, others = pb.mark_other_work(repo, batch, fix, sid='01Fixture')
+            cases.append(('a fix branch, which carries the whole batch, counts for '
+                          'nothing: another session\'s commit is still marked, '
+                          'and one with this session\'s line still is not',
+                          pb.is_fix_branch(fix) and "someone else's" in subj(others)
+                          and 'mine, Booked from another branch' not in subj(others)))
             shown, others = pb.mark_other_work(repo, batch, None, sid='')
             cases.append(('with no work branch and no session ID, nothing is marked',
                           not others and shown == batch))
@@ -62977,6 +63244,8 @@ def main():
     check_acronym_scan_skips_wrapped_code_spans()
     check_lint_flags_a_table_with_no_render()
     check_lint_runs_the_hosts_shim()
+    check_lint_refuses_an_open_item_waiting_on_an_upstream_fix()
+    check_upstream_fix_sets_up_the_fix_in_the_source()
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
@@ -63104,6 +63373,8 @@ def main():
     check_merge_refreshes_stale_views_as_its_own_commit()
     check_update_asks_before_changing_hooks()
     check_promote_branches_are_named_like_session_branches()
+    check_landed_branch_gets_its_delete_link()
+    check_install_and_update_name_the_code_owners()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()
