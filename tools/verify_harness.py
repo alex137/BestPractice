@@ -48715,7 +48715,8 @@ def check_gate_refusals_are_worded_by_their_tools():
     hooks = ROOT / 'tools'   # the real scripts, behind the stubs since 2026-10-07
     owned = {'doc-lint-gate.sh': 'FAILED on the Markdown staged',
              'push-check-gate.sh': 'Nothing lets a push past this',
-             'merge-check-gate.sh': 'Nothing lets a merge past this'}
+             'merge-check-gate.sh': 'Nothing lets a merge past this',
+             'commit-identity-push-gate.sh': 'asymmetry is the whole reason'}
     for name, phrase in owned.items():
         text = (hooks / name).read_text(encoding='utf-8')
         cases.append((f'{name} asks its tool for the words', '--hook-reason' in text))
@@ -48741,7 +48742,9 @@ def check_gate_refusals_are_worded_by_their_tools():
     for label, text in (('the commit gate', _dl.hook_reason('refused', marker) or ''),
                         ('the push gate on a failure', _ppc.hook_reason('1', marker) or ''),
                         ('the push gate on a timeout', _ppc.hook_reason('124', marker) or ''),
-                        ('the merge gate', _pmc.hook_reason('1', marker) or '')):
+                        ('the merge gate', _pmc.hook_reason('1', marker) or ''),
+                        ('the commit-identity push gate',
+                         _ppc.hook_reason('identity', marker) or '')):
         said = text.find('Nothing in the refused command ran')
         cases.append((f'{label} says nothing in the refused command ran, before the findings',
                       0 <= said < text.find(marker) and 'git status' in text))
@@ -48772,6 +48775,28 @@ def check_gate_refusals_are_worded_by_their_tools():
             except (ValueError, KeyError):
                 reason = ''
             cases.append((label, want(reason)))
+        # The commit-identity push gate, run for real: a check that finds
+        # something, and this repo's own tool wording the refusal.
+        repo = td / 'identity'
+        (repo / 'tools' / 'checks').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        shutil.copy(ROOT / 'tools' / 'precedent_push_check.py', repo / 'tools')
+        (repo / 'tools' / 'checks' / 'check_commit_author.py').write_text(
+            'print("AUTHOR-FINDING-9"); raise SystemExit(1)\n', encoding='utf-8')
+        payload = json.dumps({'tool_input': {'command': 'git commit -m x && git push'},
+                              'cwd': str(repo)})
+        r = subprocess.run(['bash', str(hooks / 'commit-identity-push-gate.sh')],
+                           input=payload, capture_output=True, text=True,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+        try:
+            reason = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+        except (ValueError, KeyError):
+            reason = ''
+        cases.append(('the commit-identity push gate denies in its tool\'s words, '
+                      'saying nothing ran',
+                      'commit-identity push gate REFUSED' in reason
+                      and 0 <= reason.find('Nothing in the refused command ran')
+                      < reason.find('AUTHOR-FINDING-9')))
     bad = [n for n, ok in cases if not ok]
     check(f'the gates refuse in their tools\' words ({len(cases)} stated cases)',
           not bad, '; '.join(bad))

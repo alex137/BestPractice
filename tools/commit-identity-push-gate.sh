@@ -197,23 +197,17 @@ fi
 
 [[ -n "$findings" ]] || exit 0
 
-reason="The commit-identity push gate REFUSED this push.
-
-These two checks are scope \`tree\`: they audit every commit reachable from
-HEAD, not just the ones this push adds. They ran in GitHub Actions until
-2026-09-21, when a practice source stopped running CI at all; this hook is
-what replaced them, which makes it the only thing standing between a
-mis-authored commit and a published branch.
-$findings
-Fix it before the commit is published. On an UNPUSHED commit this is one
-\`git commit --amend --reset-author\` (re-run under
-TZ=America/Argentina/Buenos_Aires for the offset); once it is on a shared
-branch, no-rewrite-for-warnings applies and the only honest route left is a
-grandfathered_commit_shas entry in identity.json with a reason. That
-asymmetry is the whole reason this gate sits before the push rather than
-after it.
-
-Nothing lets a push past this: fix the commit as above, then push again."
+# THE WORDS ARE THE TOOL'S (2026-10-07), as in push-check-gate.sh: this
+# script decides WHETHER to refuse; precedent_push_check.py --hook-reason
+# identity decides what the refusal says. The short line below is only for
+# an engine too old to answer, or none at all.
+tool="$project_dir/tools/precedent_push_check.py"
+reason=""
+if [[ -f "$tool" ]]; then
+    reason="$(printf '%s' "$findings" | (cd "$project_dir" && python3 "$tool" --hook-reason identity) 2>/dev/null)" || reason=""
+fi
+[[ -n "$reason" ]] || reason="The commit-identity push gate refused this push. Nothing in the refused command ran, a commit included.
+$findings"
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {
