@@ -5114,6 +5114,46 @@ def _new_hook_joins_the_registry(ctx):
                 'tools/precedent_vendor_engine.py',
                 f'HOOKS_NO_KIND names {n} with no reason'))
 
+    # Since 2026-10-07 a new hook is listed in tools/hook_wiring.json and run
+    # through the fixed precedent-hooks.sh entries; its script sits in
+    # tools/ and ships through HOOK_SCRIPT_FILES, like every stub's script.
+    scripts = set(getattr(pve, 'HOOK_SCRIPT_FILES', ()))
+    for n in sorted(scripts):
+        if not (root / 'tools' / n).is_file():
+            found.append(Finding('tools/precedent_vendor_engine.py',
+                                 f'HOOK_SCRIPT_FILES names {n}, which tools/ '
+                                 f'does not have'))
+    for n in sorted(shipped - scripts) if scripts else []:
+        found.append(Finding(f'{rel_dir}/{n}',
+                             f'is a stub whose script tools/{n} is not in '
+                             f'HOOK_SCRIPT_FILES, so no repo receives it'))
+    wiring_file = root / 'tools' / 'hook_wiring.json'
+    if wiring_file.is_file():
+        try:
+            later = json.loads(wiring_file.read_text(encoding='utf-8'))
+        except ValueError as e:
+            later = {}
+            found.append(Finding('tools/hook_wiring.json', f'does not parse: {e}'))
+        events = set(getattr(pve, 'DISPATCH_EVENTS', ()))
+        for kind, rows in (later or {}).items():
+            if kind.startswith('_'):
+                continue
+            if kind not in pve.HOOK_WIRING:
+                found.append(Finding('tools/hook_wiring.json',
+                                     f'lists a kind {kind!r} the engine does not know'))
+                continue
+            for r in rows or []:
+                sc = str((r or {}).get('script') or '')
+                if sc not in scripts:
+                    found.append(Finding('tools/hook_wiring.json',
+                                         f'{kind}: {sc or "an entry"} is not in '
+                                         f'HOOK_SCRIPT_FILES, so it never ships'))
+                if events and (r or {}).get('event') not in events:
+                    found.append(Finding('tools/hook_wiring.json',
+                                         f'{kind}: {sc} runs at '
+                                         f'{(r or {}).get("event")!r}, which no '
+                                         f'fixed precedent-hooks.sh entry covers'))
+
     def _wiring(settings_path):
         data = json.loads(settings_path.read_text(encoding='utf-8'))
         out = set()
@@ -5940,10 +5980,10 @@ def _timestamps_carry_offset(ctx):
                                                  'zone (`fallback_timezone`, the '
                                                  'rung that overrides the '
                                                  'engine\'s) could NOT be read'))
+    # The hook's script lives in tools/ since 2026-10-07; both .claude/hooks/
+    # and the template hold only the stub that runs it.
     for rel, pat in ((ENGINE, r"^FALLBACK_TZ\s*=\s*'([^']+)'"),
-                     ('.claude/hooks/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"'),
-                     ('templates/harness/claude-code/hooks/commit-identity.sh',
-                      r'^DEFAULT_TZ="([^"]+)"')):
+                     ('tools/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"')):
         f = ctx.root / rel
         if not f.exists():
             continue
@@ -5957,7 +5997,7 @@ def _timestamps_carry_offset(ctx):
     if len(set(declared.values())) > 1:
         detail = '; '.join(f'{k} says {v}' for k, v in sorted(declared.items()))
         out.append(Finding('', f'the ENGINE\'s fallback zone disagrees across '
-                               f'the three engine files that hold it -- '
+                               f'the engine files that hold it -- '
                                f'{detail}. One of them silently stamps a '
                                f'different offset than the others. (A repo\'s '
                                f'own `fallback_timezone` in precedent.json is '

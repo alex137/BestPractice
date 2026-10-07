@@ -1,0 +1,1229 @@
+#!/bin/bash
+# Claude Code adapter: SessionStart hook -- make a commit's author the
+# HUMAN running the session, not the container's own bot identity, without
+# anyone having to remember.
+#
+# practice: session-bootstrap
+#
+# THE PROBLEM. A hosted container asserts a GLOBAL git identity of its own
+# agent account at every session start -- deliberately, so that its commit
+# signatures verify -- and runs on a UTC clock. Any rule that says "commit
+# as yourself" is then an instruction competing with a default, on every
+# commit, forever. In one repository that produced six wrong-author commits
+# in three days before anyone counted; five of them had to be exempted by
+# SHA, because rewriting published history to fix them would have been
+# worse than the mistake.
+#
+# WHAT THIS DOES NOT DO: name a person. This script is installed in shared
+# repositories, so it resolves whoever is actually running the session,
+# in this order, and stops at the first answer:
+#
+#   1. PRECEDENT_COMMIT_NAME / PRECEDENT_COMMIT_EMAIL / PRECEDENT_COMMIT_TZ
+#      -- an explicit override, for anyone whose situation none of the rest
+#      of this fits.
+#   2. An identity.json in THIS repository's own root -- which means this
+#      repository IS somebody's individual practice source, and is declaring
+#      its owner. A source is then self-sufficient: it needs no user-level
+#      config pointing at itself to know whose it is.
+#   3. The person's own INDIVIDUAL practice source, if one resolves:
+#      $PRECEDENT_USER_CONFIG (or ~/.config/precedent/config.json) names its
+#      path, and an identity.json at the root of that source declares
+#      {"name", "email", "timezone"}. This is the architecturally right
+#      answer -- a person's individual set is exactly where person-specific
+#      facts belong, and a shared repo asking it is how the shared repo
+#      avoids knowing anything about any particular person.
+#
+#      identity.json IS THE ONE PLACE those three values live, for everyone.
+#      Anything else that needs them -- a settings.json `env` block, a
+#      mechanical check asserting who a repo's commits are authored by --
+#      derives from it and is checked against it, rather than restating it
+#      (practice: registry-source-of-truth).
+#   4. CCR_SESSION_ACCOUNT_EMAIL, when the harness provides the session
+#      owner's address.
+#   5. The GitHub account this session is authenticated as
+#      (`https://api.github.com/user`), which is the literal answer to "the
+#      GitHub user using it". Falls back to that account's
+#      <id>+<login>@users.noreply.github.com when the profile email is
+#      private.
+#   6. An identity already configured locally, as long as it is not the
+#      container's own bot identity -- the one thing that is never a human.
+#
+# Rung 5 with the account's numeric id in hand is AUTHENTICATED rather than
+# guessed: the id names one person and the session proves it holds the
+# account. That earns the global identity and the global bot-author backstop
+# (see `authenticated` below), never the exact-author refusal.
+#
+# CLOSING THE LOOP ON A GUESS. Rungs 4-6 are inferences, not declarations --
+# nobody chose them, this hook worked them out. When a commit is about to run
+# on one, this hook says so and invites the fix (below), but it cannot hear a
+# person answer -- only a live session can. So: when someone tells a session
+# running here their name (and, optionally, their email) for commits, that
+# session writes an identity.json for them (their individual source if one
+# resolves, else asks where) rather than letting the guess repeat next
+# session. See spec/COMMIT_IDENTITY_PLAN.md for why this replaced an earlier,
+# repo-scoped design -- BestPractice never needed a different identity than
+# the person running it; a repository cannot need one at all, since GitHub's
+# own verified-commit check is scoped to the signing account, never to a
+# repository.
+#
+# TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
+# explicit override, else the timezone in THIS repository's own
+# identity.json -- which only a person's individual source carries -- else
+# the individual source's identity.json, else the repo's declared
+# fallback_timezone, else America/New_York.
+#
+# THE PERSON'S ZONE FIRST, THE REPO'S ONLY AS A FALLBACK (Morgan,
+# 2026-09-25, evening, strength: decided): "is there a way to have the
+# individual timezone take precedence, if there is one? I meant the repo
+# timezone to be a fallback, in case there is no defined individual
+# timezone defined." That morning rung 3 had stopped supplying the zone
+# ("only use the individual one in the precedent-individual"), and the
+# same day a BestPractice-rooted session wrote -0400 commits into his
+# individual source: the global backstop below was generated with no zone
+# to enforce, so nothing refused them until a full check did. What the
+# morning change got right stays: his zone is applied to HIS commits, and
+# no shared repo's history is audited against it
+# (check_buenos_aires_dates.py stands down outside an individual source).
+#
+# The fallback is APPLIED but NOT ENFORCED, and the two halves have
+# different reasons:
+#
+#   APPLIED (the system zone is repointed, and the harness `env` block is
+#   written) because the alternative is not "no zone" -- it is the
+#   container's UTC, silently, and a record stamped +0000 by a person who is
+#   not in UTC cannot be ordered against one stamped by somebody else. Any
+#   consistent real offset restores the ordering; none does not. Morgan,
+#   2026-09-09: "if you can't find/get my timezone then use buenos aires
+#   timezone", after the same wrong-offset problem had come back repeatedly.
+#
+#   NOT ENFORCED (the pre-commit backstop does not refuse on it) because a
+#   fallback is this project's answer for a person it could not identify,
+#   and refusing that person's commit over a zone THEY never declared would
+#   block real work on a value they never saw. Only a timezone somebody
+#   actually declared is refused, because only then is a mismatch evidence
+#   of anything. Declaring one in identity.json is what turns the
+#   applied-only default into an enforced fact.
+#
+# WHAT THE pre-commit HOOK THIS INSTALLS REFUSES. Everywhere, under any
+# person: an author that is the container's bot, or empty. That one is
+# always safe, because it is never what anybody meant. Additionally, when
+# the identity came from a DECLARATION rather than an inference -- an
+# explicit override, or an identity.json -- the exact declared author and
+# the declared timezone. The line is the same in both halves: enforce what
+# somebody wrote down, never what this hook worked out for itself.
+#
+# FAILS GRACEFULLY: always exits 0. A SessionStart hook that can take a
+# session down over a git-config question is worse than the mistake it
+# prevents. The pre-commit hook it installs is the only part that refuses,
+# and only a commit, never a session, with an override in its own message.
+
+set -uo pipefail
+
+BOT_EMAIL="noreply@anthropic.com"
+# The declared fallback for a person whose zone could not be resolved.
+# Morgan, 2026-09-09 -- see the TIMEZONE section above for why a real
+# offset beats the container's UTC even when it is the wrong real offset.
+# registry-source-of-truth: tools/precedent_time.py's FALLBACK_TZ is the
+# same value for everything written into DOCUMENTS rather than into a
+# commit, and tools/precedent_check.py's `timestamps-carry-offset` check
+# asserts the two agree, plus this file's harness-template copy.
+DEFAULT_TZ="America/New_York"
+
+ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || exit 0
+
+name="" email="" zone="" source=""
+# Whether the identity came from something a PERSON DECLARED (an explicit
+# override, or an identity.json) rather than from something inferred about
+# the environment (the session account, the authenticated GitHub account, an
+# existing git config). Only a declaration is enforced as the exact author --
+# see the header.
+declared=0
+# Whether the identity came from the GitHub account this session is
+# AUTHENTICATED as, with the account's numeric id in hand (mechanism 5). Not a
+# declaration, and not a guess either: the id is unique to one person and
+# never changes, and the session proves it owns the account on every call.
+# It earns the two GLOBAL steps below -- the identity written globally and the
+# global backstop that refuses a bot-authored commit -- and nothing more: the
+# exact-author refusal stays declaration-only (Alex, 2026-09-30: "Or at least
+# have a unique identifier for me").
+authenticated=0
+
+_is_bot() {
+  case "${1:-}" in
+    *"$BOT_EMAIL"*) return 0 ;;
+  esac
+  [ "${2:-}" = "Claude" ]
+}
+
+# --- 1. explicit override
+if [ -n "${PRECEDENT_COMMIT_EMAIL:-}" ]; then
+  name="${PRECEDENT_COMMIT_NAME:-}"
+  email="$PRECEDENT_COMMIT_EMAIL"
+  source="PRECEDENT_COMMIT_* environment"
+  declared=1
+fi
+zone="${PRECEDENT_COMMIT_TZ:-}"
+# Where a declared zone came from: `env` (the override), `own` (this repo's
+# own identity.json) or `individual` (the person's individual source). All
+# three are the PERSON's zone, and every one is enforced everywhere.
+zone_from=""
+[ -n "$zone" ] && zone_from=env
+
+# --- 2. this repository's OWN identity.json -- it is an individual source
+_read_identity_file() {
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$1" <<'PY' 2>/dev/null
+import json, pathlib, sys
+try:
+    ident = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+except Exception:
+    raise SystemExit(1)
+print(ident.get('name') or '')
+print(ident.get('email') or '')
+print(ident.get('timezone') or '')
+PY
+}
+
+_take_identity() {  # $1 = three lines, $2 = where it came from, $3 = where a zone it supplies counts as coming from (default: own)
+  local i_name i_email i_zone
+  i_name="$(printf '%s\n' "$1" | sed -n '1p')"
+  i_email="$(printf '%s\n' "$1" | sed -n '2p')"
+  i_zone="$(printf '%s\n' "$1" | sed -n '3p')"
+  if [ -z "$email" ] && [ -n "$i_email" ]; then
+    name="$i_name"; email="$i_email"; source="$2"; declared=1
+  fi
+  if [ -z "$zone" ] && [ -n "$i_zone" ]; then
+    zone="$i_zone"
+    zone_from="${3:-own}"
+  fi
+}
+
+if [ -z "$email" ] || [ -z "$zone" ]; then
+  if [ -f "$ROOT/identity.json" ]; then
+    own="$(_read_identity_file "$ROOT/identity.json" || true)"
+    [ -n "$own" ] && _take_identity "$own" "this repository's own identity.json -- it is an individual practice source"
+  fi
+fi
+
+# --- 3. the individual practice source named by the user-level config --
+# the person's name, email and zone (see TIMEZONE above)
+if [ -z "$email" ] || [ -z "$zone" ]; then
+  cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
+  if [ -f "$cfg" ] && command -v python3 >/dev/null 2>&1; then
+    indiv="$(python3 - "$cfg" <<'PY' 2>/dev/null || true
+import json, pathlib, sys
+try:
+    cfg = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+except Exception:
+    raise SystemExit(0)
+print((cfg.get('individual') or {}).get('path') or '')
+PY
+)"
+    if [ -n "$indiv" ] && [ -f "$indiv/identity.json" ]; then
+      resolved="$(_read_identity_file "$indiv/identity.json" || true)"
+      [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json" individual
+    fi
+  fi
+fi
+
+# --- 4. the harness's own record of the session owner
+if [ -z "$email" ] && [ -n "${CCR_SESSION_ACCOUNT_EMAIL:-}" ]; then
+  email="$CCR_SESSION_ACCOUNT_EMAIL"
+  name="${email%%@*}"
+  source="the session account's own address"
+fi
+
+# --- 5. the GitHub account this session is authenticated as
+#
+# Sends an Authorization header when GH_TOKEN or GITHUB_TOKEN is set (same
+# precedence gh CLI itself uses), because the unauthenticated call this had
+# before only ever worked by accident, under one specific harness. Claude
+# Code Remote's own outbound proxy silently attaches GitHub credentials to
+# every HTTPS request, so a bare, header-less curl to api.github.com/user
+# succeeded here -- and nowhere else, since api.github.com/user requires
+# auth and answers 401 without it. Verified 2026-09-17 against each
+# platform's own docs (Codex Cloud, Gemini CLI): neither injects an ambient
+# GitHub credential into arbitrary outbound calls the way this proxy does;
+# both instead expect the person to export a token themselves (gh CLI setup
+# for Codex, GITHUB_PERSONAL_ACCESS_TOKEN for Gemini CLI's own GitHub MCP).
+# GITHUB_TOKEN is also what GitHub Actions itself sets automatically on
+# every runner, so this same change is what makes the call work there too.
+# Absent either variable, this falls through to mechanism 6 exactly as
+# before -- nothing about the fallback chain changes, only the odds that
+# this specific rung actually returns something outside Claude Code Remote.
+gh_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+if [ -z "$email" ] && command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+  # No token in the environment falls back to the pre-2026-09-17 bare call.
+  # That fallback is what makes this rung succeed under Claude Code Remote,
+  # whose own outbound proxy injects the credential this call never has to
+  # ask for. Everywhere else, api.github.com/user requires auth and an
+  # unauthenticated call comes back empty, which is correct: falling
+  # through to mechanism 6 is the honest answer when nothing here actually
+  # knows who is asking.
+  gh_auth_header=()
+  [ -n "$gh_token" ] && gh_auth_header=(-H "Authorization: Bearer $gh_token")
+  # PRECEDENT_GITHUB_USER_URL points the lookup elsewhere -- a test fixture
+  # (curl reads file:// URLs), so a harness can drive both answers without
+  # the network deciding which one it gets.
+  gh="$(curl -s --max-time 10 "${gh_auth_header[@]}" "${PRECEDENT_GITHUB_USER_URL:-https://api.github.com/user}" 2>/dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(0)
+login = d.get("login")
+if not login:
+    raise SystemExit(0)
+print(d.get("name") or login)
+print(d.get("email") or f"{d.get(chr(105)+chr(100), 0)}+{login}@users.noreply.github.com")
+uid = d.get(chr(105)+chr(100))
+print(uid if isinstance(uid, int) and uid > 0 else "")
+' 2>/dev/null || true)"
+  if [ -n "$gh" ]; then
+    name="$(printf '%s\n' "$gh" | sed -n '1p')"
+    email="$(printf '%s\n' "$gh" | sed -n '2p')"
+    gh_id="$(printf '%s\n' "$gh" | sed -n '3p')"
+    source="the GitHub account this session is authenticated as"
+    if [ -n "$gh_id" ] && ! _is_bot "$email" "$name"; then
+      authenticated=1
+      source="the GitHub account this session is authenticated as (id $gh_id)"
+    fi
+    # SAID, because nothing else will say it (2026-09-30, agreed with a
+    # consumer session): this rung is reached only when no identity.json is
+    # on disk, and that is exactly when the commit-author check stands down
+    # -- so an account that hides its email would commit as a noreply
+    # address, silently. One line, never a block.
+    [ -n "$email" ] && echo "NOTE: commit-identity: identity from $source -- $name <$email> -- not from identity.json: no individual set is on disk here, so nothing checks commits against a declared author this session." >&2
+  fi
+fi
+
+# --- 6. an identity already configured here, if it is not the bot's
+if [ -z "$email" ]; then
+  have_name="$(git -C "$ROOT" config --get user.name 2>/dev/null || true)"
+  have_email="$(git -C "$ROOT" config --get user.email 2>/dev/null || true)"
+  if [ -n "$have_email" ] && ! _is_bot "$have_email" "$have_name"; then
+    name="$have_name"; email="$have_email"; source="the identity already configured in this checkout"
+  fi
+fi
+
+# The REPO's own declared fallback, before the engine's. A person's zone is
+# person-level (identity.json); the answer for a person this project could
+# not identify is the repository's to choose, so an adopting repo sets it in
+# precedent.json rather than editing this vendored hook (practice:
+# layered-practice-packs, registry-source-of-truth). Same rung as
+# tools/precedent_time.py's `_repo_fallback_zone`, and the two are asserted
+# equal by the `timestamps-carry-offset` check.
+_repo_fallback_tz() {
+  local cfg="$ROOT/precedent.json"
+  [ -f "$cfg" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$cfg" <<'REPO_TZ' 2>/dev/null
+import json, sys
+try:
+    v = json.load(open(sys.argv[1])).get('fallback_timezone')
+except Exception:
+    v = None
+print(v.strip() if isinstance(v, str) else '')
+REPO_TZ
+  else
+    # No python3: a line-oriented read of the one key. Good enough for the
+    # flat "key": "value" this file is written in, and it fails to empty
+    # rather than to a wrong zone.
+    sed -n 's/.*"fallback_timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$cfg" | head -1
+  fi
+}
+
+if [ -z "$zone" ]; then
+  zone="$(_repo_fallback_tz)"
+  [ -n "$zone" ] || zone="$DEFAULT_TZ"
+  zone_is_guess=1
+else
+  zone_is_guess=0
+fi
+# ---- the person's CI cadence (spec/CI_CADENCE_PLAN.md)
+#
+# THE NAMES. Each setting is `github_ci_*` since 2026-09-25 (Morgan: "since
+# those refer only to github's tests, maybe we rename them all to start
+# with github_ci_ instead of ci_", strength: decided,
+# spec/BRANCH_TIERS_PLAN.md). The old `ci_*` name is still read wherever the
+# new one is absent, so nobody's file breaks, and the new one wins where a
+# file carries both.
+#
+# How often GitHub Actions runs in this person's PRIVATE repos: at most once
+# every `ci_every_hours` hours, read from the same identity.json as the
+# name and zone above -- this repository's own, then the individual source's.
+# 0 means every push, and 0 is what an absent, unreadable or invalid value
+# resolves to: skipping CI happens only when somebody asked for it by number
+# (Morgan, 2026-09-24: "unless explicitly changed, the github ci/cd should
+# run every time"). A repository can still override it in its own
+# precedent.json; the cadence script written below reads that at commit time.
+_personal_ci_every_hours() {
+  command -v python3 >/dev/null 2>&1 || { echo 0; return 0; }
+  python3 - "$ROOT/identity.json" "${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}" <<'CI_HOURS' 2>/dev/null || echo 0
+import json, os, pathlib, sys
+def load(p):
+    try:
+        return json.loads(pathlib.Path(os.path.expandvars(p)).expanduser()
+                          .read_text(encoding='utf-8'))
+    except Exception:
+        return None
+cands = [sys.argv[1]]
+cfg = load(sys.argv[2])
+if isinstance(cfg, dict):
+    path = (cfg.get('individual') or {}).get('path')
+    if isinstance(path, str) and path:
+        cands.append(os.path.join(path, 'identity.json'))
+for c in cands:
+    d = load(c)
+    for key in ('github_ci_every_hours', 'ci_every_hours'):
+        if isinstance(d, dict) and key in d:
+            v = d[key]
+            ok = isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+            print(repr(v) if ok else 0)
+            raise SystemExit(0)
+print(0)
+CI_HOURS
+}
+ci_every_hours="$(_personal_ci_every_hours)"
+case "$ci_every_hours" in
+  ''|*[!0-9.]*) ci_every_hours=0 ;;
+esac
+
+# The person's second switch, `ci_on_branches`, from the same files: false
+# means a commit on any branch but a private repo's primary one gets
+# [skip ci] every time, so pushes to working branches start no runner at
+# all. True -- and true is what an absent, unreadable or non-boolean value
+# resolves to -- leaves branches alone (Morgan, 2026-09-24: "I do NOT want
+# the github ci/cd active in the clones and other branch files", asked as a
+# flag each person sets for themselves).
+_personal_ci_on_branches() {
+  command -v python3 >/dev/null 2>&1 || { echo True; return 0; }
+  python3 - "$ROOT/identity.json" "${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}" <<'CI_BRANCHES' 2>/dev/null || echo True
+import json, os, pathlib, sys
+def load(p):
+    try:
+        return json.loads(pathlib.Path(os.path.expandvars(p)).expanduser()
+                          .read_text(encoding='utf-8'))
+    except Exception:
+        return None
+cands = [sys.argv[1]]
+cfg = load(sys.argv[2])
+if isinstance(cfg, dict):
+    path = (cfg.get('individual') or {}).get('path')
+    if isinstance(path, str) and path:
+        cands.append(os.path.join(path, 'identity.json'))
+for c in cands:
+    d = load(c)
+    for key in ('github_ci_on_branches', 'ci_on_branches'):
+        if isinstance(d, dict) and key in d:
+            print(False if d[key] is False else True)
+            raise SystemExit(0)
+print(True)
+CI_BRANCHES
+}
+ci_on_branches="$(_personal_ci_on_branches)"
+[ "$ci_on_branches" = False ] || ci_on_branches=True
+
+# From here on `zone` is always a real zone, never empty -- the fallback is
+# a decision this project made, not an absence. `zone_is_guess` now governs
+# ENFORCEMENT alone: whether a mismatch is evidence of a mistake. It no
+# longer governs whether the zone is APPLIED, which it did until 2026-09-09
+# and which is what left every unidentified person's commits on +0000.
+
+# ---- MAKE THE OFFSET RIGHT, rather than only refusing it afterwards
+#
+# The three mechanisms below this one all act AFTER git has already resolved
+# an offset: the pre-commit backstop refuses the commit, and the
+# settings.local.json derivation only takes effect from the next session,
+# because the harness reads environment before hooks run. So on the session
+# that most needs it -- a fresh container, first commit -- the person is told
+# to retype `TZ="..." git commit ...` on every commit, and the honest
+# question is why the wrong offset was allowed to be produced at all.
+#
+# git resolves a commit's offset from $TZ, and falls back to the SYSTEM zone
+# when TZ is unset. The system zone is the one lever a hook can actually move
+# mid-session that every later shell, every tool, and every `git merge` picks
+# up with no cooperation from any of them. So point the system zone at the
+# declared one and the wrong offset stops being produced at all.
+#
+# 2026-09-08, the measurement that produced this block: this container's
+# system zone was Etc/UTC, TZ was unset in every tool shell, and
+# .claude/settings.local.json already declared the right zone and was inert.
+# Every commit therefore got +0000 and was refused by the backstop -- working
+# as designed, and one layer too late. The same fix had already been made in
+# one consuming repo's own bootstrap.sh a day earlier; it belongs here, where
+# every repo gets it (practice: engine-plus-host-shims).
+#
+# THE FALLBACK IS APPLIED TOO, and this reverses what this block did until
+# 2026-09-09. It used to skip a zone it had not been told, on the reasoning
+# that changing a container's clock on a guess is worse than a warning. That
+# weighed the wrong pair: the alternative to applying the fallback was never
+# "leave the clock alone", it was "leave it on the container's UTC", so
+# every person this hook could not identify -- which, while the individual
+# practice source stays a private repo a session is often refused, is most
+# of them -- got +0000 on every commit and every document date. Refusing on
+# an undeclared zone is still wrong and still does not happen; writing one
+# is what makes the records orderable at all.
+#
+# NOT A REPLACEMENT FOR THE BACKSTOP. The system zone file may be read-only,
+# an explicit TZ= in the environment still wins over it, and this hook does
+# not run for a repository attached mid-session. The backstop stays the thing
+# that refuses; this is the thing that means it rarely has to.
+#
+# PRECEDENT_LOCALTIME overrides which file is repointed. It exists so this
+# block can be TESTED -- a test that had to write the machine's real clock
+# file would either not be written or be written to skip, which is how a
+# mechanism ends up with no coverage at all.
+_set_system_timezone() {
+  local want cur target
+  want="/usr/share/zoneinfo/$zone"
+  target="${PRECEDENT_LOCALTIME:-/etc/localtime}"
+  if [ ! -f "$want" ]; then
+    echo "NOTE: commit-identity: no zoneinfo file for the declared zone ($zone), so the system clock is left alone. Commits still need TZ=\"$zone\" git commit ..." >&2
+    return 0
+  fi
+  cur="$(date +%z 2>/dev/null || true)"
+  [ "$cur" = "$(TZ="$zone" date +%z 2>/dev/null || true)" ] && return 0
+  if ln -sf "$want" "$target" 2>/dev/null; then
+    if [ "$zone_is_guess" -eq 1 ]; then
+      echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)) -- the DECLARED FALLBACK, because no timezone was found for this person. Every commit and every generated date in this session now carries a real offset instead of the container's +0000, so records from different people can be ordered. Declare a timezone in your individual source's identity.json (or set PRECEDENT_COMMIT_TZ) and it becomes yours, and enforced." >&2
+    else
+      echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)), from the declared identity. Commits in THIS session now carry the right offset with no TZ= prefix -- that is prevention, where the pre-commit backstop is only refusal." >&2
+    fi
+  else
+    echo "WARN: commit-identity: the system timezone file is not writable, so this container stays on $cur while the resolved zone is $zone. Every commit here needs TZ=\"$zone\" git commit ... until that changes; the pre-commit backstop will refuse the ones that forget, where the zone was declared." >&2
+  fi
+}
+_set_system_timezone
+
+# ---- set what was resolved, locally, only when it would change something
+if [ -n "$email" ]; then
+  cur_name="$(git -C "$ROOT" config --local --get user.name 2>/dev/null || true)"
+  cur_email="$(git -C "$ROOT" config --local --get user.email 2>/dev/null || true)"
+  if [ "$cur_email" != "$email" ] || { [ -n "$name" ] && [ "$cur_name" != "$name" ]; }; then
+    [ -n "$name" ] && git -C "$ROOT" config --local user.name "$name" 2>/dev/null
+    git -C "$ROOT" config --local user.email "$email" 2>/dev/null
+    echo "NOTE: commit-identity: commits from this checkout will be authored as '${name:-$email}' <$email>, from $source." >&2
+    if [ "$declared" -eq 0 ] && [ "$authenticated" -eq 0 ]; then
+      echo "NOTE: commit-identity: that identity was inferred, not declared -- tell Claude your name (and email, if you want one other than the above) and it becomes permanent, written into your individual source's identity.json, the same way declaring a timezone already is." >&2
+    fi
+  fi
+else
+  echo "WARN: commit-identity: could not work out who is running this session, from any of the six sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it, or just tell Claude your name and email -- it will write an identity.json for you." >&2
+fi
+
+# ---- the SAME identity, GLOBALLY -- the half that reaches a repo which does
+#      not exist yet
+#
+# THE FAILURE THIS CLOSES, THREE TIMES OVER. Everything above configures ONE
+# checkout, at session start. A repository attached mid-session -- with
+# `add_repo`, or cloned, or `git init`ed during the turn -- was never seen by
+# that pass and inherits the container's GLOBAL identity instead, which is
+# the agent bot account. So the repo-local fix cannot, even in principle,
+# cover the case that keeps producing wrong-author commits. Measured
+# 2026-09-07, not assumed: `git config --global user.email` read
+# `noreply@anthropic.com`, and a repository created seconds later committed
+# as `Claude <noreply@anthropic.com>` with no warning.
+#
+# Setting the resolved identity globally covers every repository the session
+# will ever touch, including the ones it has not attached yet. It is the
+# difference between fixing N checkouts and fixing the default they all fall
+# back to.
+#
+# ONLY A DECLARED OR AUTHENTICATED IDENTITY IS WRITTEN GLOBALLY. An identity
+# this hook merely INFERRED -- from a leftover git config, or a session
+# account address -- is a guess, and a guess written into global config would
+# follow the user into every unrelated repository on the machine. A
+# declaration (an identity.json, or an explicit PRECEDENT_COMMIT_* override)
+# is somebody's stated answer to "who am I", and is safe to make the default.
+# So is the GitHub account the session is authenticated as, when the lookup
+# returns its numeric id: that is one person, proven on the call itself.
+# Until 2026-09-30 it counted as a guess, and a repository attached
+# mid-session inherited the bot account on a session that knew exactly who
+# was running it -- caught by hand before a commit, not by anything here.
+#
+# The bot identity is never treated as a thing worth preserving: it is what
+# is being displaced.
+_set_global_identity() {
+  [ "$declared" -eq 1 ] || [ "$authenticated" -eq 1 ] || return 0
+  [ -n "$email" ] || return 0
+  local g_name g_email g_gpgsign
+  g_name="$(git config --global --get user.name 2>/dev/null || true)"
+  g_email="$(git config --global --get user.email 2>/dev/null || true)"
+  g_gpgsign="$(git config --global --get commit.gpgsign 2>/dev/null || true)"
+  if [ "$g_email" = "$email" ] && [ "$g_name" = "$name" ] && [ "$g_gpgsign" != "true" ]; then
+    return 0                      # already right: no churn, no message
+  fi
+  [ -n "$name" ] && git config --global user.name "$name" 2>/dev/null
+  git config --global user.email "$email" 2>/dev/null
+  local gpgsign_note=""
+  if [ "$g_gpgsign" = "true" ]; then
+    # The container signs commits as its own bot identity by default, so
+    # GitHub can verify them -- deliberately, per THE PROBLEM above. Once a
+    # real person's identity is declared, their commits do not need that
+    # signature, and leaving it on means the stop hook keeps recommending
+    # the bot identity back, on every commit, which this same backstop then
+    # refuses -- forever, until one of them stops asking. Measured
+    # 2026-09-17: three commits in a row, in one session, before anyone
+    # traced why.
+    git config --global commit.gpgsign false 2>/dev/null
+    gpgsign_note=" Global commit signing (which asserted the container's own identity) is off now too, so it stops recommending that identity back."
+  fi
+  if _is_bot "$g_email" "$g_name"; then
+    echo "NOTE: commit-identity: the GLOBAL git identity was the container's own agent account ($g_email). Set to '${name:-$email}' <$email>, so a repository attached or cloned LATER in this session inherits a person rather than the bot -- which is the gap a per-checkout fix cannot close.$gpgsign_note" >&2
+  else
+    echo "NOTE: commit-identity: global git identity set to '${name:-$email}' <$email>, so repositories attached later in this session inherit it.$gpgsign_note" >&2
+  fi
+}
+_set_global_identity
+
+# ---- the CI cadence script, written beside the hooks that call it
+#
+# Why a commit message and not a CI job: GitHub starts no workflow for a
+# pushed head commit whose message says [skip ci], so no runner is allocated
+# and nothing is billed. A job that decides whether to skip is itself billed
+# a minute -- the retired ci_debounce_minutes, spec/BILLING_FLOOR.md.
+#
+# It tags a commit only when ALL of these hold, and leaves it alone on any
+# doubt, so every failure runs CI rather than skipping it:
+#   - the cadence is above 0: the repo's own precedent.json `ci_every_hours`
+#     if it has one, else this person's value, baked in below
+#   - the repo's precedent.json says "visibility": "private"
+#   - HEAD is the repo's declared `base_branch` (a working branch is decided
+#     by the branch switch below instead)
+#   - the newest commit on origin/<base_branch> WITHOUT a skip marker is less
+#     than that many hours old. ORIGIN, never local: two commits made before
+#     one push must not see each other, or the pushed head skips CI although
+#     none was run
+#   - PRECEDENT_CI_NOW=1 is not set
+#
+# On any OTHER branch it tags every commit when `ci_on_branches` resolves
+# false -- the repo's own precedent.json value, else the person's -- in a
+# private repo with a declared base_branch, unless PRECEDENT_CI_NOW=1. A repo
+# whose precedent.json sets `ci_every_hours` to 0 and says nothing about
+# branches runs CI on every push, branches included: that 0 is a repo saying
+# every push here must be checked. The cost of false: a pull request from a
+# tagged branch gets no CI run, so a REQUIRED status check never reports
+# until a commit is made with PRECEDENT_CI_NOW=1.
+_write_ci_cadence() {  # $1 = hooks directory
+  local f="$1/precedent-ci-cadence"
+  {
+    printf '#!/usr/bin/env python3\n'
+    printf '%s -- written by the commit-identity SessionStart hook; safe to\n' "$marker"
+    printf '# delete, it is rewritten at every session start. spec/CI_CADENCE_PLAN.md.\n'
+    printf 'PERSONAL_CI_EVERY_HOURS = %s\n' "$ci_every_hours"
+    printf 'PERSONAL_CI_ON_BRANCHES = %s\n' "$ci_on_branches"
+    cat <<'CADENCE'
+import json, os, re, subprocess, sys, time
+
+# Every marker GitHub honours, plus the skip-checks trailer (as of 2026-09).
+SKIP = re.compile(r'\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]'
+                  r'|^skip-checks:\s*true\s*$', re.I | re.M)
+
+
+def git(*args):
+    p = subprocess.run(['git', *args], capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def hours_of(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+        return 0
+    return float(v)
+
+
+def setting(cfg, name):
+    """-> (present, value) for `github_ci_<name>`, else the old `ci_<name>`."""
+    for key in ('github_ci_' + name, 'ci_' + name):
+        if key in cfg:
+            return True, cfg[key]
+    return False, None
+
+
+def on_branches(cfg):
+    """-> (bool, where): does CI run on a working branch of this repo?"""
+    has, v = setting(cfg, 'on_branches')
+    if has:
+        return v is not False, "this repo's precedent.json"
+    has, v = setting(cfg, 'every_hours')
+    if has and not hours_of(v):
+        return True, "this repo's precedent.json (github_ci_every_hours 0)"
+    return PERSONAL_CI_ON_BRANCHES is not False, 'your identity.json'
+
+
+def decide(msg):
+    """-> (marker line, note) when this commit should skip CI, else None.
+    None is the answer to every doubt."""
+    if os.environ.get('PRECEDENT_CI_NOW') == '1':
+        return None
+    root = git('rev-parse', '--show-toplevel')
+    if not root:
+        return None
+    try:
+        with open(os.path.join(root, 'precedent.json'), encoding='utf-8') as fh:
+            cfg = json.load(fh)
+    except Exception:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    if cfg.get('visibility') != 'private':
+        return None
+    base = cfg.get('base_branch')
+    if not isinstance(base, str) or not base:
+        return None
+    if SKIP.search(msg):
+        return None
+    head = git('symbolic-ref', '--short', '-q', 'HEAD')
+    if not head:
+        return None
+    if head != base:
+        run, where = on_branches(cfg)
+        if run:
+            return None
+        return ('[skip ci] -- working branch (github_ci_on_branches)',
+                f'ci-cadence: added [skip ci] -- {head} is not {base}, and '
+                f'{where} sets github_ci_on_branches to false. To run CI on '
+                f'this commit: PRECEDENT_CI_NOW=1 git commit ...')
+    # The repository's own github_ci_main_test has the final say on its
+    # primary branch (spec/CI_CADENCE_PLAN.md, "The repository decides"):
+    # "always" means every push there is tested, so nothing is tagged;
+    # "never" and a value that is none of the four leave nothing to skip; a
+    # number is the hours, whatever the person's own value says.
+    mode = cfg.get('github_ci_main_test')
+    if mode in ('always', 'never'):
+        return None
+    if mode is not None and mode != 'individual':
+        if isinstance(mode, bool) or not isinstance(mode, (int, float)) or mode < 0:
+            return None
+        has, v = True, mode
+    else:
+        has, v = setting(cfg, 'every_hours')
+    if has:
+        hours, where = hours_of(v), "this repo's precedent.json"
+    else:
+        hours, where = hours_of(PERSONAL_CI_EVERY_HOURS), 'your identity.json'
+    if not hours:
+        return None
+    log = git('log', '--first-parent', '-n', '500', '--format=%ct%x00%B%x1e',
+              f'refs/remotes/origin/{base}')
+    if not log:
+        return None
+    for entry in log.split('\x1e'):
+        entry = entry.lstrip('\n')
+        if not entry:
+            continue
+        ct, _, body = entry.partition('\x00')
+        if SKIP.search(body):
+            continue
+        try:
+            age = time.time() - int(ct)
+        except ValueError:
+            return None
+        if age >= hours * 3600:
+            return None
+        return (f'[skip ci] -- CI ran within the last {hours:g}h (github_ci_every_hours)',
+                f'ci-cadence: added [skip ci] -- CI last ran on origin/{base} '
+                f'{age / 3600:.1f}h ago, and {where} sets github_ci_every_hours to '
+                f'{hours:g}. To run CI on this commit: PRECEDENT_CI_NOW=1 git commit ...')
+    return None
+
+
+def main():
+    if len(sys.argv) < 2:
+        return
+    path = sys.argv[1]
+    with open(path, encoding='utf-8') as fh:
+        msg = fh.read()
+    got = decide(msg)
+    if not got:
+        return
+    line, note = got
+    first, _, rest = msg.partition('\n')
+    if first.strip() and not first.startswith('#'):
+        # After the subject, before the body, so a trailer block at the end
+        # (Co-Authored-By and the like) stays the last paragraph.
+        new = f'{first}\n\n{line}\n' + (rest if rest.strip() else '')
+    else:
+        # An editor template with no subject yet: the person's text goes on
+        # top, so the marker goes below everything.
+        new = msg.rstrip('\n') + f'\n\n{line}\n'
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write(new)
+    print(note, file=sys.stderr)
+
+
+try:
+    main()
+except Exception:
+    pass
+sys.exit(0)
+CADENCE
+  } > "$f" 2>/dev/null && chmod +x "$f" 2>/dev/null || true
+}
+
+# ---- the person's own commit-time fixer
+#
+# The two backstops below REFUSE a commit that is wrong. Some things are
+# better never wrong at all: a step a person must remember before every
+# commit is a step that will one day be forgotten (Morgan, 2026-09-27, on a
+# version header a session left unbumped). So an individual source may ship
+# `bootstrap/pre-commit-fix`, and both backstops run it before every commit,
+# in every repository, from wherever that source is cloned. What it fixes
+# is the person's business -- this hook only calls it, never lets it refuse
+# a commit, and does nothing when it is absent. Resolved the way everything
+# else here finds the individual source: the user-level config, or this
+# repository itself when it IS that source.
+person_fixer=""
+_fix_cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
+if [ -f "$_fix_cfg" ] && command -v python3 >/dev/null 2>&1; then
+  _fix_src="$(python3 - "$_fix_cfg" <<'PY' 2>/dev/null || true
+import json, pathlib, sys
+try:
+    cfg = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+except Exception:
+    raise SystemExit(0)
+print((cfg.get('individual') or {}).get('path') or '')
+PY
+)"
+  [ -n "$_fix_src" ] && person_fixer="$_fix_src/bootstrap/pre-commit-fix"
+fi
+if [ -z "$person_fixer" ] && [ -f "$ROOT/identity.json" ]; then
+  person_fixer="$ROOT/bootstrap/pre-commit-fix"
+fi
+
+# ---- the pre-commit backstop
+gp="$(git -C "$ROOT" rev-parse --git-path hooks 2>/dev/null || true)"
+[ -n "$gp" ] || exit 0
+case "$gp" in
+  /*) hooks_dir="$gp" ;;
+   *) hooks_dir="$ROOT/$gp" ;;
+esac
+mkdir -p "$hooks_dir" 2>/dev/null || true
+target="$hooks_dir/pre-commit"
+marker="# precedent:commit-identity"
+
+# Never clobber a pre-commit hook somebody else put here. Ours is
+# recognised by its marker; anything else is left alone, out loud.
+if [ -e "$target" ] && ! grep -q "$marker" "$target" 2>/dev/null; then
+  echo "WARN: commit-identity: $target already exists and is not this one -- leaving it alone. The author backstop is NOT installed in this checkout." >&2
+  exit 0
+fi
+
+expected_offset=""
+if [ "$zone_is_guess" -eq 0 ]; then
+  expected_offset="$(TZ="$zone" date +%z 2>/dev/null || true)"
+fi
+expected_name="" expected_email=""
+if [ "$declared" -eq 1 ]; then
+  expected_name="$name"
+  expected_email="$email"
+fi
+
+cat > "$target" <<HOOK
+#!/bin/sh
+$marker -- installed by the commit-identity SessionStart hook; safe to
+# delete, it is rewritten at every session start.
+#
+# \`git var GIT_AUTHOR_IDENT\` is the identity git is ABOUT to record, with
+# config, environment and TZ already resolved -- so this checks the value,
+# not the settings that were supposed to produce it.
+set -u
+
+# The CI cadence step (spec/CI_CADENCE_PLAN.md). It runs only as
+# prepare-commit-msg -- the one hook git hands the message to -- and all it
+# can ever do is ADD a [skip ci] line. It never refuses a commit, and any
+# failure inside it leaves the message alone, so CI runs. It sits ABOVE the
+# author override below, which waives the identity checks and nothing else.
+case "\$0" in
+  *prepare-commit-msg)
+    _cad="\$(dirname "\$0")/precedent-ci-cadence"
+    [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
+# The engine's field-order tidy (frontmatter_yaml.py --fix-staged), FIRST:
+# it reorders the staged practice files of a practice source, and the
+# person's fixer below may stamp a header that has to land on the final
+# content. Only where the repository declares itself a source; it never
+# refuses a commit (spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+case "\$0" in
+  *pre-commit)
+    _top0="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "\$_top0" ] && [ -f "\$_top0/precedent-source.json" ] && [ -f "\$_top0/tools/frontmatter_yaml.py" ]; then
+      python3 "\$_top0/tools/frontmatter_yaml.py" --fix-staged || true
+    fi
+    ;;
+esac
+
+# The person's own commit-time fixer, when their individual source ships one
+# (bootstrap/pre-commit-fix): it FIXES the commit before it is made -- a
+# version header that has to move with the content, say -- and never refuses
+# it. Above the author override, which waives the identity checks only.
+case "\$0" in
+  *pre-commit)
+    _fix="$person_fixer"
+    if [ -n "\$_fix" ] && [ -x "\$_fix" ]; then "\$_fix" || true; fi
+    ;;
+esac
+
+# The engine's own commit-time fixer (spec/GENERATED_FILES_PLAN.md step 3):
+# it rebuilds the generated files whose inputs this commit touches, with the
+# repository's own copy of the engine, and stages them, so a generated file
+# never goes out stale and nobody has to remember. It never refuses a commit.
+# After the person's fixer: a header that fixer stamps on a source (MAP.source.md,
+# say) must be in place before the view is rebuilt from it, or the view goes out
+# stale (found 2026-10-03 rehearsing a consumer).
+case "\$0" in
+  *pre-commit)
+    _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    for _rg in "\$_top/tools/precedent_regenerate.py" "\$_top/process/upstream/tools/precedent_regenerate.py"; do
+      if [ -n "\$_top" ] && [ -f "\$_rg" ]; then python3 "\$_rg" --staged || true; break; fi
+    done
+    ;;
+esac
+
+[ "\${PRECEDENT_ALLOW_ANY_AUTHOR:-}" = "1" ] && exit 0
+
+ident="\$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)"
+[ -n "\$ident" ] || exit 0
+
+name="\${ident%% <*}"
+rest="\${ident#*<}"
+email="\${rest%%>*}"
+offset="\${ident##* }"
+
+# REFUSED, always: the container's own bot identity, which is never a
+# human, and an empty author.
+case "\$email" in
+  *$BOT_EMAIL*)
+    echo "commit refused: it would be authored by the container's own agent account (\$email), not by a person." >&2
+    echo "  git config user.name 'Your Name' && git config user.email 'you@example.com'" >&2
+    echo "  (or start a session with the SessionStart hook that resolves this automatically)" >&2
+    echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2
+    exit 1
+    ;;
+esac
+if [ -z "\$email" ] || [ -z "\$name" ]; then
+  echo "commit refused: the author name or email is empty." >&2
+  exit 1
+fi
+
+# Enforced only where somebody DECLARED an identity (an identity.json, or
+# an explicit override). Where this hook merely inferred one -- from the
+# authenticated GitHub account, say -- a different author is not evidence
+# of a mistake, so it passes.
+expected_name="$expected_name"
+expected_email="$expected_email"
+if [ -n "\$expected_email" ] && { [ "\$email" != "\$expected_email" ] || [ "\$name" != "\$expected_name" ]; }; then
+  echo "commit refused: author is '\$name' <\$email>, but the declared identity is '\$expected_name' <\$expected_email>." >&2
+  echo "  git config user.name '\$expected_name' && git config user.email '\$expected_email'" >&2
+  echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2
+  exit 1
+fi
+
+# The timezone is enforced ONLY when somebody actually declared one.
+# A default is a guess, and refusing a commit on a guess would be enforcing
+# something this hook made up.
+expected_offset="$expected_offset"
+if [ -n "\$expected_offset" ] && [ "\$offset" != "\$expected_offset" ]; then
+  echo "commit refused: author-date offset is '\$offset', but the declared timezone ($zone) is '\$expected_offset'." >&2
+  echo "  TZ=\"$zone\" git commit ..." >&2
+  echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2
+  exit 1
+fi
+exit 0
+HOOK
+chmod +x "$target" 2>/dev/null || true
+
+# ---- the SAME backstop, wired for MERGE commits
+#
+# git does NOT run pre-commit for a merge commit. It runs prepare-commit-msg
+# instead, and a non-zero exit there aborts the commit just the same. So the
+# hook above -- the layer this script exists to provide -- was silent on the
+# one commit kind nobody types by hand.
+#
+# practice: buenos-aires-dates, and cite-the-incident. Reproduced 2026-09-07
+# in a throwaway clone with the pre-commit hook installed: `TZ=UTC git merge
+# side` produced a merge commit dated +0000 and the hook never fired. That
+# is not hypothetical -- it is how commit d85fcc9 reached this repo's own
+# main an hour earlier, from a session that had been careful to run every
+# `git commit` under the right TZ and had not thought about `git merge`.
+#
+# The hook body ignores its arguments, so the same file serves both roles
+# (prepare-commit-msg is handed a message path, a source and a sha; this one
+# reads only `git var GIT_AUTHOR_IDENT`, which is already resolved by then).
+# Same marker, so the same never-clobber rule applies.
+merge_target="$hooks_dir/prepare-commit-msg"
+if [ -e "$merge_target" ] && ! grep -q "$marker" "$merge_target" 2>/dev/null; then
+  echo "WARN: commit-identity: $merge_target already exists and is not this one -- leaving it alone. MERGE commits are NOT backstopped in this checkout." >&2
+else
+  cp "$target" "$merge_target" 2>/dev/null && chmod +x "$merge_target" 2>/dev/null || true
+  _write_ci_cadence "$hooks_dir"
+fi
+
+# ---- make the DECLARED timezone the session's own, not a thing to retype
+#
+# The pre-commit backstop above refuses a commit whose offset contradicts a
+# declared timezone. That is correct and it is not enough: a hook cannot
+# export TZ into the shells a session runs later, so the person is told the
+# remedy (`TZ="..." git commit ...`) and then types it on every commit,
+# forever. 2026-09-07, the incident that produced this block: a session had
+# been running under exactly that arrangement all day, and the complaint was
+# the right one -- "I'd rather a permanent fix than my having to do that
+# manually."
+#
+# So the resolved zone is written where the harness reads environment for the
+# WHOLE session: .claude/settings.local.json's `env` block. That file is
+# per-machine and untracked, which is what makes this safe in a SHARED repo --
+# .claude/settings.json is committed and must not carry one contributor's
+# zone (this repo's own settings.json comment says exactly that), while
+# settings.local.json is that contributor's alone.
+#
+# registry-source-of-truth: identity.json stays the ONE place the zone is
+# declared, and this block DERIVES the env from it at every session start,
+# overwriting a stale value rather than treating it as a second declaration.
+#
+# The DECLARED FALLBACK is derived here too, since 2026-09-09, for the same
+# reason the system zone is (see _set_system_timezone). A session that
+# starts with TZ unset resolves the container's UTC in every tool that asks
+# the clock -- including tools/precedent_time.py, whose own ladder reads
+# this env block at rung 4 -- and UTC-because-nobody-said is the state being
+# replaced. Overwritten at every session start, so it stops being the
+# fallback the moment a real zone resolves.
+#
+# It takes effect from the NEXT session -- environment is read before hooks
+# run -- so this session still gets the refusal and the remedy line. Said out
+# loud below rather than left to be discovered.
+_derive_session_tz() {
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - "$ROOT/.claude/settings.local.json" "$zone" <<'DERIVE_TZ' 2>/dev/null
+import json, pathlib, sys
+path, zone = pathlib.Path(sys.argv[1]), sys.argv[2]
+try:
+    data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    if not isinstance(data, dict):
+        raise SystemExit(0)
+except Exception:
+    # An unparseable settings.local.json is somebody's problem to fix, not
+    # this hook's to overwrite. Say nothing and change nothing.
+    raise SystemExit(0)
+env = data.get('env')
+if not isinstance(env, dict):
+    env = {}
+if env.get('TZ') == zone:
+    raise SystemExit(0)                          # already right: no churn
+env['TZ'] = zone
+data['env'] = env
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+print('written')
+DERIVE_TZ
+}
+
+if [ "$(_derive_session_tz)" = "written" ]; then
+  if [ "$zone_is_guess" -eq 1 ]; then
+    echo "NOTE: commit-identity: wrote TZ=$zone into $ROOT/.claude/settings.local.json (untracked, per-machine) -- the DECLARED FALLBACK, not this person's own zone. It applies from the NEXT session on; declaring a timezone in identity.json replaces it at the next session start." >&2
+  else
+    echo "NOTE: commit-identity: wrote TZ=$zone into $ROOT/.claude/settings.local.json (untracked, per-machine), derived from the declared identity. It applies from the NEXT session on -- environment is read before hooks run -- so commits in THIS session may still need TZ=\"$zone\" git commit ..." >&2
+  fi
+  if ! git -C "$ROOT" check-ignore -q .claude/settings.local.json 2>/dev/null; then
+    echo "WARN: commit-identity: .claude/settings.local.json is NOT gitignored here. It is a per-machine file, and committing it would push one person's timezone onto everyone -- add it to .gitignore." >&2
+  fi
+fi
+
+# ---- the SAME backstop, GLOBALLY, for repositories that do not exist yet
+#
+# Global identity (above) fixes the DEFAULT a new repository inherits. This
+# fixes the case where something overrides that default anyway -- a repo
+# carrying its own stale `user.email`, a tool setting one, a clone that
+# arrives pre-configured. A hook installed into one checkout cannot fire in a
+# repository attached ten minutes later; `core.hooksPath` is the only setting
+# that reaches all of them at once, including the ones not created yet.
+#
+# CHAINING IS NOT OPTIONAL. `core.hooksPath` makes git look THERE AND NOWHERE
+# ELSE, so a global hooks directory silently disables every repository's own
+# `.git/hooks/*`. That would be a worse bug than the one being fixed -- a
+# repo's own pre-commit gate vanishing without a word. So each hook here runs
+# the repository's own hook of the same name first, when it has one, and
+# refuses if that one refuses.
+#
+# Skipped entirely if core.hooksPath is already set to something else: that is
+# somebody's deliberate configuration, and stealing it is exactly the silent
+# override this block exists to avoid.
+_install_global_backstop() {
+  [ "$declared" -eq 1 ] || [ "$authenticated" -eq 1 ] || return 0
+  local dir existing
+  dir="${PRECEDENT_GLOBAL_HOOKS:-$HOME/.config/precedent/git-hooks}"
+  existing="$(git config --global --get core.hooksPath 2>/dev/null || true)"
+  if [ -n "$existing" ] && [ "$existing" != "$dir" ]; then
+    echo "NOTE: commit-identity: global core.hooksPath is already set to '$existing' -- leaving it alone. The global commit backstop is NOT installed; a repository attached later is protected by the global identity above, but nothing will refuse a wrong author there." >&2
+    return 0
+  fi
+  mkdir -p "$dir" 2>/dev/null || return 0
+
+  for hook in pre-commit prepare-commit-msg; do
+    cat > "$dir/$hook" <<GLOBALHOOK
+#!/bin/sh
+$marker -- GLOBAL backstop, installed by the commit-identity hook.
+# Reaches every repository on this machine, including ones attached or
+# cloned after the session started -- the case a per-checkout hook cannot
+# cover. Safe to delete; it is rewritten at every session start.
+set -u
+
+# The repository's OWN hook of this name still runs, and still decides.
+# core.hooksPath would otherwise disable it silently.
+# NOT \`rev-parse --git-path hooks\`: that RESPECTS core.hooksPath, so once
+# this backstop is installed it resolves to the global directory and the
+# repository's own hook is never found. Ask for the git dir itself.
+_gitdir="\$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+_own="\$_gitdir/hooks/$hook"
+if [ -x "\$_own" ] && ! grep -q "$marker" "\$_own" 2>/dev/null; then
+  "\$_own" "\$@" || exit \$?
+fi
+
+# The CI cadence step (spec/CI_CADENCE_PLAN.md). It runs only as
+# prepare-commit-msg -- the one hook git hands the message to -- and all it
+# can ever do is ADD a [skip ci] line. It never refuses a commit, and any
+# failure inside it leaves the message alone, so CI runs. It sits ABOVE the
+# author override below, which waives the identity checks and nothing else.
+case "\$0" in
+  *prepare-commit-msg)
+    _cad="\$(dirname "\$0")/precedent-ci-cadence"
+    [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
+# The engine's field-order tidy (frontmatter_yaml.py --fix-staged), FIRST:
+# it reorders the staged practice files of a practice source, and the
+# person's fixer below may stamp a header that has to land on the final
+# content. Only where the repository declares itself a source; it never
+# refuses a commit (spec/PRACTICE_STANDING_AND_RECHECK_PLAN.md).
+case "\$0" in
+  *pre-commit)
+    _top0="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "\$_top0" ] && [ -f "\$_top0/precedent-source.json" ] && [ -f "\$_top0/tools/frontmatter_yaml.py" ]; then
+      python3 "\$_top0/tools/frontmatter_yaml.py" --fix-staged || true
+    fi
+    ;;
+esac
+
+# The person's own commit-time fixer, when their individual source ships one
+# (bootstrap/pre-commit-fix): it FIXES the commit before it is made -- a
+# version header that has to move with the content, say -- and never refuses
+# it. Above the author override, which waives the identity checks only.
+case "\$0" in
+  *pre-commit)
+    _fix="$person_fixer"
+    if [ -n "\$_fix" ] && [ -x "\$_fix" ]; then "\$_fix" || true; fi
+    ;;
+esac
+
+# The engine's own commit-time fixer (spec/GENERATED_FILES_PLAN.md step 3):
+# it rebuilds the generated files whose inputs this commit touches, with the
+# repository's own copy of the engine, and stages them, so a generated file
+# never goes out stale and nobody has to remember. It never refuses a commit.
+# After the person's fixer: a header that fixer stamps on a source (MAP.source.md,
+# say) must be in place before the view is rebuilt from it, or the view goes out
+# stale (found 2026-10-03 rehearsing a consumer).
+case "\$0" in
+  *pre-commit)
+    _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    for _rg in "\$_top/tools/precedent_regenerate.py" "\$_top/process/upstream/tools/precedent_regenerate.py"; do
+      if [ -n "\$_top" ] && [ -f "\$_rg" ]; then python3 "\$_rg" --staged || true; break; fi
+    done
+    ;;
+esac
+
+[ "\${PRECEDENT_ALLOW_ANY_AUTHOR:-}" = "1" ] && exit 0
+
+ident="\$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)"
+[ -n "\$ident" ] || exit 0
+name="\${ident%% <*}"
+rest="\${ident#*<}"
+email="\${rest%%>*}"
+offset="\${ident##* }"
+
+case "\$email" in
+  *$BOT_EMAIL*)
+    echo "commit refused: it would be authored by the container's own agent account (\$email), not by a person." >&2
+    echo "  This is the GLOBAL backstop -- it fires in every repository, including one attached mid-session." >&2
+    echo "  git config user.name '$name' && git config user.email '$email'" >&2
+    echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2
+    exit 1
+    ;;
+esac
+if [ -z "\$email" ] || [ -z "\$name" ]; then
+  echo "commit refused: the author name or email is empty." >&2
+  exit 1
+fi
+
+expected_offset="$expected_offset"
+# The person's declared zone, enforced in every repository they commit to:
+# it is theirs, not the repo's (see TIMEZONE in commit-identity.sh). Empty
+# when no zone was declared -- a fallback is applied, never enforced.
+if [ -n "\$expected_offset" ] && [ "\$offset" != "\$expected_offset" ]; then
+  echo "commit refused: author-date offset is '\$offset', but the declared timezone ($zone) is '\$expected_offset'." >&2
+  echo "  TZ=\"$zone\" git commit ..." >&2
+  echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2
+  exit 1
+fi
+exit 0
+GLOBALHOOK
+    chmod +x "$dir/$hook" 2>/dev/null || true
+  done
+
+  # EVERY OTHER HOOK NAME, PASSED STRAIGHT THROUGH (2026-09-25). The two
+  # above chained; nothing else did, so for as long as this backstop has
+  # existed a repository's own pre-push, commit-msg, post-checkout and the
+  # rest never ran here -- found while wiring the push check, when
+  # templates/hooks/pre-push (the leak gate) turned out to be dead on
+  # arrival in any repo that installed it. git-lfs lives in exactly these
+  # hooks, so a large-file repo pushed pointers without their content. Each
+  # of these only runs the repository's own hook, with its arguments and
+  # stdin, and does nothing when there is none. `--git-common-dir` rather
+  # than the git dir, so a linked worktree finds the hooks it shares.
+  # reference-transaction and post-index-change are left out on purpose:
+  # git calls them on nearly every command, and a shell per call to find
+  # nothing is a cost every repository would pay.
+  for hook in applypatch-msg pre-applypatch post-applypatch commit-msg \
+              pre-merge-commit post-commit pre-rebase post-checkout \
+              post-merge pre-push post-rewrite pre-auto-gc \
+              sendemail-validate; do
+    cat > "$dir/$hook" <<PASSTHROUGH
+#!/bin/sh
+$marker -- GLOBAL pass-through, installed by the commit-identity hook.
+# core.hooksPath points every repository here, so without this file a
+# repository's own $hook would never run. Safe to delete; rewritten at
+# every session start.
+_common="\$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
+_own="\$_common/hooks/$hook"
+if [ -n "\$_common" ] && [ -x "\$_own" ] && ! grep -q "$marker" "\$_own" 2>/dev/null; then
+  exec "\$_own" "\$@"
+fi
+exit 0
+PASSTHROUGH
+    chmod +x "$dir/$hook" 2>/dev/null || true
+  done
+  _write_ci_cadence "$dir"
+
+  if [ "$existing" != "$dir" ]; then
+    git config --global core.hooksPath "$dir" 2>/dev/null && \
+      echo "NOTE: commit-identity: installed a GLOBAL commit backstop at $dir (core.hooksPath). It refuses a bot-authored or wrong-timezone commit in EVERY repository, including ones attached after this session started, and chains to each repository's own hook of the same name rather than replacing it." >&2
+  fi
+}
+_install_global_backstop
+
+# The applied fallback is said out loud even when it changed nothing this
+# session, because "your commits are stamped -0300" is a fact about somebody
+# else's zone and a person should never have to discover it from a file.
+if [ "$zone_is_guess" -eq 1 ]; then
+  # The zone's OWN offset, not `date +%z`. Reading the machine clock here
+  # reports whatever the repoint achieved -- so a failed or overridden
+  # repoint would print the fallback's NAME beside some other zone's offset,
+  # which is a worse statement than saying nothing.
+  cur_offset="$(TZ="$zone" date +%z 2>/dev/null || true)"
+  echo "NOTE: commit-identity: no timezone is declared anywhere for this person, so commits and generated dates use the DECLARED FALLBACK $zone ($cur_offset). That is deliberate -- a real offset can be ordered against other people's records; the container's UTC cannot be told from a genuine one. It is applied, never enforced: declare a timezone in your individual source's identity.json, or set PRECEDENT_COMMIT_TZ, and it becomes yours and enforced." >&2
+fi
+
+exit 0

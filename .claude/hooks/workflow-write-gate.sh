@@ -1,46 +1,29 @@
 #!/bin/bash
-# Claude Code adapter: PreToolUse hook that REFUSES writing a GitHub Actions
-# workflow file straight onto GitHub through a file-write tool.
+# PRECEDENT HOOK STUB. Every engine hook in .claude/hooks/ is this same file,
+# byte for byte, and it is never edited: it runs the real script of the same
+# name from the engine, tools/<this file's name>, which Update Vendors keeps
+# current like any other engine file.
 #
-# WHY THIS EXISTS (practice: ci-workflow-approved, 2026-09-26). A session can
-# change a repository two ways: edit a clone and `git push` it, or write a
-# file straight onto GitHub with a tool such as the GitHub MCP server's
-# create_or_update_file or push_files. The push gate checks every workflow
-# file on the first route. The second never passes a push, so a session
-# could add a workflow nobody approved and it would bill from the moment it
-# landed. Morgan, 2026-09-26: "please implement your idea".
+# WHY (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+# Claude Code's auto mode holds any commit that changes a file under .claude/
+# until the person says yes, and the hook scripts changed upstream on 27 days
+# in one month, so nearly every Update Vendors stopped to ask about a change
+# nobody needed to judge. The logic lives in tools/ now; this file, and so
+# .claude/, stays the same. What a gate does arrives with the engine, under
+# the person's "Update Vendors", after BestPractice's own full check.
 #
-# WHAT IT DOES. Any path under .github/workflows/ ending .yml or .yaml in the
-# tool's input is refused, and the session is told to make the change in a
-# clone and push it, where ci-workflow-approved checks the file against the
-# person's approval. It does not try to read approvals over the network: the
-# push route already does that properly, so this door only has to point at
-# it. Deleting a workflow is not a write and is let through.
-#
-# FAIL-OPEN ON THE PLUMBING (practice: fail-gracefully): no jq, or input it
-# cannot read, lets the call through.
-set -euo pipefail
-
-input="$(cat)"
-command -v jq >/dev/null 2>&1 || exit 0
-
-paths="$(printf '%s' "$input" | jq -r '
-  [.tool_input.path // empty,
-   ((.tool_input.files // []) | .[]? | .path // empty)] | .[]' 2>/dev/null || true)"
-hits="$(printf '%s\n' "$paths" | grep -E '^/?\.github/workflows/[^/]+\.ya?ml$' || true)"
-[[ -n "$hits" ]] || exit 0
-
-reason="Writing a GitHub Actions workflow straight onto GitHub is refused (practice: ci-workflow-approved):
-
-$hits
-
-A workflow file bills minutes on every run, and only the person decides it should exist. Make this change in a clone and git push it instead: the push check there compares the file with the approval recorded in precedent.json's github_ci_approved. If the person has not approved this exact content, show them the file and when it runs, and ask."
-
-printf '%s' "$reason" | jq -Rs '{
-  hookSpecificOutput: {
-    hookEventName: "PreToolUse",
-    permissionDecision: "deny",
-    permissionDecisionReason: .
-  }
-}'
+# Where the script is: beside this stub's repository (.claude/hooks/ ->
+# tools/), else the project Claude Code names, else -- for the template copy
+# inside BestPractice -- four levels up. No script anywhere (an engine older
+# than its stub): say so and let the call through, as every gate fails open
+# on its own plumbing (practice: fail-gracefully).
+name="$(basename "$0")"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+for real in "$here/../../tools/$name" "${CLAUDE_PROJECT_DIR:-/nonexistent}/tools/$name" \
+            "$here/../../../../tools/$name"; do
+  if [[ -f "$real" ]]; then
+    exec bash "$real" "$@"
+  fi
+done
+echo "NOTE: $name: tools/$name is not here, so this hook did nothing. Update Vendors brings it." >&2
 exit 0

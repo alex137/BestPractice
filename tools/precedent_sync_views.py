@@ -794,8 +794,9 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     # asked of the plan, never of the disk, because materialize() empties
     # practices/ and tools/checks/ before refilling them and a --check run
     # writes nothing at all.
-    # A hook a practice in force declares (`hooks:`), added to
-    # .claude/settings.json -- or, under --check, reported as a difference
+    # A hook a practice in force declares (`hooks:`), listed in
+    # process/practice_hooks.json since 2026-10-07 (precedent_hooks.py says
+    # why) -- or, under --check, reported as a difference
     # from a fresh sync. Before 2026-10-06 a practice could ship the script
     # and a check requiring the hook, and nothing wired it: a consumer
     # failed that check right after a clean sync.
@@ -803,17 +804,18 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     for note in hook_notes:
         print(f"precedent_sync_views: {note}", file=sys.stderr)
     if check:
-        tree_drift += [f".claude/settings.json does not run `{c}` at {e}"
+        tree_drift += [f"{_pve().PRACTICE_HOOKS_FILE} does not run `{c}` at {e}"
                        f"{' (' + m + ')' if m else ''}, a hook a practice in "
                        f"force declares -- a fresh sync adds it"
                        for e, m, c in _pve().missing_practice_hooks(repo, hook_entries)]
     else:
         for c in _pve().add_practice_hooks(repo, hook_entries):
             print(f"precedent_sync_views: wired `{c}` into "
-                  f".claude/settings.json, a hook a practice in force declares "
-                  f"-- added only, nothing already there was changed. To opt "
-                  f"out, decline the file it runs under declined_ships in "
-                  f"precedent.json.", file=sys.stderr)
+                  f"{_pve().PRACTICE_HOOKS_FILE}, a hook a practice in force "
+                  f"declares, run by .claude/hooks/precedent-hooks.sh -- "
+                  f"nothing under .claude/ changed. To opt out, decline the "
+                  f"file it runs under declined_ships in precedent.json.",
+                  file=sys.stderr)
 
     planned = {f"practices/{w['slug']}.md" for w in written}
     planned.update(c['path'] for c in checks_written)
