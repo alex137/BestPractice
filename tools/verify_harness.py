@@ -48311,6 +48311,77 @@ def check_publish_gate_passes_the_branch_cleanup_page():
           not bad, '; '.join(bad))
 
 
+def check_update_seeds_an_upstream_budget_for_a_vendored_tool():
+    """Update Vendors writes upstream's run budget, and its note, for a
+    vendored engine tool this repo does not budget, and asks only when the
+    repo's own figure differs from one upstream just changed.
+
+    WHY. 2026-10-07, a consuming repository: the update stopped with
+    "upstream budgets the vendored tools/precedent_vendor_engine.py at 12 API
+    call(s) a run and this repo's registry has no budget for it", and the
+    session copied the 12 and its note in by hand -- nothing to decide,
+    repeated in every consumer. Planted: a missing budget is seeded with its
+    note; a tool not vendored here is not; the repo's own different figure
+    is a question only once upstream's figure moved; a repo with no registry
+    gets nothing written."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    cases = []
+    env = _fixture_git_env()
+    saved_source = pu.SOURCE
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        src, repo = td / 'src', td / 'repo'
+        (src / 'tools').mkdir(parents=True)
+        (repo / 'tools').mkdir(parents=True)
+        g = lambda *a: subprocess.run(['git', '-C', str(src), *a], env=env,
+                                      capture_output=True, text=True, check=True).stdout.strip()
+        g('init', '-q', '-b', 'main')
+        budgets = lambda rb: json.dumps({'run_budgets': rb}, indent=2) + '\n'
+        (src / 'tools' / 'github_api_budgets.json').write_text(
+            budgets({'kept.py': 3}), encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'before')
+        before = g('rev-parse', 'HEAD')
+        (src / 'tools' / 'github_api_budgets.json').write_text(budgets({
+            'new_tool.py': 12, '_new_tool_note': 'one GET per set',
+            'kept.py': 5, 'not_here.py': 4}), encoding='utf-8')
+        g('commit', '-qam', 'after')
+        after = g('rev-parse', 'HEAD')
+        (repo / 'tools' / pve_manifest_name()).write_text(json.dumps(
+            {'files': ['new_tool.py', 'kept.py']}), encoding='utf-8')
+        reg = repo / 'tools' / 'github_api_budgets.json'
+        reg.write_text(budgets({'kept.py': 2}), encoding='utf-8')
+        try:
+            pu.SOURCE = src
+            seeded, asks = pu.seed_engine_budgets(repo, after, before)
+            got = json.loads(reg.read_text(encoding='utf-8'))['run_budgets']
+            cases.append(('a missing budget is seeded with upstream\'s figure',
+                          seeded == [('new_tool.py', 12)] and got.get('new_tool.py') == 12))
+            cases.append(('...and its note', got.get('_new_tool_note') == 'one GET per set'))
+            cases.append(('a tool not vendored here is not seeded', 'not_here.py' not in got))
+            cases.append(('the repo\'s own figure stays', got.get('kept.py') == 2))
+            cases.append(('a different figure is asked once upstream\'s moved',
+                          asks == [('kept.py', 2, 5)]))
+            _s, asks2 = pu.seed_engine_budgets(repo, after, after)
+            cases.append(('...and not again when upstream\'s did not move', asks2 == []))
+            reg.unlink()
+            cases.append(('a repo with no registry gets nothing written',
+                          pu.seed_engine_budgets(repo, after, before) == ([], [])
+                          and not reg.exists()))
+        finally:
+            pu.SOURCE = saved_source
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors seeds upstream\'s budget for a vendored tool '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def pve_manifest_name():
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    return _pve.MANIFEST_NAME
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -63687,6 +63758,7 @@ def main():
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
+    check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
