@@ -4204,10 +4204,10 @@ def check_practice_audit_fires():
                 ],
             }, indent=2), encoding='utf-8')
 
-        def run_update():
+        def run_update(*extra):
             r = subprocess.run(
                 [sys.executable, str(tools_dir / 'practice_audit.py'),
-                 '--update-baseline', '--manifest', str(manifest)],
+                 '--update-baseline', '--manifest', str(manifest), *extra],
                 capture_output=True, text=True, cwd=str(repo))
             entries = json.loads(manifest.read_text(encoding='utf-8'))['entries']
             return r, {e['practice']: e for e in entries}
@@ -4216,17 +4216,31 @@ def check_practice_audit_fires():
         before = json.loads(manifest.read_text(encoding='utf-8'))['entries']
         before_hash = {e['practice']: e['local_sha256'] for e in before}
         result, after = run_update()
+        write_manifest()
+        named_result, named = run_update('--entry', 'diverged_one')
+        write_manifest()
+        typo_result, typo = run_update('--entry', 'no_such_entry')
 
         cases = [
-            ("a 'diverged' entry's status is untouched by a stale-baseline "
-             "re-run", after['diverged_one']['status'] == 'diverged'),
-            ("a 'diverged' entry's hash IS re-baselined (the fix narrows the bug, "
-             "it doesn't stop the hash update)",
-             after['diverged_one']['local_sha256'] != before_hash['diverged_one']),
+            ("a 'diverged' entry's status is untouched by a bare re-run",
+             after['diverged_one']['status'] == 'diverged'),
+            ("a bare re-run leaves a 'diverged' entry's hash alone: its mismatch "
+             "is what lists it as pending export (2026-10-07)",
+             after['diverged_one']['local_sha256'] == before_hash['diverged_one']),
+            ("the bare run says it left the diverged entry, and the entry is "
+             "still listed as pending",
+             "left [" in result.stdout and "pending:" in result.stdout),
             ("a 'synced' entry re-baselining still stays 'synced' (unchanged "
-             "behaviour)", after['synced_one']['status'] == 'synced'),
-            ("the diverged re-baseline is named in the output, not silent",
-             "was 'diverged'" in result.stdout),
+             "behaviour)", after['synced_one']['status'] == 'synced'
+             and after['synced_one']['local_sha256'] != before_hash['synced_one']),
+            ("--entry re-baselines the diverged entry it names, status kept",
+             named['diverged_one']['local_sha256'] != before_hash['diverged_one']
+             and named['diverged_one']['status'] == 'diverged'),
+            ("--entry leaves every entry it does not name alone",
+             named['synced_one']['local_sha256'] == before_hash['synced_one']),
+            ("--entry with a name that matches nothing fails and changes nothing",
+             typo_result.returncode != 0
+             and all(typo[k]['local_sha256'] == before_hash[k] for k in before_hash)),
         ]
 
         ok = all(passed for _, passed in cases)
@@ -4234,7 +4248,8 @@ def check_practice_audit_fires():
             if not passed:
                 print(f"  practice_audit --update-baseline did NOT behave as stated: {name}")
         check(f"practice_audit --update-baseline fires ({len(cases)} stated cases: "
-              f"'diverged' status survives a hash-only re-baseline)", ok)
+              f"a bare run leaves 'diverged' entries pending; --entry accepts only "
+              f"what it names)", ok)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -27798,6 +27813,74 @@ def check_refresh_removes_dropped_engine_files():
     check(f'refresh removes engine files the set no longer includes, and only '
           f'those ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
+
+
+def check_decommission_exempt_record_still_blocks_a_link():
+    """THE INCIDENT (2026-10-07, a consumer decommissioning a filing shim).
+    Closed open items declared exempt as historical records passed the
+    decommission audit, then failed the next landing: each held a markdown
+    LINK to the deleted file, and the link check refuses a broken link
+    whatever the registry says. Exempt lets a record keep naming a path;
+    it cannot keep a link to it alive. Cases: an exempt record that names
+    the path as text does not block; one that links to it blocks, with the
+    fix in the message; with the link turned into text, the audit is
+    CLEAR."""
+    import tempfile, shutil as _shutil, json as _json
+    tool = ROOT / 'tools' / 'precedent_decommission.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decom-link-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        genv = dict(os.environ, GIT_AUTHOR_NAME='t',
+                    GIT_AUTHOR_EMAIL='harness@example.com',
+                    GIT_COMMITTER_NAME='t',
+                    GIT_COMMITTER_EMAIL='harness@example.com')
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=genv)
+
+        def w(rel, text):
+            f = repo / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+
+        repo.mkdir()
+        git('init', '-q')
+        w('tools/old_shim.py', '# retired\n')
+        w('todo/named.md', 'Closed. The work was in tools/old_shim.py.\n')
+        w('todo/linked.md', 'Closed. See [old_shim.py](../tools/old_shim.py).\n')
+        w('process/decommissioned_paths.json', _json.dumps(
+            {'decommissioned': [],
+             'exempt_files': ['todo/named.md', 'todo/linked.md']}))
+        git('add', '-A')
+        git('commit', '-qm', 'fixture')
+
+        def run():
+            r = subprocess.run([sys.executable, str(tool), 'tools/old_shim.py'],
+                               capture_output=True, text=True, cwd=str(repo),
+                               timeout=120)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('an exempt record naming the path as text does not block',
+                      'todo/named.md:' not in out, out[-1500:]))
+        cases.append(('an exempt record LINKING to the path blocks, and says '
+                      'to drop the link', rc == 1 and 'todo/linked.md:1' in out
+                      and 'drop the link' in out, out[-1500:]))
+        w('todo/linked.md', 'Closed. See `tools/old_shim.py`.\n')
+        git('add', '-A')
+        git('commit', '-qm', 'unlink')
+        rc2, out2 = run()
+        cases.append(('with the link turned into text, the audit is CLEAR',
+                      rc2 == 0 and 'CLEAR' in out2, out2[-1500:]))
+    finally:
+        _shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'decommission audit refuses a link in an exempt record '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
 
 
 def check_decommission_skips_generated_files_and_prose():
@@ -63670,6 +63753,7 @@ def main():
     check_superseded_source_says_so()
     check_refresh_removes_dropped_engine_files()
     check_decommission_skips_generated_files_and_prose()
+    check_decommission_exempt_record_still_blocks_a_link()
     check_todo_migrate_needs_a_migrated_item()
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
