@@ -48191,6 +48191,76 @@ def check_gates_promise_no_override():
           'still promising one: ' + ', '.join(bad))
 
 
+def check_gate_refusals_are_worded_by_their_tools():
+    """The commit, push and merge gates refuse in their tool's words, passed
+    on by the hook, and carry no refusal prose of their own.
+
+    WHY. 2026-10-07, a consuming repository's Update Vendors: the only change
+    to three hooks was one closing sentence, and Claude Code's auto mode holds
+    a commit touching a hook for a person's yes, so the person was asked to
+    approve a rewording he could not judge -- in every repository, at every
+    rewording. Planted: each hook asks its tool with --hook-reason and holds
+    none of the tool's sentences; a fake tool's answer is what the hook
+    denies with, word for word; a tool too old to answer still gets a refusal
+    carrying its findings; each tool's own text carries the run's output."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import doc_lint as _dl
+    import precedent_push_check as _ppc
+    import precedent_merge_check as _pmc
+    cases = []
+    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    owned = {'doc-lint-gate.sh': 'FAILED on the Markdown staged',
+             'push-check-gate.sh': 'Nothing lets a push past this',
+             'merge-check-gate.sh': 'Nothing lets a merge past this'}
+    for name, phrase in owned.items():
+        text = (hooks / name).read_text(encoding='utf-8')
+        cases.append((f'{name} asks its tool for the words', '--hook-reason' in text))
+        cases.append((f'{name} holds none of them', phrase not in text))
+        cases.append((f'{name} is the copy .claude/hooks runs',
+                      text == (ROOT / '.claude' / 'hooks' / name).read_text(encoding='utf-8')))
+    cases.append(('doc_lint words its refusal around the findings',
+                  'x.md:1: bad' in (_dl.hook_reason('refused', 'x.md:1: bad') or '')))
+    cases.append(('the push check words a failure and a timeout',
+                  'F1' in (_ppc.hook_reason('1', 'F1', top='/r') or '')
+                  and 'cd /r' in (_ppc.hook_reason('124', '', top='/r') or '')
+                  and _ppc.hook_reason('0', '') is None))
+    cases.append(('the merge check words before and after the merge',
+                  'F2' in (_pmc.hook_reason('1', 'F2') or '')
+                  and (_pmc.hook_reason('landed-1', 'F3') or '').endswith('F3')
+                  and _pmc.hook_reason('2', '') is None))
+    fake = ('import sys\n'
+            'if "--hook-reason" in sys.argv:\n'
+            '    {answer}\n'
+            'print("FINDING-7"); sys.exit(1)\n')
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        for label, answer, want in (
+                ('the hook denies with the tool\'s words, word for word',
+                 'sys.stdout.write("TOOL SAYS " + sys.stdin.read().strip()); sys.exit(0)',
+                 lambda r: r == 'TOOL SAYS FINDING-7'),
+                ('a tool too old to answer still gets a refusal with its findings',
+                 'sys.exit(2)', lambda r: 'FINDING-7' in r and 'refused' in r)):
+            repo = td / label[:12].replace(' ', '-')
+            (repo / 'tools').mkdir(parents=True)
+            subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+            (repo / 'tools' / 'precedent_push_check.py').write_text(
+                fake.format(answer=answer), encoding='utf-8')
+            payload = json.dumps({'tool_input': {'command': 'git push origin x'},
+                                  'cwd': str(repo)})
+            r = subprocess.run(['bash', str(hooks / 'push-check-gate.sh')], input=payload,
+                               capture_output=True, text=True,
+                               env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+            try:
+                reason = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+            except (ValueError, KeyError):
+                reason = ''
+            cases.append((label, want(reason)))
+    bad = [n for n, ok in cases if not ok]
+    check(f'the gates refuse in their tools\' words ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -63565,6 +63635,7 @@ def main():
     check_over_target_line_says_whose_load_and_how_to_break_it_down()
     check_session_check_names_a_declared_retired_set()
     check_gates_promise_no_override()
+    check_gate_refusals_are_worded_by_their_tools()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
