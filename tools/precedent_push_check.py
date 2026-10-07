@@ -1943,6 +1943,44 @@ def main(argv):
     return 0
 
 
+# THE PUSH GATE'S REFUSAL IS WRITTEN HERE, NOT IN THE HOOK (2026-10-07), for
+# the reason doc_lint.py's hook_reason gives: a reworded hook is a question
+# for a person in every repository at its next Update Vendors, and a
+# reworded tool is not. .claude/hooks/push-check-gate.sh pipes the run's
+# output back in with --hook-reason and passes on what comes out.
+def hook_reason(outcome, out, top='', tool='tools/precedent_push_check.py'):
+    """-> the whole text the push gate refuses with: `outcome` the run's exit
+    status ('1' a check failed, '124' the hook's deadline killed it), `out`
+    what it printed, `top` the repository pushed. None for any other
+    outcome, which the gate does not refuse on."""
+    if outcome == '1':
+        why = ('A check failed. Fix it before pushing -- this list is what GitHub\n'
+               'CI used to run on this push, and CI is not going to run it now.')
+    elif outcome == '124':
+        why = ('The checks did not finish within 14 minutes, so nothing was\n'
+               'verified. Run them directly with a long Bash timeout, then push again --\n'
+               'a pass is recorded against the tree, so the push will not re-run them:\n\n'
+               f'    cd {top or "."} && python3 {tool}')
+    else:
+        return None
+    tail = '\n'.join(out.rstrip().splitlines()[-120:])
+    return (f'The push check REFUSED this push of {top or "this repository"}.\n\n'
+            f'{why}\n\n{tail}\n\n'
+            'Nothing lets a push past this, and nothing should: fix what it found and\n'
+            'push again. If the check itself is wrong, fix the check where it lives.')
+
+
+def _hook_reason_main(argv):
+    """`--hook-reason OUTCOME [--top DIR]`, the run's output on stdin: print
+    the refusal, exit 0; exit 2 for an outcome this tool does not word."""
+    val = lambda f: argv[argv.index(f) + 1] if f in argv and argv.index(f) + 1 < len(argv) else ''
+    text = hook_reason(val('--hook-reason'), sys.stdin.read(), top=val('--top'))
+    if text is None:
+        return 2
+    print(text)
+    return 0
+
+
 # Every option main() reads. An option it does not know is refused rather
 # than ignored: a PR template naming a flag this file never had
 # (--changed-files-only) ran the full ~14-minute suite twice, silently
@@ -1974,6 +2012,8 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    if '--hook-reason' in sys.argv[1:]:
+        sys.exit(_hook_reason_main(sys.argv[1:]))
     unknown = unknown_arguments(sys.argv[1:])
     if unknown:
         print(f'precedent_push_check: unknown argument(s): {" ".join(unknown)}. '

@@ -158,16 +158,16 @@ fi
 
 # doc_lint exited non-zero with real findings: refuse the commit and hand
 # back its own output, which already names file, line and rule.
-reason="doc_lint.py FAILED on the Markdown staged for this commit, so the
-commit was refused. The Markdown lint no longer runs in GitHub Actions
-(2026-09-21) -- this hook is what replaced it, which makes it the only
-thing standing between a formatting error and the shared branch.
+# THE WORDS ARE THE TOOL'S (2026-10-07). This hook decides WHETHER to
+# refuse; doc_lint.py decides what the refusal says, through
+# --hook-reason, and this file passes it on. A hook is a file Claude Code's
+# auto mode holds for a person's yes, so wording kept here made every
+# rewording a question in every repository at its next Update Vendors. The
+# short line below is only for an engine too old to answer --hook-reason.
+reason="$(printf '%s' "$out" | python3 "$script" --hook-reason refused 2>/dev/null)" || reason=""
+[[ -n "$reason" ]] || reason="doc_lint.py refused this commit:
 
-$out
-
-Fix what it names, re-stage, and commit again. Nothing lets a commit past
-this; do not work around it by unstaging the Markdown. If the lint itself
-is wrong, fix doc_lint.py."
+$out"
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {

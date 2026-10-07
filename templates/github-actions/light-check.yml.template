@@ -137,8 +137,8 @@ jobs:
     # IN A PRIVATE REPOSITORY A PULL REQUEST INTO MAIN RUNS ONLY WHEN
     # PROMOTE JUDGED IT DUE (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
     # decides"). Promote reads the settings, then names the pull request's
-    # branch `claude/DATE-promote-to-main-ID` when the test is due and
-    # `claude/DATE-promote-to-main-not-due-ID` when it is not (until
+    # branch `DATE-promote-to-main-ID` when the test is due and
+    # `DATE-promote-to-main-not-due-ID` when it is not (until
     # 2026-10-06 `to-main-DATE` and `to-main-not-due-DATE`, still skipped
     # the same way). GitHub cannot read anyone's settings, so a private
     # pull request from any other branch -- one nobody judged -- is skipped

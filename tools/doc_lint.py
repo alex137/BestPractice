@@ -1885,6 +1885,45 @@ def _host_shim():
     return p
 
 
+# THE COMMIT GATE'S REFUSAL IS WRITTEN HERE, NOT IN THE HOOK (2026-10-07).
+# .claude/hooks/doc-lint-gate.sh used to carry this text itself. A hook is a
+# file Claude Code's auto mode holds for a person's yes, so every rewording
+# of it -- one sentence on 2026-10-06 -- became a question in every
+# repository at its next Update Vendors, asked of someone who could not
+# judge a wording change. The hook now pipes this tool's findings back in
+# with --hook-reason and passes on what comes out, so the wording rides the
+# engine and only a change to what the hook does still asks.
+def hook_reason(outcome, out):
+    """-> the whole text the commit gate refuses with, `out` being what the
+    lint printed; None for an outcome this tool does not word."""
+    if outcome != 'refused':
+        return None
+    return (
+        'doc_lint.py FAILED on the Markdown staged for this commit, so the\n'
+        'commit was refused. The Markdown lint no longer runs in GitHub Actions\n'
+        '(2026-09-21) -- this hook is what replaced it, which makes it the only\n'
+        'thing standing between a formatting error and the shared branch.\n\n'
+        f'{out.rstrip()}\n\n'
+        'Fix what it names, re-stage, and commit again. Nothing lets a commit past\n'
+        'this; do not work around it by unstaging the Markdown. If the lint itself\n'
+        'is wrong, fix doc_lint.py.')
+
+
+def _hook_reason_main(argv):
+    """`--hook-reason OUTCOME`: the gate's refusal text for OUTCOME, the
+    run's output read from stdin. Exit 2 when the outcome is not one this
+    tool words, so the hook falls back to its own short line."""
+    outcome = argv[argv.index('--hook-reason') + 1] if argv.index('--hook-reason') + 1 < len(argv) else ''
+    text = hook_reason(outcome, sys.stdin.read())
+    if text is None:
+        return 2
+    print(text)
+    return 0
+
+
+if __name__ == '__main__' and '--hook-reason' in sys.argv[1:]:
+    sys.exit(_hook_reason_main(sys.argv[1:]))
+
 if __name__ == '__main__' and _host_shim() is not None:
     import runpy
     _shim = _host_shim()

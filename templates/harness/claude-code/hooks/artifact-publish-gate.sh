@@ -29,7 +29,9 @@ if [[ $status -ne 2 ]]; then
   exit 0
 fi
 
-printf '%s\n\n(practice: docs-track-models, "Published pages")' "$reason" | jq -Rs '{
+# The tool's reason already names the practice; the words are the tool's,
+# so rewording them never touches this file (2026-10-07).
+printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
     permissionDecision: "deny",

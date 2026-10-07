@@ -1202,26 +1202,60 @@ def dropped_template_lines_step(repo, rep, rev):
         rep.details.setdefault(first, []).extend(note)
 
 
-def unbudgeted_engine_tools(repo, rev):
-    """-> [(tool, calls)] for each vendored engine file upstream's
-    tools/github_api_budgets.json (at `rev`) gives a run budget that this
-    repo's own registry lacks. Only where this repo keeps a registry: one
-    that has none declares nothing, and the github-api-budget check leaves a
-    vendored caller to the repo that wrote it. A report, never a write -- a
-    budget is the repo's own declaration."""
+def budget_note_key(tool):
+    """The registry's note key for a tool's run budget:
+    'precedent_vendor_engine.py' -> '_precedent_vendor_engine_note'."""
+    return '_' + tool[:-3] + '_note' if tool.endswith('.py') else f'_{tool}_note'
+
+
+def seed_engine_budgets(repo, rev, last_synced=None):
+    """Write into this repo's tools/github_api_budgets.json the run budget,
+    and its note, of every vendored engine tool upstream budgets and this
+    repo does not. -> (seeded [(tool, calls)], asks [(tool, ours, theirs)]).
+
+    2026-10-07, a consuming repository: upstream added a budget for the
+    vendored precedent_vendor_engine.py, and the update stopped to leave it
+    for the person, who copied upstream's 12 and note in by hand -- a figure
+    with nothing to decide, which every consumer would copy the same way.
+    The engine is upstream's code, so upstream's budget for it is the
+    starting figure. Only where this repo already has a DIFFERENT figure, and
+    upstream's own moved since the last sync, is there a call to make: keep
+    the repo's own, or take upstream's new one. A repo with no registry
+    declares nothing, and still gets nothing."""
+    path = repo / 'tools' / 'github_api_budgets.json'
     try:
-        own = json.loads((repo / 'tools' / 'github_api_budgets.json')
-                         .read_text(encoding='utf-8'))
+        own = json.loads(path.read_text(encoding='utf-8'))
         vendored = set(json.loads((repo / 'tools' / pve.MANIFEST_NAME)
                                   .read_text(encoding='utf-8')).get('files') or ())
         up = json.loads(_source_text(rev, 'tools/github_api_budgets.json') or '')
     except (OSError, ValueError, TypeError):
-        return []
+        return [], []
     if not isinstance(own, dict) or not isinstance(up, dict):
-        return []
-    have = own.get('run_budgets') or {}
-    return [(t, n) for t, n in sorted((up.get('run_budgets') or {}).items())
-            if not t.startswith('_') and t in vendored and t not in have]
+        return [], []
+    try:
+        before = json.loads(_source_text(last_synced, 'tools/github_api_budgets.json')
+                            or '') if last_synced else {}
+    except ValueError:
+        before = {}
+    up_b = up.get('run_budgets') or {}
+    was_b = (before.get('run_budgets') or {}) if isinstance(before, dict) else {}
+    have = own.setdefault('run_budgets', {})
+    seeded, asks = [], []
+    for tool, calls in sorted(up_b.items()):
+        if tool.startswith('_') or tool not in vendored:
+            continue
+        if tool not in have:
+            have[tool] = calls
+            note = up_b.get(budget_note_key(tool))
+            if note:
+                have[budget_note_key(tool)] = note
+            seeded.append((tool, calls))
+        elif have[tool] != calls and was_b.get(tool) != calls:
+            asks.append((tool, have[tool], calls))
+    if seeded:
+        path.write_text(json.dumps(own, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+    return seeded, asks
 
 
 def universal_catalogue_path(repo):
@@ -2528,12 +2562,17 @@ def update(repo, skip_check=False, ref=None):
                          f"own engine copy vendored from another ref. Run this "
                          f"again with --from-ref {tip[:12]} to take "
                          f"{follow}'s engine, then review the diff")
-    for tool, calls in unbudgeted_engine_tools(repo, tip):
+    seeded, asks = seed_engine_budgets(repo, tip, last_synced)
+    if seeded:
+        rep.step('API budgets', 'tools/github_api_budgets.json now budgets '
+                 + ', '.join(f'{t} at {n} call(s) a run' for t, n in seeded)
+                 + ' -- upstream\'s figure and note for a tool upstream ships; '
+                 'change it there if this repo needs its own')
+    for tool, ours, theirs in asks:
         rep.leave(f'tools/github_api_budgets.json: {tool}',
-                  f'upstream budgets the vendored tools/{tool} at {calls} API '
-                  f'call(s) a run and this repo\'s registry has no budget for '
-                  f'it, so its runs here are judged against nothing -- add a '
-                  f'run budget for it (upstream\'s figure, or this repo\'s own)')
+                  f'upstream now budgets the vendored tools/{tool} at {theirs} '
+                  f'API call(s) a run and this repo at {ours}; keep this repo\'s '
+                  f'figure, or take upstream\'s new one')
     # A difference precedent.json records as kept on purpose, and a legacy
     # bootstrap wrapper the refresh replaced, are said once each as a note
     # -- never a call to make (precedent_vendor_engine.KEPT_DIVERGENCES_KEY).
