@@ -173,3 +173,7 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **The session-start survey shows a practice set as STALE at every session start, with a FAIL row ending "A reason is required. Do NOT reach for `record-ci` here". The file the refresh calls hand-edited is identical to BestPractice's own copy.** [story](gotcha-2026-10-03-a-file-carried-by-hand-to-match-upstream-held-every-refresh-up.md)
 
 - **"Update Vendors" runs to DONE, opens its pull request, and the merge that the phrase carries comes back `Denied by auto mode classifier` with the reason `[Merge Without Review]`. Nothing in the repository refused it, and the same merge goes through once the person's message names it.** [story](gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)
+
+- **A session runs `git add ... && git commit ... && git push` in one Bash call. The push check refuses it, and the session tells its person the work was committed and only the push failed. `git status` shows the changes still uncommitted, and `git log` has no new commit.** [story](gotcha-2026-10-07-a-refused-push-means-the-commit-before-it-did-not-run-either.md)
+
+- **After an Update Vendors run was cut short, HEAD is a commit whose message starts "precedent_update: the staged update, committed only so the deep check judges it as committed -- undone right after". It was never undone.** [story](gotcha-2026-10-07-sigterm-skips-python-finally-blocks.md)

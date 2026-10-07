@@ -1893,6 +1893,16 @@ def _host_shim():
 # judge a wording change. The hook now pipes this tool's findings back in
 # with --hook-reason and passes on what comes out, so the wording rides the
 # engine and only a change to what the hook does still asks.
+# The hook refuses the WHOLE Bash command before any of it starts: in
+# `git add ... && git commit ... && git push` nothing ran, and a session
+# that read a refusal as covering only its last step told its person work
+# was committed when it was not (2026-10-03, 2026-10-05).
+NOTHING_RAN = ('Nothing in the refused command ran -- not the commit, and not any step\n'
+               'before or after it in the same command (an add or a push included). Fix\n'
+               'what is named below, make the add and the commit in a call of their own,\n'
+               'check `git status`, then push separately.')
+
+
 def hook_reason(outcome, out):
     """-> the whole text the commit gate refuses with, `out` being what the
     lint printed; None for an outcome this tool does not word."""
@@ -1900,7 +1910,9 @@ def hook_reason(outcome, out):
         return None
     return (
         'doc_lint.py FAILED on the Markdown staged for this commit, so the\n'
-        'commit was refused. The Markdown lint no longer runs in GitHub Actions\n'
+        'commit was refused.\n\n'
+        f'{NOTHING_RAN}\n\n'
+        'The Markdown lint no longer runs in GitHub Actions\n'
         '(2026-09-21) -- this hook is what replaced it, which makes it the only\n'
         'thing standing between a formatting error and the shared branch.\n\n'
         f'{out.rstrip()}\n\n'

@@ -1948,6 +1948,16 @@ def main(argv):
 # for a person in every repository at its next Update Vendors, and a
 # reworded tool is not. .claude/hooks/push-check-gate.sh pipes the run's
 # output back in with --hook-reason and passes on what comes out.
+# A hook refuses the WHOLE Bash command before any of it starts, so in
+# `git add ... && git commit ... && git push` the commit never happened
+# either. Twice (2026-10-03 and 2026-10-05) a session in a consumer
+# repository read a bare "REFUSED this push" as "committed, push refused"
+# and told its person the work was committed when it was not.
+NOTHING_RAN = ('Nothing in the refused command ran -- not the push, and not any step\n'
+               'before it in the same command (a commit or an add included). Make those\n'
+               'steps in a call of their own, check `git status`, then push separately.')
+
+
 def hook_reason(outcome, out, top='', tool='tools/precedent_push_check.py'):
     """-> the whole text the push gate refuses with: `outcome` the run's exit
     status ('1' a check failed, '124' the hook's deadline killed it), `out`
@@ -1965,7 +1975,7 @@ def hook_reason(outcome, out, top='', tool='tools/precedent_push_check.py'):
         return None
     tail = '\n'.join(out.rstrip().splitlines()[-120:])
     return (f'The push check REFUSED this push of {top or "this repository"}.\n\n'
-            f'{why}\n\n{tail}\n\n'
+            f'{NOTHING_RAN}\n\n{why}\n\n{tail}\n\n'
             'Nothing lets a push past this, and nothing should: fix what it found and\n'
             'push again. If the check itself is wrong, fix the check where it lives.')
 

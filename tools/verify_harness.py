@@ -12857,6 +12857,36 @@ def check_update_judges_the_committed_tree():
         rc, out = pu.judged_as_committed(repo, [sys.executable, '-c', 'pass'])
         cases.append(('with nothing staged the check runs as it is, and nothing is committed',
                       rc == 0 and git('rev-parse', 'HEAD').stdout.strip() == head, out[-400:]))
+        # 2026-10-06, a consumer repository: a run under `timeout 590` got
+        # SIGTERM in the deep check, skipped its `finally`, and left the
+        # stand-in at HEAD; the rerun did not look.
+        (repo / 'a.md').write_text('three\n', encoding='utf-8')
+        git('add', 'a.md')
+        git('commit', '-qm', pu.standin_message())
+        cases.append(('a stand-in left at HEAD is undone at the start of a run, '
+                      'its changes staged again',
+                      bool(pu.undo_leftover_standin(repo))
+                      and git('rev-parse', 'HEAD').stdout.strip() == head
+                      and git('diff', '--cached', '--name-only').stdout.split() == ['a.md']
+                      and (repo / 'a.md').read_text() == 'three\n', ''))
+        git('commit', '-qm', 'a real commit')
+        real = git('rev-parse', 'HEAD').stdout.strip()
+        cases.append(('a commit with any other message is never touched',
+                      pu.undo_leftover_standin(repo) is None
+                      and git('rev-parse', 'HEAD').stdout.strip() == real, ''))
+        (repo / 'a.md').write_text('four\n', encoding='utf-8')
+        git('add', 'a.md')
+        killer = (f'import os, signal, sys, time; sys.path.insert(0, {str(ROOT / "tools")!r}); '
+                  'import precedent_update as pu; '
+                  f'pu.judged_as_committed(__import__("pathlib").Path({str(repo)!r}), '
+                  '[sys.executable, "-c", "import os,signal,time; '
+                  'os.kill(os.getppid(), signal.SIGTERM); time.sleep(30)"])')
+        k = subprocess.run([sys.executable, '-c', killer], capture_output=True, text=True,
+                           timeout=60)
+        cases.append(('a run sent SIGTERM mid-check still undoes its stand-in',
+                      k.returncode != 0 and git('rev-parse', 'HEAD').stdout.strip() == real
+                      and git('diff', '--cached', '--name-only').stdout.split() == ['a.md'],
+                      f'rc {k.returncode}: {k.stderr[-300:]}'))
     finally:
         for k, v in env_keep.items():
             if v is None:
@@ -48229,6 +48259,17 @@ def check_gate_refusals_are_worded_by_their_tools():
                   'F2' in (_pmc.hook_reason('1', 'F2') or '')
                   and (_pmc.hook_reason('landed-1', 'F3') or '').endswith('F3')
                   and _pmc.hook_reason('2', '') is None))
+    # 2026-10-03 and 2026-10-05: a session read a refused `git commit &&
+    # git push` as "committed, push refused". Each refusal now says, before
+    # the findings, that nothing in the command ran.
+    marker = 'FINDING-NR'
+    for label, text in (('the commit gate', _dl.hook_reason('refused', marker) or ''),
+                        ('the push gate on a failure', _ppc.hook_reason('1', marker) or ''),
+                        ('the push gate on a timeout', _ppc.hook_reason('124', marker) or ''),
+                        ('the merge gate', _pmc.hook_reason('1', marker) or '')):
+        said = text.find('Nothing in the refused command ran')
+        cases.append((f'{label} says nothing in the refused command ran, before the findings',
+                      0 <= said < text.find(marker) and 'git status' in text))
     fake = ('import sys\n'
             'if "--hook-reason" in sys.argv:\n'
             '    {answer}\n'
