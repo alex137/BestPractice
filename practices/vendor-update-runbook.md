@@ -707,9 +707,14 @@ says so, both from the vendored tree under `process/upstream/`.
     From then on the refresh prints one `KEPT ON PURPOSE` line with the
     reason, leaves it off **Left for you**, and `precedent_update.py` can
     end DONE. The hash pins the decision to the template text it was made
-    against: when upstream changes that text, the item is listed again in
-    full, with the new hash to record if it is still kept. An entry with no
-    reason is not honoured. A `diverged` entry in `process/manifest.json`
+    against. When upstream changes the text of a kept `AGENTS.md` section,
+    the report shows upstream's own change, from the pinned text to today's,
+    rather than every block the section has always left out, with the new
+    hashes to record if it is still kept; a change that is formatting alone
+    (links or code spans round the same words) re-pins by itself, as a
+    `PIN UPDATED` line (since 2026-10-07: a consumer's two kept sections came
+    back as long lacks lists over links alone). An entry with no reason is
+    not honoured. A `diverged` entry in `process/manifest.json`
     does not do this — that manifest tracks the vendored catalogue, and
     nothing that reads it looks at these files.
 

@@ -48382,6 +48382,68 @@ def pve_manifest_name():
     return _pve.MANIFEST_NAME
 
 
+def check_kept_section_reports_upstreams_change_not_its_lacks():
+    """A section kept on purpose whose template text changed is reported as
+    upstream's own change since the pinned text, and re-pinned by itself
+    when that change is formatting alone.
+
+    WHY. 2026-10-07, a consuming repository's Update Vendors: two kept
+    AGENTS.md sections came back as long "lacks" lists -- every block they
+    have always left out on purpose -- when the template's only change to
+    them was file names in code spans becoming links, found by a manual git
+    diff. Planted: a links-only change re-pins and prints PIN UPDATED, with
+    nothing left for the person; a change of words prints the template's
+    diff and leaves one item; a pin no version of the template matches
+    falls back to the full report."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    key = '## Admin requests'
+    old = key + '\n\nEdit `tools/x.py` and run the check.\n'
+    links = key + '\n\nEdit [tools/x.py](tools/x.py) and run the check.\n'
+    words = key + '\n\nEdit [tools/x.py](tools/x.py) and run both checks.\n'
+    item = f'AGENTS.md {key}'
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        tpl, dest = td / 'tpl', td / 'dest'
+        tpl.mkdir(); dest.mkdir()
+        (tpl / pve._AGENTS_MD_HISTORY_NAME).write_text(
+            json.dumps({key: [old, links]}), encoding='utf-8')
+
+        def run(section, pinned):
+            (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
+                item: {'reason': 'ours', 'template_sha256': pinned}}}), encoding='utf-8')
+            pve._LEFT_FOR_YOU.clear()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                done = pve._report_stale_kept(dest, tpl, key, item, 'the template',
+                                              section, pve._sha_text(section), 'c' * 64, {})
+            entry = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY][item]
+            return done, buf.getvalue(), list(pve._LEFT_FOR_YOU), entry
+        done, out, left, entry = run(links, pve._sha_text(old))
+        cases.append(('a links-only change re-pins by itself',
+                      done and 'PIN UPDATED' in out and not left
+                      and entry['template_sha256'] == pve._sha_text(links)))
+        done, out, left, entry = run(words, pve._sha_text(old))
+        cases.append(('a change of words shows the template\'s own diff',
+                      done and '-Edit `tools/x.py` and run the check.' in out
+                      and '+Edit [tools/x.py](tools/x.py) and run both checks.' in out
+                      and 'lacks' not in out))
+        cases.append(('...leaves one item, and keeps the old pin',
+                      len(left) == 1 and entry['template_sha256'] == pve._sha_text(old)))
+        done, out, left, entry = run(words, 'f' * 64)
+        cases.append(('a pin no template version matches falls back',
+                      done is False and not out))
+    pve._LEFT_FOR_YOU.clear()
+    bad = [n for n, ok in cases if not ok]
+    check(f'a stale kept section shows upstream\'s change, not its lacks '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -63759,6 +63821,7 @@ def main():
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
+    check_kept_section_reports_upstreams_change_not_its_lacks()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
