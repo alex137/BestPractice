@@ -1960,36 +1960,24 @@ def _this_session_id():
 def mark_other_work(root, batch, work=None, sid=None):
     """-> (lines, others): `batch` (_new_commits lines) with each commit that
     is not this session's work marked OTHER_WORK_MARK, and those commits'
-    lines. A commit is this session's when it is on the `work` branch, or
-    when its message carries a Claude-Session line naming this session --
-    the second catches a session that Booked two branches and promotes with
-    one of them. A fix branch counts for nothing here, since it carries the
-    whole batch; only the session line is read. With neither a work branch nor a session ID nothing can be
-    told apart, so nothing is marked."""
+    lines; others is None when this session's ID is unknown, and nothing is
+    marked then. A commit is this session's only when its message carries a
+    Claude-Session line naming this session.
+
+    `work` decides nothing (kept for the callers' note). Being on the
+    session's own branch said nothing: a feature branch is cut from
+    pre-staging and carries everything Booked there before it, and a fix
+    branch carries the whole batch. Found 2026-10-06, a Produce of fourteen
+    commits, five of them other sessions', marked none."""
     sid = _this_session_id() if sid is None else sid
-    wtip = None
-    name = (work[len('origin/'):] if work and work.startswith('origin/')
-            else work)
-    # A fix branch is the last unfinished Promote's composition: every
-    # commit in the batch is on it, so being on it says nothing about whose
-    # work a commit is, and only the Claude-Session line can (found
-    # 2026-10-06, a Debut rerun from its fix branch marked no commit,
-    # another session's among them).
-    if work and not is_fix_branch(name):
-        wtip = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{name}^{{commit}}')
-                or _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}'))
-    if not wtip and not sid:
-        return list(batch), []
+    if not sid:
+        return list(batch), None
     lines, others = [], []
     for line in batch:
         sha = line.split(' ', 1)[0]
-        mine = bool(wtip) and _run(root, 'merge-base', '--is-ancestor', sha,
-                                   wtip).returncode == 0
-        if not mine and sid:
-            body = _git(root, 'log', '-1', '--format=%B', sha) or ''
-            mine = any(l.startswith('Claude-Session:') and l.rstrip().endswith(sid)
-                       for l in body.splitlines())
-        if mine:
+        body = _git(root, 'log', '-1', '--format=%B', sha) or ''
+        if any(l.startswith('Claude-Session:') and l.rstrip().endswith(sid)
+               for l in body.splitlines()):
             lines.append(line)
         else:
             lines.append(f'{line}   {OTHER_WORK_MARK}')
@@ -1997,13 +1985,15 @@ def mark_other_work(root, batch, work=None, sid=None):
     return lines, others
 
 
-def _other_work_note(others, work):
+def _other_work_note(others, work=None):
+    if others is None:
+        return ('\nThis session\'s ID is unknown here, so no commit is marked '
+                'as another session\'s: read the list before approving it.')
     if not others:
         return ''
-    on = f'not on {work} and ' if work else ''
-    return (f'\n{len(others)} of these commit(s) are {on}not marked with this '
-            f'session\'s Claude-Session line: someone else Booked them. Name '
-            f'them to the person when asking to approve this move.')
+    return (f'\n{len(others)} of these commit(s) do not carry this session\'s '
+            f'Claude-Session line: someone else made them. Name them to the '
+            f'person when asking to approve this move.')
 
 
 def promotion_step(root, to=None, work=None):
@@ -2623,8 +2613,20 @@ def _commit_rebuilt(root, wt, say, why):
     if rebuilt:
         _run(wt, 'add', '-u')
         _run(wt, 'commit', '-q', '-m', f'Rebuild generated files {why}\n\n'
-             + '\n'.join(rebuilt), env=_merge_env(root))
+             + '\n'.join(rebuilt) + '\n\n' + _session_trailer(),
+             env=_merge_env(root))
     return rebuilt
+
+
+def _session_trailer():
+    """The session-trailer line for a commit this module writes itself (a
+    merge needs none: the trailer check passes merges). The session's own
+    link when there is one, else the explicit form the check accepts. Found
+    2026-10-07: a Debut's rebuild commit carried none, and the full check
+    refused the Promote's own composition."""
+    sid = _this_session_id()
+    return (f'Claude-Session: https://claude.ai/code/session_{sid}' if sid
+            else 'Session: none available (precedent_branches.py)')
 
 
 def _promote_unlocked(root, say=print, work=None):
