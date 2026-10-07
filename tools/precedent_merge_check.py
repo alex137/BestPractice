@@ -585,6 +585,15 @@ def main(argv):
 # for a person in every repository at its next Update Vendors, and a
 # reworded tool is not. .claude/hooks/merge-check-gate.sh pipes the run's
 # output back in with --hook-reason and passes on what comes out.
+# The hook refuses the WHOLE command before any of it starts, so a commit
+# or push chained in front of the merge did not happen either; a bare
+# "REFUSED this merge" was read as covering only the last step
+# (2026-10-03, 2026-10-05, the push gate's twin of this).
+NOTHING_RAN = ('Nothing in the refused command ran -- not the merge, and not any step\n'
+               'before it in the same command (a commit or a push included). Make those\n'
+               'steps in a call of their own, check `git status`, then merge separately.')
+
+
 def hook_reason(outcome, out):
     """-> the whole text the merge gate refuses or blocks with: '1' a check
     failed before the merge, '124' the hook's deadline killed the run,
@@ -602,7 +611,7 @@ def hook_reason(outcome, out):
         return None
     tail = '\n'.join(out.rstrip().splitlines()[-120:])
     return ('The merge check REFUSED this merge.\n\n'
-            f'{why}\n\n{tail}\n\n'
+            f'{NOTHING_RAN}\n\n{why}\n\n{tail}\n\n'
             'Nothing lets a merge past this, and nothing should: fix what it found on\n'
             'the branch, push, and merge again. If the check itself is wrong, fix the\n'
             'check where it lives.')

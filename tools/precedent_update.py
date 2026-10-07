@@ -94,6 +94,7 @@ import json
 import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 
@@ -2386,6 +2387,44 @@ def rebuild_views_after_stamp(repo, stamped):
                        capture_output=True)
     return rebuilt
 
+def undo_leftover_standin(repo):
+    """-> the short hash of a stand-in commit an interrupted run left at
+    HEAD, now undone, or None.
+
+    WHY (2026-10-06, a consumer repository): an Update Vendors run under
+    `timeout 590` was sent SIGTERM during the deep check. Python's default
+    SIGTERM handling exits without running `finally`, so the stand-in commit
+    judged_as_committed() makes stayed at HEAD. The rerun found nothing to
+    stage and never looked at HEAD; a commit made on top would have been
+    the one the next undo removed.
+
+    Only HEAD, and only when its message starts with TEMP_COMMIT_MESSAGE.
+    `git reset --soft HEAD~1` moves HEAD alone, so the stand-in's content
+    comes back as staged changes: nothing is discarded."""
+    r = subprocess.run(['git', '-C', str(repo), 'log', '-1', '--format=%h%x00%B', 'HEAD'],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or '\0' not in r.stdout:
+        return None
+    short, message = r.stdout.split('\0', 1)
+    if not message.startswith(TEMP_COMMIT_MESSAGE):
+        return None
+    if subprocess.run(['git', '-C', str(repo), 'rev-parse', '-q', '--verify', 'HEAD~1'],
+                      capture_output=True).returncode != 0:
+        return None
+    if subprocess.run(['git', '-C', str(repo), 'reset', '-q', '--soft', 'HEAD~1'],
+                      capture_output=True).returncode != 0:
+        return None
+    return short.strip()
+
+
+class _Terminated(SystemExit):
+    """SIGTERM, turned into an exception so `finally` blocks run."""
+
+
+def _raise_on_sigterm(signum, _frame):
+    raise _Terminated(128 + signum)
+
+
 def judged_as_committed(repo, argv):
     """-> (rc, output) of `argv`, run against the tree the commit will hold.
 
@@ -2430,6 +2469,14 @@ def judged_as_committed(repo, argv):
         return c.returncode, ('the staged update could not be committed, so '
                               'the real commit would be refused the same way:\n'
                               + c.stdout + c.stderr)
+    # A run killed by SIGTERM (`timeout`, a closed terminal) exits without
+    # running `finally` under Python's default handling, which left the
+    # stand-in at HEAD on 2026-10-06. For as long as it exists, SIGTERM
+    # raises instead, so the undo below runs.
+    try:
+        previous, installed = signal.signal(signal.SIGTERM, _raise_on_sigterm), True
+    except ValueError:              # not the main thread: leave it as it was
+        previous, installed = None, False
     try:
         # The stand-in's message, author and date are this tool's, so the
         # commit-judging checks stand aside (precedent_push_check.py,
@@ -2444,6 +2491,9 @@ def judged_as_committed(repo, argv):
         if parent.strip() == before:
             subprocess.run(['git', '-C', str(repo), 'reset', '-q', '--soft', before],
                            capture_output=True)
+        if installed:
+            signal.signal(signal.SIGTERM, previous if previous is not None
+                          else signal.SIG_DFL)
 
 
 def _write_staged(repo, files):
@@ -2529,6 +2579,12 @@ def update(repo, skip_check=False, ref=None):
                          f"repository. Run the clone's own copy from the "
                          f"consuming repo: python3 ../BestPractice/tools/"
                          f"precedent_update.py --repo .")
+    # A run killed during the deep check can leave its stand-in commit at
+    # HEAD; undo it before anything is staged (undo_leftover_standin).
+    leftover = undo_leftover_standin(repo)
+    if leftover:
+        rep.step('earlier run', f'undid stand-in commit {leftover} an interrupted '
+                 'run left at HEAD; its changes are staged again, nothing lost')
     # A run killed between swapping upstream's text in and putting this
     # repo's edits back left a journal; replay it before anything else reads
     # the tree (spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md).
