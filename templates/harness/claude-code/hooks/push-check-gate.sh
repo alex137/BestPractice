@@ -1,205 +1,31 @@
 #!/bin/bash
-# Claude Code adapter: PreToolUse hook that REFUSES a `git push` until the
-# pushed repository's own tools/precedent_push_check.py passes -- the list of
-# everything GitHub Actions used to run on a push, run here instead.
+# PRECEDENT HOOK STUB. Every engine hook in .claude/hooks/ is this same file,
+# byte for byte, and it is never edited: it runs the real script of the same
+# name from the engine, tools/<this file's name>, which Update Vendors keeps
+# current like any other engine file.
 #
-# WHY THIS EXISTS (Morgan, 2026-09-25, strength: decided). GitHub CI is off
-# for most of his pushes now: a practice source runs none
-# (source-sets-run-no-ci), `ci_workflows` installs none, and
-# `ci_every_hours` / `ci_on_branches` tag commits `[skip ci]`. Each of those
-# was decided on "the local check runs before the push" -- and nothing ran
-# it; it was a sentence. His ask: "the same list of everything we used to
-# run (just locally we do it, not via the github ci/cd)". The list lives in
-# precedent_push_check.py, one place; this file only decides WHEN to run it.
+# WHY (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+# Claude Code's auto mode holds any commit that changes a file under .claude/
+# until the person says yes, and the hook scripts changed upstream on 27 days
+# in one month, so nearly every Update Vendors stopped to ask about a change
+# nobody needed to judge. The logic lives in tools/ now; this file, and so
+# .claude/, stays the same. What a gate does arrives with the engine, under
+# the person's "Update Vendors", after BestPractice's own full check.
 #
-# WHICH CHECKS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, 2026-09-25). A push to
-# staging or main runs everything; a push to pre-staging or any other
-# branch runs the basic tier -- markdown lint, leak gate, commit author --
-# in seconds. This hook only hands the push's own arguments over
-# (--push-command); precedent_branches.py decides, and a push whose
-# destination it cannot read is checked fully. An older vendored
-# precedent_push_check.py ignores the flag and runs everything, so a hook
-# refreshed ahead of its engine is slower, never less safe.
-#
-# WHY A CLAUDE CODE HOOK AND NOT .git/hooks/pre-push -- the same answer
-# commit-identity-push-gate.sh beside this gives: `core.hooksPath` is set
-# globally on this machine, and putting one repo's checks into that global
-# directory would run them on every push from every repository.
-#
-# WHICH REPOSITORY. Unlike commit-identity-push-gate.sh, which judges only
-# the repo it is wired in, this follows the push: `git -C <dir> push` or a
-# leading `cd <dir> &&` names the repository, and THAT repository's own
-# push check runs. A session rooted in one repo routinely pushes its
-# siblings, and a gate that stood aside for them would leave the practice
-# sources -- the repos with no CI at all -- exactly as unguarded as before.
-# A repository that carries no precedent_push_check.py is let through.
-#
-# IT CAN TAKE MINUTES, AND THAT IS HANDLED, NOT HOPED. BestPractice's list
-# includes the verification harness (about four minutes). The tool records a
-# pass against the tree, so a session that ran the deep check first pushes
-# at once. When it did not, this runs the list itself under `timeout`,
-# comfortably inside the hook's own configured timeout, and REFUSES on
-# expiry -- a hook the harness kills is treated as a non-blocking error,
-# which would let the push through unchecked.
-#
-# FAIL-CLOSED ON A FINDING, FAIL-OPEN ON THE PLUMBING, exactly as
-# doc-lint-gate.sh and commit-identity-push-gate.sh do (practice:
-# fail-gracefully): no jq, python3 or git, an unparseable payload, a tool
-# that crashes or cannot tell what kind of repo it is in -- all exit 0,
-# loudly on stderr. A gate that breaks a session over its own missing
-# dependency is a gate somebody disables.
-set -euo pipefail
-
-input="$(cat)"
-
-command -v jq >/dev/null 2>&1 || exit 0
-command -v python3 >/dev/null 2>&1 || exit 0
-command -v git >/dev/null 2>&1 || exit 0
-
-cmd="$(printf '%s' "$input" \
-  | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
-[[ -n "$cmd" ]] || exit 0
-
-# THE COMMAND WITH ITS QUOTED TEXT BLANKED (2026-09-30), so the tests below
-# read only what the shell will run. A `|` or `;` inside a quoted argument
-# is not a pipe: `grep "a\|git push"` read as a push once, ran the full push
-# check for 766 s and refused a read-only grep
-# (todo-2026-09-29-push-gate-reads-a-quoted-pipe-as-a-command). Quoted
-# strings and heredoc bodies become spaces, newlines kept; everything else
-# is unchanged. The same block sits in every hook that asks "does this
-# command run X"; verify_harness keeps the copies identical. No python3
-# result: the raw command, as before.
-bare="$(printf '%s' "$cmd" | python3 -c '
-import re, sys
-s = sys.stdin.read(); out = []; i = 0; n = len(s)
-Q, D, B = chr(39), chr(34), chr(92)
-blank = lambda t: re.sub(r"[^\n]", " ", t)
-while i < n:
-    c = s[i]
-    if c == B and i + 1 < n:
-        out.append(s[i:i + 2]); i += 2; continue
-    if c in (Q, D):
-        j = i + 1
-        while j < n and s[j] != c:
-            j += 2 if (c == D and s[j] == B) else 1
-        out.append(c + blank(s[i + 1:min(j, n)]) + (c if j < n else "")); i = j + 1; continue
-    m = re.match(r"<<-?[ \t]*([" + Q + D + r"]?)([A-Za-z_]\w*)\1", s[i:])
-    if m:
-        out.append(m.group(0)); i += m.end()
-        nl = s.find("\n", i)
-        if nl < 0:
-            continue
-        out.append(s[i:nl + 1]); i = nl + 1
-        end = re.search(r"(?m)^[ \t]*" + re.escape(m.group(2)) + r"[ \t]*$", s[i:])
-        stop = i + end.start() if end else n
-        out.append(blank(s[i:stop])); i = stop; continue
-    out.append(c); i += 1
-sys.stdout.write("".join(out))
-' 2>/dev/null)" || bare="$cmd"
-[[ -n "$bare" ]] || bare="$cmd"
-
-# Only a real `git push`, in command position -- not one quoted in a commit
-# message or a heredoc (gotcha-2026-09-21, the same discipline both sibling
-# gates apply).
-printf '%s' "$bare" \
-  | grep -qE '(^|[|;&]|&&|\|\||\$\()[[:space:]]*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?push\b' \
-  || exit 0
-
-# A dry run sends nothing, and a branch deletion sends no content. Read off
-# the push's OWN arguments: `git commit -n && git push` is a real push.
-push_args="$(printf '%s' "$cmd" \
-  | grep -oE 'git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?push[^;&|]*' \
-  | head -n1 || true)"
-if printf '%s' "$push_args" | grep -qE '[[:space:]](--dry-run|-n|--delete|-d)([[:space:]]|$)'; then
-    exit 0
-fi
-# Everything after `push`: the remote and refspecs that say which branch
-# this push writes to, and so which tier of checks it gets.
-push_rest="$(printf '%s' "$push_args" \
-  | sed -E 's/^git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?push//' || true)"
-
-project_dir="${CLAUDE_PROJECT_DIR:-.}"
-cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
-
-# The repository being pushed: `git -C <dir>`, else a leading `cd <dir>`,
-# else the tool call's working directory, else the project. `|| true` on
-# each grep is load-bearing under pipefail: no match is the ordinary case.
-target="$(printf '%s' "$cmd" \
-  | grep -oE 'git[[:space:]]+-C[[:space:]]+[^[:space:]]+' \
-  | head -n1 | sed -E 's/^git[[:space:]]+-C[[:space:]]+//' || true)"
-if [[ -z "$target" ]]; then
-    target="$(printf '%s' "$cmd" \
-      | grep -oE '^[[:space:]]*cd[[:space:]]+[^[:space:];&|]+' \
-      | head -n1 | sed -E 's/^[[:space:]]*cd[[:space:]]+//' || true)"
-fi
-target="${target%\"}"; target="${target#\"}"
-target="${target%\'}"; target="${target#\'}"
-target="${target/#\~/$HOME}"
-base="${cwd:-$project_dir}"
-if [[ -z "$target" ]]; then
-    target="$base"
-elif [[ "$target" != /* ]]; then
-    target="$base/$target"
-fi
-
-top="$(git -C "$target" rev-parse --show-toplevel 2>/dev/null || true)"
-[[ -n "$top" ]] || exit 0
-
-tool=""
-for candidate in tools/precedent_push_check.py; do
-    if [[ -f "$top/$candidate" ]]; then
-        tool="$top/$candidate"
-        break
-    fi
+# Where the script is: beside this stub's repository (.claude/hooks/ ->
+# tools/, or bootstrap/ -> tools/ where a set ships the stub from there), else
+# the project Claude Code names, else -- for the template copy inside
+# BestPractice -- four levels up. No script anywhere (an engine older
+# than its stub): say so and let the call through, as every gate fails open
+# on its own plumbing (practice: fail-gracefully).
+name="$(basename "$0")"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+for real in "$here/../../tools/$name" "$here/../tools/$name" \
+            "${CLAUDE_PROJECT_DIR:-/nonexistent}/tools/$name" \
+            "$here/../../../../tools/$name"; do
+  if [[ -f "$real" ]]; then
+    exec bash "$real" "$@"
+  fi
 done
-[[ -n "$tool" ]] || exit 0
-
-# 840s: inside the 900s this hook is given in settings.json, so it is this
-# script -- not the harness -- that decides what an expiry means.
-# No `timeout` binary (stock macOS) means no deadline of our own; the
-# harness's then governs, and an expiry there fails open. Said, not hidden.
-limit=()
-if command -v timeout >/dev/null 2>&1; then
-    limit=(timeout 840)
-else
-    echo "NOTE: push-check-gate: no \`timeout\` command here, so a run that outlives the hook's own timeout would be let through unchecked." >&2
-fi
-set +e
-out="$(cd "$top" && ${limit[@]+"${limit[@]}"} python3 "$tool" --gate --push-command "$push_rest" 2>&1)"
-rc=$?
-set -e
-
-if printf '%s' "$out" | grep -q '^Traceback (most recent call last):'; then
-    echo "WARN: push-check-gate: precedent_push_check.py CRASHED rather than reporting, so this push was NOT checked. The gate is failing open:" >&2
-    printf '%s\n' "$out" | tail -n 30 >&2
-    exit 0
-fi
-
-case "$rc" in
-    0) printf '%s\n' "$out" | tail -n 3 >&2; exit 0 ;;
-    1|124) ;;
-    2) echo "NOTE: push-check-gate: $out" >&2; exit 0 ;;
-    *) echo "WARN: push-check-gate: precedent_push_check.py exited $rc, which is not a result it defines; failing open:" >&2
-       printf '%s\n' "$out" | tail -n 30 >&2
-       exit 0 ;;
-esac
-
-# THE WORDS ARE THE TOOL'S (2026-10-07). This hook decides WHETHER to
-# refuse; precedent_push_check.py decides what the refusal says, through
-# --hook-reason, and this file passes it on. A hook is a file Claude Code's
-# auto mode holds for a person's yes, so wording kept here made every
-# rewording a question in every repository at its next Update Vendors. The
-# short line below is only for an engine too old to answer --hook-reason.
-reason="$(printf '%s' "$out" | (cd "$top" && python3 "$tool" --hook-reason "$rc" --top "$top") 2>/dev/null)" || reason=""
-[[ -n "$reason" ]] || reason="precedent_push_check.py refused this push of $top (exit $rc):
-
-$(printf '%s\n' "$out" | tail -n 120)"
-
-printf '%s' "$reason" | jq -Rs '{
-  hookSpecificOutput: {
-    hookEventName: "PreToolUse",
-    permissionDecision: "deny",
-    permissionDecisionReason: .
-  }
-}'
+echo "NOTE: $name: tools/$name is not here, so this hook did nothing. Update Vendors brings it." >&2
 exit 0

@@ -323,6 +323,33 @@ def upstream_branch_problem(repo):
 # followed_branch(that repo) instead.
 FOLLOWED_BRANCH = followed_branch(ROOT)
 
+# Every real hook script, by the name its stub in .claude/hooks/ carries.
+# Moved out of templates/harness/claude-code/hooks/ on 2026-10-07; see the
+# note at their entry in ENGINE_FILES below.
+HOOK_SCRIPT_FILES = [
+    'artifact-publish-gate.sh',
+    'commit-identity-once.sh',
+    'commit-identity-push-gate.sh',
+    'commit-identity.sh',
+    'doc-lint-gate.sh',
+    'freshness-guard.sh',
+    # The logic behind the individual set's own startup hook, whose
+    # instantiated .template is a stub holding only the person's values.
+    'individual-source-bootstrap.sh',
+    'merge-check-gate.sh',
+    'precedent-hooks.sh',
+    'precedent-paths.sh',
+    'precedent-universal-catalogue.sh',
+    'push-check-gate.sh',
+    'reply-gate.sh',
+    'seeded-prompt-gate.sh',
+    'session-start.sh',
+    'stop-git-check.sh',
+    'stop-reply-check.sh',
+    'wait-loop-gate.sh',
+    'workflow-write-gate.sh',
+]
+
 ENGINE_FILES = [
     'build_views.py',
     # The one place this engine asks GitHub anything, and the counter behind
@@ -791,6 +818,19 @@ ENGINE_FILES = [
     # source-only because a consumer's push check names nothing it needs,
     # and a person in a consumer can still run it by hand on a source clone.
     'precedent_consumer_shape.py',
+    # THE REAL HOOK SCRIPTS (2026-10-07). .claude/hooks/<name>.sh in every
+    # repository is one permanent stub that runs tools/<name>.sh, so a change
+    # to what a hook does travels here, with the engine, and never touches
+    # .claude/ -- where Claude Code's auto mode held every such commit for
+    # the person's yes (templates/harness/claude-code/hooks/README.md).
+    # HOOK_SCRIPT_FILES lists them; every kind gets all of them, and a
+    # script nothing wires is inert (the stub is what wiring reaches).
+    *HOOK_SCRIPT_FILES,
+    # What .claude/hooks/precedent-hooks.sh runs, and the list it reads: the
+    # engine's hooks added from 2026-10-07 on reach a repository here, never
+    # through a new settings.json entry (precedent_hooks.py says why).
+    'precedent_hooks.py',
+    'hook_wiring.json',
     'precedent_vendor_engine.py',
 ]
 
@@ -1088,6 +1128,18 @@ MERGE_GATE_MATCHER = 'Bash|mcp__.*__merge_pull_request'
 # The workflow-write gate fires on the tools that write a file straight onto
 # GitHub, the one route a push gate never sees (ci-workflow-approved).
 WORKFLOW_WRITE_MATCHER = 'mcp__.*__(create_or_update_file|push_files)'
+# THE LAST ENTRIES THIS LIST TAKES (2026-10-07). One per hook event, every
+# tool, all running .claude/hooks/precedent-hooks.sh with the event's name,
+# which runs whatever tools/hook_wiring.json and process/practice_hooks.json
+# list for it. A hook added from now on goes in tools/hook_wiring.json, never
+# here: an entry here is a change to .claude/settings.json in every
+# repository, which Claude Code's auto mode holds for the person's yes, and
+# Morgan's call that day was that Update Vendors should no longer ask.
+# verify_harness's check_hook_wiring_takes_no_new_hook holds the list to it.
+DISPATCH_EVENTS = ('SessionStart', 'UserPromptSubmit', 'PreToolUse',
+                   'PostToolUse', 'Stop')
+DISPATCH_WIRING = tuple((ev, None, 'precedent-hooks.sh', ev)
+                        for ev in DISPATCH_EVENTS)
 HOOK_WIRING = {
     'consumer': (
         ('SessionStart', None, 'session-start.sh', ''),
@@ -1125,6 +1177,7 @@ HOOK_WIRING = {
         ('PreToolUse', 'Artifact', 'artifact-publish-gate.sh', ''),
         ('Stop', None, 'stop-git-check.sh', ''),
         ('Stop', None, 'stop-reply-check.sh', ''),
+        *DISPATCH_WIRING,
     ),
     # precedent-individual-bootstrap.sh is not here: it is rendered from a
     # .template by precedent_bootstrap_source.py, not shipped as a *.sh this
@@ -1149,6 +1202,7 @@ HOOK_WIRING = {
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PostToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
+        *DISPATCH_WIRING,
     ),
 }
 # A hook that needs more than the harness's default time gets its own
@@ -1157,7 +1211,9 @@ HOOK_WIRING = {
 # 840-second deadline inside this one, so an expiry refuses the push instead
 # of the harness killing the hook -- which it treats as a non-blocking error,
 # letting the push through unchecked.
-HOOK_TIMEOUTS = {'push-check-gate.sh': 900, 'merge-check-gate.sh': 900}
+HOOK_TIMEOUTS = {'push-check-gate.sh': 900, 'merge-check-gate.sh': 900,
+                 # Whatever it runs carries its own timeout, inside this one.
+                 'precedent-hooks.sh': 900}
 # Shipped in HOOK_SOURCE_DIR and on NO kind's list, each with the reason. A
 # repo that wires one itself still has it vendored and kept current -- the
 # wiring gate below still applies -- but no refresh adds it anywhere.
@@ -1411,52 +1467,89 @@ def _add_hook_entry(hooks, event, matcher, command, timeout=None):
     home['hooks'].append(entry)
 
 
-def add_practice_hooks(dest_root, entries):
-    """ADD each (event, matcher, command) to .claude/settings.json that no
-    command at that event already runs. -> [added commands]. Writes nothing,
-    and returns [], when the file does not exist: a repository without one
-    does not run Claude Code hooks from its tree, and creating the file is
-    the install's job, not a sync's.
+PRACTICE_HOOKS_FILE = 'process/practice_hooks.json'
 
-    What a practice's `hooks:` field declares (build_views.practice_hooks).
-    Satisfied the way _hook_wiring_plan is: any command at that event that
-    names the same script, from any path, already runs it."""
-    todo = missing_practice_hooks(dest_root, entries)
-    if not todo:
-        return []
+
+def _settings_commands(dest_root, event):
     settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
-    data = json.loads(settings_path.read_text(encoding='utf-8'),
-                      object_pairs_hook=collections.OrderedDict)
-    hooks = data.setdefault('hooks', collections.OrderedDict())
-    for event, matcher, command in todo:
-        _add_hook_entry(hooks, event, matcher, command)
-    settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False)
-                             + '\n', encoding='utf-8')
-    return [c for _e, _m, c in todo]
-
-
-def missing_practice_hooks(dest_root, entries):
-    """-> the (event, matcher, command) entries add_practice_hooks would add,
-    writing nothing: what `--check` reports."""
-    settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
-    if not settings_path.is_file():
-        return []
     try:
         hooks = json.loads(settings_path.read_text(encoding='utf-8')).get('hooks') or {}
     except (OSError, ValueError, AttributeError):
+        return None
+    return [str((h or {}).get('command') or '')
+            for g in (hooks.get(event) or []) if isinstance(g, dict)
+            for h in (g.get('hooks') or [])]
+
+
+def _registered_practice_hooks(dest_root):
+    try:
+        data = json.loads((pathlib.Path(dest_root) / PRACTICE_HOOKS_FILE)
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
         return []
+    return [(h.get('event'), h.get('matcher'), h.get('command'))
+            for h in (data.get('hooks') or []) if isinstance(h, dict)]
+
+
+def _practice_hooks_to_register(dest_root, entries):
+    """-> the declared (event, matcher, command) entries .claude/settings.json
+    does not already run (any command at that event naming the same script,
+    from any path), or None when the repo has no settings.json -- it runs no
+    Claude Code hooks from its tree."""
     out = []
     for event, matcher, command in entries:
-        # The script's file name: `python3 $CLAUDE_PROJECT_DIR/tools/x.py --hook`
-        # is satisfied by any command at the event that names x.py.
+        have = _settings_commands(dest_root, event)
+        if have is None:
+            return None
         words = command.split()
         script = (words[1] if len(words) > 1 else command).rsplit('/', 1)[-1]
-        have = [str((h or {}).get('command') or '')
-                for g in (hooks.get(event) or []) if isinstance(g, dict)
-                for h in (g.get('hooks') or [])]
         if not any(script in c for c in have):
             out.append((event, matcher, command))
     return out
+
+
+def add_practice_hooks(dest_root, entries):
+    """Write the hooks practices in force declare (build_views.practice_hooks)
+    into PRACTICE_HOOKS_FILE, which .claude/hooks/precedent-hooks.sh runs.
+    -> [commands it did not list before]. Writes nothing, and returns [],
+    when the repo has no .claude/settings.json.
+
+    NOT INTO .claude/settings.json (since 2026-10-07). Until then each was
+    added there, and Claude Code's auto mode holds a commit touching .claude/
+    for the person's yes, so a set adding a hook-declaring practice meant a
+    question in every repository that declares it (precedent_hooks.py). One
+    already wired in settings.json before that date stays there, and is left
+    out of this file so it never runs twice. The file is regenerated whole:
+    a practice that stops declaring a hook drops out of it."""
+    todo = _practice_hooks_to_register(dest_root, entries)
+    if todo is None:
+        return []
+    before = {c for _e, _m, c in _registered_practice_hooks(dest_root)}
+    path = pathlib.Path(dest_root) / PRACTICE_HOOKS_FILE
+    text = json.dumps({
+        '_comment': 'Generated by tools/precedent_sync_views.py from the '
+                    'hooks: fields of the practices in force; run by '
+                    '.claude/hooks/precedent-hooks.sh. Never edit by hand.',
+        'hooks': [collections.OrderedDict([('event', e), ('matcher', m),
+                                           ('command', c)]) for e, m, c in todo],
+    }, indent=2, ensure_ascii=False) + '\n'
+    if todo or path.is_file():
+        old = path.read_text(encoding='utf-8') if path.is_file() else None
+        if old != text:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding='utf-8')
+    return [c for _e, _m, c in todo if c not in before]
+
+
+def missing_practice_hooks(dest_root, entries):
+    """-> the (event, matcher, command) entries neither .claude/settings.json
+    nor PRACTICE_HOOKS_FILE runs yet, writing nothing: what `--check`
+    reports."""
+    todo = _practice_hooks_to_register(dest_root, entries)
+    if not todo:
+        return []
+    have = set(_registered_practice_hooks(dest_root))
+    return [t for t in todo if t not in have]
 
 
 def _apply_hook_wiring(dest_root, kind, hooks_src_dir):

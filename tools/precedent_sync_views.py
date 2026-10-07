@@ -230,6 +230,47 @@ def _pve():
     return precedent_vendor_engine
 
 
+def fields_this_engine_does_not_know(practices):
+    """-> one plain note per practice that uses a frontmatter field this
+    engine's frontmatter_yaml.FIELD_ORDER does not list and its own source
+    does not declare as its own (own_frontmatter_fields).
+
+    WHY (Morgan, 2026-10-07, strength: decided: "even if it wouldn't have
+    solved this, it would have helped in general"). A practice set moves on
+    its own schedule, and can start using an engine feature -- `hooks:` on
+    2026-10-06 -- before a consuming repository's vendored engine has it.
+    The old engine ignored the field it did not know, the sync went quiet,
+    and what the field asked for surfaced later as a check's finding nobody
+    in that repository could act on. Said here, at the sync, it names the
+    one step that does: Update Vendors first."""
+    try:
+        import frontmatter_yaml as fy
+    except Exception:                              # practice: fail-gracefully
+        return []
+    notes, own_by_root = [], {}
+    for slug, p in sorted(practices.items()):
+        f = pathlib.Path(str(p.get('file') or ''))
+        if not f.is_file():
+            continue
+        root = f.parent.parent
+        if root not in own_by_root:
+            own_by_root[root] = fy.own_fields(root)
+        try:
+            unknown = fy.unlisted_fields(f.read_text(encoding='utf-8'),
+                                         own_by_root[root])
+        except (OSError, UnicodeDecodeError):
+            continue
+        if unknown:
+            fields = ', '.join(f'`{k}:`' for k in unknown)
+            notes.append(f"{slug} ({p.get('source') or 'a declared source'}) "
+                         f"uses {fields}, which this repository's engine does "
+                         f"not know, so whatever it asks for is not done here "
+                         f"yet and its check may report something nothing "
+                         f"here can fix. The set needs a newer engine: run "
+                         f"Update Vendors first.")
+    return notes
+
+
 def _declared_practice_hooks(repo, practices):
     """-> ([(event, matcher, command)], [notes]) for every `hooks:` entry a
     practice in force declares, less those this repository declined (the
@@ -794,26 +835,30 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
     # asked of the plan, never of the disk, because materialize() empties
     # practices/ and tools/checks/ before refilling them and a --check run
     # writes nothing at all.
-    # A hook a practice in force declares (`hooks:`), added to
-    # .claude/settings.json -- or, under --check, reported as a difference
+    # A hook a practice in force declares (`hooks:`), listed in
+    # process/practice_hooks.json since 2026-10-07 (precedent_hooks.py says
+    # why) -- or, under --check, reported as a difference
     # from a fresh sync. Before 2026-10-06 a practice could ship the script
     # and a check requiring the hook, and nothing wired it: a consumer
     # failed that check right after a clean sync.
     hook_entries, hook_notes = _declared_practice_hooks(repo, _live)
     for note in hook_notes:
         print(f"precedent_sync_views: {note}", file=sys.stderr)
+    for note in fields_this_engine_does_not_know(_live):
+        print(f"precedent_sync_views: {note}", file=sys.stderr)
     if check:
-        tree_drift += [f".claude/settings.json does not run `{c}` at {e}"
+        tree_drift += [f"{_pve().PRACTICE_HOOKS_FILE} does not run `{c}` at {e}"
                        f"{' (' + m + ')' if m else ''}, a hook a practice in "
                        f"force declares -- a fresh sync adds it"
                        for e, m, c in _pve().missing_practice_hooks(repo, hook_entries)]
     else:
         for c in _pve().add_practice_hooks(repo, hook_entries):
             print(f"precedent_sync_views: wired `{c}` into "
-                  f".claude/settings.json, a hook a practice in force declares "
-                  f"-- added only, nothing already there was changed. To opt "
-                  f"out, decline the file it runs under declined_ships in "
-                  f"precedent.json.", file=sys.stderr)
+                  f"{_pve().PRACTICE_HOOKS_FILE}, a hook a practice in force "
+                  f"declares, run by .claude/hooks/precedent-hooks.sh -- "
+                  f"nothing under .claude/ changed. To opt out, decline the "
+                  f"file it runs under declined_ships in precedent.json.",
+                  file=sys.stderr)
 
     planned = {f"practices/{w['slug']}.md" for w in written}
     planned.update(c['path'] for c in checks_written)
