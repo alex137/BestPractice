@@ -30,10 +30,7 @@ alone — bulk-renaming breaks the very references (links, records) the names ar
 load-bearing for; drop the suffix only from a file already being moved for
 another reason, fixing its references in the same pass.
 
-**A date is not a version.** A dated record -- a sent letter, meeting
-minutes, a journal entry, one of a folder of them -- never changes after it
-is written, and its date is part of what it is: `note-to-alex-2026-10-07.md`
-is a good name.
+**A date is not a version**: `note-to-alex-2026-10-07.md` is fine.
 
 ## Detail
 
