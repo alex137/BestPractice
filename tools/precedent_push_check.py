@@ -318,8 +318,11 @@ PUSH_CHECKS = {
         # siblings, an empty $HOME and no source credentials -- what the
         # runner has -- and a check that could not run there runs here. It
         # cost 12.8 min against 18.3 for the plain run, in one container.
+        # --because: the harness refuses a full run nobody asked for
+        # (2026-10-07); this tier was asked for, by the push or the Promote.
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci',
-                            '--isolated'],
+                            '--isolated', '--because',
+                            'precedent_push_check.py, full tier'],
          'deep-check.yml, both verify_harness jobs'),
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
          'deep-check.yml, precedent_check + doc_sync job'),
