@@ -1511,8 +1511,15 @@ order records a hash the vendored tree doesn't match.
 
 ```
 python3 tools/practice_audit.py                    # full check (gate)
-python3 tools/practice_audit.py --update-baseline  # re-record hashes
+python3 tools/practice_audit.py --update-baseline  # re-record hashes; diverged entries left alone
+python3 tools/practice_audit.py --update-baseline --entry NAME  # re-record only the entries named
 ```
+
+A `diverged` entry is listed as pending export only while its file differs
+from its baseline, so a bare `--update-baseline` never re-records one: that
+would erase the pending-export signal. Name it with `--entry` (a practice
+name or `local_path`, repeatable) to re-record it on purpose; `--entry`
+also keeps an update from touching anything you did not name.
 
 Checks, in order — any FAIL exits non-zero:
 

@@ -4204,10 +4204,10 @@ def check_practice_audit_fires():
                 ],
             }, indent=2), encoding='utf-8')
 
-        def run_update():
+        def run_update(*extra):
             r = subprocess.run(
                 [sys.executable, str(tools_dir / 'practice_audit.py'),
-                 '--update-baseline', '--manifest', str(manifest)],
+                 '--update-baseline', '--manifest', str(manifest), *extra],
                 capture_output=True, text=True, cwd=str(repo))
             entries = json.loads(manifest.read_text(encoding='utf-8'))['entries']
             return r, {e['practice']: e for e in entries}
@@ -4216,17 +4216,31 @@ def check_practice_audit_fires():
         before = json.loads(manifest.read_text(encoding='utf-8'))['entries']
         before_hash = {e['practice']: e['local_sha256'] for e in before}
         result, after = run_update()
+        write_manifest()
+        named_result, named = run_update('--entry', 'diverged_one')
+        write_manifest()
+        typo_result, typo = run_update('--entry', 'no_such_entry')
 
         cases = [
-            ("a 'diverged' entry's status is untouched by a stale-baseline "
-             "re-run", after['diverged_one']['status'] == 'diverged'),
-            ("a 'diverged' entry's hash IS re-baselined (the fix narrows the bug, "
-             "it doesn't stop the hash update)",
-             after['diverged_one']['local_sha256'] != before_hash['diverged_one']),
+            ("a 'diverged' entry's status is untouched by a bare re-run",
+             after['diverged_one']['status'] == 'diverged'),
+            ("a bare re-run leaves a 'diverged' entry's hash alone: its mismatch "
+             "is what lists it as pending export (2026-10-07)",
+             after['diverged_one']['local_sha256'] == before_hash['diverged_one']),
+            ("the bare run says it left the diverged entry, and the entry is "
+             "still listed as pending",
+             "left [" in result.stdout and "pending:" in result.stdout),
             ("a 'synced' entry re-baselining still stays 'synced' (unchanged "
-             "behaviour)", after['synced_one']['status'] == 'synced'),
-            ("the diverged re-baseline is named in the output, not silent",
-             "was 'diverged'" in result.stdout),
+             "behaviour)", after['synced_one']['status'] == 'synced'
+             and after['synced_one']['local_sha256'] != before_hash['synced_one']),
+            ("--entry re-baselines the diverged entry it names, status kept",
+             named['diverged_one']['local_sha256'] != before_hash['diverged_one']
+             and named['diverged_one']['status'] == 'diverged'),
+            ("--entry leaves every entry it does not name alone",
+             named['synced_one']['local_sha256'] == before_hash['synced_one']),
+            ("--entry with a name that matches nothing fails and changes nothing",
+             typo_result.returncode != 0
+             and all(typo[k]['local_sha256'] == before_hash[k] for k in before_hash)),
         ]
 
         ok = all(passed for _, passed in cases)
@@ -4234,7 +4248,8 @@ def check_practice_audit_fires():
             if not passed:
                 print(f"  practice_audit --update-baseline did NOT behave as stated: {name}")
         check(f"practice_audit --update-baseline fires ({len(cases)} stated cases: "
-              f"'diverged' status survives a hash-only re-baseline)", ok)
+              f"a bare run leaves 'diverged' entries pending; --entry accepts only "
+              f"what it names)", ok)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
