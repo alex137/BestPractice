@@ -40,7 +40,9 @@ commit, by regeneration rather than by editing.
 4. **Published pages: only a render reaches a link.** A page published for
    people to read is a copy of what the renderer produced from a registered
    document, never a page written by hand, however early or rough the
-   draft. A page made outside the repository is outside every check above.
+   draft. A page made outside the repository is outside every check above. A page one
+   of the engine's own generators writes, published unedited within the
+   hour, is a render too: the branch-cleanup page is one.
 
 ## Detail
 
@@ -81,6 +83,15 @@ source. The registry is the renderer's `DOCS` and `COMPOSITE_RENDERS`
 (`tools/doc_html.py`, or the host shim named in
 `tools/artifact_publish_gate_host.json`). A page that is not a deliverable is
 registered and rendered like any other; that cost is the point.
+
+**The engine's generators pass the same way** (2026-10-07). A tool listed in
+the gate's `GENERATORS` notes the sha256 of every page it writes;
+[tools/precedent_stale_branches.py](../tools/precedent_stale_branches.py)
+`--html` is the one listed. Its page has no model behind it, so nothing can
+drift, and the gate's question -- is this exactly what the tool produced,
+recently? -- is the one it asks of a render. A consuming repository's session
+was told by one rule to publish that page and refused by this one, and fell
+back to pasting links into chat.
 
 **Enforced, not merely stated.** Rule 2 is mechanically checkable and now is:
 a script declares the figures it owns via `owned_figures()`, returning them in

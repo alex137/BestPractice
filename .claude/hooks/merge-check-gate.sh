@@ -157,7 +157,12 @@ $(printf '%s\n' "$out" | tail -n 30)"
         exit 0
     fi
     if [[ "$rc" == 1 ]]; then
-        printf '%s' "$out" | jq -Rs '{decision: "block", reason: ("What this merge landed failed its full check.\n\n" + .)}'
+        # The words are the tool's: see the note above the refusal below.
+        reason="$(printf '%s' "$out" | python3 "$engine" --hook-reason landed-1 2>/dev/null)" || reason=""
+        [[ -n "$reason" ]] || reason="precedent_merge_check.py --landed failed:
+
+$out"
+        printf '%s' "$reason" | jq -Rs '{decision: "block", reason: .}'
     else
         printf '%s' "$out" | jq -Rs '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: .}}'
     fi
@@ -184,23 +189,20 @@ fi
 
 case "$rc" in
     0) printf '%s\n' "$out" | tail -n 3 >&2; exit 0 ;;
-    1) why="A check failed on what this merge would land. Fix it on the
-branch and push, then merge." ;;
-    124) why="The checks did not finish within 14 minutes, so nothing was
-verified. Run the push check on the branch first -- a recorded pass for the
-same tree is reused -- then merge." ;;
+    1|124) ;;
     *) echo "NOTE: merge-check-gate: $out" >&2; exit 0 ;;
 esac
 
-reason="The merge check REFUSED this merge.
+# THE WORDS ARE THE TOOL'S (2026-10-07). This hook decides WHETHER to
+# refuse; precedent_merge_check.py decides what the refusal says, through
+# --hook-reason, and this file passes it on. A hook is a file Claude Code's
+# auto mode holds for a person's yes, so wording kept here made every
+# rewording a question in every repository at its next Update Vendors. The
+# short line below is only for an engine too old to answer --hook-reason.
+reason="$(printf '%s' "$out" | python3 "$engine" --hook-reason "$rc" 2>/dev/null)" || reason=""
+[[ -n "$reason" ]] || reason="precedent_merge_check.py refused this merge (exit $rc):
 
-$why
-
-$(printf '%s\n' "$out" | tail -n 120)
-
-Nothing lets a merge past this, and nothing should: fix what it found on
-the branch, push, and merge again. If the check itself is wrong, fix the
-check where it lives."
+$(printf '%s\n' "$out" | tail -n 120)"
 
 printf '%s' "$reason" | jq -Rs '{
   hookSpecificOutput: {
