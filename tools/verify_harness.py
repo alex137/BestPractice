@@ -9251,14 +9251,19 @@ def check_push_refuses_a_hand_made_session_branch_name():
                   _bn.name_refusal(_bn.build(['some', 'work'], tail=tail)[0],
                                    tail=tail) is None))
     cases.append(('the tool\'s clash form passes',
-                  _bn.name_refusal('claude/2026-10-06-some-work-ab1cd-x9y8z',
+                  _bn.name_refusal('2026-10-06-some-work-ab1cd-x9y8z',
                                    tail=tail) is None))
     cases.append(('a harness-given name passes',
                   _bn.name_refusal('claude/peaceful-ritchie-3u31td', tail=tail) is None))
     cases.append(('a hand-typed date-and-topic name is refused',
-                  bool(_bn.name_refusal('claude/2026-10-06-vdc-fixes', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-vdc-fixes', tail=tail))))
     cases.append(('a name ending in another session\'s id is refused',
-                  bool(_bn.name_refusal('claude/2026-10-06-some-work-zzzzz', tail=tail))))
+                  bool(_bn.name_refusal('2026-10-06-some-work-zzzzz', tail=tail))))
+    cases.append(('the retired claude/ prefix is refused (Morgan, 2026-10-07)',
+                  bool(_bn.name_refusal(f'claude/2026-10-06-some-work-{tail}', tail=tail))))
+    cases.append(('a name the tool builds has no prefix',
+                  _bn.build(['some', 'work'], date='2026-10-07', tail=tail)[0]
+                  == f'2026-10-07-some-work-{tail}'))
     cases.append(('a tier branch is not judged',
                   _bn.name_refusal('pre-staging', tail=tail) is None))
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-branchname-'))
@@ -9281,14 +9286,14 @@ def check_push_refuses_a_hand_made_session_branch_name():
                 os.environ.clear()
                 os.environ.update(saved)
         cases.append(('end to end: a push creating a hand-named branch is refused',
-                      bool(refused('origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes'))))
+                      bool(refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes'))))
         cases.append(('...and the refusal names the rename command',
                       'precedent_branch_name.py' in (refused(
-                          'origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes') or '')))
+                          'origin HEAD:refs/heads/2026-10-06-vdc-fixes') or '')))
         cases.append(('end to end: a tool-made name is let through',
-                      refused(f'origin HEAD:refs/heads/claude/2026-10-06-some-work-{tail}') is None))
+                      refused(f'origin HEAD:refs/heads/2026-10-06-some-work-{tail}') is None))
         subprocess.run(['git', '-C', str(repo), 'update-ref',
-                        'refs/remotes/origin/claude/2026-10-06-vdc-fixes',
+                        'refs/remotes/origin/2026-10-06-vdc-fixes',
                         subprocess.run(['git', '-C', str(repo), 'hash-object', '-t',
                                         'commit', '--stdin', '-w'], input=b'tree '
                                        + subprocess.run(['git', '-C', str(repo),
@@ -9299,7 +9304,7 @@ def check_push_refuses_a_hand_made_session_branch_name():
                                        capture_output=True).stdout.strip().decode()],
                        env=env, capture_output=True)
         cases.append(('a branch origin already has is not judged again',
-                      refused('origin HEAD:refs/heads/claude/2026-10-06-vdc-fixes') is None))
+                      refused('origin HEAD:refs/heads/2026-10-06-vdc-fixes') is None))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -47335,7 +47340,7 @@ def _fixture_git_env():
 
 def check_promote_branches_are_named_like_session_branches():
     """A Promote's fix branch and its copy of staging are named
-    claude/<date>-<slug>-<session ID's end>, like every temporary branch --
+    <date>-<slug>-<session ID's end>, like every temporary branch --
     except a copy in a repository whose GitHub test knows only the old
     names, which keeps them until Update Vendors brings the new workflow.
 
@@ -47370,15 +47375,15 @@ def check_promote_branches_are_named_like_session_branches():
             run('git', 'fetch', '-q', 'origin', cwd=repo)
             day, _m = pb._day_and_moment(repo)
             fix = pb._fix_branch(repo)
-            check('a Promote\'s fix branch is named claude/<date>-promote-fix-<id>, '
+            check('a Promote\'s fix branch is named <date>-promote-fix-<id>, '
                   'which the naming rule accepts',
-                  fix == f'claude/{day}-promote-fix-abcde'
+                  fix == f'{day}-promote-fix-abcde'
                   and pbn.name_refusal(fix) is None and pb.is_fix_branch(fix), fix)
             have_tests = bool(pb.github_tests(repo, pb._remote_tip(repo, pb.staging_branch(repo))))
             copy, not_due = pb._to_main_copy(repo), pb._to_main_copy(repo, due=False)
             check('its copies of staging too, where the GitHub test knows the new names',
-                  copy == f'claude/{day}-promote-to-main-abcde'
-                  and not_due == f'claude/{day}-promote-to-main-not-due-abcde'
+                  copy == f'{day}-promote-to-main-abcde'
+                  and not_due == f'{day}-promote-to-main-not-due-abcde'
                   and pb.is_main_copy(copy) and pb.is_not_due_copy(not_due),
                   f'{copy} {not_due} tests={have_tests}')
             wf.write_text(tpl.replace(pb.COPY_NAME_MARKER, '-x-'), encoding='utf-8')
@@ -58854,17 +58859,19 @@ def check_branch_name_follows_the_convention():
              for k in ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDECODE')}
     try:
         os.environ['CLAUDE_CODE_REMOTE_SESSION_ID'] = 'cse_01SQeHb3tgRrvXtsoviaWpkv'
-        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01',
-                                prefix='claude/')
-        results.append(('the session ID ends the name, lowercased',
-                        name == 'claude/2026-10-01-feature-branch-naming-awpkv'
+        os.environ['CLAUDECODE'] = '1'
+        name, notes = pbn.build(['Feature', 'branch naming!'], date='2026-10-01')
+        os.environ.pop('CLAUDECODE')
+        results.append(('the session ID ends the name, lowercased, with no prefix '
+                        'even under Claude Code',
+                        name == '2026-10-01-feature-branch-naming-awpkv'
                         and not notes))
 
         os.environ.pop('CLAUDE_CODE_REMOTE_SESSION_ID')
         a, notes_a = pbn.build(['x'], date='2026-10-01')
         b, _ = pbn.build(['x'], date='2026-10-01')
         results.append(('no session ID: five random lowercase characters, said',
-                        re.fullmatch(r'session/2026-10-01-x-[a-z0-9]{5}', a)
+                        re.fullmatch(r'2026-10-01-x-[a-z0-9]{5}', a)
                         is not None and a != b
                         and any('no session ID found' in n for n in notes_a)))
 
