@@ -153,6 +153,21 @@ def _record_limits(headers, path):
     _LIMITS[f'{resource} @ {row["pool"]}'] = row
 
 
+# A hosted session's network proxy answers GitHub API calls for repositories
+# the session has not attached with its own refusal, not GitHub's (seen
+# 2026-10-07: "Access to this GitHub API path is not permitted through this
+# proxy", on every Update Vendors run, for public repositories too). That
+# is a fact about where the tool runs, not about the repository, and
+# nothing the person can act on; callers say it once, plainly.
+PROXY_REFUSAL_RE = re.compile(r'not permitted through this proxy', re.I)
+
+
+def is_proxy_refusal(text):
+    """True when an error or message from call() is the session proxy's
+    refusal rather than GitHub's answer."""
+    return bool(text) and bool(PROXY_REFUSAL_RE.search(str(text)))
+
+
 def call(path, timeout=TIMEOUT, auth=True, cache=True):
     """-> (parsed_json, error). Never raises: the caller reports, it does not crash.
 

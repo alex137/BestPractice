@@ -30,7 +30,8 @@ alone — bulk-renaming breaks the very references (links, records) the names ar
 load-bearing for; drop the suffix only from a file already being moved for
 another reason, fixing its references in the same pass.
 
-**A date is not a version**: `note-to-alex-2026-10-07.md` is fine.
+**A date is not a version**: `note-to-alex-2026-10-07.md` is fine, unless
+it sits beside an undated `note-to-alex.md`.
 
 ## Detail
 
@@ -70,7 +71,12 @@ coexist and a reader has to tell them apart.
 a version, in a folder of notes named exactly that way. Morgan keeps dates in
 file names on purpose, and the writing set's dated-download-names asks for the
 date on a kept document. The check now lets a date through; `v2`, `rev3` and
-the state words are still refused.
+the state words are still refused. Later the same day, from the session that
+hit it: a date beside the undated original (`report.md` and
+`report-2026-10-07.md`) is still a fork, and is still flagged; a dated series
+with no undated original is not (Morgan F, "Can you do now all the ones that
+are worth doing? Act", strength: decided).
+
 ## Install
 A naming convention; no tooling needed. The one judgment call —
 "do two versions genuinely need to coexist?" — is rare and deliberate, so it is
