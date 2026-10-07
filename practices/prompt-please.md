@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Its two occasions (an existing recommendation, or work this session cannot reach) are both facts about the conversation and the session's own repository access, not about any file being edited. Reached through the occasion index and the reply gate. Decided: 2026-09-20, when the practice landed."
-occasion:    "a person says \"Prompt Please\", or work belongs in a new session or needs a repo this one cannot reach"
+occasion:    "a person says \"Prompt Please\", or work belongs in a new session -- a repo this one lacks is asked to be attached here first"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
 index_clause: "one paste-ready prompt for a new session; never a session-creating tool"
@@ -59,7 +59,13 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   update.\" Extended 2026-10-01, Morgan: an opening invitation to analyze
   the prompt and push back with a stronger counter-proposal, and a closing
   request that any reply come back in its own copyable block with the
-  replying session's name and link. Authorized: \"Act and Booked.\""
+  replying session's name and link. Authorized: \"Act and Booked.\"
+  Amended 2026-10-07, Alex (assented): a repository the session lacks is
+  asked to be attached here first, and the prompt is the fallback. Asked
+  for in his words -- \"let's talk about asking permission more rather than
+  creating lossy prompts for other sessions\" -- after a session offered a
+  handoff for a BestPractice change it then made in place once the
+  repository was attached; approved the proposed wording with \"yes\"."
 strength:    decided
 source_practice_number: null
 ---
@@ -83,15 +89,25 @@ matching the phrase.
    end up taking the pick anyway. `Prompt Please` is for *after* that point:
    the recommendation is already the plan, and what's wanted is the clean
    handoff text, not another comparison.
-2. **The work itself belongs in a different session** -- because this
-   session cannot reach a repository the work needs. **Before starting work
-   you were just asked for, check whether it belongs in a different session,
-   and check the repositories first.** Name the repositories the work has to
-   read, write or push to, and compare that list against the ones this
-   session actually holds. This check is unconditional: it runs whenever
-   another repository might be involved, whether or not the person says
-   anything, and `Prompt Please` is the explicit command for the times it
-   did not fire on its own.
+2. **The work itself belongs in a different session** -- because it needs
+   a repository this session does not hold, **and attaching it here is not
+   an option.** **Before starting work you were just asked for, check the
+   repositories first.** Name the repositories the work has to read, write
+   or push to, and compare that list against the ones this session actually
+   holds. This check is unconditional: it runs whenever another repository
+   might be involved, whether or not the person says anything.
+
+   **A missing repository is a permission question first, not a handoff.**
+   Where the session can attach a repository mid-session, ask once, in one
+   line -- the repository and the access (read, or write to push) -- and
+   keep working on everything the answer does not touch. A handoff loses
+   the context this session built, repeats its reading in another window,
+   and leaves the person carrying text between the two. So the prompt is
+   the fallback, written only when the person declines the attach, the
+   attach fails, or the work is large and separate enough to deserve its
+   own session -- and the reply says which of the three it is.
+   `Prompt Please` is still the explicit command for any time the person
+   wants the handoff anyway.
 
 Whichever occasion triggered it, produce one prompt with all of the
 following, every time:
