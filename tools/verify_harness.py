@@ -18787,7 +18787,10 @@ def check_precedent_check_fires():
         # tools/bootstrap.sh it runs clone them. Planted by deleting that
         # line from both: the finding must name the missing clone step.
         def _plant_dsac(repo):
-            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh'):
+            # tools/session-start.sh since 2026-10-07: the .claude/hooks/ copy is
+            # the pointer stub, and the check follows it there.
+            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh',
+                        'tools/session-start.sh'):
                 rewrite(repo, rel, lambda t: re.sub(
                     r'\n[^\n]*precedent_source_bootstrap\.py --teams-from[^\n]*',
                     '', t))
