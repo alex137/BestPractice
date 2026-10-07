@@ -47888,6 +47888,41 @@ def check_update_judges_retired_sets_after_the_catalogue():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_promote_commits_carry_a_session_trailer():
+    """A commit the Promote tool writes itself -- the rebuild of generated
+    files during a composition -- carries a session trailer the trailer
+    check accepts: the session's link, or the explicit no-session form.
+
+    WHY. 2026-10-07, a Debut: main carried a commit staging lacked, the
+    composition rebuilt the generated files and committed them with no
+    trailer, and the full check refused the Promote's own commit."""
+    import re as _re
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    trailer = _re.compile(r'^(?:Session|Claude-Session):\s+(\S.*)$', _re.M)
+    saved = pb._this_session_id
+    try:
+        pb._this_session_id = lambda: '01Fixture'
+        t1 = pb._session_trailer()
+        cases.append(('with a session: its link, which the check accepts',
+                      t1.endswith('session_01Fixture') and bool(trailer.search(t1))))
+        pb._this_session_id = lambda: ''
+        t2 = pb._session_trailer()
+        cases.append(('without one: the explicit no-session form',
+                      t2 == 'Session: none available (precedent_branches.py)'
+                      and bool(trailer.search(t2))))
+    finally:
+        pb._this_session_id = saved
+        sys.path.pop(0)
+    import inspect as _inspect
+    cases.append(('the rebuild commit uses it',
+                  '_session_trailer()' in _inspect.getsource(pb._commit_rebuilt)))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a commit the Promote tool writes carries a session trailer '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_merge_instructions_give_the_full_head():
     """Every "merge it" line a Promote into main prints names the head commit
     in full.
@@ -63516,6 +63551,7 @@ def main():
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
+    check_promote_commits_carry_a_session_trailer()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

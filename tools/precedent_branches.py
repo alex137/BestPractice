@@ -2613,8 +2613,20 @@ def _commit_rebuilt(root, wt, say, why):
     if rebuilt:
         _run(wt, 'add', '-u')
         _run(wt, 'commit', '-q', '-m', f'Rebuild generated files {why}\n\n'
-             + '\n'.join(rebuilt), env=_merge_env(root))
+             + '\n'.join(rebuilt) + '\n\n' + _session_trailer(),
+             env=_merge_env(root))
     return rebuilt
+
+
+def _session_trailer():
+    """The session-trailer line for a commit this module writes itself (a
+    merge needs none: the trailer check passes merges). The session's own
+    link when there is one, else the explicit form the check accepts. Found
+    2026-10-07: a Debut's rebuild commit carried none, and the full check
+    refused the Promote's own composition."""
+    sid = _this_session_id()
+    return (f'Claude-Session: https://claude.ai/code/session_{sid}' if sid
+            else 'Session: none available (precedent_branches.py)')
 
 
 def _promote_unlocked(root, say=print, work=None):
