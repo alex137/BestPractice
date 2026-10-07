@@ -47866,37 +47866,39 @@ def check_promote_marks_other_sessions_commits():
                 run('add', name)
                 run('commit', '-qm', msg)
                 return run('rev-parse', 'HEAD').stdout.strip()
+            mine = '\n\nClaude-Session: https://claude.ai/code/session_01Fixture'
+            other = '\n\nClaude-Session: https://claude.ai/code/session_01Other'
             base = commit('base', 'base')
+            # Another session Books first; this session's branch is cut after,
+            # so it carries that commit -- the case the branch test got wrong.
+            commit('o', "another session's, Booked before the branch was cut" + other)
             run('switch', '-qc', 'work')
-            commit('a', 'mine, on the work branch')
+            commit('a', 'mine, on the work branch' + mine)
             run('switch', '-q', 'main')
             run('merge', '-q', '--no-ff', '-m', 'book work', 'work')
-            commit('b', 'mine, Booked from another branch\n\n'
-                        'Claude-Session: https://claude.ai/code/session_01Fixture')
-            commit('c', 'someone else\'s\n\n'
-                        'Claude-Session: https://claude.ai/code/session_01Other')
+            commit('b', 'mine, Booked from another branch' + mine)
+            commit('c', "someone else's, no session line")
             batch = pb._new_commits(repo, base, 'main')
             shown, others = pb.mark_other_work(repo, batch, 'work', sid='01Fixture')
             subj = lambda ls: [l.split(' ', 1)[1] for l in ls]
-            cases.append(('three commits in the batch', len(batch) == 3))
-            cases.append(('only the commit that is neither on the work branch '
-                          'nor this session\'s is marked',
-                          subj(others) == ["someone else's"]
-                          and sum(pb.OTHER_WORK_MARK in l for l in shown) == 1))
+            cases.append(('four commits in the batch', len(batch) == 4))
+            cases.append(("another session's commit is marked even though it is "
+                          "on this session's branch",
+                          "another session's, Booked before the branch was cut"
+                          in subj(others)))
+            cases.append(('a commit with no session line is marked',
+                          "someone else's, no session line" in subj(others)))
+            cases.append(("this session's commits are not, on its branch or off it",
+                          len(others) == 2
+                          and sum(pb.OTHER_WORK_MARK in l for l in shown) == 2))
             cases.append(('the note names how many and asks for them by name',
-                          '1 of these' in pb._other_work_note(others, 'work')
+                          '2 of these' in pb._other_work_note(others, 'work')
                           and pb._other_work_note([], 'work') == ''))
-            fix = 'promote-fix-20261006T193311-0300'
-            run('branch', fix, 'main')
-            shown, others = pb.mark_other_work(repo, batch, fix, sid='01Fixture')
-            cases.append(('a fix branch, which carries the whole batch, counts for '
-                          'nothing: another session\'s commit is still marked, '
-                          'and one with this session\'s line still is not',
-                          pb.is_fix_branch(fix) and "someone else's" in subj(others)
-                          and 'mine, Booked from another branch' not in subj(others)))
-            shown, others = pb.mark_other_work(repo, batch, None, sid='')
-            cases.append(('with no work branch and no session ID, nothing is marked',
-                          not others and shown == batch))
+            shown, others = pb.mark_other_work(repo, batch, 'work', sid='')
+            cases.append(('with no session ID nothing is marked, and the note says '
+                          'the list was not judged',
+                          others is None and shown == batch
+                          and 'unknown' in pb._other_work_note(others, 'work')))
     finally:
         sys.path.pop(0)
     bad = [n for n, ok in cases if not ok]
