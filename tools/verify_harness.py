@@ -13293,6 +13293,37 @@ def check_changed_files_only_judges_the_change():
         git('checkout', '-q', start, '--', 'documentation/CLOUD_SETUP.md', '.gitignore')
         git('commit', '-qm', 'undo the deletion fixture')
 
+        # A check script a sync brings judges the whole repository, and it
+        # is itself a changed file on the push that brings it. Its findings
+        # are judged by the file each names, so a standing problem elsewhere
+        # waits for the full check, and one in a file the push brings is
+        # refused (2026-10-07, a consuming repository: a one-file note was
+        # refused over a book kept as a source).
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        (wt / 'tools' / 'checks').mkdir(exist_ok=True)
+        (wt / 'tools' / 'checks' / 'check_planted_newcomer.py').write_text(
+            'import pathlib, sys\n'
+            'root = pathlib.Path(__file__).resolve().parents[2]\n'
+            'print("VIOLATION: planted-newcomer")\n'
+            'print("  README.md carries a planted standing problem")\n'
+            'if (root / "PLANTED_NEW.md").exists():\n'
+            '    print("  PLANTED_NEW.md carries a planted problem this push brings")\n'
+            'sys.exit(1)\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'a newly synced check script')
+        rc, out = run_check(start)
+        cases.append(('a newly arrived check\'s finding on a file the push does not '
+                      'change does not refuse it', rc == 0, out[-800:]))
+        brought = git('rev-parse', 'HEAD').stdout.strip()
+        (wt / 'PLANTED_NEW.md').write_text('# New\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'a file the new check flags')
+        rc, out = run_check(brought)
+        cases.append(('...and its finding on a file the push brings does',
+                      rc == 1 and 'PLANTED_NEW.md' in out, out[-800:]))
+        git('rm', '-q', 'PLANTED_NEW.md', 'tools/checks/check_planted_newcomer.py')
+        git('commit', '-qm', 'undo the newcomer fixture')
+
         # The file-level checks (checks-follow-the-tier): only the changed
         # files, and the views a changed practice feeds.
         def files_check(since):
@@ -20772,6 +20803,11 @@ def check_checks_read_what_their_rules_name():
     out = added({'findings-v2.md': 'x\n'}, ['findings-v2.md'])
     cases.append(('no-version-suffix: a version token alone is still '
                   'reported', 'findings-v2.md' in out, out))
+    out = added({'notes/note-to-alex-2026-09-22.md': 'x\n',
+                 'notes/note-to-alex-2026-10-07.md': 'x\n'},
+                ['notes/note-to-alex-2026-10-07.md'])
+    cases.append(('no-version-suffix: a dated record is not a version '
+                  '(2026-10-07)', out == '', out))
 
     # --- environment-gotchas: no index once the catalogue has migrated ----
     story = ('## Symptom\n\nA tool fails.\n\n## Story\n\nIt failed on a real '
@@ -48579,6 +48615,45 @@ def check_hook_changes_never_touch_dot_claude():
           not bad, '; '.join(bad))
 
 
+def check_sync_names_a_field_its_engine_does_not_know():
+    """The sync says, in plain words, when a practice uses a frontmatter
+    field this engine does not know: the set needs a newer engine, so Update
+    Vendors first.
+
+    WHY. Morgan, 2026-10-07 (strength: decided): a practice set started
+    using `hooks:` before a consuming repository's engine could wire it, the
+    old engine ignored the field, and it surfaced as a check finding nobody
+    there could fix. Planted: an unknown field is named, with the remedy; a
+    field the source declares as its own is not; a practice using only
+    known fields is not."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_sync_views as psv
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'set'
+        (src / 'practices').mkdir(parents=True)
+        fm = '---\nslug: {s}\ntier: on-demand\n{extra}---\n## Rule\nR.\n'
+        for s, extra in (('uses-new', 'future_field: x\n'), ('plain', ''),
+                         ('declared', 'house_field: y\n')):
+            (src / 'practices' / f'{s}.md').write_text(fm.format(s=s, extra=extra))
+        (src / 'precedent.json').write_text(json.dumps(
+            {'own_frontmatter_fields': ['house_field']}))
+        live = {s: {'file': str(src / 'practices' / f'{s}.md'), 'source': 'a-set'}
+                for s in ('uses-new', 'plain', 'declared')}
+        notes = psv.fields_this_engine_does_not_know(live)
+        cases.append(('an unknown field is named, with Update Vendors as the remedy',
+                      len(notes) == 1 and notes[0].startswith('uses-new (a-set)')
+                      and '`future_field:`' in notes[0] and 'Update Vendors' in notes[0]))
+        cases.append(('a field the source declares as its own is not',
+                      not any(n.startswith('declared') for n in notes)))
+        cases.append(('a practice using only known fields is not',
+                      not any(n.startswith('plain') for n in notes)))
+    bad = [n for n, ok in cases if not ok]
+    check(f'the sync names a field its engine does not know ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -63961,6 +64036,7 @@ def main():
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
     check_hook_changes_never_touch_dot_claude()
+    check_sync_names_a_field_its_engine_does_not_know()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
