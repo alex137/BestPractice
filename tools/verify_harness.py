@@ -14888,6 +14888,91 @@ def check_run_all_warns_when_checks_are_uncommitted():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_run_all_trusts_only_unchanged_shipped_tests():
+    """The generated run_all.sh runs only the CHECK, on the repo, for a
+    shipped test whose test and check both still match what was shipped --
+    and the full self-test for everything else.
+
+    Its source already ran an unchanged self-test before shipping, so in a
+    consumer it re-tested code nobody there touched: about 7 minutes of
+    every Update Vendors and every merge in one consumer (2026-10-06).
+    Plants the shapes that must NOT be trusted -- an edited test, an edited
+    check, a repo-local test, the override -- with a self-test that marks a
+    file when it runs, and a failing check that must still fail the run."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-run-all-trust-'))
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    env.pop('PRECEDENT_RUN_ALL_SELF_TESTS', None)
+    cases = []
+    try:
+        src = tmp / 'team'
+        (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (src / 'tools' / 'checks' / 'check_ok.py').write_text(
+            'print("ok ran")\n', encoding='utf-8')
+        (src / 'tools' / 'checks' / 'tests' / 'test_ok.sh').write_text(
+            '#!/bin/bash\ntouch "$(dirname "$0")/selftest_ran"\n', encoding='utf-8')
+        loc = tmp / 'local-src'
+        (loc / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        (loc / 'tools' / 'checks' / 'check_mine.py').write_text('pass\n', encoding='utf-8')
+        (loc / 'tools' / 'checks' / 'tests' / 'test_mine.sh').write_text(
+            '#!/bin/bash\ntouch "$(dirname "$0")/local_ran"\n', encoding='utf-8')
+        sources = [{'name': 'precedent-team-fixture', 'level': 'shared', 'path': str(src)},
+                   {'name': 'local', 'level': 'repo-local', 'path': str(loc)}]
+        plan = pm._plan_checks(sources, None)
+        repo = tmp / 'consumer'
+        for rel, fn, _s, data in plan:
+            d = repo / 'tools' / rel
+            d.mkdir(parents=True, exist_ok=True)
+            (d / fn).write_bytes(data)
+        tests = repo / 'tools' / 'checks' / 'tests'
+
+        def run(extra=None):
+            for m in ('selftest_ran', 'local_ran'):
+                (tests / m).unlink(missing_ok=True)
+            r = subprocess.run(['bash', 'run_all.sh'], cwd=tests, capture_output=True,
+                               text=True, env=dict(env, **(extra or {})))
+            return r, (tests / 'selftest_ran').exists(), (tests / 'local_ran').exists()
+
+        r, self_ran, local_ran = run()
+        cases.append(('an unchanged shipped test runs its check, not its self-test',
+                      r.returncode == 0 and not self_ran and 'ok ran' in r.stdout))
+        cases.append(('a repo-local test always runs its self-test', local_ran))
+        r, self_ran, _ = run({'PRECEDENT_RUN_ALL_SELF_TESTS': '1'})
+        cases.append(('PRECEDENT_RUN_ALL_SELF_TESTS=1 runs the shipped self-test', self_ran))
+        (tests / 'test_ok.sh').write_text(
+            (tests / 'test_ok.sh').read_text(encoding='utf-8') + '# edited\n', encoding='utf-8')
+        r, self_ran, _ = run()
+        cases.append(('an edited shipped test runs its self-test', self_ran))
+        (tests / 'test_ok.sh').write_bytes(
+            next(d for rel, fn, _s, d in plan if fn == 'test_ok.sh'))
+        chk = repo / 'tools' / 'checks' / 'check_ok.py'
+        chk.write_text('print("edited")\n', encoding='utf-8')
+        r, self_ran, _ = run()
+        cases.append(('an edited shipped check runs the self-test', self_ran))
+        chk.write_bytes(next(d for rel, fn, _s, d in plan if fn == 'check_ok.py'))
+        # A finding in the repo: rebuild the plan around a failing check, so
+        # its fingerprint matches and only the check runs.
+        (src / 'tools' / 'checks' / 'check_ok.py').write_text(
+            'import sys\nprint("FINDING here")\nsys.exit(1)\n', encoding='utf-8')
+        for rel, fn, _s, data in pm._plan_checks(sources, None):
+            (repo / 'tools' / rel / fn).write_bytes(data)
+        r, self_ran, _ = run()
+        cases.append(("a trusted check's finding fails the run and is named as "
+                      "this repo's to fix", r.returncode == 1 and not self_ran
+                      and "this repo's to fix" in r.stdout))
+    except (OSError, subprocess.CalledProcessError, StopIteration) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [name for name, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_source_names_explains_a_proxy_refusal():
     """A hosted session's proxy answers 403 for any repository the session has
     not attached, public ones included. precedent_source_names reports that as
@@ -63161,6 +63246,8 @@ def main():
           *check_update_vendors_second_consumer_findings())
     check('run_all.sh says when a failure may be uncommitted checks, and only then',
           *check_run_all_warns_when_checks_are_uncommitted())
+    check('run_all.sh runs only the check for an unchanged shipped test, the self-test otherwise',
+          *check_run_all_trusts_only_unchanged_shipped_tests())
     check('precedent_source_names explains a hosted proxy\'s 403 and names the remedy',
           *check_source_names_explains_a_proxy_refusal())
     check('a push to main skips main\'s GitHub test only when those exact files already passed it',
