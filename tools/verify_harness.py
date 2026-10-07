@@ -53797,7 +53797,8 @@ def check_update_vendors_rehearsal_findings():
       to the branch every install follows.
     - One small edit to a template block read as the whole block missing.
     - The retired-name sweep missed precedent-team-* and MAP.md/GLOSSARY.md.
-    - A run budget upstream gives a vendored tool went unmentioned."""
+    - A run budget upstream gives a vendored tool went unmentioned (since
+      2026-10-07 it is written in, upstream's figure and note)."""
     import contextlib, io, tempfile
     pu, pve, _pr = _update_tools()
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rehearsal-'))
@@ -53954,11 +53955,14 @@ def check_update_vendors_rehearsal_findings():
                       and gi.splitlines().count('__pycache__/') == 1
                       and 'build/' in gi.splitlines()
                       and '.gitignore:' in text, gi))
+        # Since 2026-10-07 the update writes upstream's figure in, rather than
+        # leaving a copy-it-yourself item (seed_engine_budgets says why).
         cases.append(('a run budget upstream gives a vendored tool, missing here, '
-                      'is left for you -- and the registry is not written',
-                      'tools/github_api_budgets.json: precedent_branches.py' in left
-                      and 'precedent_branches' not in (repo / 'tools' /
-                                                       'github_api_budgets.json').read_text(),
+                      'is written in with upstream\'s figure, not left for you',
+                      'tools/github_api_budgets.json: precedent_branches.py' not in left
+                      and '"precedent_branches.py"' in (repo / 'tools' /
+                                                        'github_api_budgets.json').read_text()
+                      and 'API budgets' in text,
                       left[-800:]))
         cases.append(('...and nothing for a tool this repo already budgets',
                       'github_api_budgets.json: github_budget.py' not in left, ''))
