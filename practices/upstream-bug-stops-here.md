@@ -8,7 +8,7 @@ applies_to_why: "The paths where a copy of another repository's file usually liv
 occasion:    "about to change a file to fix a bug, in a repository that did not write that file"
 gates:       ["review"]
 gates_why:   "`review` is the moment a fix is chosen, before the edit, which is the only moment this rule can still stop a local patch to an upstream bug."
-index_clause: "classify first; an upstream bug stops here and goes upstream by Prompt Please"
+index_clause: "never patch an upstream bug here; its upstream PR is the ask"
 index_required: false
 checked_by:  null
 defines:     []
@@ -17,7 +17,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "Morgan, 2026-09-28"
+approved_by: "Morgan, 2026-09-28; amended by S. Alexander Jacobson, 2026-10-06, in his words: \"Yes. Opening a pr counts as asking.\" (strength: decided)"
 strength:    decided
 ---
 ## Rule
@@ -27,15 +27,19 @@ belongs to another repository: a vendored engine or catalogue, a check a
 practice set ships, a hook or file made from a template -- anything an update
 would bring back.
 
-**A bug fix that is upstream is not made here.** Stop before editing. Tell the
-person, in plain words, that the bug is upstream and which repository owns it,
-and hand back a [Prompt Please](prompt-please.md) block that fixes it there.
-Patching the local copy hides the bug from every other repository that carries
-it, and the next update puts it back.
+**A bug fix that is upstream is not made here.** Never edit the local copy.
+In the same turn, open the fix as a pull request in the repository that owns
+it, requesting access first if this session lacks it, and tell the person in
+plain words that the bug is upstream, which repository owns it, and where the
+pull request is. **The open pull request is the ask:** the person sees the
+fix there before anything lands. Only when the owner cannot be reached (access
+requested and refused) does the fix go back as a
+[Prompt Please](prompt-please.md) block instead. Patching the local copy hides
+the bug from every other repository that carries it, and the next update puts
+it back.
 
-**Two things change that:** the person asks for a local stopgap, which then
-goes in as a labelled band-aid beside the handoff, or tells this session to
-fix the upstream repository itself.
+**One thing changes that:** the person asks for a local stopgap, which then
+goes in as a labelled band-aid beside the upstream pull request.
 
 ## Detail
 **This repository may BE upstream.** In BestPractice, its engine and templates
@@ -73,11 +77,14 @@ gate and basic tier, pushes a branch (never a pull request, never a merge),
 and prints the Prompt Please block for the session that will land it
 ([tools/precedent_local_edits.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_local_edits.py)).
 
-**It holds even where the session could fix the upstream repository itself.** A
-session that could reach the upstream repository still stops and asks here,
-because the person wants to see an upstream bug before anyone patches
-anything. The Boildown's root-fix item then reports where the upstream fix
-stands ([the-boildown](the-boildown.md)).
+**The pull request is where the person sees it.** The person wants to see an
+upstream bug before anyone patches anything; an open pull request in the
+owning repository shows them the bug, the fix and its test before it lands,
+so opening it is the stop this rule asks for, and parking the fix as an open
+item instead is what [todo-is-a-handoff](todo-is-a-handoff.md) forbids.
+`python3 tools/upstream_fix.py PATH` sets up the branch in the owning clone.
+The Boildown's root-fix item then reports where the upstream fix stands
+([the-boildown](the-boildown.md)).
 
 **Relation to its neighbour.** [upstream-fix](upstream-fix.md) asks, after a
 fix, whether it removes the cause, where the file came from and who else has
@@ -122,3 +129,12 @@ fact report.
 ## Install
 Nothing to install. The path channel prints this Rule when a session edits a
 file under one of the paths above; the review gate carries it too.
+
+2026-10-06: amended. The rule said to stop and hand back a Prompt Please even
+where the session could fix the owning repository itself, and in one consumer
+that left four upstream fixes sitting as open items for one to two weeks, each
+about an hour's work. todo-is-a-handoff was changed the same day to have the
+session open the fix upstream in the same turn, and the two read differently.
+S. Alexander Jacobson settled it: "Yes. Opening a pr counts as asking."
+(strength: decided). The local copy is still never patched; the stop is now
+the pull request.
