@@ -48261,6 +48261,56 @@ def check_gate_refusals_are_worded_by_their_tools():
           not bad, '; '.join(bad))
 
 
+def check_publish_gate_passes_the_branch_cleanup_page():
+    """The page tools/precedent_stale_branches.py --html writes is published
+    past the Artifact publish gate; a hand-made page still is not.
+
+    WHY. 2026-10-07, a consuming repository: the stop hook asked for the
+    branch-cleanup page (the ladder set's stale-branch-cleanup), and
+    tools/artifact_publish_gate.py refused it as "not a render of any
+    registered document" -- two rules in force contradicting each other.
+    Planted: the gate's own two-direction --self-check; the generator's
+    --html run notes its page, which the gate then passes; the same page
+    with one byte changed is refused."""
+    import tempfile
+    cases = []
+    r = subprocess.run([sys.executable, 'tools/artifact_publish_gate.py', '--self-check'],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(('the gate\'s own self-check passes',
+                  r.returncode == 0 and 'self-check OK' in r.stdout))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_stale_branches as _sb
+    import artifact_publish_gate as _apg
+    saved = os.environ.get('PRECEDENT_GENERATED_PAGES')
+    real_collect = _sb.collect
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
+        try:
+            _sb.collect = lambda fetch=False: ([('o', 'r', [('old-branch', '2026-10-01')])], [])
+            page = td / 'branch-cleanup.html'
+            with open(os.devnull, 'w') as quiet:
+                saved_out, sys.stdout = sys.stdout, quiet
+                try:
+                    _sb.main(['--html', str(page)])
+                finally:
+                    sys.stdout = saved_out
+            cases.append(('the generator\'s page passes the gate',
+                          page.is_file() and not _apg.check([str(page)], [], td)))
+            page.write_text(page.read_text(encoding='utf-8') + ' ', encoding='utf-8')
+            cases.append(('the same page edited by hand is refused',
+                          bool(_apg.check([str(page)], [], td))))
+        finally:
+            _sb.collect = real_collect
+            if saved is None:
+                os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
+            else:
+                os.environ['PRECEDENT_GENERATED_PAGES'] = saved
+    bad = [n for n, ok in cases if not ok]
+    check(f'the publish gate passes the branch-cleanup page ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_dedup_onto_same_slug_withdraws_nothing():
     """changed_slugs() leaves out a set's copy deduplicated onto its own slug.
 
@@ -63636,6 +63686,7 @@ def main():
     check_session_check_names_a_declared_retired_set()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
+    check_publish_gate_passes_the_branch_cleanup_page()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

@@ -202,7 +202,20 @@ def main(argv):
     if '--html' in argv:
         out = pathlib.Path(argv[argv.index('--html') + 1])
         out.write_text(render_html(groups), encoding='utf-8')
-        print(f'{total} stale branch(es) written to {out}')
+        # Noted for the publish gate, which passes a page an engine
+        # generator wrote, unedited, within the hour (artifact_publish_gate.py,
+        # "ENGINE-REGISTERED GENERATORS"). Without it the page the
+        # stale-branch-cleanup practice asks for was refused.
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import artifact_publish_gate
+            noted = artifact_publish_gate.record_generated(
+                out, 'precedent_stale_branches.py')
+        except Exception:                                   # noqa: BLE001
+            noted = False
+        print(f'{total} stale branch(es) written to {out}'
+              + ('' if noted else ' (not noted for the publish gate, which '
+                 'will refuse it: artifact_publish_gate.py did not load)'))
         return 0
     if '--json' in argv:
         print(json.dumps({'total': total, 'notes': notes, 'repos': [

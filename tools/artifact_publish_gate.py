@@ -32,6 +32,20 @@ are not publishes of a page and pass. A page that is not a deliverable (an
 index, an explainer) is refused too: write it as markdown, register it and
 render it.
 
+ENGINE-REGISTERED GENERATORS (2026-10-07). Some pages have no document
+behind them: the branch-cleanup page that the ladder set's
+stale-branch-cleanup practice puts in a session's closing summary is
+written by tools/precedent_stale_branches.py --html from the live branch
+list. The gate refused it, so two rules in force contradicted each other and
+a session fell back to pasting links into chat. A tool named in GENERATORS
+calls record_generated() on every page it writes, which notes the page's
+sha256 in a ledger outside any repository (GENERATED_LEDGER); a page whose
+bytes match an entry from the last FRESH_SECONDS passes, the same
+copy-of-a-fresh-render test a registered document gets. Edit one byte of it
+and it is a hand-made page again, refused. The gate exists so typed-in
+figures cannot drift from a model; a generator has no model to drift from,
+only its own output.
+
 FAIL-OPEN ON THE PLUMBING (practice: fail-gracefully). An unparseable
 payload, or a registry that will not load, lets the call through with a
 line on stderr: a gate that breaks a session over its own missing
@@ -51,6 +65,65 @@ ROOT = Path(os.environ.get('CLAUDE_PROJECT_DIR')
             or Path(__file__).resolve().parents[1])
 HOST_FILE = 'tools/artifact_publish_gate_host.json'
 DEFAULT_REGISTRY = 'tools/doc_html.py'
+# The engine's own page generators: a page one of these wrote, unedited and
+# recent, may be published. Only an engine change adds one.
+GENERATORS = ('precedent_stale_branches.py',)
+FRESH_SECONDS = 3600
+LEDGER_KEEP = 50
+PRACTICE_NOTE = '(practice: docs-track-models, "Published pages")'
+
+
+def generated_ledger():
+    """Where generated pages are noted: per person, outside any repository,
+    because the gate's project and the generator's repository need not be
+    the same one."""
+    env = os.environ.get('PRECEDENT_GENERATED_PAGES')
+    if env:
+        return Path(env)
+    base = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
+    return Path(base) / 'precedent' / 'generated_pages.json'
+
+
+def _read_ledger():
+    try:
+        data = json.loads(generated_ledger().read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def record_generated(path, generator, now=None):
+    """Note that `generator` (a GENERATORS name) just wrote `path`. Never
+    raises: a ledger that cannot be written only means the page will be
+    refused, and the refusal says why."""
+    import time
+    try:
+        data = _read_ledger()
+        data[_sha(path)] = {'generator': generator, 'path': str(path),
+                            'at': int(now if now is not None else time.time())}
+        keep = sorted(data.items(), key=lambda kv: kv[1].get('at', 0))[-LEDGER_KEEP:]
+        out = generated_ledger()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(dict(keep), indent=1), encoding='utf-8')
+        return True
+    except OSError:
+        return False
+
+
+def generated_problem(sha, page, now=None):
+    """-> None when `sha` is a fresh page a registered generator wrote; a
+    refusal line when it was one but is too old; '' when no generator wrote
+    it (the caller's registered-document test then decides)."""
+    import time
+    entry = _read_ledger().get(sha)
+    if not entry or entry.get('generator') not in GENERATORS:
+        return ''
+    age = int(now if now is not None else time.time()) - int(entry.get('at', 0))
+    if age <= FRESH_SECONDS:
+        return None
+    return (f'{page}: {entry["generator"]} wrote this page {age // 60} minutes '
+            f'ago, longer than {FRESH_SECONDS // 60} allow; run it again and '
+            f'publish the new page.')
 
 
 def registry_module_path(root=ROOT):
@@ -105,7 +178,7 @@ def pages_in(tool_input):
     return out
 
 
-def check(pages, registry, root=ROOT):
+def check(pages, registry, root=ROOT, now=None):
     """The refusal lines; empty means every page is a fresh render."""
     renders = {}
     for sources, html in registry:
@@ -119,14 +192,23 @@ def check(pages, registry, root=ROOT):
             p = root / p
         if not p.is_file():
             continue   # the tool reports a missing file itself
-        hits = renders.get(_sha(p))
+        sha = _sha(p)
+        hits = renders.get(sha)
         if not hits:
+            gen = generated_problem(sha, page, now)
+            if gen is None:
+                continue
+            if gen:
+                problems.append(gen)
+                continue
             problems.append(
                 f'{page}: not a render of any registered document. Only a '
                 f'copy of what the renderer produced from a registered source '
                 f'may be published -- nothing typed by hand reaches a link. '
                 f'Write it as markdown with its figures in generated blocks, '
-                f'register it, render it, and publish a copy of the render.')
+                f'register it, render it, and publish a copy of the render. '
+                f'A page an engine generator writes ({", ".join(GENERATORS)}) '
+                f'passes when published unedited within the hour.')
             continue
         sources, html = hits[0]
         newer = [s for s in sources if (root / s).is_file()
@@ -157,8 +239,10 @@ def main():
         return 0
     problems = check(pages, registry)
     if problems:
-        print('artifact publish refused:\n  ' + '\n  '.join(problems),
-              file=sys.stderr)
+        # The practice pointer is said here, not in the hook, so rewording
+        # it never touches a hook file (see doc_lint.py's hook_reason).
+        print('artifact publish refused:\n  ' + '\n  '.join(problems)
+              + f'\n\n{PRACTICE_NOTE}', file=sys.stderr)
         return 2
     return 0
 
@@ -213,6 +297,31 @@ def self_check():
         os.utime(root / 'doc.md', (3e6, 3e6))
         cases.append(('a render older than its source is refused',
                       bool(check([str(copy)], registry, root))))
+        saved = os.environ.get('PRECEDENT_GENERATED_PAGES')
+        os.environ['PRECEDENT_GENERATED_PAGES'] = str(root / 'ledger.json')
+        try:
+            page = root / 'branch-cleanup.html'
+            page.write_text('<h1>91 branches</h1>', encoding='utf-8')
+            cases.append(('a generator page nobody recorded is refused',
+                          bool(check([str(page)], registry, root, now=5000))))
+            record_generated(page, 'precedent_stale_branches.py', now=5000)
+            cases.append(('a fresh unedited generator page passes',
+                          not check([str(page)], registry, root, now=5000 + 60)))
+            cases.append(('...and an hour and more later it is refused',
+                          'run it again' in ' '.join(check(
+                              [str(page)], registry, root, now=5000 + FRESH_SECONDS + 1))))
+            page.write_text('<h1>91 branches, edited</h1>', encoding='utf-8')
+            cases.append(('one edited byte makes it a hand-made page, refused',
+                          'not a render' in ' '.join(check(
+                              [str(page)], registry, root, now=5000 + 60))))
+            record_generated(page, 'some_other_tool.py', now=5000)
+            cases.append(('a tool not in GENERATORS cannot vouch for a page',
+                          bool(check([str(page)], registry, root, now=5000 + 60))))
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
+            else:
+                os.environ['PRECEDENT_GENERATED_PAGES'] = saved
     failed = [n for n, ok in cases if not ok]
     if failed:
         print('artifact_publish_gate self-check FAIL: ' + '; '.join(failed))
