@@ -17,6 +17,10 @@ Run:  python3 tools/verify_harness.py
       python3 tools/verify_harness.py --as-ci --isolated  # and CI's machine:
             a copy with no siblings, no personal config or source token,
             then the tests that went not-applicable there, run here
+      PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py
+                                                 # just the tests you name
+      A full run started by hand refuses until it is given the person's
+      go-ahead: --because '<their words>'. It states what it costs first.
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
@@ -10534,6 +10538,168 @@ def _bare_all_runs_in_parallel(argv, environ):
             and environ.get('PRECEDENT_HARNESS_SERIAL') != '1')
 
 
+# A FULL RUN IS PROPOSED BEFORE IT STARTS (Morgan, 2026-10-07, strength:
+# decided). A session started this suite whole, by hand, to double-check
+# work bound only for pre-staging, quoted "15 to 25 minutes" from memory,
+# and was still running at 25 minutes with a third done -- the one-process
+# run takes about 40. answer-first-ask-before-long-work already said to
+# propose a long run with the tool's own cost line; this suite had no such
+# line, and nothing stopped it starting. Now a full run started by hand
+# states what it costs and refuses without --because quoting the person's
+# go-ahead. The callers that were asked for by name pass their own reason
+# (precedent_push_check.py at the staging and main tiers, the very deep
+# check's step 2), GitHub's runner is let through, and a run filtered to
+# named checks (PRECEDENT_CHECK_ONLY / SKIP) is not a full run at all.
+HARNESS_ASKED_ENV = 'PRECEDENT_HARNESS_ASKED'
+HARNESS_TIMINGS = ROOT / '.precedent' / 'harness_timings.json'
+# What each shape took when it was last measured, for a machine that has
+# recorded none of its own. Measured, never guessed: the serial figure is
+# 562 checks in 2369 s on a 4-core container (2026-10-07); the parallel
+# --all figure is check_bare_all_runs_across_the_cores' (2026-10-06); the
+# isolated one is precedent_push_check.py's note (2026-09-29).
+HARNESS_MEASURED = {
+    'one process': (40, '2026-10-07, 4 cores'),
+    '--as-ci': (11, '2026-10-06, 4 cores'),
+    '--all': (11, '2026-10-06, 4 cores'),
+    '--as-ci --isolated': (13, '2026-09-29'),
+}
+
+
+def _because(argv):
+    """-> the text after --because, or '' when there is none."""
+    if '--because' in argv:
+        i = argv.index('--because')
+        if i + 1 < len(argv):
+            return argv[i + 1].strip()
+    return ''
+
+
+def _full_run_shape(argv, environ):
+    """-> which full run this invocation is ('one process', '--as-ci',
+    '--all', '--as-ci --isolated'), or None for a run filtered to named
+    checks -- a shard, or a session running the tests it changed."""
+    if environ.get('PRECEDENT_CHECK_ONLY') or environ.get('PRECEDENT_CHECK_SKIP'):
+        return None
+    if '--as-ci' in argv:
+        return '--as-ci --isolated' if '--isolated' in argv else '--as-ci'
+    return '--all' if '--all' in argv else 'one process'
+
+
+def _full_run_cost(shape, timings_file=None):
+    """-> one line: what this shape took the last time it was measured,
+    on this machine if it has recorded a run, else HARNESS_MEASURED's."""
+    try:
+        rec = json.loads(pathlib.Path(timings_file or HARNESS_TIMINGS)
+                         .read_text(encoding='utf-8')).get(shape)
+    except (OSError, ValueError, AttributeError):
+        rec = None
+    if isinstance(rec, dict) and rec.get('minutes'):
+        return (f'a full run ({shape}) took {rec["minutes"]} minutes the last '
+                f'time on this machine ({rec.get("when", "date unknown")})')
+    mins, when = HARNESS_MEASURED.get(shape, (None, None))
+    if mins is None:
+        return f'a full run ({shape}) has no recorded time'
+    return (f'a full run ({shape}) takes about {mins} minutes (measured '
+            f'{when}; this machine has recorded none of its own)')
+
+
+def _full_run_refusal(argv, environ):
+    """-> the refusal text when this is a full run started by hand with no
+    go-ahead, else None (see HARNESS_ASKED_ENV above)."""
+    shape = _full_run_shape(argv, environ)
+    if shape is None or environ.get('GITHUB_ACTIONS') == 'true':
+        return None
+    if environ.get(HARNESS_ASKED_ENV) or _because(argv):
+        return None
+    again = ' '.join(['python3 tools/verify_harness.py', *argv,
+                      "--because '<their words>'"])
+    faster = (f' The same tests side by side, --as-ci: '
+              f'{_full_run_cost("--as-ci")}.' if shape == 'one process' else '')
+    return (f'verify_harness: NOT STARTED -- {_full_run_cost(shape)}.{faster}\n'
+            f'A run that long is proposed to the person first: what it is, '
+            f'that time, what it blocks and what it does not '
+            f'(answer-first-ask-before-long-work). Once they say go:\n'
+            f'  {again}\n'
+            f'Not needed for:\n'
+            f'  - the tests your change touched: '
+            f'PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py\n'
+            f'  - Booked (pre-staging): its push check is the quick tier\n'
+            f'  - Debut and Produce: precedent_push_check.py runs the whole '
+            f'suite itself, in the faster --as-ci shape')
+
+
+def _record_full_run(shape, seconds, rc, timings_file=None):
+    """Keep what a finished full run took, for the next run's cost line.
+    Local and untracked (.precedent/), so it never dirties the tree; a
+    failed write costs only the estimate."""
+    if shape is None or rc not in (0, 1):
+        return
+    path = pathlib.Path(timings_file or HARNESS_TIMINGS)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        data = data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        data = {}
+    data[shape] = {'minutes': max(1, round(seconds / 60)),
+                   'when': time.strftime('%Y-%m-%d') + f', {os.cpu_count() or 1} cores'}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
+def check_full_run_asks_first():
+    """A full run started by hand states its cost and refuses without
+    --because; a filtered run, a run with a go-ahead, a caller that was
+    asked, and GitHub's runner start; a recorded time is quoted back."""
+    import tempfile
+    cases = []
+    r = _full_run_refusal([], {})
+    cases.append(('a bare run by hand is refused', r is not None))
+    cases.append(('...and the refusal states a time in minutes',
+                  bool(r and re.search(r'\d+ minutes', r))))
+    cases.append(('...and says how to give the go-ahead',
+                  bool(r and '--because' in r)))
+    cases.append(('--as-ci by hand is refused too',
+                  _full_run_refusal(['--as-ci'], {}) is not None))
+    cases.append(('--all by hand is refused too',
+                  _full_run_refusal(['--all'], {}) is not None))
+    cases.append(('--because with words starts it',
+                  _full_run_refusal(['--because', 'Morgan: run it'], {}) is None))
+    cases.append(('--because with no words does not',
+                  _full_run_refusal(['--because'], {}) is not None))
+    cases.append(('a filtered run starts',
+                  _full_run_refusal([], {'PRECEDENT_CHECK_ONLY': 'check_x'}) is None))
+    cases.append(('a shard (SKIP) starts',
+                  _full_run_refusal([], {'PRECEDENT_CHECK_SKIP': 'check_x'}) is None))
+    cases.append(('a caller that was asked starts',
+                  _full_run_refusal(['--as-ci'], {HARNESS_ASKED_ENV: 'push check'}) is None))
+    cases.append(("GitHub's runner starts",
+                  _full_run_refusal([], {'GITHUB_ACTIONS': 'true'}) is None))
+    with tempfile.TemporaryDirectory() as tmp:
+        f = pathlib.Path(tmp) / 'timings.json'
+        _record_full_run('--as-ci', 9 * 60 + 10, 0, f)
+        cases.append(('a recorded run is quoted back',
+                      '9 minutes the last time on this machine'
+                      in _full_run_cost('--as-ci', f)))
+        _record_full_run('--as-ci', 60, 2, f)
+        cases.append(('a run that crashed records nothing',
+                      '9 minutes' in _full_run_cost('--as-ci', f)))
+    src = pathlib.Path(__file__).read_text(encoding='utf-8')
+    pc = (ROOT / 'tools' / 'precedent_push_check.py').read_text(encoding='utf-8')
+    vd = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+    cases.append(('the entry point refuses before anything runs',
+                  'refusal = _full_run_refusal(sys.argv[1:], os.environ)' in src))
+    cases.append(('the push check passes its own reason',
+                  "'--isolated', '--because'" in pc))
+    cases.append(("the very deep check's step 2 passes its own reason",
+                  "str(harness), '--all', '--because'" in vd))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a full run started by hand states its cost and asks first '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_bare_all_runs_across_the_cores():
     """A bare `--all` is dispatched to run_as_ci with every planted case
     (2026-10-06: one process took about 31 minutes where the same set side
@@ -10561,7 +10727,7 @@ def check_bare_all_runs_across_the_cores():
                   and 'if every_case:' in src))
     main_src = pathlib.Path(__file__).read_text(encoding='utf-8')
     cases.append(('the entry point dispatches it',
-                  'sys.exit(run_as_ci(every_case=True))' in main_src))
+                  '_done(run_as_ci(every_case=True))' in main_src))
     failed = [n for n, ok in cases if not ok]
     check(f'a bare --all runs across the cores ({len(cases)} stated cases)',
           not failed, '; '.join(failed))
@@ -10795,7 +10961,10 @@ def run_as_ci_isolated():
               + ' (no siblings, empty $HOME, no source token, UTC) ===',
               flush=True)
         rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
-                             '--as-ci'], cwd=repo, env=env).returncode
+                             '--as-ci', '--because',
+                             os.environ.get(HARNESS_ASKED_ENV)
+                             or 'the isolated run this one was asked for'],
+                            cwd=repo, env=env).returncode
         grown = _new_entries(parent, before)
         t1 = time.monotonic()
         slice_ = sorted(set(na_file.read_text(encoding='utf-8').split())
@@ -63632,6 +63801,7 @@ def main():
     check_retired_set_takes_only_its_retirement()
     check_debut_waits_for_an_open_produce_pull_request()
     check_bare_all_runs_across_the_cores()
+    check_full_run_asks_first()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
@@ -64229,12 +64399,26 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    # A full run by hand is proposed first (HARNESS_ASKED_ENV, above).
+    refusal = _full_run_refusal(sys.argv[1:], os.environ)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        sys.exit(2)
+    _shape = _full_run_shape(sys.argv[1:], os.environ)
+    if _shape:
+        os.environ.setdefault(HARNESS_ASKED_ENV, _because(sys.argv[1:]) or 'asked')
+        print(f'verify_harness: {_full_run_cost(_shape)}', file=sys.stderr, flush=True)
+    _t_start = time.monotonic()
+
+    def _done(rc):
+        _record_full_run(_shape, time.monotonic() - _t_start, rc)
+        sys.exit(rc)
     # BEFORE main(), because this does not run the suite -- it runs the
     # suite twice, the two ways CI does, each in its own process.
     if '--as-ci' in sys.argv[1:] and '--isolated' in sys.argv[1:]:
-        sys.exit(run_as_ci_isolated())
+        _done(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
-        sys.exit(run_as_ci())
+        _done(run_as_ci())
     # A BARE --all RUNS ACROSS THE CORES (2026-10-06). It is the same set as
     # --as-ci with every planted case, and run in one process it took about
     # 31 minutes on a 4-core container that --as-ci fills in about 11 (the
@@ -64243,5 +64427,5 @@ if __name__ == '__main__':
     # filter, so neither recurses. PRECEDENT_HARNESS_SERIAL=1 is the old
     # one-process run, for profiling.
     if _bare_all_runs_in_parallel(sys.argv[1:], os.environ):
-        sys.exit(run_as_ci(every_case=True))
-    sys.exit(main())
+        _done(run_as_ci(every_case=True))
+    _done(main())
