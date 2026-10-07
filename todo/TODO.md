@@ -146,7 +146,6 @@ as_of: 2026-10-06
 | [`todo-2026-10-05-move-repo-maintenance-into-universal`](todo-2026-10-05-move-repo-maintenance-into-universal.md) | Finish moving the repo-maintenance set's rules into universal, then retire the set. | 1d | ask | both passes reaching main, then Update Vendors in every repository that declares… |
 | [`todo-2026-10-06-deal-harness-checks-by-measured-time`](todo-2026-10-06-deal-harness-checks-by-measured-time.md) | `verify_harness.py --as-ci` (and now a bare `--all`) deals the rest shard's | 0d | wait |  |
 | [`todo-2026-10-06-freshness-notice-said-behind-for-current-clones`](todo-2026-10-06-freshness-notice-said-behind-for-current-clones.md) | A consumer session (2026-10-05/06) reported that its | 0d | wait | the next time a session-start notice calls a clone BEHIND that is current minute… |
-| [`todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here`](todo-2026-10-06-upstream-fix-pr-meets-upstream-bug-stops-here.md) | Two practices in force now read differently on the same moment. | 0d | ask | a decision by Morgan (owner of upstream-bug-stops-here) and Alex (who approved t… |
 
 ## Decisions (the Person's Call)
 
