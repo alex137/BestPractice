@@ -47752,6 +47752,57 @@ def check_install_and_update_name_the_code_owners():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_judges_retired_sets_after_the_catalogue():
+    """Update Vendors judges a retired set after the catalogue update, and
+    takes the view sync's removals when every one came from a set it dropped
+    itself -- never any other refused removal.
+
+    WHY. 2026-10-06, a consumer's update: a retired set's last rules were
+    being folded into universal in the same update, but the set was judged
+    against the old catalogue, read as holding rules "in force nowhere
+    else", and kept. And where an update did drop a set, its own view sync
+    then refused to remove that set's practices, with no way through."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    cases = []
+    try:
+        src = (ROOT / 'tools' / 'precedent_update.py').read_text(encoding='utf-8')
+        body = src[src.index('def update('):]
+        at = body.index('dropped_sets = retired_sources_step(repo, rep)')
+        cases.append(('the retired-set step runs after the catalogue and before '
+                      'the views',
+                      body.index('# 3. The catalogue') < at < body.index('# 4. The views')))
+        refusal = ("refusing to WRITE: this sync would remove 2 practice(s) this "
+                   "repository's committed MANIFEST.json records, whose source "
+                   "name is not among the sources precedent.json declares -- "
+                   "light-check (recorded from precedent-shared-repo-maintenance); "
+                   "{second} (recorded from {src}). THREE things produce this")
+        ok = refusal.format(second='fresh-before-write',
+                            src='precedent-shared-repo-maintenance')
+        cases.append(('every refused removal from a set it dropped: taken',
+                      sorted(pu.removals_this_update_caused(
+                          ok, ['precedent-shared-repo-maintenance']))
+                      == ['fresh-before-write', 'light-check']))
+        mixed = refusal.format(second='x-rule', src='precedent-renamed-set')
+        cases.append(('one from a source it did not drop: left to the person',
+                      pu.removals_this_update_caused(
+                          mixed, ['precedent-shared-repo-maintenance']) == []))
+        cases.append(('nothing dropped: nothing taken',
+                      pu.removals_this_update_caused(ok, []) == []))
+        cases.append(('a removal whose source is still declared: never taken',
+                      pu.removals_this_update_caused(
+                          ok + " whose source is still declared -- y (from z)",
+                          ['precedent-shared-repo-maintenance']) == []))
+        cases.append(('the update re-runs the sync with --allow-removals only then',
+                      "caused = removals_this_update_caused(out, dropped_sets)" in body
+                      and "'--allow-removals'], repo)" in body))
+    finally:
+        sys.path.pop(0)
+    bad = [n for n, ok in cases if not ok]
+    check(f'Update Vendors judges retired sets after the catalogue '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_merge_instructions_give_the_full_head():
     """Every "merge it" line a Promote into main prints names the head commit
     in full.
@@ -63375,6 +63426,7 @@ def main():
     check_promote_branches_are_named_like_session_branches()
     check_landed_branch_gets_its_delete_link()
     check_install_and_update_name_the_code_owners()
+    check_update_judges_retired_sets_after_the_catalogue()
     check_merge_instructions_give_the_full_head()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()
