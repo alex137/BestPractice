@@ -2758,8 +2758,8 @@ def check_update_written_files_name_no_mirrored_engine():
             and 'python3 process/upstream/tools/' in f.read_text(encoding='utf-8')]
     cases.append(('no shipped tool says to run anything from process/upstream/tools/',
                   not told, str(told)))
-    hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
-            'individual-source-bootstrap.sh.template').read_text(encoding='utf-8')
+    # The logic behind the individual-set hook's stub (2026-10-07).
+    hook = (ROOT / 'tools' / 'individual-source-bootstrap.sh').read_text(encoding='utf-8')
     # The fallback after `:-` is the hook's own idea of its repo since
     # 2026-10-02 (a hand run sets no project dir); `.` before that.
     engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-[^}]*\}/(\S+?)"', hook, re.M)
@@ -29147,7 +29147,7 @@ def check_hooks_share_one_quote_blanking_block():
     quote-blanking block, byte for byte (2026-09-30). They ship one by one,
     so they cannot import it; a fix to one copy only would bring back the
     quoted-pipe misread in the others."""
-    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    hooks = ROOT / 'tools'   # the hooks' scripts, behind their stubs (2026-10-07)
     names = ['push-check-gate.sh', 'commit-identity-push-gate.sh',
              'doc-lint-gate.sh', 'merge-check-gate.sh']
     blocks = {}
@@ -34402,7 +34402,9 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
         (proj / '.claude' / 'hooks').mkdir(parents=True)
         home.mkdir()
         for name in ('precedent_source_bootstrap.py',
-                     'precedent_source_credentials.py'):
+                     'precedent_source_credentials.py',
+                     # what the rendered stub runs, since 2026-10-07
+                     'individual-source-bootstrap.sh'):
             shutil.copy(ROOT / 'tools' / name, proj / 'tools' / name)
         hook = proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
         hook.write_text(tmpl.read_text(encoding='utf-8')
@@ -40021,7 +40023,7 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         cases.append(('J: ...rendered with no repository URL and no '
                       'placeholder left, so nothing about the person is baked '
                       'into a repo that may be public',
-                      'DEFAULT_REPO_URL=""' in body and '{{' not in body
+                      'PRECEDENT_INDIVIDUAL_DEFAULT_URL=""' in body and '{{' not in body
                       and 'fixture-not-a-token' not in body, body[:200]))
         rc7, out7 = run_refresh(ind, {'PRECEDENT_GIT_TOKEN': 'fixture-not-a-token'})
         cases.append(('J: ...and a second refresh has nothing to do',
