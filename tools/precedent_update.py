@@ -493,6 +493,7 @@ def retired_sources_step(repo, rep):
     never a drop: it is also what lost access looks like."""
     archived, notes = pve.archived_declared_sources(repo)
     dropped, kept = pve.drop_retired_sources(repo, archived)
+    names = [n for n, _p, _w in dropped]
     for name, path, why in dropped:
         rep.step('retired set', f'{name} ({path}) is no longer declared in '
                  f'precedent.json: {why}, and every active rule it held is in '
@@ -507,6 +508,26 @@ def retired_sources_step(repo, rep):
                  f'asked on GitHub whether they are archived, so they stay '
                  f'declared; a set that marks itself retired is still found '
                  f'(first: {notes[0]})')
+    return names
+
+
+_SOURCE_DROPPED_REFUSAL = re.compile(
+    r"whose source name is not among the sources precedent\.json declares -- "
+    r"(.*?)\. THREE things", re.S)
+
+
+def removals_this_update_caused(out, dropped):
+    """-> the practices the view sync refused to remove, when every one was
+    recorded from a set this update itself dropped (retired_sources_step);
+    [] otherwise -- any other refusal, including one about a source still
+    declared, is left to the person."""
+    m = _SOURCE_DROPPED_REFUSAL.search(out or '')
+    if not m or not dropped or 'whose source is still declared' in out:
+        return []
+    pairs = re.findall(r'(\S+) \(recorded from ([^)]+)\)', m.group(1))
+    if pairs and all(src in set(dropped) for _s, src in pairs):
+        return [s for s, _src in pairs]
+    return []
 
 
 def maintainers_step(repo, rep):
@@ -2549,7 +2570,6 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue pin', f'repointed to {follow} '
                  f'(the branch this repo follows; nothing to ask)')
     renamed_sources_step(repo, rep, out)
-    retired_sources_step(repo, rep)
     maintainers_step(repo, rep)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
@@ -2656,6 +2676,12 @@ def update(repo, skip_check=False, ref=None):
                  f'{pb.REPO_LANDING_DEFAULT} in precedent.json (the repository '
                  f'default; a person\'s own identity.json still wins)')
 
+    # A retired set is judged AFTER the catalogue: a rule it held may be
+    # folded into universal by this very update, and judged before, against
+    # the old catalogue, it read as "in force nowhere else" and the set was
+    # kept (a consumer's update, 2026-10-06).
+    dropped_sets = retired_sources_step(repo, rep)
+
     # 4. The views. A refresh changes what the loader renders.
     #
     # A practice SET renders more than a consumer does: MAP.md and
@@ -2686,6 +2712,19 @@ def update(repo, skip_check=False, ref=None):
         rep.step('views', 'regenerated (loader block, MAP.md, GLOSSARY.md)')
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
+        caused = removals_this_update_caused(out, dropped_sets) if rc else []
+        if caused:
+            # The sync refuses to remove what a source no longer declared
+            # held, since it cannot tell a drop from a rename. This update
+            # dropped that source itself, having checked every active rule
+            # it held is in force elsewhere, so the removal is the one asked
+            # for. Only when every refused practice came from a set it
+            # dropped (a consumer's update, 2026-10-06).
+            rc, out = run([sys.executable, str(sync), '--repo', str(repo),
+                           '--allow-removals'], repo)
+            rep.step('retired set', f'removed {len(caused)} practice(s) the '
+                     f'dropped set(s) held, each in force elsewhere or '
+                     f'retired: {", ".join(sorted(caused))}')
         in_force_nowhere_step(repo, rep, out)
         removed_links_step(rep, out)
         if rc != 0:
