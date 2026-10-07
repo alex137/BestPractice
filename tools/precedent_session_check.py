@@ -834,7 +834,45 @@ def checks(offline=False):
     out.extend(_brought_sets_rows())
     out.append(_landing_row())
     out.extend(_session_load_rows())
+    # 14. A declared set that has retired itself.
+    out.extend(_retired_sources_rows())
     return out
+
+
+def _retired_sources_rows():
+    """One row, and only when this repository's precedent.json declares a
+    shared or individual set that says it is retired.
+
+    Found 2026-10-06 in a consumer: two sets retired themselves that day and
+    one of them rewrote a check script on its way out. The view sync, which
+    reads a set at the commit MANIFEST.json records, said the repository was
+    current; a check that read the set's clone as it stood refused every
+    push, and nothing anywhere said the word "retired". Update Vendors drops
+    such a set (precedent_vendor_engine.drop_retired_sources), but only a
+    repository that runs it hears of it; this row is where every session in
+    every repository still declaring one does. GitHub is never asked here:
+    a set that marks itself retired is enough, and a session start makes no
+    network call for it."""
+    try:
+        import precedent_vendor_engine as pve
+        found = pve.retired_sources(ROOT)
+    except Exception:                                        # noqa: BLE001
+        return []
+    if not found:
+        return []
+    said = []
+    for name, _path, why, lost in found:
+        said.append(f'{name}: {why}' + (
+            f'; it still holds {", ".join(lost)}, in force nowhere else, so '
+            f'the update keeps it declared until those rules move or you let '
+            f'them go' if lost else ''))
+    return [('every practice set this repository declares is still active', False,
+             '; '.join(said) + '. While it stays declared, the checks that read '
+             'it disagree: the view sync reads it where it was last synced, a '
+             'check reading its clone reads it as it stands. Update Vendors '
+             'drops it from precedent.json when every rule it holds is in force '
+             'in another declared set: python3 ../BestPractice/tools/'
+             'precedent_update.py --repo .')]
 
 
 def _individual_path():

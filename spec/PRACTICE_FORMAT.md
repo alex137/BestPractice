@@ -116,6 +116,12 @@ code owner: their GitHub username (`github` in their `identity.json`) named
 in the repository's `CODEOWNERS`, or, with no such file, in the registry it
 is generated from (`approvers.json`, then `precedent.json`'s
 `maintainers`). In doubt, it is hidden, and the session start says why.
+**A repository that names nobody gets a list at install and at every Update
+Vendors**: everyone GitHub lists with edit access at that moment, or the
+person running it when GitHub cannot say, written to `precedent.json`'s
+`maintainers` and never rewritten once set (Morgan, 2026-10-06, strength:
+decided: "those who have access to edit *at that moment*. That becomes the
+started default").
 Committed views (`AGENTS.md`'s block) never carry one, since they read the
 same for everyone; the untracked session file carries it to code owners,
 and `precedent_show.py`, `precedent_paths.py` and the gates leave it out for
@@ -408,7 +414,9 @@ Detail saying when a gotchas section should split into an index plus a record,
 and what the index line has to carry to stay findable. The count of the
 original practices carrying a Detail fell by one on 2026-10-02, when
 `merge-authorization-keyword` left the universal set for the set that
-provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)).
+provides the five-stage ladder ([LADDER_OPT_IN_PLAN.md](LADDER_OPT_IN_PLAN.md)),
+and rose by one on 2026-10-06, when `docs-are-current-state` gained a Detail
+showing how to declare `load_bearing_annotations`.
 (The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures

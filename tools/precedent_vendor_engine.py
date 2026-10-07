@@ -681,6 +681,10 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # The fix to a vendored file goes upstream, set up in one command
+    # (2026-10-06): doc_lint.py's open-item check names it, so every kind
+    # that carries doc_lint.py needs it.
+    'upstream_fix.py',
     # ...and what takes the notice at a merge (2026-10-02, Alex: "Can we
     # set up a system so merge also does vendor updates?"): behind, it runs
     # Update Vendors from the source clone and commits the result on its
@@ -3969,6 +3973,115 @@ def archived_declared_sources(dest_root):
         if data.get('archived'):
             archived.add(name)
     return archived, notes
+
+
+def _edit_access_logins(dest_root):
+    """-> (logins, None) for the people GitHub lists as able to edit the
+    repository at `dest_root`'s origin -- push, maintain or admin, bots left
+    out -- or (None, why) when GitHub cannot say."""
+    url = _rev_text(dest_root, 'remote', 'get-url', 'origin')
+    m = _GH_SLUG_RE.search(url or '')
+    if not m:
+        return None, 'its origin is not on GitHub'
+    try:
+        import github_budget as _gb
+    except Exception:                                           # noqa: BLE001
+        return None, 'tools/github_budget.py did not import'
+    data, err = _gb.call(f'repos/{m.group(1)}/{m.group(2)}/collaborators'
+                         f'?affiliation=all&per_page=100', cache=False)
+    if err or not isinstance(data, list):
+        msg = err or str((data or {}).get('message') if isinstance(data, dict)
+                         else 'no answer')
+        return None, f'GitHub could not list who can edit it ({msg})'
+    logins = []
+    for c in data:
+        if not isinstance(c, dict) or not c.get('login'):
+            continue
+        if c.get('type') == 'Bot' or str(c['login']).endswith('[bot]'):
+            continue
+        perms = c.get('permissions') or {}
+        if perms.get('push') or perms.get('maintain') or perms.get('admin'):
+            logins.append(str(c['login']))
+    return (sorted(set(logins), key=str.lower), None) if logins else \
+        (None, 'GitHub lists nobody with edit access')
+
+
+def seed_maintainers(dest_root, logins=None, today=None):
+    """Name this repository's code owners in precedent.json's `maintainers`
+    when it names none yet: the people who can edit it on GitHub right now,
+    or, when GitHub cannot say, the person running this. -> (written, how):
+    written is the list of logins written, [] when nothing was (how says
+    why). An existing CODEOWNERS file, approvers.json or `maintainers` is
+    never touched -- this is a starting default, and the repository changes
+    it after.
+
+    Morgan, 2026-10-06 (strength: decided): "when a repo is setup, vendored
+    in, upgraded, migrated, etc, that it should define the CODEOWNERS as
+    those who have access to edit *at that moment*. That becomes the started
+    default." Written to `maintainers`, not a CODEOWNERS file, at his
+    agreement: a CODEOWNERS file makes GitHub request those people's review
+    on every pull request, and can hold a merge for it. Before this, a
+    repository that named nobody hid every code-owner practice from
+    everyone, its owner included -- all fifteen of his repos measured that
+    day."""
+    root = pathlib.Path(dest_root)
+    try:
+        import precedent_audience as _pa
+        if _pa.codeowners_file(root) is not None:
+            return [], 'it has a CODEOWNERS file'
+        found, where = _pa._registry_owners(root)
+        if found:
+            return [], f'it already names them in {where}'
+    except Exception:                                           # noqa: BLE001
+        pass
+    path = root / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+        cfg = json.loads(text)
+    except (OSError, ValueError):
+        return [], 'it has no readable precedent.json'
+    if not isinstance(cfg, dict) or cfg.get('maintainers'):
+        return [], 'it already names them in precedent.json\'s maintainers'
+    how = 'everyone GitHub lists with edit access'
+    if logins is None:
+        logins, why = _edit_access_logins(root)
+        if not logins:
+            try:
+                import precedent_audience as _pa
+                gh, _email = _pa.viewer(root)
+            except Exception:                                   # noqa: BLE001
+                gh = ''
+            if not gh:
+                return [], (f'{why}, and no GitHub username is declared for '
+                            f'the person running this')
+            logins, how = [gh], f'the person running this ({why})'
+    if today is None:
+        try:
+            import precedent_time
+            today = precedent_time.today()
+        except Exception:                                       # noqa: BLE001
+            today = None    # never the machine's own clock (timestamps-carry-offset)
+    entry = json.dumps([{'github': l} for l in logins], ensure_ascii=False)
+    when = f' {today}' if today else ''
+    note = json.dumps([f'Written{when} at install or update: {how}. A '
+                       f'starting default -- change it here; the engine never '
+                       f'rewrites a list that is already set.'],
+                      ensure_ascii=False)
+    m = re.match(r'\s*\{', text)
+    rest = text[m.end():] if m else ''
+    sep = ',' if rest.strip() not in ('', '}') else ''
+    new_text = (text[:m.end()] + f'\n  "maintainers": {entry},\n'
+                f'  "_maintainers_comment": {note}{sep}' + rest) if m else ''
+    try:
+        ok = json.loads(new_text).get('maintainers') == [{'github': l} for l in logins]
+    except ValueError:
+        ok = False
+    if not ok:
+        cfg = {'maintainers': [{'github': l} for l in logins],
+               '_maintainers_comment': json.loads(note), **cfg}
+        new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
+    path.write_text(new_text, encoding='utf-8')
+    return logins, how
 
 
 def _rev_text(repo_dir, *args):

@@ -96,13 +96,20 @@
   },
   {
     "practice": "the-boildown",
+    "id": "landed-branch-gets-its-delete-link",
+    "require_delete_link_when_landed": true,
+    "why": "the-boildown item 6 and branch-delete-links: a branch that lands during the turn is used up, and the reply hands over its one-click delete link. Found 2026-10-06: a session merged its branch and gave none, because only the not-landed half was enforced.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "id": "practice-ideas-only-at-the-close",
     "require_paired_with": [
       {
-        "if_matches": "^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?practice ideas?(?:\\*\\*)?\\s*:",
+        "if_matches": "^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?(?:practice|process|content) ideas?(?:\\*\\*)?\\s*:",
         "must_also_match": "You can archive this session",
         "why": "practice ideas are offered only at the natural end of the conversation, in the reply that says the session can be archived",
-        "repair": "It offered practice ideas, and this is not the reply that closes the session (it does not say \"You can archive this session\"). Output ONE line withdrawing them -- \"(Practice ideas withdrawn: they belong in the closing reply.)\" -- and end the turn; an empty reply is not accepted by the harness. Do NOT add the archive line to satisfy this unless the session really is ready to archive; offer practice ideas only in the reply that is."
+        "repair": "It offered practice ideas (a Process idea or a Content idea), and this is not the reply that closes the session (it does not say \"You can archive this session\"). Output ONE line withdrawing them -- \"(Practice ideas withdrawn: they belong in the closing reply.)\" -- and end the turn; an empty reply is not accepted by the harness. Do NOT add the archive line to satisfy this unless the session really is ready to archive; offer practice ideas only in the reply that is."
       }
     ],
     "why": "Morgan, 2026-10-05 (strength: decided): practice ideas belong at the natural end of a conversation, not after every message. The closing list was already gated on the session being ready to archive, in prose only; this makes the gate mechanical for the one item he asked about.",

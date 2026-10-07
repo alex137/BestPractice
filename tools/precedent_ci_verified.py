@@ -210,7 +210,7 @@ def merge_base_branch(root, branch):
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_branches as pb
         staging = pb.staging_branch(root)
-        if branch.startswith('to-main-') or branch == staging:
+        if pb.is_main_copy(branch) or branch == staging:
             return pb.MAIN
         if branch == pb.PRE_STAGING:
             return staging

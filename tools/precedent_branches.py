@@ -60,14 +60,16 @@ existed, never somewhere new.
 PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
 command, strength: assented). Since 2026-10-03 it COMPOSES one tree in a
 throwaway worktree -- staging, then any fix branch it is handed (--work
-promote-fix-...), then work made directly on main, then pre-staging -- each
+claude/DATE-promote-fix-ID), then work made directly on main, then pre-staging -- each
 by a merge commit, never a fast-forward, so a `[skip ci]` line on a
 pre-staging commit can never become staging's head and silence the GitHub
 test on the pull request into main (plan, hole 3). It rebuilds the
 generated files main's work left stale, runs the FULL push check on that
 tree once, and only if it passes moves staging AND pre-staging to that same
 commit in one atomic push. A failure or a conflict in hand-written text
-moves neither: the tree goes to a local promote-fix-DATE branch, to be fixed
+moves neither: the tree goes to a local claude/DATE-promote-fix-ID branch
+(named like every temporary branch since 2026-10-06; promote-fix-DATE
+before, still recognized), to be fixed
 there and promoted with --work (spec/LADDER_OPT_IN_PLAN.md D10; see the
 comment above _promote_unlocked). It pushes by itself, so it runs the check
 by itself: no push gate sees a push made from inside a script.
@@ -86,7 +88,8 @@ is never pushed from here. That state exits 3 (PROMOTE_MAIN_NOT_MOVED), not
 IN A PRIVATE REPOSITORY THAT GITHUB TEST RUNS AT MOST ONCE EVERY
 github_ci_every_hours (2026-10-01, spec/CI_CADENCE_PLAN.md, "Promote
 decides"; see main_test_due). When it is not due, the copy is named
-to-main-not-due-DATE, the light check's job skips that pull request before
+claude/DATE-promote-to-main-not-due-ID (to-main-not-due-DATE before
+2026-10-06, and still where a GitHub test knows only that), the light check's job skips that pull request before
 a runner starts, and --wait-main-test says NOT DUE and exits 0.
 
 CLI:
@@ -103,7 +106,7 @@ CLI:
   precedent_branches.py --wait-main-test COPY
                                             wait for main's GitHub test on the to-main
                                             copy's pull request; 0 only when it passed,
-                                            or when the copy is to-main-not-due-*
+                                            or when the copy is a not-due one
   precedent_branches.py --drift             what staging and main carry that pre-staging
                                             lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
@@ -520,7 +523,7 @@ def merge_refusal(root, bases, heads, user_config=None):
         allowed |= _promotion_heads(root, b)
     if set(heads or ()) & allowed:
         return None
-    stale = sorted(h for h in heads or () if str(h).startswith('to-main-'))
+    stale = sorted(h for h in heads or () if is_main_copy(h))
     if MAIN in bases and stale:
         return (f'{stale[0]} is a copy of {staging_branch(root)} that is out of '
                 f'date: {staging_branch(root)} has moved since it was made. '
@@ -1268,7 +1271,7 @@ def last_main_test_pass(root, tests, gh=None):
             ((_parse_iso(r.get('created_at')), r) for r in data.get('workflow_runs') or []
              if r.get('status') == 'completed' and r.get('conclusion') != 'skipped'
              and (r.get('head_branch') == MAIN
-                  or str(r.get('head_branch') or '').startswith('to-main-'))),
+                  or is_main_copy(r.get('head_branch')))),
             key=lambda tr: tr[0] or 0, reverse=True)
         if done and done[0][1].get('conclusion') != 'success':
             r = done[0][1]
@@ -1448,6 +1451,16 @@ def _check_tier(root, branch, tip, say, gh=None):
     return False, f'{local}, but the GitHub test is {state}: {detail}'
 
 
+def _at_head(sha):
+    """', at head commit <all 40 characters>' -- the merge instruction's
+    expected head. A merge through GitHub's API takes the head it expects in
+    full (expectedHeadSha), and the twelve-character form printed everywhere
+    else here is refused there; a session in nomen-omen read the short one
+    back and had to look the rest up (2026-10-06). Pinning the head also
+    means a copy that moved after its check is not merged by mistake."""
+    return f', at head commit {sha}' if sha else ''
+
+
 def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
     """Wait for main's GitHub test on `sha` -- the to-main copy's tip, once
     its pull request into main is open -- and -> 0 passed, 1 anything else.
@@ -1464,14 +1477,14 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
         say(f'no GitHub test is installed here, so there is nothing to wait for '
             f'on {sha[:12]}: the full local check at the Promote was the whole check.')
         return 0
-    if copy and copy.startswith(NOT_DUE_PREFIX):
+    if copy and is_not_due_copy(copy):
         say(f'GitHub test NOT DUE on {sha[:12]}: Promote named this copy {copy} '
             f'because main\'s GitHub test is not due on its pull request (the '
             f'Promote printed why), so the pull request shows the test as skipped '
             f'and no runner started. The full local check at the Promote stands; '
             f'in a repo set to github_ci_main_test "always", GitHub tests the push '
             f'to {MAIN} once this merges. Merge the pull request into {MAIN} with '
-            f'a merge commit.')
+            f'a merge commit{_at_head(sha)}.')
         return 0
     say(f'waiting for the GitHub test on {sha[:12]} (up to '
         f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes): ' + ', '.join(p for p, _ in tests))
@@ -1486,7 +1499,7 @@ def wait_for_main_test(root, sha, say=print, gh=None, copy=None):
         state, detail = github_test_state(root, sha, tests, gh)
     if state == 'passed':
         say(f'GitHub test PASSED on {sha[:12]}: {detail}. Merge the pull request '
-            f'into {MAIN} with a merge commit.')
+            f'into {MAIN} with a merge commit{_at_head(sha)}.')
         return 0
     say(f'GitHub test {state.upper()} on {sha[:12]}: {detail}. Do not merge.')
     return 1
@@ -1921,6 +1934,78 @@ def _new_commits(root, since, tip):
                  '--', '.') or '').splitlines()
 
 
+# A batch shows which commits are not this session's own. Found 2026-10-06,
+# a Produce in a shared set: it carried one session's one-line change and
+# another session's Update Vendors, listed the same way, and auto mode held
+# the move until the person approved a commit nobody had named to them.
+OTHER_WORK_MARK = "<- not this session's work"
+
+
+def _this_session_id():
+    """-> this session's ID without its `cse_`/`session_` prefix, or ''."""
+    here = str(pathlib.Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    try:
+        from precedent_detect import this_session_id
+        sid = this_session_id() or ''
+    except Exception:                                       # noqa: BLE001
+        sid = ''
+    for prefix in ('cse_', 'session_'):
+        if sid.startswith(prefix):
+            sid = sid[len(prefix):]
+    return sid
+
+
+def mark_other_work(root, batch, work=None, sid=None):
+    """-> (lines, others): `batch` (_new_commits lines) with each commit that
+    is not this session's work marked OTHER_WORK_MARK, and those commits'
+    lines. A commit is this session's when it is on the `work` branch, or
+    when its message carries a Claude-Session line naming this session --
+    the second catches a session that Booked two branches and promotes with
+    one of them. A fix branch counts for nothing here, since it carries the
+    whole batch; only the session line is read. With neither a work branch nor a session ID nothing can be
+    told apart, so nothing is marked."""
+    sid = _this_session_id() if sid is None else sid
+    wtip = None
+    name = (work[len('origin/'):] if work and work.startswith('origin/')
+            else work)
+    # A fix branch is the last unfinished Promote's composition: every
+    # commit in the batch is on it, so being on it says nothing about whose
+    # work a commit is, and only the Claude-Session line can (found
+    # 2026-10-06, a Debut rerun from its fix branch marked no commit,
+    # another session's among them).
+    if work and not is_fix_branch(name):
+        wtip = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{name}^{{commit}}')
+                or _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}'))
+    if not wtip and not sid:
+        return list(batch), []
+    lines, others = [], []
+    for line in batch:
+        sha = line.split(' ', 1)[0]
+        mine = bool(wtip) and _run(root, 'merge-base', '--is-ancestor', sha,
+                                   wtip).returncode == 0
+        if not mine and sid:
+            body = _git(root, 'log', '-1', '--format=%B', sha) or ''
+            mine = any(l.startswith('Claude-Session:') and l.rstrip().endswith(sid)
+                       for l in body.splitlines())
+        if mine:
+            lines.append(line)
+        else:
+            lines.append(f'{line}   {OTHER_WORK_MARK}')
+            others.append(line)
+    return lines, others
+
+
+def _other_work_note(others, work):
+    if not others:
+        return ''
+    on = f'not on {work} and ' if work else ''
+    return (f'\n{len(others)} of these commit(s) are {on}not marked with this '
+            f'session\'s Claude-Session line: someone else Booked them. Name '
+            f'them to the person when asking to approve this move.')
+
+
 def promotion_step(root, to=None, work=None):
     """-> (step, why): which Promote to run. `step` is STAGING (pre-staging
     into staging), MAIN (staging into main) or None (nothing waiting).
@@ -1999,7 +2084,7 @@ def produce_waiting_hold(root, gh=None):
     if not isinstance(got, list):
         return None
     waiting = [f'#{p.get("number")}' for p in got
-               if str((p.get('head') or {}).get('ref') or '').startswith('to-main-')]
+               if is_main_copy((p.get('head') or {}).get('ref'))]
     if not waiting:
         return None
     return (f'NOT PROMOTED: {" and ".join(waiting)} into {MAIN} is still open, '
@@ -2089,8 +2174,8 @@ def promote(root, say=print, to=None, work=None):
         # The one line a person reads first: which move this is, in these words.
         say(f'Now promoting from {source} to {dest} ({why}).')
         run = _promote_unlocked if step == STAGING else _promote_to_main
-    if run is _promote_unlocked and work:
-        run = lambda r, s: _promote_unlocked(r, s, work=work)
+    if work and run in (_promote_unlocked, _promote_to_main):
+        run = (lambda r, s, f=run: f(r, s, work=work))
     state, info = _lock_claim(root, say)
     if state == 'busy':
         say(f'another window is promoting right now ({info}), so this one did '
@@ -2183,21 +2268,103 @@ def _drifted_from_above(root):
     return out
 
 
+# PROMOTE'S OWN BRANCHES ARE NAMED LIKE A SESSION'S (Morgan, 2026-10-06,
+# strength: decided: "isn't our URL format for temporary GitHub repo URLs to
+# start with the timestamps then the slug then a few random characters? ...
+# let's do that"). The fix branch and the copy a pull request into main
+# comes from were named promote-fix-DATE and to-main-DATE, outside the
+# claude/<date>-<slug>-<id> format every other temporary branch takes from
+# tools/precedent_branch_name.py, so they led back to no session. They are
+# named by that tool now. The old names are still RECOGNIZED -- a branch
+# already on origin, an engine copy elsewhere -- by the is_* functions below,
+# the one place that answers "is this a Promote's branch".
+FIX_SLUG = 'promote-fix'
+COPY_SLUG = 'promote-to-main'
+NOT_DUE_SLUG = 'promote-to-main-not-due'
+_PROMOTE_MADE_RE = re.compile(
+    r'(?:^|/)\d{4}-\d\d-\d\d-(promote-fix|promote-to-main(?:-not-due)?)'
+    r'-[a-z0-9]{5}(?:-[a-z0-9]{5})?$')
+# What a GitHub workflow that skips a not-due copy by its NEW name contains;
+# a workflow without it knows only the old names, so the copy keeps one.
+COPY_NAME_MARKER = f'-{COPY_SLUG}-'
+
+
+def _promote_made(name):
+    m = _PROMOTE_MADE_RE.search(str(name or ''))
+    return m.group(1) if m else None
+
+
+def is_fix_branch(name):
+    """True for a Promote's fix branch, new name or old."""
+    return str(name or '').startswith(FIX_PREFIX) or _promote_made(name) == FIX_SLUG
+
+
+def is_main_copy(name):
+    """True for a Promote's copy of staging, due or not, new name or old."""
+    return str(name or '').startswith('to-main-') or \
+        _promote_made(name) in (COPY_SLUG, NOT_DUE_SLUG)
+
+
+def is_not_due_copy(name):
+    """True for a copy whose pull request main's GitHub test skips."""
+    return str(name or '').startswith(NOT_DUE_PREFIX) or \
+        _promote_made(name) == NOT_DUE_SLUG
+
+
+def _day_and_moment(root):
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_time
+        return precedent_time.today(root), precedent_time.compact(root)
+    except Exception:
+        return 'copy', str(int(time.time()))
+    finally:
+        sys.path.pop(0)
+
+
+def promote_branch_name(root, slug, taken):
+    """-> claude/<date>-<slug>-<session ID's end> from precedent_branch_name.py
+    (random characters where there is no session ID, more where the name is
+    taken), or None when that tool cannot be loaded."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branch_name as pbn
+    except Exception:                                           # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
+    day, _moment = _day_and_moment(root)
+    name, _notes = pbn.build(slug.split('-'), date=day, exists=taken)
+    return name
+
+
+def _workflows_know_new_copy_names(root):
+    """True when every GitHub test at staging's tip recognizes the new copy
+    names (or none is installed). A repository that has not taken the
+    workflow carrying them would run its test on a not-due copy, so its
+    copies keep the old names until Update Vendors brings it."""
+    tip = _remote_tip(root, staging_branch(root))
+    if not tip:
+        return False
+    return all(COPY_NAME_MARKER in (_git(root, 'show', f'{tip}:{p}') or '')
+               for p, _d in github_tests(root, tip))
+
+
 def _to_main_copy(root, due=True):
     """The throwaway branch a pull request into main comes FROM: never
     staging itself, whose pull request page offers to delete it (gotchas/
     gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md). Named
     as precedent_merge_check.py's refusal names it, with a suffix when that
-    name is taken -- and NOT_DUE_PREFIX instead when main's GitHub test is
-    not due, which is the name the light check's job skips on."""
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_time
-        day, moment = precedent_time.today(root), precedent_time.compact(root)
-    except Exception:
-        day, moment = 'copy', str(int(time.time()))
-    finally:
-        sys.path.pop(0)
+    name is taken -- and the not-due name instead when main's GitHub test is
+    not due, which is the name the light check's job skips on. In the
+    session-branch format (promote_branch_name), unless a GitHub test here
+    still knows only the old names."""
+    if _workflows_know_new_copy_names(root):
+        name = promote_branch_name(root, COPY_SLUG if due else NOT_DUE_SLUG,
+                                   lambda n: bool(_remote_tip(root, n)))
+        if name:
+            return name
+    day, moment = _day_and_moment(root)
     prefix = 'to-main-' if due else NOT_DUE_PREFIX
     base = f'{prefix}{day}'
     return base if not _remote_tip(root, base) else f'{prefix}{moment}'
@@ -2290,7 +2457,7 @@ def main_test_holds_produce(root, say=print, gh=None):
     return None
 
 
-def _promote_to_main(root, say=print):
+def _promote_to_main(root, say=print, work=None):
     """Staging into main: the full check on exactly what main would hold,
     then a throwaway copy of staging for the pull request into main, whose
     GitHub test is the last gate (spec/BRANCH_TIERS_PLAN.md: main gets "all
@@ -2354,10 +2521,12 @@ def _promote_to_main(root, say=print):
     if p.returncode != 0:
         say(f'could not push the copy {copy}: {p.stderr.strip()[:200]}')
         return 1
+    shown, others = mark_other_work(root, batch, work)
     say(f'{MAIN.upper()} HAS NOT MOVED YET: this Promote exits '
         f'{PROMOTE_MAIN_NOT_MOVED}, not 0, until the pull request below is merged.\n'
         f'READY FOR {MAIN.upper()}: {len(batch)} commit(s) from {staging} '
-        f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(batch) + '\n\n'
+        f'({stip[:12]}), copied to {copy}:\n  ' + '\n  '.join(shown)
+        + _other_work_note(others, work) + '\n\n'
         + (f'GitHub test: NONE -- no GitHub test runs on this pull request '
            f'(none is installed here, or its path filter does not reach this '
            f'change), so the full local check above is the whole check.\n\n'
@@ -2371,11 +2540,12 @@ def _promote_to_main(root, say=print):
         f'Next, and not by this script: open a pull request from {copy} into '
         f'{MAIN}, titled "Promote {staging} into {MAIN} ({len(batch)} '
         f'commit(s))", '
-        + ('and merge it with a merge commit' if none_runs else
+        + (f'and merge it with a merge commit{_at_head(stip)}' if none_runs else
            f'wait for its GitHub test with\n'
            f'  python3 tools/precedent_branches.py --wait-main-test {copy}\n'
            f'and merge it with a merge commit once that says PASSED'
-           + ('' if due else ' (or, for this not-due copy, NOT DUE)')) +
+           + ('' if due else ' (or, for this not-due copy, NOT DUE)')
+           + _at_head(stip)) +
         f'. Never open it from {staging} itself.')
     return PROMOTE_MAIN_NOT_MOVED
 
@@ -2400,19 +2570,18 @@ FIX_PREFIX = 'promote-fix-'
 
 
 def _fix_branch(root):
-    """A fresh fix-branch name: promote-fix-DATE, or -MOMENT when taken."""
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_time
-        day, moment = precedent_time.today(root), precedent_time.compact(root)
-    except Exception:
-        day, moment = 'copy', str(int(time.time()))
-    finally:
-        sys.path.pop(0)
+    """A fresh fix-branch name, in the session-branch format: e.g.
+    claude/2026-10-06-promote-fix-y1ktn (promote_branch_name says why).
+    The old promote-fix-DATE only where the naming tool cannot be loaded."""
+    def taken(name):
+        return bool(_remote_tip(root, name)) or _run(
+            root, 'rev-parse', '--verify', '-q', f'refs/heads/{name}').returncode == 0
+    name = promote_branch_name(root, FIX_SLUG, taken)
+    if name:
+        return name
+    day, moment = _day_and_moment(root)
     base = f'{FIX_PREFIX}{day}'
-    taken = _remote_tip(root, base) or _run(
-        root, 'rev-parse', '--verify', '-q', f'refs/heads/{base}').returncode == 0
-    return base if not taken else f'{FIX_PREFIX}{moment}'
+    return base if not taken(base) else f'{FIX_PREFIX}{moment}'
 
 
 def _branches_page(root, name):
@@ -2489,7 +2658,7 @@ def _promote_unlocked(root, say=print, work=None):
         _run(root, 'fetch', '-q', 'origin', name)
         sha = (_git(root, 'rev-parse', '--verify', '--quiet', f'origin/{name}^{{commit}}')
                or _git(root, 'rev-parse', '--verify', '--quiet', f'{work}^{{commit}}'))
-        if sha and name.startswith(FIX_PREFIX):
+        if sha and is_fix_branch(name):
             fix = (name, sha)
         elif sha and not any(_run(root, 'merge-base', '--is-ancestor', sha,
                                   t).returncode == 0 for t in (ptip, stip)):
@@ -2561,8 +2730,10 @@ def _promote_unlocked(root, say=print, work=None):
     else:
         say(f'the full check ran on the batch and passed, in {took:.0f}s.')
     if batch:
+        shown, others = mark_other_work(root, batch, work)
         say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
-            f'({new[:12]}):\n  ' + '\n  '.join(batch))
+            f'({new[:12]}):\n  ' + '\n  '.join(shown)
+            + _other_work_note(others, work))
     for branch, _tip, commits in above:
         say(f'BROUGHT IN {len(commits)} commit(s) made directly on {branch}, '
             f'checked with the rest:\n  ' + '\n  '.join(commits))

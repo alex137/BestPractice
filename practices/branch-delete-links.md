@@ -17,11 +17,14 @@ defines:     ["delete link", "filtered branches page"]
 command:     null
 status:      active
 in_force_at: null
-visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
-approved_by: "extended 2026-09-22, Morgan (strength: decided) -- a deletion
+approved_by: "extended 2026-10-06, Morgan, \"review and do what you think is
+  best\" on a session's finding (strength: assented; the change is the
+  session's) -- shown to everyone, since the-boildown's item 6 points every
+  reader here, and enforced at the stop hook for a branch that lands during the
+  turn. Earlier, extended 2026-09-22, Morgan (strength: decided) -- a deletion
   offer names the branch the work merged INTO, by name: \"Don't we always say
   which branch they are merged into - I thought that is a practice?!?!?!? It
   should be\". Earlier, extended 2026-09-21, Morgan (strength: decided) -- the link is
@@ -265,6 +268,18 @@ offer at the bottom still arrived with the one fact a reader would check
 against missing from it. A branch is deletable BECAUSE its work landed; an
 offer that omits where is asking for trust on precisely the question the
 offer rests on.
+
+**2026-10-06: shown to everyone, and enforced when a branch lands.** A
+session in a consumer Booked its branch onto pre-staging and its reply gave
+no delete link. Two causes. Nothing checked this half: the reply gate has
+said NOT YET LANDED since 2026-09-21, and nothing asked for the link once a
+branch did land. And this practice was marked for code owners only, in a
+repository that names none, so the session never saw it -- while
+the-boildown's item 6, which everyone sees, sends every reader here for the
+link's form. The mark came with the 2026-10-05 sorting of rules about
+running a repository; the link is part of the reply the person reads, so it
+goes to everyone. The stop hook now refuses a reply that lands a branch
+without its link (`require_delete_link_when_landed`).
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:
