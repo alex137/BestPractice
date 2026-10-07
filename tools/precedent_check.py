@@ -1139,7 +1139,8 @@ VERSION_SUFFIX_STATE_WORDS = frozenset(
 # name; a consuming repository's push was refused over
 # note-to-alex-2026-10-07.md in a folder of notes named the same way. The
 # writing set's dated-download-names asks for the date on a kept document
-# too. v2, rev3 and the state words stay refused.
+# too. v2, rev3 and the state words stay refused, and so does a date beside
+# the undated original it copies (the relayed proposal, same day).
 DATE_SUFFIX_RE = re.compile(r'^\d{4}[-_]\d{2}[-_]\d{2}$')
 
 
@@ -2313,6 +2314,13 @@ def _no_version_suffix(ctx):
             (ctx.root / predecessor).exists()
         token = stem[m.start():].lstrip('-_.').lower()
         if DATE_SUFFIX_RE.match(token):
+            # A dated series (letters, minutes) has no undated original; a
+            # dated file beside one is a copy of it (2026-10-07).
+            if has_predecessor:
+                out.append(Finding(f, f'the file name carries a date beside '
+                                      f'{predecessor.name} -- a dated copy of '
+                                      f'a file the repository already '
+                                      f'versions; edit the original'))
             continue
         if token in VERSION_SUFFIX_STATE_WORDS:
             # A state word names a fork only when the original is beside it.
@@ -12327,6 +12335,7 @@ def main():
     # and any finding that names no file -- wait for the full check, which
     # a Promote runs on the whole tree.
     outside_change = 0
+    set_aside = {}       # slug -> [file], what --changed-files-only did not judge
     materialized = 0
     if '--changed-files-only' in flags:
         in_change = {c.rstrip('/') for c in ctx.changed}
@@ -12360,6 +12369,12 @@ def main():
                         in in_change
                         or getattr(f, 'cause', None) in gone_in_change]
                 outside_change += len(findings) - len(kept)
+                for f in findings:
+                    if f not in kept:
+                        set_aside.setdefault(slug, []).append(
+                            (f.file() if hasattr(f, 'file') else None)
+                            or str(getattr(f, 'where', '') or '').split(':', 1)[0]
+                            or '(no file named)')
                 status = 'VIOLATION' if kept else 'PASS'
                 findings = kept
             kept_results.append((slug, status, findings, why, uv))
@@ -12472,6 +12487,15 @@ def main():
             print(f'note: --changed-files-only: {outside_change} finding(s) in '
                   f'files this change does not touch, or naming no file, were '
                   f'not judged here -- the full check judges them.')
+            # Named, not only counted (2026-10-07): a rule that just arrived
+            # can have standing findings the person has never seen, and the
+            # Debut into staging is where they would first refuse. Seeing
+            # them here, at Booked, is the warning; the full check still
+            # judges them.
+            for slug_, files in sorted(set_aside.items()):
+                shown = sorted(set(files))
+                more = f' (+{len(shown) - 5} more)' if len(shown) > 5 else ''
+                print(f'      {slug_}: {", ".join(shown[:5])}{more}')
         if errored:
             # A check that crashed names no file, so it cannot be this
             # change's doing; it is reported and left to the full check.
