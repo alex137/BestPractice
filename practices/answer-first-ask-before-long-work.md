@@ -23,8 +23,8 @@ anything long** — in the same turn; the long run never gates the answer.
 **(2) A task that will run longer than a few minutes is proposed, not
 started:** what it is, how long from the tool's own cost line, what it
 blocks and what it does not, then the go-ahead. The exceptions are the
-quick checks a commit needs on the files the turn touched -- never a
-whole suite -- and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
+quick checks a commit needs on the files the turn touched, never a
+whole suite, and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
 what it will change, and how to stop it** — never a bare "still running".
 A background task nobody asked for is stopped, not waited on.
 **(4) An open question is not a stopping point:** ask it early and keep
