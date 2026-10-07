@@ -30,7 +30,9 @@ network beyond what is already fetched.
 
 WHAT IT DELIBERATELY DOES NOT DO. It never pushes and never opens a pull
 request. `--apply` refreshes the vendored files and regenerates the views,
-and `--commit` will commit that on a branch in the target repo; publishing
+commits that on its own dated local branch, and returns the set to its base
+branch clean (since 2026-10-07: apply_on_its_own_branch says why), and
+`--commit` commits it on precedent/engine-refresh and stays there; publishing
 it stays a person's (or a session's) explicit act, per that repo's own
 merge rules, which this tool has no way to know. Nor does --apply write
 into a CONSUMER repo unless --path names it: one attached beside this
@@ -65,8 +67,9 @@ tool needs, so applying costs nothing further and closes the round trip
 every earlier session had to make by hand (notice STALE, then run
 --apply). This is still not the retired mechanism -- it runs once, inside
 a session someone is sitting in, against that session's own working tree,
-and it still never commits or pushes on its own; --commit remains a
-separate, explicit flag. The dirty-tree check in the stale loop below
+and it never pushes. Since 2026-10-07 it commits the refresh on a local
+branch of its own rather than leave it as edits on the set's main
+checkout (apply_on_its_own_branch). The dirty-tree check in the stale loop below
 (added the same day) is what keeps this from being the auto-apply that
 would have made 2026-09-14's decision moot: a source with its own
 uncommitted changes is left alone rather than silently overwritten.
@@ -1021,6 +1024,67 @@ def apply_to(entry, commit=False, branch=None):
     return steps
 
 
+# A REFRESH NEVER LEAVES A SET'S BASE BRANCH DIRTY (Morgan, 2026-10-07,
+# strength: decided: "fix the startup hook at the root"). The session-start
+# hook runs --apply on every attached set, and the 2026-09-15 decision to
+# apply rather than only report stands. What it left was the refresh as
+# uncommitted edits on the set's main checkout: a session that later worked
+# from that checkout met a stop hook demanding they be committed and pushed,
+# on main, which no session may push to. So the refresh is committed on its
+# own dated branch, local only, and the checkout goes back to its base
+# branch, clean. Nothing about which rules are in force changes by it: a
+# refresh rewrites the vendored engine and the views, not the set's own
+# practices. The same engine tip is never committed twice: a branch already
+# carrying it is named instead.
+REFRESH_BRANCH_WORDS = ('engine', 'refresh')
+
+
+def _refresh_branch_for(repo, tip):
+    """-> a local branch in `repo` already carrying the refresh to `tip`,
+    or None."""
+    ok, out = _git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
+                   cwd=repo)
+    mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-{tip[:8]}-'
+    return next((b for b in (out or '').split() if mark in b), None) if ok else None
+
+
+def apply_on_its_own_branch(entry, base):
+    """apply_to(), committed on a new local branch named for the engine tip,
+    then back to `base` with the working tree clean. -> the same steps list."""
+    repo, tip = entry['repo'], entry.get('tip') or ''
+    there = _refresh_branch_for(repo, tip) if tip else None
+    if there:
+        return [('refresh', True, f'already committed on local branch {there}; '
+                                  f'{base} left as it is')]
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branch_name as _pbn
+        name, _notes = _pbn.build([*REFRESH_BRANCH_WORDS, tip[:8] or 'tip'])
+    except Exception:                                        # noqa: BLE001
+        name = f'engine-refresh-{tip[:8] or "tip"}'
+    finally:
+        sys.path.pop(0)
+    steps = apply_to(entry, commit=True, branch=name)
+    last = steps[-1] if steps else ('refresh', False, 'nothing ran')
+    if last[0] == 'commit' and not last[1] and 'nothing to commit' in (last[2] or ''):
+        steps[-1] = ('commit', True, 'the refresh changed nothing')
+        last = steps[-1]
+    if last[0] != 'commit' or not last[1]:
+        return steps                    # left where it failed, for a person to see
+    ok, out = _git('checkout', '-q', base, cwd=repo)
+    if ok and 'changed nothing' in last[2]:
+        _git('branch', '-D', name, cwd=repo)
+    clean_ok, dirt = _git('status', '--porcelain', cwd=repo)
+    ok = ok and clean_ok and not dirt
+    steps.append(('back on base', ok,
+                  f'{base}, clean; the refresh is on local branch {name}, not '
+                  f'pushed -- Update Vendors in this set lands it' if ok and
+                  'changed nothing' not in last[2] else
+                  (f'{base}, clean' if ok else
+                   f'could not return to {base} clean: {out or dirt}')))
+    return steps
+
+
 def ensure_source_credentials(found):
     """Leave the credential helper in every attached source clone that has
     none, and -> the labels of the clones repaired.
@@ -1365,7 +1429,9 @@ def main(argv):
             skipped.append(_label(e['repo']))
             continue
 
-        for name, ok, out in apply_to(e, commit='--commit' in argv):
+        steps = (apply_to(e, commit=True) if '--commit' in argv
+                 else apply_on_its_own_branch(e, want))
+        for name, ok, out in steps:
             print(f"  {'ok ' if ok else 'FAIL'} {name}: {out.splitlines()[-1] if out else ''}")
             failed = failed or not ok
 
@@ -1380,9 +1446,10 @@ def main(argv):
               f"{', '.join(skipped)}. Those clones stay behind, and the "
               f"catalogue in force is read from their working trees.")
     else:
-        print("\nprecedent_refresh_sources: applied. Review each repo's diff, "
-              "then push and open a pull request there -- this tool never "
-              "publishes.")
+        print("\nprecedent_refresh_sources: applied. Each refresh is committed "
+              "on its own local branch in that set, and the set's base branch "
+              "is left clean; nothing was pushed. Update Vendors in the set "
+              "lands it.")
     return 1 if (failed or skipped) else 0
 
 

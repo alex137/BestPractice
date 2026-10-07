@@ -14,7 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07; the clock-time sentence added by S. Alexander Jacobson, 2026-10-07"
 strength:    decided
 ---
 ## Rule
@@ -23,14 +23,25 @@ anything long** — in the same turn; the long run never gates the answer.
 **(2) A task that will run longer than a few minutes is proposed, not
 started:** what it is, how long from the tool's own cost line, what it
 blocks and what it does not, then the go-ahead. The exceptions are the
-checks a commit needs on the files the turn touched, and a run already
-asked for by name. **(3) When idle on a wait, say what the wait is for,
+quick checks a commit needs on the files the turn touched, never a
+whole suite, and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
 what it will change, and how to stop it** — never a bare "still running".
 A background task nobody asked for is stopped, not waited on.
 **(4) An open question is not a stopping point:** ask it early and keep
-working on everything its answer does not touch.
+working on everything its answer does not touch. **Every "how long"
+carries the clock time it lands, in the person's zone, named:** "about 15
+minutes, done around 15:35 New York time".
 
 ## Detail
+**Why a clock time, and whose.** A duration says nothing once the reader
+has lost track of when it was said, and chat surfaces show no timestamps,
+so "15 minutes" leaves the person no way to know when to look back. The
+zone is the person's declared timezone, else the one their own commits
+carry; never the container's unless it is theirs, and always written out,
+since the person, a colleague and the machine are often in three. S.
+Alexander Jacobson, 2026-10-07 (strength: decided): "let's also make a
+practice of reporting a future time not just a duration estimate".
+
 **What part 1 means by an easy question:** one answered from what is already
 known, without waiting on a run. **What part 2 means by a long task:** a
 cold solve, a search family, a re-solve cascade, a whole-tree gate. Both
@@ -111,6 +122,18 @@ framings of it. Its Rule became part (4) and its blocker test moved into
 `## Detail` whole; its file is `status: deduplicated` and points here.
 Approved by Morgan F, 2026-10-01: *"Question 3 - all are great, approved"*
 (strength: decided).
+
+**2026-10-07, part (2)'s exception narrowed to the quick checks.** A
+session started BestPractice's whole test suite by hand to double-check
+work bound only for pre-staging, whose own push check takes seconds. It
+quoted fifteen to twenty-five minutes from memory; a third of the way in,
+twenty-five minutes had gone, and the one-process run takes about forty.
+It had read "the checks a commit needs" as covering the whole suite. Morgan
+asked how to stop it happening again, and approved all three answers
+(*"Yes, make those changes"*, strength: decided): the suite now prints what
+it costs before it starts, a full run started by hand refuses without
+`--because` quoting the person's go-ahead, and this exception names the
+quick checks.
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line

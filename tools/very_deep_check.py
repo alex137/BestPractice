@@ -1360,7 +1360,8 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
     if not harness.is_file():
         return 'n/a', ['no tools/verify_harness.py here -- this repo runs no '
                        'planted cases, so there is no rotation to settle']
-    cmd = 'python3 tools/verify_harness.py --all'
+    cmd = ("python3 tools/verify_harness.py --all --because "
+           "'very deep check, step 2'")
     if not run:
         return 'owed', [
             f'NOT RUN this invocation -- step 2 of the order of operations '
@@ -1371,7 +1372,8 @@ def planted_case_coverage(repo_root, run=False, timeout=2400):
             'in the ledger.']
     started = time.time()
     try:
-        proc = subprocess.run([sys.executable, str(harness), '--all'],
+        proc = subprocess.run([sys.executable, str(harness), '--all', '--because',
+                               'very deep check, step 2 (--with-harness)'],
                               cwd=str(repo_root), capture_output=True,
                               text=True, timeout=timeout)
     except subprocess.TimeoutExpired:

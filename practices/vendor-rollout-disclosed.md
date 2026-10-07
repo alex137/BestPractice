@@ -18,7 +18,7 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05)"
+approved_by: "Morgan, 2026-09-18; the third question, Morgan, 2026-09-29 (decided); the fourth question, Morgan, 2026-09-29 (assented); the fifth question, Morgan, 2026-09-30 (decided); index line dropped: Morgan, 2026-10-01 (\"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)\", strength: assented -- one yes over a batch; corrected 2026-10-05); requires: named for engine features, Morgan F, 2026-10-07 (decided)"
 strength:    assented
 ---
 ## Rule
@@ -53,7 +53,11 @@ loud, not one:
    older repository lacks means the old behaviour, never a refusal**; an
    older engine reading the new shape keeps working; Update Vendors or the
    installer brings the new piece forward on its own; and a test plants the
-   not-yet-updated shape and shows it still builds. A change that cannot be
+   not-yet-updated shape and shows it still builds. **A practice that needs
+   an engine feature names it in `requires:`** (`engine:practice-hooks`),
+   so an older engine holds it back, check and all, rather than install a
+   check it cannot pass; a set moves on its own schedule and cannot know
+   which engine it lands on. A change that cannot be
    made safe that way says so here, with what a repository has to do
    first. **A format rule that tightens names every file it binds, a
    consumer's own repo-local practices included, not only the sets'**:
@@ -140,6 +144,19 @@ using Precedent runs into, and environment-gotchas tells it to search them
 
 **Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines the push already covers: the push and merge gates print it before anything ships, and the vendoring-decided check refuses a new file with no rule. Its paths still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
+
+2026-10-07: precedent-shared-writing's dated-download-names declared a hook
+in `hooks:` and shipped a check requiring it. A consumer whose vendored
+engine predated wiring declared hooks synced the set, got the check, could
+not satisfy it (and could not edit its own `.claude/settings.json`), and an
+unrelated merge into pre-staging was refused. The rule above already said
+a new check must mean the old behaviour where the update has not arrived;
+what was missing was a way for a set to say so. `requires:` had held
+practices back on a missing capability since 2026-10-02, so the engine now
+lists its own (`ENGINE_CAPABILITIES` in tools/precedent_resolve.py), and a
+sync says which practices it holds back for a newer engine (Morgan F,
+"go ahead and do the fixes you think are best at the root level",
+strength: decided).
 ## Install
 No mechanical check, and this is a considered gap, not the first
 plausible-sounding reason. Two designs were considered and both fail for

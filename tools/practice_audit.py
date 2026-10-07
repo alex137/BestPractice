@@ -38,7 +38,9 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
 
   3. INTEGRITY. Manifest and upstream paths exist; "section"-granularity
      entries' section_marker still occurs in local_path (warn-only — section
-     tracking is approximate by design); "local-only" entries carry notes.
+     tracking is approximate by design); "local-only" entries carry notes,
+     and a change to one is never listed as pending export -- nothing
+     upstream receives it.
 
   4. LAYOUT (root hygiene). Upstream-internal docs (INSTALL.md,
      PRACTICES.md, SETUP.md, ...) must not sit at the dependent repo's
@@ -437,7 +439,13 @@ def audit_manifest(manifest_path, update, fails, warns, pending, entries=None, m
                     fails.append(f"DRIFT: [{name}] {e['local_path']} changed since baseline while "
                                  f"status='synced' — export the change to {up.get('vendored_at', 'the vendored tree')} "
                                  f"and --update-baseline, or flip the entry to 'diverged'")
-                else:
+                elif status != 'local-only':
+                    # A local-only file has nothing upstream to receive it,
+                    # so its changes are never "pending export" -- reporting
+                    # them so listed host configuration (a shim's registry,
+                    # a settings file's additions) as owed upstream on every
+                    # run, which is how a consuming repo came to carry five
+                    # permanent false entries (found 2026-10-07).
                     pending.append(f"[{name}] {e['local_path']} (status={status}) — pending export")
         elif gran == 'section':
             marker = e.get('section_marker', '')

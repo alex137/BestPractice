@@ -318,8 +318,11 @@ PUSH_CHECKS = {
         # siblings, an empty $HOME and no source credentials -- what the
         # runner has -- and a check that could not run there runs here. It
         # cost 12.8 min against 18.3 for the plain run, in one container.
+        # --because: the harness refuses a full run nobody asked for
+        # (2026-10-07); this tier was asked for, by the push or the Promote.
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci',
-                            '--isolated'],
+                            '--isolated', '--because',
+                            'precedent_push_check.py, full tier'],
          'deep-check.yml, both verify_harness jobs'),
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
          'deep-check.yml, precedent_check + doc_sync job'),
@@ -1948,11 +1951,24 @@ def main(argv):
 # for a person in every repository at its next Update Vendors, and a
 # reworded tool is not. .claude/hooks/push-check-gate.sh pipes the run's
 # output back in with --hook-reason and passes on what comes out.
+# A hook refuses the WHOLE Bash command before any of it starts, so in
+# `git add ... && git commit ... && git push` the commit never happened
+# either. Twice (2026-10-03 and 2026-10-05) a session in a consumer
+# repository read a bare "REFUSED this push" as "committed, push refused"
+# and told its person the work was committed when it was not.
+NOTHING_RAN = ('Nothing in the refused command ran -- not the push, and not any step\n'
+               'before it in the same command (a commit or an add included). Make those\n'
+               'steps in a call of their own, check `git status`, then push separately.')
+
+
 def hook_reason(outcome, out, top='', tool='tools/precedent_push_check.py'):
     """-> the whole text the push gate refuses with: `outcome` the run's exit
     status ('1' a check failed, '124' the hook's deadline killed it), `out`
-    what it printed, `top` the repository pushed. None for any other
-    outcome, which the gate does not refuse on."""
+    what it printed, `top` the repository pushed. 'identity' is the
+    commit-identity push gate's refusal, `out` its findings. None for any
+    other outcome, which the gate does not refuse on."""
+    if outcome == 'identity':
+        return identity_hook_reason(out)
     if outcome == '1':
         why = ('A check failed. Fix it before pushing -- this list is what GitHub\n'
                'CI used to run on this push, and CI is not going to run it now.')
@@ -1965,9 +1981,32 @@ def hook_reason(outcome, out, top='', tool='tools/precedent_push_check.py'):
         return None
     tail = '\n'.join(out.rstrip().splitlines()[-120:])
     return (f'The push check REFUSED this push of {top or "this repository"}.\n\n'
-            f'{why}\n\n{tail}\n\n'
+            f'{NOTHING_RAN}\n\n{why}\n\n{tail}\n\n'
             'Nothing lets a push past this, and nothing should: fix what it found and\n'
             'push again. If the check itself is wrong, fix the check where it lives.')
+
+
+def identity_hook_reason(findings):
+    """-> the whole text commit-identity-push-gate.sh refuses with,
+    `findings` being what tools/checks/check_commit_author.py and
+    check_buenos_aires_dates.py reported. Written here, not in the hook,
+    for the reason hook_reason() gives (moved 2026-10-07)."""
+    return ('The commit-identity push gate REFUSED this push.\n\n'
+            f'{NOTHING_RAN}\n\n'
+            'These two checks are scope `tree`: they audit every commit reachable from\n'
+            'HEAD, not just the ones this push adds. They ran in GitHub Actions until\n'
+            '2026-09-21, when a practice source stopped running CI at all; this hook is\n'
+            'what replaced them, which makes it the only thing standing between a\n'
+            'mis-authored commit and a published branch.\n'
+            f'{findings.rstrip()}\n\n'
+            'Fix it before the commit is published. On an UNPUSHED commit this is one\n'
+            '`git commit --amend --reset-author` (re-run under\n'
+            'TZ=America/Argentina/Buenos_Aires for the offset); once it is on a shared\n'
+            'branch, no-rewrite-for-warnings applies and the only honest route left is a\n'
+            'grandfathered_commit_shas entry in identity.json with a reason. That\n'
+            'asymmetry is the whole reason this gate sits before the push rather than\n'
+            'after it.\n\n'
+            'Nothing lets a push past this: fix the commit as above, then push again.')
 
 
 def _hook_reason_main(argv):

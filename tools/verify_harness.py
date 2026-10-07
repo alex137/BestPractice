@@ -17,6 +17,10 @@ Run:  python3 tools/verify_harness.py
       python3 tools/verify_harness.py --as-ci --isolated  # and CI's machine:
             a copy with no siblings, no personal config or source token,
             then the tests that went not-applicable there, run here
+      PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py
+                                                 # just the tests you name
+      A full run started by hand refuses until it is given the person's
+      go-ahead: --because '<their words>'. It states what it costs first.
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
@@ -2524,6 +2528,7 @@ def check_freshness_guard_checks_declared_sets():
     own origin. Both guard copies. CONTROL: the same stale set, not
     declared, goes unnoticed, so the finding comes from the declaration."""
     import tempfile
+    # The installed stub and the template stub, each running tools/'s script.
     guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
               ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
@@ -2757,8 +2762,8 @@ def check_update_written_files_name_no_mirrored_engine():
             and 'python3 process/upstream/tools/' in f.read_text(encoding='utf-8')]
     cases.append(('no shipped tool says to run anything from process/upstream/tools/',
                   not told, str(told)))
-    hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' /
-            'individual-source-bootstrap.sh.template').read_text(encoding='utf-8')
+    # The logic behind the individual-set hook's stub (2026-10-07).
+    hook = (ROOT / 'tools' / 'individual-source-bootstrap.sh').read_text(encoding='utf-8')
     # The fallback after `:-` is the hook's own idea of its repo since
     # 2026-10-02 (a hand run sets no project dir); `.` before that.
     engines = re.findall(r'^\s*ENGINE="\$\{CLAUDE_PROJECT_DIR:-[^}]*\}/(\S+?)"', hook, re.M)
@@ -4189,6 +4194,7 @@ def check_practice_audit_fires():
         (repo / 'local').mkdir()
         (repo / 'local' / 'diverged.md').write_text('customized on purpose\n', encoding='utf-8')
         (repo / 'local' / 'synced.md').write_text('vendored as-is\n', encoding='utf-8')
+        (repo / 'local' / 'local.md').write_text('host configuration\n', encoding='utf-8')
         manifest = repo / 'process' / 'manifest.json'
 
         def write_manifest():
@@ -4201,6 +4207,10 @@ def check_practice_audit_fires():
                     {'practice': 'synced_one', 'local_path': 'local/synced.md',
                      'status': 'synced', 'granularity': 'file',
                      'local_sha256': 'stale-hash-not-a-real-sha', 'notes': ''},
+                    {'practice': 'local_one', 'local_path': 'local/local.md',
+                     'status': 'local-only', 'granularity': 'file',
+                     'local_sha256': 'stale-hash-not-a-real-sha',
+                     'notes': 'host configuration over an engine'},
                 ],
             }, indent=2), encoding='utf-8')
 
@@ -4238,6 +4248,9 @@ def check_practice_audit_fires():
              and named['diverged_one']['status'] == 'diverged'),
             ("--entry leaves every entry it does not name alone",
              named['synced_one']['local_sha256'] == before_hash['synced_one']),
+            ("a changed 'local-only' entry is never listed as pending export "
+             "(2026-10-07): nothing upstream receives it",
+             'local/local.md' not in named_result.stdout),
             ("--entry with a name that matches nothing fails and changes nothing",
              typo_result.returncode != 0
              and all(typo[k]['local_sha256'] == before_hash[k] for k in before_hash)),
@@ -6056,7 +6069,7 @@ def check_commit_rebuilds_generated_files():
     import json as _json, tempfile, shutil as _shutil
     name = 'a commit rebuilds and stages the generated files its sources feed'
     tool = ROOT / 'tools' / 'precedent_regenerate.py'
-    hook_src = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    hook_src = ROOT / 'tools' / 'commit-identity.sh'
     if not tool.exists() or not hook_src.exists():
         not_applicable(name, 'tools/precedent_regenerate.py or the commit hook is absent')
         return
@@ -8525,6 +8538,235 @@ def check_retired_sets_are_dropped_only_when_nothing_is_lost():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_dropped_set_and_proxy_and_template_refs():
+    """Three findings from a consuming repository's two Update Vendors runs
+    (2026-10-07). (1) Dropping a retired set lists the hand-written lines
+    that still name it or count the sets -- a precedent.json comment, the
+    instructions file -- and never a generated block or view. (2) The
+    session proxy's refusal of GitHub's API is one plain line, not a
+    warning naming every set, and GitHub's own Not Found still never drops
+    a set. (3) A shipped template cites only practices universal carries:
+    one pointed at go-update after it moved to the ladder set."""
+    import tempfile
+    import inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    import precedent_vendor_engine as _pve
+    import github_budget as _gb
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp)
+        (d / 'precedent.json').write_text(
+            '{\n  "_comment": "Three team sets resolve beside this repo.",\n'
+            '  "sources": [{"level": "shared", "name": "precedent-shared-live", '
+            '"path": "../x"}]\n}\n', encoding='utf-8')
+        (d / 'AGENTS.md').write_text(
+            '# Repo\n\nA session that finds only four of five sources '
+            'resolving stops.\nUse precedent-shared-old for craft.\nTwo check '
+            'levels exist.\n<!-- BEGIN GENERATED: x -->\nprecedent-shared-old '
+            'here\n<!-- END GENERATED -->\n', encoding='utf-8')
+        (d / 'MAP.md').write_text('<!-- GENERATED by build_views -->\n'
+                                  'precedent-shared-old and three sets\n',
+                                  encoding='utf-8')
+        got = _pu.prose_about_dropped_sets(d, ['precedent-shared-old'])
+        where = [w for w, _t, _y in got]
+        cases.append(('a precedent.json comment counting the sets is listed',
+                      'precedent.json:2' in where))
+        cases.append(('an instructions line counting the sources is listed',
+                      'AGENTS.md:3' in where))
+        cases.append(('an instructions line naming the dropped set is listed',
+                      'AGENTS.md:4' in where))
+        cases.append(('a line counting something else is not',
+                      'AGENTS.md:5' not in where))
+        cases.append(('a generated block and a generated view are left to '
+                      'the sync', not any(w.startswith('MAP.md') or w == 'AGENTS.md:7'
+                                          for w in where)))
+        cases.append(('nothing is listed when nothing was dropped',
+                      _pu.prose_about_dropped_sets(d, []) == []))
+    cases.append(('the proxy\'s refusal is recognised',
+                  _gb.is_proxy_refusal('not JSON: Access to this GitHub API '
+                                       'path is not permitted through this proxy')))
+    cases.append(('GitHub\'s Not Found is not the proxy',
+                  not _gb.is_proxy_refusal('Not Found')))
+    real = _pve.archived_declared_sources
+    try:
+        _pve.archived_declared_sources = lambda _r: (
+            set(), [f'a: {_pve.PROXY_NOTE}', f'b: {_pve.PROXY_NOTE}'])
+
+        class Rep:
+            def __init__(self):
+                self.steps, self.left = [], []
+
+            def step(self, n, o):
+                self.steps.append(o)
+
+            def leave(self, w, y):
+                self.left.append((w, y))
+        rep = Rep()
+        with tempfile.TemporaryDirectory() as tmp:
+            (pathlib.Path(tmp) / 'precedent.json').write_text(
+                '{"sources": []}', encoding='utf-8')
+            _pu.retired_sources_step(pathlib.Path(tmp), rep)
+        cases.append(('two proxied sets make one short line, not a count of '
+                      'sets that could not be asked',
+                      len(rep.steps) == 1 and 'proxy' in rep.steps[0]
+                      and 'could not be asked' not in rep.steps[0]))
+    finally:
+        _pve.archived_declared_sources = real
+    cases.append(('Not Found still never drops a set',
+                  'Not Found' in inspect.getsource(_pve.archived_declared_sources)))
+    cited = set()
+    for f in (ROOT / 'templates').rglob('*'):
+        if f.is_file():
+            try:
+                cited |= {(f.relative_to(ROOT).as_posix(), m) for m in re.findall(
+                    r'practices? `([a-z0-9-]+)`', f.read_text(encoding='utf-8'))}
+            except (UnicodeDecodeError, OSError):
+                pass
+    missing = sorted(f'{f} cites {s}' for f, s in cited
+                     if not (ROOT / 'practices' / f'{s}.md').is_file()
+                     or not re.search(r'^status:\s*active', (ROOT / 'practices' / f'{s}.md')
+                                      .read_text(encoding='utf-8'), re.M))
+    cases.append(('every practice a shipped template cites is one universal '
+                  'carries in force' + (f' ({"; ".join(missing[:5])})' if missing else ''),
+                  not missing))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a dropped set\'s prose is listed, the proxy says so once, templates '
+          f'cite only what universal carries ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_new_rule_shows_its_debt_and_booked_names_it():
+    """When a sync brings in an enforced practice, or changes one, its check
+    runs once across the repository and what does not hold yet is listed --
+    a note, never a refusal; and at Booked, --changed-files-only names the
+    findings it set aside by check and file, not just a count (2026-10-07:
+    a one-file note was refused four times over files it never touched)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_sync_views as _sv
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp)
+        (d / 'practices').mkdir()
+        (d / 'practices' / 'dated-names.md').write_text(
+            '---\nchecked_by: check_dated_names.py\n---\n## Rule\nDate at end.\n'
+            '## Why\nx\n', encoding='utf-8')
+        (d / 'practices' / 'prose.md').write_text(
+            '---\nchecked_by: null\n---\n## Rule\nx\n', encoding='utf-8')
+        out = ('VIOLATION  dated-names\n    content/sources/book.epub: no date\n'
+               '  the rule:\n    Date at end.\n')
+        ran = []
+
+        def fake(slug):
+            ran.append(slug)
+            return out
+        lines = _sv.standing_findings_of_arrivals(d, {}, run=fake)
+        cases.append(('a newly arrived enforced practice is checked, and its '
+                      'finding named', ran == ['dated-names'] and lines
+                      and 'content/sources/book.epub' in lines[0]))
+        cases.append(('...as a note that refuses nothing',
+                      bool(lines) and 'Nothing is refused' in lines[0]))
+        ran.clear()
+        cases.append(('an unchanged practice is not re-checked',
+                      _sv.standing_findings_of_arrivals(
+                          d, _sv._checked_rules(d), run=fake) == [] and not ran))
+        before = _sv._checked_rules(d)
+        (d / 'practices' / 'dated-names.md').write_text(
+            '---\nchecked_by: check_dated_names.py\n---\n## Rule\nDate last.\n'
+            '## Why\nx\n', encoding='utf-8')
+        cases.append(('a changed Rule is checked again',
+                      bool(_sv.standing_findings_of_arrivals(d, before, run=fake))))
+    src = (ROOT / 'tools' / 'precedent_sync_views.py').read_text(encoding='utf-8')
+    cases.append(('the sync prints it after writing',
+                  'standing_findings_of_arrivals(repo, rules_before)' in src))
+    pc = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    cases.append(('Booked names what it set aside, by check and file',
+                  "set_aside.setdefault(slug, []).append(" in pc
+                  and "for slug_, files in sorted(set_aside.items()):" in pc))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a new rule shows its debt at the sync, and Booked names what it '
+          f'set aside ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_removal_selects_its_checks():
+    """A change that deletes or renames a file selects every tree check
+    declaring selects_on_removal -- rename-updates-links, whose subject is
+    what a removal strands and whose `**` reached it only by the rotation:
+    a consumer commit moving about twenty files ran it as "not run this
+    invocation" (2026-10-07). A change removing nothing leaves it to the
+    rotation as before."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as _pc
+    cases = []
+    tree = sorted(s for s, c in _pc.CHECKS.items() if c['scope'] == 'tree')
+    real_removed, real_touched = _pc._removed_files, _pc._touched_files
+    try:
+        _pc._touched_files = lambda: ['site/new-name.css']
+        _pc._removed_files = lambda: ['site/old-name.css']
+        picked = _pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('a rename selects rename-updates-links, with the '
+                      'rotation emptied', 'rename-updates-links' in picked))
+        _pc._removed_files = lambda: []
+        picked = _pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('a change removing nothing leaves it to the rotation',
+                      'rename-updates-links' not in picked))
+    finally:
+        _pc._removed_files, _pc._touched_files = real_removed, real_touched
+    cases.append(('rename-updates-links declares it',
+                  _pc.CHECKS['rename-updates-links'].get('selects_on_removal') is True))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a change that removes a file selects the checks that judge what a '
+          f'removal strands ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_engine_capability_holds_a_practice_back():
+    """A practice that names an engine capability in `requires:` is in force
+    on an engine that has it, and held back -- check and all -- on one that
+    does not; the sync says which (2026-10-07: a set's hooks-declaring
+    practice reached a consumer whose engine could not wire hooks, and its
+    check refused an unrelated merge)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    import precedent_sync_views as _sv
+    cases = []
+    base = (ROOT / 'practices' / 'no-version-suffix.md').read_text(encoding='utf-8')
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp) / 'set'
+        (d / 'practices').mkdir(parents=True)
+        (d / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-set', 'level': 'shared', 'visibility': 'public'}),
+            encoding='utf-8')
+        for slug, need in (('needs-hooks', 'engine:practice-hooks'),
+                           ('needs-future', 'engine:not-built-yet')):
+            text = base.replace('slug:        no-version-suffix', f'slug:        {slug}', 1)
+            text = text.replace('\nstatus:', f'\nrequires:    ["{need}"]\nstatus:', 1)
+            (d / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        src = [{'level': 'shared', 'name': 'fx-set', 'path': str(d)}]
+        got = _pr.resolve([dict(s) for s in src])['practices']
+        cases.append(('a practice needing a capability this engine has is in force',
+                      'needs-hooks' in got))
+        cases.append(('one needing a capability no engine has yet is held back',
+                      'needs-future' not in got))
+        notes = _sv.held_for_a_newer_engine([dict(s) for s in src])
+        cases.append(('the sync names the held-back practice and says Update Vendors',
+                      len(notes) == 1 and 'needs-future' in notes[0]
+                      and 'Update Vendors' in notes[0]))
+        real = _pr.ENGINE_CAPABILITIES
+        try:
+            _pr.ENGINE_CAPABILITIES = frozenset()
+            got = _pr.resolve([dict(s) for s in src])['practices']
+            cases.append(('on an engine without hook wiring, the hooks practice '
+                          'is held back, so no check it cannot pass is installed',
+                          'needs-hooks' not in got))
+        finally:
+            _pr.ENGINE_CAPABILITIES = real
+    bad = [n for n, ok in cases if not ok]
+    check(f'an engine capability in requires: holds a practice back on an engine '
+          f'without it ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_generated_files_candidates_are_repo_rooted_claims():
     """The very deep check's GENERATED FILES section asks the session to
     judge tracked files a tool may write that tools/generated_files.json
@@ -10548,6 +10790,168 @@ def _bare_all_runs_in_parallel(argv, environ):
             and environ.get('PRECEDENT_HARNESS_SERIAL') != '1')
 
 
+# A FULL RUN IS PROPOSED BEFORE IT STARTS (Morgan, 2026-10-07, strength:
+# decided). A session started this suite whole, by hand, to double-check
+# work bound only for pre-staging, quoted "15 to 25 minutes" from memory,
+# and was still running at 25 minutes with a third done -- the one-process
+# run takes about 40. answer-first-ask-before-long-work already said to
+# propose a long run with the tool's own cost line; this suite had no such
+# line, and nothing stopped it starting. Now a full run started by hand
+# states what it costs and refuses without --because quoting the person's
+# go-ahead. The callers that were asked for by name pass their own reason
+# (precedent_push_check.py at the staging and main tiers, the very deep
+# check's step 2), GitHub's runner is let through, and a run filtered to
+# named checks (PRECEDENT_CHECK_ONLY / SKIP) is not a full run at all.
+HARNESS_ASKED_ENV = 'PRECEDENT_HARNESS_ASKED'
+HARNESS_TIMINGS = ROOT / '.precedent' / 'harness_timings.json'
+# What each shape took when it was last measured, for a machine that has
+# recorded none of its own. Measured, never guessed: the serial figure is
+# 562 checks in 2369 s on a 4-core container (2026-10-07); the parallel
+# --all figure is check_bare_all_runs_across_the_cores' (2026-10-06); the
+# isolated one is precedent_push_check.py's note (2026-09-29).
+HARNESS_MEASURED = {
+    'one process': (40, '2026-10-07, 4 cores'),
+    '--as-ci': (11, '2026-10-06, 4 cores'),
+    '--all': (11, '2026-10-06, 4 cores'),
+    '--as-ci --isolated': (13, '2026-09-29'),
+}
+
+
+def _because(argv):
+    """-> the text after --because, or '' when there is none."""
+    if '--because' in argv:
+        i = argv.index('--because')
+        if i + 1 < len(argv):
+            return argv[i + 1].strip()
+    return ''
+
+
+def _full_run_shape(argv, environ):
+    """-> which full run this invocation is ('one process', '--as-ci',
+    '--all', '--as-ci --isolated'), or None for a run filtered to named
+    checks -- a shard, or a session running the tests it changed."""
+    if environ.get('PRECEDENT_CHECK_ONLY') or environ.get('PRECEDENT_CHECK_SKIP'):
+        return None
+    if '--as-ci' in argv:
+        return '--as-ci --isolated' if '--isolated' in argv else '--as-ci'
+    return '--all' if '--all' in argv else 'one process'
+
+
+def _full_run_cost(shape, timings_file=None):
+    """-> one line: what this shape took the last time it was measured,
+    on this machine if it has recorded a run, else HARNESS_MEASURED's."""
+    try:
+        rec = json.loads(pathlib.Path(timings_file or HARNESS_TIMINGS)
+                         .read_text(encoding='utf-8')).get(shape)
+    except (OSError, ValueError, AttributeError):
+        rec = None
+    if isinstance(rec, dict) and rec.get('minutes'):
+        return (f'a full run ({shape}) took {rec["minutes"]} minutes the last '
+                f'time on this machine ({rec.get("when", "date unknown")})')
+    mins, when = HARNESS_MEASURED.get(shape, (None, None))
+    if mins is None:
+        return f'a full run ({shape}) has no recorded time'
+    return (f'a full run ({shape}) takes about {mins} minutes (measured '
+            f'{when}; this machine has recorded none of its own)')
+
+
+def _full_run_refusal(argv, environ):
+    """-> the refusal text when this is a full run started by hand with no
+    go-ahead, else None (see HARNESS_ASKED_ENV above)."""
+    shape = _full_run_shape(argv, environ)
+    if shape is None or environ.get('GITHUB_ACTIONS') == 'true':
+        return None
+    if environ.get(HARNESS_ASKED_ENV) or _because(argv):
+        return None
+    again = ' '.join(['python3 tools/verify_harness.py', *argv,
+                      "--because '<their words>'"])
+    faster = (f' The same tests side by side, --as-ci: '
+              f'{_full_run_cost("--as-ci")}.' if shape == 'one process' else '')
+    return (f'verify_harness: NOT STARTED -- {_full_run_cost(shape)}.{faster}\n'
+            f'A run that long is proposed to the person first: what it is, '
+            f'that time, what it blocks and what it does not '
+            f'(answer-first-ask-before-long-work). Once they say go:\n'
+            f'  {again}\n'
+            f'Not needed for:\n'
+            f'  - the tests your change touched: '
+            f'PRECEDENT_CHECK_ONLY=check_a,check_b python3 tools/verify_harness.py\n'
+            f'  - Booked (pre-staging): its push check is the quick tier\n'
+            f'  - Debut and Produce: precedent_push_check.py runs the whole '
+            f'suite itself, in the faster --as-ci shape')
+
+
+def _record_full_run(shape, seconds, rc, timings_file=None):
+    """Keep what a finished full run took, for the next run's cost line.
+    Local and untracked (.precedent/), so it never dirties the tree; a
+    failed write costs only the estimate."""
+    if shape is None or rc not in (0, 1):
+        return
+    path = pathlib.Path(timings_file or HARNESS_TIMINGS)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        data = data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        data = {}
+    data[shape] = {'minutes': max(1, round(seconds / 60)),
+                   'when': time.strftime('%Y-%m-%d') + f', {os.cpu_count() or 1} cores'}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
+def check_full_run_asks_first():
+    """A full run started by hand states its cost and refuses without
+    --because; a filtered run, a run with a go-ahead, a caller that was
+    asked, and GitHub's runner start; a recorded time is quoted back."""
+    import tempfile
+    cases = []
+    r = _full_run_refusal([], {})
+    cases.append(('a bare run by hand is refused', r is not None))
+    cases.append(('...and the refusal states a time in minutes',
+                  bool(r and re.search(r'\d+ minutes', r))))
+    cases.append(('...and says how to give the go-ahead',
+                  bool(r and '--because' in r)))
+    cases.append(('--as-ci by hand is refused too',
+                  _full_run_refusal(['--as-ci'], {}) is not None))
+    cases.append(('--all by hand is refused too',
+                  _full_run_refusal(['--all'], {}) is not None))
+    cases.append(('--because with words starts it',
+                  _full_run_refusal(['--because', 'Morgan: run it'], {}) is None))
+    cases.append(('--because with no words does not',
+                  _full_run_refusal(['--because'], {}) is not None))
+    cases.append(('a filtered run starts',
+                  _full_run_refusal([], {'PRECEDENT_CHECK_ONLY': 'check_x'}) is None))
+    cases.append(('a shard (SKIP) starts',
+                  _full_run_refusal([], {'PRECEDENT_CHECK_SKIP': 'check_x'}) is None))
+    cases.append(('a caller that was asked starts',
+                  _full_run_refusal(['--as-ci'], {HARNESS_ASKED_ENV: 'push check'}) is None))
+    cases.append(("GitHub's runner starts",
+                  _full_run_refusal([], {'GITHUB_ACTIONS': 'true'}) is None))
+    with tempfile.TemporaryDirectory() as tmp:
+        f = pathlib.Path(tmp) / 'timings.json'
+        _record_full_run('--as-ci', 9 * 60 + 10, 0, f)
+        cases.append(('a recorded run is quoted back',
+                      '9 minutes the last time on this machine'
+                      in _full_run_cost('--as-ci', f)))
+        _record_full_run('--as-ci', 60, 2, f)
+        cases.append(('a run that crashed records nothing',
+                      '9 minutes' in _full_run_cost('--as-ci', f)))
+    src = pathlib.Path(__file__).read_text(encoding='utf-8')
+    pc = (ROOT / 'tools' / 'precedent_push_check.py').read_text(encoding='utf-8')
+    vd = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+    cases.append(('the entry point refuses before anything runs',
+                  'refusal = _full_run_refusal(sys.argv[1:], os.environ)' in src))
+    cases.append(('the push check passes its own reason',
+                  "'--isolated', '--because'" in pc))
+    cases.append(("the very deep check's step 2 passes its own reason",
+                  "str(harness), '--all', '--because'" in vd))
+    failed = [n for n, ok in cases if not ok]
+    check(f'a full run started by hand states its cost and asks first '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_bare_all_runs_across_the_cores():
     """A bare `--all` is dispatched to run_as_ci with every planted case
     (2026-10-06: one process took about 31 minutes where the same set side
@@ -10575,7 +10979,7 @@ def check_bare_all_runs_across_the_cores():
                   and 'if every_case:' in src))
     main_src = pathlib.Path(__file__).read_text(encoding='utf-8')
     cases.append(('the entry point dispatches it',
-                  'sys.exit(run_as_ci(every_case=True))' in main_src))
+                  '_done(run_as_ci(every_case=True))' in main_src))
     failed = [n for n, ok in cases if not ok]
     check(f'a bare --all runs across the cores ({len(cases)} stated cases)',
           not failed, '; '.join(failed))
@@ -10809,7 +11213,10 @@ def run_as_ci_isolated():
               + ' (no siblings, empty $HOME, no source token, UTC) ===',
               flush=True)
         rc = subprocess.run([sys.executable, 'tools/verify_harness.py',
-                             '--as-ci'], cwd=repo, env=env).returncode
+                             '--as-ci', '--because',
+                             os.environ.get(HARNESS_ASKED_ENV)
+                             or 'the isolated run this one was asked for'],
+                            cwd=repo, env=env).returncode
         grown = _new_entries(parent, before)
         t1 = time.monotonic()
         slice_ = sorted(set(na_file.read_text(encoding='utf-8').split())
@@ -12872,6 +13279,36 @@ def check_update_judges_the_committed_tree():
         rc, out = pu.judged_as_committed(repo, [sys.executable, '-c', 'pass'])
         cases.append(('with nothing staged the check runs as it is, and nothing is committed',
                       rc == 0 and git('rev-parse', 'HEAD').stdout.strip() == head, out[-400:]))
+        # 2026-10-06, a consumer repository: a run under `timeout 590` got
+        # SIGTERM in the deep check, skipped its `finally`, and left the
+        # stand-in at HEAD; the rerun did not look.
+        (repo / 'a.md').write_text('three\n', encoding='utf-8')
+        git('add', 'a.md')
+        git('commit', '-qm', pu.standin_message())
+        cases.append(('a stand-in left at HEAD is undone at the start of a run, '
+                      'its changes staged again',
+                      bool(pu.undo_leftover_standin(repo))
+                      and git('rev-parse', 'HEAD').stdout.strip() == head
+                      and git('diff', '--cached', '--name-only').stdout.split() == ['a.md']
+                      and (repo / 'a.md').read_text() == 'three\n', ''))
+        git('commit', '-qm', 'a real commit')
+        real = git('rev-parse', 'HEAD').stdout.strip()
+        cases.append(('a commit with any other message is never touched',
+                      pu.undo_leftover_standin(repo) is None
+                      and git('rev-parse', 'HEAD').stdout.strip() == real, ''))
+        (repo / 'a.md').write_text('four\n', encoding='utf-8')
+        git('add', 'a.md')
+        killer = (f'import os, signal, sys, time; sys.path.insert(0, {str(ROOT / "tools")!r}); '
+                  'import precedent_update as pu; '
+                  f'pu.judged_as_committed(__import__("pathlib").Path({str(repo)!r}), '
+                  '[sys.executable, "-c", "import os,signal,time; '
+                  'os.kill(os.getppid(), signal.SIGTERM); time.sleep(30)"])')
+        k = subprocess.run([sys.executable, '-c', killer], capture_output=True, text=True,
+                           timeout=60)
+        cases.append(('a run sent SIGTERM mid-check still undoes its stand-in',
+                      k.returncode != 0 and git('rev-parse', 'HEAD').stdout.strip() == real
+                      and git('diff', '--cached', '--name-only').stdout.split() == ['a.md'],
+                      f'rc {k.returncode}: {k.stderr[-300:]}'))
     finally:
         for k, v in env_keep.items():
             if v is None:
@@ -13041,6 +13478,13 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
                    'a fence.', False),
         'source-in-reason': ('open', 'push access to some-set', 'A rule '
                              'there is worded wrong.', True),
+        # A link to a vendored file is reading (2026-10-07, a consumer's
+        # check-in item linking the install runbook); the link's own text
+        # naming the file still counts.
+        'reading-link': ('open', 'null', 'Follow [the runbook]'
+                         '(../tools/doc_lint.py) at each check-in.', False),
+        'named-in-link-text': ('open', 'null', '[tools/doc_lint.py]'
+                               '(../tools/doc_lint.py) misreads a fence.', True),
     }
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -13259,6 +13703,31 @@ def check_changed_files_only_judges_the_change():
                       'and says it left it to the full check',
                       rc == 0 and 'not judged here' in out, out[-800:]))
 
+        # A tree check's finding THIS push caused is kept wherever it lands
+        # (Morgan, 2026-10-07): a new hook with no PARALLELS row is refused
+        # at Booked, though the row belongs in a file the push never
+        # touched; the next, unrelated push is not refused for it.
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        hook = wt / '.claude' / 'hooks' / 'zz-fixture-hook.sh'
+        hook.write_text('#!/bin/bash\nexit 0\n', encoding='utf-8')
+        hook.chmod(0o755)
+        git('add', str(hook))
+        git('commit', '-qm', 'a new Claude-only hook, no PARALLELS row')
+        rc, out = run_check(start)
+        cases.append(('a new hook with no PARALLELS row is refused at Booked, '
+                      'as a finding this push caused',
+                      rc == 1 and 'claude-only-surface-has-a-parallel' in out
+                      and 'this push caused them' in out, out[-800:]))
+        caused_at = git('rev-parse', 'HEAD').stdout.strip()
+        with open(wt / 'README.md', 'a', encoding='utf-8') as f:
+            f.write('\nAnother unrelated line.\n')
+        git('commit', '-qam', 'touch another file again')
+        rc, out = run_check(caused_at)
+        cases.append(('the next, unrelated push passes, and names the missing '
+                      'row as left for the full check',
+                      rc == 0 and 'claude-only-surface-has-a-parallel: '
+                      'templates/harness/PARALLELS.md' in out, out[-800:]))
+
         # A consumer's practice file is sync output: an unglossed acronym in
         # one is refused where the practice is authored, and not judged in a
         # repo MANIFEST.json says it was materialized into (2026-09-28,
@@ -13306,6 +13775,37 @@ def check_changed_files_only_judges_the_change():
                       rc == 0, out[-800:]))
         git('checkout', '-q', start, '--', 'documentation/CLOUD_SETUP.md', '.gitignore')
         git('commit', '-qm', 'undo the deletion fixture')
+
+        # A check script a sync brings judges the whole repository, and it
+        # is itself a changed file on the push that brings it. Its findings
+        # are judged by the file each names, so a standing problem elsewhere
+        # waits for the full check, and one in a file the push brings is
+        # refused (2026-10-07, a consuming repository: a one-file note was
+        # refused over a book kept as a source).
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        (wt / 'tools' / 'checks').mkdir(exist_ok=True)
+        (wt / 'tools' / 'checks' / 'check_planted_newcomer.py').write_text(
+            'import pathlib, sys\n'
+            'root = pathlib.Path(__file__).resolve().parents[2]\n'
+            'print("VIOLATION: planted-newcomer")\n'
+            'print("  README.md carries a planted standing problem")\n'
+            'if (root / "PLANTED_NEW.md").exists():\n'
+            '    print("  PLANTED_NEW.md carries a planted problem this push brings")\n'
+            'sys.exit(1)\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'a newly synced check script')
+        rc, out = run_check(start)
+        cases.append(('a newly arrived check\'s finding on a file the push does not '
+                      'change does not refuse it', rc == 0, out[-800:]))
+        brought = git('rev-parse', 'HEAD').stdout.strip()
+        (wt / 'PLANTED_NEW.md').write_text('# New\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'a file the new check flags')
+        rc, out = run_check(brought)
+        cases.append(('...and its finding on a file the push brings does',
+                      rc == 1 and 'PLANTED_NEW.md' in out, out[-800:]))
+        git('rm', '-q', 'PLANTED_NEW.md', 'tools/checks/check_planted_newcomer.py')
+        git('commit', '-qm', 'undo the newcomer fixture')
 
         # The file-level checks (checks-follow-the-tier): only the changed
         # files, and the views a changed practice feeds.
@@ -16659,7 +17159,7 @@ def check_seeded_prompt_gate_refuses_an_unlabelled_prompt():
     """
     import shutil
     import subprocess
-    hook = ROOT / '.claude' / 'hooks' / 'seeded-prompt-gate.sh'
+    hook = ROOT / 'tools' / 'seeded-prompt-gate.sh'
     if not hook.exists():
         return (False, '', f'{hook} does not exist')
     if not shutil.which('jq'):
@@ -18427,7 +18927,10 @@ def check_precedent_check_fires():
         # tools/bootstrap.sh it runs clone them. Planted by deleting that
         # line from both: the finding must name the missing clone step.
         def _plant_dsac(repo):
-            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh'):
+            # tools/session-start.sh since 2026-10-07: the .claude/hooks/ copy is
+            # the pointer stub, and the check follows it there.
+            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh',
+                        'tools/session-start.sh'):
                 rewrite(repo, rel, lambda t: re.sub(
                     r'\n[^\n]*precedent_source_bootstrap\.py --teams-from[^\n]*',
                     '', t))
@@ -20786,6 +21289,16 @@ def check_checks_read_what_their_rules_name():
     out = added({'findings-v2.md': 'x\n'}, ['findings-v2.md'])
     cases.append(('no-version-suffix: a version token alone is still '
                   'reported', 'findings-v2.md' in out, out))
+    out = added({'notes/note-to-alex-2026-09-22.md': 'x\n',
+                 'notes/note-to-alex-2026-10-07.md': 'x\n'},
+                ['notes/note-to-alex-2026-10-07.md'])
+    cases.append(('no-version-suffix: a dated record is not a version '
+                  '(2026-10-07)', out == '', out))
+    out = added({'report.md': 'x\n', 'report-2026-10-07.md': 'x\n'},
+                ['report-2026-10-07.md'])
+    cases.append(('no-version-suffix: a dated copy beside its undated '
+                  'original is still a fork', 'report-2026-10-07.md' in out
+                  and 'report.md' in out, out))
 
     # --- environment-gotchas: no index once the catalogue has migrated ----
     story = ('## Symptom\n\nA tool fails.\n\n## Story\n\nIt failed on a real '
@@ -22338,7 +22851,7 @@ def check_gate_channel():
     # called precedent_gate.py at all. Checked in both the template a
     # dependent repo installs and this repo's own instantiated copy, so
     # neither can drift back to cited-only without this case catching it.
-    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-reply-check.sh',
+    for stop_hook in (ROOT / 'tools' / 'stop-reply-check.sh',
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
                       stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
@@ -22360,13 +22873,13 @@ def check_gate_channel():
                       f'{settings.relative_to(ROOT)}',
                       any('reply-gate.sh' in c for c in wired),
                       f'UserPromptSubmit wires {wired}'))
-    for hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'reply-gate.sh',
+    for hook in (ROOT / 'tools' / 'reply-gate.sh',
                  ROOT / '.claude' / 'hooks' / 'reply-gate.sh'):
         cases.append((f'{hook.relative_to(ROOT)} exists and is executable -- a '
                       f'hook a settings.json declares and disk does not have is '
                       f'the failure the harness reports as nothing at all',
                       hook.is_file() and os.access(hook, os.X_OK)))
-    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-reply-check.sh',
+    for stop_hook in (ROOT / 'tools' / 'stop-reply-check.sh',
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the BLOCKING reply check is called from '
                       f'{stop_hook.relative_to(ROOT)}',
@@ -22380,7 +22893,7 @@ def check_gate_channel():
     # caught it: 'precedent_gate' and 'precedent_reply_check' are both
     # substrings of the un-briefed call too. Found from a person describing
     # the result plainly -- a wall of text at the end of every session.
-    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-reply-check.sh',
+    for stop_hook in (ROOT / 'tools' / 'stop-reply-check.sh',
                       ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
                       f'--brief, not the full Rules, on every Stop',
@@ -24895,7 +25408,7 @@ def check_compaction_offer_owed_printed_at_turn_start():
         def run(path):
             # Through the hook itself, so the payload-to-env hand-off is what
             # is tested, not only the gate's reading of the variable.
-            hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'reply-gate.sh'
+            hook = ROOT / 'tools' / 'reply-gate.sh'
             (fx / 'tools').mkdir(exist_ok=True)
             for f in ROOT.joinpath('tools').glob('*.py'):
                 dst = fx / 'tools' / f.name
@@ -27151,7 +27664,7 @@ def check_commit_identity_derives_declared_timezone():
       4. the file is per-machine, so the hook warns when it is not gitignored.
     """
     import tempfile, json as _json
-    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    hook = ROOT / 'tools' / 'commit-identity.sh'
     if not hook.exists():
         not_applicable('commit-identity derives the declared timezone into '
                        'the session',
@@ -28821,7 +29334,7 @@ def check_commit_identity_prevents_the_wrong_offset():
     fall through claiming success.
     """
     import tempfile, json as _json
-    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    hook = ROOT / 'tools' / 'commit-identity.sh'
     if not hook.exists():
         not_applicable('commit-identity prevents the wrong offset',
                        '.claude/hooks/commit-identity.sh is not present here')
@@ -28948,7 +29461,7 @@ def check_commit_identity_ci_cadence():
     named, 2026-09-24: with no number declared, CI runs on every push.
     """
     import tempfile, json as _json
-    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    hook = ROOT / 'tools' / 'commit-identity.sh'
     if not hook.exists():
         not_applicable('commit-identity applies the CI cadence',
                        '.claude/hooks/commit-identity.sh is not present here')
@@ -29193,7 +29706,7 @@ def check_hooks_share_one_quote_blanking_block():
     quote-blanking block, byte for byte (2026-09-30). They ship one by one,
     so they cannot import it; a fix to one copy only would bring back the
     quoted-pipe misread in the others."""
-    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    hooks = ROOT / 'tools'   # the hooks' scripts, behind their stubs (2026-10-07)
     names = ['push-check-gate.sh', 'commit-identity-push-gate.sh',
              'doc-lint-gate.sh', 'merge-check-gate.sh']
     blocks = {}
@@ -29225,7 +29738,7 @@ def check_push_check_gate():
     until this was written."""
     import tempfile, json as _json, re as _re, shutil as _shutil
     name = 'the push check runs what CI ran, and the gate refuses on a failure'
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'push-check-gate.sh'
+    hook = ROOT / 'tools' / 'push-check-gate.sh'
     tool = ROOT / 'tools' / 'precedent_push_check.py'
     if not hook.exists() or not tool.exists():
         not_applicable(name, 'push-check-gate.sh or precedent_push_check.py is absent')
@@ -29524,7 +30037,7 @@ def check_push_check_gate():
                       not denied))
 
         # The global pass-through: a repo's own pre-push runs, and decides.
-        ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+        ci_hook = ROOT / 'tools' / 'commit-identity.sh'
         if ci_hook.exists():
             home = tmp / 'home'
             home.mkdir()
@@ -29564,7 +30077,7 @@ def check_global_backstop_runs_person_fixer():
     fails never refuses the commit, because a fixer is not a gate."""
     import tempfile, json as _json
     name = "the commit backstop runs the person's pre-commit fixer and never lets it refuse"
-    ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    ci_hook = ROOT / 'tools' / 'commit-identity.sh'
     if not ci_hook.exists():
         not_applicable(name, '.claude/hooks/commit-identity.sh is absent')
         return
@@ -29794,7 +30307,7 @@ def check_merge_check_gate():
     working branch alone."""
     import tempfile, json as _json, shutil as _shutil
     name = 'the merge gate checks what a GitHub merge would land, at its base branch\'s tier'
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'merge-check-gate.sh'
+    hook = ROOT / 'tools' / 'merge-check-gate.sh'
     engine = ROOT / 'tools' / 'precedent_merge_check.py'
     if not hook.exists() or not engine.exists():
         not_applicable(name, 'merge-check-gate.sh or precedent_merge_check.py is absent')
@@ -31785,7 +32298,7 @@ def check_main_test_without_individual_source():
     name = 'with no individual source, main\'s GitHub test falls back to the defaults'
     tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
     src = ROOT / 'tools' / 'precedent_branches.py'
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'commit-identity.sh'
+    hook = ROOT / 'tools' / 'commit-identity.sh'
     try:
         import yaml as _yaml
     except ImportError:
@@ -34448,7 +34961,9 @@ def check_individual_hook_run_by_hand_links_the_attached_set():
         (proj / '.claude' / 'hooks').mkdir(parents=True)
         home.mkdir()
         for name in ('precedent_source_bootstrap.py',
-                     'precedent_source_credentials.py'):
+                     'precedent_source_credentials.py',
+                     # what the rendered stub runs, since 2026-10-07
+                     'individual-source-bootstrap.sh'):
             shutil.copy(ROOT / 'tools' / name, proj / 'tools' / name)
         hook = proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
         hook.write_text(tmpl.read_text(encoding='utf-8')
@@ -34733,9 +35248,9 @@ def check_freshness_guard_checks_attached_repositories():
     for the reason parallel-artifact-ledger names."""
     import tempfile
 
+    # The installed stub and the template stub, each running tools/'s script.
     guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
-              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
-               / 'freshness-guard.sh')]
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
     if missing:
         not_applicable('the freshness guard checks attached repositories',
@@ -34946,9 +35461,9 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
     the reconcile behavior having been deleted outright."""
     import tempfile
 
+    # The installed stub and the template stub, each running tools/'s script.
     guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
-              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
-               / 'freshness-guard.sh')]
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
     if missing:
         not_applicable('freshness guard user-prompt never resets mid-session',
@@ -35142,9 +35657,9 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
     the drift parallel-artifact-ledger names."""
     import tempfile
 
+    # The installed stub and the template stub, each running tools/'s script.
     guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
-              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
-               / 'freshness-guard.sh')]
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
     missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
     if missing:
         not_applicable('freshness-guard waves through a branch origin has '
@@ -35524,6 +36039,8 @@ def check_codex_hooks_template_runs_the_claude_gates():
         (repo / 'sub').mkdir()
         for n in named:
             shutil.copy(hooks_dir / n, repo / '.claude' / 'hooks' / n)
+            # The stub runs its script from tools/, as an install has it.
+            shutil.copy(ROOT / 'tools' / n, repo / 'tools' / n)
         # A stand-in linter: a finding on stdout, exit 1 -- what the gate
         # reads as "refuse", as distinct from a crash.
         (repo / 'tools' / 'doc_lint.py').write_text(
@@ -35637,6 +36154,9 @@ def check_gemini_settings_template_keeps_stdout_clean():
             (proj / '.claude' / 'hooks').mkdir(parents=True)
             shutil.copy(ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
                         / 'stop-git-check.sh', proj / '.claude' / 'hooks')
+            # The stub runs its script from tools/, as an install has it.
+            (proj / 'tools').mkdir(exist_ok=True)
+            shutil.copy(ROOT / 'tools' / 'stop-git-check.sh', proj / 'tools')
             genv = dict(env, GIT_CONFIG_GLOBAL=str(pathlib.Path(td) / 'gitconfig'))
             pathlib.Path(genv['GIT_CONFIG_GLOBAL']).write_text('', encoding='utf-8')
             for a in (('init', '-q', '-b', 'main'),
@@ -35679,8 +36199,8 @@ def check_commit_identity_copies_are_identical():
     exact shape; this makes it mechanical instead.
     """
     import hashlib as _h
-    here = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
-    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'commit-identity.sh'
+    here = ROOT / 'tools' / 'commit-identity.sh'
+    tmpl = ROOT / 'tools' / 'commit-identity.sh'
     if not (here.exists() and tmpl.exists()):
         not_applicable('every copy of commit-identity.sh is byte-identical',
                        'not every copy is present in this tree')
@@ -36365,7 +36885,7 @@ def check_person_zone_wins_in_a_shared_rooted_session():
     and nothing is refused, exactly as before."""
     import tempfile
     name = "the person's zone wins over a repo's fallback in a shared-rooted session"
-    script = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    script = ROOT / 'tools' / 'commit-identity.sh'
     if not script.exists():
         not_applicable(name, '.claude/hooks/commit-identity.sh is not present here')
         return
@@ -36484,7 +37004,7 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
     means what it says.
     """
     import tempfile
-    script = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    script = ROOT / 'tools' / 'commit-identity.sh'
     if not script.exists():
         not_applicable('the commit identity reaches a later-attached repo',
                        '.claude/hooks/commit-identity.sh is not present here')
@@ -36559,6 +37079,19 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
                       "container's own agent account" in out))
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
+        # 2026-10-07: the refusal also fixes the repository, so the same
+        # commit run again goes through as the person -- no git config line
+        # to copy out of the message by hand.
+        cases.append(('the refusal writes the person into that repository\'s '
+                      'own config, and says so',
+                      g('config', '--local', 'user.email', cwd=later).stdout.strip()
+                      == 'm@example.com' and 'Run the same commit again' in out))
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'bot-again'], cwd=str(later),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ=ZONE), timeout=120)
+        cases.append(('and the same commit, run again, lands as the person',
+                      r.returncode == 0 and g('log', '-1', '--format=%ae', cwd=later)
+                      .stdout.strip() == 'm@example.com'))
 
         # THE PERSON'S ZONE, IN EVERY REPO THEY COMMIT TO (Morgan,
         # 2026-09-25, evening: "I meant the repo timezone to be a fallback,
@@ -38209,8 +38742,7 @@ def check_catalogue_hook_runs_the_freshness_notice():
     whose vendored tools are stubs that print a marker. Control: a set whose
     engine predates the tool still starts cleanly."""
     import shutil, tempfile
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / \
-        'precedent-universal-catalogue.sh'
+    hook = ROOT / 'tools' / 'precedent-universal-catalogue.sh'
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='catalogue-freshness-'))
     cases = []
     try:
@@ -40063,7 +40595,7 @@ def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
         cases.append(('J: ...rendered with no repository URL and no '
                       'placeholder left, so nothing about the person is baked '
                       'into a repo that may be public',
-                      'DEFAULT_REPO_URL=""' in body and '{{' not in body
+                      'PRECEDENT_INDIVIDUAL_DEFAULT_URL=""' in body and '{{' not in body
                       and 'fixture-not-a-token' not in body, body[:200]))
         rc7, out7 = run_refresh(ind, {'PRECEDENT_GIT_TOKEN': 'fixture-not-a-token'})
         cases.append(('J: ...and a second refresh has nothing to do',
@@ -41494,7 +42026,7 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
         saved['apply_to'] = prs.apply_to
         prs.classify_dirt = lambda repo: (
             (['tools/ENGINE_MANIFEST.json'] if g(repo, 'status', '--porcelain') else []), [])
-        prs.apply_to = lambda e, commit=False: (applied.append(e['repo']), [])[1]
+        prs.apply_to = lambda e, commit=False, branch=None: (applied.append(e['repo']), [])[1]
         rc, out = run()
         cases.append(('a clone carrying only engine output is still brought current',
                       g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
@@ -41509,6 +42041,72 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
     check(f'the session-start refresh pulls a set clone behind its own origin '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_refresh_sources_leaves_the_base_branch_clean():
+    """The session-start refresh commits on a dated local branch of its own
+    and returns the set to its base branch with nothing uncommitted
+    (2026-10-07: it left 21 engine files as edits on a set's main
+    checkout, and the stop hook then asked a session to commit and push
+    them -- on main). Real git: a second run for the same engine tip names
+    the branch it already made rather than make another, and a refresh that
+    changes nothing leaves no branch behind."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-branch-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(*a):
+        return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                              text=True, env=env).stdout.strip()
+    saved = prs.apply_to
+    try:
+        repo = tmp / 'set'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        (repo / 'engine.txt').write_text('old\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+
+        def fake_apply(e, commit=False, branch=None, body='new\n'):
+            (repo / 'engine.txt').write_text(body, encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            r = subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'refresh'],
+                               capture_output=True, text=True, env=env)
+            return [('refresh', True, ''), ('branch', True, ''),
+                    ('commit', r.returncode == 0, r.stdout + r.stderr)]
+        prs.apply_to = fake_apply
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': 'abcdef1234567'}, 'main')
+        branches = g('branch', '--format=%(refname:short)').split()
+        made = [b for b in branches if '-engine-refresh-abcdef12-' in b]
+        cases.append(('the refresh is committed on a dated branch of its own',
+                      len(made) == 1, f'{branches} {steps}'))
+        cases.append(('...and the set is back on main', g('branch', '--show-current') == 'main',
+                      g('branch', '--show-current')))
+        cases.append(('...with nothing uncommitted', g('status', '--porcelain') == '',
+                      g('status', '--porcelain')))
+        cases.append(('...and main itself unchanged',
+                      (repo / 'engine.txt').read_text(encoding='utf-8') == 'old\n', ''))
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': 'abcdef1234567'}, 'main')
+        cases.append(('a second run for the same tip names that branch and makes no other',
+                      'already committed on local branch' in steps[0][2]
+                      and len([b for b in g('branch', '--format=%(refname:short)').split()
+                               if 'engine-refresh' in b]) == 1, str(steps)))
+        prs.apply_to = lambda e, commit=False, branch=None: fake_apply(e, commit, branch, 'old\n')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '9999999912345'}, 'main')
+        cases.append(('a refresh that changes nothing leaves no branch behind',
+                      not [b for b in g('branch', '--format=%(refname:short)').split()
+                           if '-engine-refresh-99999999-' in b]
+                      and g('branch', '--show-current') == 'main', str(steps)))
+    finally:
+        prs.apply_to = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session-start refresh leaves the set\'s base branch clean '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def check_refresh_sources_path_names_the_whole_target():
@@ -41551,7 +42149,7 @@ def check_refresh_sources_path_names_the_whole_target():
         prs._declared_base_branch = lambda repo: 'main'
         prs.repair_hooks = lambda repo: (wrote.append(pathlib.Path(repo).resolve()),
                                          (True, 'fixture'))[1]
-        prs.apply_to = lambda e, commit=False: (
+        prs.apply_to = lambda e, commit=False, branch=None: (
             wrote.append(pathlib.Path(e['repo']).resolve()), [])[1]
 
         def run(argv):
@@ -43269,8 +43867,7 @@ def check_workflow_write_gate_refuses_api_writes():
     workflow-write-gate.sh refuses that for a workflow file, on both tools,
     and lets every other file through."""
     import shutil
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / \
-        'workflow-write-gate.sh'
+    hook = ROOT / 'tools' / 'workflow-write-gate.sh'
     cases = []
     if not shutil.which('jq'):
         check('workflow-write-gate.sh refuses a workflow written through '
@@ -43301,7 +43898,7 @@ def check_workflow_write_gate_refuses_api_writes():
                                               {'path': 'docs/workflows.yml'}]}})
     cases.append(('CONTROL: ordinary files, even one named like a workflow '
                   'outside .github/workflows, pass', not denied))
-    same = (ROOT / '.claude' / 'hooks' / 'workflow-write-gate.sh')
+    same = (ROOT / 'tools' / 'workflow-write-gate.sh')
     cases.append(("this repo runs the byte-identical copy it ships",
                   same.is_file() and same.read_bytes() == hook.read_bytes()))
     bad = [c[0] for c in cases if not c[1]]
@@ -47546,11 +48143,13 @@ def check_practice_declared_hooks_are_wired():
               repr(missing))
         added = pve.add_practice_hooks(repo, entries)
         got = json.loads((repo / '.claude' / 'settings.json').read_text())
-        groups = got['hooks']['PreToolUse']
-        check('the sync adds it under its own matcher, and the repo\'s own '
-              'entry is untouched',
-              len(added) == 1 and groups[0] == mine['hooks']['PreToolUse'][0]
-              and groups[1]['matcher'] == 'SendUserFile', json.dumps(got))
+        listed = json.loads((repo / pve.PRACTICE_HOOKS_FILE).read_text())['hooks']
+        # Since 2026-10-07 into the file precedent-hooks.sh reads, never into
+        # settings.json, where every addition was a question for the person.
+        check('the sync lists it, under its own matcher, for the fixed '
+              'precedent-hooks.sh entry, and settings.json is untouched',
+              len(added) == 1 and got == mine
+              and listed[0]['matcher'] == 'SendUserFile', json.dumps(listed))
         check('a second sync adds nothing',
               pve.add_practice_hooks(repo, entries) == []
               and pve.missing_practice_hooks(repo, entries) == [], '')
@@ -48292,16 +48891,19 @@ def check_gate_refusals_are_worded_by_their_tools():
     import precedent_push_check as _ppc
     import precedent_merge_check as _pmc
     cases = []
-    hooks = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    hooks = ROOT / 'tools'   # the real scripts, behind the stubs since 2026-10-07
     owned = {'doc-lint-gate.sh': 'FAILED on the Markdown staged',
              'push-check-gate.sh': 'Nothing lets a push past this',
-             'merge-check-gate.sh': 'Nothing lets a merge past this'}
+             'merge-check-gate.sh': 'Nothing lets a merge past this',
+             'commit-identity-push-gate.sh': 'asymmetry is the whole reason'}
     for name, phrase in owned.items():
         text = (hooks / name).read_text(encoding='utf-8')
         cases.append((f'{name} asks its tool for the words', '--hook-reason' in text))
         cases.append((f'{name} holds none of them', phrase not in text))
-        cases.append((f'{name} is the copy .claude/hooks runs',
-                      text == (ROOT / '.claude' / 'hooks' / name).read_text(encoding='utf-8')))
+        cases.append((f'{name} is what .claude/hooks runs, through its stub',
+                      (ROOT / '.claude' / 'hooks' / name).read_bytes()
+                      == (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                          / name).read_bytes()))
     cases.append(('doc_lint words its refusal around the findings',
                   'x.md:1: bad' in (_dl.hook_reason('refused', 'x.md:1: bad') or '')))
     cases.append(('the push check words a failure and a timeout',
@@ -48312,6 +48914,19 @@ def check_gate_refusals_are_worded_by_their_tools():
                   'F2' in (_pmc.hook_reason('1', 'F2') or '')
                   and (_pmc.hook_reason('landed-1', 'F3') or '').endswith('F3')
                   and _pmc.hook_reason('2', '') is None))
+    # 2026-10-03 and 2026-10-05: a session read a refused `git commit &&
+    # git push` as "committed, push refused". Each refusal now says, before
+    # the findings, that nothing in the command ran.
+    marker = 'FINDING-NR'
+    for label, text in (('the commit gate', _dl.hook_reason('refused', marker) or ''),
+                        ('the push gate on a failure', _ppc.hook_reason('1', marker) or ''),
+                        ('the push gate on a timeout', _ppc.hook_reason('124', marker) or ''),
+                        ('the merge gate', _pmc.hook_reason('1', marker) or ''),
+                        ('the commit-identity push gate',
+                         _ppc.hook_reason('identity', marker) or '')):
+        said = text.find('Nothing in the refused command ran')
+        cases.append((f'{label} says nothing in the refused command ran, before the findings',
+                      0 <= said < text.find(marker) and 'git status' in text))
     fake = ('import sys\n'
             'if "--hook-reason" in sys.argv:\n'
             '    {answer}\n'
@@ -48339,6 +48954,28 @@ def check_gate_refusals_are_worded_by_their_tools():
             except (ValueError, KeyError):
                 reason = ''
             cases.append((label, want(reason)))
+        # The commit-identity push gate, run for real: a check that finds
+        # something, and this repo's own tool wording the refusal.
+        repo = td / 'identity'
+        (repo / 'tools' / 'checks').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        shutil.copy(ROOT / 'tools' / 'precedent_push_check.py', repo / 'tools')
+        (repo / 'tools' / 'checks' / 'check_commit_author.py').write_text(
+            'print("AUTHOR-FINDING-9"); raise SystemExit(1)\n', encoding='utf-8')
+        payload = json.dumps({'tool_input': {'command': 'git commit -m x && git push'},
+                              'cwd': str(repo)})
+        r = subprocess.run(['bash', str(hooks / 'commit-identity-push-gate.sh')],
+                           input=payload, capture_output=True, text=True,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+        try:
+            reason = json.loads(r.stdout)['hookSpecificOutput']['permissionDecisionReason']
+        except (ValueError, KeyError):
+            reason = ''
+        cases.append(('the commit-identity push gate denies in its tool\'s words, '
+                      'saying nothing ran',
+                      'commit-identity push gate REFUSED' in reason
+                      and 0 <= reason.find('Nothing in the refused command ran')
+                      < reason.find('AUTHOR-FINDING-9')))
     bad = [n for n, ok in cases if not ok]
     check(f'the gates refuse in their tools\' words ({len(cases)} stated cases)',
           not bad, '; '.join(bad))
@@ -48525,6 +49162,172 @@ def check_kept_section_reports_upstreams_change_not_its_lacks():
     bad = [n for n, ok in cases if not ok]
     check(f'a stale kept section shows upstream\'s change, not its lacks '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+# The (event, hook) pairs HOOK_WIRING carried on 2026-10-07, when the
+# dispatcher's fixed entries were added and the list closed. A hook added
+# later goes in tools/hook_wiring.json.
+HOOK_WIRING_FROZEN = {
+    ('PostToolUse', 'merge-check-gate.sh'), ('PostToolUse', 'precedent-hooks.sh'),
+    ('PreToolUse', 'artifact-publish-gate.sh'), ('PreToolUse', 'commit-identity-once.sh'),
+    ('PreToolUse', 'doc-lint-gate.sh'), ('PreToolUse', 'freshness-guard.sh'),
+    ('PreToolUse', 'merge-check-gate.sh'), ('PreToolUse', 'precedent-hooks.sh'),
+    ('PreToolUse', 'precedent-paths.sh'), ('PreToolUse', 'push-check-gate.sh'),
+    ('PreToolUse', 'seeded-prompt-gate.sh'), ('PreToolUse', 'wait-loop-gate.sh'),
+    ('PreToolUse', 'workflow-write-gate.sh'), ('SessionStart', 'commit-identity.sh'),
+    ('SessionStart', 'freshness-guard.sh'), ('SessionStart', 'precedent-hooks.sh'),
+    ('SessionStart', 'precedent-universal-catalogue.sh'), ('SessionStart', 'session-start.sh'),
+    ('Stop', 'precedent-hooks.sh'), ('Stop', 'stop-git-check.sh'),
+    ('Stop', 'stop-reply-check.sh'), ('UserPromptSubmit', 'freshness-guard.sh'),
+    ('UserPromptSubmit', 'precedent-hooks.sh'), ('UserPromptSubmit', 'reply-gate.sh'),
+}
+
+
+def check_hook_changes_never_touch_dot_claude():
+    """Nothing an engine change can do to a hook touches .claude/: every hook
+    there is one permanent stub running tools/<its name>, HOOK_WIRING takes
+    no new hook, and a hook added later runs through the fixed
+    precedent-hooks.sh entries, combined into one answer.
+
+    WHY. Morgan, 2026-10-07 (strength: decided): "It should no longer ask."
+    Claude Code's auto mode holds any commit that changes .claude/ for the
+    person's yes; the hook scripts had changed on 27 days in a month and
+    settings.json on 9, so nearly every Update Vendors asked. Planted: the
+    stubs are byte-identical and each runs its script, in BestPractice and
+    from an installed copy; HOOK_WIRING is the frozen list; the dispatcher
+    runs a listed hook for its tool only, leaves a declined one out, and
+    combines a deny, a block, an exit 2, context and a timeout the way
+    separate entries would have been read."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    import precedent_hooks as ph
+    cases = []
+    tdir = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    stubs = sorted(tdir.glob('*.sh'))
+    stub = stubs[0].read_bytes()
+    cases.append(('every shipped hook is the one stub, byte for byte',
+                  all(f.read_bytes() == stub for f in stubs)))
+    cases.append(('each stub has its script in tools/, shipped with the engine',
+                  all((ROOT / 'tools' / f.name).is_file()
+                      and f.name in pve.HOOK_SCRIPT_FILES
+                      and f.name in pve.ENGINE_FILES
+                      and f.name in pve.CONSUMER_ENGINE_FILES for f in stubs)))
+    mine = [f for f in (ROOT / '.claude' / 'hooks').glob('*.sh')
+            if (tdir / f.name).is_file()
+            and f.name not in ('reply-gate.sh', 'session-start.sh',
+                               'stop-git-check.sh', 'stop-reply-check.sh')]
+    cases.append(('BestPractice runs the same stubs',
+                  bool(mine) and all(f.read_bytes() == stub for f in mine)))
+    wired = {(ev, n) for k in pve.HOOK_WIRING.values() for ev, _m, n, _a in k}
+    cases.append(('HOOK_WIRING takes no new hook: add it to tools/hook_wiring.json',
+                  wired == HOOK_WIRING_FROZEN))
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        for n in ('precedent_hooks.py', 'precedent-hooks.sh'):
+            shutil.copy(ROOT / 'tools' / n, repo / 'tools' / n)
+        shutil.copy(tdir / 'precedent-hooks.sh', repo / '.claude' / 'hooks' / 'precedent-hooks.sh')
+        shutil.copy(tdir / 'wait-loop-gate.sh', repo / '.claude' / 'hooks' / 'wait-loop-gate.sh')
+        shutil.copy(ROOT / 'tools' / 'wait-loop-gate.sh', repo / 'tools' / 'wait-loop-gate.sh')
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{"kind": "consumer"}')
+        (repo / 'tools' / 'refuse.sh').write_text(
+            'cat >/dev/null; echo \'{"hookSpecificOutput": {"hookEventName": '
+            '"PreToolUse", "permissionDecision": "deny", '
+            '"permissionDecisionReason": "planted refusal"}}\'\n')
+        (repo / 'tools' / 'hook_wiring.json').write_text(json.dumps({'consumer': [
+            {'event': 'PreToolUse', 'matcher': 'Bash', 'script': 'refuse.sh'}]}))
+
+        def run(name, event_args, payload):
+            r = subprocess.run(['bash', str(repo / '.claude' / 'hooks' / name), *event_args],
+                               input=json.dumps(payload), capture_output=True, text=True,
+                               env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+            return r.returncode, r.stdout, r.stderr
+        rc, out, _e = run('wait-loop-gate.sh', [], {'tool_input': {'command': 'pgrep -f x'}})
+        cases.append(('an installed stub runs its script from tools/',
+                      rc == 0 and '"deny"' in out))
+        rc, out, _e = run('precedent-hooks.sh', ['PreToolUse'], {'tool_name': 'Bash'})
+        cases.append(('the dispatcher runs a listed hook for its tool',
+                      rc == 0 and 'planted refusal' in out))
+        rc, out, _e = run('precedent-hooks.sh', ['PreToolUse'], {'tool_name': 'Read'})
+        cases.append(('...and not for another tool', rc == 0 and out == ''))
+        rc, out, _e = run('precedent-hooks.sh', ['Stop'], {})
+        cases.append(('...nor at another event', rc == 0 and out == ''))
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'declined_adapters': [{'path': 'tools/refuse.sh', 'reason': 'x'}]}))
+        rc, out, _e = run('precedent-hooks.sh', ['PreToolUse'], {'tool_name': 'Bash'})
+        cases.append(('a declined hook does not run', rc == 0 and out == ''))
+    deny = ('a', 0, json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse',
+            'permissionDecision': 'deny', 'permissionDecisionReason': 'no A'}}), '', False)
+    allow = ('b', 0, json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse',
+             'permissionDecision': 'allow', 'additionalContext': 'ctx B'}}), 'note B\n', False)
+    rc, out, err = ph.combine('PreToolUse', [deny, allow])
+    got = json.loads(out)['hookSpecificOutput']
+    cases.append(('a deny wins over an allow, and context and notes are kept',
+                  rc == 0 and got['permissionDecision'] == 'deny'
+                  and got['permissionDecisionReason'] == 'no A'
+                  and got['additionalContext'] == 'ctx B' and 'note B' in err))
+    rc, out, err = ph.combine('PreToolUse', [allow])
+    cases.append(('an allow alone is not passed on',
+                  'permissionDecision' not in json.loads(out)['hookSpecificOutput']))
+    rc, out, err = ph.combine('Stop', [('c', 2, '', 'stop: unpushed\n', False), allow])
+    cases.append(('an exit 2 blocks, with its stderr', rc == 2 and 'unpushed' in err))
+    rc, out, _e = ph.combine('Stop', [('d', 0, json.dumps({'decision': 'block',
+                                                          'reason': 'no Boildown'}), '', False)])
+    cases.append(('a block decision is passed on',
+                  json.loads(out) == {'decision': 'block', 'reason': 'no Boildown'}))
+    rc, out, _e = ph.combine('SessionStart', [('e', 0, 'plain context\n', '', False),
+                                              ('f', 0, json.dumps({'hookSpecificOutput': {
+                                                  'additionalContext': 'json context'}}), '', False)])
+    cases.append(('plain stdout at SessionStart is context, joined with JSON context',
+                  json.loads(out)['hookSpecificOutput']['additionalContext']
+                  == 'plain context\n\njson context'))
+    rc, out, err = ph.combine('PreToolUse', [('g', None, '', 'g ran past its 60s\n', True)])
+    cases.append(('a hook past its timeout is a note, not a block',
+                  rc == 0 and out == '' and 'past its' in err))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a hook change never touches .claude/ ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_sync_names_a_field_its_engine_does_not_know():
+    """The sync says, in plain words, when a practice uses a frontmatter
+    field this engine does not know: the set needs a newer engine, so Update
+    Vendors first.
+
+    WHY. Morgan, 2026-10-07 (strength: decided): a practice set started
+    using `hooks:` before a consuming repository's engine could wire it, the
+    old engine ignored the field, and it surfaced as a check finding nobody
+    there could fix. Planted: an unknown field is named, with the remedy; a
+    field the source declares as its own is not; a practice using only
+    known fields is not."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_sync_views as psv
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / 'set'
+        (src / 'practices').mkdir(parents=True)
+        fm = '---\nslug: {s}\ntier: on-demand\n{extra}---\n## Rule\nR.\n'
+        for s, extra in (('uses-new', 'future_field: x\n'), ('plain', ''),
+                         ('declared', 'house_field: y\n')):
+            (src / 'practices' / f'{s}.md').write_text(fm.format(s=s, extra=extra))
+        (src / 'precedent.json').write_text(json.dumps(
+            {'own_frontmatter_fields': ['house_field']}))
+        live = {s: {'file': str(src / 'practices' / f'{s}.md'), 'source': 'a-set'}
+                for s in ('uses-new', 'plain', 'declared')}
+        notes = psv.fields_this_engine_does_not_know(live)
+        cases.append(('an unknown field is named, with Update Vendors as the remedy',
+                      len(notes) == 1 and notes[0].startswith('uses-new (a-set)')
+                      and '`future_field:`' in notes[0] and 'Update Vendors' in notes[0]))
+        cases.append(('a field the source declares as its own is not',
+                      not any(n.startswith('declared') for n in notes)))
+        cases.append(('a practice using only known fields is not',
+                      not any(n.startswith('plain') for n in notes)))
+    bad = [n for n, ok in cases if not ok]
+    check(f'the sync names a field its engine does not know ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_dedup_onto_same_slug_withdraws_nothing():
@@ -50153,7 +50956,7 @@ def check_session_load_target_is_reported_each_reply():
                       lines and 'over its 50-token target' in lines[0]
                       and 'hard ceiling 100' in lines[0], repr(lines)))
 
-        hook = ROOT / '.claude' / 'hooks' / 'doc-lint-gate.sh'
+        hook = ROOT / 'tools' / 'doc-lint-gate.sh'
         env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
         r = subprocess.run(['bash', str(hook)], input=json.dumps(
             {'tool_input': {'command': 'git commit -m change'}}),
@@ -52925,7 +53728,7 @@ def check_stop_hook_says_each_state_once():
     afresh. Both copies are run, the template and this repo's own."""
     import tempfile
     name = 'the Stop hook says each dirty state once per session'
-    hooks = [ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+    hooks = [ROOT / 'tools' / 'stop-git-check.sh',
              ROOT / '.claude' / 'hooks' / 'stop-git-check.sh']
     hooks = [h for h in hooks if h.exists()]
     if not hooks:
@@ -53004,7 +53807,7 @@ def check_stop_hook_ignores_commits_another_remote_ref_has():
     import tempfile
     name = ('the Stop hook counts only commits no remote ref has, so a stale '
             'or deleted branch ref never blocks a stop')
-    hooks = [ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+    hooks = [ROOT / 'tools' / 'stop-git-check.sh',
              ROOT / '.claude' / 'hooks' / 'stop-git-check.sh']
     hooks = [h for h in hooks if h.exists()]
     if not hooks:
@@ -54830,7 +55633,7 @@ def check_session_start_hook_runs_bootstrap_locally():
     commit-identity.sh on the path, run local and remote."""
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-local-session-'))
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'session-start.sh'
+    hook = ROOT / 'tools' / 'session-start.sh'
     base = {k: v for k, v in os.environ.items()
             if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
     base['GIT_CEILING_DIRECTORIES'] = str(tmp)
@@ -57061,8 +57864,7 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
                       said.startswith(getattr(psp, 'SPOKEN_HEAD', '\0'))
                       and '"Debut" -> debut' in said
                       and 'Occasion index' not in said and line in written))
-        hook = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
-                / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
+        hook = (ROOT / 'tools' / 'precedent-universal-catalogue.sh').read_text(encoding='utf-8')
         cases.append(("2. ...and the set's hook, which emits the file whole, passes --quiet",
                       'precedent_session_practices.py" --repo "$P" --quiet' in hook))
         boot = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
@@ -58401,7 +59203,7 @@ def check_pretooluse_hook_fires():
     (code-cites-practice, applies_to tools/**; checkable-gets-checked,
     applies_to practices/** + PRACTICES.md) are stable, narrowly-scoped and
     unlikely to be retired."""
-    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'precedent-paths.sh'
+    hook = ROOT / 'tools' / 'precedent-paths.sh'
     if not hook.exists():
         check('PreToolUse hook fires (5 stated cases: Edit file_path, a '
               'no-match path, NotebookEdit notebook_path fallback, '
@@ -63504,11 +64306,16 @@ def main():
     check_retired_set_takes_only_its_retirement()
     check_debut_waits_for_an_open_produce_pull_request()
     check_bare_all_runs_across_the_cores()
+    check_full_run_asks_first()
     check_refresh_never_says_nothing_to_do_after_removing_a_file()
     check_upholds_is_a_listed_field()
     check_generated_files_candidates_are_repo_rooted_claims()
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
+    check_dropped_set_and_proxy_and_template_refs()
+    check_removal_selects_its_checks()
+    check_engine_capability_holds_a_practice_back()
+    check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
     check_harness_drops_inherited_git_repository_variables()
     check_session_trailer_check_ships_with_the_engine()
@@ -63830,6 +64637,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()
@@ -63910,6 +64718,8 @@ def main():
     check_publish_gate_passes_the_branch_cleanup_page()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
+    check_hook_changes_never_touch_dot_claude()
+    check_sync_names_a_field_its_engine_does_not_know()
     check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
@@ -64100,12 +64910,26 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    # A full run by hand is proposed first (HARNESS_ASKED_ENV, above).
+    refusal = _full_run_refusal(sys.argv[1:], os.environ)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        sys.exit(2)
+    _shape = _full_run_shape(sys.argv[1:], os.environ)
+    if _shape:
+        os.environ.setdefault(HARNESS_ASKED_ENV, _because(sys.argv[1:]) or 'asked')
+        print(f'verify_harness: {_full_run_cost(_shape)}', file=sys.stderr, flush=True)
+    _t_start = time.monotonic()
+
+    def _done(rc):
+        _record_full_run(_shape, time.monotonic() - _t_start, rc)
+        sys.exit(rc)
     # BEFORE main(), because this does not run the suite -- it runs the
     # suite twice, the two ways CI does, each in its own process.
     if '--as-ci' in sys.argv[1:] and '--isolated' in sys.argv[1:]:
-        sys.exit(run_as_ci_isolated())
+        _done(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
-        sys.exit(run_as_ci())
+        _done(run_as_ci())
     # A BARE --all RUNS ACROSS THE CORES (2026-10-06). It is the same set as
     # --as-ci with every planted case, and run in one process it took about
     # 31 minutes on a 4-core container that --as-ci fills in about 11 (the
@@ -64114,5 +64938,5 @@ if __name__ == '__main__':
     # filter, so neither recurses. PRECEDENT_HARNESS_SERIAL=1 is the old
     # one-process run, for profiling.
     if _bare_all_runs_in_parallel(sys.argv[1:], os.environ):
-        sys.exit(run_as_ci(every_case=True))
-    sys.exit(main())
+        _done(run_as_ci(every_case=True))
+    _done(main())

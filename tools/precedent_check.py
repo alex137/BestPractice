@@ -325,7 +325,8 @@ CHECKS = {}
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
           binds_publishers=False, binds_when=(), selects_on=(),
-          judges_received=False, advisory_term=None, existence_only=False):
+          judges_received=False, advisory_term=None, existence_only=False,
+          selects_on_removal=False):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -382,6 +383,14 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     `rule_of` still prints "(no practice file for ...)" there, so a check
     binding this way owes its whole remedy in its own finding text, the
     way this one's does.
+
+    `selects_on_removal=True` selects this check whenever the change deletes
+    or renames a file away, whatever it touched otherwise. A check whose
+    subject is what a removal strands -- rename-updates-links -- applies to
+    `**` and so was reachable only by the rotation: a consumer commit
+    moving about twenty files ran it as "not run this invocation", and a
+    stale path in a stylesheet comment reached the merge check
+    (2026-10-07).
 
     `selects_on` is a tuple of path globs naming the files this check's
     verdict actually depends on. A commit touching any of them SELECTS this
@@ -467,7 +476,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
                             selects_on=tuple(selects_on),
                             judges_received=judges_received,
                             advisory_term=advisory_term,
-                            existence_only=existence_only)
+                            existence_only=existence_only,
+                            selects_on_removal=selects_on_removal)
         return fn
     return deco
 
@@ -589,16 +599,7 @@ def register_materialized_checks():
             # check here, through one code path, so letting the script's
             # copy through too would print it twice and let the two
             # spellings drift.
-            lines = []
-            for line in out.splitlines():
-                if line.strip().rstrip(':').lower() == 'the rule':
-                    break
-                if line.strip().startswith('VIOLATION:'):
-                    continue
-                if line.strip():
-                    lines.append(line.strip())
-            return [Finding(_rel, '\n    '.join(lines) or 'reported a violation '
-                                                          'with no detail')]
+            return script_findings(_rel, out, ROOT)
 
         CHECKS[slug] = dict(
             slug=slug, scope='tree', fn=_run_script,
@@ -633,6 +634,62 @@ def register_materialized_checks():
             # path would silence every source-supplied check in every
             # consuming repo, so this keeps them all.
             judges_received=True)
+
+
+# A finding line that opens with a path the repository has: `x.md:12: ...`,
+# `x.md: ...` or `x.md is ...`. Read as that path, never as a word.
+_FINDING_PATH_RE = re.compile(r'^([\w./@+-]+?)(?::\d+)?(?::|\s|$)')
+
+
+def script_findings(rel, out, root):
+    """-> the Findings in a check script's output, one per finding, each
+    labelled with the file it names where it names one the repository has,
+    else with the script.
+
+    WHY (2026-10-07, a consuming repository). Until then a script's findings
+    were bundled into ONE finding labelled with the script's own path. A
+    push judges only what it changes (--changed-files-only), and on the push
+    that brings a newly synced check its script IS a changed file -- so every
+    finding about the rest of the repository came along with it: a one-file
+    note was refused over a book kept as a source and a settings hook nobody
+    had touched. Labelled with the file each one names, the same rule judges
+    them as it judges every other check: a finding on a file the push
+    changes still refuses; the rest wait for the full check, which a Debut
+    runs on the whole repository.
+
+    A finding is a line at the output's outermost indentation; a line
+    indented deeper continues the one above it. The script's header line
+    (VIOLATION:) and its own copy of the Rule are dropped, since the runner
+    prints the Rule for every check through one code path."""
+    raw = []
+    for line in out.splitlines():
+        if line.strip().rstrip(':').lower() == 'the rule':
+            break
+        if line.strip().startswith('VIOLATION:') or not line.strip():
+            continue
+        raw.append(line)
+    if not raw:
+        return [Finding(rel, 'reported a violation with no detail')]
+    depth = min(len(l) - len(l.lstrip()) for l in raw)
+    groups = []
+    for line in raw:
+        if groups and len(line) - len(line.lstrip()) > depth:
+            groups[-1].append(line.strip())
+        else:
+            groups.append([line.strip()])
+    found = []
+    root = pathlib.Path(root)
+    for g in groups:
+        text = '\n    '.join(g)
+        m = _FINDING_PATH_RE.match(g[0])
+        path = m.group(1).rstrip('.,;') if m else ''
+        if path and '/' in path or (path and '.' in path.strip('.')):
+            if (root / path).exists():
+                found.append(Finding(path, text[len(m.group(0)):].lstrip(' :')
+                                     if text.startswith(path) else text))
+                continue
+        found.append(Finding(rel, text))
+    return found
 
 
 def _practice_file(slug):
@@ -1086,6 +1143,15 @@ VERSION_SUFFIX_RE = re.compile(
 # which is the reverse of the coexistence exception a version token gets.
 VERSION_SUFFIX_STATE_WORDS = frozenset(
     {'final', 'latest', 'old', 'new', 'copy', 'backup', 'bak', 'draft'})
+# A date at the end of a name is not a version (Morgan, 2026-10-07, strength:
+# decided). A dated record -- a sent letter, minutes, a journal entry, one of
+# a folder of them -- never changes after it is written, and the date is its
+# name; a consuming repository's push was refused over
+# note-to-alex-2026-10-07.md in a folder of notes named the same way. The
+# writing set's dated-download-names asks for the date on a kept document
+# too. v2, rev3 and the state words stay refused, and so does a date beside
+# the undated original it copies (the relayed proposal, same day).
+DATE_SUFFIX_RE = re.compile(r'^\d{4}[-_]\d{2}[-_]\d{2}$')
 
 
 _FRONTMATTER_RE = re.compile(r'\A---\n(.*?)\n---\n', re.S)
@@ -2226,10 +2292,11 @@ def _practice_carries_its_files(ctx):
     return out
 
 @check('no-version-suffix', 'change',
-       'a file added by this change must not end its name in a version or '
-       'date token (unless it sits beside the unsuffixed predecessor it must '
-       'coexist with), nor in a state word -- final, draft, copy, new, old, '
-       'latest, backup -- beside the unsuffixed original it forks',
+       'a file added by this change must not end its name in a version token '
+       '(unless it sits beside the unsuffixed predecessor it must coexist '
+       'with), nor in a state word -- final, draft, copy, new, old, latest, '
+       'backup -- beside the unsuffixed original it forks. A date is not a '
+       'version: a dated record keeps its date (2026-10-07)',
        'a versioned name that was already committed, a version token that '
        'is not at the END of the name, and a state-word fork whose original '
        'has a different name. It gates what a change ADDS, one file at a '
@@ -2256,6 +2323,15 @@ def _no_version_suffix(ctx):
         has_predecessor = bool(stem[:m.start()]) and \
             (ctx.root / predecessor).exists()
         token = stem[m.start():].lstrip('-_.').lower()
+        if DATE_SUFFIX_RE.match(token):
+            # A dated series (letters, minutes) has no undated original; a
+            # dated file beside one is a copy of it (2026-10-07).
+            if has_predecessor:
+                out.append(Finding(f, f'the file name carries a date beside '
+                                      f'{predecessor.name} -- a dated copy of '
+                                      f'a file the repository already '
+                                      f'versions; edit the original'))
+            continue
         if token in VERSION_SUFFIX_STATE_WORDS:
             # A state word names a fork only when the original is beside it.
             if has_predecessor:
@@ -2271,7 +2347,7 @@ def _no_version_suffix(ctx):
         # file is that legitimate case, not a redundant-with-VCS label.
         if has_predecessor:
             continue
-        out.append(Finding(f, 'the file name carries its version or date '
+        out.append(Finding(f, 'the file name carries its version '
                               '— name it for what it is'))
     return out
 
@@ -4918,6 +4994,9 @@ def _script_paths(text):
     return _SCRIPT_PATH_RE.findall(_ROOT_VAR_RE.sub('', text))
 
 
+_HOOK_STUB_MARKER = "PRECEDENT HOOK STUB"
+
+
 def _session_start_scripts():
     """-> [Path] every script in this repo that runs at session start: each
     one a settings*.json SessionStart entry names, and each script those name
@@ -4952,11 +5031,18 @@ def _session_start_scripts():
             continue
         seen.append(p)
         try:
-            text = _invocation_text(p, p.read_text(encoding='utf-8',
-                                                   errors='ignore'))
+            raw = p.read_text(encoding='utf-8', errors='ignore')
+            text = _invocation_text(p, raw)
         except OSError:                          # practice: fail-gracefully
             continue
         queue.extend(_script_paths(text))
+        # Since 2026-10-07 every .claude/hooks/ script is the permanent
+        # pointer stub, which runs tools/<its own name>. It names that script
+        # only through $0, so follow it here the way the stub does when it
+        # runs -- else every step that moved into tools/ (the session-start
+        # clone of declared sources, found that day) reads as missing.
+        if _HOOK_STUB_MARKER in raw:
+            queue.append(f'tools/{p.name}')
     return seen
 
 
@@ -5113,6 +5199,46 @@ def _new_hook_joins_the_registry(ctx):
             found.append(Finding(
                 'tools/precedent_vendor_engine.py',
                 f'HOOKS_NO_KIND names {n} with no reason'))
+
+    # Since 2026-10-07 a new hook is listed in tools/hook_wiring.json and run
+    # through the fixed precedent-hooks.sh entries; its script sits in
+    # tools/ and ships through HOOK_SCRIPT_FILES, like every stub's script.
+    scripts = set(getattr(pve, 'HOOK_SCRIPT_FILES', ()))
+    for n in sorted(scripts):
+        if not (root / 'tools' / n).is_file():
+            found.append(Finding('tools/precedent_vendor_engine.py',
+                                 f'HOOK_SCRIPT_FILES names {n}, which tools/ '
+                                 f'does not have'))
+    for n in sorted(shipped - scripts) if scripts else []:
+        found.append(Finding(f'{rel_dir}/{n}',
+                             f'is a stub whose script tools/{n} is not in '
+                             f'HOOK_SCRIPT_FILES, so no repo receives it'))
+    wiring_file = root / 'tools' / 'hook_wiring.json'
+    if wiring_file.is_file():
+        try:
+            later = json.loads(wiring_file.read_text(encoding='utf-8'))
+        except ValueError as e:
+            later = {}
+            found.append(Finding('tools/hook_wiring.json', f'does not parse: {e}'))
+        events = set(getattr(pve, 'DISPATCH_EVENTS', ()))
+        for kind, rows in (later or {}).items():
+            if kind.startswith('_'):
+                continue
+            if kind not in pve.HOOK_WIRING:
+                found.append(Finding('tools/hook_wiring.json',
+                                     f'lists a kind {kind!r} the engine does not know'))
+                continue
+            for r in rows or []:
+                sc = str((r or {}).get('script') or '')
+                if sc not in scripts:
+                    found.append(Finding('tools/hook_wiring.json',
+                                         f'{kind}: {sc or "an entry"} is not in '
+                                         f'HOOK_SCRIPT_FILES, so it never ships'))
+                if events and (r or {}).get('event') not in events:
+                    found.append(Finding('tools/hook_wiring.json',
+                                         f'{kind}: {sc} runs at '
+                                         f'{(r or {}).get("event")!r}, which no '
+                                         f'fixed precedent-hooks.sh entry covers'))
 
     def _wiring(settings_path):
         data = json.loads(settings_path.read_text(encoding='utf-8'))
@@ -5940,10 +6066,10 @@ def _timestamps_carry_offset(ctx):
                                                  'zone (`fallback_timezone`, the '
                                                  'rung that overrides the '
                                                  'engine\'s) could NOT be read'))
+    # The hook's script lives in tools/ since 2026-10-07; both .claude/hooks/
+    # and the template hold only the stub that runs it.
     for rel, pat in ((ENGINE, r"^FALLBACK_TZ\s*=\s*'([^']+)'"),
-                     ('.claude/hooks/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"'),
-                     ('templates/harness/claude-code/hooks/commit-identity.sh',
-                      r'^DEFAULT_TZ="([^"]+)"')):
+                     ('tools/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"')):
         f = ctx.root / rel
         if not f.exists():
             continue
@@ -5957,7 +6083,7 @@ def _timestamps_carry_offset(ctx):
     if len(set(declared.values())) > 1:
         detail = '; '.join(f'{k} says {v}' for k, v in sorted(declared.items()))
         out.append(Finding('', f'the ENGINE\'s fallback zone disagrees across '
-                               f'the three engine files that hold it -- '
+                               f'the engine files that hold it -- '
                                f'{detail}. One of them silently stamps a '
                                f'different offset than the others. (A repo\'s '
                                f'own `fallback_timezone` in precedent.json is '
@@ -8464,7 +8590,8 @@ def _strip_other_repo_urls(line, own_slug):
        'repository\'s file rather than this one\'s. Nor '
        'about history, which names a path as it was: a generated view (its '
        'source is read), a closed todo item, a `## Story` section, or a '
-       'record file precedent.json declares in `record_paths`.')
+       'record file precedent.json declares in `record_paths`.',
+       selects_on_removal=True)
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -11885,6 +12012,137 @@ def _touched_files():
     return sorted(out)
 
 
+# BOOKED KEEPS A TREE CHECK'S FINDING THIS PUSH CAUSED (Morgan, 2026-10-07,
+# strength: decided: "Okay, approved. Let's do it ... We can do it your
+# way"). A tree check judges how files fit together, so what a change
+# breaks can land in a file it never touched: the permanent-pointer hook
+# change added .claude/hooks/precedent-hooks.sh and no row for it in
+# templates/harness/PARALLELS.md, Booked dropped that finding as outside
+# the change, and the Debut into staging found it -- for whichever session
+# promoted next. Keeping every tree finding, as first proposed
+# (todo-2026-10-07-pre-staging-runs-the-fast-tree-checks), would also keep
+# the repository's standing debt, and refuse an unrelated push over it:
+# the 2026-10-07 note in a private consuming repository refused four times
+# over files it never touched. So the question is the one the push check
+# already asks of a working-branch push (already_landed): did THIS push
+# cause it? Today's rules -- this commit's tools/ and practices/ -- are
+# laid over the tree the push started from, the same checks run there, and
+# a finding that was already there is the repository's, not this push's.
+_RULE_PATHS = ('tools', 'practices', 'local/tools', 'local/practices',
+               'precedent.json')
+_LINE_NO_RE = re.compile(r':\d+(?::\d+)?(?=[:\s]|$)')
+_COMMIT_FINDING_RE = re.compile(r'\bcommit [0-9a-f]{7,40}\b')
+
+
+def _finding_key(f):
+    """A finding's text with line numbers taken out, so the same problem
+    reads the same before and after a push that moved lines around."""
+    return _LINE_NO_RE.sub('', str(f)).strip()
+
+
+def _findings_before(rng, slugs):
+    """-> {slug: {finding key}} for each check in `slugs`, run with this
+    commit's rules on the tree at the start of `rng` (A...B or A..B), or
+    None when that tree could not be laid out."""
+    import shutil
+    import tempfile
+    start = rng.split('...')[0] if '...' in rng else rng.split('..')[0]
+    base = _git('merge-base', start, 'HEAD', cwd=ROOT)
+    base = base.stdout.strip() if base.returncode == 0 else ''
+    if not base:
+        return None
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-before-'))
+    wt = tmp / 'tree'
+    out = {}
+    try:
+        if _git('worktree', 'add', '-q', '--detach', str(wt), base,
+                cwd=ROOT).returncode != 0:
+            return None
+        # This commit's rules, by sha: inside the worktree HEAD is the base.
+        head = _git('rev-parse', 'HEAD', cwd=ROOT).stdout.strip()
+        rules = [r for r in _RULE_PATHS
+                 if _git('cat-file', '-e', f'{head}:{r}', cwd=ROOT).returncode == 0]
+        if not head or (rules and _git('checkout', head, '--', *rules,
+                                       cwd=wt).returncode != 0):
+            return None
+        here = wt / pathlib.Path(__file__).resolve().relative_to(ROOT)
+        for slug in slugs:
+            r = subprocess.run([sys.executable, str(here), '--only', slug,
+                                '--full-sweep'], cwd=str(wt),
+                               capture_output=True, text=True, timeout=300)
+            block = r.stdout.split(f'VIOLATION  {slug}', 1)
+            lines = (block[1].split('  the rule:', 1)[0].splitlines()
+                     if len(block) == 2 else [])
+            out[slug] = {_LINE_NO_RE.sub('', l).strip() for l in lines
+                         if l.startswith('    ') and l.strip()}
+        return out
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+    finally:
+        _git('worktree', 'remove', '--force', str(wt), cwd=ROOT)
+        shutil.rmtree(tmp, ignore_errors=True)
+        _git('worktree', 'prune', cwd=ROOT)
+
+
+def _caused_by_this_push(results, in_change, gone_in_change, rng):
+    """-> {slug: {finding key}}: the tree-scope findings outside the change
+    that were not there before this push. {} without a range, or when the
+    tree before could not be laid out -- then nothing more is kept than
+    before this existed, and the full check still judges it."""
+    if not rng:
+        return {}
+    outside = {}
+    for slug, status, findings, _why, _uv in results:
+        if status != 'VIOLATION' or CHECKS.get(slug, {}).get('scope') != 'tree':
+            continue
+        for f in findings:
+            where = (f.file() if hasattr(f, 'file') else
+                     str(getattr(f, 'where', '') or '').split(':', 1)[0])
+            # A finding about a commit -- its author, date or trailer -- is
+            # the push check's history step's to judge (HISTORY_CHECKS),
+            # which reads exactly the commits a push carries.
+            if _COMMIT_FINDING_RE.search(str(f)):
+                continue
+            if where not in in_change and \
+                    getattr(f, 'cause', None) not in gone_in_change:
+                outside.setdefault(slug, set()).add(_finding_key(f))
+    if not outside:
+        return {}
+    before = _findings_before(rng, sorted(outside))
+    if before is None:
+        return {}
+    return {slug: keys - before.get(slug, set())
+            for slug, keys in outside.items() if keys - before.get(slug, set())}
+
+
+def _removed_files():
+    """-> the paths this commit deleted or renamed away, measured the way
+    _touched_files measures what it touched (against the published default
+    branch, plus the working tree and index). Empty when git cannot say."""
+    head = _git('symbolic-ref', 'refs/remotes/origin/HEAD')
+    base = head.stdout.strip().replace('refs/remotes/', '', 1) \
+        if head.returncode == 0 else None
+    if base is None:
+        for cand in ('origin/main', 'origin/master'):
+            if _git('rev-parse', '--verify', '--quiet', cand).returncode == 0:
+                base = cand
+                break
+    out = set()
+    diffs = [['diff', '--name-status', '--find-renames'],
+             ['diff', '--name-status', '--find-renames', '--cached']]
+    if base:
+        diffs.insert(0, ['diff', '--name-status', '--find-renames', f'{base}...HEAD'])
+    for args in diffs:
+        r = _git(*args)
+        if r.returncode != 0:
+            continue
+        for line in r.stdout.splitlines():
+            parts = line.split('\t')
+            if len(parts) >= 2 and parts[0][:1] in ('D', 'R'):
+                out.add(parts[1])
+    return sorted(out)
+
+
 def _gone_in_change(ctx):
     """-> the paths the change in scope deleted or renamed away: its range
     when it has one, else what the working tree and index changed against
@@ -11969,6 +12227,12 @@ def _scoped_tree_slugs(tree_slugs, buckets=None):
             g for g in pp._globs(fm.get('applies_to', '[]')) if g != '**']
 
     directly = {s for s in active if f'practices/{s}.md' in touched_set}
+    # A change that deletes or renames a file selects every check that
+    # declares it judges what a removal leaves behind (check()'s
+    # `selects_on_removal`).
+    if _removed_files():
+        directly |= {s for s in active
+                     if CHECKS.get(s, {}).get('selects_on_removal')}
     indirectly = {s for s in active if s not in directly
                   and any(pp.path_matches(t, g)
                           for g in globs_by_slug.get(s, ())
@@ -12225,10 +12489,14 @@ def main():
     # repository's standing state (Morgan, 2026-09-27, strength: decided:
     # "let's do it ONLY for files that changed (or were added) in that
     # session ... NOT for every file in the repo"). Every check still runs;
-    # a finding is kept only when it names a file in the change. The rest --
-    # and any finding that names no file -- wait for the full check, which
+    # a finding is kept only when it names a file in the change -- or, for a
+    # tree check, when this push caused it (since 2026-10-07; see
+    # _caused_by_this_push). The rest -- and any finding that names no
+    # file -- wait for the full check, which
     # a Promote runs on the whole tree.
     outside_change = 0
+    caused = {}
+    set_aside = {}       # slug -> [file], what --changed-files-only did not judge
     materialized = 0
     if '--changed-files-only' in flags:
         in_change = {c.rstrip('/') for c in ctx.changed}
@@ -12253,6 +12521,11 @@ def main():
         # had named (2026-09-30). Narrows the rule above, it does not undo
         # it: what the push brings includes what it takes away.
         gone_in_change = _gone_in_change(ctx)
+        # A TREE CHECK'S FINDING THIS PUSH CAUSED is kept wherever it lands
+        # (Morgan, 2026-10-07, strength: decided -- see
+        # _caused_by_this_push). Asked once, of the checks that set
+        # something aside, and only with a --range to measure from.
+        caused = _caused_by_this_push(results, in_change, gone_in_change, rng)
         kept_results = []
         for slug, status, findings, why, uv in results:
             if status == 'VIOLATION':
@@ -12260,8 +12533,15 @@ def main():
                         if (f.file() if hasattr(f, 'file') else
                             str(getattr(f, 'where', '') or '').split(':', 1)[0])
                         in in_change
-                        or getattr(f, 'cause', None) in gone_in_change]
+                        or getattr(f, 'cause', None) in gone_in_change
+                        or _finding_key(f) in caused.get(slug, ())]
                 outside_change += len(findings) - len(kept)
+                for f in findings:
+                    if f not in kept:
+                        set_aside.setdefault(slug, []).append(
+                            (f.file() if hasattr(f, 'file') else None)
+                            or str(getattr(f, 'where', '') or '').split(':', 1)[0]
+                            or '(no file named)')
                 status = 'VIOLATION' if kept else 'PASS'
                 findings = kept
             kept_results.append((slug, status, findings, why, uv))
@@ -12370,10 +12650,25 @@ def main():
                   f'file(s) are materialized from another source (MANIFEST.json '
                   f'names them), so they were not judged as this change\'s '
                   f'writing -- their source judges them.')
+        if caused:
+            print(f'note: --changed-files-only: '
+                  f'{sum(len(v) for v in caused.values())} finding(s) in files '
+                  f'this change does not touch were kept, because they were not '
+                  f'there before it: this push caused them '
+                  f'({", ".join(sorted(caused))}).')
         if outside_change:
             print(f'note: --changed-files-only: {outside_change} finding(s) in '
                   f'files this change does not touch, or naming no file, were '
                   f'not judged here -- the full check judges them.')
+            # Named, not only counted (2026-10-07): a rule that just arrived
+            # can have standing findings the person has never seen, and the
+            # Debut into staging is where they would first refuse. Seeing
+            # them here, at Booked, is the warning; the full check still
+            # judges them.
+            for slug_, files in sorted(set_aside.items()):
+                shown = sorted(set(files))
+                more = f' (+{len(shown) - 5} more)' if len(shown) > 5 else ''
+                print(f'      {slug_}: {", ".join(shown[:5])}{more}')
         if errored:
             # A check that crashed names no file, so it cannot be this
             # change's doing; it is reported and left to the full check.
