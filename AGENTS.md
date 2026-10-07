@@ -168,7 +168,7 @@ When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options:
   my-options — every real option, plainer, costs said flatly, your pick and why
-When a person says "Prompt Please", or work belongs in a new session or needs a repo this one cannot reach:
+When a person says "Prompt Please", or work belongs in a new session -- a repo this one lacks is asked to be attached here first:
   prompt-please — one paste-ready prompt for a new session; never a session-creating tool
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target:
   reduction-pass — work the menu in order; move, never delete; report what moved
