@@ -258,7 +258,8 @@ and the commit author, date and trailer checks, and in a consumer the
 practice audit's scrub-gate and practice-export-loop (2026-10-02), seconds
 -- unless the person's
 `branch_push_checks` says `full`. A push or pull request into
-`pre-staging` also checks the files it changes, and nothing more, in
+`pre-staging` also checks the files it changes, and what it breaks
+elsewhere (a tree check's finding the push caused, since 2026-10-07), in
 seconds (`checks-follow-the-tier`). A pull request merged through GitHub
 gets the same check at its base branch's tier, from `merge-check-gate.sh`.
 `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and

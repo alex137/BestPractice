@@ -12001,6 +12001,109 @@ def _touched_files():
     return sorted(out)
 
 
+# BOOKED KEEPS A TREE CHECK'S FINDING THIS PUSH CAUSED (Morgan, 2026-10-07,
+# strength: decided: "Okay, approved. Let's do it ... We can do it your
+# way"). A tree check judges how files fit together, so what a change
+# breaks can land in a file it never touched: the permanent-pointer hook
+# change added .claude/hooks/precedent-hooks.sh and no row for it in
+# templates/harness/PARALLELS.md, Booked dropped that finding as outside
+# the change, and the Debut into staging found it -- for whichever session
+# promoted next. Keeping every tree finding, as first proposed
+# (todo-2026-10-07-pre-staging-runs-the-fast-tree-checks), would also keep
+# the repository's standing debt, and refuse an unrelated push over it:
+# the 2026-10-07 note in a private consuming repository refused four times
+# over files it never touched. So the question is the one the push check
+# already asks of a working-branch push (already_landed): did THIS push
+# cause it? Today's rules -- this commit's tools/ and practices/ -- are
+# laid over the tree the push started from, the same checks run there, and
+# a finding that was already there is the repository's, not this push's.
+_RULE_PATHS = ('tools', 'practices', 'local/tools', 'local/practices',
+               'precedent.json')
+_LINE_NO_RE = re.compile(r':\d+(?::\d+)?(?=[:\s]|$)')
+_COMMIT_FINDING_RE = re.compile(r'\bcommit [0-9a-f]{7,40}\b')
+
+
+def _finding_key(f):
+    """A finding's text with line numbers taken out, so the same problem
+    reads the same before and after a push that moved lines around."""
+    return _LINE_NO_RE.sub('', str(f)).strip()
+
+
+def _findings_before(rng, slugs):
+    """-> {slug: {finding key}} for each check in `slugs`, run with this
+    commit's rules on the tree at the start of `rng` (A...B or A..B), or
+    None when that tree could not be laid out."""
+    import shutil
+    import tempfile
+    start = rng.split('...')[0] if '...' in rng else rng.split('..')[0]
+    base = _git('merge-base', start, 'HEAD', cwd=ROOT)
+    base = base.stdout.strip() if base.returncode == 0 else ''
+    if not base:
+        return None
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-before-'))
+    wt = tmp / 'tree'
+    out = {}
+    try:
+        if _git('worktree', 'add', '-q', '--detach', str(wt), base,
+                cwd=ROOT).returncode != 0:
+            return None
+        # This commit's rules, by sha: inside the worktree HEAD is the base.
+        head = _git('rev-parse', 'HEAD', cwd=ROOT).stdout.strip()
+        rules = [r for r in _RULE_PATHS
+                 if _git('cat-file', '-e', f'{head}:{r}', cwd=ROOT).returncode == 0]
+        if not head or (rules and _git('checkout', head, '--', *rules,
+                                       cwd=wt).returncode != 0):
+            return None
+        here = wt / pathlib.Path(__file__).resolve().relative_to(ROOT)
+        for slug in slugs:
+            r = subprocess.run([sys.executable, str(here), '--only', slug,
+                                '--full-sweep'], cwd=str(wt),
+                               capture_output=True, text=True, timeout=300)
+            block = r.stdout.split(f'VIOLATION  {slug}', 1)
+            lines = (block[1].split('  the rule:', 1)[0].splitlines()
+                     if len(block) == 2 else [])
+            out[slug] = {_LINE_NO_RE.sub('', l).strip() for l in lines
+                         if l.startswith('    ') and l.strip()}
+        return out
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+    finally:
+        _git('worktree', 'remove', '--force', str(wt), cwd=ROOT)
+        shutil.rmtree(tmp, ignore_errors=True)
+        _git('worktree', 'prune', cwd=ROOT)
+
+
+def _caused_by_this_push(results, in_change, gone_in_change, rng):
+    """-> {slug: {finding key}}: the tree-scope findings outside the change
+    that were not there before this push. {} without a range, or when the
+    tree before could not be laid out -- then nothing more is kept than
+    before this existed, and the full check still judges it."""
+    if not rng:
+        return {}
+    outside = {}
+    for slug, status, findings, _why, _uv in results:
+        if status != 'VIOLATION' or CHECKS.get(slug, {}).get('scope') != 'tree':
+            continue
+        for f in findings:
+            where = (f.file() if hasattr(f, 'file') else
+                     str(getattr(f, 'where', '') or '').split(':', 1)[0])
+            # A finding about a commit -- its author, date or trailer -- is
+            # the push check's history step's to judge (HISTORY_CHECKS),
+            # which reads exactly the commits a push carries.
+            if _COMMIT_FINDING_RE.search(str(f)):
+                continue
+            if where not in in_change and \
+                    getattr(f, 'cause', None) not in gone_in_change:
+                outside.setdefault(slug, set()).add(_finding_key(f))
+    if not outside:
+        return {}
+    before = _findings_before(rng, sorted(outside))
+    if before is None:
+        return {}
+    return {slug: keys - before.get(slug, set())
+            for slug, keys in outside.items() if keys - before.get(slug, set())}
+
+
 def _gone_in_change(ctx):
     """-> the paths the change in scope deleted or renamed away: its range
     when it has one, else what the working tree and index changed against
@@ -12341,10 +12444,13 @@ def main():
     # repository's standing state (Morgan, 2026-09-27, strength: decided:
     # "let's do it ONLY for files that changed (or were added) in that
     # session ... NOT for every file in the repo"). Every check still runs;
-    # a finding is kept only when it names a file in the change. The rest --
-    # and any finding that names no file -- wait for the full check, which
+    # a finding is kept only when it names a file in the change -- or, for a
+    # tree check, when this push caused it (since 2026-10-07; see
+    # _caused_by_this_push). The rest -- and any finding that names no
+    # file -- wait for the full check, which
     # a Promote runs on the whole tree.
     outside_change = 0
+    caused = {}
     set_aside = {}       # slug -> [file], what --changed-files-only did not judge
     materialized = 0
     if '--changed-files-only' in flags:
@@ -12370,6 +12476,11 @@ def main():
         # had named (2026-09-30). Narrows the rule above, it does not undo
         # it: what the push brings includes what it takes away.
         gone_in_change = _gone_in_change(ctx)
+        # A TREE CHECK'S FINDING THIS PUSH CAUSED is kept wherever it lands
+        # (Morgan, 2026-10-07, strength: decided -- see
+        # _caused_by_this_push). Asked once, of the checks that set
+        # something aside, and only with a --range to measure from.
+        caused = _caused_by_this_push(results, in_change, gone_in_change, rng)
         kept_results = []
         for slug, status, findings, why, uv in results:
             if status == 'VIOLATION':
@@ -12377,7 +12488,8 @@ def main():
                         if (f.file() if hasattr(f, 'file') else
                             str(getattr(f, 'where', '') or '').split(':', 1)[0])
                         in in_change
-                        or getattr(f, 'cause', None) in gone_in_change]
+                        or getattr(f, 'cause', None) in gone_in_change
+                        or _finding_key(f) in caused.get(slug, ())]
                 outside_change += len(findings) - len(kept)
                 for f in findings:
                     if f not in kept:
@@ -12493,6 +12605,12 @@ def main():
                   f'file(s) are materialized from another source (MANIFEST.json '
                   f'names them), so they were not judged as this change\'s '
                   f'writing -- their source judges them.')
+        if caused:
+            print(f'note: --changed-files-only: '
+                  f'{sum(len(v) for v in caused.values())} finding(s) in files '
+                  f'this change does not touch were kept, because they were not '
+                  f'there before it: this push caused them '
+                  f'({", ".join(sorted(caused))}).')
         if outside_change:
             print(f'note: --changed-files-only: {outside_change} finding(s) in '
                   f'files this change does not touch, or naming no file, were '

@@ -176,7 +176,12 @@ approved by the person there
 leak gate, the author checks, and since 2026-09-27 the practice checks, a
 compile or parse of each changed Python, shell or JSON file, a changed
 check's own test, and a changed practice's regenerated views: only the files the push creates or
-changes, and the generated files a changed practice feeds. **Into `staging`:
+changes, and the generated files a changed practice feeds -- plus, since
+2026-10-07, a tree check's finding anywhere that this push caused (it was
+not there before the push, judged by today's rules), so a change that
+breaks how files fit together is refused where it lands, and the
+repository's older debt still waits (Morgan, 2026-10-07, strength:
+decided; [the decision](../todo/todo-2026-10-07-pre-staging-runs-the-fast-tree-checks.md)). **Into `staging`:
 the full suite, on every file. Into `main`: the full suite, plus the
 repository's GitHub test.** A new check states its tier when it is added.
 The rule, and why the split is this one:
