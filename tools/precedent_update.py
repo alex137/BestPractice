@@ -438,7 +438,7 @@ def tidy_field_order(repo, kind):
     return done
 
 
-def brought_sets_step(rep, fetch=None):
+def brought_sets_step(rep, fetch=None, repo=None):
     """Clone or pull the sets the person's individual set brings, before
     the views are synced against them. Session start does this
     (precedent_source_bootstrap.sources_from_brings), but only from an engine
@@ -450,7 +450,8 @@ def brought_sets_step(rep, fetch=None):
     if fetch is None:
         try:
             import precedent_source_bootstrap as psb
-            fetch = psb.sources_from_brings
+            fetch = (lambda: psb.sources_from_brings(skip=[repo])) if repo \
+                else psb.sources_from_brings
         except Exception:                                   # noqa: BLE001
             return
     try:
@@ -2885,7 +2886,7 @@ def update(repo, skip_check=False, ref=None):
     # four of Morgan's sets stopped on exactly that, one new MAP.md row
     # each, fixed by hand. A set has no precedent_sync_views.py anyway --
     # so it gets the full build, the same one its check compares against.
-    brought_sets_step(rep)
+    brought_sets_step(rep, repo=repo)
     sync = repo / 'tools' / 'precedent_sync_views.py'
     build = repo / 'tools' / 'build_views.py'
     try:

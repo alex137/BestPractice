@@ -8689,6 +8689,54 @@ def check_new_rule_shows_its_debt_and_booked_names_it():
           f'set aside ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_never_fetches_the_repo_it_updates():
+    """Update Vendors in a set the person's individual set brings -- the
+    ladder set, updated from its own clone -- does not fetch that clone as a
+    brought set: mid-update it is on a branch with staged changes, and the
+    fetch refused the update over itself (2026-10-07). Any other brought set
+    is still fetched."""
+    import tempfile, inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_bootstrap as _psb
+    import precedent_resolve as _pr
+    import precedent_update as _pu
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        t = pathlib.Path(tmp)
+        (t / 'ladder' / '.git').mkdir(parents=True)
+        (t / 'ind').mkdir()
+        cfg = t / 'config.json'
+        cfg.write_text(json.dumps({'individual': {'path': str(t / 'ind')}}),
+                       encoding='utf-8')
+        real_brought, real_env = _pr.brought_sources, os.environ.get(_pr.USER_CONFIG_ENV)
+        try:
+            _pr.brought_sources = lambda p, warn=False: [
+                {'name': 'ladder', 'repo': 'https://example.invalid/ladder.git',
+                 'path': str(t / 'ladder')}]
+            os.environ[_pr.USER_CONFIG_ENV] = str(cfg)
+            got = _psb.sources_from_brings(retries=1, skip=[t / 'ladder'])
+            cases.append(('the repo being updated is not fetched, and says so',
+                          got == [('ladder', True, 'this repository itself, the '
+                                   'one being updated: not fetched')], repr(got)))
+            got = _psb.sources_from_brings(retries=1)
+            cases.append(('without skip it is still fetched (here: an attempt that '
+                          'fails on the fixture, not a skip)',
+                          bool(got) and 'not fetched' not in got[0][2], repr(got)[:200]))
+        finally:
+            _pr.brought_sources = real_brought
+            if real_env is None:
+                os.environ.pop(_pr.USER_CONFIG_ENV, None)
+            else:
+                os.environ[_pr.USER_CONFIG_ENV] = real_env
+    cases.append(('Update Vendors passes the repo it updates',
+                  'brought_sets_step(rep, repo=repo)' in inspect.getsource(_pu.update),
+                  ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors never fetches the repo it is updating as a brought '
+          f'set ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_removal_selects_its_checks():
     """A change that deletes or renames a file selects every tree check
     declaring selects_on_removal -- rename-updates-links, whose subject is
@@ -64314,6 +64362,7 @@ def main():
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_dropped_set_and_proxy_and_template_refs()
     check_removal_selects_its_checks()
+    check_update_never_fetches_the_repo_it_updates()
     check_engine_capability_holds_a_practice_back()
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
