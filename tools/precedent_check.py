@@ -4984,6 +4984,9 @@ def _script_paths(text):
     return _SCRIPT_PATH_RE.findall(_ROOT_VAR_RE.sub('', text))
 
 
+_HOOK_STUB_MARKER = "PRECEDENT HOOK STUB"
+
+
 def _session_start_scripts():
     """-> [Path] every script in this repo that runs at session start: each
     one a settings*.json SessionStart entry names, and each script those name
@@ -5018,11 +5021,18 @@ def _session_start_scripts():
             continue
         seen.append(p)
         try:
-            text = _invocation_text(p, p.read_text(encoding='utf-8',
-                                                   errors='ignore'))
+            raw = p.read_text(encoding='utf-8', errors='ignore')
+            text = _invocation_text(p, raw)
         except OSError:                          # practice: fail-gracefully
             continue
         queue.extend(_script_paths(text))
+        # Since 2026-10-07 every .claude/hooks/ script is the permanent
+        # pointer stub, which runs tools/<its own name>. It names that script
+        # only through $0, so follow it here the way the stub does when it
+        # runs -- else every step that moved into tools/ (the session-start
+        # clone of declared sources, found that day) reads as missing.
+        if _HOOK_STUB_MARKER in raw:
+            queue.append(f'tools/{p.name}')
     return seen
 
 
