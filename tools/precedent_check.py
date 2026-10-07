@@ -589,16 +589,7 @@ def register_materialized_checks():
             # check here, through one code path, so letting the script's
             # copy through too would print it twice and let the two
             # spellings drift.
-            lines = []
-            for line in out.splitlines():
-                if line.strip().rstrip(':').lower() == 'the rule':
-                    break
-                if line.strip().startswith('VIOLATION:'):
-                    continue
-                if line.strip():
-                    lines.append(line.strip())
-            return [Finding(_rel, '\n    '.join(lines) or 'reported a violation '
-                                                          'with no detail')]
+            return script_findings(_rel, out, ROOT)
 
         CHECKS[slug] = dict(
             slug=slug, scope='tree', fn=_run_script,
@@ -633,6 +624,62 @@ def register_materialized_checks():
             # path would silence every source-supplied check in every
             # consuming repo, so this keeps them all.
             judges_received=True)
+
+
+# A finding line that opens with a path the repository has: `x.md:12: ...`,
+# `x.md: ...` or `x.md is ...`. Read as that path, never as a word.
+_FINDING_PATH_RE = re.compile(r'^([\w./@+-]+?)(?::\d+)?(?::|\s|$)')
+
+
+def script_findings(rel, out, root):
+    """-> the Findings in a check script's output, one per finding, each
+    labelled with the file it names where it names one the repository has,
+    else with the script.
+
+    WHY (2026-10-07, a consuming repository). Until then a script's findings
+    were bundled into ONE finding labelled with the script's own path. A
+    push judges only what it changes (--changed-files-only), and on the push
+    that brings a newly synced check its script IS a changed file -- so every
+    finding about the rest of the repository came along with it: a one-file
+    note was refused over a book kept as a source and a settings hook nobody
+    had touched. Labelled with the file each one names, the same rule judges
+    them as it judges every other check: a finding on a file the push
+    changes still refuses; the rest wait for the full check, which a Debut
+    runs on the whole repository.
+
+    A finding is a line at the output's outermost indentation; a line
+    indented deeper continues the one above it. The script's header line
+    (VIOLATION:) and its own copy of the Rule are dropped, since the runner
+    prints the Rule for every check through one code path."""
+    raw = []
+    for line in out.splitlines():
+        if line.strip().rstrip(':').lower() == 'the rule':
+            break
+        if line.strip().startswith('VIOLATION:') or not line.strip():
+            continue
+        raw.append(line)
+    if not raw:
+        return [Finding(rel, 'reported a violation with no detail')]
+    depth = min(len(l) - len(l.lstrip()) for l in raw)
+    groups = []
+    for line in raw:
+        if groups and len(line) - len(line.lstrip()) > depth:
+            groups[-1].append(line.strip())
+        else:
+            groups.append([line.strip()])
+    found = []
+    root = pathlib.Path(root)
+    for g in groups:
+        text = '\n    '.join(g)
+        m = _FINDING_PATH_RE.match(g[0])
+        path = m.group(1).rstrip('.,;') if m else ''
+        if path and '/' in path or (path and '.' in path.strip('.')):
+            if (root / path).exists():
+                found.append(Finding(path, text[len(m.group(0)):].lstrip(' :')
+                                     if text.startswith(path) else text))
+                continue
+        found.append(Finding(rel, text))
+    return found
 
 
 def _practice_file(slug):
@@ -1086,6 +1133,14 @@ VERSION_SUFFIX_RE = re.compile(
 # which is the reverse of the coexistence exception a version token gets.
 VERSION_SUFFIX_STATE_WORDS = frozenset(
     {'final', 'latest', 'old', 'new', 'copy', 'backup', 'bak', 'draft'})
+# A date at the end of a name is not a version (Morgan, 2026-10-07, strength:
+# decided). A dated record -- a sent letter, minutes, a journal entry, one of
+# a folder of them -- never changes after it is written, and the date is its
+# name; a consuming repository's push was refused over
+# note-to-alex-2026-10-07.md in a folder of notes named the same way. The
+# writing set's dated-download-names asks for the date on a kept document
+# too. v2, rev3 and the state words stay refused.
+DATE_SUFFIX_RE = re.compile(r'^\d{4}[-_]\d{2}[-_]\d{2}$')
 
 
 _FRONTMATTER_RE = re.compile(r'\A---\n(.*?)\n---\n', re.S)
@@ -2226,10 +2281,11 @@ def _practice_carries_its_files(ctx):
     return out
 
 @check('no-version-suffix', 'change',
-       'a file added by this change must not end its name in a version or '
-       'date token (unless it sits beside the unsuffixed predecessor it must '
-       'coexist with), nor in a state word -- final, draft, copy, new, old, '
-       'latest, backup -- beside the unsuffixed original it forks',
+       'a file added by this change must not end its name in a version token '
+       '(unless it sits beside the unsuffixed predecessor it must coexist '
+       'with), nor in a state word -- final, draft, copy, new, old, latest, '
+       'backup -- beside the unsuffixed original it forks. A date is not a '
+       'version: a dated record keeps its date (2026-10-07)',
        'a versioned name that was already committed, a version token that '
        'is not at the END of the name, and a state-word fork whose original '
        'has a different name. It gates what a change ADDS, one file at a '
@@ -2256,6 +2312,8 @@ def _no_version_suffix(ctx):
         has_predecessor = bool(stem[:m.start()]) and \
             (ctx.root / predecessor).exists()
         token = stem[m.start():].lstrip('-_.').lower()
+        if DATE_SUFFIX_RE.match(token):
+            continue
         if token in VERSION_SUFFIX_STATE_WORDS:
             # A state word names a fork only when the original is beside it.
             if has_predecessor:
@@ -2271,7 +2329,7 @@ def _no_version_suffix(ctx):
         # file is that legitimate case, not a redundant-with-VCS label.
         if has_predecessor:
             continue
-        out.append(Finding(f, 'the file name carries its version or date '
+        out.append(Finding(f, 'the file name carries its version '
                               '— name it for what it is'))
     return out
 
@@ -5114,6 +5172,46 @@ def _new_hook_joins_the_registry(ctx):
                 'tools/precedent_vendor_engine.py',
                 f'HOOKS_NO_KIND names {n} with no reason'))
 
+    # Since 2026-10-07 a new hook is listed in tools/hook_wiring.json and run
+    # through the fixed precedent-hooks.sh entries; its script sits in
+    # tools/ and ships through HOOK_SCRIPT_FILES, like every stub's script.
+    scripts = set(getattr(pve, 'HOOK_SCRIPT_FILES', ()))
+    for n in sorted(scripts):
+        if not (root / 'tools' / n).is_file():
+            found.append(Finding('tools/precedent_vendor_engine.py',
+                                 f'HOOK_SCRIPT_FILES names {n}, which tools/ '
+                                 f'does not have'))
+    for n in sorted(shipped - scripts) if scripts else []:
+        found.append(Finding(f'{rel_dir}/{n}',
+                             f'is a stub whose script tools/{n} is not in '
+                             f'HOOK_SCRIPT_FILES, so no repo receives it'))
+    wiring_file = root / 'tools' / 'hook_wiring.json'
+    if wiring_file.is_file():
+        try:
+            later = json.loads(wiring_file.read_text(encoding='utf-8'))
+        except ValueError as e:
+            later = {}
+            found.append(Finding('tools/hook_wiring.json', f'does not parse: {e}'))
+        events = set(getattr(pve, 'DISPATCH_EVENTS', ()))
+        for kind, rows in (later or {}).items():
+            if kind.startswith('_'):
+                continue
+            if kind not in pve.HOOK_WIRING:
+                found.append(Finding('tools/hook_wiring.json',
+                                     f'lists a kind {kind!r} the engine does not know'))
+                continue
+            for r in rows or []:
+                sc = str((r or {}).get('script') or '')
+                if sc not in scripts:
+                    found.append(Finding('tools/hook_wiring.json',
+                                         f'{kind}: {sc or "an entry"} is not in '
+                                         f'HOOK_SCRIPT_FILES, so it never ships'))
+                if events and (r or {}).get('event') not in events:
+                    found.append(Finding('tools/hook_wiring.json',
+                                         f'{kind}: {sc} runs at '
+                                         f'{(r or {}).get("event")!r}, which no '
+                                         f'fixed precedent-hooks.sh entry covers'))
+
     def _wiring(settings_path):
         data = json.loads(settings_path.read_text(encoding='utf-8'))
         out = set()
@@ -5940,10 +6038,10 @@ def _timestamps_carry_offset(ctx):
                                                  'zone (`fallback_timezone`, the '
                                                  'rung that overrides the '
                                                  'engine\'s) could NOT be read'))
+    # The hook's script lives in tools/ since 2026-10-07; both .claude/hooks/
+    # and the template hold only the stub that runs it.
     for rel, pat in ((ENGINE, r"^FALLBACK_TZ\s*=\s*'([^']+)'"),
-                     ('.claude/hooks/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"'),
-                     ('templates/harness/claude-code/hooks/commit-identity.sh',
-                      r'^DEFAULT_TZ="([^"]+)"')):
+                     ('tools/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"')):
         f = ctx.root / rel
         if not f.exists():
             continue
@@ -5957,7 +6055,7 @@ def _timestamps_carry_offset(ctx):
     if len(set(declared.values())) > 1:
         detail = '; '.join(f'{k} says {v}' for k, v in sorted(declared.items()))
         out.append(Finding('', f'the ENGINE\'s fallback zone disagrees across '
-                               f'the three engine files that hold it -- '
+                               f'the engine files that hold it -- '
                                f'{detail}. One of them silently stamps a '
                                f'different offset than the others. (A repo\'s '
                                f'own `fallback_timezone` in precedent.json is '

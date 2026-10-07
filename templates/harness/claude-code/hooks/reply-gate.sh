@@ -1,51 +1,31 @@
 #!/bin/bash
-# Claude Code adapter: UserPromptSubmit hook. Install to
-# .claude/hooks/reply-gate.sh (wired by the adapter's settings.json).
+# PRECEDENT HOOK STUB. Every engine hook in .claude/hooks/ is this same file,
+# byte for byte, and it is never edited: it runs the real script of the same
+# name from the engine, tools/<this file's name>, which Update Vendors keeps
+# current like any other engine file.
 #
-# UserPromptSubmit hook: the reply gate's practices, one line each, at the
-# START of the turn.
+# WHY (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+# Claude Code's auto mode holds any commit that changes a file under .claude/
+# until the person says yes, and the hook scripts changed upstream on 27 days
+# in one month, so nearly every Update Vendors stopped to ask about a change
+# nobody needed to judge. The logic lives in tools/ now; this file, and so
+# .claude/, stays the same. What a gate does arrives with the engine, under
+# the person's "Update Vendors", after BestPractice's own full check.
 #
-# WHY THIS EXISTS ALONGSIDE THE STOP HOOK. The reply gate's moment is
-# "ending a turn and writing the reply", and the only adapter mechanism at
-# that moment is Stop — which fires AFTER the reply is composed. Its
-# advisory print has therefore never reached the reply it was about: on a
-# clean exit Claude Code does not feed a Stop hook's output back to the
-# model, so at best it landed on the next turn. UserPromptSubmit is the
-# closest moment that is still BEFORE the reply, and its stdout does reach
-# the session.
-#
-# IT ALSO CARRIES THE HARD REQUIREMENTS (2026-09-13). The blocking half of
-# the reply gate reads each source's reply_check.json; the same file is
-# printed here, verbatim, because a Stop hook fires after the reply has
-# already been shown to the person -- so a refusal costs them the reply
-# twice. The requirement has to arrive before the reply, not after it.
-#
-# BRIEF, not the full Rules, and that is a budget decision rather than a
-# taste one: the reply gate's full text is thousands of tokens and this
-# fires on every single prompt (practice: session-load-budget). One line per
-# practice, resident ones skipped because they are in the loader block
-# already, and a pointer to the full text for the session that needs it.
-#
-# IT PASSES THE TRANSCRIPT ON (2026-09-28), so the gate can say whether a
-# size-conditioned requirement -- the Boildown's compact offer -- is owed in
-# THIS reply, instead of telling the session to wait for a stop hook that
-# never says. The hook's JSON payload names the transcript; stdin is read
-# only when it is not a terminal, so a hand run does not hang.
-#
-# Exits 0 unconditionally — a UserPromptSubmit hook that exits non-zero eats
-# the person's message.
-set -uo pipefail
-payload=""
-[[ -t 0 ]] || payload="$(cat 2>/dev/null || true)"
-transcript="$(printf '%s' "$payload" | python3 -c 'import json,sys
-try: print(json.load(sys.stdin).get("transcript_path") or "")
-except Exception: pass' 2>/dev/null || true)"
-export PRECEDENT_TRANSCRIPT_PATH="$transcript"
-root="$(git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")"
-for d in "$root/tools" "$root/process/upstream/tools"; do
-  if [[ -f "$d/precedent_gate.py" ]]; then
-    python3 "$d/precedent_gate.py" reply --brief 2>/dev/null || true
-    break
+# Where the script is: beside this stub's repository (.claude/hooks/ ->
+# tools/, or bootstrap/ -> tools/ where a set ships the stub from there), else
+# the project Claude Code names, else -- for the template copy inside
+# BestPractice -- four levels up. No script anywhere (an engine older
+# than its stub): say so and let the call through, as every gate fails open
+# on its own plumbing (practice: fail-gracefully).
+name="$(basename "$0")"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+for real in "$here/../../tools/$name" "$here/../tools/$name" \
+            "${CLAUDE_PROJECT_DIR:-/nonexistent}/tools/$name" \
+            "$here/../../../../tools/$name"; do
+  if [[ -f "$real" ]]; then
+    exec bash "$real" "$@"
   fi
 done
+echo "NOTE: $name: tools/$name is not here, so this hook did nothing. Update Vendors brings it." >&2
 exit 0

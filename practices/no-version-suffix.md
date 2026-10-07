@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork)"
+approved_by: "BestPractice (pre-fork); dates allowed, Morgan F, 2026-10-07 (\"implement it and also 1 3 4. Act\", strength: decided)"
 source_practice_number: 18
 ---
 ## Rule
@@ -29,6 +29,8 @@ suffixed, not the old one retro-renamed. An existing suffixed backlog is left
 alone — bulk-renaming breaks the very references (links, records) the names are
 load-bearing for; drop the suffix only from a file already being moved for
 another reason, fixing its references in the same pass.
+
+**A date is not a version**: `note-to-alex-2026-10-07.md` is fine.
 
 ## Detail
 
@@ -62,6 +64,13 @@ versioning to the tool whose job that is. The carve-out is narrow and
 deliberate: a suffix earns its place only when two versions genuinely
 coexist and a reader has to tell them apart.
 
+
+2026-10-07: a consuming repository's push of one sent note,
+`note-to-alex-2026-10-07.md`, was refused because the check read its date as
+a version, in a folder of notes named exactly that way. Morgan keeps dates in
+file names on purpose, and the writing set's dated-download-names asks for the
+date on a kept document. The check now lets a date through; `v2`, `rev3` and
+the state words are still refused.
 ## Install
 A naming convention; no tooling needed. The one judgment call —
 "do two versions genuinely need to coexist?" — is rare and deliberate, so it is

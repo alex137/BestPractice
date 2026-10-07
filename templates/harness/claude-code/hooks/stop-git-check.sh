@@ -1,98 +1,31 @@
 #!/bin/bash
-# Claude Code adapter: Stop hook. Install to .claude/hooks/stop-git-check.sh
-# (wired by the adapter's settings.json, as its own `Stop` entry). Blocks the
-# agent from ending a turn with uncommitted, untracked, or unpushed work
-# still sitting in the working tree — a repo-tracked backstop for whatever a
-# given session's own environment doesn't already provide (some managed
-# Claude Code environments ship an equivalent check outside the repo; this
-# makes the same guarantee travel with the practice layer for the ones that
-# don't). Harness-specific, unlike tools/bootstrap.sh: only Claude Code's
-# hook mechanism can block a stop this way (see templates/harness/README.md's
-# enforcement caveat).
+# PRECEDENT HOOK STUB. Every engine hook in .claude/hooks/ is this same file,
+# byte for byte, and it is never edited: it runs the real script of the same
+# name from the engine, tools/<this file's name>, which Update Vendors keeps
+# current like any other engine file.
 #
-# 2026-09-23: this file WAS also where the reply gate's advisory print, the
-# blocking reply check, and close detection ran — all four wired as one
-# `Stop` entry, so a repo objecting to THIS check (git cleanliness; see
-# INSTALL.md's decision table) had no way to keep the other three, which
-# nobody had objected to. They now live in the sibling hook
-# stop-reply-check.sh, wired as its own `Stop` entry, so a settings.json can
-# carry either independently. Nothing here changed behavior; it only stopped
-# doing the other three things.
+# WHY (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+# Claude Code's auto mode holds any commit that changes a file under .claude/
+# until the person says yes, and the hook scripts changed upstream on 27 days
+# in one month, so nearly every Update Vendors stopped to ask about a change
+# nobody needed to judge. The logic lives in tools/ now; this file, and so
+# .claude/, stays the same. What a gate does arrives with the engine, under
+# the person's "Update Vendors", after BestPractice's own full check.
 #
-# Every reason to stop is COLLECTED and reported in one exit-2 message rather
-# than the first one ending the script. Claude Code re-invokes a blocked Stop
-# hook with stop_hook_active=true and this script exits clean on that, so
-# whichever check came first used to be the only one that ever got enforced
-# on a turn.
-set -euo pipefail
-
-# Claude Code re-invokes a Stop hook once after it already blocked a stop
-# this turn, with stop_hook_active=true on stdin — exit clean rather than
-# loop if this hook (or another one) already fired.
-input="$(cat)"
-session_id=""
-if command -v jq >/dev/null 2>&1; then
-  stop_hook_active="$(echo "$input" | jq -r '.stop_hook_active // empty' 2>/dev/null || true)"
-  [[ "$stop_hook_active" == "true" ]] && exit 0
-  session_id="$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null || true)"
-fi
-
-# Not a git repo — nothing here to check.
-in_git=1
-git rev-parse --git-dir >/dev/null 2>&1 || in_git=0
-
-reasons=()
-
-if [[ "$in_git" == "1" ]] && [[ -n "$(git remote 2>/dev/null)" ]]; then
-  if ! git diff --quiet || ! git diff --cached --quiet; then
-    reasons+=("Uncommitted changes in the working tree. Commit (or intentionally discard) them before stopping.")
+# Where the script is: beside this stub's repository (.claude/hooks/ ->
+# tools/, or bootstrap/ -> tools/ where a set ships the stub from there), else
+# the project Claude Code names, else -- for the template copy inside
+# BestPractice -- four levels up. No script anywhere (an engine older
+# than its stub): say so and let the call through, as every gate fails open
+# on its own plumbing (practice: fail-gracefully).
+name="$(basename "$0")"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+for real in "$here/../../tools/$name" "$here/../tools/$name" \
+            "${CLAUDE_PROJECT_DIR:-/nonexistent}/tools/$name" \
+            "$here/../../../../tools/$name"; do
+  if [[ -f "$real" ]]; then
+    exec bash "$real" "$@"
   fi
-
-  if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
-    reasons+=("Untracked files in the working tree. Add and commit them, or add them to .gitignore, before stopping.")
-  fi
-
-  current_branch="$(git branch --show-current)"
-  if [[ -n "$current_branch" ]] && git rev-parse -q --verify "origin/$current_branch" >/dev/null 2>&1; then
-    # Unpushed means on NO remote ref, not "ahead of origin/<this branch>"
-    # (2026-09-28, reported from a consumer repo). That one ref goes stale:
-    # its remote copy deleted after the pull request merged, or the branch
-    # reset onto origin/pre-staging whose tip merges it. Both times the hook
-    # counted commits origin/main or origin/pre-staging already held. A
-    # stale ref still counts as a remote here -- its commits were pushed
-    # once -- but it is never the only thing the count is measured against.
-    unpushed="$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)"
-    # Commits that change no file -- a merge, an empty commit -- lose nothing,
-    # so they never block a stop (Morgan, 2026-09-27, strength: decided):
-    # identical files on origin means nothing is at risk. Otherwise the count
-    # a person reads is the commits that change a file, never the merges.
-    if [[ "$unpushed" -gt 0 ]] && git diff --quiet "origin/$current_branch" HEAD 2>/dev/null; then
-      unpushed=0
-    fi
-    if [[ "$unpushed" -gt 0 ]]; then
-      real="$(git rev-list --count --no-merges HEAD --not --remotes -- . 2>/dev/null || echo 0)"
-      [[ "$real" -gt 0 ]] && unpushed="$real"
-      reasons+=("$unpushed unpushed commit(s) on branch '$current_branch'. Push them to the remote before stopping.")
-    fi
-  fi
-fi
-
-if [[ ${#reasons[@]} -gt 0 ]]; then
-  # Said once per state, not at every turn end (2026-10-01, from a
-  # reduction-pass session): while a background helper of the session was
-  # mid-edit or mid-check on this branch, the same finding blocked every
-  # stop and produced a run of turns with nothing to do. The state is the
-  # branch, its commit, and which paths are dirty; once this session has
-  # been told about it, it is not told again until one of them changes.
-  seen="$(git rev-parse --git-dir 2>/dev/null)/precedent-stop-git-seen"
-  state="${session_id:-no-session} $(git rev-parse HEAD 2>/dev/null) ${current_branch:-} $( { git status --porcelain 2>/dev/null; printf '%s\n' "${reasons[@]}"; } | cksum)"
-  if [[ -f "$seen" ]] && [[ "$(cat "$seen" 2>/dev/null)" == "$state" ]]; then
-    exit 0
-  fi
-  printf '%s\n' "$state" > "$seen" 2>/dev/null || true
-  printf '%s\n' "${reasons[@]}" >&2
-  echo "Said once for this state: if a background task of this session is writing here, finish waiting on it; this will not repeat until the branch, its commit or its changed files differ." >&2
-  exit 2
-fi
-
+done
+echo "NOTE: $name: tools/$name is not here, so this hook did nothing. Update Vendors brings it." >&2
 exit 0

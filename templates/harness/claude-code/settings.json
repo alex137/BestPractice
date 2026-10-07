@@ -57,6 +57,11 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh SessionStart",
+            "timeout": 900
           }
         ]
       }
@@ -71,6 +76,11 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh user-prompt main"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh UserPromptSubmit",
+            "timeout": 900
           }
         ]
       }
@@ -152,6 +162,15 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/artifact-publish-gate.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh PreToolUse",
+            "timeout": 900
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -164,6 +183,15 @@
             "timeout": 900
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh PostToolUse",
+            "timeout": 900
+          }
+        ]
       }
     ],
     "Stop": [
@@ -172,6 +200,11 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-git-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh Stop",
+            "timeout": 900
           }
         ]
       },

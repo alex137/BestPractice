@@ -387,7 +387,10 @@ cannot tell a drift this run introduced from one that was there before. So:
    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)'s
    `PLANTED CASE COVERAGE` section says on every run whether this invocation
    did it or still owes it; `--with-harness` runs it from inside the tool
-   and records the result in the ledger like any other section. Added
+   and records the result in the ledger like any other section. Typed by
+   hand it needs `--because 'very deep check'`: since 2026-10-07 a full run
+   refuses without the person's go-ahead, and asking for this check by name
+   is that go-ahead. Added
    2026-09-21 (Morgan, strength: decided) from
    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
    item 11.

@@ -1874,8 +1874,40 @@ def harness_changes(repo):
     return sorted(n for n in r.stdout.splitlines() if n)
 
 
-def harness_ask(paths):
-    """The question for the person when an update changes hooks or settings."""
+STUB_MARKER = '# PRECEDENT HOOK STUB.'
+
+
+def migrates_to_stubs(repo, paths):
+    """True when this update turns the repo's hooks into the permanent stubs
+    (2026-10-07): some staged .claude/hooks/ file is a stub now and was not
+    one before. Read from the index and HEAD, never the working tree."""
+    for rel in paths:
+        if not rel.startswith('.claude/hooks/'):
+            continue
+        now = subprocess.run(['git', '-C', str(repo), 'show', f':{rel}'],
+                             capture_output=True, text=True).stdout
+        was = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:{rel}'],
+                             capture_output=True, text=True).stdout
+        if STUB_MARKER in now and STUB_MARKER not in was:
+            return True
+    return False
+
+
+def harness_ask(paths, last=False):
+    """The question for the person when an update changes hooks or settings.
+    `last`: this is the update that turns the hooks into permanent stubs, so
+    the question says, in plain words, that it is the last one."""
+    if last:
+        return (f'this update changes {len(paths)} file(s) under .claude/ one '
+                f'last time: each hook becomes a permanent pointer to the '
+                f'engine, and settings.json gains one fixed entry per event '
+                f'for hooks added later. Nothing changes about when anything '
+                f'is blocked, and from now on hook changes arrive with the '
+                f'engine without this question. Ask the person in those '
+                f'words before committing; their yes is what lets the commit '
+                f'through, and a merge that takes the update by itself needs '
+                f'it as {HARNESS_GO_AHEAD}="<their words>". Files: '
+                f'{", ".join(paths)}')
     return (f'this update changes {", ".join(paths)}. Claude Code\'s auto mode '
             f'holds a commit that changes hooks or settings until the person '
             f'says yes, so ask now, naming these files, before committing. '
@@ -2897,7 +2929,8 @@ def update(repo, skip_check=False, ref=None):
             rep.step('hooks and settings', f'{", ".join(harness)} changed, with '
                      f'the person\'s go-ahead: "{words}"')
         else:
-            rep.ask('hooks and settings', harness_ask(harness))
+            rep.ask('hooks and settings',
+                    harness_ask(harness, last=migrates_to_stubs(repo, harness)))
 
     # 4b. Files that still name what the refresh deleted: the full check's
     # rename-updates-links refuses each one at the Promote, so they are
