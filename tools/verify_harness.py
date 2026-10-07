@@ -8689,6 +8689,84 @@ def check_new_rule_shows_its_debt_and_booked_names_it():
           f'set aside ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_removal_selects_its_checks():
+    """A change that deletes or renames a file selects every tree check
+    declaring selects_on_removal -- rename-updates-links, whose subject is
+    what a removal strands and whose `**` reached it only by the rotation:
+    a consumer commit moving about twenty files ran it as "not run this
+    invocation" (2026-10-07). A change removing nothing leaves it to the
+    rotation as before."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as _pc
+    cases = []
+    tree = sorted(s for s, c in _pc.CHECKS.items() if c['scope'] == 'tree')
+    real_removed, real_touched = _pc._removed_files, _pc._touched_files
+    try:
+        _pc._touched_files = lambda: ['site/new-name.css']
+        _pc._removed_files = lambda: ['site/old-name.css']
+        picked = _pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('a rename selects rename-updates-links, with the '
+                      'rotation emptied', 'rename-updates-links' in picked))
+        _pc._removed_files = lambda: []
+        picked = _pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('a change removing nothing leaves it to the rotation',
+                      'rename-updates-links' not in picked))
+    finally:
+        _pc._removed_files, _pc._touched_files = real_removed, real_touched
+    cases.append(('rename-updates-links declares it',
+                  _pc.CHECKS['rename-updates-links'].get('selects_on_removal') is True))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a change that removes a file selects the checks that judge what a '
+          f'removal strands ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_engine_capability_holds_a_practice_back():
+    """A practice that names an engine capability in `requires:` is in force
+    on an engine that has it, and held back -- check and all -- on one that
+    does not; the sync says which (2026-10-07: a set's hooks-declaring
+    practice reached a consumer whose engine could not wire hooks, and its
+    check refused an unrelated merge)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    import precedent_sync_views as _sv
+    cases = []
+    base = (ROOT / 'practices' / 'no-version-suffix.md').read_text(encoding='utf-8')
+    with tempfile.TemporaryDirectory() as tmp:
+        d = pathlib.Path(tmp) / 'set'
+        (d / 'practices').mkdir(parents=True)
+        (d / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fx-set', 'level': 'shared', 'visibility': 'public'}),
+            encoding='utf-8')
+        for slug, need in (('needs-hooks', 'engine:practice-hooks'),
+                           ('needs-future', 'engine:not-built-yet')):
+            text = base.replace('slug:        no-version-suffix', f'slug:        {slug}', 1)
+            text = text.replace('\nstatus:', f'\nrequires:    ["{need}"]\nstatus:', 1)
+            (d / 'practices' / f'{slug}.md').write_text(text, encoding='utf-8')
+        src = [{'level': 'shared', 'name': 'fx-set', 'path': str(d)}]
+        got = _pr.resolve([dict(s) for s in src])['practices']
+        cases.append(('a practice needing a capability this engine has is in force',
+                      'needs-hooks' in got))
+        cases.append(('one needing a capability no engine has yet is held back',
+                      'needs-future' not in got))
+        notes = _sv.held_for_a_newer_engine([dict(s) for s in src])
+        cases.append(('the sync names the held-back practice and says Update Vendors',
+                      len(notes) == 1 and 'needs-future' in notes[0]
+                      and 'Update Vendors' in notes[0]))
+        real = _pr.ENGINE_CAPABILITIES
+        try:
+            _pr.ENGINE_CAPABILITIES = frozenset()
+            got = _pr.resolve([dict(s) for s in src])['practices']
+            cases.append(('on an engine without hook wiring, the hooks practice '
+                          'is held back, so no check it cannot pass is installed',
+                          'needs-hooks' not in got))
+        finally:
+            _pr.ENGINE_CAPABILITIES = real
+    bad = [n for n, ok in cases if not ok]
+    check(f'an engine capability in requires: holds a practice back on an engine '
+          f'without it ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_generated_files_candidates_are_repo_rooted_claims():
     """The very deep check's GENERATED FILES section asks the session to
     judge tracked files a tool may write that tools/generated_files.json
@@ -13400,6 +13478,13 @@ def check_lint_refuses_an_open_item_waiting_on_an_upstream_fix():
                    'a fence.', False),
         'source-in-reason': ('open', 'push access to some-set', 'A rule '
                              'there is worded wrong.', True),
+        # A link to a vendored file is reading (2026-10-07, a consumer's
+        # check-in item linking the install runbook); the link's own text
+        # naming the file still counts.
+        'reading-link': ('open', 'null', 'Follow [the runbook]'
+                         '(../tools/doc_lint.py) at each check-in.', False),
+        'named-in-link-text': ('open', 'null', '[tools/doc_lint.py]'
+                               '(../tools/doc_lint.py) misreads a fence.', True),
     }
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -41941,7 +42026,7 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
         saved['apply_to'] = prs.apply_to
         prs.classify_dirt = lambda repo: (
             (['tools/ENGINE_MANIFEST.json'] if g(repo, 'status', '--porcelain') else []), [])
-        prs.apply_to = lambda e, commit=False: (applied.append(e['repo']), [])[1]
+        prs.apply_to = lambda e, commit=False, branch=None: (applied.append(e['repo']), [])[1]
         rc, out = run()
         cases.append(('a clone carrying only engine output is still brought current',
                       g(clone, 'rev-parse', 'HEAD') == tip, out[-400:]))
@@ -41956,6 +42041,72 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
     check(f'the session-start refresh pulls a set clone behind its own origin '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_refresh_sources_leaves_the_base_branch_clean():
+    """The session-start refresh commits on a dated local branch of its own
+    and returns the set to its base branch with nothing uncommitted
+    (2026-10-07: it left 21 engine files as edits on a set's main
+    checkout, and the stop hook then asked a session to commit and push
+    them -- on main). Real git: a second run for the same engine tip names
+    the branch it already made rather than make another, and a refresh that
+    changes nothing leaves no branch behind."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-branch-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def g(*a):
+        return subprocess.run(['git', '-C', str(repo), *a], capture_output=True,
+                              text=True, env=env).stdout.strip()
+    saved = prs.apply_to
+    try:
+        repo = tmp / 'set'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env)
+        (repo / 'engine.txt').write_text('old\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+
+        def fake_apply(e, commit=False, branch=None, body='new\n'):
+            (repo / 'engine.txt').write_text(body, encoding='utf-8')
+            g('checkout', '-q', '-B', branch)
+            g('add', '-A')
+            r = subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'refresh'],
+                               capture_output=True, text=True, env=env)
+            return [('refresh', True, ''), ('branch', True, ''),
+                    ('commit', r.returncode == 0, r.stdout + r.stderr)]
+        prs.apply_to = fake_apply
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': 'abcdef1234567'}, 'main')
+        branches = g('branch', '--format=%(refname:short)').split()
+        made = [b for b in branches if '-engine-refresh-abcdef12-' in b]
+        cases.append(('the refresh is committed on a dated branch of its own',
+                      len(made) == 1, f'{branches} {steps}'))
+        cases.append(('...and the set is back on main', g('branch', '--show-current') == 'main',
+                      g('branch', '--show-current')))
+        cases.append(('...with nothing uncommitted', g('status', '--porcelain') == '',
+                      g('status', '--porcelain')))
+        cases.append(('...and main itself unchanged',
+                      (repo / 'engine.txt').read_text(encoding='utf-8') == 'old\n', ''))
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': 'abcdef1234567'}, 'main')
+        cases.append(('a second run for the same tip names that branch and makes no other',
+                      'already committed on local branch' in steps[0][2]
+                      and len([b for b in g('branch', '--format=%(refname:short)').split()
+                               if 'engine-refresh' in b]) == 1, str(steps)))
+        prs.apply_to = lambda e, commit=False, branch=None: fake_apply(e, commit, branch, 'old\n')
+        steps = prs.apply_on_its_own_branch({'repo': repo, 'tip': '9999999912345'}, 'main')
+        cases.append(('a refresh that changes nothing leaves no branch behind',
+                      not [b for b in g('branch', '--format=%(refname:short)').split()
+                           if '-engine-refresh-99999999-' in b]
+                      and g('branch', '--show-current') == 'main', str(steps)))
+    finally:
+        prs.apply_to = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session-start refresh leaves the set\'s base branch clean '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def check_refresh_sources_path_names_the_whole_target():
@@ -41998,7 +42149,7 @@ def check_refresh_sources_path_names_the_whole_target():
         prs._declared_base_branch = lambda repo: 'main'
         prs.repair_hooks = lambda repo: (wrote.append(pathlib.Path(repo).resolve()),
                                          (True, 'fixture'))[1]
-        prs.apply_to = lambda e, commit=False: (
+        prs.apply_to = lambda e, commit=False, branch=None: (
             wrote.append(pathlib.Path(e['repo']).resolve()), [])[1]
 
         def run(argv):
@@ -64162,6 +64313,8 @@ def main():
     check_incident_coverage_reads_what_the_gotcha_names()
     check_retired_sets_are_dropped_only_when_nothing_is_lost()
     check_dropped_set_and_proxy_and_template_refs()
+    check_removal_selects_its_checks()
+    check_engine_capability_holds_a_practice_back()
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
     check_harness_drops_inherited_git_repository_variables()
@@ -64484,6 +64637,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_refresh_sources_leaves_the_base_branch_clean()
     check_freshness_reads_a_private_source_through_its_clone()
     check_whats_new_log_mechanics()
     check_received_hooks_and_moved_engine_files()

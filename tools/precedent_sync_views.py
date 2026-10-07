@@ -846,6 +846,8 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
         print(f"precedent_sync_views: {note}", file=sys.stderr)
     for note in fields_this_engine_does_not_know(_live):
         print(f"precedent_sync_views: {note}", file=sys.stderr)
+    for note in held_for_a_newer_engine(sources):
+        print(f"precedent_sync_views: {note}", file=sys.stderr)
     if check:
         tree_drift += [f"{_pve().PRACTICE_HOOKS_FILE} does not run `{c}` at {e}"
                        f"{' (' + m + ')' if m else ''}, a hook a practice in "
@@ -1022,13 +1024,40 @@ def _refresh_generated_views(repo, check=False):
 _PRACTICE_LINK_RE = re.compile(r'(?<![\w/-])((?:\.\./)*practices/)([a-z0-9][a-z0-9-]*)\.md\b')
 
 
+def held_for_a_newer_engine(sources):
+    """-> one line per practice a declared source holds in force that names
+    an `engine:` capability in `requires:` this engine lacks: held back,
+    check and all, until Update Vendors brings the engine that has it
+    (precedent_resolve.ENGINE_CAPABILITIES). Says what an older engine
+    holds back silently."""
+    have = set(getattr(pr, 'ENGINE_CAPABILITIES', ()))
+    out = []
+    for s in sources:
+        if not s.get('path'):
+            continue
+        try:
+            loaded, _why = pr.load_source(s)
+        except Exception:                                    # noqa: BLE001
+            continue
+        for slug, p in sorted((loaded or {}).items()):
+            if bv._json_str(p['fm'].get('status', 'active')) != pr.IN_FORCE_STATUS:
+                continue
+            missing = sorted(c for c in pr._requires(p['fm'])
+                             if c.startswith('engine:') and c not in have)
+            if missing:
+                out.append(f"{slug} ({s.get('name')}) needs a newer engine "
+                           f"({', '.join(missing)}), so it is held back -- "
+                           f"its check too -- until Update Vendors brings one")
+    return out
+
+
 def _waiting_on_a_capability(sources, blocking):
     """-> {(slug, source): needed capabilities} for each blocked removal
     whose practice is still active at its source and names a `requires:`
     capability no resolved source provides."""
     out = {}
     by_name = {s.get('name'): s for s in sources}
-    provided = set()
+    provided = set(getattr(pr, 'ENGINE_CAPABILITIES', ()))
     for s in sources:
         if s.get('path'):
             provided |= pr.source_provides(s['path'])

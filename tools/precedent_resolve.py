@@ -767,6 +767,22 @@ def no_ladders():
         '', '0', 'false', 'no', 'off')
 
 
+# WHAT THIS ENGINE CAN DO, for a practice's `requires:` (2026-10-07). A
+# practice set moves on its own schedule and reaches a consumer whose
+# vendored engine may be older: precedent-shared-writing's
+# dated-download-names declares a hook in `hooks:`, and in a consumer whose
+# engine predates wiring declared hooks its check could only fail, and
+# refused an unrelated merge. A practice that needs an engine feature names
+# it here -- `requires: ["engine:practice-hooks"]` -- and an engine without
+# it holds the practice back, check and all, instead of installing what it
+# cannot satisfy. Engines have honoured `requires:` since 2026-10-02, so an
+# older engine, lacking this set, holds such a practice back too, which is
+# the point. Add a name here in the commit that adds the feature.
+ENGINE_CAPABILITIES = frozenset({
+    'engine:practice-hooks',    # a practice's `hooks:` wired at sync (2026-10-06)
+})
+
+
 def source_provides(path):
     """-> the capabilities a source's own precedent-source.json declares, as
     a set of strings; empty when it declares none or cannot be read."""
@@ -1389,7 +1405,7 @@ def resolve(sources, context=()):
     # a session started with PRECEDENT_NO_LADDERS, which load_config has
     # already applied to `sources`. Left out, not retired: nothing about the
     # practice is stale, the session simply does not have what it needs.
-    provided = set()
+    provided = set(ENGINE_CAPABILITIES)
     for _s, _loaded in by_source:
         provided |= source_provides(_s['path'])
     in_context = set()
