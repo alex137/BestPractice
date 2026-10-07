@@ -14,7 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-working-style; merged in PR #879 on 2026-10-05; part 2's exception narrowed to the quick checks by Morgan F, 2026-10-07"
 strength:    decided
 ---
 ## Rule
@@ -23,8 +23,8 @@ anything long** — in the same turn; the long run never gates the answer.
 **(2) A task that will run longer than a few minutes is proposed, not
 started:** what it is, how long from the tool's own cost line, what it
 blocks and what it does not, then the go-ahead. The exceptions are the
-checks a commit needs on the files the turn touched, and a run already
-asked for by name. **(3) When idle on a wait, say what the wait is for,
+quick checks a commit needs on the files the turn touched -- never a
+whole suite -- and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
 what it will change, and how to stop it** — never a bare "still running".
 A background task nobody asked for is stopped, not waited on.
 **(4) An open question is not a stopping point:** ask it early and keep
@@ -111,6 +111,18 @@ framings of it. Its Rule became part (4) and its blocker test moved into
 `## Detail` whole; its file is `status: deduplicated` and points here.
 Approved by Morgan F, 2026-10-01: *"Question 3 - all are great, approved"*
 (strength: decided).
+
+**2026-10-07, part (2)'s exception narrowed to the quick checks.** A
+session started BestPractice's whole test suite by hand to double-check
+work bound only for pre-staging, whose own push check takes seconds. It
+quoted fifteen to twenty-five minutes from memory; a third of the way in,
+twenty-five minutes had gone, and the one-process run takes about forty.
+It had read "the checks a commit needs" as covering the whole suite. Morgan
+asked how to stop it happening again, and approved all three answers
+(*"Yes, make those changes"*, strength: decided): the suite now prints what
+it costs before it starts, a full run started by hand refuses without
+`--because` quoting the person's go-ahead, and this exception names the
+quick checks.
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line

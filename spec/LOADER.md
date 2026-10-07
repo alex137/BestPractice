@@ -199,9 +199,9 @@ a number in a sentence. That is `docs-track-models`, happening here.
 |---|---|
 | Practices in the catalogue | 177 |
 | Resident, loaded every session | 6 of 177 practices |
-| Resident block size | ≈637 tokens of a 1750-token hard cap |
+| Resident block size | ≈646 tokens of a 1750-token hard cap |
 | `## Rule` share of the catalogue | 25% of the catalogue |
-| Rules still over 150 words | 84 |
+| Rules still over 150 words | 85 |
 | Carrying a `## Detail` | 136 |
 | Carrying a `## Story` | 177 |
 | Enforced by a check | 64 of 177 practices carry a `checked_by` |
