@@ -13817,7 +13817,12 @@ def check_update_vendors_leaves_the_copy_its_record_names():
     by a rerun, with the manifest changed since; and the postcondition
     itself, called directly, for a file only the run-to-run record shows
     was an earlier run's deletion; and a run that fails before its staging
-    step, which now records what it wrote and deleted for its rerun.
+    step, which now records what it wrote and deleted for its rerun. Case 1
+    also asserts the copy's fingerprint is recorded once the local-edit
+    rules have run, so the repository's own check finds the kept edit
+    unchanged and names a file put back to older text afterwards
+    (check_copy_fingerprint_is_checked_without_a_clone has the check's own
+    cases).
 
     Negative control, measured 2026-10-08 against
     2026-10-08-update-integrity-y1ktn at 353a946f: the stale files are
@@ -13908,6 +13913,23 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                       and f'process/upstream/{edited}' in _section(out, 'Still your local edit')
                       and not any(f'process/upstream/{r}' in _section(out, 'Still your')
                                   for r in stale), _section(out, 'Still your')))
+        # The fingerprint the consumer's own check compares with, recorded
+        # after the local-edit rules ran: the kept edit is part of it.
+        ck = le._checkin(repo)
+        fp = (json.loads((repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+              .get('upstream') or {}).get('copy_tree')
+        drift = ck.copy_drift(repo)
+        cases.append(('...and the copy\'s fingerprint is recorded, so the repository\'s '
+                      'own check finds nothing drifted, the kept edit included',
+                      bool(fp) and [d[2] for d in drift] == ['ok']
+                      and 'catalogue fingerprint: recorded' in out, (fp, drift)))
+        fx.commit(repo, 'the update')
+        up(repo, moved).write_bytes(show(seeded, moved))
+        drift = ck.copy_drift(repo)
+        cases.append(('...and a file put back to older upstream text after the update '
+                      'is named as drifted, with no upstream clone',
+                      [(d[2], d[3]) for d in drift] == [('drifted', [(moved, 'changed')])],
+                      drift))
 
         # --- 2. a rerun after the source moved, over an earlier run's mirror
         repo, seeded = build('moved')
@@ -14044,6 +14066,151 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                       (got, rd().get('upstream'))))
     finally:
         fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_copy_fingerprint_is_checked_without_a_clone():
+    """A consuming repository's own check (vendored-copy-matches-record)
+    tells, with no BestPractice clone, that its vendored copy changed after
+    process/manifest.json recorded it: the manifest keeps the copy's git tree
+    id (checkin.COPY_TREE_KEY), and the repository's own history names the
+    files that differ (2026-10-08; Morgan decided it the same day).
+
+    Both directions: a changed, an added and a removed file are each named
+    and fail the check; a file the manifest marks diverged, or precedent.json
+    keeps under kept_template_divergences with a reason, does not (one kept
+    with no reason does); a declined file's copy
+    is still checked, since a decline is judged by upstream's text there; a
+    manifest written before the fingerprint is COULD NOT VERIFY, never a
+    pass or a fail; and recording the fingerprint leaves the repository's own
+    index as it was.
+
+    Negative control, measured 2026-10-08: with copy_drift's per-file
+    comparison made to skip every file, and a missing fingerprint read as a
+    match, the could-not-verify case and the named-files case fail; with the
+    exemption by name removed, the exemption case fails, naming
+    practices/mine.md. On the commit before this one nothing here exists, so
+    the whole check fails."""
+    import contextlib
+    import io
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import checkin as ck
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    env = _fixture_git_env()
+    fn = getattr(getattr(pc, 'CHECKS', {}).get('vendored-copy-matches-record'), 'get',
+                 lambda _k: None)('fn')
+    if not hasattr(ck, 'copy_drift') or fn is None:
+        return (False, '0 stated cases',
+                'checkin.copy_drift or the vendored-copy-matches-record check is missing')
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        tree = repo / 'process' / 'upstream'
+        for rel, text in (('practices/a.md', 'a\n'), ('practices/b.md', 'b\n'),
+                          ('templates/t.md', 't\n'), ('templates/u.md', 'u\n'),
+                          ('practices/declined.md', 'd\n'),
+                          ('practices/mine.md', 'm\n')):
+            (tree / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tree / rel).write_text(text, encoding='utf-8')
+        mf = repo / 'process' / 'manifest.json'
+        manifest = {'upstream': {'repo': 'https://example.invalid/BestPractice',
+                                 'vendored_at': 'process/upstream', 'commit': 'a' * 40},
+                    'entries': []}
+        mf.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'vendored copy, recorded before the fingerprint existed')
+
+        def run_check():
+            old = pc.ROOT
+            pc.ROOT = repo
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    return fn(None)
+            except pc.NotApplicable as e:
+                return f'not applicable: {e}'
+            finally:
+                pc.ROOT = old
+
+        got = run_check()
+        cases.append(('a manifest with no fingerprint is COULD NOT VERIFY, not a pass '
+                      'or a fail',
+                      isinstance(got, list) and len(got) == 1
+                      and isinstance(got[0], pc.Unverified)
+                      and 'no fingerprint' in got[0].detail, got))
+
+        (tree / 'practices' / 'untracked-scratch.md').write_text('x\n', encoding='utf-8')
+        status_before = g('status', '--porcelain').stdout
+        tid = ck.stamp_copy_tree(mf)
+        status_after = g('status', '--porcelain').stdout
+        cases.append(('recording the fingerprint leaves the repository\'s own index '
+                      'as it was',
+                      bool(tid) and status_before.replace(' M process/manifest.json\n', '')
+                      == status_after.replace(' M process/manifest.json\n', '')
+                      and '?? process/upstream/practices/untracked-scratch.md'
+                      in status_after, (status_before, status_after)))
+        (tree / 'practices' / 'untracked-scratch.md').unlink()
+        ck.stamp_copy_tree(mf)
+        g('add', '-A')
+        g('commit', '-qm', 'the fingerprint recorded')
+        cases.append(('a copy as recorded passes',
+                      run_check() == [] and json.loads(mf.read_text())['upstream']
+                      .get('copy_tree') == g('rev-parse', 'HEAD:process/upstream')
+                      .stdout.strip(), run_check()))
+
+        (tree / 'practices' / 'a.md').write_text('older upstream text\n', encoding='utf-8')
+        (tree / 'practices' / 'b.md').unlink()
+        (tree / 'practices' / 'stray.md').write_text('stray\n', encoding='utf-8')
+        (tree / 'practices' / 'declined.md').write_text('edited\n', encoding='utf-8')
+        (tree / 'practices' / 'mine.md').write_text('my change\n', encoding='utf-8')
+        (tree / 'templates' / 't.md').write_text('kept on purpose\n', encoding='utf-8')
+        (tree / 'templates' / 'u.md').write_text('kept, no reason\n', encoding='utf-8')
+        data = json.loads(mf.read_text(encoding='utf-8'))
+        data['entries'] = [
+            {'practice': 'mine', 'upstream_path': 'practices/mine.md',
+             'local_path': 'process/upstream/practices/mine.md', 'granularity': 'file',
+             'status': 'diverged', 'notes': 'pending export'},
+            {'practice': 'declined', 'upstream_path': 'practices/declined.md',
+             'local_path': None, 'status': 'declined', 'notes': 'not taken'}]
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'kept_template_divergences': {
+            'process/upstream/templates/t.md': {'reason': 'ours on purpose'},
+            'process/upstream/templates/u.md': {'reason': ''}}}),
+            encoding='utf-8')
+        got = run_check()
+        named = {f.where for f in got if isinstance(f, pc.Finding)
+                 and not isinstance(f, pc.Unverified)} if isinstance(got, list) else set()
+        want = {'process/upstream/practices/a.md', 'process/upstream/practices/b.md',
+                'process/upstream/practices/stray.md',
+                'process/upstream/practices/declined.md',
+                'process/upstream/templates/u.md', 'process/manifest.json'}
+        cases.append(('a changed, a removed, an added and a declined file, and one '
+                      'kept with no reason, are each named and fail the check, '
+                      'with the remedy',
+                      want <= named and any('Update Vendors' in f.detail for f in got
+                                            if f.where == 'process/manifest.json'),
+                      sorted(named)))
+        cases.append(('...while a diverged entry\'s file and a kept template '
+                      'divergence are exempt by name',
+                      'process/upstream/practices/mine.md' not in named
+                      and 'process/upstream/templates/t.md' not in named, sorted(named)))
+
+        data['upstream']['copy_tree'] = 'f' * 40
+        mf.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        got = run_check()
+        cases.append(('a copy that differs from a tree this clone lacks fails, saying '
+                      'the files cannot be named here',
+                      isinstance(got, list) and len(got) == 1
+                      and not isinstance(got[0], pc.Unverified)
+                      and 'cannot be named' in got[0].detail, got))
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
@@ -21639,6 +21806,33 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'planted dead manifest entry')
 
         case('manifest-entries-resolve', _plant_dead_manifest_entry)
+
+        # vendored-copy-matches-record -- a vendored copy changed after its
+        # record, seen with no upstream clone (2026-10-08). setup() records a
+        # copy and its fingerprint, so the unplanted control passes rather
+        # than reporting COULD NOT VERIFY; the plant puts older text in.
+        def _setup_recorded_copy(repo):
+            f = repo / 'process' / 'upstream' / 'practices' / 'planted.md'
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text('Upstream text at the recorded commit.\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'a vendored copy')
+            m = repo / 'process' / 'manifest.json'
+            m.write_text(json.dumps({'upstream': {
+                'vendored_at': 'process/upstream', 'commit': 'a' * 40,
+                'copy_tree': git(repo, 'rev-parse', 'HEAD:process/upstream')},
+                'entries': []}, indent=2) + '\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'its record')
+
+        def _plant_drifted_copy(repo):
+            (repo / 'process' / 'upstream' / 'practices' / 'planted.md').write_text(
+                'Older upstream text, put back after the record.\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted drift in the vendored copy')
+
+        case('vendored-copy-matches-record', _plant_drifted_copy,
+             setup=_setup_recorded_copy)
 
         # todo-migrate-available-but-unused -- a repo that has the migration
         # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
@@ -57238,8 +57432,26 @@ def check_update_vendors_rehearsal_findings():
                             str(proj), '--project-name', 'Notes'], cwd=str(ROOT),
                            env=ienv, capture_output=True, text=True)
         m = json.loads((proj / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
-        hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        # The individual-set bootstrap hook is the person's, not the
+        # engine's: written only where the person running the install has an
+        # individual set (on a machine with its clone, that is this run),
+        # rendered for them, and never in hook_files. Judged apart below.
+        # Until 2026-10-08 this case counted it as an engine hook, so it
+        # failed on any machine with an individual-set clone once install
+        # began wiring that hook (a3a62285), and passed on GitHub.
+        all_hooks = sorted(p.name for p in (proj / '.claude' / 'hooks').glob('*.sh'))
+        hooks = [h for h in all_hooks if h != pve.INDIVIDUAL_HOOK]
         recorded = m.get('hooks_sha256') or {}
+        if pve.INDIVIDUAL_HOOK in all_hooks:
+            st = json.loads((proj / '.claude' / 'settings.json').read_text(encoding='utf-8'))
+            first = [h.get('command', '') for g in st['hooks']['SessionStart']
+                     for h in g.get('hooks', [])][:1]
+            cases.append(('an install by a person with an individual set wires its '
+                          'bootstrap hook first, and leaves it out of the engine record',
+                          bool(first) and pve.INDIVIDUAL_HOOK in first[0]
+                          and pve.INDIVIDUAL_HOOK not in (m.get('hook_files') or []),
+                          f'first SessionStart command={first} '
+                          f'hook_files={m.get("hook_files")}'))
         cases.append(('a fresh install records every hook it wrote, by hash',
                       r.returncode == 0 and bool(hooks)
                       and sorted(m.get('hook_files') or []) == hooks
@@ -66756,6 +66968,9 @@ def main():
           *check_send_carries_a_local_edit_upstream())
     check_local_edits_fetch_the_vendored_commit_from_upstream()
     check_a_sync_deletion_is_not_a_local_edit()
+    check('a consumer\'s own check names a vendored copy that drifted from its '
+          'record, with no upstream clone',
+          *check_copy_fingerprint_is_checked_without_a_clone())
     check('Update Vendors resolves a committed edit to a vendored hook or declared path',
           *check_update_vendors_resolves_hook_and_engine_path_edits())
     check('a section 0 catalogue resolves a committed edit against its own sync record',

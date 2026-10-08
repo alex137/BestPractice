@@ -1490,7 +1490,8 @@ order records a hash the vendored tree doesn't match.
   "upstream": {
     "repo": "https://github.com/<owner>/BestPractice",
     "vendored_at": "process/upstream",
-    "commit": "<hash of the upstream commit last synced>"
+    "commit": "<hash of the upstream commit last synced>",
+    "copy_tree": "<git tree id of process/upstream as recorded -- written by checkin.py record and Update Vendors>"
   },
   "entries": [
     {
@@ -1531,6 +1532,18 @@ order records a hash the vendored tree doesn't match.
 }
 ```
 
+- `upstream.copy_tree` — **the fingerprint of the vendored copy**: the git
+  tree id of `process/upstream/` as it stood when `commit` was recorded,
+  after Update Vendors put back the local edits it keeps. Written by
+  `checkin.py record` and by Update Vendors; never by hand. The
+  `vendored-copy-matches-record` check compares the copy with it, with no
+  BestPractice clone, and names each file that changed since -- the tree it
+  names is in the repository's own history once the copy is committed. A
+  file an entry marks `diverged` or `local-only`, and a path
+  `precedent.json` keeps under `kept_template_divergences` with a reason,
+  is exempt. A manifest without the key is reported as could not verify,
+  and the next Update Vendors adds it; an engine older than the key ignores
+  it.
 - `granularity: "file"` — audited exactly: `local_sha256` is the baseline;
   any later change to the local file flags the entry until it is exported
   and re-baselined, or flipped to `diverged`.

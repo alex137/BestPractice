@@ -3,16 +3,16 @@ slug:              todo-2026-10-08-a-consumer-cannot-tell-its-copy-is-stale-with
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
-disposition:       ask
+status:            done
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan's call on changing process/manifest.json's format
+decision:          "\"#2 fine also, approved\" -- build the fingerprint and the clone-free check"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-08
-closed:            null
+closed:            2026-10-08
 ---
 ## What
 
@@ -38,3 +38,27 @@ Morgan's to decide, not a session's.
 
 Morgan decides: built (and a consumer whose copy drifts after an update is
 refused by its own check), or dropped with his reason.
+
+## Notes
+
+**Decided 2026-10-08, Morgan: "#2 fine also, approved" (strength:
+decided). Built the same day.**
+
+- `process/manifest.json` keeps `upstream.copy_tree`, the git tree id of
+  the copy as recorded. One key: a tree id is already one hash over every
+  path and content hash, and once the copy is committed the tree it names is
+  in the repository's own history, so the check can list the files that
+  differ without a per-file map in the manifest
+  ([INSTALL.md section 5](../INSTALL.md#5-the-manifest-schema-processmanifestjson)).
+- [tools/checkin.py](../tools/checkin.py) `record` writes it; Update
+  Vendors writes it again once the copy matches its record after the
+  local-edit rules ran, and not while a file in the copy is left for the
+  person.
+- The `vendored-copy-matches-record` check in
+  [tools/precedent_check.py](../tools/precedent_check.py) compares, names
+  each drifted file and fails, so a consumer whose copy drifts after an
+  update is refused by its own check. Files marked `diverged` or
+  `local-only`, and paths kept under `kept_template_divergences` with a
+  reason, are exempt. A declined file is not: its copy stays upstream's
+  text, since the decline is judged by it. A manifest without the key is
+  could not verify until the next Update Vendors.
