@@ -15135,8 +15135,15 @@ def check_changed_files_only_judges_the_change():
         return subprocess.run(['git', '-C', str(wt), '-c', 'core.hooksPath=/dev/null', *a],
                               capture_output=True, text=True, env=env)
 
-    def run_check(since):
-        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--full-sweep',
+    # Each case runs the one check it is about, never the full sweep: a
+    # sweep took about 28 seconds and this test ran eleven, so it was the
+    # suite's second slowest at about 400 seconds on GitHub's runner
+    # (Morgan, 2026-10-08: "minor and very very long, so let's fix this
+    # right now"). What --changed-files-only does with a finding -- keep it,
+    # set it aside, say why -- is the same code whichever checks ran, and
+    # every real push into pre-staging runs the full sweep this way anyway.
+    def run_check(since, slug):
+        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only', slug,
                             '--range', f'{since}...HEAD', '--changed-files-only'],
                            cwd=wt, capture_output=True, text=True, env=env)
         return p.returncode, p.stdout + p.stderr
@@ -15153,14 +15160,14 @@ def check_changed_files_only_judges_the_change():
         base = git('rev-parse', 'HEAD').stdout.strip()
         break_heading()
         git('commit', '-qam', 'break the heading')
-        rc, out = run_check(base)
+        rc, out = run_check(base, 'document-status-header')
         cases.append(('a change that breaks a document\'s heading is refused',
                       rc == 1 and 'document-status-header' in out, out[-800:]))
         broken = git('rev-parse', 'HEAD').stdout.strip()
         with open(wt / 'README.md', 'a', encoding='utf-8') as f:
             f.write('\nAn unrelated line.\n')
         git('commit', '-qam', 'touch another file')
-        rc, out = run_check(broken)
+        rc, out = run_check(broken, 'document-status-header')
         cases.append(('a change elsewhere passes while the mismatch sits in the tree, '
                       'and says it left it to the full check',
                       rc == 0 and 'not judged here' in out, out[-800:]))
@@ -15175,7 +15182,7 @@ def check_changed_files_only_judges_the_change():
         hook.chmod(0o755)
         git('add', str(hook))
         git('commit', '-qm', 'a new Claude-only hook, no PARALLELS row')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'claude-only-surface-has-a-parallel')
         cases.append(('a new hook with no PARALLELS row is refused at Booked, '
                       'as a finding this push caused',
                       rc == 1 and 'claude-only-surface-has-a-parallel' in out
@@ -15184,7 +15191,7 @@ def check_changed_files_only_judges_the_change():
         with open(wt / 'README.md', 'a', encoding='utf-8') as f:
             f.write('\nAnother unrelated line.\n')
         git('commit', '-qam', 'touch another file again')
-        rc, out = run_check(caused_at)
+        rc, out = run_check(caused_at, 'claude-only-surface-has-a-parallel')
         cases.append(('the next, unrelated push passes, and names the missing '
                       'row as left for the full check',
                       rc == 0 and 'claude-only-surface-has-a-parallel: '
@@ -15199,7 +15206,7 @@ def check_changed_files_only_judges_the_change():
         with open(practice, 'a', encoding='utf-8') as f:
             f.write('\nThe QZXW fixture line.\n')
         git('commit', '-qam', 'an unglossed acronym in a practice')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'acronyms-glossary')
         cases.append(('an unglossed acronym added to a practice where it is authored '
                       'is refused', rc == 1 and 'acronyms-glossary' in out
                       and 'QZXW' in out, out[-800:]))
@@ -15207,7 +15214,7 @@ def check_changed_files_only_judges_the_change():
             {'slug': practice.stem, 'level': 'universal'}]}), encoding='utf-8')
         git('add', 'MANIFEST.json')
         git('commit', '-qm', 'the practice is materialized here')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'acronyms-glossary')
         cases.append(('...and the same line in a practice MANIFEST.json says was '
                       'materialized is not judged, and the note says why',
                       rc == 0 and 'materialized from another source' in out, out[-800:]))
@@ -15222,7 +15229,7 @@ def check_changed_files_only_judges_the_change():
         start = git('rev-parse', 'HEAD').stdout.strip()
         git('rm', '-q', 'documentation/CLOUD_SETUP.md')
         git('commit', '-qm', 'delete a file other files cite')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'rename-updates-links')
         cases.append(('a change that deletes a file an untouched file cites is refused',
                       rc == 1 and 'rename-updates-links' in out
                       and 'documentation/CLOUD_SETUP.md' in out, out[-800:]))
@@ -15232,7 +15239,7 @@ def check_changed_files_only_judges_the_change():
         with open(wt / '.gitignore', 'a', encoding='utf-8') as f:
             f.write('\n# an unrelated line\n')
         git('commit', '-qam', 'touch another file after the deletion')
-        rc, out = run_check(deleted)
+        rc, out = run_check(deleted, 'rename-updates-links')
         cases.append(('...and a later change that deletes nothing is not refused for it',
                       rc == 0, out[-800:]))
         git('checkout', '-q', start, '--', 'documentation/CLOUD_SETUP.md', '.gitignore')
@@ -15256,14 +15263,14 @@ def check_changed_files_only_judges_the_change():
             'sys.exit(1)\n', encoding='utf-8')
         git('add', '-A')
         git('commit', '-qm', 'a newly synced check script')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'check_planted_newcomer')
         cases.append(('a newly arrived check\'s finding on a file the push does not '
                       'change does not refuse it', rc == 0, out[-800:]))
         brought = git('rev-parse', 'HEAD').stdout.strip()
         (wt / 'PLANTED_NEW.md').write_text('# New\n', encoding='utf-8')
         git('add', '-A')
         git('commit', '-qm', 'a file the new check flags')
-        rc, out = run_check(brought)
+        rc, out = run_check(brought, 'check_planted_newcomer')
         cases.append(('...and its finding on a file the push brings does',
                       rc == 1 and 'PLANTED_NEW.md' in out, out[-800:]))
         git('rm', '-q', 'PLANTED_NEW.md', 'tools/checks/check_planted_newcomer.py')
@@ -15347,7 +15354,7 @@ def check_changed_files_only_judges_the_change():
                       and 'the full check refuses it' in bv.stderr,
                       (bv.stdout + bv.stderr)[-400:]))
         git('commit', '-qam', 'a block over its resident cap')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'loader-within-caps')
         cases.append(('the pre-staging check lets it through with a warning '
                       'naming the staging refusal',
                       rc == 0 and 'over a size cap. The quick check lets it through' in out,
@@ -17125,6 +17132,14 @@ def check_update_vendors_survives_an_upstream_deletion():
     own: the check skips an index path missing from disk, and the update
     stages what it wrote and deleted before the check runs.
     Owns its state (practice: fixture-owns-its-state).
+
+    The update runs with --skip-check, and the one check that failed that
+    day runs on its own after it, with the deletion staged and then
+    unstaged. The update's full check on this fixture took about 330 of
+    the test's 350 seconds here and about 560 on GitHub's runner, the
+    slowest check in the suite, while proving nothing the two fixes need
+    (Morgan, 2026-10-08: "minor and very very long, so let's fix this
+    right now"). Other update checks still run the update's own check.
     """
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-deletes-'))
@@ -17189,19 +17204,32 @@ def check_update_vendors_survives_an_upstream_deletion():
 
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(proj), '--from-ref', _ref_including_worktree(ROOT),
-                     cwd=proj)
-        cases.append(('the update that deletes it ends DONE with the deep check run, '
-                      'not FAILED', rc == 0 and 'DONE -- nothing left' in out
-                      and re.search(r'(deep check|check for [\w-]+): passed', out),
-                      out[-2500:]))
+                     '--skip-check', cwd=proj)
+        cases.append(('the update that deletes it ends DONE, not FAILED',
+                      rc == 0 and 'DONE -- nothing left' in out, out[-2500:]))
         cases.append(('...the file is gone from disk', not (proj / DROPPED).exists(), ''))
         _rc, staged = sh('git', 'diff', '--cached', '--name-status', '--', DROPPED, cwd=proj)
-        cases.append(('...and its deletion is staged, so the check judged what the '
+        cases.append(('...and its deletion is staged, so the check judges what the '
                       'commit will hold', staged.startswith('D'), staged))
+        # The check that failed that day, on the tree as the update left it.
+        rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
+                     'timestamps-carry-offset', cwd=proj)
+        cases.append(('timestamps-carry-offset passes on the tree the update staged',
+                      rc == 0 and 'could not be parsed' not in out, out[-800:]))
 
-        # The check on its own: with the deletion UNSTAGED again, the index
-        # still names the file, and it must not be reported as unparseable.
+        # The check on its own: a file deleted and NOT staged is still in the
+        # index, and must not be reported as unparseable. The file is the
+        # repo's own, not the dropped one: findings in the mirrored tree
+        # process/upstream/ are set aside since then, so a deletion there
+        # passed with or without the fix (found 2026-10-08, putting the fix
+        # back out and watching this case still pass).
         sh('git', 'reset', '-q', cwd=proj)
+        own = proj / 'tools' / 'zz_deleted_fixture.py'
+        own.write_text('VALUE = 1\n', encoding='utf-8')
+        sh('git', 'add', str(own), cwd=proj)
+        sh('git', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'a file to delete',
+           '--', str(own), cwd=proj)
+        own.unlink()
         rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
                      'timestamps-carry-offset', cwd=proj)
         cases.append(('timestamps-carry-offset passes over a deleted, unstaged file '
