@@ -472,6 +472,10 @@ ENGINE_FILES = [
     # (tools/bootstrap.sh runs it; practice: automation-issues, added
     # 2026-10-08). In ENGINE_FILES so a practice set's own jobs get it too.
     'open_failures.py',
+    # The full check of a commit that already landed, run in the background
+    # (`update_full_check: after` in precedent.json); files a failure through
+    # open_failures.py (added 2026-10-08).
+    'precedent_check_after.py',
     # WHO this repo's commits belong to, resolved the way commit-identity.sh
     # already resolves it. In ENGINE_FILES rather than CONSUMER-only,
     # unlike precedent_resolve.py which it was carved out of: a practice
