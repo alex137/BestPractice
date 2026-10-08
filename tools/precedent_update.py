@@ -1714,6 +1714,7 @@ class Report:
         self.pin = None      # (repo, commit, branch): the commit reruns take
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
         self.before = None   # what was uncommitted when the run started writing
+        self.earlier = set() # of `before`, what an earlier run staged, unchanged
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1800,6 +1801,12 @@ class Report:
             # FAILED one asked nothing new: with any item left, the check
             # that fails is never started.
             record_staged_output(self.repo, self.staged)
+        if self.before is not None and (self.repo or self.pin_repo) is not None:
+            # Every outcome: a LEFT or DONE run's staged output is what a
+            # rerun before the commit finds uncommitted, and is not someone's
+            # work (earlier_runs_output).
+            record_kept_output(self.repo or self.pin_repo,
+                               set(self.staged) | self.earlier)
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
@@ -2248,6 +2255,65 @@ def record_staged_output(repo, paths):
     data = _read_record(repo)
     data['paths'] = {p: _content_hash(repo / p) for p in sorted(paths)}
     _write_record(repo, data)
+
+
+def record_kept_output(repo, paths):
+    """Write down what this run leaves staged as the update's output, in
+    every outcome, under the record's `staged` key: each path and the hash
+    it holds, for earlier_runs_output() at the next run. A path with an
+    unstaged change on top is left out -- what is on top is not the
+    update's. Unlike `paths` (record_staged_output), nothing is put back
+    from this; it is only how a rerun tells its own output from yours."""
+    data = _read_record(repo)
+    g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+    kept = {p: _content_hash(repo / p) for p in sorted(paths)
+            if g('diff', '--quiet', '--', p).returncode == 0}
+    if kept:
+        data['staged'] = kept
+    else:
+        data.pop('staged', None)
+    _write_record(repo, data)
+
+
+def earlier_runs_output(repo, before, failed_paths=None):
+    """-> the paths of `before` an earlier run of this update staged and
+    nobody has changed since: staged, no unstaged change on top, and holding
+    the content the record names (record_kept_output's `staged`, or the
+    `paths` a FAILED run recorded, read before restore_own_staged_output
+    pops them, as `failed_paths`).
+
+    WHY (2026-10-08, a consuming repository). A second run before the
+    commit said "116 already uncommitted before it ran, left as they were",
+    and every one was the first run's own staged output; git status showed
+    nothing unstaged. The staged line now counts these apart from what was
+    really uncommitted before any run of the update."""
+    known = dict(_read_record(repo).get('staged') or {})
+    known.update(failed_paths or {})
+    g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+    out = set()
+    for rel in sorted(set(before) & set(known)):
+        if _content_hash(repo / rel) != known[rel]:
+            continue
+        if g('diff', '--quiet', '--', rel).returncode != 0:
+            continue        # an unstaged change on top: someone's
+        if g('diff', '--cached', '--quiet', '--', rel).returncode == 0:
+            continue        # not staged (untracked, or back to HEAD)
+        out.add(rel)
+    return out
+
+
+def staged_line(n, before, earlier):
+    """-> the `staged` step's outcome: what this run wrote, what an earlier
+    run of it staged and left, and what was uncommitted before either."""
+    kept = set(earlier) & set(before)
+    theirs = set(before) - kept
+    return (f'{n} path(s) this update wrote or deleted'
+            + (f'; {len(kept)} staged by an earlier run of this update and '
+               f'unchanged since, still staged as its output' if kept else '')
+            + (f'; {len(theirs)} already uncommitted before it ran, left as '
+               f'they were' if theirs else ''))
 
 
 def held_pin(repo):
@@ -2904,6 +2970,7 @@ def update(repo, skip_check=False, ref=None, move=False):
                  f'and your other changes to it stay')
     before = dirty_paths(repo)
     rep.before = before
+    rep.earlier = earlier_runs_output(repo, before, wrote)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
         rep.leave(str(repo), "no vendored loader engine (tools/ENGINE_MANIFEST.json), "
@@ -3341,9 +3408,7 @@ def update(repo, skip_check=False, ref=None, move=False):
     n = stage_update(repo, before)
     regenerated_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
-    rep.step('staged', f'{n} path(s) this update wrote or deleted'
-             + (f'; {len(before)} already uncommitted before it ran, left as they were'
-                if before else ''))
+    rep.step('staged', staged_line(n, before, rep.earlier))
 
     # Hooks and settings: said before the commit, never found at it
     # (2026-10-06). Claude Code's auto mode holds a commit that changes

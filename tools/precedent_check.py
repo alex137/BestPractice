@@ -10406,17 +10406,10 @@ def _declared_record_paths():
     file names paths as they were -- a migration record, a dated audit --
     and is declared, with its reason, rather than folded into the
     decommissioning registry's exempt_files, which is for records OF a
-    decommissioning."""
-    try:
-        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return []
-    out = []
-    for e in (cfg.get('record_paths') if isinstance(cfg, dict) else None) or []:
-        path = e.get('path') if isinstance(e, dict) else e
-        if isinstance(path, str) and path.strip():
-            out.append(path.strip())
-    return out
+    decommissioning. Read by precedent_resolve.declared_record_paths(), the
+    one reader the citation scan shares."""
+    import precedent_resolve as _pr
+    return _pr.declared_record_paths(ROOT)
 
 
 # A document whose lifecycle header says it is finished is a record of what

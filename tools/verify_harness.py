@@ -13018,6 +13018,63 @@ def check_update_rerun_after_failed_takes_its_own_output():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_rerun_counts_its_own_staged_output_apart():
+    """A rerun of Update Vendors before the commit counts what an earlier
+    run staged apart from what was uncommitted before any run.
+
+    THE INCIDENT (2026-10-08, a consuming repository). The second run said
+    "116 already uncommitted before it ran, left as they were"; all 116 were
+    the first run's own staged output, and git status showed nothing
+    unstaged. Planted: a person's own uncommitted note before run 1, then a
+    run that stages an engine change and is not committed, then a rerun --
+    which must name the earlier run's output as its own and still count the
+    note as the person's. A staged file the person then edits is theirs."""
+    fx = _LocalEditsFixture('precedent-update-recount-')
+    cases = []
+
+    def staged(out):
+        return next((l for l in out.splitlines()
+                     if l.startswith('precedent_update: staged:')), '')
+    try:
+        repo = fx.consumer('recount')
+        seeded = fx.seeded_from(repo)
+        fx.update(repo, seeded)
+        fx.commit(repo, 'first update')
+        f = repo / 'tools' / 'precedent_show.py'
+        ref = fx.upstream(seeded, {'tools/precedent_show.py':
+                                   f.read_bytes() + b'\n# upstream\n'})
+        (repo / 'notes.md').write_text('# My notes\n', encoding='utf-8')
+        rc, out = fx.update(repo, ref)
+        first = staged(out)
+        cases.append(('run 1 stages the engine change and leaves the note',
+                      'tools/precedent_show.py' in fx.git(repo, 'diff', '--cached',
+                                                          '--name-only')
+                      and '1 already uncommitted' in first, first or out[-1200:]))
+        rc, out = fx.update(repo, ref)
+        second = staged(out)
+        cases.append(('the rerun counts run 1\'s staged output as an earlier run\'s, '
+                      'and only the note as uncommitted before it ran',
+                      'staged by an earlier run of this update' in second
+                      and '1 already uncommitted before it ran' in second,
+                      second or out[-1200:]))
+        f.write_bytes(f.read_bytes() + b'# the person changed this\n')
+        subprocess.run(['git', '-C', str(repo), 'add', '--', 'tools/precedent_show.py'],
+                       capture_output=True)
+        import precedent_update as pu
+        before = pu.dirty_paths(repo)
+        mine = pu.earlier_runs_output(repo, before)
+        cases.append(('a staged file the person changed since is not counted as the '
+                      'update\'s', 'tools/precedent_show.py' not in mine
+                      and 'notes.md' not in mine, sorted(mine)))
+    except (OSError, subprocess.CalledProcessError, ImportError, AttributeError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_reports_every_blocker_before_the_slow_check():
     """Update Vendors reports every blocker it can find cheaply in one run
     and starts the slow check only when there are none (2026-10-02: a large
@@ -35275,6 +35332,15 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
             # links exempt" from "never scanned".
             '# X\n\n### Skipped level\n\nSee [the engine](../tools/very_deep_check.py).\n',
             encoding='utf-8')
+        # A vendored TEMPLATE: its links name the tree it is instantiated
+        # into, as upstream's own check reads them (templates/ under the
+        # source root, not this repo's). Found 2026-10-08: a consumer's
+        # Update Vendors reported a vendored template's `gotchas/` as broken
+        # on every run, while upstream's check of the same line passed.
+        tpl = repo / 'precedent' / 'universal' / 'templates' / 'proj'
+        tpl.mkdir(parents=True)
+        (tpl / 'AGENTS.md').write_text(
+            '# Agents\n\nTraps live under [gotchas/](gotchas/).\n', encoding='utf-8')
         (repo / 'docs').mkdir()
         (repo / 'docs' / 'mine.md').write_text(
             '# Mine\n\nSee [nothing](../nowhere/absent.md).\n', encoding='utf-8')
@@ -35305,6 +35371,11 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
         check('...and a mirrored tree\'s broken link never fails this repo\'s gate',
               r2.returncode == 0 and 'precedent/universal/' in (r2.stdout + r2.stderr),
               f'exit {r2.returncode}: {(r2.stdout + r2.stderr)[-300:]}')
+        check('a vendored template\'s link to a path its instance will hold '
+              '(`gotchas/`) is read as upstream reads it, not reported as broken',
+              not any('templates/proj/AGENTS.md' in l for l in broken)
+              and any('some-practice.md' in l for l in broken),
+              '; '.join(broken)[:300])
         check('doc_lint still reports the repo\'s OWN broken relative link '
               'in the same run',
               any('docs/mine.md' in l for l in broken),
@@ -59879,6 +59950,78 @@ def check_citations_skip_a_generated_block():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_citations_in_a_declared_record_are_history():
+    """A record of what was -- a dated migration record -- names practices
+    as they were, so Update Vendors never lists its citations for a read.
+
+    THE INCIDENT (2026-10-08). A consumer's Update Vendors reported seven
+    citations of practices reworded or withdrawn, six of them in its
+    process/PRECEDENT_MIGRATION.md, every run; current-rule-governs calls
+    that history. Planted: the same practice cited in a plain doc (live), a
+    file declaring `kind: record` in frontmatter, a file precedent.json's
+    `record_paths` declares, a `## Story` section, and an undeclared file
+    named like a migration record (still live: nothing is guessed from a
+    name)."""
+    import tempfile, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_practice_refs as ppr
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refs-record-'))
+    try:
+        cite = 'Merges follow `upstream-fix` here.\n'
+        (tmp / 'docs').mkdir()
+        (tmp / 'process').mkdir()
+        (tmp / 'docs' / 'live.md').write_text('# Live\n\n' + cite, encoding='utf-8')
+        (tmp / 'docs' / 'self.md').write_text(
+            '---\nkind: record\nstatus: closed\n---\n# Self\n\n' + cite,
+            encoding='utf-8')
+        (tmp / 'process' / 'PRECEDENT_MIGRATION.md').write_text(
+            '<!-- Last updated: 2026-10-01 -->\n# Migrating\n\n'
+            '## What moved where\n\n' + cite, encoding='utf-8')
+        (tmp / 'docs' / 'MIGRATION_NOTES.md').write_text(
+            '# Migrating\n\n' + cite, encoding='utf-8')
+        (tmp / 'docs' / 'story.md').write_text(
+            '# A doc\n\n## Story\n\n' + cite + '\n## Next\n\n' + cite,
+            encoding='utf-8')
+        (tmp / 'precedent.json').write_text(_json.dumps({'record_paths': [
+            {'path': 'process/PRECEDENT_MIGRATION.md',
+             'reason': 'the dated migration record'}]}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True, check=True)
+        rows = ppr.scan_root(tmp, {'upstream-fix'})
+        kinds = {f'{r[0]}:{r[1]}': r[4] for r in rows}
+        cases.append(('a plain document\'s citation is live',
+                      kinds.get('docs/live.md:3') == 'live', kinds))
+        cases.append(('a file declaring kind: record is history',
+                      kinds.get('docs/self.md:7') == 'history', kinds))
+        cases.append(('a file record_paths declares is history',
+                      kinds.get('process/PRECEDENT_MIGRATION.md:6') == 'history', kinds))
+        cases.append(('a ## Story section is history, the section after it live',
+                      kinds.get('docs/story.md:5') == 'history'
+                      and kinds.get('docs/story.md:9') == 'live', kinds))
+        cases.append(('an undeclared file named like a record stays live',
+                      kinds.get('docs/MIGRATION_NOTES.md:3') == 'live', kinds))
+        data = {'slugs': {'upstream-fix': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'file': r[0], 'line': r[1],
+                          'slug': r[2], 'form': r[3], 'kind': r[4],
+                          'must_fix': ppr.must_fix(r)} for r in rows]}
+        fix, read = pu.citation_findings(data)
+        cases.append(('Update Vendors asks for a read of the live lines only',
+                      fix == [] and sorted(read) == ['docs/MIGRATION_NOTES.md:3',
+                                                     'docs/live.md:3',
+                                                     'docs/story.md:9'],
+                      (fix, read)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'citations in a declared record are history, not listed for a read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     """A consumer's session searched the clones for "Debut" (2026-10-04).
 
@@ -66505,6 +66648,8 @@ def main():
           *check_update_vendors_resolves_local_edits())
     check('a rerun after a FAILED Update Vendors takes the staged output as its own',
           *check_update_rerun_after_failed_takes_its_own_output())
+    check('a rerun of Update Vendors counts its own staged output apart from yours',
+          *check_update_rerun_counts_its_own_staged_output_apart())
     check('Update Vendors reports every blocker before it starts the slow check',
           *check_update_reports_every_blocker_before_the_slow_check())
     check('change-updates-its-docs finds the same removed paths without a regex per path',
@@ -66885,6 +67030,7 @@ def main():
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
     check_citations_skip_a_generated_block()
+    check_citations_in_a_declared_record_are_history()
     check_second_pass_judgment_replaces_first_pass_left()
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())

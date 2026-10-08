@@ -1357,6 +1357,27 @@ def mirrored_prefixes(repo):
     return tuple(sorted(prefixes))
 
 
+def declared_record_paths(repo):
+    """-> precedent.json's `record_paths` entries ({"path", "reason"}), as
+    path strings; an entry ending in "/" covers a directory. A whole record
+    file names paths and practices as they were -- a migration record, a
+    dated audit -- and the repository declares it, with its reason. THE ONE
+    READER of that list: precedent_check's link and lineage checks and
+    precedent_practice_refs' citation scan all ask here. Never raises; a
+    missing or unreadable precedent.json declares nothing."""
+    try:
+        cfg = json.loads((pathlib.Path(repo) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for e in (cfg.get('record_paths') if isinstance(cfg, dict) else None) or []:
+        path = e.get('path') if isinstance(e, dict) else e
+        if isinstance(path, str) and path.strip():
+            out.append(path.strip())
+    return out
+
+
 class NotBindingError(Exception):
     """A `not_binding` declaration that is itself malformed. Raised rather
     than tolerated: an exemption mechanism that silently ignores its own bad
