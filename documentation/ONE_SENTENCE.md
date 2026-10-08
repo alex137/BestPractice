@@ -28,6 +28,8 @@ best one can win. Got a better one? Add it.
 - **Makes the Implicit assumptions** of every team member **Explicit**.
 - As your team works, **every little thing becomes a Principle, Protocol,
   or Preference**.
+- **Do things, and define the rules for what you're doing**, as you're
+  doing it.
 
 ## Where to Go From Here
 
