@@ -24705,7 +24705,6 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         "the person's quoted approval": 'Morgan, 2026-10-01: "Approved".\nOpen a pull request into main and merge it.',
         'a feature-branch ending': 'Build it on your feature branch, push it there, and stop.',
         'a negated line': 'Open no pull request and merge nothing into main.',
-        'a shell command': 'git push -u origin main',
         'a tier branch, which off the ladder is not a landing':
             'Push it to pre-staging once it is green.',
     }
@@ -24736,6 +24735,39 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
         'a past merge, narrated':
             'The last session merged its PR into main yesterday.\n' + stop,
     })
+    # Later on 2026-10-08: a negator exempts a clause only when it governs
+    # the landing verb there, and a block that says land in other words is
+    # read for what it asks (Morgan: "shouldn't it understand the intent
+    # behind commands not just the literal words?"; practice:
+    # read-for-intent). Until then a shell command stayed clean by design;
+    # `git push origin main` is a landing, and now it reads as one.
+    must_fire.update({
+        'the bug: a negator that governs something else':
+            'Merge it into main, no questions asked.',
+        'a negator after the destination': 'Merge it into main without waiting.',
+        'a negator that turns into a yes': "Don't hesitate to merge into main.",
+        'an apostrophe is not a quote': "Don't wait; it's fine to merge into main.",
+        'a negated object with an exception': 'Merge nothing but the fix into main.',
+        'make it live': 'Make it live once the checks pass.',
+        'ship to production': 'Deploy it to production when green.',
+        'ship it': 'Ship it.',
+        'fast-forward main': 'Fast-forward main to your branch.',
+        'merge the PR': 'Open the pull request and merge the PR.',
+        'gh pr merge': 'Run gh pr merge 12 --squash.',
+        'a shell command': 'git push -u origin main',
+        'a refspec': 'git push origin HEAD:main',
+        'a PR opened with --base': 'gh pr create --base main',
+    })
+    clean.update({
+        "don't merge": "Don't merge into main.",
+        'never push': 'Never push to main.',
+        'do not open a PR': 'Do not open a PR to main.',
+        'without, governing the verb': 'Finish without merging into main.',
+        'a negated command': 'Do not run gh pr merge, and do not make it live.',
+        'fast-forwarding a local checkout to read it':
+            'Fast-forward your checkout of main before you start.',
+        'a push to the feature branch': 'git push -u origin 2026-10-08-fix-x1',
+    })
     cases = [(f'fires: {k}', bool(fires(b)), '') for k, b in must_fire.items()]
     cases += [(f'clean: {k}', not fires(b), str(fires(b))[:200]) for k, b in clean.items()]
     cases.append(("clean: the reply's own prose saying where work lands",
@@ -24744,6 +24776,65 @@ def check_reply_check_refuses_a_paste_block_that_lands_unauthorized():
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} {d}' for n, d in bad))
+
+
+def check_reply_check_reads_a_landing_trigger_by_clause_and_by_list():
+    """The engine keys behind read-for-intent's landing rule, driven with
+    fixture rules so the mechanism is tested apart from any one set's data.
+
+    `if_matches` may be a list and `also_if_matches` adds to it; a stage
+    word given as the order fires only in a capitalized, imperative place
+    (the ladder set lists its own the same way); `negation_exempt_if_clause_negates`
+    forgives a clause only when the negator governs the landing verb in it,
+    as one regex or as {before, object}; and an old-shape rule -- one
+    string with its own line-level lookahead, neither key -- reads exactly
+    as it did. (2026-10-08; practice: read-for-intent.)"""
+    import precedent_reply_check as prc
+    neg = r"\b(?:do not|never|not|no|nothing)\b"
+    tier = r"\bmerg\w*\b[^\n]{0,80}?\binto\s+(?:staging|main)\b"
+    stage = (r"(?:^|(?<=[.;:,!?]\s)|(?<=\bthen\s))(?-i:Debut|Booked)\b"
+             r"(?!\s+(?:is|lands)\b)")
+
+    def rule(**pair):
+        pair.setdefault('must_also_match', r'"Booked"')
+        return [{'practice': 'fixture', 'require_in_fence_paired_with': [pair]}]
+
+    def fires(reqs, body):
+        return bool([v for v in prc.violations('```\n' + body + '\n```\n', reqs)
+                     if v['kind'] == 'in_fence_paired'])
+    old = rule(if_matches=r"^(?![^\n]*\b(?:not|no)\b)[^\n]*" + tier)
+    listed = rule(if_matches=[tier], also_if_matches=[stage],
+                  negation_exempt_if_clause_negates=neg)
+    split = rule(if_matches=tier, also_if_matches=[stage],
+                 negation_exempt_if_clause_negates={
+                     'before': neg, 'object': r"\bnothing\b"})
+    cases = [
+        ('old shape: a plain order fires', fires(old, 'Merge it into main.')),
+        ('old shape: its own lookahead still skips a negated line',
+         not fires(old, 'Do not merge into main.')),
+        ('old shape: the line-level hole it had', not fires(
+            old, 'Merge it into main, no questions asked.')),
+        ('list: the bug case fires',
+         fires(listed, 'Merge it into main, no questions asked.')),
+        ('list: a negator before the verb exempts',
+         not fires(listed, 'Never merge it into staging.')),
+        ('list: a stage word as the order fires', fires(listed, 'Then Debut it.')),
+        ('list: a stage word mentioned does not',
+         not fires(listed, 'The person lands it with Booked.')),
+        ('list: a lower-case stage word is a plain word',
+         not fires(listed, 'Then debut the idea in the doc.')),
+        ('list: a negated stage word is exempt', not fires(listed, 'Do not Debut it.')),
+        ('list: a quoted Booked satisfies it',
+         not fires(listed, 'Morgan: "Booked".\nThen Debut it.')),
+        ('split: an object negator after the verb exempts',
+         not fires(split, 'Merge nothing into main.')),
+        ('split: the before-regex is not used as the object',
+         fires(split, 'Merge not this into main.')),
+        ('a trigger across a clause boundary is never forgiven',
+         fires(listed, 'Do not wait, merge it into main.')),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    return not bad, '; '.join(bad)
 
 
 def check_reply_check_requires_a_destination_for_a_fence_block():
@@ -66780,6 +66871,8 @@ def main():
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
     check_reply_check_refuses_a_paste_block_that_lands_unauthorized()
+    check('the landing trigger reads per clause, from a list, and the old shape '
+          'reads as it did', *check_reply_check_reads_a_landing_trigger_by_clause_and_by_list())
     check('the reply check requires the Boildown to open with where the work is',
           *check_reply_check_requires_the_boildown_first_line())
     check('the reply check refuses a Boildown that only repeats the last one',
