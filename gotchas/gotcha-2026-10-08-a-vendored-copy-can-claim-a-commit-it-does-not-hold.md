@@ -48,12 +48,18 @@ Three changes in BestPractice, 2026-10-08:
   rules, apart from what the repository keeps on purpose. Where it is not,
   the difference is re-mirrored and reported; a local edit nobody has
   resolved is reported, never overwritten.
-- A run records the paths it wrote and deleted, so a later run, even on a
-  newer engine, knows them as its own, and a put-back re-applies the
-  deletions too.
+- A run records the paths it wrote and deleted, even one that fails
+  before staging, so a later run, even on a newer engine, knows them as its
+  own; a put-back re-applies the deletions too, and puts the manifest's
+  record of the commit back with the copy, so the two stay together. A
+  file holding text upstream itself shipped at that path, at any commit,
+  is never counted as a local edit.
 - A declined file's copy is upstream's text at the recorded commit, so a
   decline is judged against one basis everywhere.
 
 **If you meet the symptom anyway:** compare `process/upstream/` with
 BestPractice at the commit `process/manifest.json` records. A copy that
-differs is stale, and one clean Update Vendors run re-mirrors it.
+differs is stale, and one clean Update Vendors run re-mirrors it. Run it
+from a BestPractice clone with its full history: in a shallow clone older
+upstream text cannot be recognised, and those files are left for the
+person instead of re-mirrored.
