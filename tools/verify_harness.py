@@ -33451,6 +33451,16 @@ def check_promote_only_and_tier_branches():
                       push_refused('origin staging') is not None))
         cases.append(('on: a push to pre-staging goes through',
                       push_refused('origin pre-staging') is None))
+        # The first landing (promote-only's first-install exception, Morgan,
+        # 2026-10-08): a push into a remote holding no branch at all creates
+        # main and goes through; the remote above, which has main, refuses.
+        empty = tmp / 'empty.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(empty))
+        git(work, 'remote', 'add', 'fresh', f'file://{empty}')
+        cases.append(('on: the first push into an empty remote creates main and '
+                      'goes through', push_refused('fresh HEAD:main') is None))
+        cases.append(('on: a remote that cannot be asked keeps the push refused',
+                      push_refused('nosuchremote main') is not None))
         cases.append(('on: a push to a working branch goes through',
                       push_refused('origin claude/x') is None))
         cases.append(('on: pre-staging into staging is the promotion route, '
