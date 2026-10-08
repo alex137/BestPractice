@@ -59748,6 +59748,78 @@ def check_citations_skip_a_generated_block():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_citations_in_a_declared_record_are_history():
+    """A record of what was -- a dated migration record -- names practices
+    as they were, so Update Vendors never lists its citations for a read.
+
+    THE INCIDENT (2026-10-08). A consumer's Update Vendors reported seven
+    citations of practices reworded or withdrawn, six of them in its
+    process/PRECEDENT_MIGRATION.md, every run; current-rule-governs calls
+    that history. Planted: the same practice cited in a plain doc (live), a
+    file declaring `kind: record` in frontmatter, a file precedent.json's
+    `record_paths` declares, a `## Story` section, and an undeclared file
+    named like a migration record (still live: nothing is guessed from a
+    name)."""
+    import tempfile, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_practice_refs as ppr
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refs-record-'))
+    try:
+        cite = 'Merges follow `upstream-fix` here.\n'
+        (tmp / 'docs').mkdir()
+        (tmp / 'process').mkdir()
+        (tmp / 'docs' / 'live.md').write_text('# Live\n\n' + cite, encoding='utf-8')
+        (tmp / 'docs' / 'self.md').write_text(
+            '---\nkind: record\nstatus: closed\n---\n# Self\n\n' + cite,
+            encoding='utf-8')
+        (tmp / 'process' / 'PRECEDENT_MIGRATION.md').write_text(
+            '<!-- Last updated: 2026-10-01 -->\n# Migrating\n\n'
+            '## What moved where\n\n' + cite, encoding='utf-8')
+        (tmp / 'docs' / 'MIGRATION_NOTES.md').write_text(
+            '# Migrating\n\n' + cite, encoding='utf-8')
+        (tmp / 'docs' / 'story.md').write_text(
+            '# A doc\n\n## Story\n\n' + cite + '\n## Next\n\n' + cite,
+            encoding='utf-8')
+        (tmp / 'precedent.json').write_text(_json.dumps({'record_paths': [
+            {'path': 'process/PRECEDENT_MIGRATION.md',
+             'reason': 'the dated migration record'}]}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], capture_output=True, check=True)
+        rows = ppr.scan_root(tmp, {'upstream-fix'})
+        kinds = {f'{r[0]}:{r[1]}': r[4] for r in rows}
+        cases.append(('a plain document\'s citation is live',
+                      kinds.get('docs/live.md:3') == 'live', kinds))
+        cases.append(('a file declaring kind: record is history',
+                      kinds.get('docs/self.md:7') == 'history', kinds))
+        cases.append(('a file record_paths declares is history',
+                      kinds.get('process/PRECEDENT_MIGRATION.md:6') == 'history', kinds))
+        cases.append(('a ## Story section is history, the section after it live',
+                      kinds.get('docs/story.md:5') == 'history'
+                      and kinds.get('docs/story.md:9') == 'live', kinds))
+        cases.append(('an undeclared file named like a record stays live',
+                      kinds.get('docs/MIGRATION_NOTES.md:3') == 'live', kinds))
+        data = {'slugs': {'upstream-fix': 'Rule reworded'}, 'successors': {},
+                'hits': [{'source': 'this repository', 'file': r[0], 'line': r[1],
+                          'slug': r[2], 'form': r[3], 'kind': r[4],
+                          'must_fix': ppr.must_fix(r)} for r in rows]}
+        fix, read = pu.citation_findings(data)
+        cases.append(('Update Vendors asks for a read of the live lines only',
+                      fix == [] and sorted(read) == ['docs/MIGRATION_NOTES.md:3',
+                                                     'docs/live.md:3',
+                                                     'docs/story.md:9'],
+                      (fix, read)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'citations in a declared record are history, not listed for a read '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
     """A consumer's session searched the clones for "Debut" (2026-10-04).
 
@@ -66753,6 +66825,7 @@ def main():
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
     check_kept_section_reports_upstreams_change_not_its_lacks()
     check_citations_skip_a_generated_block()
+    check_citations_in_a_declared_record_are_history()
     check_second_pass_judgment_replaces_first_pass_left()
     check('a kept section re-pins by itself when upstream\'s change misses what it kept',
           *check_kept_section_repins_a_change_that_misses_the_kept_lines())
