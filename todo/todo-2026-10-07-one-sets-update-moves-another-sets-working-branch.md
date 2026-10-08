@@ -19,7 +19,7 @@ closed:            null
 Update Vendors in one practice set can switch another set's checkout off
 the branch a session is working on. On 2026-10-07 a session updating three
 sets one after another made a working branch in each, then ran
-`precedent_update.py` in the individual set first. Its brought-sets step
+[precedent_update.py](../tools/precedent_update.py) in the individual set first. Its brought-sets step
 refreshes the sets the individual brings, the ladder set among them, and
 found the ladder clone clean on that working branch. Because the clone was
 made by the bootstrap (it carries the clone marker), `_sync_once` checked
@@ -42,7 +42,7 @@ Two ways, not yet chosen:
 1. **A marked clone off its pinned branch is reported, never switched**,
    the way an unmarked one already is. A tool-made clone left on another
    branch then needs a person to move it back, and says so.
-2. **`precedent_update.py` refuses to start on a tier branch** (`main`,
+2. **[precedent_update.py](../tools/precedent_update.py) refuses to start on a tier branch** (`main`,
    `staging`, `pre-staging`): an update lands through a working branch.
    Catches the symptom wherever it comes from, and leaves the switch
    itself in place.
