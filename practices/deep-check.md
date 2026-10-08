@@ -4,13 +4,13 @@ title:       "The deep check: every audit, plus an open-ended coherence review"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "A person asking for a deep check is a moment, not a file, and the read covers the whole repository; the occasion index reaches it, and its check reads tools/checks/ on every run."
+applies_to_why: "A person asking for a deep check is a moment, not a file, and the read covers the whole repository. The phrase is a spoken command, so it reaches a session through the command lists: AGENTS.md's occasion index where the tracked block carries it, and the spoken-commands list at the top of .precedent/SESSION_PRACTICES.md where the session file does (2026-10-08). Its check reads tools/checks/ on every run."
 occasion:    "asked for a \"deep check\""
 gates:       ["merge"]
 index_clause: "every mechanical audit, plus a full read of the repo against itself"
-index_required: true
 checked_by:  "tools/precedent_check.py"
 defines:     []
+command:     {"Deep check": "Run every mechanical check, fix what they find, then read the whole repository against itself for contradictions, stale references and drift."}
 status:      active
 in_force_at: null
 visible_to:  code-owners

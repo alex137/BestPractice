@@ -110,8 +110,13 @@ write days `main` already has.
 is shared, so a day has to end at the same moment whoever writes it. A day
 counts when `main` changed during it. A day with no change is quiet: no
 entry, said in the reply. So is a commit that touches only the log, or the log reaching `main`
-would be news every day. The first run, with no log yet, covers the last
-seven finished days.
+would be news every day. **So is a commit that only brought Precedent's own
+files in** -- an Update Vendors: the vendored engine, the catalogue copy,
+the materialized practices, and the views regenerated beside them. The log
+is about this project, never about Precedent (Morgan, 2026-10-08: "it is
+about what is happening in THAT repo not what is happening in Precedent");
+the project's own work in the same commit still counts. The first run,
+with no log yet, covers the last seven finished days.
 
 **It runs newest first**, the one kind of dated list that does: a reader
 opens a news log for the latest
