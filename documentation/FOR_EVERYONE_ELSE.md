@@ -223,7 +223,9 @@ is what an ordinary working day looks like. [What This Is (and Why Explore
 Using Precedent)](WHY_PRECEDENT.md) for the bigger picture.
 [SETUP.md](../SETUP.md) if the project isn't set up yet. If you ever
 want the fuller technical version of this page:
-[FOR_DEVELOPERS.md](FOR_DEVELOPERS.md).
+[FOR_DEVELOPERS.md](FOR_DEVELOPERS.md). [Precedent in One
+Sentence](ONE_SENTENCE.md) has the whole idea in one line, and [the
+documentation index](README.md) lists every page.
 
 **And if you hit a word you don't know** — one of this project's own, like
 *practice* or *capture gate* — [GLOSSARY.md](../GLOSSARY.md) is the master

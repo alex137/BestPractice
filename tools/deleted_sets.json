@@ -10,18 +10,25 @@
     "private set a person deletes goes in their own individual set's",
     "precedent-source.json `deleted_sets`, which is read the same way.",
     "Morgan, 2026-10-08 (strength: decided): if another person runs Update",
-    "Vendors, it should notice a deleted set too, as a standing rule."
+    "Vendors, it should notice a deleted set too, as a standing rule.",
+    "`successors` names the shared sets an entry's rules went to (universal is",
+    "not a set to declare, so it is never listed). Update Vendors asks about",
+    "each one a repository neither declares nor gets from the person's own",
+    "individual set, since dropping the old set without it takes those rules",
+    "away from everyone else who works there."
   ],
   "sets": [
     {
       "name": "precedent-shared-repo-maintenance",
       "date": "2026-10-08",
-      "reason": "retired 2026-10-06, its rules folded into universal and precedent-shared-writing; repository being deleted"
+      "reason": "retired 2026-10-06, its rules folded into universal and precedent-shared-writing; repository being deleted",
+      "successors": ["precedent-shared-writing"]
     },
     {
       "name": "precedent-shared-working-style",
       "date": "2026-10-08",
-      "reason": "retired 2026-10-06, its rules folded into universal and precedent-shared-writing; repository being deleted"
+      "reason": "retired 2026-10-06, its rules folded into universal and precedent-shared-writing; repository being deleted",
+      "successors": ["precedent-shared-writing"]
     }
   ]
 }

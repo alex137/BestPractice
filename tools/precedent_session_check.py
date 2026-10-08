@@ -955,8 +955,7 @@ def _charge_brought_share(n):
     the full check does."""
     try:
         import precedent_session_practices as psp
-        share, names = psp.brought_share(ROOT)
-        budget, _ind = psp.brought_budget(ROOT)
+        charged, share, names, budget = psp.charged_to_repo(ROOT, n)
     except Exception:                                        # noqa: BLE001
         return n, '', None
     if not share or budget is None:
@@ -968,7 +967,7 @@ def _charge_brought_share(n):
         over = (f"the set(s) you bring ({', '.join(names)}) add ~{share:,} "
                 f"tokens, over the {budget:,}-token `brought_sets_tokens` "
                 f"budget in your individual set")
-    return n - share, note, over
+    return charged, note, over
 
 
 def _session_load_rows():

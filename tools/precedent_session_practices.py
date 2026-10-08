@@ -464,6 +464,33 @@ def brought_share(repo=None):
     return max(0, bv._approx_tokens(full) - bv._approx_tokens(bare)), names
 
 
+def charged_to_repo(repo, n):
+    """-> (tokens charged to the repository's ceiling, brought share, [names],
+    the person's budget or None) for a session file measuring `n`.
+
+    THE ONE DEFINITION of what the repository's ceiling for this file pays:
+    the file less the share of the sets the person brings, which their own
+    `brought_sets_tokens` holds (BROUGHT_BUDGET_KEY). Every reader of that
+    ceiling -- the full check, the session check, the headroom and target
+    notices, and the seed that writes the ceiling -- takes it from here, so
+    a repository's ceiling never moves because of who works in it.
+    2026-10-08, a consuming repository: the headroom notice and the target
+    line charged the brought sets to the repository while the check did
+    not, and the person re-measured the ceiling by hand.
+
+    With no budget declared the share stays charged to the repository, as
+    it was before the budget existed (Morgan, 2026-10-03, strength:
+    assented), and the share is returned so a caller can say so."""
+    try:
+        share, names = brought_share(repo)
+        budget = brought_budget(repo)[0] if share else None
+    except Exception:                                        # noqa: BLE001
+        return n, 0, [], None
+    if not share or budget is None:
+        return n, share, names, budget
+    return n - share, share, names, budget
+
+
 def spoken_block(extra):
     """-> the spoken-commands block for `extra`, or '' when none of them
     defines a command: SPOKEN_HEAD, then one line per practice --

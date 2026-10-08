@@ -366,7 +366,7 @@ def approval_gap(repo):
             '(practice: session-load-budget)')
 
 
-def ensure_session_load_registry(repo, owed=None):
+def ensure_session_load_registry(repo):
     """Seed tools/session_load_budgets.json in a repository that has none.
     -> {surface: measured tokens} when it wrote one, else None.
 
@@ -381,15 +381,13 @@ def ensure_session_load_registry(repo, owed=None):
     a watermark declaring the status quo, never a judgment that it is the
     right size -- reducing it is the reduction pass the practice asks for.
 
-    `owed`: {surface: tokens} this same update asks the repo to add (the
-    AGENTS.md template sections it lists, pve.agents_md_owed_text), counted
-    into the measurement: on 2026-10-08 a consumer that copied in what the
-    update listed failed the ceiling the update had just seeded."""
+    Called only by the run that reports DONE (seed_budgets_step), on the
+    files that run produced."""
     path = repo / 'tools' / 'session_load_budgets.json'
     if path.exists():
         return None
     import precedent_bootstrap_source as _pbs
-    _pbs._write_session_load_budget(repo, occasion='Update Vendors', owed=owed)
+    _pbs._write_session_load_budget(repo, occasion='Update Vendors')
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -525,6 +523,24 @@ def retired_sources_step(repo, rep):
         rep.step('retired set', f'{name} ({path}) is no longer declared in '
                  f'precedent.json: {why}, and every active rule it held is in '
                  f'force in another declared source')
+    for succ, froms, brought in (pve.undeclared_successors(repo, dropped)
+                                 if hasattr(pve, 'undeclared_successors') else []):
+        whose = ', '.join(froms)
+        if brought:
+            rep.step('retired set', f'some of {whose}\'s rules now live in '
+                     f'{succ}, which this repository does not declare; your '
+                     f'individual set brings it, so they are in force for you '
+                     f'only -- declare it in precedent.json if anyone else '
+                     f'works here')
+            continue
+        rep.leave(f'precedent.json: declare {succ}?',
+                  f'some of {whose}\'s rules now live in {succ}, which this '
+                  f'repository does not declare and your individual set does '
+                  f'not bring, so those rules are no longer in force here. '
+                  f'Declaring it in precedent.json puts them in force for '
+                  f'everyone who works in this repository; bringing it from '
+                  f'your individual set covers only you. Declare it, bring it, '
+                  f'or decide this repository does without them')
     for name, path, why, lost in kept:
         rep.leave(f'precedent.json source {name!r}',
                   f'{why}, but {", ".join(lost)} is in force nowhere else, '
@@ -562,55 +578,149 @@ def retired_sources_step(repo, rep):
 # what to do when "four of five sources" resolve (a consuming repository's
 # two updates, 2026-10-07; one was fixed by hand, a band-aid). The sync
 # regenerates its own blocks, so what is left is the hand-written text:
-# precedent.json and the Markdown files at the repository's root, outside
-# any generated block. Listed for the person, never edited -- whether a
+# every string in precedent.json (its comments, a kept_template_divergences
+# reason, any other note) and the Markdown files at the repository's root,
+# outside any generated block (generated_blocks.py, the one definition of
+# where those are). Listed for the person, never edited -- whether a
 # sentence still holds is a reading, not a pattern.
+#
+# 2026-10-08, from the same repository's next update: a set is also named
+# by its family ("the two precedent-shared-* sets"), by its name before the
+# 2026-09-28 rename (precedent-team-...), and, once no shared set is left,
+# by "the shared sources" -- each was found by hand after a clean scan.
 _SET_COUNT_RE = re.compile(
     r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b'
     r'(?:\s+of\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+))?'
-    r'(?:\s+[\w-]+){0,2}?\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
-_GENERATED_BEGIN = re.compile(r'<!--\s*BEGIN GENERATED')
-_GENERATED_END = re.compile(r'<!--\s*END GENERATED')
+    r'(?:\s+[\w*-]+){0,2}?\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
+_SET_FAMILY_RE = re.compile(r'\b([a-z0-9]+(?:-[a-z0-9]+)*-)\*')
+_SHARED_SETS_RE = re.compile(r'\bshared\s+(?:practice\s+)?(?:sets|sources)\b', re.I)
+# Fields of a precedent.json source the engine owns, not prose.
+_SOURCE_FIELDS = frozenset({'name', 'path', 'level', 'repo_url'})
+
+
+def _dropped_set_matcher(names, shared_left):
+    """-> a function line -> (start, why) for the first way `line` speaks of
+    a dropped set, or None: by name, by its pre-rename name, by a family
+    wildcard that covers it, by counting the sets, or -- when no shared set
+    is left declared -- by speaking of the shared sets at all."""
+    team, shared = (getattr(pve, 'TEAM_SET_PREFIX', 'precedent-team-'),
+                    getattr(pve, 'SHARED_SET_PREFIX', 'precedent-shared-'))
+    old = {team + n[len(shared):]: n for n in names if n.startswith(shared)}
+
+    def match(line):
+        for n in names:
+            if n in line:
+                return line.index(n), f'names {n}, which this update stopped declaring'
+        for o, n in old.items():
+            if o in line:
+                return line.index(o), (f'names {o}, the name {n} had before '
+                                       f'2026-09-28, which this update stopped '
+                                       f'declaring')
+        for m in _SET_FAMILY_RE.finditer(line):
+            covered = [n for n in names if n.startswith(m.group(1))] + \
+                      [n for o, n in old.items() if o.startswith(m.group(1))]
+            if covered:
+                return m.start(), (f'speaks of {m.group(0)}, which covers '
+                                   f'{", ".join(sorted(set(covered)))}, '
+                                   f'which this update stopped declaring')
+        m = _SET_COUNT_RE.search(line)
+        if m:
+            return m.start(), (f'counts the declared sets, and this update '
+                               f'dropped {len(names)}')
+        m = None if shared_left else _SHARED_SETS_RE.search(line)
+        if m:
+            return m.start(), ('speaks of the shared sets, and this repository '
+                               'declares none now')
+        return None
+    return match
+
+
+def _excerpt(text, at, width=160):
+    """-> up to `width` characters of `text` that show position `at`."""
+    text = text.strip()
+    if len(text) <= width:
+        return text
+    lo = max(0, min(at - width // 3, len(text) - width))
+    return ('...' if lo else '') + text[lo:lo + width].strip() + \
+        ('...' if lo + width < len(text) else '')
+
+
+def _precedent_json_strings(data, at=()):
+    """-> [(key path, text)] for every string value in precedent.json except
+    the engine-owned fields of a `sources` entry."""
+    if isinstance(data, dict):
+        out = []
+        for k, v in data.items():
+            if len(at) == 2 and at[0] == 'sources' and k in _SOURCE_FIELDS:
+                continue
+            out += _precedent_json_strings(v, at + (k,))
+        return out
+    if isinstance(data, list):
+        return [x for i, v in enumerate(data)
+                for x in _precedent_json_strings(v, at + (i,))]
+    return [(at, data)] if isinstance(data, str) else []
 
 
 def prose_about_dropped_sets(repo, dropped):
-    """-> [(path:line, text, why)] for each hand-written line in precedent.json
-    or a root Markdown file that names a set this update dropped, or counts
-    the declared sets or sources. [] when nothing was dropped."""
+    """-> [(path:line, text, why)] for each hand-written string in
+    precedent.json, and each hand-written line in a root Markdown file, that
+    speaks of a set this update dropped (_dropped_set_matcher) or counts the
+    declared sets or sources. [] when nothing was dropped."""
     if not dropped:
         return []
+    import generated_blocks
     repo = pathlib.Path(repo)
     names = sorted({str(n) for n in dropped if n}, key=len, reverse=True)
-    files = [repo / 'precedent.json'] + sorted(repo.glob('*.md'))
+    pj = repo / 'precedent.json'
+    try:
+        raw = pj.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        raw = None
+    try:
+        cfg = json.loads(raw) if raw is not None else None
+    except ValueError:
+        cfg = None
+    srcs = cfg.get('sources') if isinstance(cfg, dict) else None
+    shared_left = any(isinstance(s, dict) and s.get('level') in ('shared', 'team')
+                      for s in srcs or [])
+    match = _dropped_set_matcher(names, shared_left)
     out = []
-    for f in files:
+    if cfg is not None:
+        lines = raw.splitlines()
+        for at, text in _precedent_json_strings(cfg):
+            hit = match(text)
+            if not hit:
+                continue
+            # The line it is written on: as the file spells it, or escaped.
+            needles = {json.dumps(text, ensure_ascii=False)[1:-1][:80],
+                       json.dumps(text)[1:-1][:80]}
+            n = next((i for i, line in enumerate(lines, 1)
+                      if any(x and x in line for x in needles)), None)
+            where = (f'precedent.json:{n}' if n else
+                     'precedent.json ' + '.'.join(map(str, at)))
+            out.append((where, _excerpt(text, hit[0]), hit[1]))
+    elif raw is not None:
+        for i, line in enumerate(raw.splitlines(), 1):   # unparsable: as text
+            hit = match(line)
+            if hit:
+                out.append((f'precedent.json:{i}', _excerpt(line, hit[0]), hit[1]))
+    for f in sorted(repo.glob('*.md')):
         try:
             lines = f.read_text(encoding='utf-8').splitlines()
         except (OSError, UnicodeDecodeError):
             continue
-        head = '\n'.join(lines[:5])
-        if f.suffix == '.md' and re.search(r'GENERATED|generated by', head) \
-                and not _GENERATED_BEGIN.search(head):
+        blocks = generated_blocks.spans(lines)
+        if f.suffix == '.md' and re.search(r'GENERATED|generated by',
+                                           '\n'.join(lines[:5])) \
+                and not any(a < 5 for a, _b in blocks):
             continue                     # a whole generated view: the sync redoes it
-        inside = False
+        hidden = generated_blocks.mask(lines)
         for i, line in enumerate(lines, 1):
-            if _GENERATED_BEGIN.search(line):
-                inside = True
-            if inside:
-                if _GENERATED_END.search(line):
-                    inside = False
+            if hidden[i - 1]:
                 continue
-            text = line.strip()
-            if f.name == 'precedent.json' and re.match(r'"(name|path)"\s*:', text):
-                continue
-            hit = next((n for n in names if n in line), None)
+            hit = match(line)
             if hit:
-                out.append((f'{f.name}:{i}', text[:160],
-                            f'names {hit}, which this update stopped declaring'))
-            elif _SET_COUNT_RE.search(line):
-                out.append((f'{f.name}:{i}', text[:160],
-                            f'counts the declared sets, and this update dropped '
-                            f'{len(names)}'))
+                out.append((f'{f.name}:{i}', _excerpt(line, hit[0]), hit[1]))
     return out
 
 
@@ -1401,9 +1511,9 @@ CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSA
 
 
 def _blob_id(data):
-    """-> the git object id of `data` as a blob (git's default sha1 format)."""
-    import hashlib
-    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+    """-> the git object id of `data` as a blob (checkin.blob_id)."""
+    import checkin
+    return checkin.blob_id(data)
 
 
 def _tree_blobs(where, ref, prefix):
@@ -1425,21 +1535,12 @@ def _upstream_history_blobs(rev):
     commit -- `rev`'s history and every ref the source clone holds -- ever
     carried. The same allowance the carry check makes for upstream's own
     history: a file equal to one of these is upstream's text, not a local
-    edit, whichever commit it was vendored from."""
-    # `-m`: a version a merge commit introduced is upstream's text too.
-    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--format=', '--raw', '-m',
-                        '--no-abbrev', '--no-renames', rev, '--all', '--',
-                        'practices/'], capture_output=True, text=True)
-    out = set()
-    for line in r.stdout.splitlines() if r.returncode == 0 else []:
-        meta, _, path = line.partition('\t')
-        parts = meta.split()
-        if not line.startswith(':') or len(parts) < 4 or not path.startswith('practices/'):
-            continue
-        for oid in parts[2:4]:
-            if oid.strip('0'):
-                out.add((path[len('practices/'):], oid))
-    return out
+    edit, whichever commit it was vendored from. One reading of upstream's
+    history for every layer (checkin.upstream_blobs)."""
+    import checkin
+    return {(path[len('practices/'):], oid)
+            for path, oid in checkin.upstream_blobs(SOURCE, rev)
+            if path.startswith('practices/')}
 
 
 def _catalogue_record(text):
@@ -1612,6 +1713,8 @@ class Report:
         self.staged = []     # the paths this run staged as its own
         self.pin = None      # (repo, commit, branch): the commit reruns take
         self.pin_repo = None # whose pin a DONE drops, --from-ref runs included
+        self.before = None   # what was uncommitted when the run started writing
+        self.earlier = set() # of `before`, what an earlier run staged, unchanged
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -1680,6 +1783,17 @@ class Report:
     def close(self, failed=None):
         if self.pin_repo is not None and not failed and not self.left:
             clear_pin(self.pin_repo)   # DONE: the next update starts fresh
+        if failed and self.repo is None and self.before is not None:
+            # A run that failed before its staging step (the view sync, the
+            # catalogue record) wrote as much as one that failed after it,
+            # and recorded none of it, so its rerun took its output for
+            # someone's: a consuming repository's next run refused 41 files
+            # of its mirror as "changed here and not committed" (2026-10-08).
+            # Staged and recorded the same way, so the rerun puts it back.
+            ours = sorted(dirty_paths(self.pin_repo) - self.before)
+            if ours:
+                stage_update(self.pin_repo, self.before)
+                self.repo, self.staged = self.pin_repo, ours
         if failed and self.repo is not None and self.staged:
             # Only a FAILED run's output is put back by the next one. A run
             # that left items for the person staged answers the next run
@@ -1687,6 +1801,12 @@ class Report:
             # FAILED one asked nothing new: with any item left, the check
             # that fails is never started.
             record_staged_output(self.repo, self.staged)
+        if self.before is not None and (self.repo or self.pin_repo) is not None:
+            # Every outcome: a LEFT or DONE run's staged output is what a
+            # rerun before the commit finds uncommitted, and is not someone's
+            # work (earlier_runs_output).
+            record_kept_output(self.repo or self.pin_repo,
+                               set(self.staged) | self.earlier)
         if self.loud:
             self._banner()
         print("\n== Update Vendors ==")
@@ -2137,6 +2257,65 @@ def record_staged_output(repo, paths):
     _write_record(repo, data)
 
 
+def record_kept_output(repo, paths):
+    """Write down what this run leaves staged as the update's output, in
+    every outcome, under the record's `staged` key: each path and the hash
+    it holds, for earlier_runs_output() at the next run. A path with an
+    unstaged change on top is left out -- what is on top is not the
+    update's. Unlike `paths` (record_staged_output), nothing is put back
+    from this; it is only how a rerun tells its own output from yours."""
+    data = _read_record(repo)
+    g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+    kept = {p: _content_hash(repo / p) for p in sorted(paths)
+            if g('diff', '--quiet', '--', p).returncode == 0}
+    if kept:
+        data['staged'] = kept
+    else:
+        data.pop('staged', None)
+    _write_record(repo, data)
+
+
+def earlier_runs_output(repo, before, failed_paths=None):
+    """-> the paths of `before` an earlier run of this update staged and
+    nobody has changed since: staged, no unstaged change on top, and holding
+    the content the record names (record_kept_output's `staged`, or the
+    `paths` a FAILED run recorded, read before restore_own_staged_output
+    pops them, as `failed_paths`).
+
+    WHY (2026-10-08, a consuming repository). A second run before the
+    commit said "116 already uncommitted before it ran, left as they were",
+    and every one was the first run's own staged output; git status showed
+    nothing unstaged. The staged line now counts these apart from what was
+    really uncommitted before any run of the update."""
+    known = dict(_read_record(repo).get('staged') or {})
+    known.update(failed_paths or {})
+    g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+    out = set()
+    for rel in sorted(set(before) & set(known)):
+        if _content_hash(repo / rel) != known[rel]:
+            continue
+        if g('diff', '--quiet', '--', rel).returncode != 0:
+            continue        # an unstaged change on top: someone's
+        if g('diff', '--cached', '--quiet', '--', rel).returncode == 0:
+            continue        # not staged (untracked, or back to HEAD)
+        out.add(rel)
+    return out
+
+
+def staged_line(n, before, earlier):
+    """-> the `staged` step's outcome: what this run wrote, what an earlier
+    run of it staged and left, and what was uncommitted before either."""
+    kept = set(earlier) & set(before)
+    theirs = set(before) - kept
+    return (f'{n} path(s) this update wrote or deleted'
+            + (f'; {len(kept)} staged by an earlier run of this update and '
+               f'unchanged since, still staged as its output' if kept else '')
+            + (f'; {len(theirs)} already uncommitted before it ran, left as '
+               f'they were' if theirs else ''))
+
+
 def held_pin(repo):
     """-> {'commit', 'branch'} an unfinished update of `repo` is pinned to,
     or None.
@@ -2261,6 +2440,53 @@ def restore_own_staged_output(repo, select):
         back.append(rel)
     _write_record(repo, data)    # what else it holds (the pin) stays
     return back
+
+
+def realign_catalogue_record(repo, wrote, back):
+    """Keep the catalogue copy and its record together across a put-back.
+    -> the commit the record was put back to, or None.
+
+    restore_own_staged_output() puts back each file an earlier run wrote and
+    nobody has touched since. process/manifest.json is often touched since:
+    practice_audit.py --redecide writes a decline there between a FAILED run
+    and its rerun. Then the copy went back to HEAD and the manifest kept
+    naming the commit the failed run mirrored, and the rerun judged HEAD's
+    older copy against that commit -- every file "a local edit upstream has
+    not changed", kept (2026-10-08, a consuming repository: 440 files).
+    Only the keys checkin.py record writes (commit, synced_from, _note) go
+    back to HEAD's, and only when no other key of `upstream` differs, so a
+    decline or any other change of the person's stays."""
+    rel = 'process/manifest.json'
+    if rel not in wrote or rel in back:
+        return None
+    try:
+        import precedent_resolve as pr
+        mirrors = tuple(pr.mirrored_prefixes(repo) or ())
+    except Exception:                                          # noqa: BLE001
+        mirrors = ()
+    if not any(p.startswith(mirrors or ('process/upstream/',)) for p in back):
+        return None
+    shown = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:{rel}'],
+                           capture_output=True, text=True)
+    try:
+        head = (json.loads(shown.stdout).get('upstream') or {}) if shown.returncode == 0 else {}
+        data = json.loads((repo / rel).read_text(encoding='utf-8'))
+    except (OSError, ValueError, AttributeError):
+        return None
+    now = data.get('upstream') if isinstance(data, dict) else None
+    own = ('commit', 'synced_from', '_note')
+    if not isinstance(now, dict) or not head.get('commit') or now == head:
+        return None
+    if {k: v for k, v in now.items() if k not in own} != \
+            {k: v for k, v in head.items() if k not in own}:
+        return None
+    fixed = {k: (head[k] if k in own else v) for k, v in now.items()
+             if k not in own or k in head}
+    fixed.update({k: head[k] for k in own if k in head and k not in fixed})
+    data['upstream'] = fixed
+    (repo / rel).write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                            encoding='utf-8')
+    return head['commit']
 
 
 def adopt_engine_output(repo, before, pinned):
@@ -2726,12 +2952,25 @@ def update(repo, skip_check=False, ref=None, move=False):
     # this command's own output, written again below -- never an edit to
     # refuse. Put back before `before` is read, so it is not counted as
     # someone's uncommitted work either.
+    # Which of them the earlier run had deleted: put back to HEAD so the
+    # local-edit rules see the committed state, they are deleted again once
+    # the copy is checked against its record (catalogue_copy_postcondition).
+    wrote = _read_record(repo).get('paths') or {}
     back = restore_own_staged_output(repo, vendored_layer_paths)
+    put_back_deleted = {p for p in back if wrote.get(p) is None}
     if back:
         rep.step('earlier run', 'put back to HEAD, to be resolved and written '
                  'again: ' + ', '.join(back) + ' -- staged by an earlier run '
                  'and unchanged since, so its own output, not an edit')
+    realigned = realign_catalogue_record(repo, wrote, back)
+    if realigned:
+        rep.step('earlier run', f'process/manifest.json changed after that run, '
+                 f'so it was not put back with the copy; its record of the copy '
+                 f'goes back to {realigned[:12]}, the commit the copy now holds, '
+                 f'and your other changes to it stay')
     before = dirty_paths(repo)
+    rep.before = before
+    rep.earlier = earlier_runs_output(repo, before, wrote)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
         rep.leave(str(repo), "no vendored loader engine (tools/ENGINE_MANIFEST.json), "
@@ -2781,11 +3020,6 @@ def update(repo, skip_check=False, ref=None, move=False):
                                  .read_text(encoding='utf-8')).get('source_commit')
     except (OSError, ValueError):
         last_synced = None
-    # Which AGENTS.md sections were left out on purpose BEFORE this refresh:
-    # the refresh records a newly missing one the same way, so only this
-    # read tells the seeded budget below which ones it is about to ask for.
-    agents_recorded_before = pve.agents_md_recorded(repo)
-
     # 2. The engine, by the consumer's own copy: refresh() takes ROOT from
     # where it sits. It replaces itself and re-runs, so an old copy still
     # ends on the current code.
@@ -2970,6 +3204,9 @@ def update(repo, skip_check=False, ref=None, move=False):
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
+        # After the local-edit rules, which write back what they keep: the
+        # copy is the commit its record names, or the report says why not.
+        catalogue_copy_postcondition(repo, rep, put_back_deleted)
     else:
         # INSTALL.md section 2, step 0: a section 0 install vendors the
         # universal catalogue at its universal source's own path
@@ -2990,6 +3227,7 @@ def update(repo, skip_check=False, ref=None, move=False):
                                                 or p == f'{rel}/{CATALOGUE_SYNC_NAME}'
                                                 or p in {f'{rel}/{c}' for c in
                                                          CATALOGUE_COMPANIONS})}
+            rep.before = before
 
     # After the templates have moved: what they replaced that an update
     # cannot convert for the repo, the install-once file an update can
@@ -3116,27 +3354,8 @@ def update(repo, skip_check=False, ref=None, move=False):
                  f"personal/README.md#blank-blocklist from {', '.join(dead)}, "
                  f"keeping the sentence (that file exists nowhere)")
 
-    seeded = None
-    if not (repo / 'tools' / 'session_load_budgets.json').exists():
-        try:
-            import build_views as _bv
-            owed_tokens = _bv._approx_tokens(pve.agents_md_owed_text(
-                repo, SOURCE, agents_recorded_before))
-        except Exception:                                    # noqa: BLE001
-            owed_tokens = 0
-        seeded = ensure_session_load_registry(
-            repo, owed={'AGENTS.md': owed_tokens} if owed_tokens else None)
-        if seeded and owed_tokens:
-            rep.step('session-load budget', f"AGENTS.md's ceiling counts the "
-                     f"{owed_tokens:,} tokens of template text this update "
-                     f"asks to be copied in, so taking it stays under it")
-    if seeded:
-        big = max(seeded.items(), key=lambda kv: kv[1] or 0)
-        rep.step('session-load budget', 'tools/session_load_budgets.json '
-                 'seeded at today\'s sizes (' + ', '.join(
-                     f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
-                 f'), so the load check now binds here; {big[0]} is the '
-                 f'largest, and a reduction pass is how it comes down')
+    # A missing tools/session_load_budgets.json is seeded at the close, by
+    # the run that reports DONE (seed_budgets_step), not here.
     gap = approval_gap(repo)
     if gap:
         rep.step('session-load budget', gap)
@@ -3189,9 +3408,7 @@ def update(repo, skip_check=False, ref=None, move=False):
     n = stage_update(repo, before)
     regenerated_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
-    rep.step('staged', f'{n} path(s) this update wrote or deleted'
-             + (f'; {len(before)} already uncommitted before it ran, left as they were'
-                if before else ''))
+    rep.step('staged', staged_line(n, before, rep.earlier))
 
     # Hooks and settings: said before the commit, never found at it
     # (2026-10-06). Claude Code's auto mode holds a commit that changes
@@ -3243,6 +3460,114 @@ def update(repo, skip_check=False, ref=None, move=False):
     return closing_check(repo, rep, skip_check)
 
 
+def catalogue_copy_postcondition(repo, rep, put_back=()):
+    """The vendored catalogue copy is what the commit its record names gives
+    under the copy rules, when the update ends -- apart from what the
+    repository keeps different on purpose: a local edit this run resolved
+    and kept (LOCAL EDITS says which), one left for the person, and a path
+    precedent.json's kept_template_divergences names. A file that differs
+    otherwise is re-mirrored from that commit when it holds text upstream
+    itself shipped at that path (checkin.upstream_text), or when it is a
+    deletion an earlier run made that this run's put-back restored
+    (`put_back`, still holding HEAD's text); any other is a local edit
+    nothing resolved, so it is left for the person, never overwritten
+    (practice: repair-cannot-discard-work). DONE follows only a match.
+
+    WHY (2026-10-08, a consuming repository). Its process/manifest.json and
+    engine manifest both recorded one commit while 440 of the 604 files
+    under process/upstream/ were other upstream versions and process/upstream/
+    tools/ still held 99 files the copy no longer carries, and the update
+    had said DONE. checkin.py record verifies the tree, but before the
+    local-edit rules put the "edits" back; nothing asked again at the end.
+    -> the repo-relative paths re-mirrored."""
+    import checkin as ck
+    import filecmp
+    import shutil
+    import tempfile
+    ck._select_repo(repo)
+    commit = (ck._manifest().get('upstream') or {}).get('commit')
+    if not commit or not ck.UPSTREAM.is_dir():
+        return []
+    tree = ck.UPSTREAM.relative_to(repo).as_posix()
+    known = {rel for outcome, rel, _t in rep.edits
+             if outcome in (le.KEPT, le.STILL_LOCAL, le.MERGED)}
+    known |= {what for what, _why in rep.left}
+    known |= set(pve.kept_template_divergences(repo))
+    put_back = set(put_back)
+
+    def head_text(rel):
+        return (subprocess.run(['git', '-C', str(repo), 'diff', '--quiet', 'HEAD',
+                                '--', rel], capture_output=True).returncode == 0
+                and subprocess.run(['git', '-C', str(repo), 'cat-file', '-e',
+                                    f'HEAD:{rel}'], capture_output=True).returncode == 0)
+
+    fixed, left, kept = [], [], []
+    with tempfile.TemporaryDirectory() as td:
+        tar = subprocess.run(['git', '-C', str(le._where(SOURCE, commit)), 'archive',
+                              commit], capture_output=True)
+        if tar.returncode != 0:
+            rep.leave(tree, f'could not read {commit[:12]}, the commit '
+                      f'process/manifest.json records, to confirm the copy is it')
+            return []
+        import io
+        import tarfile
+        with tarfile.open(fileobj=io.BytesIO(tar.stdout)) as tf:
+            try:
+                tf.extractall(td, filter='data')
+            except TypeError:   # a Python older than 3.11.4 has no filter
+                tf.extractall(td)
+        src = pathlib.Path(td)
+        theirs = ck._files(src)
+        ours = {p.relative_to(ck.UPSTREAM) for p in ck.UPSTREAM.rglob('*')
+                if p.is_file() and '__pycache__' not in p.parts
+                and p.suffix not in ('.pyc', '.pyo')}
+        for p in sorted(ours | theirs):
+            rel = f'{tree}/{p.as_posix()}'
+            here, there = ck.UPSTREAM / p, src / p
+            if p in ours and p in theirs and filecmp.cmp(here, there, shallow=False):
+                continue
+            if rel in known:
+                kept.append(rel)
+                continue
+            if p in theirs and p not in ours:
+                ok = not ck.deleted_here(here)
+            else:
+                ok = (ck.upstream_text(le._where(SOURCE, commit), here, p, commit)
+                      or (rel in put_back and head_text(rel)))
+            if not ok:
+                left.append(rel)
+                continue
+            if p in theirs:
+                here.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(there, here)
+            else:
+                here.unlink()
+            fixed.append(rel)
+    for d in sorted({(repo / r).parent for r in fixed}, key=lambda d: -len(d.parts)):
+        while d != ck.UPSTREAM and d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+            d = d.parent
+    for rel in left:
+        rep.leave(rel, f'differs from {commit[:12]}, the commit process/manifest.json '
+                  f'records for the copy, and holds text upstream never shipped '
+                  f'there -- a local edit this update did not resolve, so it is '
+                  f'left as it is. Send it upstream ({le.send_command(repo)}), '
+                  f'record it under precedent.json\'s kept_template_divergences '
+                  f'with a reason, or restore upstream\'s text, then run this again')
+    if fixed:
+        shown = ', '.join(fixed[:12]) + (f' and {len(fixed) - 12} more'
+                                         if len(fixed) > 12 else '')
+        rep.step('catalogue copy', f're-mirrored {len(fixed)} file(s) from '
+                 f'{commit[:12]}, the commit its record names, that did not '
+                 f'match it -- each upstream\'s own text from another commit, '
+                 f'nothing of this repo\'s: {shown}')
+    elif not left:
+        rep.step('catalogue copy', f'matches {commit[:12]}, the commit its '
+                 f'record names' + (f', apart from {len(kept)} file(s) kept on '
+                                    f'purpose or left for you' if kept else ''))
+    return fixed
+
+
 def manifest_postcondition(repo, rep):
     """No manifest entry names a missing file when the update ends.
 
@@ -3280,8 +3605,57 @@ def manifest_postcondition(repo, rep):
                  'removed: ' + ', '.join(dropped))
 
 
+def seed_budgets_step(repo, rep):
+    """Seed tools/session_load_budgets.json where there is none -- only on
+    the run that reports DONE, measuring the files that run produced, and
+    staged as this update's.
+
+    WHY (2026-10-08, a consuming repository). Run 1 seeded the registry at
+    the sizes the tree had mid-update: AGENTS.md before the template
+    sections the same run listed for copying in (taking them put it at
+    8,101 against a ceiling of 8,100), and .precedent/SESSION_PRACTICES.md
+    as the OLD engine had rendered it at the last session start (150
+    tokens, ceiling 200); the first session start on the new engine
+    rendered 341. Any run with items left for the person ends before the
+    tree is final, so it seeds nothing; the run that reports DONE first
+    renders the session-start file with the engine it just vendored, then
+    measures. Seeding a registry that did not exist is not raising a
+    budget (practice: session-load-budget): an existing registry is never
+    re-measured here, so a ceiling already set only moves by the person's
+    own words or an offset."""
+    if (repo / 'tools' / 'session_load_budgets.json').exists():
+        return
+    if rep.left:
+        rep.step('session-load budget', 'tools/session_load_budgets.json not '
+                 'seeded yet: the run that reports DONE seeds it, measuring '
+                 'what that run produces, so what you copy in from the list '
+                 'below is counted')
+        return
+    renderer = repo / 'tools' / 'precedent_session_practices.py'
+    if renderer.is_file():
+        # The session-start file as the next session will have it: rendered
+        # by the engine this update just vendored, not the one before it.
+        run([sys.executable, str(renderer), '--repo', '.', '--quiet'], repo)
+    seeded = ensure_session_load_registry(repo)
+    if not seeded:
+        return
+    rel = 'tools/session_load_budgets.json'
+    subprocess.run(['git', '-C', str(repo), 'add', '--', rel],
+                   capture_output=True, text=True)
+    if rel not in rep.staged:
+        rep.staged = sorted(rep.staged + [rel])
+    big = max(seeded.items(), key=lambda kv: kv[1] or 0)
+    rep.step('session-load budget', f'{rel} seeded at the sizes this update '
+             f'produced (' + ', '.join(
+                 f'{k} {v:,} tokens' for k, v in seeded.items() if v) +
+             f'; the sets a person brings are held to their own budget and '
+             f'not counted), so the load check now binds here; {big[0]} is '
+             f'the largest, and a reduction pass is how it comes down')
+
+
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
+    seed_budgets_step(repo, rep)
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into pre-staging that is the fast
     # checks on what the update changed; the full check waits for the
