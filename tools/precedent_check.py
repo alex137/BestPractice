@@ -2214,9 +2214,7 @@ def _practice_carries_its_files(ctx):
             'practices/ here is materialized from declared sources (a '
             'MANIFEST.json records it) -- each source holds its own practices '
             'to this at its own push, and their files are not expected here')
-    engine = _bv._engine_tool_paths() | {'tools/ENGINE_MANIFEST.json'}
-    engine |= {f'tools/{n}' for n in (_engine_manifest().get('files') or [])
-               if isinstance(n, str)}
+    engine = _engine_shipped_paths()
     files = sorted(pdir.glob('*.md'))
     active = [p for p in files
               if (_practice_status_fields(p) or (True,))[0]]
@@ -2472,6 +2470,54 @@ def _engine_fixed_filenames():
 ENGINE_FIXED_FILENAMES = _engine_fixed_filenames()
 
 
+def _engine_shipped_paths(root=None):
+    """{repo-relative path} of every file the vendoring engine puts in this
+    repository, so a name on it is the engine's, never this repository's.
+
+    Two halves, both read from where the answer already lives rather than
+    listed here. What the engine SHIPS is precedent_vendor_engine.py's own
+    file lists (build_views._engine_tool_paths asks it) -- the answer in
+    BestPractice, which vendors nothing into itself and has no manifest.
+    What it WROTE here is tools/ENGINE_MANIFEST.json: the tools/ files, the
+    hook stubs, the CI workflows and the template instances it records,
+    which in a consumer can name a file an older or newer engine shipped.
+
+    THE INCIDENT (2026-10-08). filename-separator exempted only the names a
+    tool declares as a *_NAME constant, so the hook scripts every Update
+    Vendors writes into a consumer's tools/ (artifact-publish-gate.sh,
+    commit-identity-once.sh, ...) counted as the consumer's own "-" choice,
+    and the full check before a stage failed on the consumer's one
+    snake_case script, a file nobody there had touched."""
+    base = pathlib.Path(root or ROOT)
+    paths = {'tools/ENGINE_MANIFEST.json'}
+    hook_dir = '.claude/hooks'
+    try:
+        import build_views as _bv
+        import precedent_vendor_engine as _pve
+        paths |= _bv._engine_tool_paths()
+        hook_dir = getattr(_pve, 'HOOK_DEST_DIR', hook_dir)
+    except Exception:                               # practice: fail-gracefully
+        pass
+    try:
+        m = json.loads((base / 'tools' / 'ENGINE_MANIFEST.json')
+                       .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        m = {}
+    if not isinstance(m, dict):
+        m = {}
+
+    def names(key):
+        v = m.get(key) or []
+        return [n for n in v if isinstance(n, str)]
+    paths |= {f'tools/{n}' for n in names('files')}
+    paths |= {f'{hook_dir}/{n}' for n in names('hook_files')}
+    paths |= set(names('ci_workflow_files'))
+    inst = m.get('template_instances_sha256')
+    if isinstance(inst, dict):
+        paths |= {k for k in inst if isinstance(k, str)}
+    return paths
+
+
 # An ISO date inside a file name (report_2026-09-19.md) carries hyphens
 # because ISO 8601 puts them there, not because anyone chose "-" as the
 # separator. Counting them made a directory with one consistent convention
@@ -2512,6 +2558,10 @@ def _filename_separator(ctx):
         pass
 
     groups = collections.defaultdict(lambda: {'-': [], '_': []})
+    # Every file the engine itself put here is named by the engine, the same
+    # reason as the fixed names below (_engine_shipped_paths has the
+    # incident).
+    shipped = _engine_shipped_paths()
     # Tracked files PLUS untracked-but-not-ignored ones. This is a tree-scope
     # check, so the question is what the repository CONTAINS -- and a file
     # just added and not yet committed is exactly when the answer is most
@@ -2527,7 +2577,7 @@ def _filename_separator(ctx):
         # the same reason precedent.json's exemption exists -- so it never
         # sets or breaks a directory's convention (practice: source-naming:
         # the source manifest's name is the same in every repository).
-        if path.name in ENGINE_FIXED_FILENAMES:
+        if path.name in ENGINE_FIXED_FILENAMES or f in shipped:
             continue
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not

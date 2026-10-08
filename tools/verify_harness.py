@@ -21714,13 +21714,40 @@ def check_filename_separator_knows_names_it_did_not_choose():
                  'spec/NOTES_X.md': '# n\n'})
     cases.append(('an ISO date inside a stem is not a "-" separator',
                   out == '', out))
+    # 2026-10-08: the hook scripts Update Vendors writes into a consumer's
+    # tools/ are named by the engine, so beside the consumer's own
+    # snake_case script they are no mix. Planted as a consumer: the
+    # manifest lists them, and one of them is also on the engine's own
+    # shipping list (the BestPractice half of the same answer).
+    import precedent_vendor_engine as pve
+    hooks = ['artifact-publish-gate.sh', 'commit-identity-once.sh',
+             'wait-loop-gate.sh']
+    manifest = json.dumps({'kind': 'consumer', 'files': hooks,
+                           'hook_files': ['reply-gate.sh']}) + '\n'
+    consumer = {'tools/ENGINE_MANIFEST.json': manifest,
+                'tools/my_own_script.sh': '#!/bin/sh\n',
+                '.claude/hooks/reply-gate.sh': '#!/bin/sh\n',
+                '.claude/hooks/my_hook.sh': '#!/bin/sh\n'}
+    consumer.update({f'tools/{h}': '#!/bin/sh\n' for h in hooks})
+    cases.append(('the planted scripts are ones the engine really ships',
+                  set(hooks) <= set(pve.HOOK_SCRIPT_FILES), hooks))
+    out = judge(consumer)
+    cases.append(('a consumer\'s vendored hyphenated scripts beside its own '
+                  'snake_case one are clean', out == '', out))
+    out = judge({'tools/my_own_script.sh': '#!/bin/sh\n',
+                 'tools/my-other-script.sh': '#!/bin/sh\n',
+                 'tools/ENGINE_MANIFEST.json': manifest})
+    cases.append(('CONTROL: two repo-own scripts with different separators '
+                  'still fail', 'tools/' in out and 'first fix the cause' in out,
+                  out))
     out = judge({'notes/a-b.md': '# a\n', 'notes/c_d.md': '# c\n'})
     cases.append(('a genuinely mixed directory still fails, leading with '
                   'the root fix', 'first fix the cause' in out
                   and out.index('first fix the cause') < out.index('Exempt'), out))
     bad = [(n, det) for n, ok, det in cases if not ok]
-    check('filename-separator does not count names a tool fixes or an ISO '
-          'date, and still refuses a real mix, root fix first',
+    check('filename-separator does not count names a tool fixes, files the '
+          'engine ships, or an ISO date, and still refuses a real mix, root '
+          'fix first',
           not bad, '; '.join(f'{n}: {det!r}' for n, det in bad))
 
 
