@@ -3685,6 +3685,21 @@ def seed_budgets_step(repo, rep):
              f'the largest, and a reduction pass is how it comes down')
 
 
+def full_check_after(repo):
+    """precedent.json's `update_full_check` is "after": the update runs the
+    basic check only, and the full one runs after the push, in the
+    background, with tools/precedent_check_after.py, which files a failure
+    under todo/ (tools/open_failures.py). Opt-in per repository, for one
+    where someone is sure to hear of a failure (Alex, 2026-10-08, decided:
+    "Yes let's do that", on running the update's full check after it
+    lands)."""
+    try:
+        data = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and data.get('update_full_check') == 'after'
+
+
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
@@ -3749,6 +3764,14 @@ def closing_check(repo, rep, skip_check=False):
                          f'problems below first')
                 return rep.close(f"the {pb.BASIC} check is red, so the {label} "
                                  f"was not started:\n{tail(out, repo=repo)}")
+            if full_check_after(repo):
+                rep.step(label, 'runs after the push (update_full_check: after)')
+                rep.not_run = (
+                    "The full check was NOT run before the push: precedent.json "
+                    "says `update_full_check: after`. Commit and push the update, "
+                    "then start in the background: python3 tools/precedent_check_after.py"
+                    " -- a failure is filed under todo/ and pushed.")
+                return rep.close()
             rep.step(f'{pb.BASIC} check', 'passed, so the full one runs')
         rc, out = check_with_merge_fallback(repo, rep, argv, label)
         if rc != 0:
