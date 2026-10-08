@@ -12996,6 +12996,104 @@ def check_update_vendors_resolves_a_catalogue_edit():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_vendors_redecided_decline_sticks():
+    """A decline re-decided between two Update Vendors runs stays decided,
+    and the update and the consumer's own audit judge it against the same
+    text: upstream's, at the commit this repo takes.
+
+    2026-10-08, from a consuming repository: the update left "a decline to
+    decide again"; the person read the new text and ran practice_audit.py
+    --redecide; every rerun listed the same decline again, and a second
+    --redecide put back the hash the person had corrected by hand. For a
+    declined tools/ file -- which the catalogue copy leaves out once the
+    repo vendors its own engine -- the audit fell back to `ROOT/tools/...`,
+    and ROOT is the module's own repository: the consumer when --redecide
+    ran there, the SOURCE CLONE'S WORKING TREE when precedent_update.py ran
+    the same check through checkin.py --repo. Two different files, so the
+    two never agreed. One function now answers for both
+    (practice_audit.decline_basis): a file in the vendored tree is judged
+    by that copy, an engine file by the hash the engine manifest records
+    for upstream's text.
+
+    Negative control, measured 2026-10-08 against
+    2026-10-08-produce-copy-check-y1ktn at ae07871f: the first run never
+    lists the engine-file decline (the source clone's working tree still
+    holds the old text), and every rerun after --redecide lists it again."""
+    import hashlib
+    import precedent_vendor_engine as _pve
+    branch = _pve.SOURCE_BRANCH
+    fx = _LocalEditsFixture('precedent-redecide-')
+    cases = []
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    try:
+        repo = fx.consumer('decline')
+        seeded = fx.seeded_from(repo)
+        practice, tool = 'practices/verify-postcondition.md', 'tools/precedent_show.py'
+        show = lambda rel: subprocess.run(['git', '-C', str(ROOT), 'show', f'{seeded}:{rel}'],
+                                          capture_output=True).stdout
+        old = {practice: show(practice), tool: show(tool)}
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': [{'practice': name, 'upstream_path': rel, 'local_path': None,
+                         'status': 'declined', 'declined_upstream_sha256': sha(old[rel]),
+                         'notes': 'covered by a rule of our own'}
+                        for name, rel in (('verify-postcondition', practice),
+                                          ('precedent-show', tool))]},
+            indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        fx.commit(repo, 'catalogue with two declines')
+        fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
+        # This tree's audit, run where the consumer's own runs: a copy inside
+        # the consumer, so it acts on the consumer, kept out of git.
+        aud = repo / '.audit' / 'tools'
+        aud.mkdir(parents=True)
+        for n in ('practice_audit.py', 'generated_blocks.py'):
+            shutil.copy(ROOT / 'tools' / n, aud / n)
+        with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
+            f.write('.audit/\n')
+        new = {practice: old[practice] + b'\nA sentence upstream added.\n',
+               tool: old[tool] + b'\n# upstream changed this tool\n'}
+        ref = fx.upstream(seeded, new)
+
+        def recorded():
+            return {e['upstream_path']: e['declined_upstream_sha256'] for e in json.loads(
+                (repo / 'process' / 'manifest.json').read_text(encoding='utf-8'))['entries']}
+
+        def redecide():
+            for name in ('verify-postcondition', 'precedent-show'):
+                fx.sh(sys.executable, str(aud / 'practice_audit.py'), '--redecide', name,
+                      cwd=repo)
+
+        want = {rel: sha(new[rel]) for rel in new}
+        left = lambda out, rel: [l for l in out.split('LEFT FOR YOU', 1)[-1].splitlines()
+                                 if 'a decline to decide again' in l and rel in l]
+        declines = lambda out: [l.strip()[:200] for l in out.splitlines()
+                                if 'a decline to decide again' in l]
+        _rc, out1 = fx.update(repo, ref)
+        cases.append(('the first run lists both moved declines',
+                      left(out1, practice) and left(out1, tool), declines(out1)))
+        redecide()
+        cases.append(('--redecide records the hash of the text being taken',
+                      recorded() == want, (recorded(), want)))
+        _rc, out2 = fx.update(repo, ref)
+        cases.append(('the rerun does not ask again about either re-decided decline',
+                      not left(out2, practice) and not left(out2, tool), declines(out2)))
+        _rc, audit = fx.sh(sys.executable, str(aud / 'practice_audit.py'), cwd=repo)
+        cases.append(('...and the consumer\'s own audit agrees: no DECLINED failure',
+                      'DECLINED:' not in audit, audit[-1500:]))
+        redecide()
+        cases.append(('a second --redecide keeps the same hashes', recorded() == want,
+                      (recorded(), want)))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
 def check_local_edits_fetch_the_vendored_commit_from_upstream():
     """precedent_local_edits.py judges a consuming repository's edits to
     received files against the commit they were vendored from. Run from
@@ -64909,6 +65007,8 @@ def main():
     check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
           *check_merge_is_judged_by_the_landing_check())
     check_update_vendors_resolves_a_catalogue_edit()
+    check('a decline re-decided between two Update Vendors runs stays decided',
+          *check_update_vendors_redecided_decline_sticks())
     check_update_vendors_migrates_hand_written_views()
     check('every shipped CI template that runs the checks installs PyYAML first',
           *check_ci_templates_install_pyyaml_before_the_checks())
