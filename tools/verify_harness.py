@@ -3388,6 +3388,9 @@ def check_docs_name_no_path_this_repo_removed():
             return r.returncode, r.stdout + r.stderr
         g('init', '-q', '-b', 'main'); g('add', '-A'); g('commit', '-qm', 'base')
         g('remote', 'add', 'origin', 'https://github.com/acme/widget')
+        # The base the branch is judged against: the check reads this
+        # change, never the whole history (practice: checks-read-only-the-work).
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
         rc, out = run()
         cases.append(('nothing deleted yet: nothing to judge', rc == 0
                       and 'README.md:1' not in out, out[-300:]))
@@ -3407,10 +3410,20 @@ def check_docs_name_no_path_this_repo_removed():
             cases.append((f'{why} is left alone', rel not in out, out[-400:]))
         cases.append(('a "was" in the next sentence excuses nothing',
                       'docs/adjacent.md:1' in out, out[-400:]))
+        # Once the deletion is on the base, the next branch is not judged
+        # for it: the check reads this change, never the whole history
+        # (Morgan, 2026-10-08; practice: checks-read-only-the-work).
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('checkout', '-qb', 'next')
+        (repo / 'docs' / 'unrelated.md').write_text('Unrelated.\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'an unrelated change')
+        rc, out = run()
+        cases.append(('a deletion already on the base is not judged on a later branch',
+                      rc == 0 and 'README.md:1' not in out, out[-400:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'a live document naming a path this repo removed is refused, and '
+    check(f'a live document naming a path this change removed is refused, and '
           f'history is not ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
@@ -15135,8 +15148,15 @@ def check_changed_files_only_judges_the_change():
         return subprocess.run(['git', '-C', str(wt), '-c', 'core.hooksPath=/dev/null', *a],
                               capture_output=True, text=True, env=env)
 
-    def run_check(since):
-        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--full-sweep',
+    # Each case runs the one check it is about, never the full sweep: a
+    # sweep took about 28 seconds and this test ran eleven, so it was the
+    # suite's second slowest at about 400 seconds on GitHub's runner
+    # (Morgan, 2026-10-08: "minor and very very long, so let's fix this
+    # right now"). What --changed-files-only does with a finding -- keep it,
+    # set it aside, say why -- is the same code whichever checks ran, and
+    # every real push into pre-staging runs the full sweep this way anyway.
+    def run_check(since, slug):
+        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only', slug,
                             '--range', f'{since}...HEAD', '--changed-files-only'],
                            cwd=wt, capture_output=True, text=True, env=env)
         return p.returncode, p.stdout + p.stderr
@@ -15153,14 +15173,14 @@ def check_changed_files_only_judges_the_change():
         base = git('rev-parse', 'HEAD').stdout.strip()
         break_heading()
         git('commit', '-qam', 'break the heading')
-        rc, out = run_check(base)
+        rc, out = run_check(base, 'document-status-header')
         cases.append(('a change that breaks a document\'s heading is refused',
                       rc == 1 and 'document-status-header' in out, out[-800:]))
         broken = git('rev-parse', 'HEAD').stdout.strip()
         with open(wt / 'README.md', 'a', encoding='utf-8') as f:
             f.write('\nAn unrelated line.\n')
         git('commit', '-qam', 'touch another file')
-        rc, out = run_check(broken)
+        rc, out = run_check(broken, 'document-status-header')
         cases.append(('a change elsewhere passes while the mismatch sits in the tree, '
                       'and says it left it to the full check',
                       rc == 0 and 'not judged here' in out, out[-800:]))
@@ -15175,7 +15195,7 @@ def check_changed_files_only_judges_the_change():
         hook.chmod(0o755)
         git('add', str(hook))
         git('commit', '-qm', 'a new Claude-only hook, no PARALLELS row')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'claude-only-surface-has-a-parallel')
         cases.append(('a new hook with no PARALLELS row is refused at Booked, '
                       'as a finding this push caused',
                       rc == 1 and 'claude-only-surface-has-a-parallel' in out
@@ -15184,7 +15204,7 @@ def check_changed_files_only_judges_the_change():
         with open(wt / 'README.md', 'a', encoding='utf-8') as f:
             f.write('\nAnother unrelated line.\n')
         git('commit', '-qam', 'touch another file again')
-        rc, out = run_check(caused_at)
+        rc, out = run_check(caused_at, 'claude-only-surface-has-a-parallel')
         cases.append(('the next, unrelated push passes, and names the missing '
                       'row as left for the full check',
                       rc == 0 and 'claude-only-surface-has-a-parallel: '
@@ -15199,7 +15219,7 @@ def check_changed_files_only_judges_the_change():
         with open(practice, 'a', encoding='utf-8') as f:
             f.write('\nThe QZXW fixture line.\n')
         git('commit', '-qam', 'an unglossed acronym in a practice')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'acronyms-glossary')
         cases.append(('an unglossed acronym added to a practice where it is authored '
                       'is refused', rc == 1 and 'acronyms-glossary' in out
                       and 'QZXW' in out, out[-800:]))
@@ -15207,7 +15227,7 @@ def check_changed_files_only_judges_the_change():
             {'slug': practice.stem, 'level': 'universal'}]}), encoding='utf-8')
         git('add', 'MANIFEST.json')
         git('commit', '-qm', 'the practice is materialized here')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'acronyms-glossary')
         cases.append(('...and the same line in a practice MANIFEST.json says was '
                       'materialized is not judged, and the note says why',
                       rc == 0 and 'materialized from another source' in out, out[-800:]))
@@ -15222,7 +15242,7 @@ def check_changed_files_only_judges_the_change():
         start = git('rev-parse', 'HEAD').stdout.strip()
         git('rm', '-q', 'documentation/CLOUD_SETUP.md')
         git('commit', '-qm', 'delete a file other files cite')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'rename-updates-links')
         cases.append(('a change that deletes a file an untouched file cites is refused',
                       rc == 1 and 'rename-updates-links' in out
                       and 'documentation/CLOUD_SETUP.md' in out, out[-800:]))
@@ -15232,7 +15252,7 @@ def check_changed_files_only_judges_the_change():
         with open(wt / '.gitignore', 'a', encoding='utf-8') as f:
             f.write('\n# an unrelated line\n')
         git('commit', '-qam', 'touch another file after the deletion')
-        rc, out = run_check(deleted)
+        rc, out = run_check(deleted, 'rename-updates-links')
         cases.append(('...and a later change that deletes nothing is not refused for it',
                       rc == 0, out[-800:]))
         git('checkout', '-q', start, '--', 'documentation/CLOUD_SETUP.md', '.gitignore')
@@ -15256,14 +15276,14 @@ def check_changed_files_only_judges_the_change():
             'sys.exit(1)\n', encoding='utf-8')
         git('add', '-A')
         git('commit', '-qm', 'a newly synced check script')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'check_planted_newcomer')
         cases.append(('a newly arrived check\'s finding on a file the push does not '
                       'change does not refuse it', rc == 0, out[-800:]))
         brought = git('rev-parse', 'HEAD').stdout.strip()
         (wt / 'PLANTED_NEW.md').write_text('# New\n', encoding='utf-8')
         git('add', '-A')
         git('commit', '-qm', 'a file the new check flags')
-        rc, out = run_check(brought)
+        rc, out = run_check(brought, 'check_planted_newcomer')
         cases.append(('...and its finding on a file the push brings does',
                       rc == 1 and 'PLANTED_NEW.md' in out, out[-800:]))
         git('rm', '-q', 'PLANTED_NEW.md', 'tools/checks/check_planted_newcomer.py')
@@ -15347,7 +15367,7 @@ def check_changed_files_only_judges_the_change():
                       and 'the full check refuses it' in bv.stderr,
                       (bv.stdout + bv.stderr)[-400:]))
         git('commit', '-qam', 'a block over its resident cap')
-        rc, out = run_check(start)
+        rc, out = run_check(start, 'loader-within-caps')
         cases.append(('the pre-staging check lets it through with a warning '
                       'naming the staging refusal',
                       rc == 0 and 'over a size cap. The quick check lets it through' in out,
@@ -17125,6 +17145,14 @@ def check_update_vendors_survives_an_upstream_deletion():
     own: the check skips an index path missing from disk, and the update
     stages what it wrote and deleted before the check runs.
     Owns its state (practice: fixture-owns-its-state).
+
+    The update runs with --skip-check, and the one check that failed that
+    day runs on its own after it, with the deletion staged and then
+    unstaged. The update's full check on this fixture took about 330 of
+    the test's 350 seconds here and about 560 on GitHub's runner, the
+    slowest check in the suite, while proving nothing the two fixes need
+    (Morgan, 2026-10-08: "minor and very very long, so let's fix this
+    right now"). Other update checks still run the update's own check.
     """
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-deletes-'))
@@ -17189,19 +17217,32 @@ def check_update_vendors_survives_an_upstream_deletion():
 
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(proj), '--from-ref', _ref_including_worktree(ROOT),
-                     cwd=proj)
-        cases.append(('the update that deletes it ends DONE with the deep check run, '
-                      'not FAILED', rc == 0 and 'DONE -- nothing left' in out
-                      and re.search(r'(deep check|check for [\w-]+): passed', out),
-                      out[-2500:]))
+                     '--skip-check', cwd=proj)
+        cases.append(('the update that deletes it ends DONE, not FAILED',
+                      rc == 0 and 'DONE -- nothing left' in out, out[-2500:]))
         cases.append(('...the file is gone from disk', not (proj / DROPPED).exists(), ''))
         _rc, staged = sh('git', 'diff', '--cached', '--name-status', '--', DROPPED, cwd=proj)
-        cases.append(('...and its deletion is staged, so the check judged what the '
+        cases.append(('...and its deletion is staged, so the check judges what the '
                       'commit will hold', staged.startswith('D'), staged))
+        # The check that failed that day, on the tree as the update left it.
+        rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
+                     'timestamps-carry-offset', cwd=proj)
+        cases.append(('timestamps-carry-offset passes on the tree the update staged',
+                      rc == 0 and 'could not be parsed' not in out, out[-800:]))
 
-        # The check on its own: with the deletion UNSTAGED again, the index
-        # still names the file, and it must not be reported as unparseable.
+        # The check on its own: a file deleted and NOT staged is still in the
+        # index, and must not be reported as unparseable. The file is the
+        # repo's own, not the dropped one: findings in the mirrored tree
+        # process/upstream/ are set aside since then, so a deletion there
+        # passed with or without the fix (found 2026-10-08, putting the fix
+        # back out and watching this case still pass).
         sh('git', 'reset', '-q', cwd=proj)
+        own = proj / 'tools' / 'zz_deleted_fixture.py'
+        own.write_text('VALUE = 1\n', encoding='utf-8')
+        sh('git', 'add', str(own), cwd=proj)
+        sh('git', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'a file to delete',
+           '--', str(own), cwd=proj)
+        own.unlink()
         rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
                      'timestamps-carry-offset', cwd=proj)
         cases.append(('timestamps-carry-offset passes over a deleted, unstaged file '
@@ -20213,13 +20254,14 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
-        # change-updates-its-docs -- a file deleted in an earlier commit,
-        # every document that names it left as it was. The unplanted
-        # fixture's history deletes nothing, so it has nothing to judge.
+        # change-updates-its-docs -- a file this branch deleted, every
+        # document that names it left as it was. The unplanted fixture's
+        # branch deletes nothing, so it has nothing to judge; the check reads
+        # the branch against its base, never the whole history.
         def _plant_removed_path(repo):
             git(repo, 'rm', '-q', 'spec/LOADER.md')
             git(repo, 'commit', '-qm', 'delete a file other documents name')
-        case('change-updates-its-docs', _plant_removed_path)
+        case('change-updates-its-docs', _plant_removed_path, setup=_setup_rename)
 
         # shipped-links-travel -- a shipped document linking relatively to
         # a file the catalogue copy leaves out (2026-10-01: links to
@@ -21648,14 +21690,19 @@ def check_precedent_check_fires():
         case('no-rewrite-for-warnings', _plant_rewrite, extra=('--turn-end',),
              setup=_publish_two)
 
-        # parallel-artifact-ledger -- the check reads real git history, but
-        # fresh() deliberately squashes each scratch copy's history into one
-        # new "baseline" commit for isolation, so that commit's own hash has
-        # to be in the ledger before "clean" means clean here.
+        # parallel-artifact-ledger -- the check reads this branch's commits
+        # against its base, never the whole history (Morgan, 2026-10-08;
+        # practice: checks-read-only-the-work). fresh() squashes each
+        # scratch copy into one "baseline" commit, which becomes the base.
         def _ledger_setup(repo):
-            baseline_hash = git(repo, 'rev-parse', 'HEAD')
-            rewrite(repo, 'templates/harness/LEDGER.md',
-                   lambda t: t + f'\n<!-- harness-test baseline: {baseline_hash} -->\n')
+            git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+        def _ledger_change(repo, name):
+            (repo / 'templates' / 'harness' / 'claude-code' / name
+             ).write_text('new\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', f'harness change {name}')
+            return git(repo, 'rev-parse', 'HEAD')
 
         def _plant_unledgered_harness_change(repo):
             (repo / 'templates' / 'harness' / 'claude-code' / 'fixture.txt'
@@ -21685,7 +21732,7 @@ def check_precedent_check_fires():
 
         dup = fresh('parallel-artifact-ledger-dup')
         _ledger_setup(dup)
-        _dh = git(dup, 'rev-parse', 'HEAD')
+        _dh = _ledger_change(dup, 'dup.txt')
         rewrite(dup, 'templates/harness/LEDGER.md',
                 lambda s: s + '\n' + _ledger_row(dup, _dh)
                              + '\n' + _ledger_row(dup, _dh) + '\n')
@@ -21696,7 +21743,7 @@ def check_precedent_check_fires():
 
         xref = fresh('parallel-artifact-ledger-xref')
         _ledger_setup(xref)
-        _xh = git(xref, 'rev-parse', 'HEAD')
+        _xh = _ledger_change(xref, 'xref.txt')
         rewrite(xref, 'templates/harness/LEDGER.md',
                 lambda s: s + '\n' + _ledger_row(xref, _xh)
                              + '\n' + _ledger_row(xref, _xh[::-1][:40],
@@ -23566,6 +23613,11 @@ def check_parallel_artifact_ledger_fires():
         (tmp / 'root.txt').write_text('root\n', encoding='utf-8')
         subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
         subprocess.run(['git', 'commit', '-q', '-m', 'root'], cwd=tmp, check=True)
+        # The base this branch is judged against: the check reads this
+        # branch's commits, never the whole history (Morgan, 2026-10-08;
+        # practice: checks-read-only-the-work).
+        subprocess.run(['git', 'update-ref', 'refs/remotes/origin/main', 'HEAD'],
+                       cwd=tmp, check=True)
         # Two more commits, because the check excludes two kinds of
         # inception: the repo's own root commit, and the commit that
         # FIRST created a given member directory (TODO.md's
@@ -23623,6 +23675,12 @@ def check_parallel_artifact_ledger_fires():
             f'planted | applied, same reason as the `{member_commit[:7]}` '
             'row | n/a | n/a |\n', encoding='utf-8')
         cited_only = fn(None)
+        # Once the change is on the base, a later run is not judged for it:
+        # an empty ledger and nothing new on the branch is not a finding.
+        ledger_path.write_text('no commit hashes here\n', encoding='utf-8')
+        subprocess.run(['git', 'update-ref', 'refs/remotes/origin/main', member_commit],
+                       cwd=tmp, check=True)
+        already_on_base = fn(None)
 
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
@@ -23643,6 +23701,8 @@ def check_parallel_artifact_ledger_fires():
              "the finding", referenced == []),
             ("a commit named only in another row's prose is NOT ledgered",
              len(cited_only) == 1),
+            ("a change already on the base is not judged again -- the check "
+             "never walks the whole history", already_on_base == []),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
@@ -45778,7 +45838,10 @@ def check_ledger_accepts_a_row_added_with_its_change():
         g('init', '-q')
         ledger.write_text(head)
         (tmp / 'README').write_text('x')
-        commit('root')                                   # repo root: exempt
+        commit('root')                                   # the base
+        # The check reads this branch against its base, never the whole
+        # history (Morgan, 2026-10-08; practice: checks-read-only-the-work).
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
         commit('inception of claude-code', hook_text='v1')  # dir's first: exempt
         with_row = commit('change with its row', hook_text='v2',
                           row='| 2026-09-26 | the gate learns v2 | applied | none | none | none |')

@@ -8,11 +8,13 @@
   ],
   "seen_by": {
     "morgan-f": {
-      "told_at": "2026-09-30T00:00:00-03:00",
+      "told_at": "2026-10-08T14:30:38-03:00",
       "tips": {
-        "staging": "81d605ba4c2d576b2c9b9c3fdd8f95cc9474cb74"
+        "main": "255a2e47e5701a65906306a20099caf4e693f06c",
+        "staging": "e23bd0a2ea5e9f7adc705293b1be1e9da9a064c6",
+        "pre-staging": "2f0629dc5f7431ff40a360c959954400811b48f9"
       },
-      "note": "carried over from the retired beta-branch watermark, which watched staging only"
+      "note": "reported"
     }
   }
 }
