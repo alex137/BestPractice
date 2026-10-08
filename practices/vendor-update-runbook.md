@@ -709,11 +709,16 @@ says so, both from the vendored tree under `process/upstream/`.
     end DONE. The hash pins the decision to the template text it was made
     against. When upstream changes the text of a kept `AGENTS.md` section,
     the report shows upstream's own change, from the pinned text to today's,
-    rather than every block the section has always left out, with the new
-    hashes to record if it is still kept; a change that is formatting alone
-    (links or code spans round the same words) re-pins by itself, as a
+    rather than every block the section has always left out. A change that
+    is formatting alone (links or code spans round the same words), or one
+    whose new wording the section already carries, re-pins by itself, as a
     `PIN UPDATED` line (since 2026-10-07: a consumer's two kept sections came
-    back as long lacks lists over links alone). An entry with no reason is
+    back as long lacks lists over links alone, and another stopped over a
+    phrase it had already adopted). Otherwise, once the person says it is
+    still kept, `python3 tools/precedent_vendor_engine.py repin-kept
+    ../BestPractice "AGENTS.md <heading>" --confirmed "<their words>"`
+    re-pins it and records their words and the date; never paste the hashes
+    by hand. An entry with no reason is
     not honoured. A `diverged` entry in `process/manifest.json`
     does not do this — that manifest tracks the vendored catalogue, and
     nothing that reads it looks at these files.
