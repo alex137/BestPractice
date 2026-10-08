@@ -94,21 +94,19 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~673 of 1750 token budget, 6 of 142 practices (6 universal))
+## Resident block (~642 of 1750 token budget, 6 of 142 practices (6 universal))
 
-**answer-first-ask-before-long-work.** Four parts. **(1) Answer the easy questions in a message before starting
-anything long** — in the same turn; the long run never gates the answer.
-**(2) A task that will run longer than a few minutes is proposed, not
-started:** what it is, how long from the tool's own cost line, what it
-blocks and what it does not, then the go-ahead. The exceptions are the
-quick checks a commit needs on the files the turn touched, never a
-whole suite, and a run already asked for by name. **(3) When idle on a wait, say what the wait is for,
-what it will change, and how to stop it** — never a bare "still running".
-A background task nobody asked for is stopped, not waited on.
-**(4) An open question is not a stopping point:** ask it early and keep
-working on everything its answer does not touch. **Every "how long"
-carries the clock time it lands, in the person's zone, named:** "about 15
-minutes, done around 15:35 New York time".
+**answer-first-ask-before-long-work.** **(1) Answer the easy questions first**, in the same message; the long run
+never gates the answer. **(2) A task longer than a few minutes is proposed,
+not started:** what it is, how long by the tool's own cost line, what it
+blocks and doesn't, then the go-ahead, except a commit's quick checks on
+the files the turn touched (never a whole suite) and a run asked for by name.
+**(3) Idle on a wait, say what it is for, what it will change, and how to
+stop it**, never a bare "still running"; a background task nobody asked for
+is stopped, not waited on. **(4) An open question is not a stopping point:**
+ask it early, and keep working on whatever its answer doesn't touch. **Every
+"how long" carries the clock time it lands, in the person's zone, named:**
+"about 15 minutes, done around 15:35 New York time".
 
 **current-rule-governs.** **A standing command means what the rule in force says today: do it.**
 `precedent_show.py SLUG` resolves it, following a deduplicated copy to the
