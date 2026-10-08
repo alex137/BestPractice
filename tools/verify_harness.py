@@ -8733,6 +8733,38 @@ def check_update_never_fetches_the_repo_it_updates():
             cases.append(('without skip it is still fetched (here: an attempt that '
                           'fails on the fixture, not a skip)',
                           bool(got) and 'not fetched' not in got[0][2], repr(got)[:200]))
+            # 2026-10-08, the shape that held two updates: the brought set is
+            # a real clone, on a branch another update in the same session
+            # just made. It is read as it stands, a note naming the branch,
+            # never a stop.
+            lad = t / 'ladder-real'
+            genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                        GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+            for a in (['init', '-q', '-b', 'main', str(lad)], ):
+                subprocess.run(['git', *a], env=genv, capture_output=True)
+            (lad / 'practices').mkdir()
+            (lad / 'practices' / 'r.md').write_text('x\n', encoding='utf-8')
+            for a in (['add', '-A'], ['commit', '-qm', 'r'],
+                      ['checkout', '-qb', 'session-update']):
+                subprocess.run(['git', '-C', str(lad), *a], env=genv, capture_output=True)
+            _pr.brought_sources = lambda p, warn=False: [
+                {'name': 'ladder', 'repo': f'file://{lad}', 'path': str(lad)}]
+            got = _psb.sources_from_brings(retries=1)
+            cases.append(('a brought set on another session\'s working branch is '
+                          'read as it stands, naming the branch',
+                          len(got) == 1 and got[0][1] is True
+                          and "'session-update'" in got[0][2], repr(got)[:300]))
+            branch_now = subprocess.run(['git', '-C', str(lad), 'rev-parse', '--abbrev-ref',
+                                         'HEAD'], capture_output=True, text=True).stdout.strip()
+            cases.append(('...and stays on that branch', branch_now == 'session-update',
+                          branch_now))
+            rep = _pu.Report()
+            _pu.brought_sets_step(rep, fetch=lambda: got)
+            cases.append(('...and the update reports it as a step, leaving nothing '
+                          'for the person',
+                          not rep.left and any('session-update' in o
+                                               for _n, o in rep.steps),
+                          repr(rep.steps)[:300]))
         finally:
             _pr.brought_sources = real_brought
             if real_env is None:
