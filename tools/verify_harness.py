@@ -35130,6 +35130,15 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
             # links exempt" from "never scanned".
             '# X\n\n### Skipped level\n\nSee [the engine](../tools/very_deep_check.py).\n',
             encoding='utf-8')
+        # A vendored TEMPLATE: its links name the tree it is instantiated
+        # into, as upstream's own check reads them (templates/ under the
+        # source root, not this repo's). Found 2026-10-08: a consumer's
+        # Update Vendors reported a vendored template's `gotchas/` as broken
+        # on every run, while upstream's check of the same line passed.
+        tpl = repo / 'precedent' / 'universal' / 'templates' / 'proj'
+        tpl.mkdir(parents=True)
+        (tpl / 'AGENTS.md').write_text(
+            '# Agents\n\nTraps live under [gotchas/](gotchas/).\n', encoding='utf-8')
         (repo / 'docs').mkdir()
         (repo / 'docs' / 'mine.md').write_text(
             '# Mine\n\nSee [nothing](../nowhere/absent.md).\n', encoding='utf-8')
@@ -35160,6 +35169,11 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
         check('...and a mirrored tree\'s broken link never fails this repo\'s gate',
               r2.returncode == 0 and 'precedent/universal/' in (r2.stdout + r2.stderr),
               f'exit {r2.returncode}: {(r2.stdout + r2.stderr)[-300:]}')
+        check('a vendored template\'s link to a path its instance will hold '
+              '(`gotchas/`) is read as upstream reads it, not reported as broken',
+              not any('templates/proj/AGENTS.md' in l for l in broken)
+              and any('some-practice.md' in l for l in broken),
+              '; '.join(broken)[:300])
         check('doc_lint still reports the repo\'s OWN broken relative link '
               'in the same run',
               any('docs/mine.md' in l for l in broken),
