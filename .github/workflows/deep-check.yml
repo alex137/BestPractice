@@ -202,64 +202,28 @@ jobs:
           echo "$msg"
           echo "$msg" >> "$GITHUB_STEP_SUMMARY"
 
-  verify-harness-heavy:
-    name: verify_harness (check_precedent_check_fires)
-    needs: already-tested
-    if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Markdown parser
-        run: python -m pip install cmarkgfm markdown
-
-      # PRECEDENT_HARNESS_ALL=1 -- every planted case, no rotation.
-      # Since 2026-09-21 an ordinary local run exercises a rotating slice
-      # (~16 of 71) plus everything the change touched, which is the right
-      # trade for a push a person is standing at. It is the wrong trade
-      # here: this run is the one nobody is watching, it is the last gate
-      # before a shared branch, and it is already paying for a checkout,
-      # full history and a Python setup. Rotation buys nothing it needs.
-      - name: Run the verification harness (heavy check only)
-        run: python3 tools/verify_harness.py
-        env:
-          PRECEDENT_CHECK_ONLY: check_precedent_check_fires
-          PRECEDENT_HARNESS_ALL: "1"
-
-  verify-harness-rest:
-    name: verify_harness (everything else)
-    needs: already-tested
-    if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Markdown parser
-        run: python -m pip install cmarkgfm markdown
-
-      - name: Run the verification harness (all but the heavy check)
-        run: python3 tools/verify_harness.py
-        env:
-          PRECEDENT_CHECK_SKIP: check_precedent_check_fires
-
-  precedent-check-and-sync:
-    name: precedent_check + doc_sync
+  # ONE JOB, THE SAME COMMAND A SESSION RUNS, since 2026-10-07. Until then
+  # this was three jobs: the heavy check, "everything else", and
+  # precedent_check + doc_sync. "Everything else" ran about 570 checks one
+  # after another on one core and took 30 minutes, on every Promote into
+  # main. The suite had been split across the cores locally on 2026-09-30
+  # (`--as-ci`), measured locally, and never carried here: this file and
+  # the harness's CI_SHARDS table each described the split, and only one
+  # of them moved (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-
+  # reached-only-the-local-copy). Now there is one description, in the
+  # harness, and this job runs it: `--as-ci` starts the heavy shard and
+  # the dealt parts of the rest side by side, on the runner's cores.
+  # verify_harness's check_as_ci_shards_match_the_workflow refuses any
+  # other way of running the suite here.
+  #
+  # One job instead of three also bills one rounded-up job instead of
+  # three (actions-minutes-are-scarce). The three billed about 37 minutes
+  # a run on 2026-10-07 (30, 5 and 1, each rounded up); this one should
+  # bill near the local --as-ci time, about 11, until a run measures it.
+  # The cheap checks run first, so a red precedent_check stops the run
+  # before the long step starts (gates-fail-fast).
+  deep-check:
+    name: precedent_check + doc_sync + verify_harness --as-ci
     needs: already-tested
     if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
@@ -294,3 +258,9 @@ jobs:
 
       - name: Run doc_sync.py
         run: python3 tools/doc_sync.py
+
+      # Every planted case, no rotation: CI_SHARDS gives the heavy shard
+      # PRECEDENT_HARNESS_ALL=1. This run is the one nobody is watching and
+      # the last gate before main, so rotation buys nothing it needs.
+      - name: Run the verification harness, side by side
+        run: python3 tools/verify_harness.py --as-ci

@@ -10722,19 +10722,22 @@ def _deep_assertion_slugs():
                   if m.group(1).endswith('-clean') else m.group(1))
     return found
 
-# THE TWO SHAPES CI RUNS, and the one a local session never does.
-# .github/workflows/deep-check.yml splits this suite across two jobs on
-# these variables, because check_precedent_check_fires is about half the
-# runtime (spec/VERIFY_HARNESS_PERFORMANCE.md). A plain local run sets
-# neither, so the whole filter path -- every behaviour that depends on a
-# check being replaced by a stand-in -- is code no local run executes.
+# THE SHARDS CI RUNS, and the one description of them there is. `--as-ci`
+# starts these side by side, cutting the rest shard into parts
+# (_as_ci_runs), and since 2026-10-07 GitHub's deep-check job runs exactly
+# that command rather than keeping its own copy of the split
+# (check_as_ci_shards_match_the_workflow refuses a second copy). The heavy
+# check is its own shard because it is a large slice of the runtime
+# (spec/VERIFY_HARNESS_PERFORMANCE.md). A plain local run sets neither
+# variable, so the whole filter path -- every behaviour that depends on a
+# check being replaced by a stand-in -- is code no plain run executes.
 #
 # That gap hid a crash on 2026-09-21: the full local suite reported
 # 244 passed, 0 failed while BOTH sharded CI jobs died before their first
 # verdict (gotcha-2026-09-21-a-green-local-verify-harness-run-does-not-mean-
-# green-ci). `--as-ci` is how a session runs what CI will run, in one
-# command, and check_as_ci_shards_match_the_workflow below keeps this table
-# from drifting away from the workflow it mirrors.
+# green-ci). The copy this table used to mirror went stale the other way on
+# 2026-09-30, and GitHub ran on one core for a week
+# (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy).
 CI_SHARDS = (
     ('heavy -- check_precedent_check_fires only, every planted case',
      {'PRECEDENT_CHECK_ONLY': 'check_precedent_check_fires',
@@ -10792,15 +10795,89 @@ def _shard_failure_detail(proc, tail_lines=20):
     return out
 
 
-def _as_ci_runs(jobs, names=None):
+# WHAT EACH CHECK TOOK, committed, so the deal below is the same on every
+# machine that runs `--as-ci` -- a session's and GitHub's runner alike. A
+# record kept under .precedent/ would deal differently on each one, and the
+# two sides would quietly stop running the same parts again
+# (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy).
+# Refreshed only when asked: `--as-ci --record-times` (run_as_ci).
+HARNESS_CHECK_TIMES = ROOT / 'tools' / 'harness_check_times.json'
+
+# How many processes `--as-ci` starts, wherever it runs: the heavy shard
+# plus three parts of the rest. A fixed number, not the machine's cores,
+# so GitHub's four-core runner and a session's container deal the suite
+# identically. PRECEDENT_AS_CI_JOBS still overrides it for one run.
+AS_CI_JOBS = 4
+
+
+def _check_times(path=None):
+    """-> ({check name: seconds}, default seconds) from HARNESS_CHECK_TIMES;
+    ({}, None) when it is missing or unreadable, and the deal then goes by
+    names alone."""
+    try:
+        rec = json.loads(pathlib.Path(path or HARNESS_CHECK_TIMES)
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}, None
+    if not isinstance(rec, dict):
+        return {}, None
+    times = {k: float(v) for k, v in (rec.get('seconds') or {}).items()
+             if isinstance(v, (int, float)) and v >= 0}
+    default = rec.get('default_seconds')
+    return times, (float(default) if isinstance(default, (int, float)) else None)
+
+
+def _write_check_times(seconds, measured, path=None):
+    """Rewrite HARNESS_CHECK_TIMES from {check name: seconds}. Every check is
+    named, so default_seconds covers only checks added since."""
+    vals = sorted(seconds.values())
+    rec = {
+        'about': ('What each verify_harness check took, read by --as-ci to '
+                  'deal the suite into parts the same way on every machine. '
+                  "Regenerate with: python3 tools/verify_harness.py --as-ci "
+                  "--record-times --because '<why>'. A check missing here "
+                  'counts as default_seconds.'),
+        'measured': measured,
+        'default_seconds': round(vals[len(vals) // 2], 2) if vals else 1.0,
+        'seconds': {k: round(v, 1) for k, v in sorted(seconds.items())},
+    }
+    pathlib.Path(path or HARNESS_CHECK_TIMES).write_text(
+        json.dumps(rec, indent=1) + '\n', encoding='utf-8')
+
+
+def _deal_by_time(names, parts, times, default=None):
+    """-> [[name, ...]] * parts: every name in exactly one part, the slowest
+    dealt first, each to whichever part has the least time so far. A check
+    with no record counts as `default` (the record's default_seconds; else
+    the median recorded time; one second with no record at all). Ties go
+    by name, so the deal depends only on the names and the committed
+    record -- never on the machine.
+
+    Until 2026-10-07 the deal was round-robin by name, and the slow checks
+    bunched up: one Debut's three parts took 634, 316 and about 640
+    seconds (todo-2026-10-06-deal-harness-checks-by-measured-time)."""
+    if default is None:
+        known = sorted(times.values())
+        default = known[len(known) // 2] if known else 1.0
+    order = sorted(names, key=lambda n: (-times.get(n, default), n))
+    load = [0.0] * parts
+    dealt = [[] for _ in range(parts)]
+    for n in order:
+        i = min(range(parts), key=lambda k: (load[k], k))
+        dealt[i].append(n)
+        load[i] += times.get(n, default)
+    return [sorted(d) for d in dealt]
+
+
+def _as_ci_runs(jobs, names=None, times=None):
     """-> [(label, env_extra)]: the processes `--as-ci` starts side by side.
 
     CI_SHARDS as they are, except that the one shard run by SKIP (CI's
     "rest") is cut into enough parts to fill `jobs` processes. Each part
     still runs by PRECEDENT_CHECK_SKIP -- the shard's own filter path, the
     half a plain local run never executes -- skipping the heavy check and
-    every name the other parts take. Names are dealt round-robin in sorted
-    order, so every check runs in exactly one process.
+    every name the other parts take. Names are dealt by their recorded
+    time (_deal_by_time), so every check runs in exactly one process.
 
     Safe to split because no check calls another and none takes another's
     result (both verified over the whole file, 2026-09-30): a check sees the
@@ -10815,7 +10892,8 @@ def _as_ci_runs(jobs, names=None):
     label, env_extra = skip_shards[0]
     base_skip = set(env_extra['PRECEDENT_CHECK_SKIP'].split(','))
     rest = [n for n in names if n not in base_skip]
-    dealt = [rest[i::parts] for i in range(parts)]
+    times, default = _check_times() if times is None else (times, None)
+    dealt = _deal_by_time(rest, parts, times, default)
     out = []
     for s in CI_SHARDS:
         if s is not skip_shards[0]:
@@ -11033,11 +11111,15 @@ def check_bare_all_runs_across_the_cores():
           not failed, '; '.join(failed))
 
 
-def run_as_ci(every_case=False):
-    """-> exit status. Run this suite the two ways CI runs it, side by side.
+def run_as_ci(every_case=False, record_times=False):
+    """-> exit status. Run this suite the way CI runs it, side by side.
 
     every_case: give every process PRECEDENT_HARNESS_ALL=1, which is what a
     bare `--all` asks for (see the bottom of this file).
+    record_times (`--record-times`): after a green run, rewrite
+    HARNESS_CHECK_TIMES from what each check took here, so the next deal
+    is balanced on today's suite. It changes a committed file, so it runs
+    only when asked.
 
     NOT the same work twice: the shards PARTITION the suite. Until
     2026-09-30 they ran one after the other, and the rest shard ran its
@@ -11048,7 +11130,12 @@ def run_as_ci(every_case=False):
     the machine's cores, at most four) -- _as_ci_runs() says how.
     PRECEDENT_AS_CI_JOBS=1 is the old serial run.
 
-    IT REPRODUCES CI'S COMMAND SHAPE, NOT CI'S ENVIRONMENT, and the
+    SINCE 2026-10-07 IT IS CI'S COMMAND: GitHub's deep-check job runs
+    `verify_harness.py --as-ci` itself, so there is one description of the
+    split, here, and nothing to drift
+    (check_as_ci_shards_match_the_workflow).
+
+    IT REPRODUCES CI'S COMMAND, NOT CI'S ENVIRONMENT, and the
     difference is worth stating because over-promising here would repeat
     the exact failure this exists to fix. A local session resolves private
     practice sources that CI has no credential for, so a check keyed to one
@@ -11061,7 +11148,7 @@ def run_as_ci(every_case=False):
         jobs = int(os.environ.get('PRECEDENT_AS_CI_JOBS') or 0)
     except ValueError:
         jobs = 0
-    jobs = jobs or min(4, os.cpu_count() or 1)
+    jobs = jobs or AS_CI_JOBS
     runs = _as_ci_runs(jobs)
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-as-ci-'))
     started = []
@@ -11076,6 +11163,8 @@ def run_as_ci(every_case=False):
         env.update(env_extra)
         if every_case:
             env['PRECEDENT_HARNESS_ALL'] = '1'
+        if record_times:
+            env['PRECEDENT_HARNESS_TIMES_OUT'] = str(tmp / f'{i}.times.json')
         # Files, not pipes: a shard that fills a pipe nobody reads yet stalls.
         out, err = open(tmp / f'{i}.out', 'w+'), open(tmp / f'{i}.err', 'w+')
         proc = subprocess.Popen([sys.executable, str(pathlib.Path(__file__))],
@@ -11115,8 +11204,25 @@ def run_as_ci(every_case=False):
             print(f'  SHARD FAILED (exit {done.returncode})')
             for line in _shard_failure_detail(done):
                 print(line)
+    recorded = {}
+    if record_times and not failed:
+        for f in sorted(tmp.glob('*.times.json')):
+            # The largest wins: a shard's filtered-out checks are timed too,
+            # as near-zero no-ops, and must not overwrite the real run.
+            try:
+                for n, dt in json.loads(f.read_text(encoding='utf-8')).items():
+                    recorded[n] = max(dt, recorded.get(n, 0.0))
+            except (OSError, ValueError, AttributeError, TypeError):
+                pass
     shutil.rmtree(tmp, ignore_errors=True)
     wall = time.monotonic() - t0
+    if recorded:
+        _write_check_times(recorded, f'{time.strftime("%Y-%m-%d")}, '
+                           f'{os.cpu_count() or 1} cores, --as-ci')
+        print(f'--as-ci: {len(recorded)} check times written to '
+              f'{HARNESS_CHECK_TIMES.relative_to(ROOT)} -- commit it.')
+    elif record_times:
+        print('--as-ci: check times NOT written -- only a green run records them.')
     if failed:
         print(f'\n--as-ci: {len(failed)} of {len(started)} shard process(es) '
               f'failed in {wall:.0f}s: {"; ".join(failed)}')
@@ -11398,37 +11504,70 @@ def check_isolated_run_matches_the_runner():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
-def check_as_ci_shards_match_the_workflow():
-    """CI_SHARDS above must be what .github/workflows/deep-check.yml sets.
+_SPLIT_VARS = ('PRECEDENT_CHECK_ONLY', 'PRECEDENT_CHECK_SKIP',
+               'PRECEDENT_HARNESS_ALL', 'PRECEDENT_AS_CI_JOBS',
+               'PRECEDENT_HARNESS_PART')
 
-    A local command that claims to run "what CI runs" and has drifted from
-    the workflow is worse than not having one: it returns green with
-    authority. So the table is asserted against the workflow's own env
-    blocks rather than trusted."""
+
+def _workflow_harness_drift(body):
+    """-> [problem, ...] for a workflow's text: every way it runs
+    verify_harness.py other than `--as-ci`, and every split variable it
+    sets itself. [] means the workflow takes its split from CI_SHARDS and
+    _as_ci_runs, the one description there is."""
+    lines = [l for l in body.splitlines() if not l.lstrip().startswith('#')]
+    runs = [l.strip() for l in lines if 'verify_harness.py' in l]
+    problems = []
+    if not runs:
+        problems.append('the workflow never runs tools/verify_harness.py')
+    for r in runs:
+        if '--as-ci' not in r.split():
+            problems.append(f'runs the suite another way: {r!r}')
+    for var in _SPLIT_VARS:
+        if any(re.search(rf'\b{var}\s*:', l) for l in lines):
+            problems.append(f'sets {var} itself, a split --as-ci does not make')
+    return problems
+
+
+def check_as_ci_shards_match_the_workflow():
+    """GitHub's deep-check workflow runs the suite through `--as-ci` and
+    nothing else, so GitHub and a session deal it into the same processes.
+
+    WHY. Until 2026-10-07 the split was written twice: the workflow's own
+    jobs, and CI_SHARDS here. This check compared the two -- and both
+    still said "heavy, and everything else" after `--as-ci` learned, on
+    2026-09-30, to cut "everything else" into parts across the cores. The
+    split lived below the table, so the check stayed green while GitHub ran
+    about 570 checks on one core for 30 minutes on every Promote into main
+    and a session ran the same suite in about 11
+    (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy).
+    Now the workflow runs `--as-ci` itself, and this refuses any second
+    description of the split coming back."""
+    planted = [
+        ('the old two-job workflow is refused',
+         'steps:\n  - run: python3 tools/verify_harness.py\n    env:\n'
+         '      PRECEDENT_CHECK_ONLY: check_precedent_check_fires\n'
+         '      PRECEDENT_HARNESS_ALL: "1"\n'
+         '  - run: python3 tools/verify_harness.py\n    env:\n'
+         '      PRECEDENT_CHECK_SKIP: check_precedent_check_fires\n', True),
+        ('a matrix of parts set in the workflow is refused',
+         '  - run: python3 tools/verify_harness.py --as-ci\n    env:\n'
+         '      PRECEDENT_AS_CI_JOBS: ${{ matrix.jobs }}\n', True),
+        ('a workflow that drops the suite is refused',
+         '  - run: python3 tools/precedent_check.py\n', True),
+        ('one --as-ci step, the split named only in a comment, passes',
+         '  # PRECEDENT_CHECK_SKIP was set here until 2026-10-07\n'
+         '  - run: python3 tools/verify_harness.py --as-ci\n', False),
+    ]
+    cases = [(name, bool(_workflow_harness_drift(body)) == want, '')
+             for name, body, want in planted]
     wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
-    if not wf.is_file():
-        not_applicable('the --as-ci shard table matches the workflow',
-                       'no .github/workflows/deep-check.yml here')
-        return
-    body = wf.read_text(encoding='utf-8')
-    cases = []
-    for label, env_extra in CI_SHARDS:
-        for var, value in env_extra.items():
-            # The workflow writes `VAR: value` or `VAR: "value"`.
-            present = (f'{var}: {value}' in body
-                       or f'{var}: "{value}"' in body)
-            cases.append((f'{var}={value} ({label.split(" --")[0]})',
-                          present, ''))
-    # And the other direction: a shard variable the workflow sets that this
-    # table does not know about would mean CI runs a shape --as-ci cannot.
-    declared = {v for _l, e in CI_SHARDS for v in e}
-    for var in ('PRECEDENT_CHECK_ONLY', 'PRECEDENT_CHECK_SKIP'):
-        cases.append((f'{var} appears in the workflow and in CI_SHARDS',
-                      (var in body) == (var in declared), ''))
-    bad = [c[0] for c in cases if not c[1]]
-    check(f'the --as-ci shard table matches the workflow '
-          f'({len(cases)} stated cases)',
-          not bad, '; '.join(bad))
+    if wf.is_file():
+        drift = _workflow_harness_drift(wf.read_text(encoding='utf-8'))
+        cases.append(('this repo\'s deep-check.yml runs --as-ci and nothing else',
+                      not drift, '; '.join(drift)))
+    bad = [f'{n}{": " + d if d else ""}' for n, ok, d in cases if not ok]
+    check(f'GitHub runs the suite through --as-ci, the one split '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
@@ -58844,6 +58983,36 @@ def check_as_ci_parts_partition_the_suite():
                           if 'PRECEDENT_CHECK_ONLY' not in e), ''))
         cases.append((f'{jobs} job(s): {max(jobs, len(CI_SHARDS))} process(es)',
                       len(runs) == max(jobs, len(CI_SHARDS)), str(len(runs))))
+    # Dealt by recorded time: even parts, the same on every machine.
+    planted = {'check_a': 50.0, 'check_b': 40.0, 'check_c': 30.0,
+               'check_d': 20.0, 'check_e': 10.0}
+    fake = sorted(planted) + ['check_f', 'check_g']
+    dealt = _deal_by_time(fake, 2, planted, 5.0)
+    loads = sorted(sum(planted.get(n, 5.0) for n in part) for part in dealt)
+    cases.append(('the slowest checks are spread, not bunched',
+                  loads == [80.0, 80.0], str(dealt)))
+    cases.append(('the deal is the same whatever order the names come in',
+                  _deal_by_time(list(reversed(fake)), 2, planted, 5.0) == dealt, ''))
+    cases.append(('with no record, every check still runs exactly once',
+                  sorted(n for part in _deal_by_time(fake, 3, {}) for n in part)
+                  == sorted(fake), ''))
+    cases.append(('the job count is a constant, not the machine\'s cores',
+                  AS_CI_JOBS == 4, str(AS_CI_JOBS)))
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-times-'))
+    try:
+        _write_check_times({'check_a': 12.34, 'check_b': 1.0}, 'test', tmp / 't.json')
+        got = _check_times(tmp / 't.json')
+        cases.append(('a written record reads back', got[0] == {'check_a': 12.3,
+                      'check_b': 1.0} and got[1] is not None, str(got)))
+        cases.append(('an unreadable record deals by name',
+                      _check_times(tmp / 'missing.json') == ({}, None), ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    rec = _check_times()[0]
+    stale = sorted(set(rec) - set(names))
+    cases.append(('the committed record names only checks that exist',
+                  not stale, f'stale: {stale[:3]} (rerun --as-ci --record-times)'))
     failed = [(n, d) for n, ok, d in cases if not ok]
     check(f'--as-ci parts partition the suite ({len(cases)} stated cases)',
           not failed, '; '.join(f'{n}: {d}' for n, d in failed))
@@ -65026,6 +65195,11 @@ def main():
         # Appended, not written: --as-ci runs one process per shard.
         with open(na_file, 'a', encoding='utf-8') as fh:
             fh.write(''.join(f'{n}\n' for n in sorted(NA_FUNCTIONS)))
+    times_out = os.environ.get('PRECEDENT_HARNESS_TIMES_OUT')
+    if times_out and CHECK_DURATIONS:
+        # One file per shard process: run_as_ci merges them for --record-times.
+        with open(times_out, 'w', encoding='utf-8') as fh:
+            json.dump({n: round(dt, 2) for n, dt in CHECK_DURATIONS}, fh)
     _report_check_durations()
     return 1 if FAILED else 0
 
@@ -65059,7 +65233,7 @@ if __name__ == '__main__':
     if '--as-ci' in sys.argv[1:] and '--isolated' in sys.argv[1:]:
         _done(run_as_ci_isolated())
     if '--as-ci' in sys.argv[1:]:
-        _done(run_as_ci())
+        _done(run_as_ci(record_times='--record-times' in sys.argv[1:]))
     # A BARE --all RUNS ACROSS THE CORES (2026-10-06). It is the same set as
     # --as-ci with every planted case, and run in one process it took about
     # 31 minutes on a 4-core container that --as-ci fills in about 11 (the

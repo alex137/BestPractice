@@ -27,6 +27,15 @@ Two workflows run on this repo itself, in [.github/workflows/](https://github.co
   those exact files already passed it -- this repo's one GitHub test
   ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)); every other
   push is checked locally by the push check first.
+  **Since 2026-10-07 it is one job that runs the suite with
+  `verify_harness.py --as-ci`**, the command a session runs, so the suite
+  is split across the runner's cores the same way it is here. Before that,
+  the workflow kept its own copy of the split in three jobs. The local copy
+  got faster and GitHub's didn't, so every pull request into `main` waited
+  about 30 minutes on one core
+  ([the gotcha](../gotchas/gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)).
+  The harness now refuses any other way of running the suite in this
+  workflow.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is
