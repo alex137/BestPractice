@@ -310,19 +310,19 @@
   "grandfathered_commit_shas": [
     {
       "sha": "8f86c439a598a4e223fde04831967cb9c09e3a06",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "79102c386b507961a498d5acb5f6d8e1f0c337b0",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "8863356280b816e771b92a2970a3d351a61abbed",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "4c4b020aff145f0a4d994729ffb546c16dcd1ced",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "3f0a8f23dc2e7b52c1636ea0744818bddc253029",
@@ -334,19 +334,19 @@
     },
     {
       "sha": "3a59555aa515e5b1a6da4a76c68b9d5211c538e9",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "ebe368a1d609b38d62fe2214a1e10bbf27b143a9",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "081b442eafdb45740a53f7de44a73e303a0f5cb0",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "b45f6fd706dd460fbd0f6b6400ac945941a9ca7e",
-      "note": "Written by tools/precedent_beta_watermark_check.py, which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
+      "note": "Written by the beta-branch watermark check (retired 2026-10-08), which put no session trailer on its commits until 2026-09-28; published history, not rewritten (practice: no-rewrite-for-warnings)"
     },
     {
       "sha": "7e6c61f485479a2d910b7f3e51d362c39f1fbfcb",

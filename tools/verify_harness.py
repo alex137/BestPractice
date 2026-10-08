@@ -25797,40 +25797,6 @@ def check_reply_check_requires_the_boildown_first_line():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
-def _beta_watermark_fixture(tmp, git, branch='staging'):
-    """A bare origin, a seed clone to land commits through, and the WORK
-    clone the tool runs in -- which is now the same repository the watermark
-    lives in, so it needs a tools/ directory and a .gitignore carrying
-    .precedent/, exactly as this repo has.
-
-    -> (origin, seed, work, land) where land(text, author) puts one commit
-    on origin authored by whoever you name."""
-    origin = tmp / 'origin-bp'
-    git(tmp, 'init', '-q', '--bare', '-b', branch, str(origin))
-    seed = tmp / 'seed'
-    git(tmp, 'clone', '-q', str(origin), str(seed))
-    git(seed, 'config', 'user.email', 'harness@example.com')
-    git(seed, 'config', 'user.name', 'harness')
-    (seed / 'tools').mkdir()
-    (seed / 'tools' / 'keep.txt').write_text('so tools/ exists\n', encoding='utf-8')
-    (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
-
-    def land(text, author):
-        # The WORK clone pushes to this same origin now that the watermark
-        # lives in its own repository, so the seed has to catch up first or
-        # every land() after the first watermark commit is rejected.
-        # Tolerant on the FIRST land, when origin carries no branch yet.
-        if subprocess.run(['git', '-C', str(seed), 'fetch', '-q', 'origin',
-                            branch], capture_output=True).returncode == 0:
-            git(seed, 'reset', '-q', '--hard', f'origin/{branch}')
-        (seed / 'f.txt').write_text(text, encoding='utf-8')
-        git(seed, 'add', '-A')
-        git(seed, 'commit', '-qm', text, author=author)
-        git(seed, 'push', '-q', 'origin', branch)
-
-    return origin, seed, land
-
-
 def check_vocabulary_prefers_the_file_you_are_standing_on():
     """A practice defined both in this repo and in a resolved source is read
     from THIS repo's file, and the collision is named either way.
@@ -26104,426 +26070,6 @@ def check_vocabulary_moves_a_word_to_our_language():
         check(f'precedent_vocabulary prints words under Our language, not as '
               f'commands ({len(cases)} stated cases)', ok)
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def check_beta_watermark_commits_only_when_it_actually_reports_something():
-    """The watermark advances -- and writes a commit -- ONLY on a run that
-    tells its person about a commit that is not theirs. A run with nothing
-    to tell them writes nothing at all.
-
-    THE DEFECT, 2026-09-22. `_write_watermark` and the commit sat ABOVE the
-    `if not others` return in `check()`, so the path that reports nothing
-    committed exactly like the path that reports somebody else's push.
-    Measured on `precedent-beta-v01` the same day: 293 of the last 300
-    commits are Morgan's own, 5 a session's, 2 Alex's -- so nearly every
-    watermark commit ever written recorded a notice that was never given,
-    against a registry whose own `_comment` says it "gates a notification
-    with nothing left to do once it has been given". 32 of them across four
-    days in one container, 13 on a single day, 8 still unpushed.
-
-    NOT COMMITTING IS NOT ENOUGH, which is why the clean-tree case matters.
-    Writing the file and skipping only the commit leaves the checkout dirty,
-    and `.claude/hooks/freshness-guard.sh` refuses to fast-forward a dirty
-    tree (`_dirty` there, `status --porcelain --untracked-files=no`) --
-    trading a diverged checkout for a stuck one.
-
-    The last case is the correctness the volume fix must not cost: a
-    watermark left behind by a quiet run still finds the commit it never
-    reported, because `others` is computed over `seen..head` and a watermark
-    that stayed put simply widens that window.
-
-    KEYED BY IDENTITY since the file moved into this repository on
-    2026-09-22. Two people work this branch, and one shared row would have
-    each of them consuming the other's notification, so the last case here
-    asserts a second identity is told about commits the first already
-    swallowed.
-    """
-    import shutil, tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_beta_watermark_check as pbw
-
-    MINE = 'watermark-owner@example.com'
-    THEIRS = 'someone-else@example.com'
-
-    def git(cwd, *args, author=None):
-        env = dict(os.environ)
-        if author:
-            env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
-            env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = author.split('@')[0]
-        r = subprocess.run(['git', '-C', str(cwd), *args],
-                           capture_output=True, text=True, env=env)
-        if r.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
-        return r.stdout.strip()
-
-    # Identity resolves from PRECEDENT_COMMIT_* first, which is the cheapest
-    # way to give a fixture repo a person without writing an identity.json
-    # into it. Saved and restored so the real container's identity is not
-    # disturbed.
-    saved = {k: os.environ.get(k) for k in
-             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
-              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-'))
-    try:
-        branch = 'staging'
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
-        os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
-        os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
-        os.environ.pop('PRECEDENT_USER_CONFIG', None)
-
-        origin, _seed, land = _beta_watermark_fixture(tmp, git, branch)
-        land('c0', MINE)
-
-        work = tmp / 'work'
-        git(tmp, 'clone', '-q', str(origin), str(work))
-        git(work, 'config', 'user.email', 'harness@example.com')
-        git(work, 'config', 'user.name', 'harness')
-
-        def run():
-            # .claude/hooks/freshness-guard.sh fast-forwards the checkout
-            # before the session-start hook fires, so the real sequence
-            # never reaches check() with a checkout that is behind. A
-            # fixture that skips it tests _can_push's refusal instead of
-            # what this check is about.
-            subprocess.run(['git', '-C', str(work), 'fetch', '-q', 'origin',
-                            branch], capture_output=True)
-            subprocess.run(['git', '-C', str(work), 'merge', '-q', '--ff-only',
-                            f'origin/{branch}'], capture_output=True)
-            return pbw.check(root=work, no_fetch=False, no_push=False)
-
-        def landed():
-            # Watermark commits alone: land() puts its own commits on the
-            # same branch, so a bare count moves for reasons this check is
-            # not about.
-            subjects = git(origin, 'log', '--format=%s', branch).splitlines()
-            return sum(1 for x in subjects if 'watermark' in x)
-
-        def rows():
-            wm = pbw._watermark_path(work)
-            if not wm.is_file():
-                return {}
-            return json.loads(wm.read_text(encoding='utf-8')).get('seen_by') or {}
-
-        def recorded(who='Watermark Owner'):
-            key = pbw._identity_key({'name': who})
-            return (rows().get(key) or {}).get('sha')
-
-        # 1. First run for this identity baselines, and that is one commit.
-        status_base, _l, alert_base = run()
-        after_baseline = landed()
-        baselined_at = recorded()
-
-        # 2. The branch moves, all of it authored by the declared identity.
-        land('c1', MINE)
-        status_quiet, lines_quiet, alert_quiet = run()
-        after_quiet = landed()
-        porcelain_quiet = git(work, 'status', '--porcelain')
-        # Captured HERE, not in the cases list below: the alert run that
-        # follows writes the file, and a late read would show its value
-        # while claiming to describe the quiet run.
-        recorded_after_quiet = recorded()
-
-        # 3. Somebody else pushes. Now there is something to tell them.
-        land('c2', THEIRS)
-        status_alert, _la, alert_alert = run()
-        after_alert = landed()
-        subject_alert = git(work, 'log', '-1', '--format=%s')
-
-        # 4. A SECOND identity gets its OWN row. It baselines rather than
-        #    alerting -- a person who has never been told anything has
-        #    nothing to be told about -- and the first person's row must
-        #    come through it untouched.
-        mine_before_other = recorded('Watermark Owner')
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = THEIRS
-        os.environ['PRECEDENT_COMMIT_NAME'] = 'Someone Else'
-        land('c3', MINE)
-        status_other, _lo, alert_other = run()
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
-        os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
-
-        mine_now, theirs_now = recorded(), recorded('Someone Else')
-        cases = [
-            ('a first run for an identity baselines and commits once',
-             status_base == 'ok' and alert_base is None
-             and after_baseline == 1 and baselined_at is not None,
-             f'{status_base} {after_baseline} {baselined_at}'),
-            ('a branch move with nothing to report writes NO commit',
-             after_quiet == after_baseline, f'{after_quiet} vs {after_baseline}'),
-            ('...and leaves the checkout CLEAN, so the freshness guard can '
-             'still fast-forward it', porcelain_quiet == '', porcelain_quiet),
-            ('...and says so, rather than reporting an outcome it did not have',
-             'nothing to tell you' in ' '.join(lines_quiet), ' '.join(lines_quiet)),
-            ('...and leaves the recorded watermark where it was',
-             recorded_after_quiet == baselined_at,
-             f'{recorded_after_quiet} vs {baselined_at}'),
-            ('the quiet run reports ok with no alert',
-             status_quiet == 'ok' and alert_quiet is None, f'{status_quiet}'),
-            ("somebody else's push IS reported, even though the quiet run "
-             'left the watermark behind',
-             status_alert == 'alert' and alert_alert is not None
-             and 'someone-else' in alert_alert, f'{status_alert}'),
-            ('...and that is the run that writes the commit',
-             after_alert == after_quiet + 1
-             and subject_alert.startswith(f'Advance {branch} watermark'),
-             f'{after_alert} vs {after_quiet}: {subject_alert}'),
-            ('a SECOND identity baselines rather than inheriting what the '
-             'first was told', status_other == 'ok' and alert_other is None
-             and recorded('Someone Else') is not None, f'{status_other} {alert_other}'),
-            ('no row is keyed by an email address -- the leak gate refuses '
-             'one anywhere in a tracked file, and this branch is public',
-             all('@' not in k for k in rows()), f'{sorted(rows())}'),
-            ('...and the two rows are kept apart -- one per person, never '
-             'one for the file',
-             mine_now == mine_before_other and theirs_now != mine_now,
-             f'{mine_now} (was {mine_before_other}) vs {theirs_now}'),
-        ]
-        ok = all(passed for _, passed, _ in cases)
-        for name, passed, detail in cases:
-            if not passed:
-                print(f"  beta watermark did NOT behave as stated: {name} [{detail}]")
-        check(f'the beta-branch watermark commits only on a run that '
-              f'actually reports something ({len(cases)} stated cases)', ok)
-    finally:
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
-    """The watermark is written only into a checkout that is idle AND can
-    push. Anything else and the per-container note takes it instead, with
-    the alert still delivered.
-
-    WHY THE PROBE EXISTS. Until 2026-09-22 the watermark was committed into
-    a DIFFERENT repository -- the individual source -- and from a session
-    rooted here that push could not land: the git proxy serves fetches of
-    that clone and refuses pushes on repository scope, measured with the
-    credential helper present and the token in the environment. Eight
-    unpushable commits piled up there. The file has since moved into this
-    repository, which removes that particular wall and not the rule: a
-    checkout that is offline, behind or diverged still cannot push.
-
-    WHY THE IDLE GUARD EXISTS, and it is the hazard the move introduced.
-    The write now lands in the very checkout the session is about to work
-    in. A push from a session-start hook would carry whatever else sits
-    ahead of origin, and a bare commit would sweep up anything already
-    staged -- a hook publishing somebody's work in progress, or authoring a
-    commit they were still composing. So history is written only into a
-    checkout that is demonstrably idle, and the commit names its one path
-    explicitly rather than trusting the index.
-
-    The note is written only where git can be SHOWN to ignore it: an
-    untracked file in a source clone is precisely the dirt that skips that
-    clone's refresh and reads as work existing nowhere else. The last case
-    is the repo that ignores nothing -- no note, and a line that says the
-    alert will repeat rather than pretending otherwise.
-    """
-    import shutil, tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_beta_watermark_check as pbw
-
-    MINE = 'watermark-owner@example.com'
-    THEIRS = 'someone-else@example.com'
-
-    def git(cwd, *args, author=None):
-        env = dict(os.environ)
-        if author:
-            env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
-            env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = author.split('@')[0]
-        r = subprocess.run(['git', '-C', str(cwd), *args],
-                           capture_output=True, text=True, env=env)
-        if r.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
-        return r.stdout.strip()
-
-    saved = {k: os.environ.get(k) for k in
-             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
-              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-busy-'))
-    try:
-        branch = 'staging'
-        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
-        os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
-        os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
-        os.environ.pop('PRECEDENT_USER_CONFIG', None)
-
-        origin, _seed, land = _beta_watermark_fixture(tmp, git, branch)
-        land('c0', MINE)
-        work = tmp / 'work'
-        git(tmp, 'clone', '-q', str(origin), str(work))
-        git(work, 'config', 'user.email', 'harness@example.com')
-        git(work, 'config', 'user.name', 'harness')
-
-        def run(root=None):
-            r = root or work
-            subprocess.run(['git', '-C', str(r), 'fetch', '-q', 'origin',
-                            branch], capture_output=True)
-            subprocess.run(['git', '-C', str(r), 'merge', '-q', '--ff-only',
-                            f'origin/{branch}'], capture_output=True)
-            return pbw.check(root=r, no_fetch=False, no_push=False)
-
-        def landed():
-            # Watermark commits alone; land() adds its own to the same branch.
-            subjects = git(origin, 'log', '--format=%s', branch).splitlines()
-            return sum(1 for x in subjects if 'watermark' in x)
-
-        run()                                     # baseline, idle and pushable
-        baseline = landed()
-        note_path = pbw._local_note_path(work)
-
-        # --- the checkout is mid-work: a commit of its own, not yet pushed
-        (work / 'session-work.txt').write_text('a session in progress\n',
-                                                encoding='utf-8')
-        git(work, 'add', 'session-work.txt')
-        git(work, 'commit', '-qm', 'the session is working')
-        quiet_before = pbw._is_quiet(work, branch)
-
-        land('c1', THEIRS)
-        status1, lines1, alert1 = run()
-        cases = [
-            ('_is_quiet says no when the checkout is ahead of origin',
-             quiet_before is False, 'said yes'),
-            ('the alert is still delivered from a busy checkout',
-             status1 == 'alert' and alert1 is not None, f'{status1}'),
-            ("and the session's own commit was NOT pushed by the hook",
-             landed() == baseline, f'{landed()} vs {baseline}'),
-            ('and no watermark commit was written either',
-             git(work, 'log', '-1', '--format=%s') == 'the session is working',
-             git(work, 'log', '-1', '--format=%s')),
-            ('the head reported is recorded per-container instead',
-             note_path.is_file()
-             and json.loads(note_path.read_text(encoding='utf-8')
-                             )['reported_head'] == git(work, 'rev-parse',
-                                                        f'origin/{branch}'),
-             'no note'),
-            ('the note is invisible to git, so it is not dirt in its turn',
-             git(work, 'status', '--porcelain') == '',
-             git(work, 'status', '--porcelain')),
-            ('and the line says nothing was written to the shared watermark',
-             'mid-work or cannot push' in ' '.join(lines1), ' '.join(lines1)),
-        ]
-
-        # The note is the whole point: the same alert must not repeat here.
-        status2, _l2, alert2 = run()
-        cases.append(('the same alert does not repeat in this container',
-                      status2 == 'ok' and alert2 is None, f'{status2} {alert2}'))
-
-        # --- a STAGED file alone is enough to refuse, with nothing ahead
-        git(work, 'fetch', '-q', 'origin', branch)
-        git(work, 'merge', '-q', '--no-edit', f'origin/{branch}')
-        git(work, 'push', '-q', 'origin', f'HEAD:{branch}')
-        baseline = landed()
-        (work / 'staged.txt').write_text('half an edit\n', encoding='utf-8')
-        git(work, 'add', 'staged.txt')
-        cases.append(('_is_quiet says no on a staged index alone, with '
-                      'nothing ahead of origin',
-                      pbw._is_quiet(work, branch) is False, 'said yes'))
-        git(work, 'reset', '-q')
-        (work / 'staged.txt').unlink()
-
-        # --- idle, but the remote is out of reach
-        reachable = git(work, 'remote', 'get-url', 'origin')
-        git(work, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
-        cases.append(('the probe says no when the remote cannot be reached',
-                      pbw._can_push(work) is False, 'probe said yes'))
-        git(work, 'remote', 'set-url', 'origin', reachable)
-
-        # --- idle and reachable: the shared watermark IS written and pushed
-        land('c2', THEIRS)
-        status3, _l3, alert3 = run()
-        cases += [
-            ('idle and pushable, the alert fires again',
-             status3 == 'alert' and alert3 is not None, f'{status3}'),
-            ('and NOW the shared watermark is committed and pushed',
-             landed() == baseline + 1
-             and int(git(work, 'rev-list', '--count', f'origin/{branch}..HEAD')) == 0,
-             f'{landed()} vs {baseline}'),
-            ('and the commit carries only the watermark file, never '
-             'whatever happened to be staged',
-             git(work, 'show', '--name-only', '--format=', 'HEAD').split()
-             == [f'tools/{pbw.WATERMARK_FILENAME}'],
-             git(work, 'show', '--name-only', '--format=', 'HEAD')),
-        ]
-
-        # --- level with origin/<branch> but on ANOTHER branch: no commit
-        #     there, and its head does not move (2026-09-30: a resumed
-        #     session on a merged feature branch got the watermark commit)
-        git(work, 'checkout', '-q', '-b', 'claude/merged-feature')
-        before_feature = git(work, 'rev-parse', 'HEAD')
-        baseline = landed()
-        land('c-feature', THEIRS)
-        status4, lines4, alert4 = run()
-        cases += [
-            ('_is_quiet says no on another branch level with origin',
-             pbw._is_quiet(work, branch) is False, 'said yes'),
-            ('the alert is still delivered from the other branch',
-             status4 == 'alert' and alert4 is not None, f'{status4}'),
-            ('and the other branch gets no watermark commit',
-             'watermark' not in git(work, 'log', '-1', '--format=%s'),
-             git(work, 'log', '-1', '--format=%s')),
-            ('and its head is only where the fast-forward put it',
-             git(work, 'rev-parse', 'HEAD') == git(work, 'rev-parse', f'origin/{branch}')
-             and landed() == baseline,
-             f'{landed()} vs {baseline}'),
-        ]
-        git(work, 'checkout', '-q', branch)
-        git(work, 'merge', '-q', '--ff-only', f'origin/{branch}')
-
-        # --- a push that fails leaves no commit behind
-        wm = pbw._watermark_path(work)
-        head_before = git(work, 'rev-parse', 'HEAD')
-        wm.write_text(wm.read_text(encoding='utf-8') + ' ', encoding='utf-8')
-        git(work, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
-        said = pbw._commit_and_push(work, wm, 'Advance watermark (harness)', False, branch)
-        git(work, 'remote', 'set-url', 'origin', reachable)
-        cases += [
-            ('a failed push takes its commit back',
-             git(work, 'rev-parse', 'HEAD') == head_before and 'taken back' in said,
-             said),
-            ('and leaves the checkout clean',
-             git(work, 'status', '--porcelain') == '',
-             git(work, 'status', '--porcelain')),
-        ]
-
-        # --- a repo that ignores nothing gets no note, and is told so
-        bare_work = tmp / 'bare-work'
-        git(tmp, 'clone', '-q', str(origin), str(bare_work))
-        git(bare_work, 'config', 'user.email', 'harness@example.com')
-        git(bare_work, 'config', 'user.name', 'harness')
-        (bare_work / '.gitignore').unlink()
-        # Committing the removal also puts it ahead of origin, so it takes
-        # the note path. Its remote stays REACHABLE on purpose: break that
-        # and check() returns 'unknown' at the fetch and never reaches the
-        # note this case is about.
-        git(bare_work, 'commit', '-qam', 'drop the ignore file')
-        land('c3', THEIRS)
-        _s4, lines4, _a4 = run(root=bare_work)
-        cases += [
-            ('a repo that does not ignore the note gets none written',
-             not (bare_work / '.precedent' / pbw.LOCAL_NOTE_FILENAME).exists(),
-             'a note was written where git would see it'),
-            ('...and the line says the alert will repeat, rather than '
-             'implying it has been handled',
-             'repeats next session' in ' '.join(lines4), ' '.join(lines4)),
-        ]
-
-        ok = all(passed for _, passed, _ in cases)
-        for name, passed, detail in cases:
-            if not passed:
-                print(f"  beta watermark placement did NOT behave as stated: "
-                      f"{name} [{detail}]")
-        check(f'the beta-branch watermark never writes into a busy or '
-              f'unpushable checkout ({len(cases)} stated cases)', ok)
-    finally:
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -27281,6 +26827,170 @@ print(repr(pb.main_test_holds_produce({str(r)!r}, say=lambda *a: None)))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'Produce sees main changes staging already carries ({len(cases)} '
           f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_others_did_reports_others_once_a_day_and_never_touches_the_checkout():
+    """tools/precedent_others_did.py (the others-did practice, in the ladder set), end to end on a
+    throwaway origin with main and pre-staging.
+
+    It replaced tools/precedent_beta_watermark_check.py on 2026-10-08,
+    which found Alex's commits at that day's session start and still never
+    told Morgan: the notice sat past what the harness shows of the
+    SessionStart output, and its mark could only be written into a checkout
+    sitting idle on staging, so it went to a per-container note. So:
+
+    - the report is left for the first prompt (`remind()`), printed once;
+    - the mark lands on the landing branch on origin while the work clone
+      sits on a feature branch with a staged edit, which stays exactly as
+      it was (HEAD, index and the staged file);
+    - at most one report a day, none before 07:00, and nothing from the
+      person's own commits;
+    - a commit signed only by Claude is the person's when its session also
+      committed under their name, and someone else's when theirs did.
+
+    Each case is checked against the tool's own words, and the first run
+    of a person only baselines (practice: control-asserts-which-failure)."""
+    import datetime, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_others_did as pod
+
+    MINE, THEIRS = 'owner@example.com', 'colleague@example.com'
+    BOT = 'noreply@anthropic.com'
+    S_MINE = 'https://claude.ai/code/session_01Mine'
+    S_THEIRS = 'https://claude.ai/code/session_01Theirs'
+    cases = []
+
+    def git(cwd, *args, author=None):
+        env = dict(os.environ)
+        if author:
+            env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
+            env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = \
+                'Claude' if author == BOT else author.split('@')[0]
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG',
+              'PRECEDENT_SESSION_URL')}
+    saved_off = pod.off_ladder
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='others-did-'))
+    try:
+        os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
+        os.environ['PRECEDENT_COMMIT_NAME'] = 'Owner'
+        os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
+        os.environ['PRECEDENT_SESSION_URL'] = 'https://claude.ai/code/session_01Harness'
+        os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        pod.off_ladder = lambda root, user_config=None: False
+
+        origin = tmp / 'origin'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        git(tmp, 'clone', '-q', str(origin), str(seed))
+        (seed / 'tools').mkdir()
+        (seed / 'tools' / 'keep.txt').write_text('x\n', encoding='utf-8')
+        (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
+        git(seed, 'add', '-A')
+        git(seed, 'commit', '-qm', 'c0', author=MINE)
+        git(seed, 'push', '-q', 'origin', 'main')
+        git(seed, 'push', '-q', 'origin', 'main:pre-staging')
+
+        def land(branch, subject, author, trailer=None):
+            git(seed, 'fetch', '-q', 'origin', branch)
+            git(seed, 'checkout', '-q', '-B', branch, f'origin/{branch}')
+            (seed / 'f.txt').write_text(subject, encoding='utf-8')
+            git(seed, 'add', '-A')
+            msg = ['-m', subject] + (['-m', f'Claude-Session: {trailer}'] if trailer else [])
+            git(seed, 'commit', '-q', *msg, author=author)
+            git(seed, 'push', '-q', 'origin', branch)
+
+        work = tmp / 'work'
+        git(tmp, 'clone', '-q', str(origin), str(work))
+        git(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'draft.txt').write_text('half done\n', encoding='utf-8')
+        git(work, 'add', 'draft.txt')
+        before = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
+
+        day = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
+
+        def at(days, hour):
+            return day + datetime.timedelta(days=days, hours=hour)
+
+        def run(when):
+            return pod.check(root=work, now=when, land='pre-staging')
+
+        def mark():
+            r = subprocess.run(['git', '-C', str(origin), 'show',
+                                f'pre-staging:{pod.WATERMARK_PATH}'],
+                               capture_output=True, text=True)
+            return json.loads(r.stdout)['seen_by']['owner'] if r.returncode == 0 else None
+
+        status, lines = run(at(0, 8))
+        cases.append(('a first run baselines and reports nothing',
+                      status == 'ok' and 'baselined' in lines[0] and mark(),
+                      f'{status} {lines}'))
+
+        land('main', 'their change', THEIRS)
+        land('pre-staging', 'my own change', MINE)
+        land('pre-staging', 'my session change', MINE, trailer=S_MINE)
+        land('pre-staging', 'session signed by Claude, mine', BOT, trailer=S_MINE)
+        land('main', 'their session change', THEIRS, trailer=S_THEIRS)
+        land('main', 'session signed by Claude, theirs', BOT, trailer=S_THEIRS)
+
+        status, lines = run(at(0, 9))
+        cases.append(('a second run the same day says it already told',
+                      status == 'ok' and 'already told today' in lines[0], f'{status} {lines}'))
+        status, lines = run(at(1, 6))
+        cases.append(('nothing before 07:00',
+                      status == 'ok' and 'before 07:00' in lines[0], f'{status} {lines}'))
+
+        status, lines = run(at(1, 8))
+        block = pod.remind(work) or ''
+        cases.append(('after 07:00 the next day it reports',
+                      status == 'alert' and 'WHAT OTHERS DID' in block, f'{status} {lines}'))
+        cases.append(("the report holds the colleague's commits, their Claude session's included",
+                      'their change' in block and 'session signed by Claude, theirs' in block,
+                      block[-600:]))
+        cases.append(("...and none of the person's own, their Claude session's included",
+                      'my own change' not in block and 'my session change' not in block
+                      and 'session signed by Claude, mine' not in block, block[-600:]))
+        cases.append(('the reply gate hands it over once',
+                      pod.remind(work) is None, 'a second remind() returned text'))
+        m = mark()
+        cases.append(('the mark moved on origin/pre-staging',
+                      bool(m) and m.get('told_at', '').startswith('2026-10-09T08:00'), repr(m)))
+        after = (git(work, 'rev-parse', 'HEAD'), git(work, 'diff', '--cached', '--name-only'))
+        cases.append(("the work clone's branch, HEAD and staged edit are untouched",
+                      after == before and git(work, 'branch', '--show-current') == 'feature',
+                      f'{before} -> {after}'))
+        body = git(origin, 'log', '-1', '--format=%B', 'pre-staging')
+        cases.append(('the mark commit carries a session trailer and skips CI',
+                      'Session: https://claude.ai/code/session_01Harness' in body
+                      and '[skip ci]' in body, body))
+
+        status, lines = run(at(1, 10))
+        cases.append(('reported once that day, not again',
+                      status == 'ok' and 'already told today' in lines[0], f'{status} {lines}'))
+        land('pre-staging', 'more of my own', MINE)
+        status, lines = run(at(2, 8))
+        cases.append(('a day with only the person\'s own commits says so and writes nothing',
+                      status == 'ok' and 'nobody else' in lines[0]
+                      and mark().get('told_at', '').startswith('2026-10-09T08:00'),
+                      f'{status} {lines}'))
+    finally:
+        pod.off_ladder = saved_off
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n} -- {str(d)[:400]}' for n, d in bad))
+
 
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
@@ -37949,8 +37659,8 @@ def check_bootstrap_runs_every_tool_session_start_runs():
     grok-build, so every tools/*.py the hook runs, the script runs too.
 
     Found by the 2026-09-28 very deep check: the hook ran
-    precedent_engine_freshness.py and precedent_beta_watermark_check.py and
-    the script ran neither, while the PARALLELS.md row still called it a
+    precedent_engine_freshness.py and the beta-branch watermark check (now
+    precedent_others_did.py) and the script ran neither, while the PARALLELS.md row still called it a
     parallel -- the same gap, one step smaller, that the 2026-09-21 row
     records (three steps of seven). Planted by deleting the watermark call
     from a copy of the script: the missing name must come back."""
@@ -37958,14 +37668,14 @@ def check_bootstrap_runs_every_tool_session_start_runs():
     boot = (ROOT / 'tools' / 'bootstrap.sh').read_text(encoding='utf-8')
     missing = _session_start_tools_missing_from_bootstrap(hook, boot)
     planted_boot = '\n'.join(ln for ln in boot.splitlines()
-                             if 'precedent_beta_watermark_check.py' not in ln
+                             if 'precedent_others_did.py' not in ln
                              or ln.lstrip().startswith('#'))
     planted = _session_start_tools_missing_from_bootstrap(hook, planted_boot)
     check('tools/bootstrap.sh runs every tools/*.py .claude/hooks/session-start.sh runs',
           not missing, 'the hook runs these and the script does not: '
           + ', '.join(missing))
-    check('...PLANTED: a bootstrap.sh without the watermark call is caught by name',
-          planted == ['precedent_beta_watermark_check'], repr(planted))
+    check('...PLANTED: a bootstrap.sh without the others-did call is caught by name',
+          planted == ['precedent_others_did'], repr(planted))
 
 
 _CODEX_HOOK_EVENTS = ('PreToolUse', 'PermissionRequest', 'PostToolUse',
@@ -53884,83 +53594,6 @@ def check_environment_gotchas_advises_migrating_an_inline_catalogue():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
-def check_beta_watermark_commit_carries_a_session_trailer():
-    """Every commit tools/precedent_beta_watermark_check.py writes carries a
-    session trailer the shared set's check_session_trailer.py accepts
-    (practice: session-trailer).
-
-    WHY. Until 2026-09-28 the watermark commit was a bare subject line, and
-    the very deep check's run of that shared check against this repository
-    found eight of them -- the one source of trailer-less commits here that
-    was a tool repeating the omission rather than a session forgetting once.
-
-    Two cases, each committing for real into a throwaway repository through
-    the tool's own _commit_and_push, with the person's global git config
-    held out so no installed hook can add or strip a trailer: with no
-    session link the trailer is the practice's explicit opt-out naming the
-    tool, and with PRECEDENT_SESSION_URL it is that link. The trailer shape
-    is judged by the shared check's own pattern, copied here, not by a
-    looser one."""
-    import tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_beta_watermark_check as pbw
-
-    TRAILER_RE = re.compile(r'^(?:Session|Claude-Session):\s+(\S.*)$',
-                            re.MULTILINE)
-    ident = {'name': 'Watermark Owner', 'email': 'watermark-owner@example.com'}
-    saved = {k: os.environ.get(k)
-             for k in ('GIT_CONFIG_GLOBAL', 'PRECEDENT_SESSION_URL')}
-    cases = []
-    d = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-trailer-'))
-    try:
-        os.environ['GIT_CONFIG_GLOBAL'] = os.devnull
-        subprocess.run(['git', 'init', '-q', '-b', 'staging', str(d)],
-                       capture_output=True, check=True)
-        wm = d / 'tools' / 'beta_branch_watermark.json'
-        wm.parent.mkdir()
-
-        def commit(n):
-            wm.write_text(json.dumps({'n': n}) + '\n', encoding='utf-8')
-            said = pbw._commit_and_push(d, wm, f'Advance staging watermark '
-                                               f'to {n:09d}', True, 'staging',
-                                        identity=ident)
-            body = subprocess.run(['git', '-C', str(d), 'log', '-1',
-                                   '--format=%B'], capture_output=True,
-                                  text=True).stdout
-            return said, body
-
-        os.environ.pop('PRECEDENT_SESSION_URL', None)
-        said, body = commit(1)
-        m = TRAILER_RE.search(body)
-        cases.append(('with no session link, the commit carries the explicit '
-                      'opt-out naming the tool',
-                      said.startswith('committed') and m is not None
-                      and 'none available' in m.group(1)
-                      and 'precedent_beta_watermark_check.py' in m.group(1),
-                      f'{said!r} {body!r}'))
-
-        os.environ['PRECEDENT_SESSION_URL'] = \
-            'https://claude.ai/code/session_example'
-        said, body = commit(2)
-        m = TRAILER_RE.search(body)
-        cases.append(('with PRECEDENT_SESSION_URL, the commit carries that '
-                      'link', m is not None and m.group(1).strip()
-                      == 'https://claude.ai/code/session_example',
-                      f'{said!r} {body!r}'))
-    finally:
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-        shutil.rmtree(d, ignore_errors=True)
-
-    bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'a beta-watermark commit carries a session trailer '
-          f'({len(cases)} stated cases)',
-          not bad, '; '.join(f"{n} -- {x[:300]}" for n, x in bad))
-
-
 def check_gotcha_currency_signals_fire():
     """tools/very_deep_check.py's gotcha-currency pass actually fires, and
     fires on the right entry (practice: control-asserts-which-failure).
@@ -60891,8 +60524,8 @@ def check_ladder_off_engine_says_no_ladder_words():
         ('the landing branch', ['tools/precedent_branches.py', '--landing']),
         ('the branch status', ['tools/precedent_branches.py']),
         ('the deep check\'s listing', ['tools/precedent_push_check.py', '--list']),
-        ('the staging watermark', ['tools/precedent_beta_watermark_check.py',
-                                   '--no-push', '--no-fetch']),
+        ('the others-did check', ['tools/precedent_others_did.py',
+                                  '--no-push', '--no-fetch']),
         ('the ladder helper', ['tools/precedent_ladder.py', '--status']),
     ]
     excused = ('staging document',)
@@ -61101,20 +60734,24 @@ def check_ladder_test_session_and_the_two_ladder_checks():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # The staging watch says nothing to a person off the ladder, through the
+    # What others did says nothing to a person off the ladder, through the
     # reply gate's own call too (2026-10-02: only its command line asked, so
-    # a colleague's reply gate named who had pushed to staging).
-    import precedent_beta_watermark_check as pbw
-    saved_check, saved_off = pbw.check, pbw._off_ladder
+    # a colleague's reply gate named who had pushed to staging). Off the
+    # ladder the pending report is left where it is, not handed over.
+    import precedent_others_did as pod
+    saved_off = pod.off_ladder
+    pend_root = pathlib.Path(tempfile.mkdtemp(prefix='others-did-gate-'))
     try:
-        pbw.check = lambda root=None, user_config=None, **k: ('alert', [], 'SOMEONE PUSHED')
-        pbw._off_ladder = lambda root, user_config=None: True
-        quiet = pbw.remind(str(ROOT))
-        pbw._off_ladder = lambda root, user_config=None: False
-        loud = pbw.remind(str(ROOT))
+        (pend_root / '.precedent').mkdir()
+        (pend_root / pod.PENDING).write_text('SOMEONE PUSHED\n', encoding='utf-8')
+        pod.off_ladder = lambda root, user_config=None: True
+        quiet = pod.remind(str(pend_root))
+        pod.off_ladder = lambda root, user_config=None: False
+        loud = pod.remind(str(pend_root))
     finally:
-        pbw.check, pbw._off_ladder = saved_check, saved_off
-    cases.append(('the staging watch is silent at the reply gate for a person '
+        pod.off_ladder = saved_off
+        shutil.rmtree(pend_root, ignore_errors=True)
+    cases.append(('what others did is silent at the reply gate for a person '
                   'off the ladder, and still speaks for one on it',
                   quiet is None and loud == 'SOMEONE PUSHED', f'{quiet!r} {loud!r}'))
     env_off = {k: v for k, v in os.environ.items()
@@ -61123,8 +60760,8 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                                            / 'no-such-precedent-config.json')
     r = subprocess.run([sys.executable, '-c',
                         'import sys; sys.path.insert(0, "tools"); '
-                        'import precedent_beta_watermark_check as b; '
-                        'print(b._off_ladder("."))'],
+                        'import precedent_others_did as b; '
+                        'print(b.off_ladder("."))'],
                        cwd=str(ROOT), env=env_off, capture_output=True, text=True)
     cases.append(('...and a person with no set of their own is off the ladder there',
                   r.stdout.strip() == 'True', (r.stdout + r.stderr)[-200:]))
@@ -67380,8 +67017,8 @@ def main():
     check_vocabulary_prefers_the_file_you_are_standing_on()
     check_vocabulary_moves_a_word_to_our_language()
     check_archive_guard_refuses_work_left_on_a_feature_branch()
-    check_beta_watermark_commits_only_when_it_actually_reports_something()
-    check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
+    check('others-did reports what others landed once a day, without touching the checkout',
+          *check_others_did_reports_others_once_a_day_and_never_touches_the_checkout())
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_close_detect_counts_only_this_sessions_reverts()
@@ -67620,7 +67257,6 @@ def main():
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
     check_environment_gotchas_advises_migrating_an_inline_catalogue()
-    check_beta_watermark_commit_carries_a_session_trailer()
     check('Update Vendors judges a section 0 catalogue against its own sync commit',
           *check_update_vendors_trusts_the_catalogues_own_sync_commit())
     check('Update Vendors re-runs over the catalogue a failed run wrote',

@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          "\"This new practice you define is great, approved\" -- a daily summary of what others did, opening the first session after 07:00 Buenos Aires time"
 decision_strength: decided
-waiting_on:        "Morgan: where the 'last told' mark is kept"
+waiting_on:        "push access to the ladder set, for the practice file"
 noted:             2026-10-08
 closed:            null
 ---
@@ -35,10 +35,10 @@ did.
   named), then answers the question. With nothing from anyone else, one
   line saying so.
 - **Then** the person is marked as told.
-- **Built by extending**
-  [tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py),
-  which already tells a person once when someone else pushed, keyed per
-  person, not by writing a second tool.
+- **Built by replacing** the beta-branch watermark check (now
+  retired), which already
+  told a person once when someone else pushed, keyed per person, rather
+  than writing a second tool beside it.
 - **The practice belongs in the ladder set**, not the universal one, so
   it reaches only people who bring that set (Morgan, 2026-10-08).
 - **Commits signed only "Claude"** are attributed by their `Claude-Session:`
@@ -62,8 +62,25 @@ session that day does not repeat it.
 **Decided 2026-10-08, Morgan: "This new practice you define is great,
 approved" (strength: decided).**
 
-Open: where the "last told" mark is kept. A branch kept only for it was
-rejected ("weird and confusing and could be deleted"). Proposed instead:
-the per-person file the beta-branch check already keeps,
-[tools/beta_branch_watermark.json](../tools/beta_branch_watermark.json),
-which Morgan agreed on 2026-09-22 may sit in this public repository.
+Where the "last told" mark is kept: a branch kept only for it was
+rejected ("weird and confusing and could be deleted"); the per-person file
+the beta-branch check already kept was approved ("#2 -- this is great"), and
+is now [tools/others_did_watermark.json](../tools/others_did_watermark.json).
+Claude-signed commits: "great". The mechanism must be part of Precedent
+itself, so future people in the repository get it (Morgan, 2026-10-08).
+
+**Built 2026-10-08.** [tools/precedent_others_did.py](../tools/precedent_others_did.py)
+replaces the beta-branch check and ships with the engine. Measured the same
+day, the old check had found Alex's commits at session start and still
+never told Morgan: its notice sat past the part of the start-up output a
+session is shown, and it could save "told" only into a checkout idle on
+staging, so it fell back to a per-container note. The new one leaves the
+report for the reply gate's first prompt and commits the mark onto the
+landing branch with git plumbing, never through the working tree. Tested by
+`check_others_did_reports_others_once_a_day_and_never_touches_the_checkout`
+in [tools/verify_harness.py](../tools/verify_harness.py), which fails when
+the person's own Claude sessions are not left out.
+
+**Left:** the practice file `others-did.md` for the ladder set. This
+session cannot push there (auto mode refused the access request); the
+draft travels in the handoff.

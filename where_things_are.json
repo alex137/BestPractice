@@ -330,8 +330,8 @@
       "go_to": "[tools/precedent_session_check.py](tools/precedent_session_check.py) — the row prints the corrected value; a dead entry is skipped silently by design, so nothing else reports it"
     },
     {
-      "looking_for": "Whether anyone other than you has pushed to `staging` (named `precedent-beta-v01` until 2026-09-25) since you were last told",
-      "go_to": "[tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) — printed at session start, silent on the reply gate except on a real alert; the watermark it compares against is [tools/beta_branch_watermark.json](tools/beta_branch_watermark.json), keyed by person and **never hand-edited** — the tool advances it on the run that reports, and only then"
+      "looking_for": "What other people landed here since you were last told, once a day",
+      "go_to": "[tools/precedent_others_did.py](tools/precedent_others_did.py) — one line at session start; the report itself opens the first reply after 07:00 in your own timezone, through the reply gate. The mark is [tools/others_did_watermark.json](tools/others_did_watermark.json), keyed by person and **never hand-edited** — the tool commits it onto the landing branch on the run that reports, and only then"
     },
     {
       "looking_for": "Practices that fire at a moment rather than in a file",
